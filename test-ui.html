@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;800&family=Literata:opsz,wght@7..72,400;7..72,500&family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://qfllthjpjuaztppvpsrk.supabase.co/storage/v1/object/public/obi-app/styles.css?v=4">
+</head><body>
+<header class="top"><a href="/" class="brand"><span class="seal">帯</span>El Obi del Lector</a><div id="session"><button class="btn">Entrar</button></div></header>
+<main id="app"><p id="log" class="mono">cargando…</p></main><div id="toast"></div>
+<script type="module">
+const log = m => { document.getElementById('log') && (document.getElementById('log').textContent += ' | ' + m); console.log(m); };
+window.onerror = (m) => log('ERR ' + m);
+try {
+  const url = 'https://qfllthjpjuaztppvpsrk.supabase.co', key = 'sb_publishable_IiHzG1Jn2je075uuYVHTAg_dBVAAUf5';
+  const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2'); log('sb ok');
+  const { createUI } = await import(url + '/storage/v1/object/public/obi-app/ui.js?v=' + Date.now()); log('ui ok');
+  const sb = createClient(url, key);
+  const $ = s => document.querySelector(s), app = $('#app');
+  const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const ui = createUI({ sb, app, $, esc, toast: log, go: () => {}, getUser: () => null, url });
+  const page = new URLSearchParams(location.search).get('p') || 'home';
+  if (page === 'home') await ui.home(); else if (page === 'cat') await ui.catalog(); else await ui.series('heroina-santa-21757923');
+} catch (e) { document.body.insertAdjacentHTML('afterbegin', '<pre style="color:#f59e7a">' + e.message + '</pre>'); }
+</script>
+</body></html>

@@ -1,0 +1,26 @@
+# Valores de Auth para El Obi del Lector (aplícalos en el panel o con `supabase config push`)
+[auth]
+site_url = "https://theobiproject-cronica.vercel.app"
+additional_redirect_urls = ["https://theobiproject-cronica.vercel.app/**", "http://localhost:3000/**"]
+
+[auth]
+minimum_password_length = 8
+password_requirements = "lower_upper_letters_digits"
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+double_confirm_changes = true
+
+[auth.email.template.confirmation]
+subject = "Confirma tu cuenta en El Obi del Lector"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.smtp]
+enabled = true
+host = "smtp.resend.com"
+port = 465
+user = "resend"
+pass = "env(RESEND_API_KEY)"
+admin_email = "biblioteca@TU-DOMINIO"
+sender_name = "El Obi del Lector"

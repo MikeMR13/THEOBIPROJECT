@@ -1,0 +1,11 @@
+name = "obi-notify"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+[vars]
+SUPABASE_URL = "https://qfllthjpjuaztppvpsrk.supabase.co"
+SITE_URL = "https://theobiproject.vercel.app"
+[[kv_namespaces]]
+binding = "OBI_CACHE"
+id = "REEMPLAZA_CON_EL_ID_DE_KV"
+[triggers]
+crons = ["*/15 * * * *"]
