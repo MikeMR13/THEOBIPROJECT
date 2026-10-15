@@ -346,7 +346,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   async function releases(){
     app.innerHTML = '<p class="mono">Cargando lanzamientos…</p>';
     const u = getUser(), qs = new URLSearchParams(location.search);
-    const R = { type: qs.get('tipo') || '', mine: qs.get('sigo') === '1', shown: 20 };
+    const R = { type: qs.get('tipo') || '', mine: qs.get('sigo') === '1', shown: 20, by: qs.get('ver') === 'volumen' ? 'vol' : qs.get('ver') === 'capitulo' ? 'cap' : (localStorage.getItem('obi-rel-by') === 'vol' ? 'vol' : 'cap') };
     const prog = await progressMap();
     const [{ data: chs }, { data: ser }, readR, folR, pend] = await Promise.all([
       sb.from('chapters').select('id,num,vol,volume_id,title,publish_at,series_id,volumes(num)').eq('status', 'published').is('deleted_at', null).order('publish_at', { ascending: false }).order('num', { ascending: false }).limit(400),
@@ -365,7 +365,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const DAY = 864e5, startOf = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return +x; }, today = startOf(Date.now());
     const bucket = d => { const t = startOf(d); return t >= today ? 'Hoy' : t >= today - DAY ? 'Ayer' : t >= today - 6 * DAY ? 'Esta semana' : 'Antes'; };
     app.innerHTML = `<div class="ui-cath"><div><h1>Lanzamientos</h1><p>Lo último de cada serie, agrupado por obra.</p></div><span class="kj" aria-hidden="true">新刊</span></div>
-      <div class="ui-rbar"><div class="ui-chips"><button class="ui-chip" data-rt="">Todos</button>${types.map(t => `<button class="ui-chip" data-rt="${esc(t)}">${esc(t)}</button>`).join('')}</div>${u ? '<label class="ui-tog"><input type="checkbox" id="rel-mine"> Solo las que sigo</label>' : ''}<span class="mono" style="margin-left:auto"><a href="/calendario">Próximos lanzamientos →</a></span></div>
+      <div class="ui-rbar"><div class="ui-chips"><button class="ui-chip" data-rt="">Todos</button>${types.map(t => `<button class="ui-chip" data-rt="${esc(t)}">${esc(t)}</button>`).join('')}</div><div class="ui-chips" role="group" aria-label="Mostrar"><button class="ui-chip" data-by="cap">Por capítulo</button><button class="ui-chip" data-by="vol">Por volumen</button></div>${u ? '<label class="ui-tog"><input type="checkbox" id="rel-mine"> Solo las que sigo</label>' : ''}<span class="mono" style="margin-left:auto"><a href="/calendario">Próximos lanzamientos →</a></span></div>
       <div id="rel"></div>`;
     const item = (s, c) => `<a class="it${read.has(c.id) ? ' read' : ''}${new Date(c.publish_at) > seen && seen && !read.has(c.id) ? ' new' : ''}" href="/leer/${s.slug}/${c.num}" title="${esc(c.title)}"><b>Cap. ${c.num}</b><small>${ago(c.publish_at)}</small></a>`;
     const nextOf = s => { const p = prog[s.id]; if (!p) return null; const n = p.pct > 0.95 ? p.chapter_num + 1 : p.chapter_num; return gi[s.id].list.some(c => c.num >= n) ? n : null; };
@@ -380,24 +380,34 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       on ? fol.delete(s.id) : fol.add(s.id); toast(on ? 'Ya no sigues esta serie' : 'Siguiendo · te avisaremos de cada volumen');
       await setPend(); draw(); refreshBadge(); return !on;
     };
+    const volGroups = () => { const out = []; groups.forEach(g => { const m = {}; g.list.forEach(c => { const k = c.volume_id || 'v' + (c.vol ?? 0); (m[k] ||= { s: g.s, list: [], key: k }).list.push(c); }); out.push(...Object.values(m)); }); return out.sort((a, b) => new Date(b.list[0].publish_at) - new Date(a.list[0].publish_at)); };
+    const volCard = (g, i) => { const s = g.s, top = g.list[0], nums = g.list.map(c => c.num), lo = Math.min(...nums), hi = Math.max(...nums), n = g.list.length;
+      const unread = g.list.filter(c => !read.has(c.id)).sort((a, b) => a.num - b.num), vl = vnum(top) != null ? 'Vol. ' + vnum(top) : 'Capítulos sueltos';
+      return `<article class="ui-rl" style="--c:${esc(color(s))};--d:${Math.min(i, 8) * 0.04}s">
+        <a class="cv" href="/serie/${s.slug}" data-id="${s.id}" aria-label="Vista rápida de ${esc(s.title)}" style="${s.cover_path ? `background-image:url('${esc(media(s.cover_path))}')` : ''}"></a>
+        <div class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a>
+          <span class="mt"><b>${vl}</b> · ${n === 1 ? '1 capítulo' : n + ' capítulos'} (cap. ${lo === hi ? lo : lo + '–' + hi}) · ${ago(top.publish_at)}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}</span>
+          <div class="acts">${unread.length ? `<a class="btn" href="/leer/${s.slug}/${unread[0].num}">${unread.length === n ? 'Leer ' + vl.toLowerCase() : 'Seguir en cap. ' + unread[0].num}</a>` : '<span class="mono" style="align-self:center">✓ Ya lo leíste</span>'}<button class="btn ghost" data-fol="${s.id}">${fol.has(s.id) ? '✓ Siguiendo' : 'Seguir'}</button>${u && unread.length ? `<button class="btn ghost" data-rd="${s.id}" data-vk="${esc(g.key)}">Marcar volumen como leído</button>` : ''}</div></div></article>`; };
     const draw = () => {
-      const list = groups.filter(g => (!R.type || (g.s.work_type || 'Novela ligera') === R.type) && (!R.mine || fol.has(g.s.id)));
+      const unit = n => R.by === 'vol' ? (n === 1 ? 'volumen' : 'volúmenes') : (n === 1 ? 'serie' : 'series');
+      const list = (R.by === 'vol' ? volGroups() : groups).filter(g => (!R.type || (g.s.work_type || 'Novela ligera') === R.type) && (!R.mine || fol.has(g.s.id)));
       const vis = list.slice(0, R.shown); let html = '', last = '';
       vis.forEach((g, i) => {
         const b = bucket(g.list[0].publish_at);
-        if (b !== last) { const n = list.filter(x => bucket(x.list[0].publish_at) === b).length; html += `<h2 class="ui-rday">${b}<span>· ${n} ${n === 1 ? 'serie' : 'series'}</span></h2>`; last = b; }
+        if (b !== last) { const n = list.filter(x => bucket(x.list[0].publish_at) === b).length; html += `<h2 class="ui-rday">${b}<span>· ${n} ${unit(n)}</span></h2>`; last = b; }
+        if (R.by === 'vol') { html += volCard(g, i); return; }
         const s = g.s, top = g.list[0], sameVol = g.list.filter(c => sameV(c, top) && new Date(top.publish_at) - new Date(c.publish_at) < DAY).length;
         html += `<article class="ui-rl" style="--c:${esc(color(s))};--d:${Math.min(i, 8) * 0.04}s">
           <a class="cv" href="/serie/${s.slug}" data-id="${s.id}" aria-label="Vista rápida de ${esc(s.title)}" style="${s.cover_path ? `background-image:url('${esc(media(s.cover_path))}')` : ''}"></a>
           <div class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a><span class="mt">${esc(s.work_type || 'Novela ligera')}${s.teams?.name ? ` · <b>${esc(s.teams.name)}</b>` : ''}${fol.has(s.id) ? ' · Siguiendo' : ''}${pend[s.id] ? ` · <span class="pend">te ${pend[s.id] === 1 ? 'falta 1 capítulo' : 'faltan ' + pend[s.id] + ' capítulos'}</span>` : ''}</span>
             <div class="its">${g.list.slice(0, 3).map(c => item(s, c)).join('')}${sameVol >= 3 ? `<a class="it vol" href="/serie/${s.slug}"><b>Vol. ${vnum(top)} completo</b><small>${sameVol} capítulos</small></a>` : ''}</div>${acts(g)}</div></article>`;
       });
-      $('#rel').innerHTML = (html ? `<div class="ui-rlist">${html}</div>` : `<p class="mono">${R.mine ? 'Las series que sigues aún no tienen capítulos publicados.' : 'No hay lanzamientos de este tipo todavía.'}</p>`) + (list.length > R.shown ? `<button class="btn ghost ui-more" id="rel-more">Ver más · ${list.length - R.shown} series</button>` : '');
+      $('#rel').innerHTML = (html ? `<div class="ui-rlist">${html}</div>` : `<p class="mono">${R.mine ? 'Las series que sigues aún no tienen capítulos publicados.' : 'No hay lanzamientos de este tipo todavía.'}</p>`) + (list.length > R.shown ? `<button class="btn ghost ui-more" id="rel-more">Ver más · ${list.length - R.shown} ${unit(list.length - R.shown)}</button>` : '');
       $('#rel').querySelectorAll('.ui-rlist > .ui-rday').forEach(x => x.style.margin = ''); 
       $('#rel-more')?.addEventListener('click', () => { R.shown += 20; draw(); });
       $('#rel').querySelectorAll('[data-fol]').forEach(b => b.onclick = async () => { b.disabled = true; await toggleFollow(byId[b.dataset.fol]); });
       $('#rel').querySelectorAll('[data-rd]').forEach(b => b.onclick = async () => {
-        const g = gi[b.dataset.rd], ids = g.list.filter(c => !read.has(c.id)).map(c => c.id); b.disabled = true;
+        const g = b.dataset.vk ? volGroups().find(v => v.s.id === b.dataset.rd && v.key === b.dataset.vk) : gi[b.dataset.rd], ids = g.list.filter(c => !read.has(c.id)).map(c => c.id); b.disabled = true;
         const { error } = await sb.from('read_chapters').upsert(ids.map(chapter_id => ({ user_id: u.id, chapter_id })), { onConflict: 'user_id,chapter_id', ignoreDuplicates: true });
         if (error) { b.disabled = false; return toast(error.message); }
         ids.forEach(id => read.add(id)); await setPend();
@@ -405,9 +415,11 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       });
       $('#rel').querySelectorAll('a.cv').forEach(a => a.onclick = e => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); e.stopPropagation(); const s = byId[a.dataset.id]; quickView(s, { from: a, p: prog[s.id], lc: gi[s.id].list[0], following: () => fol.has(s.id), onFollow: () => toggleFollow(s) }); });
       document.querySelectorAll('[data-rt]').forEach(b => b.classList.toggle('on', b.dataset.rt === R.type));
-      const p = new URLSearchParams(); if (R.type) p.set('tipo', R.type); if (R.mine) p.set('sigo', '1'); history.replaceState({}, '', '/lanzamientos' + (p.toString() ? '?' + p : ''));
+      document.querySelectorAll('[data-by]').forEach(b => { b.classList.toggle('on', b.dataset.by === R.by); b.setAttribute('aria-pressed', b.dataset.by === R.by); });
+      const p = new URLSearchParams(); if (R.type) p.set('tipo', R.type); if (R.mine) p.set('sigo', '1'); if (R.by === 'vol') p.set('ver', 'volumen'); history.replaceState({}, '', '/lanzamientos' + (p.toString() ? '?' + p : ''));
     };
     document.querySelectorAll('[data-rt]').forEach(b => b.onclick = () => { R.type = b.dataset.rt; R.shown = 20; draw(); });
+    document.querySelectorAll('[data-by]').forEach(b => b.onclick = () => { R.by = b.dataset.by; R.shown = 20; localStorage.setItem('obi-rel-by', R.by); draw(); });
     const mine = $('#rel-mine'); if (mine) { mine.checked = R.mine; mine.onchange = () => { R.mine = mine.checked; R.shown = 20; draw(); }; }
     draw();
     localStorage.setItem(seenKey, String(Date.now())); refreshBadge();
