@@ -85,6 +85,12 @@ const CSS = `
 .ui-rl .it b{font-size:13px}.ui-rl .it small{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89f8a}.ui-rl .it.read b{color:#8c846f}.ui-rl .it.read b::after{content:' ✓';color:#a9d18e}
 .ui-rl .it.new::before{content:'';position:absolute;top:-4px;right:-4px;width:9px;height:9px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 2px #16140f}.ui-rl .it.vol{border-color:var(--c)}
 .ui-more{margin:28px auto 0;display:block}
+.ui-rlist.dense{gap:6px}.ui-rc{display:grid;grid-template-columns:4px minmax(0,1fr) auto auto;gap:14px;align-items:center;padding:8px 14px 8px 0;min-height:56px;background:#16140f;border:1px solid #2f2a20}.ui-rc::before{content:'';align-self:stretch;background:var(--c,var(--gold))}
+.ui-rc .bd{display:grid;gap:2px;min-width:0}.ui-rc .t{font-family:'Shippori Mincho B1',serif;font-size:17px;color:var(--paper);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ui-rc .t:hover{color:var(--c)}.ui-rc .mt{font-size:12px;color:#a89f8a}.ui-rc .pend{color:var(--gold);font-weight:600}
+.ui-rc .w{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#a89f8a;white-space:nowrap}.ui-rc .btn{padding:8px 12px;font-size:13px;min-height:40px;white-space:nowrap}
+.ui-rbar select{background:#0d0c0a;color:var(--paper);border:1px solid #3d3628;padding:8px 10px;font:inherit;font-size:13px;min-height:40px}
+.ui-mlist{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 14px;margin:-16px 0 28px;border:1px dashed #3d3628}.ui-mlist[hidden]{display:none}
+@media(max-width:640px){.ui-rc{grid-template-columns:4px minmax(0,1fr) auto}.ui-rc .w{display:none}}
 .ui-rl .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.ui-rl .acts .btn{padding:8px 12px;font-size:13px;min-height:40px}.ui-rl .pend{color:var(--gold);font-weight:600}.ui-rl a.cv{cursor:zoom-in}
 .ob-nav a .bdg{display:inline-block;margin-left:6px;padding:1px 6px;background:var(--gold);color:#0d0c0a;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;line-height:1.4;vertical-align:1px}
 @media(max-width:640px){.ui-rl{grid-template-columns:60px minmax(0,1fr);gap:14px;padding:14px}.ui-rl .t{font-size:19px}}
@@ -346,7 +352,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   async function releases(){
     app.innerHTML = '<p class="mono">Cargando lanzamientos…</p>';
     const u = getUser(), qs = new URLSearchParams(location.search);
-    const R = { type: qs.get('tipo') || '', mine: qs.get('sigo') === '1', shown: 20, by: qs.get('ver') === 'volumen' ? 'vol' : qs.get('ver') === 'capitulo' ? 'cap' : (localStorage.getItem('obi-rel-by') === 'vol' ? 'vol' : 'cap') };
+    const R = { team: qs.get('equipo') || '', hide: qs.get('pendientes') === '1', dense: localStorage.getItem('obi-rel-dense') === '1', showMuted: false, type: qs.get('tipo') || '', mine: qs.get('sigo') === '1', shown: 20, by: qs.get('ver') === 'volumen' ? 'vol' : qs.get('ver') === 'capitulo' ? 'cap' : (localStorage.getItem('obi-rel-by') === 'vol' ? 'vol' : 'cap') };
     const prog = await progressMap();
     const [{ data: chs }, { data: ser }, readR, folR, pend] = await Promise.all([
       sb.from('chapters').select('id,num,vol,volume_id,title,publish_at,series_id,volumes(num)').eq('status', 'published').is('deleted_at', null).order('publish_at', { ascending: false }).order('num', { ascending: false }).limit(400),
@@ -362,15 +368,18 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     groups.sort((a, b) => new Date(b.list[0].publish_at) - new Date(a.list[0].publish_at));
     const vnum = c => c.volumes?.num ?? c.vol, sameV = (a, b) => a.volume_id && b.volume_id ? a.volume_id === b.volume_id : a.vol === b.vol;
     const types = [...new Set(groups.map(g => g.s.work_type || 'Novela ligera'))].sort();
+    const teams = [...new Set(groups.map(g => g.s.teams?.name).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+    let muted; try { muted = new Set(JSON.parse(localStorage.getItem('obi-rel-muted') || '[]')); } catch { muted = new Set(); }
+    const saveMuted = () => localStorage.setItem('obi-rel-muted', JSON.stringify([...muted]));
     const DAY = 864e5, startOf = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return +x; }, today = startOf(Date.now());
     const bucket = d => { const t = startOf(d); return t >= today ? 'Hoy' : t >= today - DAY ? 'Ayer' : t >= today - 6 * DAY ? 'Esta semana' : 'Antes'; };
     app.innerHTML = `<div class="ui-cath"><div><h1>Lanzamientos</h1><p>Lo último de cada serie, agrupado por obra.</p></div><span class="kj" aria-hidden="true">新刊</span></div>
-      <div class="ui-rbar"><div class="ui-chips"><button class="ui-chip" data-rt="">Todos</button>${types.map(t => `<button class="ui-chip" data-rt="${esc(t)}">${esc(t)}</button>`).join('')}</div><div class="ui-chips" role="group" aria-label="Mostrar"><button class="ui-chip" data-by="cap">Por capítulo</button><button class="ui-chip" data-by="vol">Por volumen</button></div>${u ? '<label class="ui-tog"><input type="checkbox" id="rel-mine"> Solo las que sigo</label>' : ''}<span class="mono" style="margin-left:auto"><a href="/calendario">Próximos lanzamientos →</a></span></div>
-      <div id="rel"></div>`;
+      <div class="ui-rbar"><div class="ui-chips"><button class="ui-chip" data-rt="">Todos</button>${types.map(t => `<button class="ui-chip" data-rt="${esc(t)}">${esc(t)}</button>`).join('')}</div><div class="ui-chips" role="group" aria-label="Mostrar"><button class="ui-chip" data-by="cap">Por capítulo</button><button class="ui-chip" data-by="vol">Por volumen</button></div>${u ? '<label class="ui-tog"><input type="checkbox" id="rel-mine"> Solo las que sigo</label>' : ''}${teams.length > 1 ? `<select id="rel-team" aria-label="Equipo de traducción"><option value="">Todos los equipos</option>${teams.map(t => `<option ${t === R.team ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>` : ''}${u ? '<label class="ui-tog"><input type="checkbox" id="rel-hide"> Ocultar lo leído</label>' : ''}<button class="ui-chip" id="rel-dense">Vista compacta</button><button class="ui-lnk" id="rel-muted" hidden></button><span class="mono" style="margin-left:auto"><a href="/calendario">Próximos lanzamientos →</a></span></div>
+      <div class="ui-mlist" id="rel-mlist" hidden></div><div id="rel"></div>`;
     const item = (s, c) => `<a class="it${read.has(c.id) ? ' read' : ''}${new Date(c.publish_at) > seen && seen && !read.has(c.id) ? ' new' : ''}" href="/leer/${s.slug}/${c.num}" title="${esc(c.title)}"><b>Cap. ${c.num}</b><small>${ago(c.publish_at)}</small></a>`;
     const nextOf = s => { const p = prog[s.id]; if (!p) return null; const n = p.pct > 0.95 ? p.chapter_num + 1 : p.chapter_num; return gi[s.id].list.some(c => c.num >= n) ? n : null; };
     const acts = g => { const s = g.s, n = nextOf(s), unread = g.list.filter(c => !read.has(c.id)).length;
-      return `<div class="acts">${n ? `<a class="btn" href="/leer/${s.slug}/${n}">Continuar · cap. ${n}</a>` : ''}<button class="btn ghost" data-fol="${s.id}">${fol.has(s.id) ? '✓ Siguiendo' : 'Seguir'}</button>${u && unread ? `<button class="btn ghost" data-rd="${s.id}">Marcar ${unread === 1 ? 'como leído' : unread + ' como leídos'}</button>` : ''}</div>`; };
+      return `<div class="acts">${n ? `<a class="btn" href="/leer/${s.slug}/${n}">Continuar · cap. ${n}</a>` : ''}<button class="btn ghost" data-fol="${s.id}">${fol.has(s.id) ? '✓ Siguiendo' : 'Seguir'}</button>${u && unread ? `<button class="btn ghost" data-rd="${s.id}">Marcar ${unread === 1 ? 'como leído' : unread + ' como leídos'}</button>` : ''}<button class="btn ghost" data-mute="${s.id}" title="No mostrar esta serie en Lanzamientos">Silenciar</button></div>`; };
     const setPend = async () => { const np = await pendingMap(prog); Object.keys(pend).forEach(k => delete pend[k]); Object.assign(pend, np); };
     const toggleFollow = async s => {
       if (!getUser()) { go('/entrar'); return; }
@@ -387,14 +396,19 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         <a class="cv" href="/serie/${s.slug}" data-id="${s.id}" aria-label="Vista rápida de ${esc(s.title)}" style="${s.cover_path ? `background-image:url('${esc(media(s.cover_path))}')` : ''}"></a>
         <div class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a>
           <span class="mt"><b>${vl}</b> · ${n === 1 ? '1 capítulo' : n + ' capítulos'} (cap. ${lo === hi ? lo : lo + '–' + hi}) · ${ago(top.publish_at)}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}</span>
-          <div class="acts">${unread.length ? `<a class="btn" href="/leer/${s.slug}/${unread[0].num}">${unread.length === n ? 'Leer ' + vl.toLowerCase() : 'Seguir en cap. ' + unread[0].num}</a>` : '<span class="mono" style="align-self:center">✓ Ya lo leíste</span>'}<button class="btn ghost" data-fol="${s.id}">${fol.has(s.id) ? '✓ Siguiendo' : 'Seguir'}</button>${u && unread.length ? `<button class="btn ghost" data-rd="${s.id}" data-vk="${esc(g.key)}">Marcar volumen como leído</button>` : ''}</div></div></article>`; };
+          <div class="acts">${unread.length ? `<a class="btn" href="/leer/${s.slug}/${unread[0].num}">${unread.length === n ? 'Leer ' + vl.toLowerCase() : 'Seguir en cap. ' + unread[0].num}</a>` : '<span class="mono" style="align-self:center">✓ Ya lo leíste</span>'}<button class="btn ghost" data-fol="${s.id}">${fol.has(s.id) ? '✓ Siguiendo' : 'Seguir'}</button>${u && unread.length ? `<button class="btn ghost" data-rd="${s.id}" data-vk="${esc(g.key)}">Marcar volumen como leído</button>` : ''}<button class="btn ghost" data-mute="${s.id}" title="No mostrar esta serie en Lanzamientos">Silenciar</button></div></div></article>`; };
+    const rowCard = (g, i) => { const s = g.s, top = g.list[0], nums = g.list.map(c => c.num), unread = g.list.filter(c => !read.has(c.id)).sort((a, b) => a.num - b.num);
+      const what = R.by === 'vol' ? `${vnum(top) != null ? 'Vol. ' + vnum(top) : 'Capítulos sueltos'} · cap. ${Math.min(...nums) === Math.max(...nums) ? nums[0] : Math.min(...nums) + '–' + Math.max(...nums)}` : g.list.slice(0, 3).map(c => 'cap. ' + c.num + (read.has(c.id) ? ' ✓' : '')).join(', ');
+      const n = R.by === 'vol' ? unread[0]?.num : (nextOf(s) ?? unread[0]?.num);
+      return `<article class="ui-rc" style="--c:${esc(color(s))}"><span class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a><span class="mt">${what}${pend[s.id] ? ` · <span class="pend">te ${pend[s.id] === 1 ? 'falta 1' : 'faltan ' + pend[s.id]}</span>` : ''}</span></span><span class="w">${ago(top.publish_at)}</span>${n ? `<a class="btn" href="/leer/${s.slug}/${n}">Leer cap. ${n}</a>` : '<span class="mono">✓ Leído</span>'}</article>`; };
     const draw = () => {
       const unit = n => R.by === 'vol' ? (n === 1 ? 'volumen' : 'volúmenes') : (n === 1 ? 'serie' : 'series');
-      const list = (R.by === 'vol' ? volGroups() : groups).filter(g => (!R.type || (g.s.work_type || 'Novela ligera') === R.type) && (!R.mine || fol.has(g.s.id)));
+      const list = (R.by === 'vol' ? volGroups() : groups).filter(g => (!R.type || (g.s.work_type || 'Novela ligera') === R.type) && (!R.mine || fol.has(g.s.id)) && (!R.team || g.s.teams?.name === R.team) && !muted.has(g.s.id) && (!R.hide || g.list.some(c => !read.has(c.id))));
       const vis = list.slice(0, R.shown); let html = '', last = '';
       vis.forEach((g, i) => {
         const b = bucket(g.list[0].publish_at);
         if (b !== last) { const n = list.filter(x => bucket(x.list[0].publish_at) === b).length; html += `<h2 class="ui-rday">${b}<span>· ${n} ${unit(n)}</span></h2>`; last = b; }
+        if (R.dense) { html += rowCard(g, i); return; }
         if (R.by === 'vol') { html += volCard(g, i); return; }
         const s = g.s, top = g.list[0], sameVol = g.list.filter(c => sameV(c, top) && new Date(top.publish_at) - new Date(c.publish_at) < DAY).length;
         html += `<article class="ui-rl" style="--c:${esc(color(s))};--d:${Math.min(i, 8) * 0.04}s">
@@ -402,9 +416,16 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
           <div class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a><span class="mt">${esc(s.work_type || 'Novela ligera')}${s.teams?.name ? ` · <b>${esc(s.teams.name)}</b>` : ''}${fol.has(s.id) ? ' · Siguiendo' : ''}${pend[s.id] ? ` · <span class="pend">te ${pend[s.id] === 1 ? 'falta 1 capítulo' : 'faltan ' + pend[s.id] + ' capítulos'}</span>` : ''}</span>
             <div class="its">${g.list.slice(0, 3).map(c => item(s, c)).join('')}${sameVol >= 3 ? `<a class="it vol" href="/serie/${s.slug}"><b>Vol. ${vnum(top)} completo</b><small>${sameVol} capítulos</small></a>` : ''}</div>${acts(g)}</div></article>`;
       });
-      $('#rel').innerHTML = (html ? `<div class="ui-rlist">${html}</div>` : `<p class="mono">${R.mine ? 'Las series que sigues aún no tienen capítulos publicados.' : 'No hay lanzamientos de este tipo todavía.'}</p>`) + (list.length > R.shown ? `<button class="btn ghost ui-more" id="rel-more">Ver más · ${list.length - R.shown} ${unit(list.length - R.shown)}</button>` : '');
+      $('#rel').innerHTML = (html ? `<div class="ui-rlist${R.dense ? ' dense' : ''}">${html}</div>` : `<p class="mono">${R.mine ? 'Las series que sigues aún no tienen capítulos publicados.' : (R.hide ? 'Ya leíste todo lo publicado aquí. ' : '') + 'No hay lanzamientos con estos filtros.'}</p>`) + (list.length > R.shown ? `<button class="btn ghost ui-more" id="rel-more">Ver más · ${list.length - R.shown} ${unit(list.length - R.shown)}</button>` : '');
       $('#rel').querySelectorAll('.ui-rlist > .ui-rday').forEach(x => x.style.margin = ''); 
       $('#rel-more')?.addEventListener('click', () => { R.shown += 20; draw(); });
+      $('#rel').querySelectorAll('[data-mute]').forEach(b => b.onclick = () => { const s = byId[b.dataset.mute]; muted.add(s.id); saveMuted(); toast('«' + s.title + '» silenciada · la recuperas en «Silenciadas»'); draw(); });
+      const mb = $('#rel-muted'), ml = $('#rel-mlist'), ms = [...muted].map(id => byId[id]).filter(Boolean);
+      mb.hidden = !ms.length; mb.textContent = (R.showMuted ? 'Ocultar silenciadas' : 'Silenciadas') + ' (' + ms.length + ')';
+      ml.hidden = !R.showMuted || !ms.length;
+      ml.innerHTML = '<span class="mono">Toca una serie para volver a mostrarla:</span>' + ms.map(s => `<button class="ui-chip" data-unmute="${s.id}">${esc(s.title)} ×</button>`).join('');
+      ml.querySelectorAll('[data-unmute]').forEach(b => b.onclick = () => { muted.delete(b.dataset.unmute); saveMuted(); if (!muted.size) R.showMuted = false; draw(); });
+      $('#rel-dense').classList.toggle('on', R.dense); $('#rel-dense').setAttribute('aria-pressed', R.dense);
       $('#rel').querySelectorAll('[data-fol]').forEach(b => b.onclick = async () => { b.disabled = true; await toggleFollow(byId[b.dataset.fol]); });
       $('#rel').querySelectorAll('[data-rd]').forEach(b => b.onclick = async () => {
         const g = b.dataset.vk ? volGroups().find(v => v.s.id === b.dataset.rd && v.key === b.dataset.vk) : gi[b.dataset.rd], ids = g.list.filter(c => !read.has(c.id)).map(c => c.id); b.disabled = true;
@@ -416,9 +437,13 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       $('#rel').querySelectorAll('a.cv').forEach(a => a.onclick = e => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); e.stopPropagation(); const s = byId[a.dataset.id]; quickView(s, { from: a, p: prog[s.id], lc: gi[s.id].list[0], following: () => fol.has(s.id), onFollow: () => toggleFollow(s) }); });
       document.querySelectorAll('[data-rt]').forEach(b => b.classList.toggle('on', b.dataset.rt === R.type));
       document.querySelectorAll('[data-by]').forEach(b => { b.classList.toggle('on', b.dataset.by === R.by); b.setAttribute('aria-pressed', b.dataset.by === R.by); });
-      const p = new URLSearchParams(); if (R.type) p.set('tipo', R.type); if (R.mine) p.set('sigo', '1'); if (R.by === 'vol') p.set('ver', 'volumen'); history.replaceState({}, '', '/lanzamientos' + (p.toString() ? '?' + p : ''));
+      const p = new URLSearchParams(); if (R.type) p.set('tipo', R.type); if (R.mine) p.set('sigo', '1'); if (R.by === 'vol') p.set('ver', 'volumen'); if (R.team) p.set('equipo', R.team); if (R.hide) p.set('pendientes', '1'); history.replaceState({}, '', '/lanzamientos' + (p.toString() ? '?' + p : ''));
     };
     document.querySelectorAll('[data-rt]').forEach(b => b.onclick = () => { R.type = b.dataset.rt; R.shown = 20; draw(); });
+    $('#rel-team')?.addEventListener('change', e => { R.team = e.target.value; R.shown = 20; draw(); });
+    const hide = $('#rel-hide'); if (hide) { hide.checked = R.hide; hide.onchange = () => { R.hide = hide.checked; R.shown = 20; draw(); }; }
+    $('#rel-dense').onclick = () => { R.dense = !R.dense; localStorage.setItem('obi-rel-dense', R.dense ? '1' : '0'); draw(); };
+    $('#rel-muted').onclick = () => { R.showMuted = !R.showMuted; draw(); };
     document.querySelectorAll('[data-by]').forEach(b => b.onclick = () => { R.by = b.dataset.by; R.shown = 20; localStorage.setItem('obi-rel-by', R.by); draw(); });
     const mine = $('#rel-mine'); if (mine) { mine.checked = R.mine; mine.onchange = () => { R.mine = mine.checked; R.shown = 20; draw(); }; }
     draw();
