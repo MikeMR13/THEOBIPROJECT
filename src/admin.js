@@ -103,13 +103,30 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   }
 
   async function solicitudes(){
-    const { data, error } = await sb.from('translator_requests').select('id,alias,langs,links,status,note,created_at,profiles(username)').order('created_at', { ascending: false });
+    const [{ data, error }, { data: teams }] = await Promise.all([
+      sb.from('translator_requests').select('id,alias,team_name,langs,links,message,reply,status,note,created_at,updated_at,team_id,profiles!translator_requests_user_id_fkey(username),teams(name,slug)').order('updated_at', { ascending: false }),
+      sb.from('teams').select('id,name').order('name')]);
     if (error) throw error;
-    view().innerHTML = (data || []).map(r => `<div class="bb-box"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(r.alias)} <span class="mono">· ${esc(r.profiles?.username || '')}</span></h3><span class="bb-role" style="color:${r.status === 'pending' ? '#f2c230' : r.status === 'approved' ? '#a9d18e' : '#a89f8a'}">${{ pending: 'Pendiente', approved: 'Aprobada', rejected: 'Rechazada', info: 'Más información' }[r.status]}</span></div>
-      <p class="mono" style="margin:0">${esc((r.langs || []).join(', '))} · ${when(r.created_at)}</p>${r.links ? `<p style="margin:0;white-space:pre-line">${esc(r.links)}</p>` : ''}
-      ${r.status === 'pending' ? `<div class="bb-row"><label>Nota (opcional)<input data-note="${r.id}"></label><button class="btn" data-dec="${r.id}|approved">Aprobar</button><button class="bb-mini" data-dec="${r.id}|info">Pedir información</button><button class="bb-mini red" data-dec="${r.id}|rejected">Rechazar</button></div><p class="mono" style="margin:0">Al aprobar, crea o elige su equipo en «Equipos y publicadores» y agrégalo como publicador.</p>` : r.note ? `<p class="mono" style="margin:0">Nota: ${esc(r.note)}</p>` : ''}</div>`).join('') || '<p class="mono">No hay solicitudes para publicar.</p>';
-    view().querySelectorAll('[data-dec]').forEach(b => b.onclick = async () => { const [id, st] = b.dataset.dec.split('|'); try { await rpc('admin_decide_request', { p_id: +id, p_status: st, p_note: view().querySelector(`[data-note="${id}"]`)?.value || null }); toast('Solicitud actualizada'); solicitudes(); } catch (e) { toast(msg(e)); } });
+    const ST = { pending: ['Pendiente', '#f2c230'], info: ['Esperando respuesta', '#8cc3f2'], approved: ['Aprobada', '#a9d18e'], rejected: ['Rechazada', '#a89f8a'] };
+    const list = (data || []).sort((a, b) => (a.status === 'pending' ? 0 : a.status === 'info' ? 1 : 2) - (b.status === 'pending' ? 0 : b.status === 'info' ? 1 : 2));
+    view().innerHTML = list.map(r => { const open = r.status === 'pending' || r.status === 'info';
+      return `<div class="bb-box"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(r.team_name || '(sin nombre de grupo)')} <span class="mono">· ${esc(r.alias)} · @${esc(r.profiles?.username || '')}</span></h3><span class="bb-role" style="color:${ST[r.status]?.[1]}">${ST[r.status]?.[0] || r.status}</span></div>
+      <p class="mono" style="margin:0">${esc((r.langs || []).join(', '))} · ${when(r.updated_at || r.created_at)}</p>
+      ${r.links ? `<p style="margin:0;white-space:pre-line">${esc(r.links)}</p>` : ''}${r.message ? `<p style="margin:0;white-space:pre-line"><b>Mensaje:</b> ${esc(r.message)}</p>` : ''}
+      ${r.note ? `<p class="mono" style="margin:0">Tu nota: ${esc(r.note)}</p>` : ''}${r.reply && r.status === 'pending' ? `<p style="margin:0;white-space:pre-line;color:#8cc3f2"><b>Respuesta:</b> ${esc(r.reply)}</p>` : ''}
+      ${r.status === 'approved' && r.teams ? `<p class="mono" style="margin:0">Equipo: ${esc(r.teams.name)} (/${esc(r.teams.slug)})</p>` : ''}
+      ${r.status === 'pending' ? `<div class="bb-row"><label>Al aprobar<select data-team="${r.id}"><option value="">Crear equipo nuevo (propietario)</option>${(teams || []).map(t => `<option value="${t.id}">Unir a «${esc(t.name)}» como traductor</option>`).join('')}</select></label><label data-namewrap="${r.id}">Nombre del equipo<input data-name="${r.id}" maxlength="60" value="${esc(r.team_name || r.alias)}"></label></div>` : ''}
+      ${open ? `<div class="bb-row"><label>Nota para el solicitante<input data-note="${r.id}" placeholder="Obligatoria para pedir información"></label>${r.status === 'pending' ? `<button class="btn" data-dec="${r.id}|approved">Aprobar</button><button class="bb-mini" data-dec="${r.id}|info">Pedir información</button>` : '<span class="mono">Esperando que responda</span>'}<button class="bb-mini red" data-dec="${r.id}|rejected">Rechazar</button></div>` : ''}</div>`; }).join('') || '<p class="mono">No hay solicitudes para publicar.</p>';
+    view().querySelectorAll('[data-team]').forEach(s => s.onchange = () => { view().querySelector(`[data-namewrap="${s.dataset.team}"]`).hidden = !!s.value; });
+    view().querySelectorAll('[data-dec]').forEach(b => b.onclick = async () => {
+      const [id, st] = b.dataset.dec.split('|'), q = k => view().querySelector(`[data-${k}="${id}"]`);
+      if (st === 'rejected' && !confirm('¿Rechazar esta solicitud?')) return;
+      b.disabled = true;
+      try { const tid = await rpc('admin_decide_request', { p_id: +id, p_status: st, p_note: q('note')?.value || null, p_team: q('team')?.value || null, p_team_name: q('name')?.value || null });
+        toast(st === 'approved' ? 'Aprobada · el equipo ya está listo y el solicitante es publicador' : st === 'info' ? 'Pediste más información' : 'Solicitud rechazada'); solicitudes();
+      } catch (e) { b.disabled = false; toast(msg(e)); } });
   }
+
 
   async function bitacora(){
     const rows = await rpc('admin_audit', { p_limit: 200 });

@@ -10,7 +10,7 @@ const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display =
 let user = null, profile = null, me = null;
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
 let ST; const st = async () => ST ||= (await import('/studio.js?v=8')).createStudio(CTX());
-let AD; const ad = async () => AD ||= (await import('/admin.js?v=2')).createAdmin(CTX());
+let AD; const ad = async () => AD ||= (await import('/admin.js?v=3')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
 let U; const ui = () => U ||= createUI(CTX());
 const RL = { bibliotecario: 'Bibliotecario', publicador: 'Publicador', lector: 'Lector' };
@@ -21,14 +21,14 @@ me = user ? ((await sb.rpc('whoami')).data || null) : null;
 const pr = me?.platform_role || 'lector';
 const ini = esc((profile?.username || user?.email || '?')[0].toUpperCase());
 $('#session').innerHTML = user
-? `<details class="ob-user"><summary aria-label="Menú de cuenta"><span class="ob-av">${profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : ini}</span></summary><div class="ob-menu"><div class="who2"><strong>${esc(profile?.username || user.email)}</strong><small>${RL[pr]}${profile?.donor_tier ? ' · 援 Donador' : ''}</small></div><a href="/perfil">Mi perfil</a><a href="/biblioteca">Mi biblioteca</a>${pr === 'bibliotecario' ? '<a href="/bibliotecario">Mostrador del Bibliotecario</a>' : ''}${pr !== 'lector' ? '<a href="/estudio">Estudio</a>' : ''}<button id="out">Salir</button></div></details>`
+? `<details class="ob-user"><summary aria-label="Menú de cuenta"><span class="ob-av">${profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : ini}</span></summary><div class="ob-menu"><div class="who2"><strong>${esc(profile?.username || user.email)}</strong><small>${RL[pr]}${profile?.donor_tier ? ' · 援 Donador' : ''}</small></div><a href="/perfil">Mi perfil</a><a href="/biblioteca">Mi biblioteca</a>${pr === 'bibliotecario' ? '<a href="/bibliotecario">Mostrador del Bibliotecario</a>' : ''}${pr !== 'lector' ? '<a href="/estudio">Estudio</a>' : '<a href="/solicitud">Crear mi grupo traductor</a>'}<button id="out">Salir</button></div></details>`
 : `<button class="btn" id="in">Entrar</button>`;
 const dd = $('#session .ob-user'); if (dd) dd.querySelector('.ob-menu').addEventListener('click', e => { if (e.target.closest('a')) dd.open = false; });
 $('#out')?.addEventListener('click', async () => { await sb.auth.signOut(); location.href = '/'; });
 $('#in')?.addEventListener('click', () => go('/entrar'));
 }
 const routes = {
-'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': calendar, '/lanzamientos': () => ui().releases(), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil,
+'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': calendar, '/lanzamientos': () => ui().releases(), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/solicitud': solicitud,
 '/bibliotecario': async () => (await ad()).render(), '/admin': async () => { history.replaceState({}, '', '/bibliotecario'); (await ad()).render(); },
 };
 export function go(path){ history.pushState({}, '', path); render(); }
@@ -43,7 +43,7 @@ if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) return rd().open(m[1], +m[2]);
 if ((m = p.match(/^\/anotaciones\/([\w-]+)$/))) return rd().annotationsPage(m[1]);
 if (p.startsWith('/estudio')) {
   if (!user) return go('/entrar');
-  if (!me || me.platform_role === 'lector') { app.innerHTML = '<h1>El Estudio es para Publicadores</h1><p>Tu cuenta es de Lector. Para publicar, tu equipo debe estar dado de alta por el Bibliotecario.</p><p><a href="/">Volver al inicio</a></p>'; return; }
+  if (!me || me.platform_role === 'lector') { app.innerHTML = '<h1>El Estudio es para Publicadores</h1><p>Tu cuenta es de Lector. Para publicar, solicita crear tu grupo traductor; el Bibliotecario revisa cada solicitud.</p><p style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="/solicitud">Solicitar mi grupo traductor</a><a class="btn ghost" href="/">Volver al inicio</a></p>'; return; }
 }
 if (p === '/estudio') return (await st()).home();
 if ((m = p.match(/^\/estudio\/obra\/([\w-]+)$/))) return (await st()).work(m[1]);
@@ -145,6 +145,42 @@ async function perfil(){
 if (!user) return go('/entrar');
 app.innerHTML = `<h1>Mi perfil</h1><p class="mono">Rol en la plataforma: ${RL[me?.platform_role || 'lector']}</p>${avatarBox(esc(profile?.username || ''), esc(user.email))}`;
 bindAvatar(perfil);
+}
+const LANGS = ['Japonés', 'Inglés', 'Coreano', 'Chino'];
+async function solicitud(){
+if (!user) return go('/entrar');
+if (me && me.platform_role !== 'lector') { app.innerHTML = '<h1>Ya eres Publicador</h1><p>Tu cuenta ya pertenece a un equipo traductor.</p><p><a class="btn" href="/estudio">Ir al Estudio</a></p>'; return; }
+const { data: reqs } = await sb.from('translator_requests').select('id,alias,team_name,langs,links,message,status,note,created_at,updated_at,teams(name)').eq('user_id', user.id).order('created_at', { ascending: false });
+const open = (reqs || []).find(x => x.status === 'pending' || x.status === 'info'), last = (reqs || [])[0];
+const box = (c, t, b) => `<div style="border:2px solid ${c};border-left-width:8px;padding:16px 18px;display:grid;gap:6px;max-width:640px"><strong>${t}</strong>${b}</div>`;
+let head = '';
+if (open?.status === 'pending') head = box('var(--gold)', 'Tu solicitud está en revisión', `<span class="mono">Enviada ${new Date(open.updated_at || open.created_at).toLocaleDateString('es-MX', { dateStyle: 'medium' })} · grupo «${esc(open.team_name || '')}»</span><span>El Bibliotecario te responderá aquí. Puedes corregir los datos mientras tanto.</span>`);
+else if (open?.status === 'info') head = box('#8cc3f2', 'El Bibliotecario necesita más información', `<p style="margin:0;white-space:pre-line">«${esc(open.note || '')}»</p><span class="mono">Responde en «Mensaje para el Bibliotecario» y vuelve a enviar.</span>`);
+else if (last?.status === 'rejected') head = box('#f59e7a', 'Tu solicitud anterior no fue aprobada', `${last.note ? `<p style="margin:0;white-space:pre-line">«${esc(last.note)}»</p>` : ''}<span class="mono">Puedes enviar una nueva con más información.</span>`);
+else if (last?.status === 'approved') head = box('#a9d18e', '¡Solicitud aprobada!', `<span>Tu grupo ${last.teams?.name ? '«' + esc(last.teams.name) + '» ' : ''}ya está dado de alta.</span><a class="btn" href="/estudio" style="justify-self:start">Ir al Estudio</a>`);
+const v = open || {};
+app.innerHTML = `<h1>Crear mi grupo traductor</h1><p style="max-width:640px">Cuéntale al Bibliotecario quién eres y qué quieres traducir. Al aprobarte, se crea tu grupo contigo como propietario y entras al Estudio.</p>${head}
+<form id="rq" novalidate style="display:grid;gap:12px;max-width:640px;margin-top:20px">
+<label>Tu alias como traductor<input name="alias" maxlength="40" required value="${esc(v.alias || profile?.username || '')}"></label>
+<label>Nombre del grupo traductor<input name="team" maxlength="60" required placeholder="Ej. Linterna Traducciones" value="${esc(v.team_name || '')}"></label>
+<fieldset style="border:1px solid var(--line);padding:10px 14px;display:flex;gap:14px;flex-wrap:wrap"><legend>Traduces desde</legend>${LANGS.map(l => `<label style="display:flex;gap:6px;align-items:center;min-height:44px"><input type="checkbox" name="lang" value="${l}" ${(v.langs || []).includes(l) ? 'checked' : ''}> ${l}</label>`).join('')}<label style="display:flex;gap:6px;align-items:center">Otro <input name="other" maxlength="30" style="width:140px" value="${esc((v.langs || []).filter(l => !LANGS.includes(l)).join(', '))}"></label></fieldset>
+<label>Enlaces a trabajos previos (opcional)<textarea name="links" rows="3" maxlength="1000" placeholder="Un enlace por línea">${esc(v.links || '')}</textarea></label>
+<label>Mensaje para el Bibliotecario${open?.status === 'info' ? ' · responde aquí' : ' (opcional)'}<textarea name="msg" rows="4" maxlength="1500" placeholder="Qué obras quieres traducir, cada cuánto publicarías…">${esc(open?.status === 'info' ? '' : v.message || '')}</textarea></label>
+<p id="rqerr" role="alert" style="color:#f59e7a;margin:0;min-height:1.2em"></p>
+<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" id="rqgo">${open ? (open.status === 'info' ? 'Enviar respuesta' : 'Guardar cambios') : 'Enviar solicitud'}</button>${open ? '<button type="button" class="btn ghost" id="rqcancel">Retirar solicitud</button>' : ''}</div>
+</form>`;
+const f = $('#rq');
+f.onsubmit = async e => {
+e.preventDefault(); $('#rqerr').textContent = '';
+const langs = [...f.querySelectorAll('[name=lang]:checked')].map(x => x.value).concat(f.other.value.split(',').map(x => x.trim()).filter(Boolean));
+if (open?.status === 'info' && !f.msg.value.trim()) { $('#rqerr').textContent = 'Responde lo que te pidió el Bibliotecario.'; return; }
+const b = $('#rqgo'); b.disabled = true;
+const { error } = await sb.rpc('submit_translator_request', { p_alias: f.alias.value, p_team_name: f.team.value, p_langs: langs, p_links: f.links.value, p_message: f.msg.value });
+b.disabled = false;
+if (error) { $('#rqerr').textContent = error.message; return; }
+toast(open ? 'Solicitud actualizada' : 'Solicitud enviada · te avisaremos aquí'); solicitud();
+};
+$('#rqcancel')?.addEventListener('click', async () => { if (!confirm('¿Retirar tu solicitud?')) return; const { error } = await sb.rpc('cancel_translator_request'); if (error) return toast(error.message); toast('Solicitud retirada'); solicitud(); });
 }
 function notFound(){ app.innerHTML = '<h1>Esta página no está en el estante</h1><p><a href="/">Volver al inicio</a></p>'; }
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
