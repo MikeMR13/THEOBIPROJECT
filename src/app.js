@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
-const { createReader } = await import(ASSET('reader.js'));
+const { createReader } = await import('/reader.js?v=8');
 const { createUI } = await import('/ui.js?v=7');
 export const sb = createClient(url, key, { auth: { persistSession: true } });
 const $ = s => document.querySelector(s), app = $('#app');
@@ -9,7 +9,7 @@ const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 2800); };
 let user = null, profile = null, me = null;
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
-let ST; const st = async () => ST ||= (await import(ASSET('studio.js'))).createStudio(CTX());
+let ST; const st = async () => ST ||= (await import('/studio.js?v=8')).createStudio(CTX());
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=2')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
 let U; const ui = () => U ||= createUI(CTX());
@@ -51,6 +51,7 @@ if ((m = p.match(/^\/estudio\/editar\/([\w-]+)$/))) return (await st()).editor(m
 if (p === '/estudio/importar') return (await st()).importer();
 if (p === '/estudio/multimedia') return (await st()).library();
 if (p === '/estudio/equipo') return (await st()).team();
+if ((m = p.match(/^\/estudio\/glosario(?:\/([\w-]+))?$/))) return (await st()).glossary(m[1]);
 (routes[p] || notFound)();
 }
 async function calendar(){

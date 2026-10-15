@@ -37,7 +37,8 @@ export function createReader(ctx){
         if (a.error || b.error) throw a.error || b.error; ch = a.data; vo = b.data; }
     } catch { const m = await offlineMeta(slug); if (m) ({ series: s, chapters: ch, vols: vo } = m); }
     if (!s) return false;
-    Object.assign(S, { series: s, chapters: ch || [], vols: vo || [], bodies: new Map(), annots: [] });
+    let gl = []; try { const r = await sb.from('glossary_terms').select('term,category,definition').eq('series_id', s.id); gl = r.data || []; } catch {}
+    Object.assign(S, { series: s, chapters: ch || [], vols: vo || [], bodies: new Map(), annots: [], gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined });
     return true;
   }
   async function body(ch){
@@ -100,6 +101,50 @@ export function createReader(ctx){
       <div class="rd-body">${(blocks || []).map((b, i) => block(b, i, p)).join('')}</div></article>`;
   }
 
+  // ---------- glosario en el texto ----------
+  function glossRe(){
+    if (S.glRe !== undefined) return S.glRe;
+    const t = [...(S.gloss || [])].sort((a, b) => b.term.length - a.term.length).map(g => g.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    return S.glRe = t.length ? new RegExp('(?<![\\p{L}\\p{N}])(' + t.join('|') + ')(?![\\p{L}\\p{N}])', 'giu') : null;
+  }
+  function markTerms(root){
+    const re = glossRe(); if (!re || !root) return;
+    root.querySelectorAll('.rd-body p, .rd-body blockquote, .rd-body aside.tn').forEach(el => {
+      const tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest('rt,rp,ruby,.gl,.mono') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+      const nodes = []; let n; while ((n = tw.nextNode())) nodes.push(n);
+      nodes.forEach(node => {
+        re.lastIndex = 0; if (!re.test(node.data)) return; re.lastIndex = 0;
+        const frag = document.createDocumentFragment(); let last = 0, m;
+        while ((m = re.exec(node.data))) {
+          if (m.index > last) frag.append(node.data.slice(last, m.index));
+          const sp = document.createElement('span'); sp.className = 'gl'; sp.dataset.t = m[1].toLowerCase(); sp.tabIndex = 0; sp.setAttribute('role', 'button'); sp.textContent = m[1];
+          frag.append(sp); last = m.index + m[1].length;
+        }
+        if (last < node.data.length) frag.append(node.data.slice(last));
+        node.replaceWith(frag);
+      });
+    });
+  }
+  function openTerm(el){
+    const g = S.glMap?.get(el.dataset.t); if (!g) return;
+    const art = el.closest('.rd-ch'), n = art ? art.querySelectorAll(`.gl[data-t="${CSS.escape(el.dataset.t)}"]`).length : 1;
+    document.querySelectorAll('.gl.on').forEach(x => x.classList.remove('on')); el.classList.add('on');
+    const sh = $('.gl-sheet'); if (!sh) return;
+    sh.innerHTML = `<div class="gl-card" role="dialog" aria-modal="true" aria-labelledby="gl-t"><div class="gl-top"><div><span class="mono">Glosario · ${esc(g.category)}</span><strong id="gl-t">${esc(g.term)}</strong></div><button class="gl-x" aria-label="Cerrar">×</button></div><p>${esc(g.definition)}</p><span class="gl-n">Aparece ${n === 1 ? '1 vez' : n + ' veces'} en este capítulo · Toca fuera para seguir leyendo</span></div>`;
+    sh.hidden = false; S.glFrom = el; sh.querySelector('.gl-x').focus({ preventScroll: true });
+  }
+  function closeTerm(){ const sh = $('.gl-sheet'); if (!sh || sh.hidden) return; sh.hidden = true; document.querySelectorAll('.gl.on').forEach(x => x.classList.remove('on')); S.glFrom?.focus({ preventScroll: true }); }
+  document.addEventListener('click', e => {
+    if (!$('.rd')) return;
+    const t = e.target.closest('.gl'); if (t && getSelection().isCollapsed) { e.stopPropagation(); return openTerm(t); }
+    if (e.target.closest('.gl-sheet') && (!e.target.closest('.gl-card') || e.target.closest('.gl-x'))) closeTerm();
+  });
+  document.addEventListener('keydown', e => {
+    if (!$('.rd')) return;
+    if (e.key === 'Escape') closeTerm();
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList?.contains('gl')) { e.preventDefault(); openTerm(e.target); }
+  });
+
   // ---------- vista ----------
   async function open(slug, num){
     app.innerHTML = '<p class="mono">Abriendo capítulo…</p>';
@@ -126,7 +171,9 @@ export function createReader(ctx){
       <div id="rd-sentinel"></div>
       <footer class="rd-foot"></footer>
       <div class="rd-pop" hidden></div>
+      <div class="gl-sheet" hidden></div>
     </div>`;
+    markTerms($('#rd-flow'));
     bindBar(); footer();
     await loadAnnots(); paintAnnots();
     restorePosition(ch);
@@ -152,7 +199,7 @@ export function createReader(ctx){
       if (p.continuous === 'off' || !nx || (p.continuous === 'volume' && nx.vol !== last.vol) || S.loadingNext) return;
       S.loadingNext = true;
       const b = await body(nx); S.loadingNext = false; if (!b) return;
-      $('#rd-flow').insertAdjacentHTML('beforeend', chapterHTML(nx, b, effective(nx.volume_id)));
+      $('#rd-flow').insertAdjacentHTML('beforeend', chapterHTML(nx, b, effective(nx.volume_id))); markTerms($(`[data-ch="${nx.id}"]`));
       S.mounted.push(nx); paintAnnots(); prefetchNext(nx);
       activeIo.observe($(`[data-ch="${nx.id}"]`));
     }, { rootMargin: '800px 0px' });
@@ -239,7 +286,7 @@ export function createReader(ctx){
     rd.dataset.font = p.font;
     if (k === 'font' || k === 'illus') {
       const { block: blk } = currentBlock();
-      $('#rd-flow').innerHTML = S.mounted.map(c => chapterHTML(c, S.bodies.get(c.id), effective(c.volume_id))).join('');
+      $('#rd-flow').innerHTML = S.mounted.map(c => chapterHTML(c, S.bodies.get(c.id), effective(c.volume_id))).join(''); markTerms($('#rd-flow'));
       paintAnnots(); observe();
       const el = $(`[data-ch="${S.active.id}"] [data-b="${blk}"]`); if (el) scrollTo(0, el.getBoundingClientRect().top + scrollY - 90);
     }
@@ -347,8 +394,8 @@ export function createReader(ctx){
         if (error) return toast(error.message); Object.assign(a, { note, shared }); paintAnnots(); closePop(); toast('Anotación guardada'); }
     };
   }
-  document.addEventListener('mouseup', e => { if (!$('.rd') || e.target.closest('.rd-pop')) return; const m = e.target.closest('mark.an'); if (m && getSelection().isCollapsed) { const a = S.annots.find(z => String(z.id) === m.dataset.an); if (a) return editAnnot(a); } setTimeout(onSelect, 0); });
-  document.addEventListener('touchend', e => { if ($('.rd') && !e.target.closest('.rd-pop')) setTimeout(onSelect, 250); });
+  document.addEventListener('mouseup', e => { if (!$('.rd') || e.target.closest('.rd-pop,.gl-sheet') || (e.target.closest('.gl') && getSelection().isCollapsed)) return; const m = e.target.closest('mark.an'); if (m && getSelection().isCollapsed) { const a = S.annots.find(z => String(z.id) === m.dataset.an); if (a) return editAnnot(a); } setTimeout(onSelect, 0); });
+  document.addEventListener('touchend', e => { if ($('.rd') && !e.target.closest('.rd-pop,.gl-sheet,.gl')) setTimeout(onSelect, 250); });
   document.addEventListener('mousedown', e => { if (!e.target.closest('.rd-pop')) closePop(); });
 
   async function annotationsPage(slug){

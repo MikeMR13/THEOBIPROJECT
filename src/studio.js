@@ -3,6 +3,7 @@ const LIMITS = { file: 80 * 1024 * 1024, entries: 15000, unzipped: 300 * 1024 * 
 const ACTIONS = [['view','Ver'],['edit','Editar'],['create','Crear'],['import','Importar'],['publish','Publicar'],['schedule','Programar'],['delete','Borrar'],['review','Revisar']];
 const ROLES = [['owner','Propietario'],['admin','Administrador'],['translator','Traductor'],['editor','Editor'],['proofreader','Corrector'],['collaborator','Colaborador']];
 const SEC = ['Capítulo','Prólogo','Interludio','Epílogo','Afterword','Extra'];
+const GT = ['Personaje','Lugar','Organización','Honorífico','Cargo o título','Magia','Hechizo','Habilidad','Objeto','Arma','Criatura','Raza o especie','Comida','Bebida','Festival','Moneda','Unidad de medida','Referencia cultural','Modismo','Onomatopeya','Tabú','Otro'];
 const BT = [['paragraph','Párrafo'],['heading','Título'],['quote','Cita'],['note','Nota del traductor'],['image','Ilustración'],['separator','Separador'],['ruby','Furigana']];
 
 export function createStudio(ctx){
@@ -13,7 +14,7 @@ export function createStudio(ctx){
   const T = { teams: [], team: null, perms: {} };
   const can = a => !!T.perms[a];
   const busy = async (btn, fn) => { if (btn?.disabled) return; if (btn) { btn.disabled = true; btn.dataset.l = btn.textContent; btn.textContent = 'Un momento…'; } try { return await fn(); } catch (e) { toast(e.hint || e.message || 'Error'); } finally { if (btn) { btn.disabled = false; btn.textContent = btn.dataset.l; } } };
-  const shell = (title, body, tab) => `<div class="st"><nav class="st-nav">${teamPicker()}${[['/estudio','Obras'],['/estudio/importar','Importar'],['/estudio/multimedia','Multimedia'],['/estudio/equipo','Equipo']].map(([h, l]) => `<a href="${h}" class="${tab === h ? 'on' : ''}">${l}</a>`).join('')}</nav><section class="st-main"><h1>${title}</h1>${body}</section></div>`;
+  const shell = (title, body, tab) => `<div class="st"><nav class="st-nav">${teamPicker()}${[['/estudio','Obras'],['/estudio/glosario','Glosario'],['/estudio/importar','Importar'],['/estudio/multimedia','Multimedia'],['/estudio/equipo','Equipo']].map(([h, l]) => `<a href="${h}" class="${tab === h ? 'on' : ''}">${l}</a>`).join('')}</nav><section class="st-main"><h1>${title}</h1>${body}</section></div>`;
   const teamPicker = () => T.teams.length > 1 ? `<select id="tpick">${T.teams.map(t => `<option value="${t.id}" ${t.id === T.team?.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>` : `<strong class="st-team">${esc(T.team?.name || '')}</strong>`;
   const bindPicker = again => $('#tpick')?.addEventListener('change', async e => { await pickTeam(e.target.value); again(); });
 
@@ -379,6 +380,67 @@ export function createStudio(ctx){
     }));
   }
 
+  // ---------- glosario ----------
+  async function glossary(slug){
+    if (!(await ensure())) return;
+    const TAB = '/estudio/glosario';
+    const { data: works } = await sb.from('series').select('id,slug,title').eq('team_id', T.team.id).is('archived_at', null).order('title');
+    if (!(works || []).length) { app.innerHTML = shell('Glosario', '<p class="mono">Este equipo aún no tiene obras.</p>', TAB); bindPicker(() => glossary()); return; }
+    const s = works.find(w => w.slug === slug) || works.find(w => w.slug === localStorage.getItem('obi-gl-series')) || works[0];
+    localStorage.setItem('obi-gl-series', s.slug);
+    const { data, error } = await sb.from('glossary_terms').select('id,term,category,definition').eq('series_id', s.id).order('term');
+    if (error) { app.innerHTML = shell('Glosario', `<p>No se pudo cargar el glosario: ${esc(error.message)}</p>`, TAB); return; }
+    let terms = data || [], editing = null;
+    const ed = can('edit'), opt = v => GT.map(t => `<option ${t === v ? 'selected' : ''}>${t}</option>`).join('');
+    app.innerHTML = shell('Glosario', `
+      <div class="st-row"><select id="glser">${works.map(w => `<option value="${w.slug}" ${w.id === s.id ? 'selected' : ''}>${esc(w.title)}</option>`).join('')}</select><span class="mono" id="glcount"></span></div>
+      <p class="mono">Los términos se marcan solos en el lector. Al tocarlos, el lector ve la definición sin salir del capítulo.</p>
+      ${ed ? `<div class="st-card gl-form">
+        <div class="st-row"><input id="glterm" maxlength="60" placeholder="Término tal como aparece en el texto"><select id="glcat">${opt('Personaje')}</select></div>
+        <textarea id="gldef" maxlength="600" rows="3" placeholder="Definición que verá el lector"></textarea>
+        <div class="st-row"><button class="btn" id="glsave">Añadir término</button><button class="btn ghost" id="glcancel" hidden>Cancelar</button></div>
+        <details><summary class="mono">Añadir varios a la vez</summary><p class="mono">Uno por línea: término | tipo | definición</p><textarea id="glbulk" rows="5" placeholder="umeboshi | Comida | Ciruela encurtida en sal, muy ácida."></textarea><button class="btn ghost" id="glbulkbtn">Añadir lista</button></details>
+      </div>` : '<p class="mono">Tu rol solo puede ver el glosario.</p>'}
+      <div class="st-row"><input id="glq" placeholder="Buscar término o definición"><select id="glf"><option value="">Todos los tipos</option>${GT.map(t => `<option>${t}</option>`).join('')}</select></div>
+      <div id="gllist"></div>`, TAB);
+    bindPicker(() => glossary());
+    $('#glser').onchange = e => go(TAB + '/' + e.target.value);
+    const draw = () => {
+      const q = ($('#glq').value || '').trim().toLowerCase(), f = $('#glf').value;
+      const list = terms.filter(t => (!f || t.category === f) && (!q || (t.term + ' ' + t.definition).toLowerCase().includes(q)));
+      $('#glcount').textContent = terms.length + (terms.length === 1 ? ' término' : ' términos');
+      $('#gllist').innerHTML = list.map(t => `<div class="st-card gl-row"><div><strong>${esc(t.term)}</strong> <span class="pill">${esc(t.category)}</span><p>${esc(t.definition)}</p></div>${ed ? `<span><button class="lnk" data-gled="${t.id}">Editar</button> <button class="lnk danger" data-gldel="${t.id}">Borrar</button></span>` : ''}</div>`).join('') || `<p class="mono">${terms.length ? 'Sin resultados.' : 'Aún no hay términos en esta obra.'}</p>`;
+    };
+    const reset = () => { editing = null; $('#glterm').value = ''; $('#gldef').value = ''; $('#glsave').textContent = 'Añadir término'; $('#glcancel').hidden = true; };
+    const check = (term, def) => { if (!term) throw new Error('Escribe el término'); if (!def) throw new Error('Escribe la definición'); if (term.length > 60) throw new Error('El término es demasiado largo (máx. 60)'); if (def.length > 600) throw new Error('La definición es demasiado larga (máx. 600)'); if (terms.some(t => t.id !== editing && t.term.toLowerCase() === term.toLowerCase())) throw new Error('«' + term + '» ya está en el glosario de esta obra'); };
+    const dupe = e => { if (e?.code === '23505') throw new Error('Ese término ya existe en esta obra'); if (e) throw e; };
+    $('#glq').oninput = draw; $('#glf').onchange = draw; draw();
+    if (!ed) return;
+    $('#glsave').onclick = () => busy($('#glsave'), async () => {
+      const term = $('#glterm').value.trim(), category = $('#glcat').value, definition = $('#gldef').value.trim(); check(term, definition);
+      if (editing) { const { data: r, error } = await sb.from('glossary_terms').update({ term, category, definition, updated_at: new Date().toISOString() }).eq('id', editing).select('id,term,category,definition').single(); dupe(error); terms = terms.map(t => t.id === editing ? r : t); toast('Término actualizado'); }
+      else { const { data: r, error } = await sb.from('glossary_terms').insert({ series_id: s.id, term, category, definition }).select('id,term,category,definition').single(); dupe(error); terms.push(r); toast('«' + term + '» añadido'); }
+      terms.sort((a, b) => a.term.localeCompare(b.term, 'es')); reset(); draw();
+    });
+    $('#glcancel').onclick = reset;
+    $('#glbulkbtn').onclick = () => busy($('#glbulkbtn'), async () => {
+      const rows = $('#glbulk').value.split('\n').map(l => l.split('|').map(x => x.trim())).filter(r => r[0]);
+      if (!rows.length) throw new Error('Pega al menos una línea');
+      const have = new Set(terms.map(t => t.term.toLowerCase())), add = [], bad = [];
+      rows.forEach((r, i) => { const [term, cat, ...rest] = r, definition = rest.join(' | '); const category = GT.find(g => g.toLowerCase() === (cat || '').toLowerCase()) || 'Otro';
+        if (!definition || term.length > 60 || definition.length > 600 || have.has(term.toLowerCase())) bad.push(i + 1); else { have.add(term.toLowerCase()); add.push({ series_id: s.id, term, category, definition }); } });
+      if (!add.length) throw new Error('Ninguna línea válida. Revisa las líneas ' + bad.join(', '));
+      const { data: r, error } = await sb.from('glossary_terms').insert(add).select('id,term,category,definition'); dupe(error);
+      terms = [...terms, ...r].sort((a, b) => a.term.localeCompare(b.term, 'es')); $('#glbulk').value = '';
+      toast(r.length + ' términos añadidos' + (bad.length ? ' · se omitieron las líneas ' + bad.join(', ') + ' (repetidas o incompletas)' : '')); draw();
+    });
+    $('#gllist').onclick = e => {
+      const eb = e.target.closest('[data-gled]'), db = e.target.closest('[data-gldel]');
+      if (eb) { const t = terms.find(x => x.id === eb.dataset.gled); editing = t.id; $('#glterm').value = t.term; $('#glcat').innerHTML = opt(t.category); $('#gldef').value = t.definition; $('#glsave').textContent = 'Guardar cambios'; $('#glcancel').hidden = false; $('#glterm').focus(); scrollTo(0, 0); }
+      if (db) busy(db, async () => { const t = terms.find(x => x.id === db.dataset.gldel); if (!confirm('¿Borrar «' + t.term + '» del glosario?')) return; const { error } = await sb.from('glossary_terms').delete().eq('id', t.id); if (error) throw error; terms = terms.filter(x => x.id !== t.id); if (editing === t.id) reset(); toast('Término borrado'); draw(); });
+    };
+  }
+
   // ---------- equipo y permisos ----------
   async function team(){
     if (!(await ensure())) return;
@@ -398,5 +460,5 @@ export function createStudio(ctx){
     $('#add')?.addEventListener('click', e => busy(e.target, async () => { const { data } = await sb.rpc('team_find_user', { p_team: T.team.id, p_email: $('#mail').value.trim() }); if (!data?.length) throw new Error('No hay una cuenta con ese correo'); const { error } = await sb.from('team_members').insert({ team_id: T.team.id, user_id: data[0].id, role: $('#nrole').value }); if (error) throw error; toast(data[0].username + ' agregado'); team(); }));
   }
 
-  return { home, work, editor, importer, library: () => library(), team, isMember: async () => { const u = getUser(); if (!u) return false; const { count } = await sb.from('team_members').select('*', { count: 'exact', head: true }).eq('user_id', u.id); return count > 0; } };
+  return { home, work, editor, importer, library: () => library(), team, glossary, isMember: async () => { const u = getUser(); if (!u) return false; const { count } = await sb.from('team_members').select('*', { count: 'exact', head: true }).eq('user_id', u.id); return count > 0; } };
 }

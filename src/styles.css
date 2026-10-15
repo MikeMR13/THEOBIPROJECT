@@ -64,3 +64,14 @@ select{background:#16140f;border:2px solid var(--line);color:var(--paper);paddin
 .st-drop{display:block;padding:36px;border:2px dashed var(--line);text-align:center;cursor:pointer;font-weight:600}
 .st-media{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.st-file{display:grid;gap:4px;padding:8px;background:#16140f;font-weight:400}.st-file input{width:auto}.st-file img{width:100%;aspect-ratio:3/4;object-fit:cover}.st-dir{padding:14px;background:#16140f;color:var(--paper);text-decoration:none}
 .st-perm{display:grid;grid-template-columns:minmax(150px,1.4fr) repeat(8,minmax(44px,1fr));gap:4px;align-items:center;overflow-x:auto}.st-cell{height:36px;background:none;border:1px solid var(--line);color:var(--mute);cursor:pointer;font-weight:700}.st-cell.allow{background:#a9d18e;color:#0d0c0a}.st-cell.deny{background:#f59e7a;color:#0d0c0a}.st-cell.full{background:#2f2a20;color:var(--paper);cursor:default}
+
+/* glosario en el lector */
+.gl{border-bottom:2px dotted var(--ac,#f2c230);cursor:pointer;transition:background .15s}.gl:hover,.gl.on{background:color-mix(in oklab,var(--ac,#f2c230) 22%,transparent)}.gl:focus-visible{outline:2px solid var(--ac,#f2c230);outline-offset:2px}
+.gl-sheet{position:fixed;inset:0;z-index:30;display:flex;align-items:flex-end;justify-content:center;padding:16px;background:rgba(0,0,0,.35)}.gl-sheet[hidden]{display:none}
+.gl-card{width:100%;max-width:520px;background:var(--bg);color:var(--fg);border:1px solid var(--ln);border-top:4px solid var(--ac,#f2c230);box-shadow:0 12px 40px rgba(0,0,0,.45);padding:18px 20px 20px;display:grid;gap:10px;font-family:'IBM Plex Sans',sans-serif}
+.gl-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.gl-top>div{display:grid;gap:4px}.gl-top .mono{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mt)}
+.gl-top strong{font-family:Literata,'Shippori Mincho B1',serif;font-style:italic;font-weight:500;font-size:24px;line-height:1.15}
+.gl-x{width:44px;height:44px;flex-shrink:0;background:none;border:1px solid var(--ln);color:var(--fg);font-size:20px;cursor:pointer}
+.gl-card p{margin:0;font-size:16px;line-height:1.6;text-wrap:pretty}.gl-n{font-size:12px;color:var(--mt)}
+/* glosario en el Estudio */
+.gl-form{display:grid;gap:10px}.gl-form textarea{width:100%}.gl-row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.gl-row p{margin:6px 0 0;line-height:1.5}
