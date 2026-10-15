@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
 const { createReader } = await import(ASSET('reader.js'));
-const { createUI } = await import(ASSET('ui.js'));
+const { createUI } = await import('/ui.js?v=6');
 export const sb = createClient(url, key, { auth: { persistSession: true } });
 const $ = s => document.querySelector(s), app = $('#app');
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -19,9 +19,11 @@ const { data } = await sb.auth.getUser(); user = data.user;
 profile = user ? (await sb.from('profiles').select('*').eq('id', user.id).maybeSingle()).data : null;
 me = user ? ((await sb.rpc('whoami')).data || null) : null;
 const pr = me?.platform_role || 'lector';
+const ini = esc((profile?.username || user?.email || '?')[0].toUpperCase());
 $('#session').innerHTML = user
-? `<a href="/perfil" class="who">${profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : `<span>${esc((profile?.username || user.email || '?')[0].toUpperCase())}</span>`}<span class="mono">${esc(profile?.username || user.email)} · ${RL[pr]}${profile?.donor_tier ? ' · 援' : ''}</span></a> ${pr === 'bibliotecario' ? '<a href="/bibliotecario" class="btn ghost">Mostrador</a> ' : ''}${pr !== 'lector' ? '<a href="/estudio" class="btn ghost">Estudio</a> ' : ''}<button class="btn ghost" id="out">Salir</button>`
+? `<details class="ob-user"><summary aria-label="Menú de cuenta"><span class="ob-av">${profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : ini}</span></summary><div class="ob-menu"><div class="who2"><strong>${esc(profile?.username || user.email)}</strong><small>${RL[pr]}${profile?.donor_tier ? ' · 援 Donador' : ''}</small></div><a href="/perfil">Mi perfil</a><a href="/biblioteca">Mi biblioteca</a>${pr === 'bibliotecario' ? '<a href="/bibliotecario">Mostrador del Bibliotecario</a>' : ''}${pr !== 'lector' ? '<a href="/estudio">Estudio</a>' : ''}<button id="out">Salir</button></div></details>`
 : `<button class="btn" id="in">Entrar</button>`;
+const dd = $('#session .ob-user'); if (dd) dd.querySelector('.ob-menu').addEventListener('click', e => { if (e.target.closest('a')) dd.open = false; });
 $('#out')?.addEventListener('click', async () => { await sb.auth.signOut(); location.href = '/'; });
 $('#in')?.addEventListener('click', () => go('/entrar'));
 }
@@ -32,6 +34,7 @@ const routes = {
 export function go(path){ history.pushState({}, '', path); render(); }
 document.addEventListener('click', e => { const a = e.target.closest('a[href^="/"]'); if (a && !a.target) { e.preventDefault(); go(a.getAttribute('href')); } });
 addEventListener('popstate', render);
+document.addEventListener('click', e => { const d = document.querySelector('.ob-user[open]'); if (d && !d.contains(e.target)) d.open = false; });
 async function render(){
 const p = location.pathname; let m;
 scrollTo(0, 0);
