@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
 const { createReader } = await import('/reader.js?v=8');
-const { createUI } = await import('/ui.js?v=11');
+const { createUI } = await import('/ui.js?v=13');
 export const sb = createClient(url, key, { auth: { persistSession: true } });
 const $ = s => document.querySelector(s), app = $('#app');
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -28,7 +28,7 @@ $('#out')?.addEventListener('click', async () => { await sb.auth.signOut(); loca
 $('#in')?.addEventListener('click', () => go('/entrar'));
 }
 const routes = {
-'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': calendar, '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil,
+'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': calendar, '/lanzamientos': () => ui().releases(), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil,
 '/bibliotecario': async () => (await ad()).render(), '/admin': async () => { history.replaceState({}, '', '/bibliotecario'); (await ad()).render(); },
 };
 export function go(path){ history.pushState({}, '', path); render(); }
@@ -56,7 +56,8 @@ if ((m = p.match(/^\/estudio\/glosario(?:\/([\w-]+))?$/))) return (await st()).g
 }
 async function calendar(){
 const { data } = await sb.from('schedule').select('label,at,series(title,slug)').gte('at', new Date().toISOString()).order('at').limit(30);
-app.innerHTML = '<h1>Calendario</h1>' + ((data||[]).map(e => `<p><span class="mono">${new Date(e.at).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})}</span> · <a href="/serie/${e.series.slug}">${esc(e.series.title)}</a> · ${esc(e.label)}</p>`).join('') || '<p class="mono">Sin publicaciones agendadas.</p>');
+const until = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
+app.innerHTML = '<div class="ui-cath"><div><h1>Calendario</h1><p>Lo que viene: capítulos y volúmenes programados.</p></div><span class="kj" aria-hidden="true">予定</span></div><p class="mono"><a href="/lanzamientos">← Ya publicados</a></p>' + ((data||[]).map(e => `<p><span class="mono">${new Date(e.at).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})} · <b style="color:var(--gold)">${until(e.at)}</b></span> · <a href="/serie/${e.series.slug}">${esc(e.series.title)}</a> · ${esc(e.label)}</p>`).join('') || '<p class="mono">Sin publicaciones agendadas.</p>');
 }
 async function library(){
 if (!user) return go('/entrar');
@@ -147,10 +148,10 @@ bindAvatar(perfil);
 }
 function notFound(){ app.innerHTML = '<h1>Esta página no está en el estante</h1><p><a href="/">Volver al inicio</a></p>'; }
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
-sb.auth.onAuthStateChange(() => loadSession());
+sb.auth.onAuthStateChange(() => loadSession().then(() => ui().refreshBadge()));
 loadSession().then(() => {
 const qs = new URLSearchParams(location.search), hash = new URLSearchParams(location.hash.slice(1));
 if (hash.get('error_description')) { history.replaceState({}, '', '/entrar'); render(); return toast(hash.get('error_description').includes('expired') ? 'El enlace expiró. Inicia sesión para recibir otro.' : hash.get('error_description')); }
 if (qs.has('bienvenida') && user) { history.replaceState({}, '', '/'); return welcome(); }
-render();
+render(); ui().refreshBadge();
 });

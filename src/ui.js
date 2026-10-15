@@ -85,6 +85,8 @@ const CSS = `
 .ui-rl .it b{font-size:13px}.ui-rl .it small{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89f8a}.ui-rl .it.read b{color:#8c846f}.ui-rl .it.read b::after{content:' ✓';color:#a9d18e}
 .ui-rl .it.new::before{content:'';position:absolute;top:-4px;right:-4px;width:9px;height:9px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 2px #16140f}.ui-rl .it.vol{border-color:var(--c)}
 .ui-more{margin:28px auto 0;display:block}
+.ui-rl .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.ui-rl .acts .btn{padding:8px 12px;font-size:13px;min-height:40px}.ui-rl .pend{color:var(--gold);font-weight:600}.ui-rl a.cv{cursor:zoom-in}
+.ob-nav a .bdg{display:inline-block;margin-left:6px;padding:1px 6px;background:var(--gold);color:#0d0c0a;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;line-height:1.4;vertical-align:1px}
 @media(max-width:640px){.ui-rl{grid-template-columns:60px minmax(0,1fr);gap:14px;padding:14px}.ui-rl .t{font-size:19px}}
 @media(prefers-reduced-motion:reduce){.ui-rl{animation:none}}
 @media(prefers-reduced-motion:reduce){.ui-book,.ui-card .ui-book{transition:none}}
@@ -122,6 +124,48 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   }
   const KN = n => { const d = '〇一二三四五六七八九'; if (n < 10) return d[n]; if (n < 20) return '十' + (n % 10 ? d[n % 10] : ''); if (n < 100) return d[Math.floor(n / 10)] + '十' + (n % 10 ? d[n % 10] : ''); return String(n); };
   const SPINES = ['#f2c230', '#efe6d2', '#d9822b', '#e0a526', '#b5a27a'];
+  async function pendingMap(prog){
+    const u = getUser(); if (!u) return {};
+    prog ||= await progressMap();
+    const [{ data: f }, { data: rd }] = await Promise.all([sb.from('follows').select('series_id').eq('user_id', u.id), sb.from('read_chapters').select('chapter_id').eq('user_id', u.id)]);
+    const ids = (f || []).map(x => x.series_id).filter(id => prog[id]); if (!ids.length) return {};
+    const { data: chs } = await sb.from('chapters').select('id,num,series_id').in('series_id', ids).eq('status', 'published').is('deleted_at', null).limit(2000);
+    const read = new Set((rd || []).map(r => r.chapter_id)), out = {};
+    (chs || []).forEach(c => { if (c.num > prog[c.series_id].chapter_num && !read.has(c.id)) out[c.series_id] = (out[c.series_id] || 0) + 1; });
+    return out;
+  }
+  async function refreshBadge(){
+    const a = document.querySelector('.ob-nav a[href="/lanzamientos"]'); if (!a) return;
+    const n = getUser() ? Object.values(await pendingMap()).reduce((x, y) => x + y, 0) : 0;
+    a.querySelector('.bdg')?.remove();
+    if (n) a.insertAdjacentHTML('beforeend', `<span class="bdg" title="${n} capítulos nuevos en series que sigues">${n > 99 ? '99+' : n}</span>`);
+  }
+  // vista rápida compartida
+  let gqFrom = null;
+  const gqClose = () => { const q = document.querySelector('.ui-qv.g'); if (!q || q.hidden) return; q.hidden = true; document.body.style.overflow = ''; gqFrom?.focus({ preventScroll: true }); };
+  addEventListener('keydown', e => { if (e.key === 'Escape') gqClose(); });
+  async function quickView(s, o){
+    let q = document.querySelector('.ui-qv.g');
+    if (!q) { q = document.createElement('div'); q.className = 'ui-qv g'; q.hidden = true; document.body.appendChild(q); q.addEventListener('click', e => { if (e.target === q) gqClose(); }); }
+    gqFrom = o.from; const p = o.p, lc = o.lc;
+    const paint = (first, following) => {
+      const n = p ? (p.pct > 0.95 ? p.chapter_num + 1 : p.chapter_num) : first;
+      q.innerHTML = `<div class="ui-qvc" role="dialog" aria-modal="true" aria-labelledby="gq-t" style="--c:${esc(color(s))}">
+        <button class="ui-qx" aria-label="Cerrar">×</button>${book(s)}
+        <div><span class="ui-lbl">${esc(s.work_type || 'Novela ligera')}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}</span>
+          <h2 id="gq-t">${esc(s.title)}</h2>${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
+          <div class="ui-chips">${pill(s.translation_status)}${(s.genres || []).slice(0, 6).map(g => `<span class="ui-chip" style="cursor:default">${esc(g)}</span>`).join('')}${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</div>
+          ${s.synopsis ? `<p class="syn">${esc(s.synopsis)}</p>` : '<p class="mono" style="margin:14px 0">Sin sinopsis todavía.</p>'}
+          <p class="mono" style="margin:0 0 16px">${s.chapters?.[0]?.count ?? 0} capítulos${lc ? ' · último: cap. ' + lc.num + ' · ' + ago(lc.publish_at) : ''}</p>
+          <div class="acts">${n ? `<a class="btn" href="/leer/${s.slug}/${n}">${p ? 'Continuar · cap. ' + n : 'Empezar a leer'}</a>` : ''}<button class="btn ghost" data-gqf>${following ? '✓ Siguiendo' : 'Seguir serie'}</button><a class="btn ghost" href="/serie/${s.slug}">Ver ficha completa</a></div>
+        </div></div>`;
+      q.querySelector('.ui-qx').onclick = gqClose;
+      q.querySelectorAll('.ui-qvc a').forEach(a => a.addEventListener('click', () => { q.hidden = true; document.body.style.overflow = ''; }));
+      q.querySelector('[data-gqf]').onclick = async e => { const b = e.currentTarget; b.disabled = true; const now = await o.onFollow(); b.disabled = false; if (now !== undefined) paint(first, now); };
+    };
+    paint(null, o.following()); q.hidden = false; document.body.style.overflow = 'hidden'; q.querySelector('.ui-qx').focus({ preventScroll: true });
+    if (!p) { const { data: f } = await sb.from('chapters').select('num').eq('series_id', s.id).eq('status', 'published').is('deleted_at', null).order('num').limit(1); if (!q.hidden) { paint(f?.[0]?.num || null, o.following()); q.querySelector('.ui-qx').focus({ preventScroll: true }); } }
+  }
   async function progressMap(){ const u = getUser(); if (!u) return {}; const { data } = await sb.from('reading_progress').select('series_id,chapter_num,pct,updated_at').eq('user_id', u.id); return Object.fromEntries((data || []).map(r => [r.series_id, r])); }
 
   // ---------- Inicio ----------
@@ -303,11 +347,13 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     app.innerHTML = '<p class="mono">Cargando lanzamientos…</p>';
     const u = getUser(), qs = new URLSearchParams(location.search);
     const R = { type: qs.get('tipo') || '', mine: qs.get('sigo') === '1', shown: 20 };
-    const [{ data: chs }, { data: ser }, readR, folR] = await Promise.all([
+    const prog = await progressMap();
+    const [{ data: chs }, { data: ser }, readR, folR, pend] = await Promise.all([
       sb.from('chapters').select('id,num,vol,volume_id,title,publish_at,series_id,volumes(num)').eq('status', 'published').is('deleted_at', null).order('publish_at', { ascending: false }).order('num', { ascending: false }).limit(400),
       sb.from('series').select(SERIES),
       u ? sb.from('read_chapters').select('chapter_id').eq('user_id', u.id) : { data: [] },
-      u ? sb.from('follows').select('series_id').eq('user_id', u.id) : { data: [] }]);
+      u ? sb.from('follows').select('series_id').eq('user_id', u.id) : { data: [] },
+      pendingMap(prog)]);
     const byId = Object.fromEntries((ser || []).map(s => [s.id, s])), read = new Set((readR.data || []).map(r => r.chapter_id)), fol = new Set((folR.data || []).map(r => r.series_id));
     const seenKey = 'obi-rel-seen', seen = +localStorage.getItem(seenKey) || 0;
     const groups = []; const gi = {};
@@ -322,6 +368,18 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       <div class="ui-rbar"><div class="ui-chips"><button class="ui-chip" data-rt="">Todos</button>${types.map(t => `<button class="ui-chip" data-rt="${esc(t)}">${esc(t)}</button>`).join('')}</div>${u ? '<label class="ui-tog"><input type="checkbox" id="rel-mine"> Solo las que sigo</label>' : ''}<span class="mono" style="margin-left:auto"><a href="/calendario">Próximos lanzamientos →</a></span></div>
       <div id="rel"></div>`;
     const item = (s, c) => `<a class="it${read.has(c.id) ? ' read' : ''}${new Date(c.publish_at) > seen && seen && !read.has(c.id) ? ' new' : ''}" href="/leer/${s.slug}/${c.num}" title="${esc(c.title)}"><b>Cap. ${c.num}</b><small>${ago(c.publish_at)}</small></a>`;
+    const nextOf = s => { const p = prog[s.id]; if (!p) return null; const n = p.pct > 0.95 ? p.chapter_num + 1 : p.chapter_num; return gi[s.id].list.some(c => c.num >= n) ? n : null; };
+    const acts = g => { const s = g.s, n = nextOf(s), unread = g.list.filter(c => !read.has(c.id)).length;
+      return `<div class="acts">${n ? `<a class="btn" href="/leer/${s.slug}/${n}">Continuar · cap. ${n}</a>` : ''}<button class="btn ghost" data-fol="${s.id}">${fol.has(s.id) ? '✓ Siguiendo' : 'Seguir'}</button>${u && unread ? `<button class="btn ghost" data-rd="${s.id}">Marcar ${unread === 1 ? 'como leído' : unread + ' como leídos'}</button>` : ''}</div>`; };
+    const setPend = async () => { const np = await pendingMap(prog); Object.keys(pend).forEach(k => delete pend[k]); Object.assign(pend, np); };
+    const toggleFollow = async s => {
+      if (!getUser()) { go('/entrar'); return; }
+      const on = fol.has(s.id);
+      const r = on ? await sb.from('follows').delete().eq('user_id', u.id).eq('series_id', s.id) : await sb.from('follows').upsert({ series_id: s.id, user_id: u.id });
+      if (r.error) { toast(r.error.message); return; }
+      on ? fol.delete(s.id) : fol.add(s.id); toast(on ? 'Ya no sigues esta serie' : 'Siguiendo · te avisaremos de cada volumen');
+      await setPend(); draw(); refreshBadge(); return !on;
+    };
     const draw = () => {
       const list = groups.filter(g => (!R.type || (g.s.work_type || 'Novela ligera') === R.type) && (!R.mine || fol.has(g.s.id)));
       const vis = list.slice(0, R.shown); let html = '', last = '';
@@ -330,20 +388,29 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         if (b !== last) { const n = list.filter(x => bucket(x.list[0].publish_at) === b).length; html += `<h2 class="ui-rday">${b}<span>· ${n} ${n === 1 ? 'serie' : 'series'}</span></h2>`; last = b; }
         const s = g.s, top = g.list[0], sameVol = g.list.filter(c => sameV(c, top) && new Date(top.publish_at) - new Date(c.publish_at) < DAY).length;
         html += `<article class="ui-rl" style="--c:${esc(color(s))};--d:${Math.min(i, 8) * 0.04}s">
-          <a class="cv" href="/serie/${s.slug}" aria-label="${esc(s.title)}" style="${s.cover_path ? `background-image:url('${esc(media(s.cover_path))}')` : ''}"></a>
-          <div class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a><span class="mt">${esc(s.work_type || 'Novela ligera')}${s.teams?.name ? ` · <b>${esc(s.teams.name)}</b>` : ''}${fol.has(s.id) ? ' · Siguiendo' : ''}</span>
-            <div class="its">${g.list.slice(0, 3).map(c => item(s, c)).join('')}${sameVol >= 3 ? `<a class="it vol" href="/serie/${s.slug}"><b>Vol. ${vnum(top)} completo</b><small>${sameVol} capítulos</small></a>` : ''}</div></div></article>`;
+          <a class="cv" href="/serie/${s.slug}" data-id="${s.id}" aria-label="Vista rápida de ${esc(s.title)}" style="${s.cover_path ? `background-image:url('${esc(media(s.cover_path))}')` : ''}"></a>
+          <div class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a><span class="mt">${esc(s.work_type || 'Novela ligera')}${s.teams?.name ? ` · <b>${esc(s.teams.name)}</b>` : ''}${fol.has(s.id) ? ' · Siguiendo' : ''}${pend[s.id] ? ` · <span class="pend">te ${pend[s.id] === 1 ? 'falta 1 capítulo' : 'faltan ' + pend[s.id] + ' capítulos'}</span>` : ''}</span>
+            <div class="its">${g.list.slice(0, 3).map(c => item(s, c)).join('')}${sameVol >= 3 ? `<a class="it vol" href="/serie/${s.slug}"><b>Vol. ${vnum(top)} completo</b><small>${sameVol} capítulos</small></a>` : ''}</div>${acts(g)}</div></article>`;
       });
       $('#rel').innerHTML = (html ? `<div class="ui-rlist">${html}</div>` : `<p class="mono">${R.mine ? 'Las series que sigues aún no tienen capítulos publicados.' : 'No hay lanzamientos de este tipo todavía.'}</p>`) + (list.length > R.shown ? `<button class="btn ghost ui-more" id="rel-more">Ver más · ${list.length - R.shown} series</button>` : '');
       $('#rel').querySelectorAll('.ui-rlist > .ui-rday').forEach(x => x.style.margin = ''); 
       $('#rel-more')?.addEventListener('click', () => { R.shown += 20; draw(); });
+      $('#rel').querySelectorAll('[data-fol]').forEach(b => b.onclick = async () => { b.disabled = true; await toggleFollow(byId[b.dataset.fol]); });
+      $('#rel').querySelectorAll('[data-rd]').forEach(b => b.onclick = async () => {
+        const g = gi[b.dataset.rd], ids = g.list.filter(c => !read.has(c.id)).map(c => c.id); b.disabled = true;
+        const { error } = await sb.from('read_chapters').upsert(ids.map(chapter_id => ({ user_id: u.id, chapter_id })), { onConflict: 'user_id,chapter_id', ignoreDuplicates: true });
+        if (error) { b.disabled = false; return toast(error.message); }
+        ids.forEach(id => read.add(id)); await setPend();
+        toast(ids.length === 1 ? 'Capítulo marcado como leído' : ids.length + ' capítulos marcados como leídos'); draw(); refreshBadge();
+      });
+      $('#rel').querySelectorAll('a.cv').forEach(a => a.onclick = e => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); e.stopPropagation(); const s = byId[a.dataset.id]; quickView(s, { from: a, p: prog[s.id], lc: gi[s.id].list[0], following: () => fol.has(s.id), onFollow: () => toggleFollow(s) }); });
       document.querySelectorAll('[data-rt]').forEach(b => b.classList.toggle('on', b.dataset.rt === R.type));
       const p = new URLSearchParams(); if (R.type) p.set('tipo', R.type); if (R.mine) p.set('sigo', '1'); history.replaceState({}, '', '/lanzamientos' + (p.toString() ? '?' + p : ''));
     };
     document.querySelectorAll('[data-rt]').forEach(b => b.onclick = () => { R.type = b.dataset.rt; R.shown = 20; draw(); });
     const mine = $('#rel-mine'); if (mine) { mine.checked = R.mine; mine.onchange = () => { R.mine = mine.checked; R.shown = 20; draw(); }; }
     draw();
-    localStorage.setItem(seenKey, String(Date.now()));
+    localStorage.setItem(seenKey, String(Date.now())); refreshBadge();
   }
 
   // ---------- Ficha de serie ----------
@@ -389,5 +456,5 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       toast(following ? 'Ya no sigues esta serie' : 'Siguiendo · te avisaremos de cada volumen'); series(slug);
     };
   }
-  return { home, catalog, series, releases };
+  return { home, catalog, series, releases, refreshBadge };
 }
