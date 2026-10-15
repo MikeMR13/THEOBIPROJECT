@@ -49,6 +49,7 @@ const CSS = `
 .ui-card{position:relative}.ui-st{position:absolute;top:10px;left:10px;z-index:2;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;padding:4px 8px;background:#0d0c0a;color:var(--paper);border:1px solid #3d3628;box-shadow:0 4px 10px rgba(0,0,0,.4)}.ui-st.new{background:var(--gold);color:#0d0c0a;border-color:var(--gold)}.ui-st.reading{border-color:#a9d18e;color:#a9d18e}
 .ui-frow{display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center}.ui-frow .ui-lbl{min-width:84px}.ui-fbar{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}.ui-tog{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:600;cursor:pointer}
 .ui-card .last{font-size:12px;color:#cfc6b0}
+.ui-obi{overflow-wrap:anywhere}.ui-obi.slim{bottom:8%;padding:5px 10px}.ui-obi.slim small{font-size:10px;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ui-tog{white-space:nowrap}
 .ui-fdet>summary{list-style:none;cursor:pointer;display:none;font-weight:700;font-size:14px;padding:10px 0;min-height:44px;align-items:center;gap:8px}.ui-fdet>summary::-webkit-details-marker{display:none}.ui-fdet>summary b{background:var(--gold);color:#0d0c0a;font-size:12px;padding:1px 7px}.ui-fbody{display:grid;gap:12px}
 @media(max-width:720px){.ui-fdet>summary{display:flex}.ui-fdet[open]>summary{border-bottom:1px solid var(--line);margin-bottom:10px}.ui-filters input{max-width:none;width:100%}}
 .ui-empty{display:grid;gap:12px;padding:28px;border:1px dashed #3d3628;grid-column:1/-1}.ui-empty p{margin:0}
@@ -76,7 +77,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   const media = p => p ? (/^https?:/.test(p) ? p : `${url}/storage/v1/object/public/obi-media/${encodeURI(p)}`) : '';
   const color = s => s?.theme?.color || s?.teams?.color || '#f2c230';
   const ago = d => { if (!d) return ''; const s = (Date.now() - new Date(d)) / 1000; if (s < 3600) return 'hace ' + Math.max(1, Math.round(s / 60)) + ' min'; if (s < 86400) return 'hace ' + Math.round(s / 3600) + ' h'; if (s < 2592000) return 'hace ' + Math.round(s / 86400) + ' d'; return new Date(d).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }); };
-  const book = (s, sub) => `<div class="ui-book" style="--c:${esc(color(s))};background-image:${s.cover_path ? `url('${esc(media(s.cover_path))}')` : 'none'}"><div class="ui-obi"><small>${esc(sub || s.teams?.name || 'El Obi del Lector')}</small>${esc(s.short || s.title)}</div></div>`;
+  const book = (s, sub, slim) => `<div class="ui-book" style="--c:${esc(color(s))};background-image:${s.cover_path ? `url('${esc(media(s.cover_path))}')` : 'none'}"><div class="ui-obi${slim ? ' slim' : ''}"><small>${esc(sub || s.teams?.name || 'El Obi del Lector')}</small>${slim ? '' : esc(s.short || s.title)}</div></div>`;
   const pill = st => { const [l, c] = TL[st] || TL.active; return `<span class="ui-pill" style="color:${c}">${l}</span>`; };
   const SERIES = 'id,slug,title,short,original,author,illustrator,publisher,synopsis,genres,tags,theme,cover_path,adult,work_type,demographic,translation_status,original_status,sequel_status,views,teams(name,slug,color),chapters(count),volumes(count)';
   function chrome(){
@@ -134,7 +135,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     el.querySelectorAll('[data-j]').forEach(b => b.onclick = () => heroSlide(feat, +b.dataset.j, prog, lastCh));
     if (feat.length > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches) heroT = setTimeout(() => { if (document.body.contains(el)) heroSlide(feat, el.matches(':hover') ? i : (i + 1) % feat.length, prog, lastCh); }, 8000);
   }
-  const card = (s, st, lc) => `<a class="ui-card" href="/serie/${s.slug}" data-id="${s.id}">${st ? `<span class="ui-st ${st[1]}">${esc(st[0])}</span>` : ''}${book(s)}<h3>${esc(s.title)}</h3><span class="meta">${pill(s.translation_status)}<span>${s.chapters?.[0]?.count ?? 0} cap.</span>${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</span>${lc ? `<span class="last">Último: cap. ${lc.num} · ${ago(lc.publish_at)}</span>` : ''}</a>`;
+  const card = (s, st, lc) => `<a class="ui-card" href="/serie/${s.slug}" data-id="${s.id}">${st ? `<span class="ui-st ${st[1]}">${esc(st[0])}</span>` : ''}${book(s, null, true)}<h3>${esc(s.title)}</h3><span class="meta">${pill(s.translation_status)}<span>${s.chapters?.[0]?.count ?? 0} cap.</span>${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</span>${lc ? `<span class="last">Último: cap. ${lc.num} · ${ago(lc.publish_at)}</span>` : ''}</a>`;
 
   // ---------- Catálogo ----------
   
