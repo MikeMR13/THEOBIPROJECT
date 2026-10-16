@@ -1,3 +1,4 @@
+import { blocksToEditor, editorToBlocks, pasteToEditor, renderBlock, warningsHTML, teaserHTML, figureHTML, makesBlock, FONTS, CW } from './blocks.js';
 // Estudio del traductor: obras, volúmenes, publicación, editor con guardado atómico, importador EPUB/DOCX/PDF, multimedia, equipo y colaboraciones.
 const LIMITS = { file: 80 * 1024 * 1024, entries: 15000, unzipped: 300 * 1024 * 1024, image: 8 * 1024 * 1024 };
 const ACTIONS = [['view','Ver'],['edit','Editar'],['create','Crear'],['import','Importar'],['publish','Publicar'],['schedule','Programar'],['delete','Borrar'],['review','Revisar']];
@@ -42,20 +43,29 @@ const STCSS = `
 export function createStudio(ctx){
   const { sb, app, $, esc, toast, go, getUser, getMe, url } = ctx;
   const PUB = `${url}/storage/v1/object/public/obi-media/`;
-  const media = p => p ? (/^https?:/.test(p) ? p : PUB + encodeURI(p)) : '';
+  const media = p => p ? (/^(https?|data|blob):/.test(p) ? p : PUB + encodeURI(p)) : '';
   const pathOf = u => u && u.startsWith(PUB) ? decodeURI(u.slice(PUB.length)) : null;
   const T = { teams: [], team: null, perms: {} };
   const can = a => !!T.perms[a];
+  // zona horaria del equipo: las fechas se muestran y se capturan en la hora del equipo
+  const TZS = [['America/Mexico_City','Ciudad de México'],['America/Monterrey','Monterrey'],['America/Tijuana','Tijuana'],['America/Bogota','Bogotá'],['America/Lima','Lima'],['America/Caracas','Caracas'],['America/Santiago','Santiago de Chile'],['America/Argentina/Buenos_Aires','Buenos Aires'],['America/Montevideo','Montevideo'],['America/Guatemala','Centroamérica'],['America/Santo_Domingo','Santo Domingo'],['America/New_York','Nueva York · Miami'],['America/Los_Angeles','Los Ángeles'],['Europe/Madrid','Madrid'],['Asia/Tokyo','Tokio'],['UTC','UTC']];
+  const tz = () => T.tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const tzOff = (d, z) => { const p = new Intl.DateTimeFormat('en-US', { timeZone: z, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(d); const g = k => +p.find(x => x.type === k).value; return Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'), g('second')) - Math.floor(d.getTime() / 1000) * 1000; };
+  const fromLocal = v => { if (!v) return null; const [D, H] = v.split('T'), [y, m, d] = D.split('-').map(Number), [h, mi] = (H || '00:00').split(':').map(Number), g = Date.UTC(y, m - 1, d, h, mi); let ts = g - tzOff(new Date(g), tz()); ts = g - tzOff(new Date(ts), tz()); return new Date(ts).toISOString(); };
+  const toLocal = iso => { const d = new Date(iso); return new Date(d.getTime() + tzOff(d, tz())).toISOString().slice(0, 16); };
+  const fmtTz = (d, o) => new Date(d).toLocaleString('es-MX', { ...(o || { dateStyle: 'medium', timeStyle: 'short' }), timeZone: tz() });
+  const tzName = () => (TZS.find(x => x[0] === tz()) || [, tz().split('/').pop().replace(/_/g, ' ')])[1];
+  const tzHint = () => `<span class="mono tz-h" title="Zona horaria del equipo. Se cambia en Página del equipo.">hora de ${esc(tzName())}</span>`;
   const busy = async (btn, fn) => { if (btn?.disabled) return; if (btn) { btn.disabled = true; btn.dataset.l = btn.textContent; btn.textContent = 'Un momento…'; } try { return await fn(); } catch (e) { toast(e.hint || e.message || 'Error'); } finally { if (btn) { btn.disabled = false; btn.textContent = btn.dataset.l; } } };
   const ROLE_L = { owner: 'Propietario', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
-  const NAV = [['/estudio','総','Resumen'],['/estudio/obras','作','Obras'],['/estudio/glosario','語','Glosario'],['/estudio/importar','入','Importar'],['/estudio/multimedia','画','Multimedia'],['/estudio/equipo','班','Equipo']];
-  const CRUMB = { '/estudio': 'RESUMEN', '/estudio/obras': 'OBRAS', '/estudio/glosario': 'GLOSARIO', '/estudio/importar': 'IMPORTAR', '/estudio/multimedia': 'MULTIMEDIA', '/estudio/equipo': 'EQUIPO', '/estudio/obra': 'OBRAS · FICHA' };
+  const NAV = [['/estudio','総','Resumen'],['/estudio/obras','作','Obras'],['/estudio/glosario','語','Glosario'],['/estudio/importar','入','Importar'],['/estudio/multimedia','画','Multimedia'],['/estudio/flujo','流','Flujo de trabajo'],['/estudio/comunidad','評','Comunidad'],['/estudio/estadisticas','統','Estadísticas'],['/estudio/descargas','落','Descargas'],['/estudio/perfil','顔','Página del equipo'],['/estudio/equipo','班','Equipo'],['/estudio/bitacora','録','Bitácora','log']];
+  const CRUMB = { '/estudio': 'RESUMEN', '/estudio/obras': 'OBRAS', '/estudio/glosario': 'GLOSARIO', '/estudio/importar': 'IMPORTAR', '/estudio/multimedia': 'MULTIMEDIA', '/estudio/equipo': 'EQUIPO', '/estudio/flujo': 'FLUJO DE TRABAJO', '/estudio/perfil': 'PÁGINA DEL EQUIPO', '/estudio/bitacora': 'BITÁCORA', '/estudio/comunidad': 'COMUNIDAD', '/estudio/estadisticas': 'ESTADÍSTICAS', '/estudio/descargas': 'DESCARGAS', '/estudio/obra': 'OBRAS · FICHA' };
   const css = () => { if (document.getElementById('st2-css')) return; const st = document.createElement('style'); st.id = 'st2-css'; st.textContent = STCSS; document.head.appendChild(st); };
   const shell = (title, body, tab) => { css(); const t = tab === '/estudio/obra' ? '/estudio/obras' : tab; const me = getMe?.();
     return `<div class="s2"><aside class="s2-side">
       <a class="s2-brand" href="/estudio"><span class="s2-seal">帯</span><span><b>Estudio Editorial</b><small>EL OBI DEL LECTOR</small></span></a>
-      <div class="s2-team"><small>EQUIPO</small>${teamPicker()}<span>Tú: ${ROLE_L[T.team?.role] || 'Miembro'}${T.works != null ? ' · ' + T.works + (T.works === 1 ? ' obra' : ' obras') : ''}</span>${me?.platform_role === 'bibliotecario' ? '<span class="s2-bib">También eres <b>Bibliotecario</b>. Aquí actúas como miembro de tu equipo. <a href="/bibliotecario">Ir al Mostrador →</a></span>' : ''}</div>
-      <nav class="s2-nav">${NAV.map(([h, k, l]) => `<a href="${h}" class="${t === h ? 'on' : ''}" ${t === h ? 'aria-current="page"' : ''}><span class="k">${k}</span><span>${l}</span>${h === '/estudio/obras' && T.works ? `<em>${T.works}</em>` : ''}</a>`).join('')}</nav>
+      <div class="s2-team"><small>EQUIPO</small>${teamPicker()}<span>Tú: ${T.team?.role === 'owner' ? 'Propietario' : esc(T.roleName || ROLE_L[T.team?.role] || 'Miembro')}${T.works != null ? ' · ' + T.works + (T.works === 1 ? ' obra' : ' obras') : ''}</span>${me?.platform_role === 'bibliotecario' ? '<span class="s2-bib">También eres <b>Bibliotecario</b>. Aquí actúas como miembro de tu equipo. <a href="/bibliotecario">Ir al Mostrador →</a></span>' : ''}</div>
+      <nav class="s2-nav">${NAV.filter(n => !n[3] || can(n[3])).map(([h, k, l]) => `<a href="${h}" class="${t === h ? 'on' : ''}" ${t === h ? 'aria-current="page"' : ''}><span class="k">${k}</span><span>${l}</span>${h === '/estudio/obras' && T.works ? `<em>${T.works}</em>` : ''}</a>`).join('')}</nav>
       <div class="s2-quick"><small>ACCIONES RÁPIDAS</small>${can('create') ? '<button class="s2-q main" data-quick="new">＋ Nuevo capítulo</button>' : ''}${can('import') ? '<a class="s2-q" href="/estudio/importar">⇪ Importar EPUB / DOCX / PDF</a>' : ''}<a class="s2-q" href="/estudio/obras">◷ Programar lanzamiento</a></div>
       <a class="s2-back" href="/">← Volver al sitio</a></aside>
       <section class="st-main s2-main"><header class="s2-head"><small>ESTUDIO · ${esc((T.team?.name || '').toUpperCase())} · ${CRUMB[tab] || esc(title.toUpperCase())}</small><h1>${title}</h1></header>${body}</section></div>`; };
@@ -88,7 +98,7 @@ export function createStudio(ctx){
   }
   async function pickTeam(id){
     T.team = T.teams.find(t => t.id === id) || T.teams[0]; localStorage.setItem('obi-team', T.team.id);
-    const { data } = await sb.rpc('my_team_permissions', { t: T.team.id }); T.perms = data || {};
+    const [{ data }, { data: rr }] = await Promise.all([sb.rpc('my_team_permissions', { t: T.team.id }), sb.from('team_members').select('team_roles(name)').eq('team_id', T.team.id).eq('user_id', getUser()?.id).maybeSingle()]); T.perms = data || {}; T.roleName = rr?.team_roles?.name || null; try { const { data: tt } = await sb.from('teams').select('settings').eq('id', T.team.id).maybeSingle(); T.tz = tt?.settings?.timezone || null; } catch { T.tz = null; }
   }
 
   // ---------- obras ----------
@@ -131,7 +141,7 @@ export function createStudio(ctx){
       </div>
       <div class="s2-cols">
         <section class="s2-box"><div class="s2-bh"><h2>Próximos lanzamientos</h2><a href="/estudio/obras">Programar →</a></div>
-          ${up.slice(0, 5).map(u => { const d = new Date(u.at); return `<div class="s2-up"><span class="d" style="--c:${wcolor(u.s)}"><b>${d.getDate()}</b><small>${MON[d.getMonth()]}</small></span><span class="w"><b>${esc(u.what)}</b><small>${esc(u.s?.title || '')}</small></span><span class="t">${d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}<small>${until(u.at)}</small></span></div>`; }).join('') || '<p class="mono s2-none">No hay nada programado. Programa un capítulo desde la ficha de la obra.</p>'}</section>
+          ${up.slice(0, 5).map(u => { const d = new Date(u.at); return `<div class="s2-up"><span class="d" style="--c:${wcolor(u.s)}"><b>${d.getDate()}</b><small>${MON[d.getMonth()]}</small></span><span class="w"><b>${esc(u.what)}</b><small>${esc(u.s?.title || '')}</small></span><span class="t">${fmtTz(d, { hour: '2-digit', minute: '2-digit' })}<small>${until(u.at)}</small></span></div>`; }).join('') || '<p class="mono s2-none">No hay nada programado. Programa un capítulo desde la ficha de la obra.</p>'}</section>
         <section class="s2-box"><div class="s2-bh"><h2>Borradores pendientes</h2><span class="mono">${drafts.length}</span></div>
           ${drafts.slice(0, 5).map(c => `<a class="s2-dr" href="/estudio/editar/${c.id}"><b>Cap. ${c.num} — ${esc(c.title)}</b><span class="st" style="color:${c.review_status === 'pending' ? '#8cc3f2' : c.review_status === 'approved' ? '#a9d18e' : '#f2c230'}">${c.review_status === 'pending' ? 'En revisión' : c.review_status === 'approved' ? 'Aprobado' : 'Borrador'}</span><small>${esc(byId[c.series_id]?.title || '')} · Vol. ${c.vol ?? '—'}</small><small>${ago(c.updated_at)}</small></a>`).join('') || '<p class="mono s2-none">Sin borradores. ¡Todo publicado!</p>'}</section>
         <section class="s2-box"><div class="s2-bh"><h2>Erratas abiertas</h2><span class="mono" style="color:${reps.length ? '#f59e7a' : ''}">${reps.length}</span></div>
@@ -186,10 +196,10 @@ export function createStudio(ctx){
       <p class="mono">${(vols || []).length} volúmenes · ${(chs || []).length} capítulos · ${(sched || []).length} programaciones · <a href="/serie/${s.slug}">ver ficha pública</a></p>
       ${can('create') ? '<p><button class="btn" id="addvol">Nuevo volumen</button></p>' : ''}
       ${(vols || []).map(v => { const list = (chs || []).filter(c => c.volume_id === v.id || (!c.volume_id && c.vol === v.num)); return `
-        <details class="st-vol" ${list.length < 15 ? 'open' : ''}><summary><strong>Volumen ${v.num}${v.title && v.title !== String(v.num) ? ' · ' + esc(v.title) : ''}</strong> <span class="pill ${v.status}">${ST[v.status]}${v.status === 'scheduled' && v.published_at ? ' · ' + new Date(v.published_at).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' }) : ''}</span> <span class="mono">${list.length} cap.${v.is_final ? ' · final' : ''}</span></summary>
+        <details class="st-vol" ${list.length < 15 ? 'open' : ''}><summary><strong>Volumen ${v.num}${v.title && v.title !== String(v.num) ? ' · ' + esc(v.title) : ''}</strong> <span class="pill ${v.status}">${ST[v.status]}${v.status === 'scheduled' && v.published_at ? ' · ' + fmtTz(v.published_at, { dateStyle: 'short', timeStyle: 'short' }) : ''}</span> <span class="mono">${list.length} cap.${v.is_final ? ' · final' : ''}</span></summary>
           <div class="st-row">
             ${can('publish') && v.status !== 'published' ? `<button class="btn" data-pub="${v.id}">Publicar volumen</button>` : ''}
-            ${can('schedule') && v.status !== 'published' ? `<input type="datetime-local" data-at="${v.id}"><button class="btn ghost" data-sch="${v.id}">Programar</button>` : ''}
+            ${can('schedule') && v.status !== 'published' ? `<input type="datetime-local" data-at="${v.id}">${tzHint()}<button class="btn ghost" data-sch="${v.id}">Programar</button>` : ''}
             ${can('publish') && v.status === 'scheduled' ? `<button class="btn ghost" data-unsch="${v.id}">Cancelar programación</button>` : ''}
             ${can('publish') && v.status === 'published' ? `<button class="btn ghost" data-hide="${v.id}">Ocultar</button>` : ''}
             ${can('publish') && v.status === 'hidden' ? `<button class="btn ghost" data-show="${v.id}">Mostrar</button>` : ''}
@@ -202,13 +212,13 @@ export function createStudio(ctx){
       <h2>Colaboración</h2>
       ${(cols || []).map(c => `<p>${esc(c.invited?.name)} <span class="pill">${{ pending: 'Pendiente', accepted: 'Aceptada', rejected: 'Rechazada', revoked: 'Revocada' }[c.status] || c.status}</span> ${c.status !== 'revoked' && can('edit') ? `<button class="lnk" data-revoke="${c.id}">Revocar</button>` : ''}</p>`).join('') || '<p class="mono">Sin equipos colaboradores. Los créditos de ambos equipos aparecen en la ficha.</p>'}
       ${can('edit') ? '<p class="st-row"><input id="inv" placeholder="Alias del equipo a invitar (p. ej. kaori)"><button class="btn ghost" id="invite">Invitar</button></p>' : ''}
-      <h2>Historial de publicación</h2>${(events || []).map(e => `<p class="mono">${new Date(e.created_at).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })} · ${esc(e.summary)}</p>`).join('') || '<p class="mono">Sin eventos.</p>'}`, '/estudio/obra');
+      <h2>Historial de publicación</h2>${(events || []).map(e => `<p class="mono">${fmtTz(e.created_at, { dateStyle: 'short', timeStyle: 'short' })} · ${esc(e.summary)}</p>`).join('') || '<p class="mono">Sin eventos.</p>'}`, '/estudio/obra');
     bindPicker(home);
     const on = (sel, fn) => app.querySelectorAll(sel).forEach(b => b.onclick = () => busy(b, () => fn(b)));
     const again = () => work(slug);
     on('#addvol', async () => { const n = Math.max(0, ...(vols || []).map(v => v.num)) + 1; const { error } = await sb.from('volumes').insert({ series_id: s.id, num: n, status: 'draft' }); if (error) throw error; again(); });
     on('[data-pub]', async b => { const { error } = await sb.rpc('publish_volume', { p_volume: b.dataset.pub }); if (error) throw error; toast('Volumen publicado · se envió un solo aviso a los seguidores'); again(); });
-    on('[data-sch]', async b => { const at = app.querySelector(`[data-at="${b.dataset.sch}"]`).value; if (!at) throw new Error('Elige fecha y hora'); const d = new Date(at); if (d <= new Date()) throw new Error('La fecha debe ser futura'); const { error } = await sb.rpc('publish_volume', { p_volume: b.dataset.sch, p_at: d.toISOString() }); if (error) throw error; toast('Programado para ' + d.toLocaleString('es-MX')); again(); });
+    on('[data-sch]', async b => { const at = app.querySelector(`[data-at="${b.dataset.sch}"]`).value; if (!at) throw new Error('Elige fecha y hora'); const d = new Date(fromLocal(at)); if (d <= new Date()) throw new Error('La fecha debe ser futura'); const { error } = await sb.rpc('publish_volume', { p_volume: b.dataset.sch, p_at: d.toISOString() }); if (error) throw error; toast('Programado para ' + fmtTz(d)); again(); });
     on('[data-unsch]', async b => { await sb.from('chapters').update({ status: 'draft' }).eq('volume_id', b.dataset.unsch).eq('status', 'scheduled'); const { error } = await sb.from('volumes').update({ status: 'draft' }).eq('id', b.dataset.unsch); if (error) throw error; again(); });
     on('[data-hide]', async b => { const { error } = await sb.from('volumes').update({ status: 'hidden' }).eq('id', b.dataset.hide); if (error) throw error; again(); });
     on('[data-show]', async b => { const { error } = await sb.from('volumes').update({ status: 'published' }).eq('id', b.dataset.show); if (error) throw error; again(); });
@@ -236,69 +246,285 @@ export function createStudio(ctx){
     return free.length;
   }
 
-  // ---------- editor por bloques con guardado atómico ----------
+  // ---------- editor de página: vista previa del lector, revisión automática, historial, avance y marcadores ----------
+  const LINT = [['dbl','Dobles espacios','Espacios repetidos entre palabras.'],['quotes','Comillas mezcladas','Usas «» y también "": se cambian a «».'],['dash','Guion de diálogo','Diálogos que empiezan con - o –: se cambian a raya (—).'],['dots','Puntos suspensivos','«...» se cambia por «…».'],['space','Espacio antes de signo','Espacio sobrante antes de , . ; : ? ! »'],['open','Signos de apertura','Párrafos con ? o ! sin su ¿ o ¡. Revísalos a mano.'],['alt','Ilustraciones sin descripción','Texto alternativo para lectores de pantalla. Toca la imagen para añadirlo.'],['gloss','Términos del glosario','Escritos con mayúsculas distintas a las del glosario.']];
+  const REV_KIND = { manual: 'Guardado manual', auto: 'Autoguardado', restore: 'Restauración', publish: 'Publicación' };
+  const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const agoEd = d => { const m = Math.round((Date.now() - new Date(d)) / 60000); return m < 60 ? `hace ${Math.max(1, m)} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
+  async function names(ids){ ids = [...new Set(ids.filter(Boolean))]; if (!ids.length) return {}; const { data } = await sb.from('profiles').select('id,username').in('id', ids); return Object.fromEntries((data || []).map(p => [p.id, p.username])); }
   async function editor(id){
     if (!(await ensure())) return;
     const { data: c } = await sb.from('chapters').select('*, series(slug,title,team_id)').eq('id', id).maybeSingle();
     if (!c) return go('/estudio');
-    const KEY = 'obi-draft-' + id;
-    let blocks = (c.body || []).map(b => ({ ...b })), title = c.title, type = c.section_type || 'Capítulo', version = c.version, dirty = false;
+    const KEY = 'obi-draft-' + id, now = new Date().toISOString();
+    const [{ data: gl }, { data: coms }, { data: reps0 }, { data: nx }] = await Promise.all([
+      sb.from('glossary_terms').select('term,category').eq('series_id', c.series_id),
+      sb.from('comments').select('id,para,body,spoiler,created_at,user_id').eq('chapter_id', id).is('parent_id', null).order('created_at', { ascending: false }).limit(100),
+      sb.from('reports').select('id,kind,quote,fix,created_at').eq('chapter_id', id).eq('status', 'open').order('created_at', { ascending: false }),
+      sb.from('schedule').select('at').eq('series_id', c.series_id).gte('at', now).order('at').limit(1)]);
+    const reps = reps0 || [], who = await names((coms || []).map(x => x.user_id));
+    const terms = (gl || []).filter(g => /\p{Lu}/u.test(g.term)).sort((a, b) => b.term.length - a.term.length);
+    const nextWhen = nx?.[0]?.at ? fmtTz(nx[0].at, { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'fecha del siguiente';
+    const meta = { section_type: c.section_type || 'Capítulo', teaser: c.teaser || '', teaser_on: !!c.teaser_on, content_warnings: [...(c.content_warnings || [])] };
+    let version = c.version, dirty = false, conflict = false, edits = 0, autoT = 0, pvT = 0, saving = null, lastRange = null, viewing = null, L = { counts: {}, total: 0, gloss: [] };
+    const UI = { view: localStorage.getItem('obi-ed-view') || 'split', theme: 'oscuro', device: 'desk' };
     const local = (() => { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } })();
-    const mark = () => { dirty = true; $('#state').textContent = 'Cambios sin guardar'; localStorage.setItem(KEY, JSON.stringify({ blocks, title, type, version, at: Date.now() })); };
-    const text = b => b.html ? b.html : esc(b.text || '');
-    const draw = () => {
-      $('#blocks').innerHTML = blocks.map((b, i) => `<div class="st-blk" data-i="${i}">
-        <div class="st-blk-bar"><select data-type="${i}">${BT.map(([k, l]) => `<option value="${k}" ${(b.type || b.t) === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
-          <button class="lnk" data-up="${i}" aria-label="Subir">↑</button><button class="lnk" data-down="${i}" aria-label="Bajar">↓</button><button class="lnk" data-ins="${i}">+ debajo</button><button class="lnk danger" data-rm="${i}" aria-label="Quitar">×</button></div>
-        ${b.type === 'image' ? `<div class="st-row"><img src="${esc(media(b.url))}" alt="" style="max-height:120px"><input data-f="url" data-i="${i}" value="${esc(b.url || '')}" placeholder="URL"><input type="file" accept="image/*" data-up-img="${i}"></div><input data-f="alt" data-i="${i}" value="${esc(b.alt || '')}" placeholder="Texto alternativo"><input data-f="caption" data-i="${i}" value="${esc(b.caption || '')}" placeholder="Pie de imagen">`
-        : b.type === 'separator' ? '<div class="sep">※</div>'
-        : b.type === 'ruby' ? `<div class="st-row"><input data-f="text" data-i="${i}" value="${esc(b.text || '')}" placeholder="Texto base"><input data-f="reading" data-i="${i}" value="${esc(b.reading || '')}" placeholder="Lectura"></div>`
-        : `<div class="st-ce ${b.type}" contenteditable="true" data-ce="${i}">${text(b)}</div>`}</div>`).join('') || '<p class="mono">Capítulo vacío.</p>';
+    const hasLocal = local?.at && (local.html || local.blocks);
+    const ST2 = { draft: 'Borrador', scheduled: 'Programado', published: 'Publicado' };
+    app.innerHTML = shell('Editar capítulo', `<div class="ed">
+      <p class="mono"><a href="/estudio/obra/${c.series.slug}">‹ ${esc(c.series.title)}</a> · Vol. ${c.vol} · <span id="stpill">${ST2[c.status] || c.status}</span> · versión <span id="ver">${version}</span> · <span id="count"></span></p>
+      ${hasLocal ? `<div class="st-card" id="localcard"><span>Hay una copia local sin guardar del ${fmtTz(local.at)}${local.version !== version ? ` (hecha sobre la versión ${local.version}; la actual es ${version})` : ''}.</span><span><button class="btn" id="restore">Recuperar</button> <button class="btn ghost" id="discard">Descartar</button></span></div>` : ''}
+      <div id="ctx"></div>
+      <div class="ed-top">
+        <input id="ttl" value="${esc(c.title)}" aria-label="Título del capítulo">
+        <select id="stype" aria-label="Tipo de sección">${SEC.map(s => `<option ${s === meta.section_type ? 'selected' : ''}>${s}</option>`).join('')}</select>
+        <span class="ed-state" id="state" role="status">✓ Guardado</span>
+        <button class="btn ghost" id="b-rev" aria-expanded="false" aria-controls="p-rev">✓ Revisar</button>
+        <button class="btn ghost" id="b-hist" aria-expanded="false" aria-controls="p-hist">◷ Historial</button>
+        <button class="btn ghost" id="save" title="Ctrl/Cmd+S">Guardar</button>
+        <span class="ed-pub" id="pub"></span>
+      </div>
+      <div class="ed-box" id="p-rev" hidden></div>
+      <div class="ed-box" id="p-hist" hidden></div>
+      <details class="ed-box" id="p-set"><summary>Ajustes del capítulo · avance y marcadores de contenido <span class="mono" id="setsum"></span></summary>
+        <div class="ed-set">
+          <div style="display:grid;gap:8px;align-content:start"><label style="display:grid;gap:6px;font-size:13px;font-weight:600">Avance del próximo capítulo<textarea id="teaser" rows="4" maxlength="1000" placeholder="Unas líneas para dejar con ganas…">${esc(meta.teaser)}</textarea></label>
+            <label style="display:flex;gap:10px;align-items:center;font-size:13px;font-weight:400"><input type="checkbox" id="teaser_on" ${meta.teaser_on ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--gold)"> Mostrarlo al terminar este capítulo, con la fecha del siguiente</label></div>
+          <div style="display:grid;gap:8px;align-content:start"><span style="font-size:13px;font-weight:600">Marcadores de contenido</span>
+            <div class="ed-chips" id="cw">${CW.map(w => `<button type="button" class="ed-chip ${meta.content_warnings.includes(w) ? 'on' : ''}" aria-pressed="${meta.content_warnings.includes(w)}" data-cw="${esc(w)}">${esc(w)}</button>`).join('')}</div>
+            <span style="font-size:12px;color:#a89f8a;line-height:1.45">Aparecen como aviso plegable al inicio del capítulo. Cada lector decide en sus ajustes si los ve plegados, solo como icono o nunca.</span></div>
+        </div></details>
+      <div class="ed-bar" role="toolbar" aria-label="Formato">
+        <select id="blk" aria-label="Tipo de bloque"><option value="P">Párrafo</option><option value="H3">Título</option><option value="BLOCKQUOTE">Cita</option><option value="ASIDE">Nota del traductor</option></select>
+        <select id="ff" aria-label="Tipografía del fragmento"><option value="">Tipografía del cuerpo</option>${FONTS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}<option value="-">Quitar tipografía</option></select>
+        <span class="div"></span>
+        <button class="ed-btn" data-cmd="bold" title="Negrita (Ctrl+B)"><b>B</b></button><button class="ed-btn" data-cmd="italic" title="Cursiva (Ctrl+I)"><i>I</i></button><button class="ed-btn" data-cmd="underline" title="Subrayado (Ctrl+U)"><u>U</u></button><button class="ed-btn" data-cmd="strikeThrough" title="Tachado"><s>S</s></button>
+        <button class="ed-btn" data-act="ruby" title="Furigana sobre la selección">ルビ</button><button class="ed-btn" data-act="sep" title="Separador de escena">※</button><button class="ed-btn" data-act="img" title="Insertar ilustración">▣ Imagen</button><input type="file" id="imgf" accept="image/*" hidden>
+        <button class="ed-btn" data-cmd="undo" title="Deshacer (Ctrl+Z)">↶</button><button class="ed-btn" data-cmd="redo" title="Rehacer">↷</button>
+        <span class="end"><button class="ed-btn" data-act="find" aria-expanded="false">Buscar y reemplazar</button><button class="ed-btn" data-act="coms" aria-expanded="false">Lectores · ${(coms || []).length + reps.length}</button><span class="div"></span>
+          <button class="ed-btn" data-view="edit">Editor</button><button class="ed-btn" data-view="split">Ambos</button><button class="ed-btn" data-view="preview">Vista previa</button></span>
+      </div>
+      <div id="ask"></div>
+      <div class="ed-find" id="p-find" hidden><input type="text" id="fq" placeholder="Buscar" aria-label="Buscar"><input type="text" id="rq" placeholder="Reemplazar por" aria-label="Reemplazar por"><label class="mono" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="fcase" style="width:auto"> Mayúsculas exactas</label><button class="btn ghost" id="fnext">Siguiente</button><button class="btn" id="frep">Reemplazar todo</button><span class="mono" id="finfo"></span></div>
+      <div class="ed-box" id="p-coms" hidden></div>
+      <div id="gwarn"></div>
+      <div class="ed-split" id="split" data-view="${UI.view}">
+        <div class="ed-docw"><div class="ed-doc" id="doc" contenteditable="true" spellcheck="true" lang="es" role="textbox" aria-multiline="true" aria-label="Texto del capítulo"></div></div>
+        <div class="ed-pvw"><div class="ed-pvbar"><span class="mono">VISTA DEL LECTOR</span>${[['oscuro','Oscuro'],['sepia','Sepia'],['claro','Claro']].map(([k, l]) => `<button class="ed-btn" data-theme="${k}">${l}</button>`).join('')}<span class="div"></span><button class="ed-btn" data-device="desk">Escritorio</button><button class="ed-btn" data-device="mobile">Móvil</button></div><div class="ed-pv" id="pv"></div></div>
+      </div></div>`, '/estudio/obra');
+    bindPicker(home);
+    const doc = $('#doc'), pv = $('#pv'), root = $('.ed');
+    try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch {}
+    const load = blocks => { doc.innerHTML = blocksToEditor(blocks, media); };
+    load(c.body);
+    const title = () => $('#ttl').value.trim() || 'Sin título';
+    const setState = (cls, msg) => { const s = $('#state'); if (!s) return; s.className = 'ed-state ' + cls; s.textContent = msg; };
+    const topOf = n => { while (n && n.parentNode !== doc) n = n.parentNode; return n; };
+    const cur = () => topOf(lastRange?.startContainer) || doc.lastElementChild;
+    const textNodes = () => { const w = document.createTreeWalker(doc, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest('rt,figure,.sep') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT }); const a = []; let n; while ((n = w.nextNode())) a.push(n); return a; };
+    const views = () => { $('#split').dataset.view = UI.view; root.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === UI.view)); root.querySelectorAll('[data-theme]').forEach(b => b.classList.toggle('on', b.dataset.theme === UI.theme)); root.querySelectorAll('[data-device]').forEach(b => b.classList.toggle('on', b.dataset.device === UI.device)); pv.classList.toggle('mobile', UI.device === 'mobile'); };
+
+    // vista previa con el mismo render del lector
+    function preview(){
+      const blocks = viewing ? viewing.body : editorToBlocks(doc), tt = viewing ? viewing.title : title();
+      const label = meta.section_type === 'Capítulo' ? 'Cap. ' + c.num : meta.section_type;
+      pv.innerHTML = `<div class="rd" data-theme="${UI.theme}" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="--rs:${UI.device === 'mobile' ? 17 : 19}px"><article class="rd-ch"><header class="rd-head"><span class="mono">Volumen ${c.vol} · ${esc(label)}</span><h2>${esc(tt)}</h2></header>${warningsHTML(meta.content_warnings, 'show')}<div class="rd-body">${blocks.map((b, i) => renderBlock(b, i, { media })).join('') || '<p class="mono">Capítulo vacío.</p>'}</div>${meta.teaser_on && meta.teaser.trim() ? teaserHTML(meta.teaser, nextWhen) : ''}</article></div>`;
+      const words = blocks.reduce((a, b) => a + (b.text || '').split(/\s+/).filter(Boolean).length, 0);
+      $('#count').textContent = `${words.toLocaleString('es-MX')} palabras · ${Math.max(1, Math.round(words / 230))} min de lectura · ${blocks.filter(b => b.type === 'image').length} imágenes`;
+      $('#setsum').textContent = (meta.teaser_on && meta.teaser.trim() ? 'avance ✓' : 'sin avance') + ' · ' + (meta.content_warnings.length ? meta.content_warnings.length + ' marcador(es)' : 'sin marcadores');
+    }
+
+    // revisión automática
+    function lint(){
+      if (!document.body.contains(doc)) return L;
+      const tx = doc.textContent.replace(/\u00a0/g, ' '), r = {}, cnt = (re, s = tx) => (s.match(re) || []).length;
+      const paras = [...doc.children].filter(e => /^(P|BLOCKQUOTE|ASIDE)$/.test(e.tagName)).map(e => e.textContent);
+      r.dbl = cnt(/ {2,}/g); r.quotes = tx.includes('«') ? Math.ceil(cnt(/["“”]/g) / 2) : 0; r.dash = paras.filter(p => /^\s*[-–]\s?\S/.test(p)).length + cnt(/[?!.,…]\s[-–](?=\p{L})/gu);
+      r.dots = cnt(/\.{3}/g); r.space = cnt(/ +[,.;:?!»)]/g);
+      r.open = paras.filter(p => cnt(/\?/g, p) > cnt(/¿/g, p) || cnt(/!/g, p) > cnt(/¡/g, p)).length;
+      r.alt = [...doc.querySelectorAll('figure')].filter(f => !f.dataset.alt).length;
+      const gloss = [];
+      for (const g of terms) { const m = tx.match(new RegExp('(?<![\\p{L}\\p{N}])' + reEsc(g.term) + '(?![\\p{L}\\p{N}])', 'giu')) || []; const bad = m.filter(x => x !== g.term); if (bad.length) gloss.push({ term: g.term, cat: g.category, n: bad.length, as: bad[0] }); }
+      r.gloss = gloss.reduce((a, g) => a + g.n, 0);
+      L = { counts: r, total: Object.values(r).reduce((a, b) => a + b, 0), gloss };
+      const b = $('#b-rev'); b.textContent = L.total ? '✓ Revisar · ' + L.total : '✓ Sin avisos'; b.style.borderColor = L.total ? '#d9922b' : '#a9d18e';
+      $('#gwarn').innerHTML = gloss.length ? `<div class="ed-gloss"><span class="mono" style="color:#d9922b">GLOSARIO</span><span>«${esc(gloss[0].as)}» aparece ${gloss[0].n === 1 ? '1 vez' : gloss[0].n + ' veces'} así; en el glosario es <b>${esc(gloss[0].term)}</b> (${esc(gloss[0].cat)})${gloss.length > 1 ? ` · y ${gloss.length - 1} término(s) más` : ''}.</span><button class="btn ghost" data-fix="gloss">Corregir todo</button><a class="btn ghost" href="/estudio/glosario">Ver glosario</a></div>` : '';
+      if (!$('#p-rev').hidden) drawRev();
+      return L;
+    }
+    function drawRev(){
+      $('#p-rev').innerHTML = `<div class="ed-bh" style="cursor:default"><b>Revisión automática</b><span style="display:flex;gap:8px;align-items:center"><span class="mono" style="color:${L.total ? '#d9922b' : '#a9d18e'}">${L.total ? L.total + ' avisos' : 'Todo en orden'}</span>${L.total ? '<button class="btn ghost" data-fix="all">Corregir todo</button>' : ''}</span></div>
+        ${LINT.map(([k, l, h]) => { const n = L.counts[k] || 0, auto = !['open', 'alt'].includes(k); return `<div class="ed-lint ${n ? '' : 'ok'}"><span class="i" aria-hidden="true">${n ? '●' : '✓'}</span><span><b>${l}</b><small>${h}</small></span>${n && auto ? `<button class="btn ghost" data-fix="${k}">Corregir ${n}</button>` : `<span class="mono">${n || ''}</span>`}</div>`; }).join('')}
+        <p class="ed-note">Se ejecuta sola al guardar, programar y publicar. Puedes publicar con avisos; el equipo verá cuántos quedaron.</p>`;
+    }
+    function fix(k){
+      if (k === 'all') { LINT.forEach(([x]) => fix(x)); return; }
+      const nodes = textNodes(), rep = (re, to) => nodes.forEach(n => { const v = n.data.replace(re, to); if (v !== n.data) n.data = v; });
+      if (k === 'dbl') rep(/[ \u00a0]{2,}/g, ' ');
+      if (k === 'quotes') rep(/["“]([^"“”]*)["”]/g, '«$1»');
+      if (k === 'dots') rep(/\.{3}/g, '…');
+      if (k === 'space') rep(/[ \u00a0]+([,.;:?!»)])/g, '$1');
+      if (k === 'dash') [...doc.children].forEach(el => { const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode()) && !n.data.trim()); if (n) n.data = n.data.replace(/^(\s*)[-–]\s?/, '$1—'); }); rep(/([?!.,…]\s)[-–](?=\p{L})/gu, '$1—');
+      if (k === 'gloss') for (const g of terms) rep(new RegExp('(?<![\\p{L}\\p{N}])' + reEsc(g.term) + '(?![\\p{L}\\p{N}])', 'giu'), g.term);
+      changed();
+    }
+
+    // guardado: autoguardado a los 5 s sin crear versión (salvo cada 10 min); el manual crea versión
+    async function doSave(manual, kind, note){
+      if (conflict) return false;
+      while (saving) await saving;
+      const mine = edits, blocks = editorToBlocks(doc); lint();
+      setState('busy', 'Guardando…');
+      saving = (async () => sb.rpc('save_chapter', { p_id: id, p_expected: version, p_title: title(), p_body: blocks, p_note: note || null, p_snapshot: !!manual, p_meta: { ...meta, lint: L.counts, lint_count: L.total }, p_kind: kind || null }))();
+      const { data, error } = await saving; saving = null;
+      if (error) {
+        if (/version_conflict/.test(error.message)) { conflict = true; clearTimeout(autoT); setState('warn', 'Conflicto de versión'); $('#ctx').innerHTML = '<div class="ed-ctx"><span>Otro integrante guardó una versión más nueva. Tus cambios siguen aquí y en tu copia local; recarga para recuperarlos sobre la versión actual.</span><button class="btn" id="reload">Recargar</button></div>'; $('#reload').onclick = () => editor(id); }
+        else { setState('warn', 'No se pudo guardar · se reintentará'); clearTimeout(autoT); autoT = setTimeout(() => doSave(false), 15000); }
+        return false;
+      }
+      version = data; if ($('#ver')) $('#ver').textContent = version;
+      if (edits === mine) { dirty = false; localStorage.removeItem(KEY); setState('', manual ? '✓ Guardado · versión creada' : '✓ Guardado automáticamente'); } else setState('busy', 'Cambios sin guardar');
+      if ($('#p-hist') && !$('#p-hist').hidden) drawHist();
+      return true;
+    }
+    function changed(){
+      edits++; dirty = true; if (!doc.firstElementChild && !doc.textContent.trim()) doc.innerHTML = '<p><br></p>';
+      if (!conflict) setState('busy', 'Cambios sin guardar');
+      localStorage.setItem(KEY, JSON.stringify({ html: doc.innerHTML, title: $('#ttl').value, meta, version, at: Date.now() }));
+      clearTimeout(pvT); pvT = setTimeout(() => { lint(); preview(); }, 250);
+      clearTimeout(autoT); autoT = setTimeout(() => doSave(false), 5000);
+    }
+
+    // publicar / programar (se permite con avisos)
+    function drawPub(){
+      const at = c.publish_at ? fmtTz(c.publish_at, { dateStyle: 'medium', timeStyle: 'short' }) : '';
+      $('#stpill').textContent = (ST2[c.status] || c.status) + (c.status === 'scheduled' && at ? ' · ' + at : '');
+      $('#pub').innerHTML = c.status === 'published' ? '' : c.status === 'scheduled' ? (can('publish') ? '<button class="btn ghost" id="unsch">Cancelar programación</button>' : '')
+        : (can('schedule') ? '<input type="datetime-local" id="pubat" aria-label="Fecha de publicación">' + tzHint() + '<button class="btn ghost" id="sch">Programar</button>' : '') + (can('publish') ? '<button class="btn" id="pubnow">Publicar ahora</button>' : '');
+      const act = (btn, status, when) => busy(btn, async () => {
+        lint(); if (L.total && !confirm(`La revisión automática dejó ${L.total} aviso(s). ¿${status === 'published' ? 'Publicar' : 'Programar'} de todos modos?`)) return;
+        if (!(await doSave(true, 'publish', status === 'published' ? 'Publicado' : 'Programado para ' + fmtTz(when)))) throw new Error('No se pudo guardar antes de publicar');
+        const { error } = await sb.from('chapters').update({ status, publish_at: when }).eq('id', id);
+        if (error) throw new Error(/approval_required/.test(error.message) ? 'El equipo exige una revisión aprobada antes de publicar.' : /forbidden/.test(error.message) ? 'No tienes permiso para esta acción.' : error.message);
+        Object.assign(c, { status, publish_at: when }); drawPub(); toast(status === 'published' ? 'Capítulo publicado' + (L.total ? ' · ' + L.total + ' aviso(s)' : '') : 'Capítulo programado');
+      });
+      $('#pubnow')?.addEventListener('click', e => act(e.currentTarget, 'published', new Date().toISOString()));
+      $('#sch')?.addEventListener('click', e => { const v = $('#pubat').value; if (!v || new Date(fromLocal(v)) <= new Date()) return toast('Elige una fecha futura'); act(e.currentTarget, 'scheduled', new Date(fromLocal(v)).toISOString()); });
+      $('#unsch')?.addEventListener('click', e => busy(e.currentTarget, async () => { const { error } = await sb.from('chapters').update({ status: 'draft' }).eq('id', id); if (error) throw error; c.status = 'draft'; drawPub(); toast('Programación cancelada'); }));
+    }
+
+    // historial
+    async function drawHist(){
+      const box = $('#p-hist'); box.innerHTML = '<p class="ed-note">Cargando historial…</p>';
+      const { data } = await sb.from('chapter_revisions').select('id,created_at,kind,version,title,lint_count,created_by,note').eq('chapter_id', id).order('created_at', { ascending: false }).limit(60);
+      const nm = await names((data || []).map(r => r.created_by));
+      box.innerHTML = `<div class="ed-bh" style="cursor:default"><b>Historial de versiones</b><span class="mono">${(data || []).length} versiones · autoguardado cada 10 min</span></div><div class="ed-side">${(data || []).map(r => `<div class="ed-row"><span><b>${r.version ? 'v' + r.version + ' · ' : ''}${REV_KIND[r.kind] || r.kind}</b> · ${esc(nm[r.created_by] || 'alguien')}<br><small>${fmtTz(r.created_at, { dateStyle: 'medium', timeStyle: 'short' })}${r.note ? ' · ' + esc(r.note) : ''}${r.lint_count ? ' · ' + r.lint_count + ' aviso(s)' : ''}</small></span><span class="a"><button class="btn ghost" data-hv="${r.id}">Ver</button><button class="btn ghost" data-hr="${r.id}">Restaurar</button></span></div>`).join('') || '<p class="ed-note">Aún no hay versiones. Se crea una cada vez que pulsas Guardar.</p>'}</div>`;
+    }
+    const getRev = async rid => { const { data, error } = await sb.from('chapter_revisions').select('id,version,title,body,created_at').eq('id', rid).single(); if (error) throw error; return data; };
+    const restore = async r => { load(r.body); $('#ttl').value = r.title || $('#ttl').value; viewing = null; $('#ctx').innerHTML = ''; changed(); await doSave(true, 'restore', 'Restaurada desde la versión ' + (r.version || '')); toast('Versión restaurada'); };
+
+    // lectores: erratas y comentarios
+    function drawComs(){
+      $('#p-coms').innerHTML = `<div class="ed-bh" style="cursor:default"><b>Erratas abiertas · ${reps.length}</b><span class="mono">reportadas por lectores</span></div><div class="ed-side">${reps.map(r => `<div class="ed-row"><span><q>${esc(r.quote || '')}</q>${r.fix ? ' → <b>' + esc(r.fix) + '</b>' : ''}<br><small>${r.kind ? esc(r.kind) + ' · ' : ''}${agoEd(r.created_at)}</small></span><span class="a"><button class="btn ghost" data-go="${esc(r.quote || '')}">Buscar</button>${r.fix ? `<button class="btn ghost" data-apply="${r.id}">Aplicar</button>` : ''}<button class="btn ghost" data-dismiss="${r.id}">Descartar</button></span></div>`).join('') || '<p class="ed-note">Sin erratas abiertas.</p>'}</div>
+        <div class="ed-bh" style="cursor:default"><b>Comentarios de lectores · ${(coms || []).length}</b><span class="mono">los más recientes</span></div><div class="ed-side">${(coms || []).map(m => `<div class="ed-row"><span>${m.spoiler ? '<small>SPOILER · </small>' : ''}${esc(m.body)}<br><small>${esc(who[m.user_id] || 'Lector')} · ${agoEd(m.created_at)}${m.para != null ? ' · párrafo ' + (m.para + 1) : ''}</small></span>${m.para != null ? `<button class="btn ghost" data-para="${m.para}">Ir</button>` : '<span></span>'}</div>`).join('') || '<p class="ed-note">Aún no hay comentarios en este capítulo.</p>'}</div>`;
+    }
+    const findText = q => { if (!q) return false; doc.focus(); const s = getSelection(); s.removeAllRanges(); const r = document.createRange(); r.setStart(doc, 0); r.collapse(true); s.addRange(r); return window.find ? window.find(q, false, false, false) : false; };
+    const flashBlock = el => { if (!el) return; if (UI.view === 'preview') { UI.view = 'split'; views(); } window.scrollTo({ top: el.getBoundingClientRect().top + scrollY - 160, behavior: 'smooth' }); el.classList.add('hl'); setTimeout(() => el.classList.remove('hl'), 1800); };
+
+    // cuadro breve de datos (furigana, ilustración)
+    function ask(fields, onOk, extra = ''){
+      const box = $('#ask'), close = () => { box.innerHTML = ''; };
+      box.innerHTML = `<div class="ed-ask">${fields.map((f, i) => `<label for="ask${i}">${esc(f.label)}</label><input type="text" id="ask${i}" value="${esc(f.value || '')}" placeholder="${esc(f.ph || '')}">`).join('')}<button class="btn" id="askok">Aplicar</button>${extra}<button class="btn ghost" id="askno">Cancelar</button></div>`;
+      $('#ask0').focus();
+      $('#askok').onclick = () => { onOk(fields.map((_, i) => $('#ask' + i).value)); close(); };
+      $('#askno').onclick = close;
+      box.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('#askok').click(); } if (e.key === 'Escape') close(); };
+    }
+    const keepSel = () => { if (!lastRange) return false; const s = getSelection(); s.removeAllRanges(); s.addRange(lastRange); return true; };
+    function setBlock(tag){
+      if (!lastRange) return; const a = topOf(lastRange.startContainer), b = topOf(lastRange.endContainer); if (!a) return;
+      const list = []; for (let n = a; n; n = n.nextElementSibling) { list.push(n); if (n === b) break; }
+      list.filter(n => n.tagName !== 'FIGURE' && !n.classList.contains('sep')).forEach(n => { const e = document.createElement(tag); if (tag === 'ASIDE') e.className = 'tn'; e.append(...n.childNodes); n.replaceWith(e); });
+      changed();
+    }
+    function setFont(ff){
+      if (!lastRange || lastRange.collapsed) return toast('Selecciona el texto al que quieres cambiar la tipografía');
+      if (topOf(lastRange.startContainer) !== topOf(lastRange.endContainer)) return toast('Aplica la tipografía dentro de un solo párrafo');
+      const frag = lastRange.extractContents(); frag.querySelectorAll('[data-ff]').forEach(s => s.replaceWith(...s.childNodes));
+      if (ff && ff !== '-') { const sp = document.createElement('span'); sp.dataset.ff = ff; sp.append(frag); lastRange.insertNode(sp); } else lastRange.insertNode(frag);
+      changed();
+    }
+    const after = html => { const ref = cur(), tp = document.createElement('template'); tp.innerHTML = html; const nodes = [...tp.content.childNodes]; if (ref) ref.after(...nodes); else doc.append(...nodes); const last = nodes[nodes.length - 1]; if (!last.nextElementSibling) last.after(Object.assign(document.createElement('p'), { innerHTML: '<br>' })); changed(); };
+
+    // eventos
+    doc.addEventListener('input', changed);
+    function onSel(){ if (!document.body.contains(doc)) return document.removeEventListener('selectionchange', onSel); const s = getSelection(); if (s.rangeCount && doc.contains(s.anchorNode)) { lastRange = s.getRangeAt(0).cloneRange(); const tg = topOf(s.anchorNode)?.tagName; $('#blk').value = /^H[1-6]$/.test(tg) ? 'H3' : ['BLOCKQUOTE', 'ASIDE'].includes(tg) ? tg : 'P'; } }
+    document.addEventListener('selectionchange', onSel);
+    doc.addEventListener('paste', e => {
+      e.preventDefault(); const html = e.clipboardData.getData('text/html'), plain = e.clipboardData.getData('text/plain'), out = pasteToEditor(html, plain);
+      const n = out ? (out.match(/<(p|h3|blockquote|div)[\s>]/g) || []).length : 0;
+      if (n > 1) document.execCommand('insertHTML', false, out);
+      else if (n === 1) { const tp = document.createElement('template'); tp.innerHTML = out; document.execCommand('insertHTML', false, tp.content.firstElementChild.innerHTML); }
+      else document.execCommand('insertText', false, plain);
+    });
+    doc.addEventListener('drop', e => { if (e.dataTransfer?.files?.length) { e.preventDefault(); toast('Usa «▣ Imagen» para insertar ilustraciones'); } });
+    doc.addEventListener('click', e => {
+      const f = e.target.closest('figure'); if (!f) return; doc.querySelectorAll('.on').forEach(x => x.classList.remove('on')); f.classList.add('on');
+      ask([{ label: 'Descripción', value: f.dataset.alt, ph: 'Qué se ve en la ilustración' }, { label: 'Pie', value: f.dataset.caption, ph: 'Opcional' }], ([alt, cap]) => { const t = document.createElement('template'); t.innerHTML = figureHTML(f.dataset.url, alt.trim(), cap.trim(), media); f.replaceWith(t.content.firstElementChild); changed(); }, '<button class="btn ghost danger" id="figdel">Quitar ilustración</button>');
+      $('#figdel').onclick = () => { f.remove(); $('#ask').innerHTML = ''; changed(); };
+    });
+    $('#ttl').addEventListener('input', changed);
+    $('#stype').onchange = e => { meta.section_type = e.target.value; changed(); };
+    $('#teaser').oninput = e => { meta.teaser = e.target.value; changed(); };
+    $('#teaser_on').onchange = e => { meta.teaser_on = e.target.checked; changed(); };
+    $('#cw').onclick = e => { const b = e.target.closest('[data-cw]'); if (!b) return; const w = b.dataset.cw, on = !meta.content_warnings.includes(w); meta.content_warnings = on ? [...meta.content_warnings, w] : meta.content_warnings.filter(x => x !== w); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); changed(); };
+    $('#blk').onchange = e => { keepSel(); setBlock(e.target.value); doc.focus(); };
+    $('#ff').onchange = e => { setFont(e.target.value); e.target.value = ''; doc.focus(); };
+    const toggleP = (pid, btn, draw) => { const p2 = $(pid), open = p2.hidden; p2.hidden = !open; btn?.setAttribute('aria-expanded', open); btn?.classList.toggle('on', open); if (open) draw?.(); return open; };
+    $('#b-rev').onclick = e => toggleP('#p-rev', e.currentTarget, () => { lint(); drawRev(); });
+    $('#b-hist').onclick = e => toggleP('#p-hist', e.currentTarget, drawHist);
+    $('#save').onclick = e => busy(e.currentTarget, async () => { if (await doSave(true)) toast('Versión guardada en el historial'); });
+    $('#imgf').onchange = async e => {
+      const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (f.size > LIMITS.image) return toast('La imagen pesa más de 8 MB');
+      setState('busy', 'Subiendo imagen…'); const path = `${T.team.id}/obras/${c.series.slug}/vol-${c.vol}/${Date.now()}-${f.name.replace(/[^\w.-]/g, '_')}`;
+      const { error } = await sb.storage.from('obi-media').upload(path, f, { contentType: f.type }); if (error) { setState('warn', 'No se pudo subir'); return toast(error.message); }
+      after(figureHTML(PUB + path, '', '', media)); toast('Ilustración insertada · tócala para añadir descripción');
     };
-    app.innerHTML = shell('Editar capítulo', `
-      <p class="mono"><a href="/estudio/obra/${c.series.slug}">‹ ${esc(c.series.title)}</a> · Vol. ${c.vol} · versión <span id="ver">${version}</span> · <span id="state">Guardado</span></p>
-      ${local && local.at && local.version === version && JSON.stringify(local.blocks) !== JSON.stringify(blocks) ? `<div class="st-card"><span>Hay una copia local sin guardar del ${new Date(local.at).toLocaleString('es-MX')}.</span><span><button class="btn" id="restore">Recuperar</button> <button class="btn ghost" id="discard">Descartar</button></span></div>` : ''}
-      <div class="st-row"><input id="ttl" value="${esc(title)}" style="flex:1"><select id="stype">${SEC.map(t => `<option ${t === type ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-      <div class="st-row st-sticky"><button class="btn" id="save">Guardar (Ctrl/Cmd+S)</button><button class="btn ghost" id="addb">+ Párrafo</button><button class="btn ghost" data-fmt="bold"><b>B</b></button><button class="btn ghost" data-fmt="italic"><i>I</i></button><button class="btn ghost" data-fmt="underline"><u>U</u></button><a class="btn ghost" href="/leer/${c.series.slug}/${c.num}" target="_blank">Vista previa</a><span class="mono" id="count"></span></div>
-      <div id="blocks"></div>`, '/estudio/obra');
-    draw(); counter();
-    function counter(){ const words = blocks.reduce((a, b) => a + ((b.text || b.html?.replace(/<[^>]+>/g, '') || '').trim().split(/\s+/).filter(Boolean).length), 0); $('#count').textContent = `${words.toLocaleString('es-MX')} palabras · ${blocks.length} bloques · ${blocks.filter(b => b.type === 'image').length} imágenes`; }
-    const root = $('.st-main');
-    root.addEventListener('input', e => {
-      const ce = e.target.closest('[data-ce]'); if (ce) { const b = blocks[+ce.dataset.ce]; b.html = ce.innerHTML; b.text = ce.textContent; }
-      const f = e.target.dataset.f; if (f) blocks[+e.target.dataset.i][f] = e.target.value;
-      if (e.target.id === 'ttl') title = e.target.value;
-      mark(); counter();
-    });
-    root.addEventListener('change', async e => {
-      if (e.target.dataset.type) { const b = blocks[+e.target.dataset.type]; b.type = e.target.value; delete b.t; mark(); draw(); }
-      if (e.target.id === 'stype') { type = e.target.value; mark(); }
-      if (e.target.dataset.upImg) { const f = e.target.files[0]; if (!f) return; if (f.size > LIMITS.image) return toast('La imagen pesa más de 8 MB'); const p = `${T.team.id}/series/${c.series_id}/vol-${c.vol}/${Date.now()}-${f.name.replace(/[^\w.-]/g, '_')}`; const { error } = await sb.storage.from('obi-media').upload(p, f, { contentType: f.type }); if (error) return toast(error.message); blocks[+e.target.dataset.upImg].url = PUB + p; mark(); draw(); }
-    });
+    root.addEventListener('mousedown', e => { if (e.target.closest('.ed-bar [data-cmd], .ed-bar [data-act="ruby"], .ed-bar [data-act="sep"]')) e.preventDefault(); });
     root.addEventListener('click', e => {
-      const d = e.target.dataset, i = +(d.up ?? d.down ?? d.ins ?? d.rm ?? -1);
-      if (d.up != null && i > 0) [blocks[i - 1], blocks[i]] = [blocks[i], blocks[i - 1]];
-      else if (d.down != null && i < blocks.length - 1) [blocks[i + 1], blocks[i]] = [blocks[i], blocks[i + 1]];
-      else if (d.ins != null) blocks.splice(i + 1, 0, { type: 'paragraph', text: '' });
-      else if (d.rm != null) blocks.splice(i, 1);
-      else if (e.target.closest('[data-fmt]')) { document.execCommand(e.target.closest('[data-fmt]').dataset.fmt); return; }
-      else return;
-      mark(); draw(); counter();
+      const el = e.target.closest('[data-cmd],[data-act],[data-view],[data-theme],[data-device],[data-fix],[data-hv],[data-hr],[data-go],[data-apply],[data-dismiss],[data-para]'); if (!el || el.closest('#doc')) return;
+      const d = el.dataset;
+      if (d.cmd) { keepSel(); document.execCommand(d.cmd); changed(); }
+      else if (d.act === 'ruby') { if (!lastRange || lastRange.collapsed) return toast('Selecciona el texto base'); const base = lastRange.toString(), r = lastRange.cloneRange(); ask([{ label: `Lectura de «${base}»`, ph: 'p. ej. かみ' }], ([rd]) => { if (!rd.trim()) return; const rb = document.createElement('ruby'), rt = document.createElement('rt'); rt.textContent = rd.trim(); rb.append(base, rt); r.deleteContents(); r.insertNode(rb); const s = getSelection(); s.removeAllRanges(); const after2 = document.createRange(); after2.setStartAfter(rb); s.addRange(after2); changed(); }); }
+      else if (d.act === 'sep') after('<div class="sep" contenteditable="false">※</div>');
+      else if (d.act === 'img') $('#imgf').click();
+      else if (d.act === 'find') { if (toggleP('#p-find', el)) $('#fq').focus(); }
+      else if (d.act === 'coms') toggleP('#p-coms', el, drawComs);
+      else if (d.view) { UI.view = d.view; localStorage.setItem('obi-ed-view', d.view); views(); }
+      else if (d.theme) { UI.theme = d.theme; views(); preview(); }
+      else if (d.device) { UI.device = d.device; views(); preview(); }
+      else if (d.fix) { fix(d.fix); toast('Revisión aplicada'); }
+      else if (d.hv) busy(el, async () => { viewing = await getRev(d.hv); if (UI.view === 'edit') { UI.view = 'split'; views(); } preview(); $('#ctx').innerHTML = `<div class="ed-ctx"><span>La vista previa muestra la versión ${viewing.version || ''} del ${fmtTz(viewing.created_at, { dateStyle: 'medium', timeStyle: 'short' })}. El editor sigue con el texto actual.</span><button class="btn" id="vrest">Restaurar esta versión</button><button class="btn ghost" id="vback">Volver al texto actual</button></div>`; $('#vrest').onclick = () => busy($('#vrest'), () => restore(viewing)); $('#vback').onclick = () => { viewing = null; $('#ctx').innerHTML = ''; preview(); }; });
+      else if (d.hr) busy(el, async () => { if (!confirm('¿Reemplazar el texto actual por esta versión? El texto actual queda guardado en el historial.')) return; if (dirty) await doSave(true); await restore(await getRev(d.hr)); });
+      else if (d.go != null) { if (!findText(d.go)) toast('No encontré ese fragmento; quizá ya se corrigió'); }
+      else if (d.apply) busy(el, async () => { const r = reps.find(x => String(x.id) === d.apply); const n = textNodes().find(x => x.data.includes(r.quote)); if (!n) return toast('No encontré el fragmento en el texto'); n.data = n.data.replace(r.quote, r.fix); changed(); const { error } = await sb.from('reports').update({ status: 'fixed' }).eq('id', r.id); if (error) throw error; reps.splice(reps.indexOf(r), 1); drawComs(); toast('Corrección aplicada · errata cerrada'); });
+      else if (d.dismiss) busy(el, async () => { const { error } = await sb.from('reports').update({ status: 'dismissed' }).eq('id', d.dismiss); if (error) throw error; reps.splice(reps.findIndex(x => String(x.id) === d.dismiss), 1); drawComs(); });
+      else if (d.para != null) flashBlock([...doc.childNodes].filter(makesBlock)[+d.para]);
     });
-    $('#addb').onclick = () => { blocks.push({ type: 'paragraph', text: '' }); mark(); draw(); };
-    $('#restore')?.addEventListener('click', () => { ({ blocks, title, type } = local); $('#ttl').value = title; $('#stype').value = type; draw(); mark(); $('#restore').closest('.st-card').remove(); });
-    $('#discard')?.addEventListener('click', () => { localStorage.removeItem(KEY); $('#discard').closest('.st-card').remove(); });
-    const save = () => busy($('#save'), async () => {
-      const clean = blocks.map(b => { const o = { ...b }; if (o.html && o.html === esc(o.text || '')) delete o.html; return o; });
-      const { data, error } = await sb.rpc('save_chapter', { p_id: id, p_expected: version, p_title: title.trim() || 'Sin título', p_body: clean, p_note: null });
-      if (error) { if (/version_conflict/.test(error.message)) throw new Error('Otro integrante guardó una versión más nueva. Tu copia local se conserva: recarga para comparar.'); throw error; }
-      version = data; await sb.from('chapters').update({ section_type: type }).eq('id', id);
-      dirty = false; localStorage.removeItem(KEY); $('#ver').textContent = version; $('#state').textContent = 'Guardado'; toast('Capítulo guardado');
-    });
-    $('#save').onclick = save;
-    const key = e => { if (!document.body.contains(root)) { removeEventListener('keydown', key); removeEventListener('beforeunload', leave); return; } if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); } };
+    const countFind = () => { const q = $('#fq').value; if (!q) { $('#finfo').textContent = ''; return; } const n = (doc.textContent.match(new RegExp(reEsc(q), $('#fcase').checked ? 'g' : 'gi')) || []).length; $('#finfo').textContent = n === 1 ? '1 coincidencia' : n + ' coincidencias'; };
+    $('#fq').oninput = countFind; $('#fcase').onchange = countFind;
+    $('#fnext').onclick = () => { const q = $('#fq').value; if (q && !(window.find && window.find(q, $('#fcase').checked, false, true))) toast('Sin más coincidencias'); };
+    $('#frep').onclick = () => { const q = $('#fq').value; if (!q) return; const re = new RegExp(reEsc(q), $('#fcase').checked ? 'g' : 'gi'), to = $('#rq').value; let n = 0; textNodes().forEach(x => { const v = x.data.replace(re, () => (n++, to)); if (v !== x.data) x.data = v; }); if (n) changed(); $('#finfo').textContent = n + ' reemplazo(s)'; };
+    $('#restore')?.addEventListener('click', () => { const tmp = document.createElement('div'); tmp.innerHTML = local.html || ''; load(local.blocks || editorToBlocks(tmp)); $('#ttl').value = local.title || $('#ttl').value; if (local.meta) { Object.assign(meta, local.meta); $('#stype').value = meta.section_type; $('#teaser').value = meta.teaser; $('#teaser_on').checked = meta.teaser_on; root.querySelectorAll('[data-cw]').forEach(b => b.classList.toggle('on', meta.content_warnings.includes(b.dataset.cw))); } $('#localcard').remove(); changed(); });
+    $('#discard')?.addEventListener('click', () => { localStorage.removeItem(KEY); $('#localcard').remove(); });
+    const alive = () => document.body.contains(root);
+    const key = e => { if (!alive()) return cleanup(); if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); $('#save').click(); } };
     const leave = e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } };
-    addEventListener('keydown', key); addEventListener('beforeunload', leave);
+    const nav = e => { if (!alive()) return cleanup(); if (dirty && e.target.closest('a[href]')) doSave(false); };
+    const vis = () => { if (!alive()) return cleanup(); if (document.hidden && dirty) doSave(false); };
+    const cleanup = () => { removeEventListener('keydown', key); removeEventListener('beforeunload', leave); document.removeEventListener('click', nav, true); document.removeEventListener('visibilitychange', vis); clearTimeout(autoT); };
+    addEventListener('keydown', key); addEventListener('beforeunload', leave); document.addEventListener('click', nav, true); document.addEventListener('visibilitychange', vis);
+    views(); drawPub(); lint(); preview();
   }
 
   // ---------- importador ----------
@@ -363,8 +589,15 @@ export function createStudio(ctx){
       const t = tocTitles[it.href] || blocks.find(b => b.type === 'heading')?.text || `Sección ${chapters.length + 1}`;
       chapters.push({ title: t.slice(0, 200), type: /pr[oó]log/i.test(t) ? 'Prólogo' : /ep[ií]log/i.test(t) ? 'Epílogo' : /afterword|palabras del autor/i.test(t) ? 'Afterword' : /interlud/i.test(t) ? 'Interludio' : 'Capítulo', blocks });
     }
-    const coverItem = Object.values(items).find(i => i.props.includes('cover-image'));
-    return { title, chapters, images, fonts, cover: coverItem ? 'img:' + coverItem.href : null };
+    const md = n => [...X.getElementsByTagNameNS('*', n)].map(e => e.textContent.trim()).filter(Boolean);
+    const metaN = n => [...X.getElementsByTagNameNS('*', 'meta')].find(m => m.getAttribute('name') === n)?.getAttribute('content');
+    const metaP = pr => [...X.getElementsByTagNameNS('*', 'meta')].find(m => m.getAttribute('property') === pr)?.textContent.trim();
+    const isbn = (md('identifier').join(' ').replace(/[-\s]/g, '').match(/97[89]\d{10}/) || [])[0] || null;
+    const desc = md('description')[0], synopsis = desc ? (new DOMParser().parseFromString(desc, 'text/html').body.textContent || '').trim().slice(0, 3000) : '';
+    const idx = +(metaN('calibre:series_index') || metaP('group-position') || (title.match(/(?:vol(?:umen|ume)?\.?|tomo)\s*(\d+)/i) || [])[1] || 0) || null;
+    const meta = { author: md('creator')[0] || '', publisher: md('publisher')[0] || '', synopsis, isbn, index: idx ? Math.round(idx) : null, series: metaN('calibre:series') || metaP('belongs-to-collection') || '' };
+    const coverItem = Object.values(items).find(i => i.props.includes('cover-image')) || items[metaN('cover')] || Object.values(items).find(i => /^image\//.test(i.type) && /cover|portada/i.test(i.href));
+    return { title, chapters, images, fonts, meta, cover: coverItem && images.has(coverItem.href) ? 'img:' + coverItem.href : null };
   }
   async function parseDocx(file){
     const { default: mammoth } = await import('https://esm.sh/mammoth@1.8.0/mammoth.browser.js');
@@ -395,82 +628,216 @@ export function createStudio(ctx){
     return out;
   }
 
+  // ---------- importador en 3 pasos: archivo → revisar → destino ----------
+  const SKIP_RE = /^(copyright|derechos|cr[eé]ditos|colof[oó]n|[ií]ndice|contenidos?|contents|table of contents|tabla de contenidos?|newsletter|bolet[ií]n|sign up|title page|portadilla|cover|portada|about the (author|translator|illustrator)|acerca del autor|sobre el autor)\b/i;
+  const words = bs => bs.reduce((a, b) => a + (b.text || '').split(/\s+/).filter(Boolean).length, 0);
+  const slugify = s => (s || 'obra').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
+  function suggestSkips(P){
+    P.chapters.forEach((c, i) => {
+      const w = words(c.blocks), imgs = c.blocks.filter(b => b.type === 'image').length; c.skip = false; c.why = '';
+      if (SKIP_RE.test((c.title || '').trim())) { c.skip = true; c.why = 'página editorial'; }
+      else if (i === 0 && imgs && w < 15) { c.skip = true; c.why = 'página de portada'; }
+      else if (!imgs && w < 25) { c.skip = true; c.why = 'casi vacía'; }
+    });
+  }
+
   async function importer(){
     if (!(await ensure())) return;
-    if (!can('import')) { app.innerHTML = shell('Importar', '<p>Tu rol no permite importar archivos.</p>', '/estudio/importar'); bindPicker(importer); return; }
-    const { data: works } = await sb.from('series').select('id,slug,title,volumes(id,num)').eq('team_id', T.team.id).order('title');
-    let P = null, file = null, fp = null;
-    app.innerHTML = shell('Importar contenido', `
-      <ol class="st-steps"><li>Archivo</li><li>Análisis</li><li>Estructura</li><li>Destino</li><li>Guardar</li></ol>
-      <label class="st-drop">EPUB, DOCX o PDF · máx. 80 MB<input type="file" id="file" accept=".epub,.docx,.pdf"></label>
-      <p id="status" class="mono"></p><div id="wiz"></div>`, '/estudio/importar');
+    const TAB = '/estudio/importar';
+    if (!can('import')) { app.innerHTML = shell('Importar', '<p>Tu rol no permite importar archivos.</p>', TAB); bindPicker(importer); return; }
+    const { data: works } = await sb.from('series').select('id,slug,title,cover_path,volumes(id,num,title,cover_path,deleted_at)').eq('team_id', T.team.id).is('archived_at', null).order('title');
+    let P = null, file = null, fp = null, step = 1, sel = 0, splitting = false, dupAt = null;
+    const D = { work: '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', newTitle: '', newAuthor: '' };
+    app.innerHTML = shell('Importar contenido', '<ol class="imp-steps" id="steps"></ol><div id="wiz"></div><p id="status" class="mono" role="status"></p>', TAB);
     bindPicker(importer);
-    $('#file').onchange = async e => {
-      file = e.target.files[0]; if (!file) return;
-      const st = $('#status');
-      try {
-        if (file.size > LIMITS.file) throw new Error('El archivo supera 80 MB');
-        st.textContent = 'Calculando huella…'; fp = await sha256(await file.arrayBuffer());
-        const { data: dup } = await sb.from('import_jobs').select('created_at,filename').eq('team_id', T.team.id).eq('fingerprint', fp).eq('status', 'done').limit(1);
-        st.textContent = 'Analizando…';
-        P = /\.epub$/i.test(file.name) ? await parseEpub(file) : /\.docx$/i.test(file.name) ? await parseDocx(file) : /\.pdf$/i.test(file.name) ? await parsePdf(file) : (() => { throw new Error('Formato no admitido'); })();
-        st.textContent = `${P.chapters.length} secciones · ${P.images.size} imágenes · ${P.fonts.length} fuentes${dup?.length ? ` · ⚠ ya importaste este archivo el ${new Date(dup[0].created_at).toLocaleDateString('es-MX')}` : ''}`;
-        wizard();
-      } catch (er) { st.textContent = 'No se pudo leer: ' + er.message; }
-    };
-    function wizard(){
-      const ch = P.chapters;
-      $('#wiz').innerHTML = `<h2>Estructura</h2><ol class="st-ch">${ch.map((c, i) => `<li><span class="mono">${i + 1}</span><input data-t="${i}" value="${esc(c.title)}"><select data-k="${i}">${SEC.map(s => `<option ${s === c.type ? 'selected' : ''}>${s}</option>`).join('')}</select><span class="mono">${c.blocks.length} bl.</span>
-          <span><button class="lnk" data-mv="${i}" data-d="-1">↑</button><button class="lnk" data-mv="${i}" data-d="1">↓</button><button class="lnk" data-merge="${i}" ${i === ch.length - 1 ? 'disabled' : ''}>Unir con siguiente</button><button class="lnk" data-split="${i}">Dividir</button><button class="lnk danger" data-del="${i}">×</button></span></li>`).join('')}</ol>
-        <h2>Destino</h2><div class="st-row">
-          <select id="dst"><option value="">— Nueva obra: ${esc(P.title)} —</option>${(works || []).map(w => `<option value="${w.id}">${esc(w.title)}</option>`).join('')}</select>
-          <label class="mono">Volumen <input id="vnum" type="number" min="1" value="1" style="width:80px"></label>
-          <select id="mode"><option value="append">Agregar después de los existentes</option><option value="replace">Reemplazar capítulos del volumen</option></select>
-          ${P.cover ? '<label class="mono"><input type="checkbox" id="usecover" checked> Usar portada detectada</label>' : ''}</div>
-        <p class="st-row"><button class="btn ghost" id="save-draft">Guardar como borrador</button>${can('publish') ? '<button class="btn" id="save-pub">Guardar y publicar</button>' : ''}</p>`;
-      const W = $('#wiz');
-      W.querySelectorAll('[data-t]').forEach(i => i.oninput = () => ch[+i.dataset.t].title = i.value);
-      W.querySelectorAll('[data-k]').forEach(s => s.onchange = () => ch[+s.dataset.k].type = s.value);
-      W.onclick = e => { const d = e.target.dataset; let i;
-        if (d.mv != null) { i = +d.mv; const j = i + +d.d; if (j < 0 || j >= ch.length) return; [ch[i], ch[j]] = [ch[j], ch[i]]; }
-        else if (d.merge != null) { i = +d.merge; ch[i].blocks.push(...ch[i + 1].blocks); ch.splice(i + 1, 1); }
-        else if (d.split != null) { i = +d.split; const at = +prompt(`¿En qué bloque empieza la nueva sección? (2–${ch[i].blocks.length})`, Math.ceil(ch[i].blocks.length / 2)); if (!(at > 1 && at <= ch[i].blocks.length)) return; const rest = ch[i].blocks.splice(at - 1); ch.splice(i + 1, 0, { title: rest.find(b => b.type === 'heading')?.text || ch[i].title + ' (cont.)', type: ch[i].type, blocks: rest }); }
-        else if (d.del != null) ch.splice(+d.del, 1);
-        else if (e.target.id === 'save-draft' || e.target.id === 'save-pub') return busy(e.target, () => commit(e.target.id === 'save-pub'));
-        else return;
-        wizard(); };
+    const W = () => $('#wiz'), st = m => { const s = $('#status'); if (s) s.textContent = m || ''; };
+    const src = k => k && k.startsWith('img:') ? P.urls.get(k.slice(4)) || '' : k;
+    const work = () => (works || []).find(w => w.id === D.work);
+    const liveVols = w => (w?.volumes || []).filter(v => !v.deleted_at);
+    const nextVol = w => Math.max(0, ...liveVols(w).map(v => v.num)) + 1;
+    const imgKeys = () => [...P.images.keys()].filter(k => P.images.get(k).blob && /^image\//.test(P.images.get(k).type));
+    const usedImgs = () => { const s = new Set(P.chapters.filter(c => !c.skip).flatMap(c => c.blocks.filter(b => b.type === 'image' && b.url?.startsWith('img:')).map(b => b.url.slice(4)))); if (D.cover) s.add(D.cover.slice(4)); return s; };
+    const render = () => { $('#steps').innerHTML = ['Archivo', 'Revisar', 'Destino'].map((l, i) => `<li class="${step === i + 1 ? 'on' : step > i + 1 ? 'done' : ''}"><span>${step > i + 1 ? '✓' : i + 1}</span>${l}</li>`).join(''); [null, s1, s2, s3][step](); };
+
+    function s1(){
+      W().innerHTML = `<label class="imp-drop" id="drop"><b>Arrastra aquí un EPUB, DOCX o PDF</b><span class="mono">o toca para elegirlo · máx. 80 MB</span><input type="file" id="file" accept=".epub,.docx,.pdf" hidden></label>
+        <p class="mono">Del EPUB se leen capítulos, ilustraciones, fuentes, portada y datos del libro: autor, editorial, sinopsis, ISBN y número de volumen.</p>`;
+      const dz = $('#drop');
+      $('#file').onchange = e => e.target.files[0] && load(e.target.files[0]);
+      dz.ondragover = e => { e.preventDefault(); dz.classList.add('on'); }; dz.ondragleave = () => dz.classList.remove('on');
+      dz.ondrop = e => { e.preventDefault(); dz.classList.remove('on'); const f = e.dataTransfer.files[0]; if (f) load(f); };
     }
-    async function commit(publish){
-      const uploaded = [], inserted = []; let job = null;
-      const dstId = $('#dst').value, vnum = Math.max(1, +$('#vnum').value || 1), mode = $('#mode').value;
+    async function load(f){
+      file = f;
       try {
-        ({ data: job } = await sb.from('import_jobs').insert({ team_id: T.team.id, created_by: getUser().id, filename: file.name, file_type: file.name.split('.').pop().toLowerCase(), mode, status: 'running', fingerprint: fp }).select().single());
-        let s = dstId ? works.find(w => w.id === dstId) : null;
-        if (!s) { const slug = P.title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').slice(0, 50) + '-' + Date.now().toString(36).slice(-4); const r = await sb.from('series').insert({ team_id: T.team.id, slug, title: P.title, short: P.title.slice(0, 26), published: false }).select().single(); if (r.error) throw r.error; s = { ...r.data, volumes: [] }; }
-        const prefix = `${T.team.id}/series/${s.id}/vol-${vnum}/import-${job.id}/`, map = {};
-        const up = async (name, blob, type) => { if (blob.size > LIMITS.image && /^image/.test(type)) throw new Error(`La imagen ${name} supera 8 MB`); const p = prefix + name.replace(/[^\w.-]/g, '_'); const { error } = await sb.storage.from('obi-media').upload(p, blob, { contentType: type, upsert: true }); if (error) throw error; uploaded.push(p); return p; };
-        const used = new Set(P.chapters.flatMap(c => c.blocks.filter(b => b.type === 'image').map(b => b.url))); if (P.cover && $('#usecover')?.checked) used.add(P.cover);
-        let k = 0; for (const key of used) { const im = P.images.get(key.replace(/^img:/, '')); if (im?.blob) { $('#status').textContent = `Subiendo imágenes ${++k}/${used.size}…`; map[key] = await up(im.name, im.blob, im.type); } }
-        const fonts = []; for (const f of P.fonts) { const p = await up(f.name, new Blob([f.bytes]), /woff2/.test(f.name) ? 'font/woff2' : /woff/.test(f.name) ? 'font/woff' : /otf/.test(f.name) ? 'font/otf' : 'font/ttf'); fonts.push({ url: PUB + p, family: f.family, style: f.style, weight: f.weight }); }
-        let vol = (s.volumes || []).find(v => v.num === vnum);
-        if (!vol) { const r = await sb.from('volumes').insert({ series_id: s.id, num: vnum, status: 'draft', epub_fonts: fonts, cover_path: map[P.cover] || null }).select().single(); if (r.error) throw r.error; vol = r.data; }
-        else { const patch = {}; if (fonts.length) patch.epub_fonts = fonts; if (map[P.cover]) patch.cover_path = map[P.cover]; if (Object.keys(patch).length) await sb.from('volumes').update(patch).eq('id', vol.id); }
-        if (map[P.cover] && !s.cover_path) await sb.from('series').update({ cover_path: map[P.cover] }).eq('id', s.id);
-        const { data: existing } = await sb.from('chapters').select('id,num,vol').eq('series_id', s.id).is('deleted_at', null);
-        if (mode === 'replace') { const old = (existing || []).filter(c => c.vol === vnum).map(c => c.id); const { data: inVol } = await sb.from('chapters').select('id').eq('volume_id', vol.id); const ids = [...new Set([...old, ...(inVol || []).map(c => c.id)])]; if (ids.length) { if (!confirm(`Se reemplazarán ${ids.length} capítulos del Volumen ${vnum}. Las versiones anteriores quedan en el historial de revisiones. ¿Continuar?`)) throw new Error('Importación cancelada'); await sb.from('chapters').update({ deleted_at: new Date().toISOString() }).in('id', ids); } }
+        if (f.size > LIMITS.file) throw new Error('El archivo supera 80 MB');
+        st('Calculando huella…'); fp = await sha256(await f.arrayBuffer());
+        const { data: dup } = await sb.from('import_jobs').select('created_at').eq('team_id', T.team.id).eq('fingerprint', fp).eq('status', 'done').limit(1); dupAt = dup?.[0]?.created_at || null;
+        st('Analizando ' + f.name + '…');
+        P = /\.epub$/i.test(f.name) ? await parseEpub(f) : /\.docx$/i.test(f.name) ? await parseDocx(f) : /\.pdf$/i.test(f.name) ? await parsePdf(f) : (() => { throw new Error('Formato no admitido'); })();
+        if (!P.chapters.length) throw new Error('No encontré texto en el archivo');
+        P.meta ||= {}; P.urls = new Map([...P.images].map(([k, v]) => [k, v.blob ? URL.createObjectURL(v.blob) : '']));
+        suggestSkips(P);
+        const key = (P.meta.series || P.title).toLowerCase();
+        const guess = (works || []).find(w => w.title && key.includes(w.title.toLowerCase().slice(0, 18)));
+        D.work = guess?.id || ''; D.newTitle = P.meta.series || P.title.replace(/\s*[,:\-–]?\s*(vol(umen|ume)?\.?|tomo)\s*\d+.*$/i, '').trim() || P.title; D.newAuthor = P.meta.author || '';
+        D.vnum = P.meta.index || nextVol(guess); D.cover = P.cover || null; D.workCover = !guess || !guess.cover_path; D.mode = 'append';
+        sel = Math.max(0, P.chapters.findIndex(c => !c.skip)); splitting = false;
+        st(''); step = 2; render();
+      } catch (er) { st('No se pudo leer: ' + er.message); }
+    }
+
+    function s2(){
+      const ch = P.chapters, inc = ch.filter(c => !c.skip), m = P.meta, cur = ch[sel];
+      W().innerHTML = `<div class="imp-sum"><span><b>${esc(P.title)}</b><small class="mono">${esc(file.name)} · ${inc.length} de ${ch.length} secciones · ${P.images.size} imágenes · ${P.fonts.length} fuentes</small></span>
+          ${[['Autor', m.author], ['Editorial', m.publisher], ['ISBN', m.isbn], ['Volumen', m.index]].filter(x => x[1]).map(([k, v]) => `<span><small class="mono">${k}</small>${esc(String(v))}</span>`).join('')}</div>
+        ${dupAt ? `<p class="imp-warn">Ya importaste este mismo archivo el ${fmtTz(dupAt, { dateStyle: 'long' })}. Puedes continuar; en el destino elige «Reemplazar» si quieres sustituirlo.</p>` : ''}
+        <div class="imp-grid">
+          <div class="imp-list"><div class="imp-lh"><b>Secciones</b><span class="mono">Desmarca las que no quieras importar</span></div>
+            <ol>${ch.map((c, i) => { const ni = c.blocks.filter(b => b.type === 'image').length; return `<li class="${i === sel ? 'on' : ''}${c.skip ? ' off' : ''}" data-sel="${i}">
+              <input type="checkbox" data-inc="${i}" ${c.skip ? '' : 'checked'} aria-label="Importar ${esc(c.title)}">
+              <span class="imp-t"><input data-t="${i}" value="${esc(c.title)}" aria-label="Título de la sección ${i + 1}"><small class="mono">${i + 1} · ${words(c.blocks).toLocaleString('es-MX')} palabras${ni ? ' · ' + ni + ' img.' : ''}${c.skip && c.why ? ' · <b>' + c.why + '</b>' : ''}</small></span>
+              <select data-k="${i}" aria-label="Tipo">${SEC.map(s => `<option ${s === c.type ? 'selected' : ''}>${s}</option>`).join('')}</select>
+              <span class="imp-a"><button class="ed-btn" data-mv="${i}" data-d="-1" title="Subir" ${i ? '' : 'disabled'}>↑</button><button class="ed-btn" data-mv="${i}" data-d="1" title="Bajar" ${i < ch.length - 1 ? '' : 'disabled'}>↓</button><button class="ed-btn" data-merge="${i}" title="Unir con la siguiente" ${i < ch.length - 1 ? '' : 'disabled'}>Unir ↓</button></span></li>`; }).join('')}</ol></div>
+          <div class="imp-pvw"><div class="imp-lh"><b>Vista previa · ${sel + 1} de ${ch.length}</b><button class="ed-btn ${splitting ? 'on' : ''}" id="split">${splitting ? 'Toca el párrafo donde empieza la nueva sección · Cancelar' : 'Dividir esta sección…'}</button></div>
+            <div class="imp-pv${splitting ? ' splitting' : ''}" id="pv"><div class="rd" data-theme="oscuro" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="--rs:17px"><article class="rd-ch"><header class="rd-head"><span class="mono">${esc(cur.type)}</span><h2>${esc(cur.title)}</h2></header><div class="rd-body">${cur.blocks.map((b, i) => renderBlock(b, i, { media: src })).join('')}</div></article></div></div></div>
+        </div>
+        <div class="imp-nav"><button class="btn ghost" id="back">‹ Elegir otro archivo</button><button class="btn" id="next" ${inc.length ? '' : 'disabled'}>Continuar al destino ›</button></div>`;
+      const L = W().querySelector('.imp-list');
+      L.querySelectorAll('[data-t]').forEach(i => i.oninput = () => { ch[+i.dataset.t].title = i.value; if (+i.dataset.t === sel) $('#pv h2').textContent = i.value; });
+      L.querySelectorAll('[data-k]').forEach(s => s.onchange = () => { ch[+s.dataset.k].type = s.value; if (+s.dataset.k === sel) $('#pv .rd-head .mono').textContent = s.value; });
+      L.querySelectorAll('[data-inc]').forEach(c => c.onchange = () => { ch[+c.dataset.inc].skip = !c.checked; s2(); });
+      L.onclick = e => {
+        const b = e.target.closest('[data-mv],[data-merge]');
+        if (b) { const i = +(b.dataset.mv ?? b.dataset.merge);
+          if (b.dataset.mv != null) { const j = i + +b.dataset.d; [ch[i], ch[j]] = [ch[j], ch[i]]; sel = j; }
+          else { ch[i].blocks.push(...ch[i + 1].blocks); ch[i].skip = ch[i].skip && ch[i + 1].skip; ch.splice(i + 1, 1); sel = i; }
+          splitting = false; return s2(); }
+        const li = e.target.closest('[data-sel]'); if (li && !e.target.closest('input,select,button')) { sel = +li.dataset.sel; splitting = false; s2(); }
+      };
+      $('#split').onclick = () => { splitting = !splitting; s2(); };
+      $('#pv').onclick = e => {
+        if (!splitting) return; const b = e.target.closest('[data-b]'); if (!b) return; const at = +b.dataset.b;
+        if (at < 1) return toast('Elige un párrafo después del primero');
+        const rest = cur.blocks.splice(at);
+        ch.splice(sel + 1, 0, { title: (rest.find(x => x.type === 'heading')?.text || cur.title + ' (cont.)').slice(0, 200), type: cur.type, blocks: rest, skip: false });
+        splitting = false; sel++; s2(); toast('Sección dividida');
+      };
+      $('#back').onclick = () => { P.urls.forEach(u => u && URL.revokeObjectURL(u)); P = null; step = 1; st(''); render(); };
+      $('#next').onclick = () => { step = 3; render(); };
+    }
+
+    function s3(){
+      const w = work(), ex = liveVols(w).find(v => v.num === D.vnum), keys = imgKeys(), used = usedImgs(), inc = P.chapters.filter(c => !c.skip);
+      const folder = `obras › ${w?.slug || slugify(D.newTitle || P.title)} › vol-${D.vnum}`;
+      W().innerHTML = `<div class="imp-dest">
+        <section class="imp-box"><h3>Obra y volumen</h3>
+          <label>Obra<select id="dw"><option value="">+ Nueva obra</option>${(works || []).map(x => `<option value="${x.id}" ${x.id === D.work ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select></label>
+          ${w ? '' : `<label>Título de la obra<input id="dt" value="${esc(D.newTitle)}" maxlength="200"></label><label>Autor<input id="da" value="${esc(D.newAuthor)}" maxlength="120"></label>`}
+          <label>Número de volumen<input id="dv" type="number" min="1" max="999" value="${D.vnum}"></label>
+          ${ex ? `<div class="imp-warn"><span>El Volumen ${D.vnum} ya existe<span id="exc"></span>.</span>
+            <label class="tb-inl"><input type="radio" name="dm" value="append" ${D.mode === 'append' ? 'checked' : ''}> Agregar estas secciones después de las existentes</label>
+            <label class="tb-inl"><input type="radio" name="dm" value="replace" ${D.mode === 'replace' ? 'checked' : ''}> Reemplazar sus capítulos (los anteriores van a la papelera)</label></div>`
+            : `<p class="mono">Se creará el Volumen ${D.vnum}${w ? ' en ' + esc(w.title) : ''}${P.meta.isbn || P.meta.synopsis ? ', con el ISBN y la sinopsis del archivo' : ''}.</p>`}
+        </section>
+        <section class="imp-box"><h3>Portada del volumen</h3>
+          <p class="mono">${keys.length ? 'Toca la imagen que será la portada.' + (P.cover ? ' Marcamos la que el EPUB declara como portada.' : '') : 'El archivo no trae imágenes.'}</p>
+          <div class="imp-covs" role="radiogroup" aria-label="Portada del volumen">
+            <button type="button" class="imp-c none${D.cover ? '' : ' on'}" data-cov="" role="radio" aria-checked="${!D.cover}">Sin portada</button>
+            ${keys.map(k => `<button type="button" class="imp-c${D.cover === 'img:' + k ? ' on' : ''}" data-cov="img:${esc(k)}" role="radio" aria-checked="${D.cover === 'img:' + k}" title="${esc(k.split('/').pop())}"><img src="${esc(P.urls.get(k))}" alt="${esc(k.split('/').pop())}" loading="lazy">${P.cover === 'img:' + k ? '<em>Del EPUB</em>' : ''}</button>`).join('')}
+          </div>
+          ${ex?.cover_path && D.cover ? '<p class="mono">El volumen ya tiene portada: esta la reemplaza.</p>' : ''}
+          <label class="tb-inl"><input type="checkbox" id="dwc" ${D.workCover && D.cover ? 'checked' : ''} ${D.cover ? '' : 'disabled'}> Usarla también como portada de la obra${w?.cover_path ? ' (reemplaza la actual)' : ''}</label>
+        </section>
+        <section class="imp-box"><h3>Imágenes en Multimedia</h3>
+          <p class="mono">Carpeta: <b>Multimedia › ${esc(folder)}</b></p>
+          <label class="tb-inl"><input type="radio" name="di" value="all" ${D.allImgs ? 'checked' : ''}> Todas las imágenes del archivo (${keys.length})</label>
+          <label class="tb-inl"><input type="radio" name="di" value="used" ${D.allImgs ? '' : 'checked'}> Solo las del texto y la portada (${used.size})</label>
+          ${P.fonts.length ? `<p class="mono">Las ${P.fonts.length} fuentes del EPUB van a la subcarpeta «fuentes» y el lector las usa en este volumen.</p>` : ''}
+        </section>
+        <section class="imp-box"><h3>Publicación</h3>
+          <label class="tb-inl"><input type="radio" name="dp" value="draft" ${D.pub === 'draft' ? 'checked' : ''}> Guardar como borrador</label>
+          ${can('publish') ? `<label class="tb-inl"><input type="radio" name="dp" value="now" ${D.pub === 'now' ? 'checked' : ''}> Publicar el volumen ahora</label>` : ''}
+          ${can('schedule') ? `<label class="tb-inl"><input type="radio" name="dp" value="at" ${D.pub === 'at' ? 'checked' : ''}> Programar <input type="datetime-local" id="dat" value="${esc(D.at)}" aria-label="Fecha de publicación">${tzHint()}</label>` : ''}
+        </section></div>
+        <div class="imp-nav"><button class="btn ghost" id="back">‹ Revisar secciones</button><button class="btn" id="go">Importar ${inc.length} ${inc.length === 1 ? 'sección' : 'secciones'}</button></div>`;
+      if (ex) sb.from('chapters').select('id', { count: 'exact', head: true }).eq('volume_id', ex.id).is('deleted_at', null).then(({ count }) => { const e = $('#exc'); if (e && count != null) e.textContent = ' con ' + count + (count === 1 ? ' capítulo' : ' capítulos'); });
+      $('#dw').onchange = e => { D.work = e.target.value; const nw = work(); D.vnum = P.meta.index || nextVol(nw); D.workCover = !nw || !nw.cover_path; s3(); };
+      $('#dt')?.addEventListener('input', e => { D.newTitle = e.target.value; }); $('#dt')?.addEventListener('change', s3);
+      $('#da')?.addEventListener('input', e => { D.newAuthor = e.target.value; });
+      $('#dv').onchange = e => { D.vnum = Math.max(1, Math.min(999, Math.round(+e.target.value) || 1)); s3(); };
+      W().querySelectorAll('[name=dm]').forEach(r => r.onchange = () => { D.mode = r.value; });
+      W().querySelectorAll('[name=di]').forEach(r => r.onchange = () => { D.allImgs = r.value === 'all'; });
+      W().querySelectorAll('[name=dp]').forEach(r => r.onchange = () => { D.pub = r.value; });
+      $('#dat')?.addEventListener('input', e => { D.at = e.target.value; D.pub = 'at'; W().querySelector('[name=dp][value=at]').checked = true; });
+      $('#dwc').onchange = e => { D.workCover = e.target.checked; };
+      W().querySelectorAll('[data-cov]').forEach(b => b.onclick = () => { D.cover = b.dataset.cov || null; s3(); });
+      $('#back').onclick = () => { step = 2; render(); };
+      $('#go').onclick = e => busy(e.currentTarget, commit);
+    }
+
+    async function commit(){
+      const uploaded = [], inserted = [], inc = P.chapters.filter(c => !c.skip);
+      let job = null, createdSeries = null, createdVol = null, oldIds = [], oldGone = false, volBefore = null, seriesCoverBefore;
+      if (D.pub === 'at' && (!D.at || new Date(fromLocal(D.at)) <= new Date())) throw new Error('Elige una fecha futura para programar');
+      let w = work(), vol = liveVols(w).find(v => v.num === D.vnum);
+      if (vol && D.mode === 'replace' && !confirm(`Se reemplazarán los capítulos del Volumen ${D.vnum}. Los anteriores van a la papelera. ¿Continuar?`)) return;
+      try {
+        ({ data: job } = await sb.from('import_jobs').insert({ team_id: T.team.id, created_by: getUser().id, filename: file.name, file_type: file.name.split('.').pop().toLowerCase(), mode: vol ? D.mode : 'append', status: 'running', fingerprint: fp }).select().single());
+        if (!w) {
+          st('Creando la obra…'); const title = (D.newTitle || P.title).trim().slice(0, 200); let slug = slugify(title);
+          const { data: taken } = await sb.from('series').select('id').eq('slug', slug).limit(1); if (taken?.length) slug += '-' + Date.now().toString(36).slice(-4);
+          const r = await sb.from('series').insert({ team_id: T.team.id, slug, title, short: title.slice(0, 26), author: D.newAuthor.trim() || null, publisher: P.meta.publisher || null, synopsis: P.meta.synopsis || null, published: false }).select().single();
+          if (r.error) throw r.error; w = createdSeries = { ...r.data, volumes: [] };
+        }
+        // Multimedia › obras › {obra} › vol-N
+        const dir = `${T.team.id}/obras/${w.slug}/vol-${D.vnum}/`;
+        const { data: have } = await sb.storage.from('obi-media').list(dir.slice(0, -1), { limit: 1000 });
+        const takenNames = new Set((have || []).map(x => x.name));
+        const fname = n => { const b = n.replace(/[^\w.-]/g, '_'); let x = b, i = 2; while (takenNames.has(x)) x = b.replace(/(\.\w+)?$/, m => '-' + (i++) + m); takenNames.add(x); return x; };
+        const up = async (sub, name, blob, type) => { const p = dir + sub + fname(name); const { error } = await sb.storage.from('obi-media').upload(p, blob, { contentType: type }); if (error) throw error; uploaded.push(p); return p; };
+        const keys = D.allImgs ? imgKeys() : [...usedImgs()].filter(k => P.images.get(k)?.blob);
+        const map = {}; let n = 0;
+        for (const key of keys) { const im = P.images.get(key); st(`Subiendo imágenes a Multimedia ${++n}/${keys.length}…`); if (im.blob.size > LIMITS.image) { toast(`${im.name} supera 8 MB y se omitió`); continue; } map['img:' + key] = await up('', im.name, im.blob, im.type); }
+        const fonts = []; for (const f of P.fonts) { st('Subiendo fuentes…'); const p = await up('fuentes/', f.name, new Blob([f.bytes]), /woff2/.test(f.name) ? 'font/woff2' : /woff/.test(f.name) ? 'font/woff' : /otf/.test(f.name) ? 'font/otf' : 'font/ttf'); fonts.push({ url: PUB + p, family: f.family, style: f.style, weight: f.weight }); }
+        const cov = D.cover ? map[D.cover] || null : null;
+        st('Guardando el volumen…');
+        if (!vol) {
+          const r = await sb.from('volumes').insert({ series_id: w.id, num: D.vnum, status: 'draft', epub_fonts: fonts, cover_path: cov, isbn: P.meta.isbn || null, publisher: P.meta.publisher || null, synopsis: P.meta.synopsis || null }).select().single();
+          if (r.error) throw r.error; vol = createdVol = r.data;
+        }
+        const { data: existing } = await sb.from('chapters').select('id,num,vol,volume_id').eq('series_id', w.id).is('deleted_at', null);
+        if (D.mode === 'replace' && !createdVol) oldIds = (existing || []).filter(c => c.volume_id === vol.id || c.vol === D.vnum).map(c => c.id);
         let num = Math.max(0, ...(existing || []).map(c => c.num));
-        const rows = P.chapters.map((c, i) => ({ series_id: s.id, volume_id: vol.id, vol: vnum, num: ++num, sort_order: i, title: c.title, section_type: c.type, status: 'draft', body: c.blocks.map(b => b.type === 'image' ? { ...b, url: map[b.url] ? PUB + map[b.url] : b.url } : b).filter(b => b.type !== 'image' || /^https?:/.test(b.url)) }));
-        for (let i = 0; i < rows.length; i += 10) { const r = await sb.from('chapters').insert(rows.slice(i, i + 10)).select('id'); if (r.error) throw r.error; inserted.push(...r.data.map(x => x.id)); }
-        if (publish) { const r = await sb.rpc('publish_volume', { p_volume: vol.id }); if (r.error) throw r.error; }
-        await sb.from('import_jobs').update({ status: 'done', media_paths: uploaded, result: { series: s.id, volume: vol.id, chapters: inserted.length } }).eq('id', job.id);
-        toast(`Importados ${inserted.length} capítulos${publish ? ' y publicados' : ' como borrador'}`); go('/estudio/obra/' + s.slug);
+        const rows = inc.map((c, i) => ({ series_id: w.id, volume_id: vol.id, vol: D.vnum, num: ++num, sort_order: i, title: (c.title || 'Sin título').slice(0, 300), section_type: c.type, status: 'draft',
+          body: c.blocks.map(b => b.type === 'image' ? { ...b, url: map[b.url] ? PUB + map[b.url] : b.url } : b).filter(b => b.type !== 'image' || /^https?:/.test(b.url)) }));
+        for (let i = 0; i < rows.length; i += 10) { st(`Guardando capítulos ${Math.min(i + 10, rows.length)}/${rows.length}…`); const r = await sb.from('chapters').insert(rows.slice(i, i + 10)).select('id'); if (r.error) throw r.error; inserted.push(...r.data.map(x => x.id)); }
+        if (oldIds.length) { const r = await sb.from('chapters').update({ deleted_at: new Date().toISOString() }).in('id', oldIds); if (r.error) throw r.error; oldGone = true; }
+        if (!createdVol) {
+          const { data: vr } = await sb.from('volumes').select('cover_path,epub_fonts,isbn,publisher,synopsis').eq('id', vol.id).single();
+          const patch = {}; if (fonts.length) patch.epub_fonts = fonts; if (cov) patch.cover_path = cov;
+          for (const k of ['isbn', 'publisher', 'synopsis']) if (!vr?.[k] && P.meta[k]) patch[k] = P.meta[k];
+          if (Object.keys(patch).length) { volBefore = Object.fromEntries(Object.keys(patch).map(k => [k, vr?.[k] ?? null])); const r = await sb.from('volumes').update(patch).eq('id', vol.id); if (r.error) throw r.error; }
+        }
+        if (cov && D.workCover) { seriesCoverBefore = w.cover_path || null; const r = await sb.from('series').update({ cover_path: cov }).eq('id', w.id); if (r.error) throw r.error; }
+        if (D.pub !== 'draft') { st(D.pub === 'now' ? 'Publicando…' : 'Programando…'); const r = await sb.rpc('publish_volume', D.pub === 'now' ? { p_volume: vol.id } : { p_volume: vol.id, p_at: fromLocal(D.at) }); if (r.error) throw r.error; }
+        await sb.from('import_jobs').update({ status: 'done', media_paths: uploaded, result: { series: w.id, volume: vol.id, chapters: inserted.length, cover: cov } }).eq('id', job.id);
+        P.urls.forEach(u => u && URL.revokeObjectURL(u));
+        toast(`Importadas ${inserted.length} secciones${D.pub === 'now' ? ' y publicadas' : D.pub === 'at' ? ' · programadas para ' + fmtTz(fromLocal(D.at)) : ' como borrador'} · ${Object.keys(map).length} imágenes en Multimedia`);
+        go('/estudio/obra/' + w.slug);
       } catch (er) {
         if (inserted.length) await sb.from('chapters').delete().in('id', inserted);
+        if (oldGone) await sb.from('chapters').update({ deleted_at: null }).in('id', oldIds);
+        if (volBefore && vol) await sb.from('volumes').update(volBefore).eq('id', vol.id);
+        if (seriesCoverBefore !== undefined && !createdSeries) await sb.from('series').update({ cover_path: seriesCoverBefore }).eq('id', w.id);
+        if (createdVol) await sb.from('volumes').delete().eq('id', createdVol.id);
+        if (createdSeries) await sb.from('series').delete().eq('id', createdSeries.id);
         if (uploaded.length) await sb.storage.from('obi-media').remove(uploaded);
         if (job) await sb.from('import_jobs').update({ status: 'failed', result: { error: er.message } }).eq('id', job.id);
-        throw new Error('Se deshizo la importación: ' + (er.hint || er.message));
+        st(''); throw new Error('Se deshizo la importación: ' + (er.hint || er.message));
       }
     }
+    render();
   }
 
   // ---------- multimedia ----------
@@ -479,15 +846,21 @@ export function createStudio(ctx){
     const root = T.team.id + '/' + folder;
     const { data, error } = await sb.storage.from('obi-media').list(root.replace(/\/$/, ''), { limit: 41, offset: page * 40, sortBy: { column: 'name', order: 'asc' } });
     const list = (data || []).slice(0, 40), dirs = list.filter(x => !x.id), files = list.filter(x => x.id);
-    const crumbs = folder.split('/').filter(Boolean);
+    const crumbs = folder.split('/').filter(Boolean), vf = folder.match(/^obras\/([\w-]+)\/vol-(\d+)\/$/), canCov = vf && can('edit');
     app.innerHTML = shell('Multimedia', `
       <p class="mono"><a href="#" data-dir="">${esc(T.team.name)}</a>${crumbs.map((c, i) => ` / <a href="#" data-dir="${esc(crumbs.slice(0, i + 1).join('/') + '/')}">${esc(c)}</a>`).join('')}</p>
       ${error ? `<p>${esc(error.message)}</p>` : ''}
       <div class="st-row">${can('edit') ? '<label class="btn ghost">Subir imágenes<input type="file" id="upl" accept="image/*" multiple hidden></label>' : ''}<button class="btn ghost" id="selall">Seleccionar página</button>${can('delete') ? '<button class="btn ghost danger" id="delsel">Borrar seleccionadas</button>' : ''}<span class="mono" id="sel">0 seleccionadas</span></div>
-      <div class="st-media">${dirs.map(d => `<a href="#" class="st-dir" data-dir="${esc(folder + d.name + '/')}">📁 ${esc(d.name)}</a>`).join('')}${files.map(f => { const p = root + f.name; return `<label class="st-file"><input type="checkbox" data-p="${esc(p)}">${/\.(png|jpe?g|webp|gif|avif)$/i.test(f.name) ? `<img src="${esc(media(p))}" alt="" loading="lazy">` : '<span class="mono">fuente</span>'}<span class="mono">${esc(f.name)} · ${Math.round((f.metadata?.size || 0) / 1024)} KB</span><button class="lnk" data-copy="${esc(media(p))}">Copiar URL</button></label>`; }).join('') || (dirs.length ? '' : '<p class="mono">Carpeta vacía.</p>')}</div>
+      <div class="st-media">${dirs.map(d => `<a href="#" class="st-dir" data-dir="${esc(folder + d.name + '/')}">📁 ${esc(d.name)}</a>`).join('')}${files.map(f => { const p = root + f.name; return `<label class="st-file"><input type="checkbox" data-p="${esc(p)}">${/\.(png|jpe?g|webp|gif|avif)$/i.test(f.name) ? `<img src="${esc(media(p))}" alt="" loading="lazy">` : '<span class="mono">fuente</span>'}<span class="mono">${esc(f.name)} · ${Math.round((f.metadata?.size || 0) / 1024)} KB</span><button class="lnk" data-copy="${esc(media(p))}">Copiar URL</button>${canCov && /\.(png|jpe?g|webp|gif|avif)$/i.test(f.name) ? `<button class="lnk" data-cover="${esc(p)}">Usar como portada del Vol. ${vf[2]}</button>` : ''}</label>`; }).join('') || (dirs.length ? '' : '<p class="mono">Carpeta vacía.</p>')}</div>
       <p class="st-row">${page > 0 ? '<button class="btn ghost" id="prev">‹ Anterior</button>' : ''}${(data || []).length > 40 ? '<button class="btn ghost" id="next">Siguiente ›</button>' : ''}</p>`, '/estudio/multimedia');
     bindPicker(() => library());
     app.querySelectorAll('[data-dir]').forEach(a => a.onclick = e => { e.preventDefault(); library(a.dataset.dir, 0); });
+    app.querySelectorAll('[data-cover]').forEach(b => b.onclick = e => { e.preventDefault(); busy(b, async () => {
+      const { data: s } = await sb.from('series').select('id,cover_path').eq('team_id', T.team.id).eq('slug', vf[1]).maybeSingle(); if (!s) throw new Error('No encontré la obra de esta carpeta');
+      const { data: v } = await sb.from('volumes').select('id').eq('series_id', s.id).eq('num', +vf[2]).is('deleted_at', null).maybeSingle(); if (!v) throw new Error('Esa obra no tiene Volumen ' + vf[2]);
+      const { error } = await sb.from('volumes').update({ cover_path: b.dataset.cover }).eq('id', v.id); if (error) throw new Error(errMsg(error));
+      if (!s.cover_path && confirm('La obra aún no tiene portada. ¿Usar también esta?')) await sb.from('series').update({ cover_path: b.dataset.cover }).eq('id', s.id);
+      toast('Portada del Volumen ' + vf[2] + ' actualizada'); }); });
     app.querySelectorAll('[data-copy]').forEach(b => b.onclick = e => { e.preventDefault(); navigator.clipboard?.writeText(b.dataset.copy); toast('URL copiada'); });
     const boxes = () => [...app.querySelectorAll('[data-p]')], count = () => $('#sel').textContent = boxes().filter(b => b.checked).length + ' seleccionadas';
     app.querySelectorAll('[data-p]').forEach(b => b.onchange = count);
@@ -564,24 +937,370 @@ export function createStudio(ctx){
     };
   }
 
-  // ---------- equipo y permisos ----------
-  async function team(){
-    if (!(await ensure())) return;
-    const { data: mem } = await sb.from('team_members').select('user_id,role,overrides,profiles(username,avatar_url)').eq('team_id', T.team.id);
-    const admin = ['owner', 'admin'].includes(T.team.role);
-    app.innerHTML = shell('Equipo y permisos', `
-      <p class="mono">Cada permiso puede heredarse del rol, permitirse o denegarse. Propietario y Administrador tienen acceso completo. Las mismas reglas se aplican en el servidor.</p>
-      <div class="st-perm"><span></span>${ACTIONS.map(([, l]) => `<span class="mono">${l}</span>`).join('')}
-      ${(mem || []).map(m => { const full = ['owner', 'admin'].includes(m.role); return `<span><strong>${esc(m.profiles?.username || m.user_id.slice(0, 8))}</strong><br>${admin && !full ? `<select data-role="${m.user_id}">${ROLES.filter(([k]) => k !== 'owner').map(([k, l]) => `<option value="${k}" ${k === m.role ? 'selected' : ''}>${l}</option>`).join('')}</select> <button class="lnk danger" data-rm="${m.user_id}">Retirar</button>` : `<span class="mono">${ROLES.find(r => r[0] === m.role)?.[1]}</span>`}</span>
-        ${ACTIONS.map(([a]) => { const v = (m.overrides || {})[a]; const st = full ? 'full' : v === true ? 'allow' : v === false ? 'deny' : 'inherit'; return `<button class="st-cell ${st}" ${admin && !full ? `data-u="${m.user_id}" data-a="${a}"` : 'disabled'} title="${{ full: 'Acceso completo', allow: 'Permitido', deny: 'Denegado', inherit: 'Heredado del rol' }[st]}">${{ full: '✓', allow: '✓', deny: '✕', inherit: '·' }[st]}</button>`; }).join('')}`; }).join('')}</div>
-      ${admin ? '<p class="st-row"><input id="mail" type="email" placeholder="Correo del integrante"><select id="nrole">' + ROLES.filter(([k]) => k !== 'owner').map(([k, l]) => `<option value="${k}" ${k === 'collaborator' ? 'selected' : ''}>${l}</option>`).join('') + '</select><button class="btn" id="add">Agregar</button></p>' : ''}`, '/estudio/equipo');
-    bindPicker(team);
-    const memOf = u => mem.find(m => m.user_id === u);
-    app.querySelectorAll('[data-a]').forEach(b => b.onclick = () => busy(b, async () => { const m = memOf(b.dataset.u), o = { ...(m.overrides || {}) }, a = b.dataset.a; o[a] = o[a] === undefined ? true : o[a] === true ? false : undefined; if (o[a] === undefined) delete o[a]; const { error } = await sb.from('team_members').update({ overrides: o }).eq('team_id', T.team.id).eq('user_id', m.user_id); if (error) throw error; team(); }));
-    app.querySelectorAll('[data-role]').forEach(s => s.onchange = () => busy(null, async () => { const { error } = await sb.from('team_members').update({ role: s.value }).eq('team_id', T.team.id).eq('user_id', s.dataset.role); if (error) throw error; toast('Rol actualizado'); }));
-    app.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => busy(b, async () => { if (!confirm('¿Retirar a este integrante?')) return; const { error } = await sb.from('team_members').delete().eq('team_id', T.team.id).eq('user_id', b.dataset.rm); if (error) throw error; team(); }));
-    $('#add')?.addEventListener('click', e => busy(e.target, async () => { const { data } = await sb.rpc('team_find_user', { p_team: T.team.id, p_email: $('#mail').value.trim() }); if (!data?.length) throw new Error('No hay una cuenta con ese correo'); const { error } = await sb.from('team_members').insert({ team_id: T.team.id, user_id: data[0].id, role: $('#nrole').value }); if (error) throw error; toast(data[0].username + ' agregado'); team(); }));
+  // ---------- equipo: integrantes, roles a medida, tablero, bitácora y página del equipo ----------
+  const PERMS = [['view','Ver el Estudio','Siempre activo'],['edit','Editar texto','Editor, títulos y ajustes del capítulo'],['create','Crear','Obras, volúmenes y capítulos'],['import','Importar','EPUB, DOCX y PDF'],['publish','Publicar y retirar','Incluye publicar ahora'],['schedule','Programar','Fechas de lanzamiento'],['delete','Borrar','Capítulos, volúmenes y archivos'],['review','Aprobar revisiones','Cuando el equipo exige aprobación'],['board','Mover tarjetas','Tablero de trabajo y asignaciones'],['members','Gestionar integrantes y roles','Solo lo concede el propietario'],['profile','Editar la página del equipo','Nombre, logo, colores y enlaces'],['log','Ver la bitácora','Historial de acciones del equipo']];
+  const SWATCH = ['#f2c230','#d9922b','#f59e7a','#c9a8f2','#8cc3f2','#a9d18e','#a89f8a'];
+  const ini = s => (s || '?').replace(/^@/, '').slice(0, 2).toUpperCase();
+  const fmtAt = d => fmtTz(d, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const errMsg = e => e?.hint || ({ forbidden: 'No tienes permiso para esta acción', duplicate: 'Ya existe', not_found: 'No se encontró' })[e?.message] || e?.message || 'Error';
+  const rpc = async (fn, args) => { const { data, error } = await sb.rpc(fn, args); if (error) throw new Error(errMsg(error)); return data; };
+  async function teamMembers(){
+    const [{ data: mem }, { data: roles }] = await Promise.all([
+      sb.from('team_members').select('user_id,role,role_id,overrides,profiles(username,avatar_url)').eq('team_id', T.team.id),
+      sb.from('team_roles').select('id,name,color,description,perms,base,sort').eq('team_id', T.team.id).order('sort')]);
+    return { mem: (mem || []).sort((a, b) => (a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : 0) || (a.profiles?.username || '').localeCompare(b.profiles?.username || '')), roles: roles || [] };
   }
 
-  return { home, works, work, editor, importer, library: () => library(), team, glossary, isMember: async () => { const u = getUser(); if (!u) return false; const { count } = await sb.from('team_members').select('*', { count: 'exact', head: true }).eq('user_id', u.id); return count > 0; } };
+  async function team(){
+    if (!(await ensure())) return;
+    const { mem, roles } = await teamMembers();
+    const manage = can('members'), owner = !!T.perms.owner, me = getUser()?.id;
+    const rById = Object.fromEntries(roles.map(r => [r.id, r]));
+    const gated = r => r?.perms?.members && !owner;
+    const open = team.open || null, editing = team.editing ?? null;
+    const memberRow = m => {
+      const isOwner = m.role === 'owner', r = rById[m.role_id], name = m.profiles?.username || m.user_id.slice(0, 8), self = m.user_id === me;
+      const lockSelf = self && !owner, editable = manage && !isOwner && !lockSelf && !gated(r);
+      const ov = m.overrides || {}, nov = Object.keys(ov).length;
+      return `<div class="tm-row"><span class="tm-av" style="background:${isOwner ? T.team.color || '#f2c230' : r?.color || '#a89f8a'}">${m.profiles?.avatar_url ? `<img src="${esc(m.profiles.avatar_url)}" alt="">` : esc(ini(name))}</span>
+        <span class="tm-n"><b>${esc(name)}${self ? ' <small>(tú)</small>' : ''}</b><small>${isOwner ? 'Acceso completo · no se puede modificar' : nov ? nov + (nov === 1 ? ' excepción' : ' excepciones') + ' sobre su rol' : 'Permisos de su rol'}</small></span>
+        <span>${editable ? `<select data-mrole="${m.user_id}" aria-label="Rol de ${esc(name)}">${roles.map(x => `<option value="${x.id}" ${x.id === m.role_id ? 'selected' : ''} ${gated(x) ? 'disabled' : ''}>${esc(x.name)}</option>`).join('')}</select>` : `<b style="color:${isOwner ? T.team.color || '#f2c230' : r?.color || '#a89f8a'}">${isOwner ? 'Propietario' : esc(r?.name || ROLE_L[m.role] || 'Sin rol')}</b>`}</span>
+        <span class="tm-a">${editable ? `<button class="lnk" data-mx="${m.user_id}" aria-expanded="${open === m.user_id}">Excepciones</button><button class="lnk danger" data-mrm="${m.user_id}">Retirar</button>` : self && !isOwner ? '<button class="lnk danger" data-leave="1">Salir del equipo</button>' : ''}</span>
+        ${open === m.user_id && editable ? `<div class="tm-ov"><p class="mono">Cada permiso puede seguir al rol, permitirse o negarse solo para esta persona.</p>${PERMS.filter(([k]) => k !== 'view').map(([k, l]) => { const v = ov[k], base = !!r?.perms?.[k], st = v === true ? 'allow' : v === false ? 'deny' : 'inherit'; const dis = k === 'members' && !owner; return `<label class="tm-p"><span>${l}</span><select data-ov="${k}" data-u="${m.user_id}" ${dis ? 'disabled' : ''}><option value="inherit" ${st === 'inherit' ? 'selected' : ''}>Según el rol (${base ? 'sí' : 'no'})</option><option value="allow" ${st === 'allow' ? 'selected' : ''}>Permitir</option><option value="deny" ${st === 'deny' ? 'selected' : ''}>Negar</option></select></label>`; }).join('')}</div>` : ''}</div>`;
+    };
+    const roleCard = r => {
+      const n = mem.filter(m => m.role_id === r.id).length, yes = PERMS.filter(([k]) => r.perms?.[k] && k !== 'view'), no = PERMS.filter(([k]) => !r.perms?.[k]);
+      const mine = mem.find(m => m.user_id === me)?.role_id === r.id, lock = !manage || gated(r) || (mine && !owner);
+      if (editing === r.id) return roleForm(r, n);
+      return `<div class="rl-card" style="border-top-color:${r.color}"><span class="rl-h"><b>${esc(r.name)}</b><span class="mono">${n} ${n === 1 ? 'persona' : 'personas'}</span></span>${r.description ? `<span class="rl-d">${esc(r.description)}</span>` : ''}
+        <span class="rl-l">${yes.map(([, l]) => `<span><i class="y">✓</i>${l}</span>`).join('')}${no.map(([, l]) => `<span class="no"><i>✕</i>${l}</span>`).join('')}</span>
+        ${lock ? (manage ? `<span class="mono">${mine && !owner ? 'Es tu rol: solo el propietario lo edita' : 'Solo el propietario edita este rol'}</span>` : '') : `<button class="btn ghost" data-redit="${r.id}">Editar rol</button>`}</div>`;
+    };
+    const roleForm = (r, n = 0) => `<form class="rl-card rl-form" id="rform" style="border-top-color:${r?.color || '#a89f8a'}" data-id="${r?.id || ''}">
+      <label>Nombre<input name="name" maxlength="40" required value="${esc(r?.name || '')}" placeholder="p. ej. Redes y anuncios"></label>
+      <span class="rl-sw" role="radiogroup" aria-label="Color del rol">${SWATCH.map(c => `<button type="button" role="radio" aria-checked="${(r?.color || '#a89f8a') === c}" aria-label="${c}" data-sw="${c}" style="background:${c}"></button>`).join('')}<input type="hidden" name="color" value="${r?.color || '#a89f8a'}"></span>
+      <label>Descripción<input name="desc" maxlength="200" value="${esc(r?.description || '')}" placeholder="Qué hace este rol en el equipo"></label>
+      <fieldset class="rl-perms"><legend>Puede…</legend>${PERMS.map(([k, l, h]) => `<label class="rl-chk"><input type="checkbox" name="p_${k}" ${k === 'view' || r?.perms?.[k] ? 'checked' : ''} ${k === 'view' || (k === 'members' && !owner) ? 'disabled' : ''}><span><b>${l}</b><small>${h}</small></span></label>`).join('')}</fieldset>
+      <span class="rl-fa"><button class="btn" type="submit">${r ? 'Guardar rol' : 'Crear rol'}</button><button class="btn ghost" type="button" data-rcancel="1">Cancelar</button>
+        ${r ? `<span class="rl-del">${n ? `<select name="move" aria-label="Pasar sus integrantes a">${roles.filter(x => x.id !== r.id && !gated(x)).map(x => `<option value="${x.id}">Pasar a ${esc(x.name)}</option>`).join('')}</select>` : ''}<button class="lnk danger" type="button" data-rdel="${r.id}">Borrar rol</button></span>` : ''}</span></form>`;
+    app.innerHTML = shell('Equipo y permisos', `<div class="tm">
+      <section class="tm-box"><div class="tm-bh"><h2>Integrantes · ${mem.length}</h2>${manage ? `<form class="tm-inv" id="inv"><input type="email" id="mail" required placeholder="Correo del integrante" aria-label="Correo del integrante"><select id="nrole" aria-label="Rol">${roles.filter(x => !gated(x)).map(x => `<option value="${x.id}" ${x.base === 'collaborator' ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select><button class="btn">Agregar</button></form>` : ''}</div>
+        ${mem.map(memberRow).join('')}
+        <p class="mono" style="padding:10px 16px;margin:0">${manage ? 'La persona necesita una cuenta en El Obi del Lector con ese correo. Cada cambio queda en la bitácora.' : 'Solo quien gestiona integrantes puede cambiar roles.'}</p></section>
+      <section><div class="tm-sh"><h2>Qué puede hacer cada rol</h2><span class="mono">Las mismas reglas se aplican en el servidor.</span></div>
+        <div class="rl-grid">${roles.map(roleCard).join('')}${manage ? (editing === 'new' ? roleForm(null) : '<button class="rl-add" data-redit="new">＋ Nuevo rol</button>') : ''}</div></section></div>`, '/estudio/equipo');
+    bindPicker(team);
+    const again = (o = {}) => { Object.assign(team, o); team(); };
+    const memOf = u => mem.find(m => m.user_id === u);
+    $('#inv')?.addEventListener('submit', e => { e.preventDefault(); busy(e.submitter, async () => { const n = await rpc('team_member_add', { p_team: T.team.id, p_email: $('#mail').value, p_role: $('#nrole').value }); toast((n || 'Integrante') + ' agregado'); again(); }); });
+    app.querySelectorAll('[data-mrole]').forEach(s => s.onchange = () => busy(null, async () => { const m = memOf(s.dataset.mrole); await rpc('team_member_set', { p_team: T.team.id, p_user: m.user_id, p_role: s.value, p_overrides: m.overrides || {} }); toast('Rol actualizado'); again(); }));
+    app.querySelectorAll('[data-mx]').forEach(b => b.onclick = () => again({ open: open === b.dataset.mx ? null : b.dataset.mx }));
+    app.querySelectorAll('[data-ov]').forEach(s => s.onchange = () => busy(null, async () => { const m = memOf(s.dataset.u), o = { ...(m.overrides || {}) }; if (s.value === 'inherit') delete o[s.dataset.ov]; else o[s.dataset.ov] = s.value === 'allow'; await rpc('team_member_set', { p_team: T.team.id, p_user: m.user_id, p_role: null, p_overrides: o }); toast('Excepción guardada'); again(); }));
+    app.querySelectorAll('[data-mrm]').forEach(b => b.onclick = () => busy(b, async () => { const m = memOf(b.dataset.mrm); if (!confirm(`¿Retirar a ${m.profiles?.username || 'este integrante'} del equipo? Sus tarjetas quedan sin asignar.`)) return; await rpc('team_member_remove', { p_team: T.team.id, p_user: m.user_id }); toast('Integrante retirado'); again(); }));
+    $('[data-leave]')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!confirm('¿Salir de este equipo? Perderás el acceso a su Estudio.')) return; await rpc('team_member_remove', { p_team: T.team.id, p_user: me }); T.teams = []; T.team = null; go('/'); }));
+    app.querySelectorAll('[data-redit]').forEach(b => b.onclick = () => again({ editing: b.dataset.redit }));
+    $('[data-rcancel]')?.addEventListener('click', () => again({ editing: null }));
+    const f = $('#rform');
+    if (f) {
+      f.querySelector('input[name=name]').focus();
+      f.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => { f.color.value = b.dataset.sw; f.style.borderTopColor = b.dataset.sw; f.querySelectorAll('[data-sw]').forEach(x => x.setAttribute('aria-checked', x === b)); });
+      f.onsubmit = e => { e.preventDefault(); busy(e.submitter, async () => { const perms = Object.fromEntries(PERMS.map(([k]) => [k, !!f['p_' + k]?.checked])); await rpc('team_role_save', { p_team: T.team.id, p_id: f.dataset.id || null, p_name: f.name.value, p_color: f.color.value, p_desc: f.desc.value, p_perms: perms }); toast(f.dataset.id ? 'Rol guardado' : 'Rol creado'); await pickTeam(T.team.id); again({ editing: null }); }); };
+      f.querySelector('[data-rdel]')?.addEventListener('click', e => busy(e.currentTarget, async () => { const r = rById[f.dataset.id]; if (!confirm(`¿Borrar el rol «${r.name}»?`)) return; await rpc('team_role_delete', { p_team: T.team.id, p_id: r.id, p_move_to: f.move?.value || null }); toast('Rol borrado'); again({ editing: null }); }));
+    }
+  }
+
+  // tablero
+  const COLS = [['traduciendo','Traduciendo','#d9922b'],['correccion','En corrección','#8cc3f2'],['listo','Listo','#a9d18e'],['programado','Programado','#f2c230']];
+  async function board(){
+    if (!(await ensure())) return;
+    app.innerHTML = shell('Flujo de trabajo', '<p class="mono">Cargando el tablero…</p>', '/estudio/flujo'); bindPicker(board);
+    const { data: works } = await sb.from('series').select('id,slug,title,short,theme').eq('team_id', T.team.id).is('archived_at', null).order('title');
+    const ids = (works || []).map(w => w.id);
+    const [{ data: chs }, { mem }] = await Promise.all([
+      ids.length ? sb.from('chapters').select('id,num,vol,title,section_type,status,stage,assigned_to,stage_at,publish_at,updated_at,series_id').in('series_id', ids).in('status', ['draft','scheduled']).is('deleted_at', null).order('vol').order('num').limit(1000) : { data: [] },
+      teamMembers()]);
+    const W = Object.fromEntries((works || []).map(w => [w.id, w])), me = getUser()?.id;
+    const F = board.f || (board.f = { work: '', mine: false });
+    const colOf = c => c.status === 'scheduled' ? 'programado' : c.stage || 'traduciendo';
+    const label = c => (c.section_type && c.section_type !== 'Capítulo' ? c.section_type : 'Cap. ' + c.num) + ' — ' + (c.title || '').replace(/^(Cap[íi]tulo|Cap\.)\s*\d+\s*[—–:-]?\s*/, '');
+    const list = (chs || []).filter(c => (!F.work || c.series_id === F.work) && (!F.mine || c.assigned_to === me));
+    const mv = can('board');
+    const card = c => {
+      const k = colOf(c), i = COLS.findIndex(x => x[0] === k), w = W[c.series_id];
+      const back = i > 0 && mv && (k !== 'programado' || can('schedule')), fwd = i < 3 && mv && (i < 2 || can('schedule'));
+      return `<article class="tb-card" draggable="${mv}" data-card="${c.id}" style="border-left-color:${wcolor(w)}" aria-label="${esc(label(c))}">
+        <span class="mono">${esc((w?.short || w?.title || '').toUpperCase())} · VOL. ${c.vol}</span><b>${esc(label(c))}</b>
+        ${k === 'programado' ? `<span class="tb-at">◷ ${fmtAt(c.publish_at)}</span>` : `<span class="mono">${c.stage_at ? 'En esta etapa ' + ago(c.stage_at) : 'Editado ' + ago(c.updated_at)}</span>`}
+        ${mv ? `<select data-asg="${c.id}" aria-label="Asignar"><option value="">Sin asignar</option>${mem.map(m => `<option value="${m.user_id}" ${m.user_id === c.assigned_to ? 'selected' : ''}>${esc(m.profiles?.username || '—')}${m.user_id === me ? ' (tú)' : ''}</option>`).join('')}</select>` : `<span class="mono">${esc(mem.find(m => m.user_id === c.assigned_to)?.profiles?.username || 'Sin asignar')}</span>`}
+        <span class="tb-ac">${back ? `<button class="tb-b" data-mv="${c.id}" data-dir="-1" aria-label="Mover a ${COLS[i - 1][1]}">←</button>` : '<span></span>'}<a class="tb-b" href="/estudio/editar/${c.id}">Abrir</a>${fwd ? `<button class="tb-b f" data-mv="${c.id}" data-dir="1" aria-label="Mover a ${COLS[i + 1][1]}">→</button>` : '<span></span>'}</span>
+        <div data-schedfor="${c.id}"></div></article>`;
+    };
+    app.querySelector('.s2-main').innerHTML = app.querySelector('.s2-head').outerHTML + `<div class="tb">
+      <div class="tb-f"><label class="tb-inl">Obra<select id="fw"><option value="">Todas</option>${(works || []).map(w => `<option value="${w.id}" ${F.work === w.id ? 'selected' : ''}>${esc(w.short || w.title)}</option>`).join('')}</select></label>
+        <label class="tb-inl"><input type="checkbox" id="fm" ${F.mine ? 'checked' : ''}> Solo lo asignado a mí</label>
+        <span class="mono" style="margin-left:auto">${mv ? 'Mueve las tarjetas con ← → o arrastrándolas. Quien queda asignado recibe un aviso.' : 'Tu rol puede ver el tablero, pero no mover tarjetas.'}</span></div>
+      <div class="tb-cols">${COLS.map(([k, l, c]) => { const cs = list.filter(x => colOf(x) === k); return `<section class="tb-col" data-col="${k}" style="border-top-color:${c}"><h2><span>${l}</span><span class="mono">${cs.length}</span></h2>${cs.map(card).join('') || `<p class="tb-empty">${k === 'programado' ? 'Nada programado.' : 'Sin capítulos aquí.'}</p>`}</section>`; }).join('')}</div>
+      ${!(chs || []).length ? '<p class="mono">Los capítulos en borrador o programados aparecen aquí. Los publicados salen del tablero.</p>' : ''}</div>`;
+    const cOf = id => chs.find(c => c.id === id);
+    $('#fw').onchange = e => { F.work = e.target.value; board(); };
+    $('#fm').onchange = e => { F.mine = e.target.checked; board(); };
+    const schedAsk = c => { const box = app.querySelector(`[data-schedfor="${c.id}"]`); box.innerHTML = `<div class="tb-sch"><input type="datetime-local" aria-label="Fecha de publicación">${tzHint()}<button class="tb-b f">Programar</button><button class="tb-b" data-x="1">✕</button></div>`; const inp = box.querySelector('input'); inp.focus();
+      box.querySelector('[data-x]').onclick = () => { box.innerHTML = ''; };
+      box.querySelector('.f').onclick = e => busy(e.currentTarget, async () => { if (!inp.value || new Date(fromLocal(inp.value)) <= new Date()) throw new Error('Elige una fecha futura'); const { error } = await sb.from('chapters').update({ status: 'scheduled', publish_at: fromLocal(inp.value), stage: 'listo' }).eq('id', c.id); if (error) throw new Error(errMsg(error)); toast('Programado para ' + fmtAt(fromLocal(inp.value))); board(); }); };
+    const moveTo = async (c, k) => {
+      const from = colOf(c); if (from === k) return;
+      if (k === 'programado') return schedAsk(c);
+      if (from === 'programado') { if (!confirm('¿Cancelar la programación y devolverlo a «' + COLS.find(x => x[0] === k)[1] + '»?')) return; const { error } = await sb.from('chapters').update({ status: 'draft' }).eq('id', c.id); if (error) throw new Error(errMsg(error)); }
+      await rpc('chapter_move', { p_id: c.id, p_stage: k, p_assignee: null, p_set_assignee: false }); board();
+    };
+    app.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => busy(b, () => { const c = cOf(b.dataset.mv), i = COLS.findIndex(x => x[0] === colOf(c)); return moveTo(c, COLS[i + +b.dataset.dir][0]); }));
+    app.querySelectorAll('[data-asg]').forEach(s => s.onchange = () => busy(null, async () => { await rpc('chapter_move', { p_id: s.dataset.asg, p_stage: null, p_assignee: s.value || null, p_set_assignee: true }); toast(s.value ? 'Asignado a ' + s.selectedOptions[0].text.replace(' (tú)', '') : 'Sin asignar'); }));
+    let drag = null;
+    app.querySelectorAll('[data-card]').forEach(el => { el.ondragstart = e => { drag = el.dataset.card; e.dataTransfer.effectAllowed = 'move'; el.classList.add('drag'); }; el.ondragend = () => el.classList.remove('drag'); });
+    app.querySelectorAll('[data-col]').forEach(col => { col.ondragover = e => { if (drag) { e.preventDefault(); col.classList.add('over'); } }; col.ondragleave = () => col.classList.remove('over'); col.ondrop = e => { e.preventDefault(); col.classList.remove('over'); const c = cOf(drag); drag = null; if (c) busy(null, () => moveTo(c, col.dataset.col)); }; });
+  }
+
+  // bitácora
+  const LOGK = { publicacion: ['Publicación', '#f2c230'], edicion: ['Edición', '#8cc3f2'], tablero: ['Tablero', '#d9922b'], permisos: ['Permisos', '#c9a8f2'], borrado: ['Borrado', '#f59e7a'], equipo: ['Equipo', '#a9d18e'] };
+  async function log(){
+    if (!(await ensure())) return;
+    if (!can('log')) { app.innerHTML = shell('Bitácora', '<p>Tu rol no permite ver la bitácora. Pídeselo a quien gestiona el equipo.</p>', '/estudio/bitacora'); return bindPicker(log); }
+    const F = log.f || (log.f = { kind: '', who: '', n: 100 });
+    app.innerHTML = shell('Bitácora del equipo', '<p class="mono">Cargando…</p>', '/estudio/bitacora'); bindPicker(log);
+    let q = sb.from('team_log').select('id,actor,kind,summary,detail,chapter_id,created_at').eq('team_id', T.team.id).order('created_at', { ascending: false }).limit(F.n + 1);
+    if (F.kind) q = q.eq('kind', F.kind); if (F.who) q = q.eq('actor', F.who);
+    const [{ data, error }, { mem }] = await Promise.all([q, teamMembers()]);
+    if (error) { app.querySelector('.s2-main').insertAdjacentHTML('beforeend', `<p class="mono">${esc(error.message)}</p>`); return; }
+    const rows = (data || []).slice(0, F.n), more = (data || []).length > F.n;
+    const nm = await names(rows.map(r => r.actor));
+    const day = d => { const k = z => fmtTz(z, { year: 'numeric', month: '2-digit', day: '2-digit' }), x = new Date(d); return k(x) === k(new Date()) ? 'Hoy' : k(x) === k(new Date(Date.now() - 864e5)) ? 'Ayer' : fmtTz(x, { weekday: 'long', day: 'numeric', month: 'long' }); };
+    let last = '';
+    app.querySelector('.s2-main').innerHTML = app.querySelector('.s2-head').outerHTML + `<div class="lg">
+      <div class="lg-f"><span class="lg-chips">${[['', 'Todo'], ...Object.entries(LOGK).map(([k, [l]]) => [k, l])].map(([k, l]) => `<button class="ed-chip ${F.kind === k ? 'on' : ''}" aria-pressed="${F.kind === k}" data-k="${k}">${l}</button>`).join('')}</span>
+        <select id="lw" aria-label="Integrante"><option value="">Todo el equipo</option>${mem.map(m => `<option value="${m.user_id}" ${F.who === m.user_id ? 'selected' : ''}>${esc(m.profiles?.username || '—')}</option>`).join('')}</select></div>
+      <div class="lg-list">${rows.map(r => { const d = day(r.created_at), head = d !== last ? (last = d, `<h3 class="lg-day">${d}</h3>`) : ''; const [kl, kc] = LOGK[r.kind] || [r.kind, '#a89f8a'];
+        return head + `<div class="lg-row"><span class="mono">${fmtTz(r.created_at, { hour: '2-digit', minute: '2-digit' })}</span><b>${esc(r.actor ? nm[r.actor] || 'Exintegrante' : 'Sistema')}</b><span>${r.chapter_id ? `<a href="/estudio/editar/${r.chapter_id}">${esc(r.summary)}</a>` : esc(r.summary)}${r.detail?.at ? ' para el ' + fmtAt(r.detail.at) : ''}${r.detail?.version ? ` <span class="mono">v${r.detail.version}</span>` : ''}</span><span class="lg-k" style="color:${kc}">${kl.toUpperCase()}</span></div>`; }).join('') || '<p class="tb-empty">Todavía no hay movimientos con este filtro. Se registran desde hoy: publicaciones, versiones guardadas, tablero, permisos y borrados.</p>'}</div>
+      ${more ? '<button class="btn ghost" id="lmore">Cargar más</button>' : ''}
+      <p class="mono">Visible para quien tenga el permiso «Ver la bitácora». Se conserva 12 meses.</p></div>`;
+    app.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { F.kind = b.dataset.k; F.n = 100; log(); });
+    $('#lw').onchange = e => { F.who = e.target.value; F.n = 100; log(); };
+    $('#lmore')?.addEventListener('click', () => { F.n += 100; log(); });
+  }
+
+  // página del equipo
+  const LANGS = [['ja','Japonés'],['ko','Coreano'],['zh','Chino'],['en','Inglés']];
+  const LINKS = [['website','Sitio web','https://…'],['patreon','Patreon','https://patreon.com/…'],['kofi','Ko-fi','https://ko-fi.com/…'],['discord','Discord','https://discord.gg/…'],['twitter','X / Twitter','https://x.com/…']];
+  const SECTS = [['show_featured','Obra destacada'],['show_stats','Estadísticas'],['show_works','Obras'],['show_members','Integrantes']];
+  async function profile(){
+    if (!(await ensure())) return;
+    const [{ data: t }, { data: works }, { mem }] = await Promise.all([
+      sb.from('teams').select('id,slug,name,bio,color,langs,settings,avatar_path,banner_path').eq('id', T.team.id).single(),
+      sb.from('series').select('id,slug,title,short,synopsis,cover_path,translation_status,theme').eq('team_id', T.team.id).is('archived_at', null).order('title'),
+      teamMembers()]);
+    const edit = can('profile'), S0 = t.settings || {};
+    const D = { name: t.name, slug: t.slug, bio: t.bio || '', color: t.color || '#f2c230', langs: [...(t.langs || [])], avatar: t.avatar_path, banner: t.banner_path,
+      feat: S0.featured_works || '', links: Object.fromEntries(LINKS.map(([k]) => [k, S0[k] || ''])), sect: Object.fromEntries(SECTS.map(([k]) => [k, S0[k] !== false])),
+      logoUpd: S0.show_team_logo !== false, logoReader: S0.show_reader_logo !== false, tz: S0.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone };
+    const cnt = {}; if (works?.length) { const { data: cc } = await sb.from('chapters').select('series_id').in('series_id', works.map(w => w.id)).eq('status', 'published').is('deleted_at', null).limit(5000); (cc || []).forEach(c => cnt[c.series_id] = (cnt[c.series_id] || 0) + 1); }
+    const dis = edit ? '' : 'disabled';
+    app.innerHTML = shell('Página del equipo', `<div class="pf">
+      <form class="pf-form" id="pf">
+        ${edit ? '' : '<p class="st-card" style="margin:0">Tu rol puede ver esta página, pero no editarla.</p>'}
+        <h2>Datos públicos</h2>
+        <label>Nombre del equipo<input name="name" maxlength="80" required value="${esc(D.name)}" ${dis}></label>
+        <label>Dirección<span class="pf-slug"><span class="mono">obi.lat/equipo/</span><input name="slug" maxlength="40" pattern="[a-z0-9][a-z0-9-]{1,38}[a-z0-9]" required value="${esc(D.slug)}" ${dis}></span><small class="mono">Solo minúsculas, números y guiones. Si la cambias, los enlaces viejos dejarán de funcionar.</small></label>
+        <label><span class="pf-lh">Presentación<span class="mono" id="biocount">${D.bio.length}/600</span></span><textarea name="bio" rows="4" maxlength="600" ${dis}>${esc(D.bio)}</textarea></label>
+        <div class="pf-g"><span class="pf-l">Color del equipo</span><span class="rl-sw" role="radiogroup" aria-label="Color del equipo">${SWATCH.map(c => `<button type="button" role="radio" aria-checked="${D.color === c}" aria-label="${c}" data-pc="${c}" style="background:${c}" ${dis}></button>`).join('')}</span></div>
+        <div class="pf-g"><span class="pf-l">Traducimos del</span><span class="ed-chips">${LANGS.map(([k, l]) => `<button type="button" class="ed-chip ${D.langs.includes(k) ? 'on' : ''}" aria-pressed="${D.langs.includes(k)}" data-lang="${k}" ${dis}>${l}</button>`).join('')}</span></div>
+        <div class="pf-g"><span class="pf-l">Logo</span><span class="pf-up"><span class="pf-logo" id="logobox"></span><span style="display:grid;gap:6px"><label class="btn ghost pf-file">${D.avatar ? 'Cambiar logo' : 'Subir logo'}<input type="file" id="flogo" accept="image/png,image/webp,image/jpeg" hidden ${dis}></label><small class="mono">PNG transparente · mínimo 512×512 · hasta 1 MB</small>${D.avatar && edit ? '<button type="button" class="lnk danger" id="nologo">Quitar logo</button>' : ''}</span></span>
+          <label class="tb-inl"><input type="checkbox" id="lu" ${D.logoUpd ? 'checked' : ''} ${dis}> En la lista de actualizaciones</label><label class="tb-inl"><input type="checkbox" id="lr" ${D.logoReader ? 'checked' : ''} ${dis}> Al inicio de cada capítulo, en lugar de «Traducido por…»</label></div>
+        <div class="pf-g"><span class="pf-l">Portada del perfil</span><span class="pf-up"><label class="btn ghost pf-file">${D.banner ? 'Cambiar portada' : 'Subir portada'}<input type="file" id="fban" accept="image/png,image/jpeg,image/webp" hidden ${dis}></label><small class="mono">1600×400 recomendado · hasta 3 MB. Sin portada se usa el color del equipo.</small>${D.banner && edit ? '<button type="button" class="lnk danger" id="noban">Quitar</button>' : ''}</span></div>
+        <label>Zona horaria del equipo<select name="tz" ${dis}>${[...TZS, ...(TZS.some(x => x[0] === D.tz) ? [] : [[D.tz, D.tz.replace(/_/g, ' ')]])].map(([k, l]) => `<option value="${k}" ${k === D.tz ? 'selected' : ''}>${l} · ${new Date().toLocaleTimeString('es-MX', { timeZone: k, hour: '2-digit', minute: '2-digit' })}</option>`).join('')}</select><small class="mono">Las fechas del Estudio se muestran y se programan en esta hora. Los lectores ven cada lanzamiento en su propia hora.</small></label>
+        <label>Obra destacada<select name="feat" ${dis}><option value="">Ninguna</option>${(works || []).map(w => `<option value="${w.slug}" ${D.feat === w.slug ? 'selected' : ''}>${esc(w.short || w.title)}</option>`).join('')}</select></label>
+        <div class="pf-g"><span class="pf-l">Secciones visibles</span>${SECTS.map(([k, l]) => `<label class="tb-inl"><input type="checkbox" data-sect="${k}" ${D.sect[k] ? 'checked' : ''} ${dis}> ${l}</label>`).join('')}</div>
+        <div class="pf-g"><span class="pf-l">Redes y apoyo</span>${LINKS.map(([k, l, ph]) => `<label class="pf-link">${l}<input type="url" data-link="${k}" value="${esc(D.links[k])}" placeholder="${ph}" ${dis}></label>`).join('')}</div>
+        ${edit ? '<span class="pf-save"><span class="mono" id="pfstate"></span><button class="btn" id="pfsave">Guardar página</button></span>' : ''}
+      </form>
+      <div class="pf-pv"><span class="mono" id="pvurl"></span><div id="pv"></div></div></div>`, '/estudio/perfil');
+    bindPicker(profile);
+    const f = $('#pf'); let dirty = false;
+    const draw = () => {
+      const feat = (works || []).find(w => w.slug === D.feat), c = D.color, logo = D.avatar ? media(D.avatar) : '';
+      $('#pvurl').textContent = 'VISTA PÚBLICA · obi.lat/equipo/' + D.slug;
+      $('#logobox').innerHTML = logo ? `<img src="${esc(logo)}" alt="Logo actual">` : '<span class="mono">Sin logo</span>';
+      const langs = LANGS.filter(([k]) => D.langs.includes(k)).map(x => x[1]).join(' · ');
+      $('#pv').innerHTML = `<div class="pf-card"><div class="pf-ban" style="${D.banner ? `background:url('${esc(media(D.banner))}') center/cover` : `background:linear-gradient(135deg, ${c}, #14120d)`}"></div>
+        <div class="pf-in"><span class="pf-av" style="color:${c}">${logo ? `<img src="${esc(logo)}" alt="">` : esc(ini(D.name))}</span>
+        <div style="display:grid;gap:4px"><b class="pf-name">${esc(D.name)}</b><span class="mono">${[langs ? 'Del ' + langs.toLowerCase() : '', (works || []).length + ((works || []).length === 1 ? ' obra' : ' obras'), mem.length + (mem.length === 1 ? ' integrante' : ' integrantes')].filter(Boolean).join(' · ')}</span></div>
+        ${D.bio ? `<p class="pf-bio">${esc(D.bio)}</p>` : ''}
+        <span class="ed-chips">${LINKS.filter(([k]) => D.links[k]).map(([k, l]) => `<span class="pf-chip" style="border-color:${c};color:${c}">${l}</span>`).join('')}</span>
+        ${D.sect.show_featured && feat ? `<div class="pf-feat" style="border-left-color:${c}"><span class="pf-cv" style="${feat.cover_path ? `background:url('${esc(media(feat.cover_path))}') center/cover` : ''}"></span><span style="display:grid;gap:4px;align-content:start;min-width:0"><span class="mono" style="color:${c}">OBRA DESTACADA</span><b>${esc(feat.title)}</b><span class="pf-syn">${esc(feat.synopsis || '')}</span></span></div>` : ''}
+        ${D.sect.show_stats ? `<div class="pf-stats">${[[(works || []).length, 'OBRAS'], [Object.values(cnt).reduce((a, b) => a + b, 0), 'CAPÍTULOS'], [mem.length, 'INTEGRANTES']].map(([v, k]) => `<span><b>${v}</b><span class="mono">${k}</span></span>`).join('')}</div>` : ''}
+        ${D.sect.show_works && works?.length ? `<div class="pf-sec"><span class="mono">OBRAS</span>${works.map(w => `<span class="pf-w"><span class="pf-cv sm" style="border-top-color:${wcolor(w)};${w.cover_path ? `background:url('${esc(media(w.cover_path))}') center/cover` : ''}"></span><span><b>${esc(w.short || w.title)}</b><small>${cnt[w.id] || 0} cap. · ${(TLS[w.translation_status] || ['—'])[0]}</small></span></span>`).join('')}</div>` : ''}
+        ${D.sect.show_members ? `<div class="pf-sec"><span class="mono">INTEGRANTES</span><span class="ed-chips">${mem.map(m => `<span class="pf-chip">${esc(m.profiles?.username || '—')}</span>`).join('')}</span></div>` : ''}
+        </div></div>
+        <div class="pf-reader"><span class="mono">ASÍ SE VE AL INICIO DE UN CAPÍTULO</span><div>${D.logoReader && logo ? `<img src="${esc(logo)}" alt="${esc(D.name)}">` : `<span class="mono">TRADUCIDO POR ${esc(D.name.toUpperCase())}</span>`}<b>Capítulo 1</b></div></div>`;
+    };
+    const touch = () => { dirty = true; if ($('#pfstate')) $('#pfstate').textContent = 'Cambios sin guardar'; draw(); };
+    f.name.oninput = e => { D.name = e.target.value; touch(); };
+    f.slug.oninput = e => { D.slug = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''); e.target.value = D.slug; touch(); };
+    f.bio.oninput = e => { D.bio = e.target.value; $('#biocount').textContent = D.bio.length + '/600'; touch(); };
+    f.feat.onchange = e => { D.feat = e.target.value; touch(); };
+    f.tz.onchange = e => { D.tz = e.target.value; touch(); };
+    f.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => { D.color = b.dataset.pc; f.querySelectorAll('[data-pc]').forEach(x => x.setAttribute('aria-checked', x === b)); touch(); });
+    f.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { const k = b.dataset.lang, on = !D.langs.includes(k); D.langs = on ? [...D.langs, k] : D.langs.filter(x => x !== k); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); touch(); });
+    f.querySelectorAll('[data-sect]').forEach(i => i.onchange = () => { D.sect[i.dataset.sect] = i.checked; touch(); });
+    f.querySelectorAll('[data-link]').forEach(i => i.oninput = () => { D.links[i.dataset.link] = i.value.trim(); touch(); });
+    $('#lu').onchange = e => { D.logoUpd = e.target.checked; touch(); };
+    $('#lr').onchange = e => { D.logoReader = e.target.checked; touch(); };
+    const up = async (file, kind, max) => {
+      if (!file) return; if (file.size > max) throw new Error(`La imagen pesa más de ${max / 1048576} MB`);
+      if (kind === 'logo') { const img = await createImageBitmap(file).catch(() => null); if (img && (img.width < 512 || img.height < 512)) toast('Aviso: el logo mide menos de 512×512 y puede verse borroso'); }
+      const path = `${T.team.id}/profile/${kind}-${Date.now()}.${(file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+      const { error } = await sb.storage.from('obi-media').upload(path, file, { contentType: file.type }); if (error) throw error;
+      return path;
+    };
+    $('#flogo').onchange = e => busy(null, async () => { const p = await up(e.target.files[0], 'logo', 1048576); if (p) { D.avatar = p; touch(); } e.target.value = ''; });
+    $('#fban').onchange = e => busy(null, async () => { const p = await up(e.target.files[0], 'banner', 3 * 1048576); if (p) { D.banner = p; touch(); } e.target.value = ''; });
+    $('#nologo')?.addEventListener('click', () => { D.avatar = null; touch(); });
+    $('#noban')?.addEventListener('click', () => { D.banner = null; touch(); });
+    f.onsubmit = e => { e.preventDefault(); busy($('#pfsave'), async () => {
+      if (!/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(D.slug)) throw new Error('La dirección debe tener de 3 a 40 caracteres: minúsculas, números y guiones');
+      if (D.name.trim().length < 2) throw new Error('El nombre es muy corto');
+      const bad = LINKS.find(([k]) => D.links[k] && !/^https:\/\//.test(D.links[k])); if (bad) throw new Error(bad[1] + ': el enlace debe empezar con https://');
+      if (D.slug !== t.slug && !confirm(`¿Cambiar la dirección a obi.lat/equipo/${D.slug}? Los enlaces viejos dejarán de funcionar.`)) return;
+      const settings = { ...S0, ...D.links, ...D.sect, featured_works: D.feat, show_team_logo: D.logoUpd, show_reader_logo: D.logoReader, timezone: D.tz };
+      const { error } = await sb.from('teams').update({ name: D.name.trim(), slug: D.slug, bio: D.bio.trim() || null, color: D.color, langs: D.langs, avatar_path: D.avatar, banner_path: D.banner, settings }).eq('id', T.team.id);
+      if (error) throw new Error(/teams_slug_key/.test(error.message) ? 'Esa dirección ya la usa otro equipo' : /teams_profile_checks/.test(error.message) ? 'Revisa el nombre, la dirección y la presentación' : errMsg(error));
+      Object.assign(t, { slug: D.slug }); Object.assign(T.team, { name: D.name.trim(), color: D.color, slug: D.slug }); T.tz = D.tz; dirty = false;
+      $('#pfstate').textContent = '✓ Guardado'; toast('Página del equipo guardada');
+    }); };
+    const leave = e => { if (!document.body.contains(f)) return removeEventListener('beforeunload', leave); if (dirty) { e.preventDefault(); e.returnValue = ''; } };
+    addEventListener('beforeunload', leave);
+    draw();
+  }
+
+  // ---------- lectores: comunidad, estadísticas y descargas ----------
+  const pick = (works, cur, id = 'fs', all = 'Todas las obras') => `<select id="${id}" aria-label="Obra">${all ? `<option value="">${all}</option>` : ''}${(works || []).map(w => `<option value="${w.id}" ${cur === w.id ? 'selected' : ''}>${esc(w.short || w.title)}</option>`).join('')}</select>`;
+  const chLbl = (n, t) => 'Cap. ' + n + (t ? ' — ' + String(t).replace(/^(Cap[íi]tulo|Cap\.)\s*\d+\s*[—–:-]?\s*/, '') : '');
+  async function teamWorks(){ const { data } = await sb.from('series').select('id,slug,title,short,theme').eq('team_id', T.team.id).is('archived_at', null).order('title'); return data || []; }
+
+  async function community(){
+    if (!(await ensure())) return;
+    const F = community.f || (community.f = { tab: 'erratas', st: 'open', work: '', unans: true, n: 50 });
+    app.innerHTML = shell('Comunidad', '<p class="mono">Cargando…</p>', '/estudio/comunidad'); bindPicker(community);
+    const works = await teamWorks(), W = Object.fromEntries(works.map(w => [w.id, w])), mod = can('review'), me = getUser()?.id;
+    let body = '';
+    if (F.tab === 'erratas') {
+      const ids = (F.work ? [F.work] : works.map(w => w.id));
+      const { data: reps } = ids.length ? await sb.from('reports').select('id,kind,quote,fix,status,created_at,user_id,chapter_id,chapters!inner(num,title,series_id)').in('chapters.series_id', ids).eq('status', F.st).order('created_at', { ascending: false }).limit(F.n + 1) : { data: [] };
+      const list = (reps || []).slice(0, F.n), nm = await names(list.map(r => r.user_id));
+      body = `<div class="cm-f"><span class="lg-chips">${[['open','Abiertas'],['fixed','Corregidas'],['dismissed','Descartadas']].map(([k, l]) => `<button class="ed-chip ${F.st === k ? 'on' : ''}" aria-pressed="${F.st === k}" data-st="${k}">${l}</button>`).join('')}</span>${pick(works, F.work)}</div>
+        <div class="lg-list">${list.map(r => `<div class="cm-row"><span class="cm-w"><span class="mono">${esc((W[r.chapters.series_id]?.short || W[r.chapters.series_id]?.title || '').toUpperCase())} · ${esc(chLbl(r.chapters.num, r.chapters.title))}${r.kind ? ' · ' + esc(r.kind) : ''}</span>
+          <span class="cm-q"><q>${esc(r.quote || '')}</q>${r.fix ? ` <span aria-hidden="true">→</span> <b>${esc(r.fix)}</b>` : ''}</span><small>${esc(nm[r.user_id] || 'Lector')} · ${ago(r.created_at)}</small></span>
+          <span class="cm-a"><a class="btn ghost" href="/estudio/editar/${r.chapter_id}">Abrir en el editor</a>${mod && F.st === 'open' ? `<button class="btn ghost" data-rfix="${r.id}">Ya está corregida</button><button class="lnk danger" data-rdis="${r.id}">Descartar</button>` : mod && F.st !== 'open' ? `<button class="lnk" data-rre="${r.id}">Reabrir</button>` : ''}</span></div>`).join('') || `<p class="tb-empty">${F.st === 'open' ? 'Sin erratas abiertas. Los lectores las reportan seleccionando texto en el lector.' : 'Nada por aquí.'}</p>`}</div>
+        ${(reps || []).length > F.n ? '<button class="btn ghost" id="more">Cargar más</button>' : ''}
+        <p class="mono">Al marcarla como corregida, quien la reportó recibe un aviso de agradecimiento. Para aplicar la corrección en el texto, ábrela en el editor.</p>`;
+    } else {
+      const { data: coms, error } = await sb.rpc('team_comments', { p_team: T.team.id, p_unanswered: F.unans, p_series: F.work || null, p_limit: F.n + 1, p_before: null });
+      if (error) throw error;
+      const list = (coms || []).slice(0, F.n);
+      body = `<div class="cm-f"><label class="tb-inl"><input type="checkbox" id="unans" ${F.unans ? 'checked' : ''}> Solo sin respuesta del equipo</label>${pick(works, F.work)}</div>
+        <div class="lg-list">${list.map(m => `<div class="cm-row" data-c="${m.id}"><span class="cm-w"><span class="mono"><a href="/leer/${esc(m.series_slug)}/${m.ch_num}">${esc((m.series_title || '').toUpperCase())} · ${esc(chLbl(m.ch_num, m.ch_title))}</a>${m.para != null ? ' · párrafo ' + (m.para + 1) : ''}${m.pinned ? ' · <b style="color:#f2c230">FIJADO</b>' : ''}</span>
+          <span class="cm-body">${m.spoiler ? '<span class="cm-sp">SPOILER</span> ' : ''}${esc(m.body)}</span>
+          <small>${esc(m.username || 'Lector')}${m.from_team ? ' · <b style="color:#f2c230">EQUIPO</b>' : ''} · ${ago(m.created_at)}${m.replies ? ' · ' + m.replies + (m.replies === 1 ? ' respuesta' : ' respuestas') : ''}${m.team_replied ? ' · <span style="color:#a9d18e">✓ respondido</span>' : ''}</small>
+          <div class="cm-reply" hidden><textarea rows="2" maxlength="2000" placeholder="Responder como ${esc(T.team.name)}…" aria-label="Respuesta"></textarea><span><button class="btn" data-send="${m.id}" data-ch="${m.chapter_id}">Responder</button><button class="btn ghost" data-cancel="1">Cancelar</button></span></div></span>
+          <span class="cm-a"><button class="btn ghost" data-rep="${m.id}">Responder</button>${mod ? `<button class="lnk" data-pin="${m.id}" data-on="${!m.pinned}">${m.pinned ? 'Desfijar' : 'Fijar'}</button><button class="lnk danger" data-del="${m.id}">Borrar</button>` : ''}</span></div>`).join('') || `<p class="tb-empty">${F.unans ? 'Ningún comentario espera respuesta.' : 'Aún no hay comentarios.'}</p>`}</div>
+        ${(coms || []).length > F.n ? '<button class="btn ghost" id="more">Cargar más</button>' : ''}
+        <p class="mono">Tu respuesta aparece con tu usuario y la marca EQUIPO, y quien comentó recibe un aviso. Fijar deja un comentario arriba en su capítulo.</p>`;
+    }
+    app.querySelector('.s2-main').innerHTML = app.querySelector('.s2-head').outerHTML + `<div class="lg"><div class="cm-tabs" role="tablist">${[['erratas','Erratas'],['comentarios','Comentarios']].map(([k, l]) => `<button role="tab" aria-selected="${F.tab === k}" class="${F.tab === k ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>${body}</div>`;
+    const again = o => { Object.assign(F, o); community(); };
+    app.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => again({ tab: b.dataset.tab, n: 50 }));
+    app.querySelectorAll('[data-st]').forEach(b => b.onclick = () => again({ st: b.dataset.st, n: 50 }));
+    $('#fs').onchange = e => again({ work: e.target.value, n: 50 });
+    $('#unans')?.addEventListener('change', e => again({ unans: e.target.checked, n: 50 }));
+    $('#more')?.addEventListener('click', () => again({ n: F.n + 50 }));
+    const setRep = (id, status) => async () => { const { error } = await sb.from('reports').update({ status }).eq('id', id); if (error) throw new Error(errMsg(error)); toast(status === 'fixed' ? 'Errata corregida · avisamos a quien la reportó' : status === 'dismissed' ? 'Errata descartada' : 'Errata reabierta'); community(); };
+    app.querySelectorAll('[data-rfix]').forEach(b => b.onclick = () => busy(b, setRep(b.dataset.rfix, 'fixed')));
+    app.querySelectorAll('[data-rdis]').forEach(b => b.onclick = () => busy(b, setRep(b.dataset.rdis, 'dismissed')));
+    app.querySelectorAll('[data-rre]').forEach(b => b.onclick = () => busy(b, setRep(b.dataset.rre, 'open')));
+    app.querySelectorAll('[data-rep]').forEach(b => b.onclick = () => { const box = b.closest('.cm-row').querySelector('.cm-reply'); box.hidden = false; box.querySelector('textarea').focus(); });
+    app.querySelectorAll('[data-cancel]').forEach(b => b.onclick = () => { b.closest('.cm-reply').hidden = true; });
+    app.querySelectorAll('[data-send]').forEach(b => b.onclick = () => busy(b, async () => { const tx = b.closest('.cm-reply').querySelector('textarea').value.trim(); if (!tx) throw new Error('Escribe una respuesta'); const { error } = await sb.from('comments').insert({ chapter_id: b.dataset.ch, parent_id: +b.dataset.send, user_id: me, body: tx }); if (error) throw new Error(errMsg(error)); toast('Respuesta publicada'); community(); }));
+    app.querySelectorAll('[data-pin]').forEach(b => b.onclick = () => busy(b, async () => { await rpc('comment_pin', { p_id: +b.dataset.pin, p_on: b.dataset.on === 'true' }); toast(b.dataset.on === 'true' ? 'Comentario fijado' : 'Comentario desfijado'); community(); }));
+    app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => busy(b, async () => { if (!confirm('¿Borrar este comentario y sus respuestas?')) return; const { error } = await sb.from('comments').delete().eq('id', b.dataset.del); if (error) throw new Error(errMsg(error)); toast('Comentario borrado'); community(); }));
+  }
+
+  async function stats(){
+    if (!(await ensure())) return;
+    const works = await teamWorks();
+    const F = stats.f || (stats.f = { work: '', days: 30, sort: 'order' });
+    if (!F.work || !works.some(w => w.id === F.work)) F.work = works[0]?.id || '';
+    app.innerHTML = shell('Estadísticas', works.length ? '<p class="mono">Calculando…</p>' : '<p class="tb-empty">Aún no hay obras.</p>', '/estudio/estadisticas'); bindPicker(stats);
+    if (!works.length) return;
+    const d = await rpc('series_stats', { p_series: F.work, p_days: F.days });
+    const chs = d.chapters || [], daily = d.daily || [], w = works.find(x => x.id === F.work), c = wcolor(w);
+    const sum = k => chs.reduce((a, x) => a + (+x[k] || 0), 0), fmt = n => (+n || 0).toLocaleString('es-MX');
+    const base = Math.max(1, +chs[0]?.finished || 0), maxD = Math.max(1, ...daily.map(x => +x.n));
+    const kpi = (l, v, n, col) => `<div class="s2-kpi" style="--c:${col}"><small>${l}</small><b>${v}</b><span>${n}</span></div>`;
+    const sorted = [...chs].sort((a, b) => F.sort === 'order' ? 0 : (+b[F.sort] || 0) - (+a[F.sort] || 0));
+    const col = (k, l) => `<th scope="col"><button class="st-sort ${F.sort === k ? 'on' : ''}" data-sort="${k}">${l}</button></th>`;
+    const dayL = s => fmtTz(s + 'T12:00', { day: 'numeric', month: 'short' });
+    const hasData = sum('views_total') + sum('finished') + sum('comments') > 0;
+    app.querySelector('.s2-main').innerHTML = app.querySelector('.s2-head').outerHTML + `<div class="lg">
+      <div class="cm-f">${pick(works, F.work, 'fs', '')}<span class="lg-chips">${[[7,'7 días'],[30,'30 días'],[90,'90 días']].map(([k, l]) => `<button class="ed-chip ${F.days === k ? 'on' : ''}" aria-pressed="${F.days === k}" data-days="${k}">${l}</button>`).join('')}</span></div>
+      <div class="s2-kpis" style="margin:0">${kpi('Vistas · ' + F.days + ' días', fmt(sum('views')), fmt(sum('views_total')) + ' en total', c)}${kpi('Seguidores', fmt(d.followers), 'reciben aviso de cada volumen', '#8cc3f2')}${kpi('Lecturas completas', fmt(sum('finished')), 'capítulos terminados por lectores con cuenta', '#a9d18e')}${kpi('Comentarios', fmt(sum('comments')), fmt(sum('reactions')) + ' reacciones', '#c9a8f2')}</div>
+      <section class="s2-box"><div class="s2-bh"><h2>Vistas por día</h2><span class="mono">${dayL(daily[0]?.day)} – ${dayL(daily[daily.length - 1]?.day)}</span></div>
+        <div class="st-bars" role="img" aria-label="Vistas por día en los últimos ${F.days} días">${daily.map(x => `<span title="${dayL(x.day)}: ${fmt(x.n)} vistas" style="height:${Math.max(2, Math.round(+x.n / maxD * 100))}%;background:${+x.n ? c : '#2f2a20'}"></span>`).join('')}</div>
+        ${hasData ? '' : '<p class="mono" style="margin:8px 0 0">Las vistas por capítulo se cuentan desde hoy: una por lector, capítulo y día.</p>'}</section>
+      <div class="st-tw"><table class="st-t"><thead><tr>${col('order', 'Capítulo')}${col('views', 'Vistas')}${col('views_total', 'Total')}${col('finished', 'Terminaron')}<th scope="col">Retención</th>${col('here', 'Se quedaron aquí')}${col('comments', 'Coment.')}${col('reactions', 'Reacc.')}${col('reports', 'Erratas')}</tr></thead>
+        <tbody>${sorted.map(x => { const r = Math.min(100, Math.round(+x.finished / base * 100)); return `<tr><th scope="row"><a href="/estudio/editar/${x.id}">${esc(x.section_type && x.section_type !== 'Capítulo' ? x.section_type : chLbl(x.num, x.title))}</a><small>Vol. ${x.vol}${x.publish_at ? ' · ' + fmtTz(x.publish_at, { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</small></th>
+          <td>${fmt(x.views)}</td><td>${fmt(x.views_total)}</td><td>${fmt(x.finished)}</td><td><span class="st-ret" title="${r} % de quienes terminaron el primero"><i style="width:${r}%;background:${c}"></i></span><small>${r} %</small></td><td>${+x.here ? fmt(x.here) : '—'}</td><td>${fmt(x.comments)}</td><td>${fmt(x.reactions)}</td><td style="color:${+x.reports ? '#f59e7a' : ''}">${+x.reports ? fmt(x.reports) : '—'}</td></tr>`; }).join('') || '<tr><td colspan="9" class="tb-empty">Sin capítulos publicados.</td></tr>'}</tbody></table></div>
+      <p class="mono">«Terminaron» y «Se quedaron aquí» solo cuentan lectores con cuenta. Retención: terminaron este capítulo / terminaron el primero. «Se quedaron aquí» son quienes lo empezaron y no han seguido: un número alto puede indicar un capítulo difícil.</p></div>`;
+    $('#fs').onchange = e => { F.work = e.target.value; stats(); };
+    app.querySelectorAll('[data-days]').forEach(b => b.onclick = () => { F.days = +b.dataset.days; stats(); });
+    app.querySelectorAll('[data-sort]').forEach(b => b.onclick = () => { F.sort = b.dataset.sort; stats(); });
+  }
+
+  const PROV = [[/drive\.google|docs\.google/, 'Google Drive'], [/mega\.(nz|io)/, 'MEGA'], [/mediafire/, 'MediaFire'], [/dropbox/, 'Dropbox'], [/terabox/, 'TeraBox'], [/1drv\.ms|onedrive/, 'OneDrive'], [/pixeldrain/, 'Pixeldrain']];
+  const provOf = u => (PROV.find(([re]) => re.test(u)) || [, 'Enlace'])[1];
+  const FMTS = ['EPUB','PDF','MOBI','AZW3','CBZ','DOCX','ZIP'];
+  const STORES = ['Amazon Japón','BookWalker','Kindle','Kobo','Google Play Libros','Apple Books','J-Novel Club','Yen Press','Seven Seas','Ivrea','Panini','Planeta Cómic','Norma Editorial','Kamite','Editorial Kemuri','Otra tienda'];
+  const REGIONS = ['Japón','EE. UU.','México','Argentina','España','Latinoamérica','Global'];
+  let buys = [];
+  async function downloads(){
+    if (!(await ensure())) return;
+    const works = await teamWorks();
+    const F = downloads.f || (downloads.f = { work: '' });
+    if (!F.work || !works.some(w => w.id === F.work)) F.work = works[0]?.id || '';
+    app.innerHTML = shell('Descargas y compra', works.length ? '<p class="mono">Cargando…</p>' : '<p class="tb-empty">Aún no hay obras.</p>', '/estudio/descargas'); bindPicker(downloads);
+    if (!works.length) return;
+    const [{ data: vols }, { data: links }] = await Promise.all([
+      sb.from('volumes').select('id,num,title,status').eq('series_id', F.work).is('deleted_at', null).order('num'),
+      sb.from('download_links').select('*').eq('series_id', F.work).order('sort').order('id'),
+      sb.from('purchase_links').select('*').eq('series_id', F.work).order('id')]).then(([a, b, c]) => { buys = c.data || []; return [a, b]; });
+    const ed = can('edit');
+    app.querySelector('.s2-main').innerHTML = app.querySelector('.s2-head').outerHTML + `<div class="lg">
+      <div class="cm-f">${pick(works, F.work, 'fs', '')}<span class="mono">Aparecen en la ficha de la obra, debajo de cada volumen. Los enlaces de compra van primero.</span></div>
+      ${(vols || []).map(v => { const ls = (links || []).filter(l => l.volume_id === v.id || (!l.volume_id && l.vol === v.num)); return `<section class="tm-box"><div class="tm-bh"><h2>Volumen ${v.num}${v.title && v.title !== String(v.num) && v.title.length > 2 && !/^volumen\s*\d+$/i.test(v.title.trim()) ? ' · ' + esc(v.title) : ''}</h2><span class="mono">${v.status === 'published' ? 'Publicado' : 'Sin publicar'} · ${ls.length} ${ls.length === 1 ? 'enlace' : 'enlaces'}</span></div>
+        ${ls.map(l => `<div class="dl-row"><span class="dl-f">${esc(l.fmt)}</span><span class="tm-n"><b>${esc(l.label || l.provider || provOf(l.url))}</b><small><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.url.replace(/^https:\/\//, '').slice(0, 60))}</a></small></span><span class="mono">${l.donor_only ? '援 Solo donadores' : 'Para todos'} · ${(l.clicks || 0).toLocaleString('es-MX')} descargas</span>${ed ? `<span class="tm-a"><button class="lnk" data-dtog="${l.id}" data-on="${!l.donor_only}">${l.donor_only ? 'Abrir a todos' : 'Solo donadores'}</button><button class="lnk danger" data-ddel="${l.id}">Quitar</button></span>` : '<span></span>'}</div>`).join('')}
+        ${(() => { const bs = buys.filter(b => b.volume_id === v.id || (!b.volume_id && b.vol === v.num)); return `<div class="dl-buyh"><b>Compra oficial</b><span class="mono">El Bibliotecario verifica cada enlace antes de que se muestre</span></div>${bs.map(b => `<div class="dl-row"><span class="dl-f buy">${esc(b.fmt || 'Digital')}</span><span class="tm-n"><b>${esc(b.store)}${b.region ? ' · ' + esc(b.region) : ''}</b><small><a href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.url.replace(/^https:\/\//, '').slice(0, 60))}</a></small></span><span class="mono" style="color:${b.verified ? '#a9d18e' : '#f2c230'}">${b.verified ? '✓ Verificado · ' + (b.clicks || 0).toLocaleString('es-MX') + ' clics' : '◷ Pendiente de verificar'}</span>${ed ? `<span class="tm-a"><button class="lnk danger" data-bdel="${b.id}">Quitar</button></span>` : '<span></span>'}</div>`).join('')}${ed ? `<form class="dl-add buy-add" data-vol="${v.id}" data-num="${v.num}"><select name="store" aria-label="Tienda">${STORES.map(s => `<option>${s}</option>`).join('')}</select><select name="region" aria-label="Región">${REGIONS.map(s => `<option>${s}</option>`).join('')}</select><select name="fmt" aria-label="Formato"><option>Digital</option><option>Físico</option><option>Audiolibro</option></select><input name="url" type="url" required placeholder="https://… (tienda oficial)" aria-label="Enlace de compra"><button class="btn ghost">Proponer</button></form>` : ''}`; })()}
+        ${ed ? `<form class="dl-add" data-vol="${v.id}" data-num="${v.num}"><select name="fmt" aria-label="Formato">${FMTS.map(f => `<option>${f}</option>`).join('')}</select><input name="url" type="url" required placeholder="https://drive.google.com/…" aria-label="Enlace"><input name="label" maxlength="60" placeholder="Nombre (opcional)" aria-label="Nombre del enlace"><label class="tb-inl"><input type="checkbox" name="donor"> Solo donadores</label><button class="btn">Agregar</button></form>` : ''}</section>`; }).join('') || '<p class="tb-empty">Esta obra aún no tiene volúmenes.</p>'}
+      <p class="mono">Los enlaces «Solo donadores» no se muestran a nadie más: el sitio pide el enlace al servidor solo cuando un donador pulsa «Descargar».</p></div>`;
+    $('#fs').onchange = e => { F.work = e.target.value; downloads(); };
+    app.querySelectorAll('.buy-add').forEach(f => f.onsubmit = e => { e.preventDefault(); e.stopImmediatePropagation(); busy(e.submitter, async () => {
+      const u = f.url.value.trim(); if (!/^https:\/\//.test(u)) throw new Error('El enlace debe empezar con https://');
+      const { error } = await sb.from('purchase_links').insert({ series_id: F.work, volume_id: f.dataset.vol, vol: +f.dataset.num, store: f.store.value, region: f.region.value, fmt: f.fmt.value, url: u, verified: false, created_by: getUser().id });
+      if (error) throw new Error(errMsg(error)); toast('Enlace propuesto · se mostrará cuando el Bibliotecario lo verifique'); downloads(); }); });
+    app.querySelectorAll('[data-bdel]').forEach(b => b.onclick = () => busy(b, async () => { if (!confirm('¿Quitar este enlace de compra?')) return; const { error } = await sb.from('purchase_links').delete().eq('id', b.dataset.bdel); if (error) throw new Error(errMsg(error)); downloads(); }));
+    app.querySelectorAll('.dl-add:not(.buy-add)').forEach(f => f.onsubmit = e => { e.preventDefault(); busy(e.submitter, async () => {
+      const u = f.url.value.trim(); if (!/^https:\/\//.test(u)) throw new Error('El enlace debe empezar con https://');
+      const { error } = await sb.from('download_links').insert({ series_id: F.work, volume_id: f.dataset.vol, vol: +f.dataset.num, fmt: f.fmt.value, url: u, provider: provOf(u), label: f.label.value.trim() || null, donor_only: f.donor.checked, sort: Date.now() % 1e6 });
+      if (error) throw new Error(errMsg(error)); toast('Enlace agregado'); downloads(); }); });
+    app.querySelectorAll('[data-dtog]').forEach(b => b.onclick = () => busy(b, async () => { const { error } = await sb.from('download_links').update({ donor_only: b.dataset.on === 'true' }).eq('id', b.dataset.dtog); if (error) throw new Error(errMsg(error)); downloads(); }));
+    app.querySelectorAll('[data-ddel]').forEach(b => b.onclick = () => busy(b, async () => { if (!confirm('¿Quitar este enlace?')) return; const { error } = await sb.from('download_links').delete().eq('id', b.dataset.ddel); if (error) throw new Error(errMsg(error)); toast('Enlace quitado'); downloads(); }));
+  }
+
+  return { home, works, work, editor, importer, library: () => library(), team, board, log, profile, community, stats, downloads, glossary, isMember: async () => { const u = getUser(); if (!u) return false; const { count } = await sb.from('team_members').select('*', { count: 'exact', head: true }).eq('user_id', u.id); return count > 0; } };
 }

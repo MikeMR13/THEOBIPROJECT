@@ -1,9 +1,9 @@
 // Lector de El Obi del Lector: por capítulo o continuo, fuentes EPUB, progreso exacto, leídos, historial, sin conexión y anotaciones.
 const OFF_CACHE = 'obi-offline-v1', OFF_INDEX = 'obi-offline-index', PREF_KEY = 'obi-reader-prefs';
-const DEF = { theme: 'oscuro', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', illus: true, continuous: 'off' };
+import { cleanInline, renderBlock, warningsHTML, teaserHTML } from './blocks.js';
+const DEF = { theme: 'oscuro', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', illus: true, continuous: 'off', cw: 'show' };
 const COLORS = { gold: '#f2c230', rose: '#f29bb0', sky: '#8cc3f2', mint: '#9fdcb0' };
 const SEC_LABEL = { 'Capítulo': 'Cap.', 'Prólogo': 'Prólogo', 'Interludio': 'Interludio', 'Epílogo': 'Epílogo', 'Afterword': 'Epílogo del autor', 'Extra': 'Extra' };
-const ALLOWED = new Set(['B','STRONG','I','EM','U','S','SPAN','RUBY','RT','RP','BR','SUP','SUB','SMALL']);
 
 export function createReader(ctx){
   const { sb, app, $, esc, toast, go, getUser, url } = ctx;
@@ -32,13 +32,14 @@ export function createReader(ctx){
       const r1 = await sb.from('series').select('id,slug,title,team_id,teams(name,reader_defaults)').eq('slug', slug).maybeSingle();
       if (r1.error) throw r1.error; s = r1.data;
       if (s) { const [a, b] = await Promise.all([
-        sb.from('chapters').select('id,num,vol,title,section_type,volume_id').eq('series_id', s.id).is('deleted_at', null).order('num'),
+        sb.from('chapters').select('id,num,vol,title,section_type,volume_id,content_warnings,teaser,teaser_on').eq('series_id', s.id).is('deleted_at', null).order('num'),
         sb.from('volumes').select('id,num,title,epub_fonts').eq('series_id', s.id).is('deleted_at', null).order('num')]);
         if (a.error || b.error) throw a.error || b.error; ch = a.data; vo = b.data; }
     } catch { const m = await offlineMeta(slug); if (m) ({ series: s, chapters: ch, vols: vo } = m); }
     if (!s) return false;
+    let nextAt = null; try { const r = await sb.from('schedule').select('at').eq('series_id', s.id).gte('at', new Date().toISOString()).order('at').limit(1); nextAt = r.data?.[0]?.at || null; } catch {}
     let gl = []; try { const r = await sb.from('glossary_terms').select('term,category,definition').eq('series_id', s.id); gl = r.data || []; } catch {}
-    Object.assign(S, { series: s, chapters: ch || [], vols: vo || [], bodies: new Map(), annots: [], gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined });
+    Object.assign(S, { series: s, chapters: ch || [], vols: vo || [], nextAt, teamIds: null, bodies: new Map(), annots: [], gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined });
     return true;
   }
   async function body(ch){
@@ -69,36 +70,16 @@ export function createReader(ctx){
   }
 
   // ---------- render de bloques ----------
-  function clean(html){
-    const t = document.createElement('template'); t.innerHTML = html;
-    const walk = n => { [...n.childNodes].forEach(c => {
-      if (c.nodeType === 3) return;
-      if (c.nodeType !== 1 || !ALLOWED.has(c.tagName)) { if (c.nodeType === 1) { walk(c); c.replaceWith(...c.childNodes); } else c.remove(); return; }
-      const fam = c.getAttribute('data-epub-family');
-      [...c.attributes].forEach(a => c.removeAttribute(a.name));
-      if (c.tagName === 'SPAN' && fam != null && /^\d+$/.test(fam)) c.setAttribute('style', `font-family:var(--f${fam})`);
-      walk(c);
-    }); };
-    walk(t.content); return t.innerHTML;
-  }
-  const rich = b => b.html ? clean(b.html) : esc(b.text || '');
-  function block(b, i, p){
-    const t = b.type || b.t;
-    if (t === 'paragraph' || t === 'p') return `<p data-b="${i}">${rich(b)}</p>`;
-    if (t === 'heading' || t === 'h') return `<h3 data-b="${i}">${rich(b)}</h3>`;
-    if (t === 'quote') return `<blockquote data-b="${i}">${rich(b)}</blockquote>`;
-    if (t === 'separator' || t === 'sep') return `<div class="sep" data-b="${i}" aria-hidden="true">※</div>`;
-    if (t === 'note') return `<aside class="tn" data-b="${i}"><span class="mono">Nota del traductor</span>${rich(b)}</aside>`;
-    if (t === 'ruby') return `<p data-b="${i}"><ruby>${esc(b.text || '')}<rt>${esc(b.reading || '')}</rt></ruby></p>`;
-    if (t === 'image' || t === 'img') { if (!p.illus) return `<p class="mono" data-b="${i}">[Ilustración oculta]</p>`; const src = b.url || b.src; return src ? `<figure data-b="${i}"><img src="${esc(media(src))}" alt="${esc(b.alt || b.text || '')}" loading="lazy">${b.caption ? `<figcaption>${esc(b.caption)}</figcaption>` : ''}</figure>` : ''; }
-    return b.text ? `<p data-b="${i}">${esc(b.text)}</p>` : '';
-  }
+  const block = (b, i, p) => renderBlock(b, i, { media, illus: p.illus });
+  const nextWhen = () => S.nextAt ? new Date(S.nextAt).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
   function chapterHTML(ch, blocks, p){
     const vol = volOf(ch); ensureFonts(vol);
     const label = (SEC_LABEL[ch.section_type] || 'Cap.') + (ch.section_type === 'Capítulo' || !ch.section_type ? ' ' + ch.num : '');
     return `<article class="rd-ch" data-ch="${ch.id}" style="${vol ? fontVars(vol, p) : ''}">
       <header class="rd-head"><span class="mono">Volumen ${ch.vol} · ${esc(label)}</span><h2>${esc(ch.title)}</h2></header>
-      <div class="rd-body">${(blocks || []).map((b, i) => block(b, i, p)).join('')}</div></article>`;
+      ${warningsHTML(ch.content_warnings, p.cw)}
+      <div class="rd-body">${(blocks || []).map((b, i) => block(b, i, p)).join('')}</div>
+      ${ch.teaser_on && ch.teaser ? teaserHTML(ch.teaser, nextWhen()) : ''}</article>`;
   }
 
   // ---------- glosario en el texto ----------
@@ -145,6 +126,8 @@ export function createReader(ctx){
     if ((e.key === 'Enter' || e.key === ' ') && e.target.classList?.contains('gl')) { e.preventDefault(); openTerm(e.target); }
   });
 
+  // una vista por capítulo y día en este dispositivo
+  function trackView(ch){ if (!navigator.onLine) return; const k = 'obi-v-' + ch.id, d = new Date().toDateString(); try { if (localStorage.getItem(k) === d) return; localStorage.setItem(k, d); } catch {} sb.rpc('track_view', { p_chapter: ch.id }).then(() => {}, () => {}); }
   // ---------- vista ----------
   async function open(slug, num){
     app.innerHTML = '<p class="mono">Abriendo capítulo…</p>';
@@ -155,13 +138,14 @@ export function createReader(ctx){
     const b = await body(ch);
     if (!b) { app.innerHTML = '<h1>Sin conexión</h1><p>Este capítulo no está descargado. <a href="/biblioteca">Ver descargas</a></p>'; return; }
     const p = effective(ch.volume_id);
-    S.mounted = [ch]; S.active = ch;
+    S.mounted = [ch]; S.active = ch; trackView(ch);
     app.innerHTML = `<div class="rd" data-theme="${p.theme}" data-width="${p.width}" data-lh="${p.lh}" data-align="${p.align}" data-font="${p.font}" style="--rs:${p.size}px">
       <nav class="rd-bar">
         <a href="/serie/${esc(slug)}" class="rd-back">‹ ${esc(S.series.title)}</a>
         <div class="rd-tools">
           <button class="btn ghost" data-act="toc" aria-label="Índice">Índice</button>
           <button class="btn ghost" data-act="prefs" aria-label="Ajustes de lectura">Aa</button>
+          <button class="btn ghost" data-act="coms">Comentarios</button>
           <button class="btn ghost" data-act="notes">Anotaciones</button>
           <button class="btn ghost" data-act="offline">${isVolOffline(ch) ? '✓ Descargado' : 'Descargar volumen'}</button>
         </div>
@@ -200,7 +184,7 @@ export function createReader(ctx){
       S.loadingNext = true;
       const b = await body(nx); S.loadingNext = false; if (!b) return;
       $('#rd-flow').insertAdjacentHTML('beforeend', chapterHTML(nx, b, effective(nx.volume_id))); markTerms($(`[data-ch="${nx.id}"]`));
-      S.mounted.push(nx); paintAnnots(); prefetchNext(nx);
+      S.mounted.push(nx); trackView(nx); paintAnnots(); prefetchNext(nx);
       activeIo.observe($(`[data-ch="${nx.id}"]`));
     }, { rootMargin: '800px 0px' });
     io.observe($('#rd-sentinel'));
@@ -247,7 +231,7 @@ export function createReader(ctx){
 
   // ---------- barra, índice y ajustes ----------
   function bindBar(){
-    document.querySelectorAll('.rd-bar [data-act]').forEach(b => b.onclick = () => ({ toc, prefs: prefsPanel, notes: () => go('/anotaciones/' + S.series.slug), offline: toggleOffline })[b.dataset.act]());
+    document.querySelectorAll('.rd-bar [data-act]').forEach(b => b.onclick = () => ({ toc, prefs: prefsPanel, coms: comments, notes: () => go('/anotaciones/' + S.series.slug), offline: toggleOffline })[b.dataset.act]());
   }
   const panel = () => $('.rd-panel');
   function toggle(html){ const pn = panel(); if (!pn.hidden && pn.dataset.kind === html.kind) { pn.hidden = true; return null; } pn.dataset.kind = html.kind; pn.innerHTML = html.body; pn.hidden = false; return pn; }
@@ -268,6 +252,7 @@ export function createReader(ctx){
       ${opt('lh', { label: 'Interlineado', o: [['compacto','Compacto'],['comodo','Cómodo'],['amplio','Amplio']] })}
       ${opt('align', { label: 'Alineación', o: [['izquierda','Izquierda'],['justificada','Justificada']] })}
       ${opt('illus', { label: 'Ilustraciones', o: [['true','Mostrar'],['false','Ocultar']] })}
+      ${opt('cw', { label: 'Avisos de contenido', o: [['show','Mostrar plegable'],['icon','Solo icono'],['hide','No mostrar']] })}
       ${opt('continuous', { label: 'Lectura', o: [['off','Por capítulo'],['volume','Continua dentro del volumen'],['all','Continua entre volúmenes']] })}
       <label class="rd-scope"><input type="checkbox" ${scoped ? 'checked' : ''} data-scope> Guardar estos ajustes solo para el Volumen ${ch.vol}</label>` });
     if (!pn) return;
@@ -284,7 +269,7 @@ export function createReader(ctx){
     const p = effective(S.active.volume_id), rd = $('.rd');
     Object.assign(rd.dataset, { theme: p.theme, width: p.width, lh: p.lh, align: p.align }); rd.style.setProperty('--rs', p.size + 'px');
     rd.dataset.font = p.font;
-    if (k === 'font' || k === 'illus') {
+    if (k === 'font' || k === 'illus' || k === 'cw') {
       const { block: blk } = currentBlock();
       $('#rd-flow').innerHTML = S.mounted.map(c => chapterHTML(c, S.bodies.get(c.id), effective(c.volume_id))).join(''); markTerms($('#rd-flow'));
       paintAnnots(); observe();
@@ -410,6 +395,30 @@ export function createReader(ctx){
       const md = `# ${S.series.title} — mis anotaciones\n\n` + byCh.map(([c, l]) => `## Volumen ${c.vol} · ${c.title}\n\n` + l.map(a => `> ${a.quote.replace(/\n/g, '\n> ')}\n${a.note ? `\n${a.note}\n` : ''}`).join('\n')).join('\n');
       const el = document.createElement('a'); el.href = URL.createObjectURL(new Blob([md], { type: 'text/markdown' })); el.download = `anotaciones-${slug}.md`; el.click();
     });
+  }
+
+  // ---------- comentarios ----------
+  async function comments(){
+    const ch = S.active, pn = toggle({ kind: 'coms', body: '<p class="mono">Cargando comentarios…</p>' }); if (!pn) return;
+    const [{ data: list }, { data: tm }] = await Promise.all([
+      sb.from('comments').select('id,parent_id,user_id,body,spoiler,pinned,para,created_at,profiles(username,avatar_url)').eq('chapter_id', ch.id).order('created_at').limit(500),
+      S.teamIds ? { data: null } : sb.from('team_members').select('user_id').eq('team_id', S.series.team_id)]);
+    if (tm) S.teamIds = new Set(tm.map(x => x.user_id));
+    if (pn.dataset.kind !== 'coms' || S.active !== ch) return;
+    const u = getUser(), all = list || [], top = all.filter(c => !c.parent_id).sort((a, b) => (b.pinned - a.pinned) || (new Date(b.created_at) - new Date(a.created_at)));
+    const kids = id => all.filter(c => c.parent_id === id);
+    const ago = d => { const m = Math.round((Date.now() - new Date(d)) / 60000); return m < 60 ? 'hace ' + Math.max(1, m) + ' min' : m < 1440 ? 'hace ' + Math.round(m / 60) + ' h' : 'hace ' + Math.round(m / 1440) + ' d'; };
+    const one = (c, reply) => `<div class="cm-it${reply ? ' re' : ''}" data-cid="${c.id}"><span class="cm-hd"><b>${esc(c.profiles?.username || 'Lector')}</b>${S.teamIds?.has(c.user_id) ? '<span class="cm-tm">EQUIPO</span>' : ''}${c.pinned ? '<span class="cm-tm pin">FIJADO</span>' : ''}<span class="mono">${ago(c.created_at)}</span></span>
+      ${c.spoiler ? `<details class="cm-spd"><summary>Contiene spoiler · toca para ver</summary><p>${esc(c.body)}</p></details>` : `<p>${esc(c.body)}</p>`}
+      <span class="cm-ac">${!reply && u ? `<button class="lnk" data-reply="${c.id}">Responder</button>` : ''}${u && c.user_id === u.id ? `<button class="lnk danger" data-cdel="${c.id}">Borrar</button>` : ''}</span></div>`;
+    const form = (parent = '') => u ? `<form class="cm-form" data-parent="${parent}"><textarea name="body" rows="${parent ? 2 : 3}" maxlength="2000" required placeholder="${parent ? 'Tu respuesta…' : '¿Qué te pareció este capítulo?'}" aria-label="Comentario"></textarea><span><label class="rd-scope"><input type="checkbox" name="spoiler"> Contiene spoiler</label><button class="btn">${parent ? 'Responder' : 'Publicar'}</button></span></form>` : '<p class="mono"><a href="/entrar">Entra</a> para comentar.</p>';
+    pn.innerHTML = `<h4>Comentarios · ${all.length}</h4>${form()}<div class="cm-list">${top.map(c => one(c) + kids(c.id).map(k => one(k, true)).join('')).join('') || '<p class="mono">Sé la primera persona en comentar.</p>'}</div>`;
+    pn.querySelectorAll('.cm-form').forEach(f => f.onsubmit = async e => { e.preventDefault(); const b = f.querySelector('.btn'); b.disabled = true;
+      const { error } = await sb.from('comments').insert({ chapter_id: ch.id, user_id: u.id, body: f.body.value.trim(), spoiler: f.spoiler.checked, parent_id: f.dataset.parent ? +f.dataset.parent : null });
+      b.disabled = false; if (error) return toast(error.message); toast('Comentario publicado'); pn.hidden = true; comments(); });
+    pn.querySelectorAll('[data-reply]').forEach(b => b.onclick = () => { const it = b.closest('.cm-it'); if (it.nextElementSibling?.classList.contains('cm-form')) return; it.insertAdjacentHTML('afterend', form(b.dataset.reply)); const f = it.nextElementSibling; f.body.focus();
+      f.onsubmit = async e => { e.preventDefault(); const { error } = await sb.from('comments').insert({ chapter_id: ch.id, user_id: u.id, body: f.body.value.trim(), spoiler: f.spoiler.checked, parent_id: +b.dataset.reply }); if (error) return toast(error.message); toast('Respuesta publicada'); pn.hidden = true; comments(); }; });
+    pn.querySelectorAll('[data-cdel]').forEach(b => b.onclick = async () => { if (!confirm('¿Borrar tu comentario?')) return; const { error } = await sb.from('comments').delete().eq('id', b.dataset.cdel); if (error) return toast(error.message); pn.hidden = true; comments(); });
   }
 
   // ---------- errata ----------

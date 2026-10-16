@@ -66,10 +66,10 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
 
   async function panel(me){
     app.innerHTML = `<div class="bb"><div class="bb-top"><div><span class="ui-lbl">Mostrador del Bibliotecario</span><h1>Hola, ${esc(me.username)}</h1></div><button class="btn ghost" id="bbout">Cerrar sesión</button></div>
-      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['solicitudes','Solicitudes'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
+      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['solicitudes','Solicitudes'],['compras','Enlaces de compra'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
     $('#bbout').onclick = async () => { await sb.auth.signOut(); location.href = '/'; };
     app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; panel(me); });
-    try { await ({ resumen, usuarios, equipos, solicitudes, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
+    try { await ({ resumen, usuarios, equipos, solicitudes, compras, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
   }
   const view = () => $('#bbv');
 
@@ -127,6 +127,14 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       } catch (e) { b.disabled = false; toast(msg(e)); } });
   }
 
+
+  async function compras(){
+    const rows = await rpc('admin_purchase_queue');
+    view().innerHTML = `<div class="bb-box"><h3>Enlaces de compra por verificar · ${rows.length}</h3><p class="mono" style="font-size:13px;margin:0 0 10px">Abre cada enlace y confirma que es una tienda o editorial oficial de esa obra y volumen. Solo los verificados se muestran a los lectores.</p>
+      ${rows.length ? `<table class="bb-tbl"><thead><tr><th>Obra</th><th>Equipo</th><th>Vol.</th><th>Tienda</th><th>Enlace</th><th></th></tr></thead><tbody>${rows.map(r => `<tr><td><a href="/serie/${esc(r.series_slug)}">${esc(r.series_title)}</a></td><td>${esc(r.team_name)}</td><td>${r.vol ?? '—'}</td><td>${esc(r.store)}<br><span class="mono">${esc([r.fmt, r.region].filter(Boolean).join(' · '))}</span></td><td><a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">${esc(r.url.replace(/^https:\/\//, '').slice(0, 48))} ↗</a></td><td style="white-space:nowrap"><button class="btn" data-ok="${r.id}">Verificar</button> <button class="btn ghost" data-no="${r.id}">Rechazar</button></td></tr>`).join('')}</tbody></table>` : '<p class="mono">No hay enlaces pendientes.</p>'}</div>`;
+    view().querySelectorAll('[data-ok]').forEach(b => b.onclick = async () => { b.disabled = true; const { error } = await sb.from('purchase_links').update({ verified: true }).eq('id', b.dataset.ok); if (error) { b.disabled = false; return toast(msg(error)); } toast('Enlace verificado'); compras(); });
+    view().querySelectorAll('[data-no]').forEach(b => b.onclick = async () => { if (!confirm('¿Rechazar y borrar este enlace?')) return; const { error } = await sb.from('purchase_links').delete().eq('id', b.dataset.no); if (error) return toast(msg(error)); toast('Enlace rechazado'); compras(); });
+  }
 
   async function bitacora(){
     const rows = await rpc('admin_audit', { p_limit: 200 });

@@ -455,12 +455,16 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const { data: s } = await sb.from('series').select(SERIES).eq('slug', slug).maybeSingle();
     if (!s) { app.innerHTML = '<h1>Esta serie no está en el estante</h1><p><a href="/catalogo">Volver al catálogo</a></p>'; return; }
     const u = getUser();
-    const [{ data: vols }, { data: chs }, prog, readR, folR] = await Promise.all([
+    const [{ data: vols }, { data: chs }, prog, readR, folR, { data: dls }, { data: buys }] = await Promise.all([
       sb.from('volumes').select('id,num,title,cover_path,synopsis,status').eq('series_id', s.id).is('deleted_at', null).order('num'),
       sb.from('chapters').select('id,num,vol,volume_id,title,section_type,publish_at').eq('series_id', s.id).is('deleted_at', null).order('num'),
       progressMap(),
       u ? sb.from('read_chapters').select('chapter_id').eq('user_id', u.id) : { data: [] },
-      u ? sb.from('follows').select('series_id').eq('user_id', u.id).eq('series_id', s.id) : { data: [] }]);
+      u ? sb.from('follows').select('series_id').eq('user_id', u.id).eq('series_id', s.id) : { data: [] },
+      sb.rpc('series_downloads', { p_series: s.id }),
+      sb.from('purchase_links').select('id,volume_id,vol,store,region,fmt').eq('series_id', s.id).eq('verified', true).order('vol').order('id')]);
+    const buyOf = v => (buys || []).filter(b => b.volume_id === v.id || (!b.volume_id && b.vol === v.num));
+    const dlOf = v => (dls || []).filter(d => d.volume_id === v.id || (!d.volume_id && d.vol === v.num));
     const read = new Set((readR.data || []).map(r => r.chapter_id)), p = prog[s.id], following = !!(folR.data || []).length;
     const first = (chs || [])[0];
     app.innerHTML = `<div class="ui-wrap">
@@ -472,7 +476,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
           <div class="ui-facts">
             ${s.author ? `<div><span class="ui-lbl">Autor</span><b>${esc(s.author)}</b></div>` : ''}
             ${s.illustrator ? `<div><span class="ui-lbl">Ilustración</span><b>${esc(s.illustrator)}</b></div>` : ''}
-            <div><span class="ui-lbl">Traducción</span><b>${esc(s.teams?.name || '—')}</b></div>
+            <div><span class="ui-lbl">Traducción</span><b>${s.teams?.slug ? `<a href="/equipo/${esc(s.teams.slug)}">${esc(s.teams.name)}</a>` : esc(s.teams?.name || '—')}</b></div>
             ${s.original_status ? `<div><span class="ui-lbl">Obra original</span><b>${OR[s.original_status]}</b></div>` : ''}
             ${s.sequel_status ? `<div><span class="ui-lbl">Secuela</span><b>${SQ[s.sequel_status]}</b></div>` : ''}
             <div><span class="ui-lbl">Contenido</span><b>${(vols || []).length} vol. · ${(chs || []).length} cap.</b></div>
@@ -483,8 +487,10 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       ${s.synopsis ? `<section><div class="ui-h2"><h2>Sinopsis</h2></div><p class="ui-syn">${esc(s.synopsis)}</p></section>` : ''}
       <section><div class="ui-h2"><h2>Volúmenes</h2><span class="mono">${read.size ? [...read].filter(id => (chs || []).some(c => c.id === id)).length + ' leídos' : ''}</span></div><div class="ui-vols">
         ${(vols || []).map(v => { const list = (chs || []).filter(c => c.volume_id === v.id || (!c.volume_id && c.vol === v.num)); return `<article class="ui-vol"><span class="th" style="background-image:${v.cover_path ? `url('${esc(media(v.cover_path))}')` : s.cover_path ? `url('${esc(media(s.cover_path))}')` : 'none'}"></span><div><span class="ui-lbl">Volumen ${v.num} · ${list.length} capítulos</span><h3>${esc(v.title && v.title !== String(v.num) && v.title.length > 2 ? v.title : 'Volumen ' + v.num)}</h3>${v.synopsis ? `<p class="mono" style="margin:6px 0 0;font-size:13px;line-height:1.5">${esc(v.synopsis)}</p>` : ''}
-          <ul class="ui-chl">${list.map(c => `<li><a href="/leer/${s.slug}/${c.num}" class="${read.has(c.id) ? 'read' : ''}"><span class="n">${c.num}</span><span>${esc(c.title)}</span></a></li>`).join('')}</ul></div></article>`; }).join('') || '<p class="mono">Aún no hay volúmenes publicados.</p>'}
+          <ul class="ui-chl">${list.map(c => `<li><a href="/leer/${s.slug}/${c.num}" class="${read.has(c.id) ? 'read' : ''}"><span class="n">${c.num}</span><span>${esc(c.title)}</span></a></li>`).join('')}</ul>${buyOf(v).length ? `<div class="ui-dl ui-buy"><span class="ui-lbl">Compra la edición oficial</span>${buyOf(v).map(b => `<button class="ui-dlb buy" data-buy="${b.id}">${esc(b.store)}<small>${esc([b.fmt, b.region].filter(Boolean).join(' · '))}</small></button>`).join('')}</div>` : ''}${dlOf(v).length ? `<div class="ui-dl"><span class="ui-lbl">Descargar</span>${dlOf(v).map(d => d.locked ? `<a class="ui-dlb lock" href="/apoyar" title="Solo para donadores">援 ${esc(d.fmt)}<small>${esc(d.label || d.provider || '')} · donadores</small></a>` : `<button class="ui-dlb" data-dl="${d.id}">↓ ${esc(d.fmt)}<small>${esc(d.label || d.provider || '')}</small></button>`).join('')}</div>` : ''}</div></article>`; }).join('') || '<p class="mono">Aún no hay volúmenes publicados.</p>'}
       </div></section></div>`;
+    app.querySelectorAll('[data-buy]').forEach(b => b.onclick = async () => { const w = window.open('about:blank', '_blank'); const { data } = await sb.rpc('purchase_open', { p_id: +b.dataset.buy }); if (data && w) { w.opener = null; w.location = data; } else w?.close(); });
+    app.querySelectorAll('[data-dl]').forEach(b => b.onclick = async () => { b.disabled = true; const w = window.open('about:blank', '_blank'); const { data, error } = await sb.rpc('download_open', { p_id: +b.dataset.dl }); b.disabled = false; if (error || !data) { w?.close(); return toast(error?.hint || error?.message || 'Enlace no disponible'); } if (w) { w.opener = null; w.location = data; } else location.href = data; });
     $('#follow').onclick = async e => {
       if (!getUser()) return go('/entrar');
       const b = e.currentTarget; b.disabled = true;
@@ -493,5 +499,29 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       toast(following ? 'Ya no sigues esta serie' : 'Siguiendo · te avisaremos de cada volumen'); series(slug);
     };
   }
-  return { home, catalog, series, releases, refreshBadge };
+  // ---------- página pública del equipo ----------
+  async function team(slug){
+    const { data: t } = await sb.from('teams').select('id,slug,name,bio,color,langs,settings,avatar_path,banner_path,status').eq('slug', slug).maybeSingle();
+    if (!t) { app.innerHTML = '<h1>Este equipo no está en el estante</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
+    const S = t.settings || {}, c = t.color || '#f2c230', on = k => S[k] !== false;
+    const [{ data: works }, { data: mem }] = await Promise.all([
+      sb.from('series').select(SERIES).eq('team_id', t.id).eq('published', true).is('archived_at', null).order('title'),
+      on('show_members') ? sb.from('team_members').select('role,profiles(username,avatar_url),team_roles(name,color)').eq('team_id', t.id) : { data: [] }]);
+    const feat = on('show_featured') && (works || []).find(w => w.slug === S.featured_works);
+    const LG = { ja: 'japonés', ko: 'coreano', zh: 'chino', en: 'inglés' }, langs = (t.langs || []).map(l => LG[l]).filter(Boolean);
+    const LK = [['website','Sitio web'],['patreon','Patreon'],['kofi','Ko-fi'],['discord','Discord'],['twitter','X / Twitter']].filter(([k]) => /^https:\/\//.test(S[k] || ''));
+    const caps = (works || []).reduce((a, w) => a + (w.chapters?.[0]?.count || 0), 0);
+    app.innerHTML = `<div class="ui-wrap tp" style="--c:${esc(c)}">
+      <div class="tp-ban" style="${t.banner_path ? `background:url('${esc(media(t.banner_path))}') center/cover` : `background:linear-gradient(135deg, ${esc(c)}, #14120d)`}"></div>
+      <section class="tp-head"><span class="tp-av">${t.avatar_path ? `<img src="${esc(media(t.avatar_path))}" alt="">` : esc(t.name.slice(0, 2).toUpperCase())}</span>
+        <div><h1>${esc(t.name)}</h1><p class="mono">${[langs.length ? 'Traducimos del ' + langs.join(', ') : '', (works || []).length + ((works || []).length === 1 ? ' obra' : ' obras'), t.status && t.status !== 'Activo' ? t.status : ''].filter(Boolean).join(' · ')}</p></div></section>
+      ${t.bio ? `<p class="ui-syn tp-bio">${esc(t.bio)}</p>` : ''}
+      ${LK.length ? `<div class="ui-chips">${LK.map(([k, l]) => `<a class="ui-chip tp-lk" href="${esc(S[k])}" target="_blank" rel="noopener">${l} ↗</a>`).join('')}</div>` : ''}
+      ${on('show_stats') ? `<div class="tp-stats">${[[(works || []).length, 'obras'], [caps, 'capítulos'], [(works || []).reduce((a, w) => a + (w.views || 0), 0), 'lecturas']].map(([v, k]) => `<span><b>${(+v).toLocaleString('es-MX')}</b><small>${k}</small></span>`).join('')}</div>` : ''}
+      ${feat ? `<section><div class="ui-h2"><h2>Obra destacada</h2></div><a class="tp-feat" href="/serie/${esc(feat.slug)}">${book(feat)}<span><b>${esc(feat.title)}</b><span class="ui-syn">${esc(feat.synopsis || '')}</span></span></a></section>` : ''}
+      ${on('show_works') && works?.length ? `<section><div class="ui-h2"><h2>Obras</h2></div><div class="tp-works">${works.map(w => `<a href="/serie/${esc(w.slug)}" class="tp-w">${book(w, null, true)}<b>${esc(w.short || w.title)}</b><small>${w.chapters?.[0]?.count || 0} cap. · ${(TL[w.translation_status] || TL.active)[0]}</small></a>`).join('')}</div></section>` : ''}
+      ${on('show_members') && mem?.length ? `<section><div class="ui-h2"><h2>Integrantes</h2></div><div class="ui-chips">${mem.map(m => `<span class="ui-chip">${esc(m.profiles?.username || '—')} <small style="color:${esc(m.role === 'owner' ? c : m.team_roles?.color || '#a89f8a')}">${m.role === 'owner' ? 'Propietario' : esc(m.team_roles?.name || '')}</small></span>`).join('')}</div></section>` : ''}
+    </div>`;
+  }
+  return { home, catalog, series, releases, refreshBadge, team };
 }
