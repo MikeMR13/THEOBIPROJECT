@@ -20,7 +20,7 @@ export const SEASONS = {
   obon: { l: 'Obon', g: 'jp', w: ['08-13', '08-16'], bg: 'oscuro', ac: '#f2a33a', p: 'faroles', pat: 'nami', m: 'farol', c2: '#c8321f' },
   tsukimi: { l: 'Tsukimi', g: 'jp', d: Y({ 2026: '09-25', 2027: '09-15', 2028: '10-03', 2029: '09-22' }, 2, 1), bg: 'oscuro', ac: '#e9d9a6', p: 'polvo', pat: 'nami', m: 'luna', c2: '#c9b98a' },
   shichigosan: { l: 'Shichi-Go-San', g: 'jp', w: ['11-13', '11-15'], bg: 'claro', ac: '#c8102e', p: 'confeti', pat: 'yagasuri', m: 'abanico', c2: '#f2c230' },
-  seollal: { l: 'Seollal', g: 'kr', d: Y({ 2026: '02-17', 2027: '02-07', 2028: '01-27', 2029: '02-13' }), bg: 'claro', ac: '#2f6fb5', p: 'chispas', pat: 'shima', m: 'flor', c2: '#d6283a' },
+  seollal: { l: 'Seollal', g: 'kr', d: Y({ 2026: '02-17', 2027: '02-07', 2028: '01-26', 2029: '02-13' }), bg: 'claro', ac: '#2f6fb5', p: 'chispas', pat: 'shima', m: 'flor', c2: '#d6283a' },
   chuseok: { l: 'Chuseok', g: 'kr', d: Y({ 2026: '09-25', 2027: '09-15', 2028: '10-03', 2029: '09-22' }), bg: 'oscuro', ac: '#e9b44c', p: 'luciernagas', pat: 'nami', m: 'luna', c2: '#c4612b' },
   dano: { l: 'Dano', g: 'kr', d: Y({ 2026: '06-19', 2027: '06-09', 2028: '05-28', 2029: '06-16' }, 1, 0), bg: 'claro', ac: '#3f8f5a', p: 'hojas', pat: 'tatewaku', m: 'hoja', c2: '#f2c230' },
   buda: { l: 'Día de Buda', g: 'kr', d: Y({ 2026: '05-24', 2027: '05-13', 2028: '05-02', 2029: '05-20' }, 3, 0), bg: 'oscuro', ac: '#f29fb5', p: 'faroles', pat: 'shippo', m: 'loto', c2: '#f2c230' },

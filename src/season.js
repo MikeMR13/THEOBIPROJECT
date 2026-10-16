@@ -18,7 +18,10 @@ const SOUTH = /^(America\/(Argentina|Santiago|Montevideo|Asuncion|Sao_Paulo|La_P
 export const hemiOf = tz => SOUTH.test(tz || '') ? 'sur' : 'norte';
 export const INT = { sutil: 'Sutil', media: 'Media', alta: 'Alta' }, DEN = { pocas: 'Pocas', normal: 'Normal', muchas: 'Muchas' };
 let CFG = null, loading = null, stops = [];
-export function load(sb, force){ if (loading && !force) return loading; loading = sb.from('platform_settings').select('seasons').eq('id', 1).maybeSingle().then(({ data }) => (CFG = data?.seasons || {}), () => (CFG = {})); return loading; }
+const LUNAR = ['seollal', 'chuseok', 'tsukimi', 'dano', 'buda', 'pascua'];
+// Fechas que cambian cada año: las de la base (sincronizadas con Calendarific) reemplazan a las escritas en el código.
+async function mergeDates(sb){ try { const { data } = await sb.from('season_calendar').select('key,day').in('key', LUNAR).not('day', 'is', null); for (const r of data || []) { const s = SEASONS[r.key]; if (s?.d) s.d.years[+r.day.slice(0, 4)] = r.day.slice(5); } } catch {} }
+export function load(sb, force){ if (loading && !force) return loading; loading = Promise.all([sb.from('platform_settings').select('seasons').eq('id', 1).maybeSingle().then(({ data }) => (CFG = data?.seasons || {}), () => (CFG = {})), mergeDates(sb)]).then(() => CFG); return loading; }
 export const config = () => CFG || {};
 export const isOff = () => { try { return localStorage.getItem('obi-season') === 'off'; } catch { return false; } };
 export const setOff = v => { try { v ? localStorage.setItem('obi-season', 'off') : localStorage.removeItem('obi-season'); } catch {} dispatchEvent(new Event('obi-season')); };

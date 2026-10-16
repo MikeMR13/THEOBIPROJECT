@@ -48,7 +48,7 @@ addEventListener('popstate', render);
 document.addEventListener('click', e => { document.querySelectorAll('.ob-user[open],.ob-bell[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
 let PS = null; const seasons = async () => PS ||= await import('/season.js?v=1');
 addEventListener('obi-season', () => { afterRender(); });
-async function render(){ (await seasons()).clear(); await render0(); afterRender(); }
+async function render(){ const S = await seasons(); S.clear(); await S.load(sb); await render0(); afterRender(); }
 async function afterRender(){
   const S = await seasons(); await S.load(sb); const p = location.pathname; let m;
   try {
