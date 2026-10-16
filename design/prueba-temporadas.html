@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="es-419"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Prueba · Temporadas de la plataforma</title>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;800&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../src/styles.css">
+<style>.ctl{position:fixed;right:12px;bottom:12px;z-index:60;display:flex;gap:8px;flex-wrap:wrap;padding:10px;background:#f2c230;color:#0d0c0a;font:600 12px 'IBM Plex Sans',sans-serif}.ctl select{font:inherit}
+#hero{position:relative;min-height:320px;padding:32px;background:#1c1a14;border:1px solid #2f2a20;display:grid;align-content:center;gap:12px}#hero h1{margin:0;font-family:'Shippori Mincho B1',serif;font-size:44px}
+.rd{--bg:#0d0c0a;--fg:#f3ecd9;--ln:#2f2a20;--mt:#a89f8a;margin-top:40px}.rd-bar{top:0}</style></head><body>
+<header class="top"><a class="brand" href="#"><span class="seal">帯</span>El Obi del Lector</a><nav><a href="#">Inicio</a><a href="#">Catálogo</a><a href="#" class="gold">Lanzamientos</a></nav></header>
+<main id="app"><section id="hero"><span class="mono">NUEVO · CAP. 58</span><h1>¿Heroína, santa? ¡No, soy una sirvienta!</h1><p><a class="btn" href="#">Seguir leyendo</a></p></section>
+<p style="margin-top:24px">Texto de ejemplo con un <a href="#">enlace</a> para ver el color de acento de la temporada.</p>
+<div class="rd"><nav class="rd-bar"><a class="rd-back" href="#">‹ ¿Heroína, santa?</a><div class="rd-tools"><button class="btn ghost">Índice</button><button class="btn ghost">Aa</button></div></nav><p style="height:60vh">Vista del lector (detalle discreto).</p></div></main>
+<div class="ctl">PRUEBA LOCAL <label>Temporada <select id="k"></select></label><label>Página <select id="kind"><option value="home">Inicio</option><option value="catalog">Catálogo</option><option value="team">Página de equipo</option><option value="reader">Lector</option></select></label></div>
+<script type="module">
+import * as PS from '../src/season.js?v=1';
+const k = document.getElementById('k'), kind = document.getElementById('kind');
+Object.entries(PS.SEASONS).forEach(([v, s]) => k.insertAdjacentHTML('beforeend', '<option value="' + v + '">' + s.l + '</option>'));
+k.value = 'halloween';
+const go = () => PS.apply(kind.value, { key: k.value });
+k.onchange = go; kind.onchange = go; addEventListener('obi-season', () => { localStorage.removeItem('obi-season'); setTimeout(go, 400); });
+go(); window.__ps = PS;
+</script></body></html>
