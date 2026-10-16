@@ -1,0 +1,3 @@
+-- Calendario: la tabla schedule se llena sola al programar capítulos o volúmenes desde el Estudio. Ya aplicada en producción.
+-- schedule: + chapter_id, volume_id, kind · triggers chapters_schedule, chapters_schedule_vol, volumes_schedule
+-- Si se programa un volumen completo aparece una sola entrada «Volumen N»; al publicarse o volver a borrador la entrada se quita.
