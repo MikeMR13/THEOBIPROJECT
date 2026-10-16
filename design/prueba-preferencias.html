@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es-419"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prueba · Preferencias de la página del equipo</title>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;800&family=Literata:opsz,wght@7..72,400;7..72,500&family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono&family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../src/styles.css">
+<style>body{margin:0}#root{padding:24px clamp(16px,4vw,56px) 80px}.banner{position:fixed;right:12px;bottom:12px;z-index:50;display:flex;gap:8px;align-items:center;padding:8px 12px;background:#f2c230;color:#0d0c0a;font:600 12px 'IBM Plex Sans',sans-serif}.banner button{font:inherit;padding:4px 8px;cursor:pointer}</style>
+</head><body>
+<main id="root"></main>
+<div id="toast" role="status"></div>
+<div class="banner">PRUEBA LOCAL · no toca Supabase</div>
+<script type="module">
+import { createStudio } from '../src/studio.js';
+const SVG = (t, bg) => 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="400" height="600" fill="${bg}"/><text x="200" y="300" fill="#f3ecd9" font-family="serif" font-size="30" text-anchor="middle">${t}</text></svg>`);
+const DB = {
+  team_members: [{ user_id: 'u1', role: 'owner', teams: { id: 't1', slug: 'ox', name: 'OX-MR Traducciones', color: '#f2c230' }, profiles: { username: 'ortrix13' }, team_roles: null }, { user_id: 'u2', role: 'member', profiles: { username: 'luna_tl' }, team_roles: { name: 'Traductora', color: '#8cc3f2' } }],
+  teams: [{ id: 't1', slug: 'ox', name: 'OX-MR Traducciones', color: '#f2c230', bio: 'Traducimos novelas ligeras japonesas desde 2019. Somos cuatro personas con muchas ganas y poco sueño.', langs: ['ja'], status: 'Activo', avatar_path: null, banner_path: null, settings: { website: 'https://ox.example', discord: 'https://discord.gg/x', featured_works: 'heroina', timezone: 'America/Mexico_City' }, design: {} }],
+  series: [{ id: 's1', team_id: 't1', slug: 'heroina', title: '¿Heroína, santa? ¡No, soy una sirvienta!', short: '¿Heroína, santa?', synopsis: 'Ellen solo quiere limpiar el castillo, pero todos insisten en que es la santa de la profecía.', cover_path: SVG('Heroína', '#6b2b2b'), translation_status: 'active', views: 41230, chapters: [{ count: 58 }] }, { id: 's2', team_id: 't1', slug: 'duque', title: 'El duque y las escobas', short: 'El duque', synopsis: 'Una comedia de oficina en un ducado.', cover_path: SVG('Duque', '#2b4a6b'), translation_status: 'paused', views: 8120, chapters: [{ count: 22 }] }, { id: 's3', team_id: 't1', slug: 'te', title: 'Té para dos lunas', short: 'Té para dos', synopsis: '', cover_path: null, translation_status: 'completed', views: 3020, chapters: [{ count: 31 }] }],
+  schedule: [{ at: new Date(Date.now() + 2 * 864e5).toISOString(), label: 'Cap. 59', series: { team_id: 't1', slug: 'heroina', title: '¿Heroína, santa?' } }],
+  team_design_drafts: [], team_design_versions: [], team_custom_themes: [{ id: 1, team_id: 't1', name: 'Otoño del equipo', design: { template: 'clasica', bg: 'propio', custom: { bg: '#2a1810', sf: '#3a2418', fg: '#f6e7d2' }, accent: '#e0823a', font: 'notoserif', cover: 'libro', button: 'pildora', logo: 'hanko', pattern: 'seigaiha', patternOp: 10 } }], profiles: [{ id: 'u1', username: 'ortrix13' }]
+};
+const log = (...a) => console.log('[mock]', ...a);
+function from(table){
+  let rows = DB[table] || [], op = null, val = null;
+  const api = {
+    select: () => api, order: () => api, limit: () => api, is: () => api, in: () => api, gte: () => api, head: () => api,
+    eq: (k, v) => { rows = rows.filter(r => r[k] === undefined || String(r[k]) === String(v)); return api; },
+    insert: v => { op = 'insert'; val = Array.isArray(v) ? v : { id: Date.now() % 1e6, ...v }; return api; }, update: v => { op = 'update'; val = v; return api; }, delete: () => { op = 'delete'; return api; },
+    maybeSingle: () => api.then(r => ({ ...r, data: Array.isArray(r.data) ? r.data[0] || null : r.data })),
+    single: () => api.then(r => ({ ...r, data: Array.isArray(r.data) ? r.data[0] || null : r.data })),
+    then: (res, rej) => {
+      let out = rows;
+      if (op === 'insert') { out = (Array.isArray(val) ? val : [val]).map(v => ({ id: Math.random().toString(36).slice(2, 8), ...v })); DB[table] = (DB[table] || []).concat(out); log('insert', table, out); }
+      if (op === 'update') { rows.forEach(r => Object.assign(r, val)); log('update', table, val); }
+      if (op === 'delete') log('delete', table);
+      return Promise.resolve({ data: out, count: out.length, error: null }).then(res, rej);
+    }
+  };
+  return api;
+}
+const sb = {
+  from,
+  rpc: async (fn, a) => { log('rpc', fn, a);
+    if (fn === 'my_team_permissions') return { data: { view: true, edit: true, create: true, import: true, publish: true, schedule: true, delete: true, review: true, profile: true } };
+    if (fn === 'team_design_save') { DB.team_design_drafts = [{ team_id: 't1', design: a.p_design, token: 'k', updated_at: new Date().toISOString() }]; return { data: new Date().toISOString(), error: null }; }
+    if (fn === 'team_design_publish') { DB.teams[0].design = DB.team_design_drafts[0].design; DB.team_design_versions.unshift({ id: DB.team_design_versions.length + 1, team_id: 't1', design: DB.teams[0].design, created_at: new Date().toISOString(), created_by: 'u1' }); return { data: null, error: null }; }
+    if (fn === 'team_design_restore') return { data: DB.team_design_versions.find(v => v.id === a.p_version).design, error: null };
+    if (fn === 'team_design_new_token') return { data: '00000000-0000-0000-0000-000000000000', error: null };
+    return { data: null, error: null }; },
+  storage: { from: () => ({ list: async () => ({ data: [{ name: 'cover.svg' }] }), upload: async (p) => { log('upload', p); await new Promise(r => setTimeout(r, 60)); return { error: null }; }, remove: async p => { log('remove', p); return { error: null }; } }) }
+};
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+let tt; const toast = m => { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('on'), 3200); };
+const studio = createStudio({ sb, app: $('#root'), $, esc, toast, go: p => toast('Navegaría a ' + p), getUser: () => ({ id: 'u1' }), getMe: () => ({ role: 'translator' }), url: 'https://example.supabase.co' });
+window.__go = r => studio[r]();
+await studio.prefs();
+</script>
+</body></html>

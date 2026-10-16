@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es-419"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prueba · Animaciones de la página del equipo</title>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;800&family=Literata:opsz,wght@7..72,400;7..72,500&family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0d0c0a;color:#f3ecd9;font-family:'IBM Plex Sans',sans-serif}
+.bar{position:sticky;top:0;z-index:20;display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:10px 16px;background:#16140f;border-bottom:1px solid #2f2a20;font-size:13px}
+.bar select,.bar button{font:inherit;font-size:13px;padding:6px 8px;background:#0d0c0a;color:#f3ecd9;border:1px solid #3d3628}.bar button{cursor:pointer;border-color:#f2c230;color:#f2c230}
+#res{display:grid;gap:4px;padding:12px 16px;background:#14120d;border-bottom:1px solid #2f2a20;font:12px 'IBM Plex Mono',monospace}#res .ok{color:#a9d18e}#res .bad{color:#f59e7a}#res .na{color:#a89f8a}
+#scr{height:70vh;overflow:auto}
+</style>
+</head><body>
+<div class="bar"><b>PRUEBA DE ANIMACIONES</b>
+  <label>Partículas <select id="pt"></select></label>
+  <label>Intensidad <select id="it"><option>sutil</option><option selected>media</option><option>alta</option></select></label>
+  <label>Dónde <select id="wh"><option value="banner">Banner</option><option value="page">Página</option></select></label>
+  <label>Temporada <select id="se"><option value="">Ninguna</option></select></label>
+  <label>Plantilla <select id="tpl"><option>revista</option><option>clasica</option><option>editorial</option></select></label>
+  <button id="run">Probar todo</button></div>
+<div id="res">Pulsa «Probar todo».</div>
+<div id="scr"><div id="host"></div></div>
+<script type="module">
+import * as TP from '../src/teampage.js?v=10';
+import * as AN from '../src/anim.js?v=7';
+const $ = s => document.querySelector(s), esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const SVG = (t, bg) => 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="400" height="600" fill="${bg}"/><text x="200" y="300" fill="#f3ecd9" font-family="serif" font-size="30" text-anchor="middle">${t}</text></svg>`);
+const D = { t: { id: 't1', slug: 'ox', name: 'OX-MR Traducciones', color: '#f2c230', bio: 'Traducimos novelas ligeras japonesas desde 2019.', langs: ['ja'], status: 'Activo', settings: { featured_works: 'heroina' } },
+  works: [['heroina', '¿Heroína, santa?', '#6b2b2b'], ['duque', 'El duque', '#2b4a6b'], ['te', 'Té para dos', '#2b6b4a'], ['luna', 'Luna roja', '#4a2b6b']].map(([slug, title, bg]) => ({ slug, title, short: title, synopsis: 'Sinopsis de ejemplo para la prueba.', cover_path: SVG(title, bg), translation_status: 'active', views: 1200, chapters: [{ count: 12 }] })),
+  mem: [{ role: 'owner', profiles: { username: 'ortrix13' } }], next: { at: new Date(Date.now() + 2 * 864e5 + 3723e3).toISOString(), label: 'Cap. 59', series: { slug: 'heroina', title: '¿Heroína, santa?' } } };
+Object.entries(AN.PARTS).forEach(([k, l]) => $('#pt').insertAdjacentHTML('beforeend', `<option value="${k}">${l}</option>`));
+Object.entries(AN.SEASONS).forEach(([k, s]) => $('#se').insertAdjacentHTML('beforeend', `<option value="${k}">${s.l}</option>`));
+TP.ensureFonts();
+let stop = null;
+const design = () => ({ template: $('#tpl').value, featured: ['heroina', 'duque', 'te'], anim: Object.fromEntries(Object.keys(AN.ANIMS).map(k => [k, true])), intensity: $('#it').value, part: { type: $('#pt').value, density: 'normal', where: $('#wh').value }, announce: { title: 'Aviso de prueba', text: 'Texto del anuncio.' } });
+function mount(){ stop?.(); const dz = design(), sim = $('#se').value || ''; $('#host').innerHTML = TP.render(D, dz, { esc, media: x => x, sim }); const root = $('#host .tp2'); TP.bind(root); stop = AN.animate(root, TP.effective(dz, D.t.color, sim), { scroller: $('#scr'), forceMotion: true, mobile: false }); return root; }
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const painted = cv => { if (!cv) return 0; const x = cv.getContext('2d'), d = x.getImageData(0, 0, cv.width, cv.height).data; let n = 0; for (let i = 3; i < d.length; i += 16) if (d[i]) n++; return n; };
+async function check(){
+  const out = [], add = (name, ok, info = '') => { out.push(`<div class="${ok === null ? 'na' : ok ? 'ok' : 'bad'}">${ok === null ? '–' : ok ? '✓' : '✗'} ${name}${info ? ' · ' + info : ''}</div>`); console.log('[anim]', name, ok, info); };
+  $('#res').innerHTML = 'Probando…'; $('#scr').scrollTop = 0;
+  let root = mount(); await wait(1200);
+  const rv = root.classList.contains('tp2-rv'), secs = [...root.querySelectorAll('.tp2-sec,.tp2-ann,.tp2-next,.tp2-stats')];
+  const in0 = secs.filter(s => s.classList.contains('in')).length; $('#scr').scrollTop = $('#scr').scrollHeight; await wait(900); const in1 = secs.filter(s => s.classList.contains('in')).length;
+  add('Aparición al hacer scroll', rv && in1 > in0, `${in0}→${in1} de ${secs.length} visibles`); $('#scr').scrollTop = 0; await wait(300);
+  const ban = root.querySelector('.tp2-hero,.tp2-ban,.tp2-edi'), p0 = ban?.style.backgroundPositionY; $('#scr').scrollTop = 200; $('#scr').dispatchEvent(new Event('scroll')); await wait(250); const p1 = ban?.style.backgroundPositionY;
+  add('Banner con movimiento lento', !!ban && p0 !== p1, `${p0 || '—'} → ${p1 || '—'}`); $('#scr').scrollTop = 0; await wait(200);
+  const cv = root.querySelector('.tp2-cv'); if (cv) { const r = cv.getBoundingClientRect(); cv.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: r.left + r.width * .9, clientY: r.top + r.height * .2 })); await wait(80); }
+  add('Portadas que se inclinan', !!cv && /rotate/.test(cv.style.transform), cv?.style.transform?.slice(0, 60) || '—'); root.dispatchEvent(new PointerEvent('pointerleave'));
+  const cd = root.querySelector('.tp2-cd'), t0 = cd?.textContent; await wait(1300); const t1 = cd?.textContent;
+  add('Cuenta regresiva', !!cd && t0 !== t1, `${t0 || '—'} → ${t1 || '—'}`);
+  const car = root.querySelector('.tp2-car'); add('Carrusel que avanza solo', null, car ? `${car.children.length} destacadas · avanza cada ${{ sutil: 9, media: 6, alta: 4 }[$('#it').value]} s (se comprueba abajo)` : 'sin carrusel');
+  const canv = root.querySelector('.tp2-pc'); let px = 0; for (let k = 0; k < 6 && !px; k++) { await wait(250); px = painted(canv); }
+  add('Partículas · ' + AN.PARTS[$('#pt').value], !!canv && px > 0, canv ? `${px} píxeles dibujados · lienzo ${canv.width}×${canv.height}` : 'sin lienzo' + (document.hidden ? ' (pestaña oculta: el navegador pausa la animación)' : ''));
+  if (car) { const s0 = car.scrollLeft; await wait(({ sutil: 9000, media: 6000, alta: 4000 }[$('#it').value]) + 900); out[4] = ''; add('Carrusel que avanza solo', car.scrollLeft !== s0, `${Math.round(s0)} → ${Math.round(car.scrollLeft)} px`); }
+  // todas las partículas
+  const bad = []; for (const k of Object.keys(AN.PARTS)) { $('#pt').value = k; root = mount(); let n = 0; for (let i = 0; i < 5 && !n; i++) { await wait(200); n = painted(root.querySelector('.tp2-pc')); } if (!n) bad.push(k); }
+  add('Los 17 tipos de partículas', !bad.length, bad.length ? 'sin dibujar: ' + bad.join(', ') : 'todos dibujan');
+  // temporadas
+  const sb = []; for (const k of Object.keys(AN.SEASONS)) { $('#se').value = k; root = mount(); await wait(250); const ok = root.dataset.season === k && root.querySelectorAll('.tp2-cor').length === 2 && painted(root.querySelector('.tp2-pc')) >= 0 && /data:image\/png/.test(root.getAttribute('style')); if (!ok) sb.push(k); }
+  $('#se').value = ''; mount();
+  add('Las 23 temporadas (figuras, sello, patrón, partículas)', !sb.length, sb.length ? 'fallan: ' + sb.join(', ') : 'todas aplican');
+  add('Reducir movimiento', null, matchMedia('(prefers-reduced-motion: reduce)').matches ? 'activado en este equipo: la página real no anima' : 'desactivado en este equipo');
+  $('#res').innerHTML = out.filter(Boolean).join('');
+}
+['#pt', '#it', '#wh', '#se', '#tpl'].forEach(s => $(s).onchange = mount);
+$('#run').onclick = check; window.__check = check;
+mount();
+</script>
+</body></html>
