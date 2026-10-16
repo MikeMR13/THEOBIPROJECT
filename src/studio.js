@@ -8,6 +8,16 @@ const GT = ['Personaje','Lugar','Organización','Honorífico','Cargo o título',
 const BT = [['paragraph','Párrafo'],['heading','Título'],['quote','Cita'],['note','Nota del traductor'],['image','Ilustración'],['separator','Separador'],['ruby','Furigana']];
 
 const STCSS = `
+.s2-head{display:flex!important;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px}.s2-ht{display:grid;gap:4px}
+.s2-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.s2-tz{display:flex!important;align-items:center;gap:6px;padding:0 8px;height:36px;border:1px solid #3d3628;font-size:12px!important;font-weight:400!important;color:#a89f8a}.s2-tz select{background:none;border:none;color:var(--paper);font:inherit;font-size:12px;padding:0;max-width:200px;outline:none}.s2-tz select option{background:#16140f}
+.s2-bellw,.s2-srch{position:relative}.s2-bell{position:relative;width:36px;height:36px;background:none;border:1px solid #3d3628;color:var(--paper);font-family:'Shippori Mincho B1',serif;font-size:16px;cursor:pointer}.s2-bell:hover,.s2-bell[aria-expanded=true]{border-color:var(--gold);color:var(--gold)}.s2-bell em{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 4px;background:#f59e7a;color:#0d0c0a;font:600 10px/18px 'IBM Plex Mono',monospace;font-style:normal}
+.s2-srch input{width:220px;height:36px;padding:0 12px;background:#16140f;border:1px solid #2f2a20;font-size:13px}.s2-srch input:focus{border-color:var(--gold);outline:none}
+.s2-me{width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:var(--gold);color:#0d0c0a;font-weight:700;text-decoration:none}.s2-me:hover{color:#0d0c0a;outline:2px solid var(--paper)}
+.s2-pop{position:absolute;right:0;top:calc(100% + 8px);width:min(380px,86vw);max-height:70vh;overflow:auto;z-index:40;display:grid;background:#16140f;border:1px solid #3d3628;border-top:3px solid var(--gold);box-shadow:0 20px 40px rgba(0,0,0,.5)}.s2-pop[hidden]{display:none}
+.s2-poph{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #2f2a20;font-size:14px}
+.s2-nt{display:grid;grid-template-columns:8px minmax(0,1fr);gap:10px;padding:10px 12px;border-bottom:1px solid #221f18;color:var(--paper);text-decoration:none;font-size:13px;line-height:1.4}.s2-nt:hover{background:#1c1a14;color:var(--paper)}.s2-nt i{width:8px;height:8px;margin-top:6px;opacity:.35}.s2-nt.new i{opacity:1}.s2-nt.new{background:#1a1710}.s2-nt small{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89f8a;margin-top:2px}
+.s2-qh{padding:8px 12px 4px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#a89f8a}.s2-qr{display:grid;gap:2px;padding:8px 12px;color:var(--paper);text-decoration:none;font-size:13px}.s2-qr:hover,.s2-qr:focus{background:#1c1a14;color:var(--paper)}.s2-qr small{font-size:12px;color:#a89f8a}
+@media(max-width:860px){.s2-srch input{width:150px}.s2-tz select{max-width:120px}}
 body.in-studio>.top{display:none}body.in-studio>main{max-width:none;margin:0;padding:0}body.in-studio .s2{margin:0;min-height:100vh}body.in-studio .ed-bar,body.in-studio .st-sticky{top:0}
 .s2{display:grid;grid-template-columns:248px minmax(0,1fr);margin:-40px calc(-1 * clamp(16px,4vw,56px)) -80px;min-height:calc(100vh - 64px);background:#0d0c0a}
 .s2-side{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#2f2a20 transparent;display:flex;flex-direction:column;gap:22px;padding:22px 16px;background:#110f0b;border-right:1px solid #2f2a20}
@@ -52,7 +62,8 @@ export function createStudio(ctx){
   const TZS = [['America/Mexico_City','Ciudad de México'],['America/Monterrey','Monterrey'],['America/Tijuana','Tijuana'],['America/Bogota','Bogotá'],['America/Lima','Lima'],['America/Caracas','Caracas'],['America/Santiago','Santiago de Chile'],['America/Argentina/Buenos_Aires','Buenos Aires'],['America/Montevideo','Montevideo'],['America/Guatemala','Centroamérica'],['America/Santo_Domingo','Santo Domingo'],['America/New_York','Nueva York · Miami'],['America/Los_Angeles','Los Ángeles'],['Europe/Madrid','Madrid'],['Asia/Tokyo','Tokio'],['UTC','UTC']];
   // por defecto: hora del dispositivo; cada quien puede cambiar a la hora del equipo
   const devTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  const tz = () => localStorage.getItem('obi-tz-mode') === 'team' && T.tz ? T.tz : devTz();
+  const tzPick = () => localStorage.getItem('obi-tz-pick') || (localStorage.getItem('obi-tz-mode') === 'team' ? 'team' : 'device');
+  const tz = () => { const k = tzPick(); return k === 'team' ? (T.tz || devTz()) : k === 'device' ? devTz() : k; };
   const tzOff = (d, z) => { const p = new Intl.DateTimeFormat('en-US', { timeZone: z, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(d); const g = k => +p.find(x => x.type === k).value; return Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'), g('second')) - Math.floor(d.getTime() / 1000) * 1000; };
   const fromLocal = v => { if (!v) return null; const [D, H] = v.split('T'), [y, m, d] = D.split('-').map(Number), [h, mi] = (H || '00:00').split(':').map(Number), g = Date.UTC(y, m - 1, d, h, mi); let ts = g - tzOff(new Date(g), tz()); ts = g - tzOff(new Date(ts), tz()); return new Date(ts).toISOString(); };
   const toLocal = iso => { const d = new Date(iso); return new Date(d.getTime() + tzOff(d, tz())).toISOString().slice(0, 16); };
@@ -64,8 +75,8 @@ export function createStudio(ctx){
     return `<span class="mono tz-h">${onTeam ? 'hora del equipo' : 'tu hora'} · ${esc(tzName())}${team ? ` <button type="button" class="lnk" data-tzswap title="Cambia la zona con la que se interpretan y muestran las fechas">usar ${onTeam ? 'la de tu dispositivo' : 'la del equipo (' + esc(tzLabel(T.tz)) + ')'}</button>` : ''}</span>`;
   };
   document.addEventListener('click', e => { const b = e.target.closest('[data-tzswap]'); if (!b) return; e.preventDefault();
-    localStorage.setItem('obi-tz-mode', tz() === devTz() ? 'team' : 'device');
-    document.querySelectorAll('.tz-h').forEach(s => { s.outerHTML = tzHint(); });
+    localStorage.setItem('obi-tz-pick', tz() === devTz() ? 'team' : 'device');
+    document.querySelectorAll('.tz-h').forEach(s => { s.outerHTML = tzHint(); }); const sel = document.getElementById('st-tz'); if (sel) sel.value = tzPick();
     toast('Las fechas que programes se tomarán en ' + (tz() === devTz() ? 'la hora de tu dispositivo' : 'la hora del equipo') + ' (' + tzName() + ')'); });
   const busy = async (btn, fn) => { if (btn?.disabled) return; if (btn) { btn.disabled = true; btn.dataset.l = btn.textContent; btn.textContent = 'Un momento…'; } try { return await fn(); } catch (e) { toast(e.hint || e.message || 'Error'); } finally { if (btn) { btn.disabled = false; btn.textContent = btn.dataset.l; } } };
   const ROLE_L = { owner: 'Propietario', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
@@ -79,7 +90,55 @@ export function createStudio(ctx){
       <nav class="s2-nav">${NAV.filter(n => !n[3] || can(n[3])).map(([h, k, l]) => `<a href="${h}" class="${t === h ? 'on' : ''}" ${t === h ? 'aria-current="page"' : ''}><span class="k">${k}</span><span>${l}</span>${h === '/estudio/obras' && T.works ? `<em>${T.works}</em>` : ''}</a>`).join('')}</nav>
       <div class="s2-quick"><small>ACCIONES RÁPIDAS</small>${can('create') ? '<button class="s2-q main" data-quick="new">＋ Nuevo capítulo</button>' : ''}${can('import') ? '<a class="s2-q" href="/estudio/importar">⇪ Importar EPUB / DOCX / PDF</a>' : ''}<a class="s2-q" href="/estudio/obras">◷ Programar lanzamiento</a></div>
       <a class="s2-back" href="/">← Volver al sitio</a></aside>
-      <section class="st-main s2-main"><header class="s2-head"><small>ESTUDIO · ${esc((T.team?.name || '').toUpperCase())} · ${CRUMB[tab] || esc(title.toUpperCase())}</small><h1>${title}</h1></header>${body}</section></div>`; };
+      <section class="st-main s2-main"><header class="s2-head"><div class="s2-ht"><small>ESTUDIO · ${esc((T.team?.name || '').toUpperCase())} · ${CRUMB[tab] || esc(title.toUpperCase())}</small><h1>${title}</h1></div>${topTools()}</header>${body}</section></div>`; };
+  // barra superior: zona horaria, avisos, búsqueda y cuenta
+  const topTools = () => { queueMicrotask(bellCount); const u = getUser(), k = tzPick();
+    const opts = [['device', 'Mi dispositivo · ' + tzLabel(devTz())], ...(T.tz ? [['team', 'Equipo · ' + tzLabel(T.tz)]] : []), ...TZS.filter(([z]) => z !== devTz() && z !== T.tz).map(([z, l]) => [z, l])];
+    if (!opts.some(o => o[0] === k)) opts.push([k, tzLabel(k)]);
+    return `<div class="s2-tools">
+      <label class="s2-tz" title="Zona con la que se muestran y programan las fechas"><span aria-hidden="true">◷</span><select id="st-tz" aria-label="Zona horaria">${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+      <div class="s2-bellw"><button type="button" class="s2-bell" id="st-bell" aria-label="Avisos" aria-expanded="false"><span aria-hidden="true">鈴</span><em id="st-bell-n" hidden></em></button><div class="s2-pop" id="st-bell-list" hidden></div></div>
+      <div class="s2-srch"><input id="st-q" type="search" placeholder="Buscar en el Estudio…" autocomplete="off" aria-label="Buscar en el Estudio"><div class="s2-pop" id="st-q-res" hidden></div></div>
+      <a class="s2-me" href="/perfil" title="Mi perfil">${esc(((u?.email || '?')[0] || '?').toUpperCase())}</a></div>`; };
+  const agoS = d => { const m = Math.round((Date.now() - new Date(d)) / 60000); return m < 60 ? 'hace ' + Math.max(1, m) + ' min' : m < 1440 ? 'hace ' + Math.round(m / 60) + ' h' : 'hace ' + Math.round(m / 1440) + ' d'; };
+  async function bellCount(){ const u = getUser(); if (!u) return; const { count } = await sb.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', u.id).eq('read', false); const n = document.getElementById('st-bell-n'); if (n) { n.hidden = !count; n.textContent = count > 9 ? '9+' : count; } }
+  async function bellOpen(){
+    const box = document.getElementById('st-bell-list'); box.hidden = false; document.getElementById('st-bell').setAttribute('aria-expanded', 'true'); box.innerHTML = '<p class="mono" style="padding:12px;margin:0">Cargando…</p>';
+    const { data } = await sb.from('notifications').select('id,kind,body,link,read,created_at').eq('user_id', getUser().id).order('created_at', { ascending: false }).limit(25);
+    const K = { errata: '#f59e7a', respuesta: '#8cc3f2', tablero: '#f2c230', revision: '#c9a8f2' };
+    box.innerHTML = `<div class="s2-poph"><b>Avisos</b>${(data || []).some(x => !x.read) ? '<button type="button" class="lnk" id="st-readall">Marcar todo leído</button>' : ''}</div>` + ((data || []).map(x => `<a class="s2-nt${x.read ? '' : ' new'}" href="${esc(/^\/[\w\/-]*$/.test(x.link?.href || '') ? x.link.href : '/estudio')}"><i style="background:${K[x.kind] || '#a89f8a'}"></i><span>${esc(x.body)}<small>${agoS(x.created_at)}</small></span></a>`).join('') || '<p class="mono" style="padding:12px;margin:0">Sin avisos por ahora.</p>');
+    document.getElementById('st-readall')?.addEventListener('click', async e => { e.stopPropagation(); await sb.rpc('notifications_read_all'); box.querySelectorAll('.s2-nt.new').forEach(a => a.classList.remove('new')); e.target.remove(); bellCount(); });
+  }
+  let qT = 0, qSeq = 0;
+  async function search(q){
+    const res = document.getElementById('st-q-res'), my = ++qSeq; if (!res) return;
+    if (q.length < 2) { res.hidden = true; return; }
+    res.hidden = false; res.innerHTML = '<p class="mono" style="padding:12px;margin:0">Buscando…</p>';
+    const like = '%' + q.replace(/[%_\\]/g, m => '\\' + m) + '%';
+    const [s, c, g] = await Promise.all([
+      sb.from('series').select('slug,title').eq('team_id', T.team.id).is('archived_at', null).ilike('title', like).limit(5),
+      sb.from('chapters').select('id,num,title,series!inner(title,team_id)').eq('series.team_id', T.team.id).is('deleted_at', null).ilike('title', like).order('num').limit(8),
+      sb.from('glossary_terms').select('term,category,series!inner(slug,title,team_id)').eq('series.team_id', T.team.id).ilike('term', like).limit(5)]);
+    if (my !== qSeq) return;
+    const grp = (h, items) => items.length ? `<small class="s2-qh">${h}</small>${items.join('')}` : '';
+    const html = grp('OBRAS', (s.data || []).map(x => `<a class="s2-qr" href="/estudio/obra/${esc(x.slug)}"><b>${esc(x.title)}</b></a>`))
+      + grp('CAPÍTULOS', (c.data || []).map(x => `<a class="s2-qr" href="/estudio/editar/${x.id}"><b>Cap. ${x.num} — ${esc(x.title)}</b><small>${esc(x.series?.title || '')}</small></a>`))
+      + grp('GLOSARIO', (g.data || []).map(x => `<a class="s2-qr" href="/estudio/glosario/${esc(x.series?.slug || '')}"><b>${esc(x.term)}</b><small>${esc(x.category)} · ${esc(x.series?.title || '')}</small></a>`));
+    res.innerHTML = html || `<p class="mono" style="padding:12px;margin:0">Nada con «${esc(q)}».</p>`;
+  }
+  const closePops = except => document.querySelectorAll('.s2-pop').forEach(p => { if (p !== except) { p.hidden = true; } }), bellBtn = () => document.getElementById('st-bell');
+  document.addEventListener('click', e => {
+    if (!document.body.classList.contains('in-studio')) return;
+    if (e.target.closest('#st-bell')) { const box = document.getElementById('st-bell-list'); closePops(box); if (box.hidden) bellOpen(); else { box.hidden = true; bellBtn()?.setAttribute('aria-expanded', 'false'); } return; }
+    if (e.target.closest('.s2-pop a')) { closePops(); return; }
+    if (!e.target.closest('.s2-pop,#st-q')) { closePops(); bellBtn()?.setAttribute('aria-expanded', 'false'); }
+  });
+  document.addEventListener('input', e => { if (e.target.id === 'st-q') { clearTimeout(qT); const v = e.target.value.trim(); qT = setTimeout(() => search(v), 250); } });
+  document.addEventListener('keydown', e => {
+    if (e.target.id === 'st-q') { if (e.key === 'Escape') { e.target.value = ''; closePops(); } if (e.key === 'Enter') { const a = document.querySelector('#st-q-res a'); if (a) { e.preventDefault(); closePops(); go(a.getAttribute('href')); } } }
+    if (e.key === '/' && document.body.classList.contains('in-studio') && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) && !document.activeElement?.isContentEditable) { const q = document.getElementById('st-q'); if (q) { e.preventDefault(); q.focus(); } }
+  });
+  document.addEventListener('change', e => { if (e.target.id === 'st-tz') { localStorage.setItem('obi-tz-pick', e.target.value); toast('Fechas en ' + tzName()); dispatchEvent(new PopStateEvent('popstate')); } });
   const teamPicker = () => T.teams.length > 1 ? `<select id="tpick">${T.teams.map(t => `<option value="${t.id}" ${t.id === T.team?.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>` : `<strong class="st-team">${esc(T.team?.name || '')}</strong>`;
   const bindPicker = again => { $('#tpick')?.addEventListener('change', async e => { await pickTeam(e.target.value); T.works = null; again(); }); $('[data-quick="new"]')?.addEventListener('click', e => busy(e.currentTarget, newChapterPicker)); };
   async function newChapter(s){
