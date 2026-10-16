@@ -49,13 +49,23 @@ export function createStudio(ctx){
   const can = a => !!T.perms[a];
   // zona horaria del equipo: las fechas se muestran y se capturan en la hora del equipo
   const TZS = [['America/Mexico_City','Ciudad de México'],['America/Monterrey','Monterrey'],['America/Tijuana','Tijuana'],['America/Bogota','Bogotá'],['America/Lima','Lima'],['America/Caracas','Caracas'],['America/Santiago','Santiago de Chile'],['America/Argentina/Buenos_Aires','Buenos Aires'],['America/Montevideo','Montevideo'],['America/Guatemala','Centroamérica'],['America/Santo_Domingo','Santo Domingo'],['America/New_York','Nueva York · Miami'],['America/Los_Angeles','Los Ángeles'],['Europe/Madrid','Madrid'],['Asia/Tokyo','Tokio'],['UTC','UTC']];
-  const tz = () => T.tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // por defecto: hora del dispositivo; cada quien puede cambiar a la hora del equipo
+  const devTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const tz = () => localStorage.getItem('obi-tz-mode') === 'team' && T.tz ? T.tz : devTz();
   const tzOff = (d, z) => { const p = new Intl.DateTimeFormat('en-US', { timeZone: z, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(d); const g = k => +p.find(x => x.type === k).value; return Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'), g('second')) - Math.floor(d.getTime() / 1000) * 1000; };
   const fromLocal = v => { if (!v) return null; const [D, H] = v.split('T'), [y, m, d] = D.split('-').map(Number), [h, mi] = (H || '00:00').split(':').map(Number), g = Date.UTC(y, m - 1, d, h, mi); let ts = g - tzOff(new Date(g), tz()); ts = g - tzOff(new Date(ts), tz()); return new Date(ts).toISOString(); };
   const toLocal = iso => { const d = new Date(iso); return new Date(d.getTime() + tzOff(d, tz())).toISOString().slice(0, 16); };
   const fmtTz = (d, o) => new Date(d).toLocaleString('es-MX', { ...(o || { dateStyle: 'medium', timeStyle: 'short' }), timeZone: tz() });
-  const tzName = () => (TZS.find(x => x[0] === tz()) || [, tz().split('/').pop().replace(/_/g, ' ')])[1];
-  const tzHint = () => `<span class="mono tz-h" title="Zona horaria del equipo. Se cambia en Página del equipo.">hora de ${esc(tzName())}</span>`;
+  const tzLabel = z => (TZS.find(x => x[0] === z) || [, z.split('/').pop().replace(/_/g, ' ')])[1];
+  const tzName = () => tzLabel(tz());
+  const tzHint = () => {
+    const team = T.tz && T.tz !== devTz(), onTeam = tz() !== devTz();
+    return `<span class="mono tz-h">${onTeam ? 'hora del equipo' : 'tu hora'} · ${esc(tzName())}${team ? ` <button type="button" class="lnk" data-tzswap title="Cambia la zona con la que se interpretan y muestran las fechas">usar ${onTeam ? 'la de tu dispositivo' : 'la del equipo (' + esc(tzLabel(T.tz)) + ')'}</button>` : ''}</span>`;
+  };
+  document.addEventListener('click', e => { const b = e.target.closest('[data-tzswap]'); if (!b) return; e.preventDefault();
+    localStorage.setItem('obi-tz-mode', tz() === devTz() ? 'team' : 'device');
+    document.querySelectorAll('.tz-h').forEach(s => { s.outerHTML = tzHint(); });
+    toast('Las fechas que programes se tomarán en ' + (tz() === devTz() ? 'la hora de tu dispositivo' : 'la hora del equipo') + ' (' + tzName() + ')'); });
   const busy = async (btn, fn) => { if (btn?.disabled) return; if (btn) { btn.disabled = true; btn.dataset.l = btn.textContent; btn.textContent = 'Un momento…'; } try { return await fn(); } catch (e) { toast(e.hint || e.message || 'Error'); } finally { if (btn) { btn.disabled = false; btn.textContent = btn.dataset.l; } } };
   const ROLE_L = { owner: 'Propietario', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
   const NAV = [['/estudio','総','Resumen'],['/estudio/obras','作','Obras'],['/estudio/glosario','語','Glosario'],['/estudio/importar','入','Importar'],['/estudio/multimedia','画','Multimedia'],['/estudio/flujo','流','Flujo de trabajo'],['/estudio/comunidad','評','Comunidad'],['/estudio/estadisticas','統','Estadísticas'],['/estudio/descargas','落','Descargas'],['/estudio/perfil','顔','Página del equipo'],['/estudio/equipo','班','Equipo'],['/estudio/bitacora','録','Bitácora','log']];
@@ -570,7 +580,7 @@ export function createStudio(ctx){
     const title = X.getElementsByTagNameNS('*', 'title')[0]?.textContent || file.name;
     const images = new Map(), fonts = [];
     for (const it of Object.values(items)) {
-      if (/^image\//.test(it.type)) images.set(it.href, { blob: await zip.file(it.href)?.async('blob'), type: it.type, name: it.href.split('/').pop() });
+      if (/^image\//.test(it.type)) { const raw = await zip.file(it.href)?.async('blob'); images.set(it.href, { blob: raw && new Blob([raw], { type: it.type }), type: it.type, name: it.href.split('/').pop() }); }
       if (/font|opentype|woff|truetype/.test(it.type) || /\.(ttf|otf|woff2?)$/i.test(it.href)) { const raw = await zip.file(it.href)?.async('uint8array'); if (raw) fonts.push({ href: it.href, bytes: await deobfuscate(zip, { uid }, raw, it.href), name: it.href.split('/').pop() }); }
     }
     // familias desde las hojas de estilo
@@ -592,10 +602,13 @@ export function createStudio(ctx){
     const md = n => [...X.getElementsByTagNameNS('*', n)].map(e => e.textContent.trim()).filter(Boolean);
     const metaN = n => [...X.getElementsByTagNameNS('*', 'meta')].find(m => m.getAttribute('name') === n)?.getAttribute('content');
     const metaP = pr => [...X.getElementsByTagNameNS('*', 'meta')].find(m => m.getAttribute('property') === pr)?.textContent.trim();
-    const isbn = (md('identifier').join(' ').replace(/[-\s]/g, '').match(/97[89]\d{10}/) || [])[0] || null;
     const desc = md('description')[0], synopsis = desc ? (new DOMParser().parseFromString(desc, 'text/html').body.textContent || '').trim().slice(0, 3000) : '';
     const idx = +(metaN('calibre:series_index') || metaP('group-position') || (title.match(/(?:vol(?:umen|ume)?\.?|tomo)\s*(\d+)/i) || [])[1] || 0) || null;
-    const meta = { author: md('creator')[0] || '', publisher: md('publisher')[0] || '', synopsis, isbn, index: idx ? Math.round(idx) : null, series: metaN('calibre:series') || metaP('belongs-to-collection') || '' };
+    const OPF = 'http://www.idpf.org/2007/opf', people = [...X.getElementsByTagNameNS('*', 'creator'), ...X.getElementsByTagNameNS('*', 'contributor')];
+    const roleOf = e => e.getAttributeNS(OPF, 'role') || e.getAttribute('opf:role') || (e.id && [...X.getElementsByTagNameNS('*', 'meta')].find(m => m.getAttribute('refines') === '#' + e.id && m.getAttribute('property') === 'role')?.textContent.trim()) || '';
+    const ill = people.find(e => /^ill/i.test(roleOf(e)))?.textContent.trim() || '', aut = people.find(e => /^aut/i.test(roleOf(e)))?.textContent.trim();
+    const date = (md('date')[0] || '').match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '';
+    const meta = { illustrator: ill, date, author: aut || md('creator')[0] || '', publisher: md('publisher')[0] || '', synopsis, index: idx ? Math.round(idx) : null, series: metaN('calibre:series') || metaP('belongs-to-collection') || '' };
     const coverItem = Object.values(items).find(i => i.props.includes('cover-image')) || items[metaN('cover')] || Object.values(items).find(i => /^image\//.test(i.type) && /cover|portada/i.test(i.href));
     return { title, chapters, images, fonts, meta, cover: coverItem && images.has(coverItem.href) ? 'img:' + coverItem.href : null };
   }
@@ -646,7 +659,7 @@ export function createStudio(ctx){
     const TAB = '/estudio/importar';
     if (!can('import')) { app.innerHTML = shell('Importar', '<p>Tu rol no permite importar archivos.</p>', TAB); bindPicker(importer); return; }
     const { data: works } = await sb.from('series').select('id,slug,title,cover_path,volumes(id,num,title,cover_path,deleted_at)').eq('team_id', T.team.id).is('archived_at', null).order('title');
-    let P = null, file = null, fp = null, step = 1, sel = 0, splitting = false, dupAt = null;
+    let P = null, file = null, fp = null, step = 1, sel = 0, splitting = false, dupAt = null, V = {};
     const D = { work: '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', newTitle: '', newAuthor: '' };
     app.innerHTML = shell('Importar contenido', '<ol class="imp-steps" id="steps"></ol><div id="wiz"></div><p id="status" class="mono" role="status"></p>', TAB);
     bindPicker(importer);
@@ -661,7 +674,7 @@ export function createStudio(ctx){
 
     function s1(){
       W().innerHTML = `<label class="imp-drop" id="drop"><b>Arrastra aquí un EPUB, DOCX o PDF</b><span class="mono">o toca para elegirlo · máx. 80 MB</span><input type="file" id="file" accept=".epub,.docx,.pdf" hidden></label>
-        <p class="mono">Del EPUB se leen capítulos, ilustraciones, fuentes, portada y datos del libro: autor, editorial, sinopsis, ISBN y número de volumen.</p>`;
+        <p class="mono">Del EPUB se leen capítulos, ilustraciones, fuentes, portada y datos del libro: autor, editorial, sinopsis y número de volumen.</p>`;
       const dz = $('#drop');
       $('#file').onchange = e => e.target.files[0] && load(e.target.files[0]);
       dz.ondragover = e => { e.preventDefault(); dz.classList.add('on'); }; dz.ondragleave = () => dz.classList.remove('on');
@@ -682,15 +695,37 @@ export function createStudio(ctx){
         const guess = (works || []).find(w => w.title && key.includes(w.title.toLowerCase().slice(0, 18)));
         D.work = guess?.id || ''; D.newTitle = P.meta.series || P.title.replace(/\s*[,:\-–]?\s*(vol(umen|ume)?\.?|tomo)\s*\d+.*$/i, '').trim() || P.title; D.newAuthor = P.meta.author || '';
         D.vnum = P.meta.index || nextVol(guess); D.cover = P.cover || null; D.workCover = !guess || !guess.cover_path; D.mode = 'append';
+        V = { title: '', subtitle: '', synopsis: P.meta.synopsis || '', synopsis_spoiler: false, publisher: P.meta.publisher || '', imprint: '', illustrator: P.meta.illustrator || '', jp_release: P.meta.date || '', planned_chapters: '', is_final: false, translator_notes: '' };
         sel = Math.max(0, P.chapters.findIndex(c => !c.skip)); splitting = false;
         st(''); step = 2; render();
       } catch (er) { st('No se pudo leer: ' + er.message); }
     }
 
+    function fichaHTML(nInc){
+      const w = work(), ex = liveVols(w).find(v => v.num === D.vnum), f = (k, l, attrs = '') => `<label>${l}<input data-v="${k}" value="${esc(V[k] ?? '')}" ${attrs}></label>`;
+      return `<details class="imp-box imp-ficha" ${ex ? '' : 'open'}><summary><b>Ficha del volumen</b><span class="mono">Destino previsto: ${esc(w?.title || D.newTitle || P.title)} · Vol. ${D.vnum} · ${ex ? 'ya existe: estos datos solo completan sus campos vacíos' : 'nuevo: se creará con esta ficha'}</span></summary>
+        <div class="imp-fg">
+          ${f('title', 'Título del volumen', 'maxlength="200" placeholder="Volumen ' + D.vnum + '"')}${f('subtitle', 'Subtítulo', 'maxlength="200"')}
+          <label class="wide">Sinopsis<textarea data-v="synopsis" rows="4" maxlength="3000">${esc(V.synopsis)}</textarea></label>
+          <label class="tb-inl wide"><input type="checkbox" data-v="synopsis_spoiler" ${V.synopsis_spoiler ? 'checked' : ''}> La sinopsis contiene spoilers del volumen anterior</label>
+          ${f('jp_release', 'Salida en Japón', 'type="date"')}
+          ${f('publisher', 'Editorial', 'maxlength="120"')}${f('imprint', 'Sello', 'maxlength="120" placeholder="p. ej. MF Bunko J"')}
+          ${f('illustrator', 'Ilustración', 'maxlength="120"')}${f('planned_chapters', 'Capítulos previstos', 'type="number" min="0" max="999" placeholder="' + nInc + '"')}
+          <label class="wide">Notas del traductor<textarea data-v="translator_notes" rows="2" maxlength="2000" placeholder="Se muestran en la ficha del volumen">${esc(V.translator_notes)}</textarea></label>
+          <label class="tb-inl wide"><input type="checkbox" data-v="is_final" ${V.is_final ? 'checked' : ''}> Es el último volumen de la obra (al publicarlo, la traducción queda como completa)</label>
+        </div><p class="mono">Puedes cambiar la obra y el número de volumen en el paso siguiente. Los datos marcados del EPUB ya vienen llenos.</p></details>`;
+    }
+    function bindFicha(){ W().querySelectorAll('[data-v]').forEach(i => i[i.type === 'checkbox' ? 'onchange' : 'oninput'] = () => { V[i.dataset.v] = i.type === 'checkbox' ? i.checked : i.value; }); }
+    const fichaRow = () => {
+      const o = {}; for (const k of ['title', 'subtitle', 'synopsis', 'publisher', 'imprint', 'illustrator', 'translator_notes']) { const v = String(V[k] || '').trim(); if (v) o[k] = v; }
+      if (V.jp_release) o.jp_release = V.jp_release; if (V.planned_chapters !== '' && V.planned_chapters != null) o.planned_chapters = Math.max(0, +V.planned_chapters || 0);
+      if (V.synopsis_spoiler) o.synopsis_spoiler = true; if (V.is_final) o.is_final = true; return o;
+    };
     function s2(){
       const ch = P.chapters, inc = ch.filter(c => !c.skip), m = P.meta, cur = ch[sel];
       W().innerHTML = `<div class="imp-sum"><span><b>${esc(P.title)}</b><small class="mono">${esc(file.name)} · ${inc.length} de ${ch.length} secciones · ${P.images.size} imágenes · ${P.fonts.length} fuentes</small></span>
-          ${[['Autor', m.author], ['Editorial', m.publisher], ['ISBN', m.isbn], ['Volumen', m.index]].filter(x => x[1]).map(([k, v]) => `<span><small class="mono">${k}</small>${esc(String(v))}</span>`).join('')}</div>
+          ${[['Autor', m.author], ['Editorial', m.publisher], ['Volumen', m.index]].filter(x => x[1]).map(([k, v]) => `<span><small class="mono">${k}</small>${esc(String(v))}</span>`).join('')}</div>
+        ${fichaHTML(inc.length)}
         ${dupAt ? `<p class="imp-warn">Ya importaste este mismo archivo el ${fmtTz(dupAt, { dateStyle: 'long' })}. Puedes continuar; en el destino elige «Reemplazar» si quieres sustituirlo.</p>` : ''}
         <div class="imp-grid">
           <div class="imp-list"><div class="imp-lh"><b>Secciones</b><span class="mono">Desmarca las que no quieras importar</span></div>
@@ -703,6 +738,7 @@ export function createStudio(ctx){
             <div class="imp-pv${splitting ? ' splitting' : ''}" id="pv"><div class="rd" data-theme="oscuro" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="--rs:17px"><article class="rd-ch"><header class="rd-head"><span class="mono">${esc(cur.type)}</span><h2>${esc(cur.title)}</h2></header><div class="rd-body">${cur.blocks.map((b, i) => renderBlock(b, i, { media: src })).join('')}</div></article></div></div></div>
         </div>
         <div class="imp-nav"><button class="btn ghost" id="back">‹ Elegir otro archivo</button><button class="btn" id="next" ${inc.length ? '' : 'disabled'}>Continuar al destino ›</button></div>`;
+      bindFicha();
       const L = W().querySelector('.imp-list');
       L.querySelectorAll('[data-t]').forEach(i => i.oninput = () => { ch[+i.dataset.t].title = i.value; if (+i.dataset.t === sel) $('#pv h2').textContent = i.value; });
       L.querySelectorAll('[data-k]').forEach(s => s.onchange = () => { ch[+s.dataset.k].type = s.value; if (+s.dataset.k === sel) $('#pv .rd-head .mono').textContent = s.value; });
@@ -738,7 +774,7 @@ export function createStudio(ctx){
           ${ex ? `<div class="imp-warn"><span>El Volumen ${D.vnum} ya existe<span id="exc"></span>.</span>
             <label class="tb-inl"><input type="radio" name="dm" value="append" ${D.mode === 'append' ? 'checked' : ''}> Agregar estas secciones después de las existentes</label>
             <label class="tb-inl"><input type="radio" name="dm" value="replace" ${D.mode === 'replace' ? 'checked' : ''}> Reemplazar sus capítulos (los anteriores van a la papelera)</label></div>`
-            : `<p class="mono">Se creará el Volumen ${D.vnum}${w ? ' en ' + esc(w.title) : ''}${P.meta.isbn || P.meta.synopsis ? ', con el ISBN y la sinopsis del archivo' : ''}.</p>`}
+            : `<p class="mono">Se creará el Volumen ${D.vnum}${w ? ' en ' + esc(w.title) : ''}${Object.keys(fichaRow()).length ? ', con la ficha del paso anterior' : ''}.</p>`}
         </section>
         <section class="imp-box"><h3>Portada del volumen</h3>
           <p class="mono">${keys.length ? 'Toca la imagen que será la portada.' + (P.cover ? ' Marcamos la que el EPUB declara como portada.' : '') : 'El archivo no trae imágenes.'}</p>
@@ -780,6 +816,7 @@ export function createStudio(ctx){
       const uploaded = [], inserted = [], inc = P.chapters.filter(c => !c.skip);
       let job = null, createdSeries = null, createdVol = null, oldIds = [], oldGone = false, volBefore = null, seriesCoverBefore;
       if (D.pub === 'at' && (!D.at || new Date(fromLocal(D.at)) <= new Date())) throw new Error('Elige una fecha futura para programar');
+      const ficha = fichaRow();
       let w = work(), vol = liveVols(w).find(v => v.num === D.vnum);
       if (vol && D.mode === 'replace' && !confirm(`Se reemplazarán los capítulos del Volumen ${D.vnum}. Los anteriores van a la papelera. ¿Continuar?`)) return;
       try {
@@ -803,7 +840,7 @@ export function createStudio(ctx){
         const cov = D.cover ? map[D.cover] || null : null;
         st('Guardando el volumen…');
         if (!vol) {
-          const r = await sb.from('volumes').insert({ series_id: w.id, num: D.vnum, status: 'draft', epub_fonts: fonts, cover_path: cov, isbn: P.meta.isbn || null, publisher: P.meta.publisher || null, synopsis: P.meta.synopsis || null }).select().single();
+          const r = await sb.from('volumes').insert({ ...ficha, series_id: w.id, num: D.vnum, status: 'draft', epub_fonts: fonts, cover_path: cov }).select().single();
           if (r.error) throw r.error; vol = createdVol = r.data;
         }
         const { data: existing } = await sb.from('chapters').select('id,num,vol,volume_id').eq('series_id', w.id).is('deleted_at', null);
@@ -814,9 +851,9 @@ export function createStudio(ctx){
         for (let i = 0; i < rows.length; i += 10) { st(`Guardando capítulos ${Math.min(i + 10, rows.length)}/${rows.length}…`); const r = await sb.from('chapters').insert(rows.slice(i, i + 10)).select('id'); if (r.error) throw r.error; inserted.push(...r.data.map(x => x.id)); }
         if (oldIds.length) { const r = await sb.from('chapters').update({ deleted_at: new Date().toISOString() }).in('id', oldIds); if (r.error) throw r.error; oldGone = true; }
         if (!createdVol) {
-          const { data: vr } = await sb.from('volumes').select('cover_path,epub_fonts,isbn,publisher,synopsis').eq('id', vol.id).single();
+          const { data: vr } = await sb.from('volumes').select('*').eq('id', vol.id).single();
           const patch = {}; if (fonts.length) patch.epub_fonts = fonts; if (cov) patch.cover_path = cov;
-          for (const k of ['isbn', 'publisher', 'synopsis']) if (!vr?.[k] && P.meta[k]) patch[k] = P.meta[k];
+          for (const [k, v] of Object.entries(ficha)) if ((vr?.[k] == null || vr[k] === '' || vr[k] === false) && v !== false) patch[k] = v;
           if (Object.keys(patch).length) { volBefore = Object.fromEntries(Object.keys(patch).map(k => [k, vr?.[k] ?? null])); const r = await sb.from('volumes').update(patch).eq('id', vol.id); if (r.error) throw r.error; }
         }
         if (cov && D.workCover) { seriesCoverBefore = w.cover_path || null; const r = await sb.from('series').update({ cover_path: cov }).eq('id', w.id); if (r.error) throw r.error; }
@@ -1115,7 +1152,7 @@ export function createStudio(ctx){
         <div class="pf-g"><span class="pf-l">Logo</span><span class="pf-up"><span class="pf-logo" id="logobox"></span><span style="display:grid;gap:6px"><label class="btn ghost pf-file">${D.avatar ? 'Cambiar logo' : 'Subir logo'}<input type="file" id="flogo" accept="image/png,image/webp,image/jpeg" hidden ${dis}></label><small class="mono">PNG transparente · mínimo 512×512 · hasta 1 MB</small>${D.avatar && edit ? '<button type="button" class="lnk danger" id="nologo">Quitar logo</button>' : ''}</span></span>
           <label class="tb-inl"><input type="checkbox" id="lu" ${D.logoUpd ? 'checked' : ''} ${dis}> En la lista de actualizaciones</label><label class="tb-inl"><input type="checkbox" id="lr" ${D.logoReader ? 'checked' : ''} ${dis}> Al inicio de cada capítulo, en lugar de «Traducido por…»</label></div>
         <div class="pf-g"><span class="pf-l">Portada del perfil</span><span class="pf-up"><label class="btn ghost pf-file">${D.banner ? 'Cambiar portada' : 'Subir portada'}<input type="file" id="fban" accept="image/png,image/jpeg,image/webp" hidden ${dis}></label><small class="mono">1600×400 recomendado · hasta 3 MB. Sin portada se usa el color del equipo.</small>${D.banner && edit ? '<button type="button" class="lnk danger" id="noban">Quitar</button>' : ''}</span></div>
-        <label>Zona horaria del equipo<select name="tz" ${dis}>${[...TZS, ...(TZS.some(x => x[0] === D.tz) ? [] : [[D.tz, D.tz.replace(/_/g, ' ')]])].map(([k, l]) => `<option value="${k}" ${k === D.tz ? 'selected' : ''}>${l} · ${new Date().toLocaleTimeString('es-MX', { timeZone: k, hour: '2-digit', minute: '2-digit' })}</option>`).join('')}</select><small class="mono">Las fechas del Estudio se muestran y se programan en esta hora. Los lectores ven cada lanzamiento en su propia hora.</small></label>
+        <label>Zona horaria del equipo<select name="tz" ${dis}>${[...TZS, ...(TZS.some(x => x[0] === D.tz) ? [] : [[D.tz, D.tz.replace(/_/g, ' ')]])].map(([k, l]) => `<option value="${k}" ${k === D.tz ? 'selected' : ''}>${l} · ${new Date().toLocaleTimeString('es-MX', { timeZone: k, hour: '2-digit', minute: '2-digit' })}</option>`).join('')}</select><small class="mono">Es la hora de referencia del equipo. Cada integrante programa con la hora de su dispositivo y, junto al campo de fecha, puede cambiar a esta. Los lectores ven cada lanzamiento en su propia hora.</small></label>
         <label>Obra destacada<select name="feat" ${dis}><option value="">Ninguna</option>${(works || []).map(w => `<option value="${w.slug}" ${D.feat === w.slug ? 'selected' : ''}>${esc(w.short || w.title)}</option>`).join('')}</select></label>
         <div class="pf-g"><span class="pf-l">Secciones visibles</span>${SECTS.map(([k, l]) => `<label class="tb-inl"><input type="checkbox" data-sect="${k}" ${D.sect[k] ? 'checked' : ''} ${dis}> ${l}</label>`).join('')}</div>
         <div class="pf-g"><span class="pf-l">Redes y apoyo</span>${LINKS.map(([k, l, ph]) => `<label class="pf-link">${l}<input type="url" data-link="${k}" value="${esc(D.links[k])}" placeholder="${ph}" ${dis}></label>`).join('')}</div>
