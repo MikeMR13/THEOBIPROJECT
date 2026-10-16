@@ -1,4 +1,4 @@
-import { SEASONS, PARTS, ANIMS, INTENS, DENS, activeSeason, ornURL, motifURL, stripURL, CSS as ACSS } from './anim.js?v=7';
+import { SEASONS, PARTS, ANIMS, INTENS, DENS, activeSeason, ornURL, motifURL, stripURL, CSS as ACSS } from './anim.js?v=8';
 export { SEASONS, PARTS, ANIMS, INTENS, DENS, activeSeason };
 // Página pública del equipo: diseño compartido entre el sitio y el editor de Preferencias (vista previa idéntica).
 export const BGS = {

@@ -1,16 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
-const { createReader } = await import('/reader.js?v=9');
-const { createUI } = await import('/ui.js?v=27');
+const { createReader } = await import('/reader.js?v=10');
+const { createUI } = await import('/ui.js?v=25');
 export const sb = createClient(url, key, { auth: { persistSession: true } });
 const $ = s => document.querySelector(s), app = $('#app');
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 2800); };
 let user = null, profile = null, me = null;
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
-let ST; const st = async () => ST ||= (await import('/studio.js?v=32')).createStudio(CTX());
-let AD; const ad = async () => AD ||= (await import('/admin.js?v=4')).createAdmin(CTX());
+let ST; const st = async () => ST ||= (await import('/studio.js?v=33')).createStudio(CTX());
+let AD; const ad = async () => AD ||= (await import('/admin.js?v=5')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
 let U; const ui = () => U ||= createUI(CTX());
 const RL = { bibliotecario: 'Bibliotecario', publicador: 'Publicador', lector: 'Lector' };
@@ -46,7 +46,22 @@ export function go(path){ history.pushState({}, '', path); render(); }
 document.addEventListener('click', e => { const a = e.target.closest('a[href^="/"]'); if (a && !a.target) { e.preventDefault(); go(a.getAttribute('href')); } });
 addEventListener('popstate', render);
 document.addEventListener('click', e => { document.querySelectorAll('.ob-user[open],.ob-bell[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
-async function render(){
+let PS = null; const seasons = async () => PS ||= await import('/season.js?v=1');
+addEventListener('obi-season', () => { afterRender(); });
+async function render(){ (await seasons()).clear(); await render0(); afterRender(); }
+async function afterRender(){
+  const S = await seasons(); await S.load(sb); const p = location.pathname; let m;
+  try {
+    if (p === '/') return S.apply('home');
+    if (p === '/catalogo') return S.apply('catalog');
+    if (p === '/lanzamientos') return S.apply('releases');
+    if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) return S.apply('reader');
+    if ((m = p.match(/^\/serie\/([\w-]+)$/))) { const { data } = await sb.from('series').select('teams(design)').eq('slug', m[1]).maybeSingle(); const T = data?.teams?.design?.seasons, { activeSeason } = await import('/anim.js?v=8'); const k = T ? activeSeason(T) : null; if (location.pathname !== p) return; return k ? S.apply('series', { key: k, greet: T.greet?.[k] || '' }) : S.apply('series'); }
+    if ((m = p.match(/^\/equipo\/([\w-]+)$/))) { const { data } = await sb.from('teams').select('design').eq('slug', m[1]).maybeSingle(); const { activeSeason } = await import('/anim.js?v=8'); if (location.pathname !== p) return; if (data?.design?.seasons && activeSeason(data.design.seasons)) return S.clear(); return S.apply('team'); }
+    S.clear();
+  } catch (e) { console.warn('temporada', e); }
+}
+async function render0(){
 const p = location.pathname; let m;
 scrollTo(0, 0); document.body.classList.remove('in-studio');
 if ((m = p.match(/^\/serie\/([\w-]+)$/))) return ui().series(m[1]);
@@ -73,7 +88,7 @@ if (p === '/estudio/comunidad') return (await st()).community();
 if (p === '/estudio/estadisticas') return (await st()).stats();
 if (p === '/estudio/descargas') return (await st()).downloads();
 if ((m = p.match(/^\/estudio\/glosario(?:\/([\w-]+))?$/))) return (await st()).glossary(m[1]);
-(routes[p] || notFound)();
+return (routes[p] || notFound)();
 }
 async function calendar(){
 const { data } = await sb.from('schedule').select('label,at,series(title,slug)').gte('at', new Date().toISOString()).order('at').limit(30);

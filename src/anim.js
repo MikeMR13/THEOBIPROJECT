@@ -76,7 +76,7 @@ function drawP(x, p, c){
   x.restore();
 }
 const MOV = { nieve: [0, 1, .6], lluvia: [0, 5, 0], hojas: [.3, .9, 1.4], sakura: [.4, .8, 1.2], chispas: [0, -.5, .3], polvo: [0, -.15, .2], luciernagas: [0, 0, .5], estrellas: [0, .15, .2], burbujas: [0, -.7, .3], jabon: [0, -.6, .4], plumas: [.2, .5, 1], mariposas: [.5, -.2, .8], faroles: [0, -.35, .15], confeti: [0, 1.2, 1.5], corazones: [0, -.5, .3], notas: [.3, -.4, .4], runas: [0, -.25, .3] };
-function particles(host, o){
+export function particles(host, o){
   const cv = document.createElement('canvas'); cv.className = 'tp2-pc'; cv.setAttribute('aria-hidden', 'true'); host.prepend(cv);
   const x = cv.getContext('2d'), mob = o.mobile, sp = { sutil: .5, media: 1, alta: 1.6 }[o.intensity] || 1;
   let W = 0, H = 0, P = [], raf = 0, last = 0, vis = true, dpr = Math.min(2, devicePixelRatio || 1);

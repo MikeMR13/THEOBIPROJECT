@@ -254,10 +254,12 @@ export function createReader(ctx){
       ${opt('illus', { label: 'Ilustraciones', o: [['true','Mostrar'],['false','Ocultar']] })}
       ${opt('cw', { label: 'Avisos de contenido', o: [['show','Mostrar plegable'],['icon','Solo icono'],['hide','No mostrar']] })}
       ${opt('continuous', { label: 'Lectura', o: [['off','Por capítulo'],['volume','Continua dentro del volumen'],['all','Continua entre volúmenes']] })}
+      <label class="rd-scope"><input type="checkbox" ${localStorage.getItem('obi-season') === 'off' ? '' : 'checked'} data-season> Mostrar temas de temporada en la plataforma</label>
       <label class="rd-scope"><input type="checkbox" ${scoped ? 'checked' : ''} data-scope> Guardar estos ajustes solo para el Volumen ${ch.vol}</label>` });
     if (!pn) return;
     pn.onclick = e => { const b = e.target.closest('button[data-k]'); if (b) setPref(b.dataset.k, b.dataset.v === 'true' ? true : b.dataset.v === 'false' ? false : b.dataset.v); };
     pn.querySelector('[data-k="size"]').oninput = e => setPref('size', +e.target.value, true);
+    pn.querySelector('[data-season]').onchange = e => { e.target.checked ? localStorage.removeItem('obi-season') : localStorage.setItem('obi-season', 'off'); dispatchEvent(new Event('obi-season')); };
     pn.querySelector('[data-scope]').onchange = e => { if (e.target.checked) S.remote.per_volume[vid] = { ...S.remote.global }; else delete S.remote.per_volume[vid]; savePrefs(); applyPrefs(); };
   }
   function setPref(k, v, live){

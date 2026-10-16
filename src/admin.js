@@ -1,5 +1,11 @@
 // Panel del Bibliotecario: acceso único en /bibliotecario (alias /admin).
 const CSS = `
+.bb-sea{display:grid;gap:14px}.bb-sea-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px;align-items:start}
+.bb-se{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center;padding:8px 0;border-top:1px solid #221f18}.bb-se input[data-greet]{grid-column:1/-1;width:100%;font-size:13px;padding:7px}
+.bb-ck{display:flex;gap:8px;align-items:center;font-size:14px;font-weight:600;cursor:pointer}.bb-ck input{width:16px;height:16px;accent-color:#f2c230}.bb-ck i{width:10px;height:10px;border-radius:50%}
+.bb-seg{display:inline-flex;border:1px solid #3d3628}.bb-seg button{padding:7px 12px;background:none;border:none;border-right:1px solid #3d3628;color:#cfc6b0;font:inherit;font-size:12px;font-weight:600;cursor:pointer}.bb-seg button:last-child{border-right:none}.bb-seg button.on{background:#f2c230;color:#0d0c0a}
+.bb-pv{width:100%;height:560px;border:1px solid #2f2a20;background:#0d0c0a}.bb-save{position:sticky;bottom:0;display:flex;gap:12px;justify-content:flex-end;align-items:center;padding:12px 0;background:#0d0c0a;border-top:1px solid #2f2a20}
+
 .bb{max-width:1180px;margin:0 auto}
 .bb-gate{min-height:70vh;display:grid;place-items:center}
 .bb-card{width:min(440px,100%);display:grid;gap:14px;padding:36px 32px;background:#f3ecd9;color:#0d0c0a;border-top:8px solid var(--gold);box-shadow:0 30px 60px rgba(0,0,0,.5);position:relative}
@@ -66,10 +72,10 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
 
   async function panel(me){
     app.innerHTML = `<div class="bb"><div class="bb-top"><div><span class="ui-lbl">Mostrador del Bibliotecario</span><h1>Hola, ${esc(me.username)}</h1></div><button class="btn ghost" id="bbout">Cerrar sesión</button></div>
-      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['solicitudes','Solicitudes'],['compras','Enlaces de compra'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
+      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['solicitudes','Solicitudes'],['compras','Enlaces de compra'],['temporadas','Temporadas'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
     $('#bbout').onclick = async () => { await sb.auth.signOut(); location.href = '/'; };
     app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; panel(me); });
-    try { await ({ resumen, usuarios, equipos, solicitudes, compras, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
+    try { await ({ resumen, usuarios, equipos, solicitudes, compras, temporadas, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
   }
   const view = () => $('#bbv');
 
@@ -127,6 +133,34 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       } catch (e) { b.disabled = false; toast(msg(e)); } });
   }
 
+
+  async function temporadas(){
+    const PS = await import('/season.js?v=1');
+    const [{ data: row, error }, { data: cal }] = await Promise.all([sb.from('platform_settings').select('seasons,updated_at').eq('id', 1).single(), sb.from('season_calendar').select('key,label,starts,hemi').gte('starts', new Date().toISOString().slice(0, 10)).order('starts').limit(120)]);
+    if (error) throw error;
+    const C = { auto: [], greet: {}, intensity: 'sutil', density: 'normal', ...(row.seasons || {}) }; let prev = temporadas.prev || PS.platformKey() || 'navidad', dirty = false;
+    const seg = (k, o) => `<div class="bb-seg">${Object.entries(o).map(([v, l]) => `<button type="button" data-${k}="${v}" class="${C[k] === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+    const next = (cal || []).filter(c => C.auto.includes(c.key) && (!c.hemi || c.hemi === 'norte')).slice(0, 4);
+    const draw = () => { view().innerHTML = `<div class="bb-sea">
+      <div class="bb-box"><h3>Temporadas de la plataforma</h3><p class="mono" style="font-size:13px;margin:0 0 12px;line-height:1.5">Se aplican en Inicio, Catálogo, Lanzamientos, la ficha de cada obra y, con un detalle discreto, en el lector. En la ficha de una obra y en la página de un equipo manda la temporada del equipo si tiene una activa. Cada lector puede apagarlas en sus ajustes. Las estaciones usan el hemisferio según la zona horaria de cada lector.</p>
+        <div class="bb-row" style="align-items:center"><span class="mono">Intensidad</span>${seg('intensity', PS.INT)}<span class="mono">Partículas</span>${seg('density', PS.DEN)}</div>
+        ${next.length ? `<p class="mono" style="font-size:12px;margin:10px 0 0">Próximas: ${next.map(c => `${esc(c.label)} · ${new Date(c.starts + 'T12:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`).join(' · ')}. Te avisamos 7 días antes.</p>` : '<p class="mono" style="font-size:12px;margin:10px 0 0">Ninguna temporada automática activada.</p>'}</div>
+      <div class="bb-sea-g">${Object.entries(PS.SGROUPS).map(([g, gl]) => `<div class="bb-box"><h3>${gl}</h3>${Object.entries(PS.SEASONS).filter(([, s]) => s.g === g).map(([k, s]) => `<div class="bb-se"><label class="bb-ck"><input type="checkbox" data-auto="${k}" ${C.auto.includes(k) ? 'checked' : ''}><i style="background:${s.ac}"></i>${esc(s.l)}</label><button type="button" class="btn ghost" data-pv="${k}" style="padding:4px 10px;font-size:12px">Ver</button>
+          <input data-greet="${k}" maxlength="140" value="${esc(C.greet[k] ?? PS.SUGGEST[k] ?? '')}" aria-label="Saludo de ${esc(s.l)}" placeholder="Sin saludo"></div>`).join('')}</div>`).join('')}</div>
+      <div class="bb-box"><div class="bb-row" style="align-items:center;justify-content:space-between"><h3 style="margin:0">Vista previa de Inicio · ${esc(PS.SEASONS[prev].l)}</h3><span style="display:flex;gap:8px;align-items:center"><select id="sea-pv">${Object.entries(PS.SEASONS).map(([k, s]) => `<option value="${k}" ${k === prev ? 'selected' : ''}>${esc(s.l)}</option>`).join('')}</select><a class="btn ghost" href="/?temporada=${prev}" target="_blank" rel="noopener">Abrir en pestaña ↗</a></span></div>
+        <p class="mono" style="font-size:12px;margin:6px 0 10px">Muestra lo guardado. Guarda primero para ver un saludo nuevo.</p><iframe class="bb-pv" src="/?temporada=${prev}" title="Vista previa de Inicio con la temporada"></iframe></div>
+      <div class="bb-save"><span class="mono" id="sea-st">${dirty ? 'Cambios sin guardar' : row.updated_at ? 'Guardado ' + when(row.updated_at) : ''}</span><button class="btn" id="sea-save" ${dirty ? '' : 'disabled'}>Guardar temporadas</button></div></div>`;
+      const V = view(), mark = () => { dirty = true; $('#sea-st').textContent = 'Cambios sin guardar'; $('#sea-save').disabled = false; };
+      V.querySelectorAll('[data-intensity]').forEach(b => b.onclick = () => { C.intensity = b.dataset.intensity; dirty = true; draw(); });
+      V.querySelectorAll('[data-density]').forEach(b => b.onclick = () => { C.density = b.dataset.density; dirty = true; draw(); });
+      V.querySelectorAll('[data-auto]').forEach(c => c.onchange = () => { const k = c.dataset.auto; C.auto = c.checked ? [...C.auto, k] : C.auto.filter(x => x !== k); mark(); });
+      V.querySelectorAll('[data-greet]').forEach(i => i.oninput = () => { C.greet[i.dataset.greet] = i.value; mark(); });
+      V.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { prev = temporadas.prev = b.dataset.pv; draw(); V.querySelector('.bb-pv').scrollIntoView ? window.scrollTo({ top: V.querySelector('.bb-pv').getBoundingClientRect().top + scrollY - 120, behavior: 'smooth' }) : 0; });
+      $('#sea-pv').onchange = e => { prev = temporadas.prev = e.target.value; draw(); };
+      $('#sea-save').onclick = async e => { e.currentTarget.disabled = true; const greet = Object.fromEntries(Object.entries(C.greet).map(([k, v]) => [k, String(v).slice(0, 140)])); const { error } = await sb.from('platform_settings').update({ seasons: { auto: C.auto, greet, intensity: C.intensity, density: C.density }, updated_at: new Date().toISOString() }).eq('id', 1); if (error) { e.currentTarget.disabled = false; return toast(msg(error)); } dirty = false; row.updated_at = new Date().toISOString(); await PS.load(sb, true); toast('Temporadas guardadas'); draw(); };
+    };
+    draw();
+  }
 
   async function compras(){
     const rows = await rpc('admin_purchase_queue');
