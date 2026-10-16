@@ -71,3 +71,11 @@ Buckets: obi-epub (privado), avatars, obi-media, obi-app (públicos). Extensione
 - Importador: las imágenes van a `obi-media/{team}/obras/{slug}/vol-{n}/` (fuentes en `…/fuentes/`); el editor sube a la misma carpeta. La portada elegida se guarda en `volumes.cover_path` (y opcionalmente `series.cover_path`). Del EPUB se toman ISBN, editorial y sinopsis para el volumen si estaban vacíos.
 - `publish_volume(p_volume, p_at default null)`: única versión (se eliminó la de un solo argumento, sin permisos). Sin fecha publica; con fecha futura programa.
 - `chapters`: política extra «chapters read team» (in_team por series_id) para que INSERT … RETURNING funcione al crear o importar.
+
+## Página del equipo (Preferencias y Anuncios)
+- `teams.design` jsonb: diseño publicado (tema, plantilla, colores, tipografía, formas, patrón, lema, orden de secciones, destacadas, anuncio, animaciones, partículas, temporadas). Se normaliza en `src/teampage.js`.
+- `team_design_drafts` (borrador + token de vista previa), `team_design_versions` (últimas 10). RPC: team_design_save, team_design_publish, team_design_restore, team_design_new_token, team_design_preview.
+- `team_custom_themes` (máx. 12 por equipo). `team_follows` + `team_followers(p_team)`.
+- `team_announce_set(p_team, p_announce)`: publica el anuncio directo en el diseño publicado y en el borrador.
+- `season_calendar` (2026–2029) + cron diario `obi-season-notices` → `private.notify_seasons()` avisa 7 días antes.
+- Permiso de equipo usado: «profile».
