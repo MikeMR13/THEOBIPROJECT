@@ -91,9 +91,38 @@ if ((m = p.match(/^\/estudio\/glosario(?:\/([\w-]+))?$/))) return (await st()).g
 return (routes[p] || notFound)();
 }
 async function calendar(){
-const { data } = await sb.from('schedule').select('label,at,series(title,slug)').gte('at', new Date().toISOString()).order('at').limit(30);
-const until = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
-app.innerHTML = '<div class="ui-cath"><div><h1>Calendario</h1><p>Lo que viene: capítulos y volúmenes programados.</p></div><span class="kj" aria-hidden="true">予定</span></div><p class="mono"><a href="/lanzamientos">← Ya publicados</a></p>' + ((data||[]).map(e => `<p><span class="mono">${new Date(e.at).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})} · <b style="color:var(--gold)">${until(e.at)}</b></span> · <a href="/serie/${e.series.slug}">${esc(e.series.title)}</a> · ${esc(e.label)}</p>`).join('') || '<p class="mono">Sin publicaciones agendadas.</p>');
+app.innerHTML = '<p class="mono">Cargando el calendario…</p>';
+const DAYS = 60, now = new Date(), end = new Date(Date.now() + DAYS * 864e5), d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const [S, AN, { data: rel }, { data: cal }] = await Promise.all([seasons(), import('/anim.js?v=8'),
+  sb.from('schedule').select('label,at,kind,series(title,slug)').gte('at', now.toISOString()).lte('at', end.toISOString()).order('at').limit(120),
+  sb.from('season_calendar').select('key,label,starts,day,hemi').lte('starts', ymd(end)).gte('starts', ymd(new Date(Date.now() - 40 * 864e5))).order('starts')]);
+await S.load(sb);
+const hemi = S.hemiOf(Intl.DateTimeFormat().resolvedOptions().timeZone), auto = new Set(S.config().auto || []);
+const fests = [];
+for (let i = 0; i <= DAYS; i++) { const d = new Date(d0.getTime() + i * 864e5); for (const [k, s] of Object.entries(AN.SEASONS)) { if (s.g === 'est') continue; const was = AN.activeSeason({ auto: [k] }, new Date(d.getTime() - 864e5)) === k, is = AN.activeSeason({ auto: [k] }, d) === k; if (is && (!was || i === 0)) fests.push({ k, s, d }); } }
+const seasonStarts = (cal || []).filter(c => ['primavera', 'verano', 'otono', 'invierno'].includes(c.key) && c.hemi === hemi && new Date(c.starts + 'T12:00') >= d0).map(c => ({ k: c.key, s: AN.SEASONS[c.key], d: new Date(c.starts + 'T12:00') }));
+const items = [...(rel || []).filter(e => e.series).map(e => ({ t: 'rel', d: new Date(e.at), e })), ...fests.map(f => ({ t: 'fest', ...f })), ...seasonStarts.map(f => ({ t: 'fest', ...f }))].sort((x, y) => x.d - y.d || (x.t === 'fest' ? -1 : 1));
+const until = d => { const m = Math.round((d - Date.now()) / 60000); if (m < 0) return 'en curso'; if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
+const dayKey = d => ymd(d), groups = []; for (const it of items) { const k = dayKey(it.d); let g = groups[groups.length - 1]; if (!g || g.k !== k) groups.push(g = { k, d: it.d, list: [] }); g.list.push(it); }
+const label = d => { const k = ymd(d); return k === ymd(now) ? 'Hoy' : k === ymd(new Date(Date.now() + 864e5)) ? 'Mañana' : d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }); };
+const win = s => { if (s.w) { const [a1, b1] = s.w, f = x => new Date('2000-' + x + 'T12:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }); return a1 === b1 ? f(a1) : f(a1) + ' – ' + f(b1); } return ''; };
+const row = it => it.t === 'rel'
+  ? `<a class="cal-r" href="/serie/${esc(it.e.series.slug)}"><span class="cal-h">${it.d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span><span class="cal-b"><b>${esc(it.e.series.title)}</b><small>${it.e.kind === 'volume' ? 'Volumen completo · ' : ''}${esc(it.e.label)}</small></span><span class="cal-u">${until(it.d)}</span></a>`
+  : `<div class="cal-f${auto.has(it.k) ? ' on' : ''}" style="--fc:${it.s.ac}"><i style="background-image:url('${it.s.m ? AN.motifURL(it.s.m, it.s.ac, it.s.c2) : ''}')"></i><span class="cal-b"><b>${esc(it.s.l)}</b><small>${{ occ: 'Festividad', jp: 'Festividad japonesa', kr: 'Festividad coreana', est: 'Estación · hemisferio ' + hemi }[it.s.g]}${win(it.s) ? ' · ' + win(it.s) : ''}${auto.has(it.k) ? ' · el sitio se viste de temporada' : ''}</small></span><span class="cal-u">${until(it.d)}</span></div>`;
+app.innerHTML = '<div class="ui-cath"><div><h1>Calendario</h1><p>Lo que viene en los próximos dos meses: capítulos y volúmenes programados, y las festividades.</p></div><span class="kj" aria-hidden="true">予定</span></div>'
+  + '<div class="cal-bar"><a class="mono" href="/lanzamientos">← Ya publicados</a><span class="mono">Horario de tu dispositivo · ' + esc(Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ')) + '</span></div>'
+  + (groups.length ? groups.map(g => `<section class="cal-d"><h2>${label(g.d)}<span class="mono">${g.d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' })}</span></h2>${g.list.map(row).join('')}</section>`).join('') : '<p class="mono">Nada programado ni festividades en los próximos dos meses.</p>')
+  + ((rel || []).length ? '' : '<p class="mono cal-empty">Aún no hay capítulos ni volúmenes programados. Cuando un equipo programe uno desde el Estudio, aparecerá aquí.</p>');
+if (!document.getElementById('cal-css')) { const st = document.createElement('style'); st.id = 'cal-css'; st.textContent = `
+.cal-bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 26px}.cal-bar .mono{font-size:12px}
+.cal-d{margin:0 0 26px}.cal-d h2{display:flex;align-items:baseline;gap:10px;margin:0 0 10px;font-size:22px;font-weight:500;text-transform:capitalize}.cal-d h2 .mono{font-size:12px;color:var(--mute)}
+.cal-r,.cal-f{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 14px;margin-bottom:6px;background:#16140f;border:1px solid var(--line);color:var(--paper);text-decoration:none}
+.cal-r{border-left:4px solid var(--gold)}.cal-r:hover{border-color:var(--gold);color:var(--paper)}.cal-h{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--gold)}
+.cal-b{display:grid;gap:2px;min-width:0}.cal-b b{font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:18px}.cal-b small{font-size:12px;color:var(--mute)}.cal-u{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mute);white-space:nowrap}
+.cal-f{border-left:4px solid var(--fc);background:color-mix(in srgb,var(--fc) 7%,#16140f)}.cal-f i{width:40px;height:40px;justify-self:center;background:center/contain no-repeat}.cal-f.on{border-color:var(--fc)}
+.cal-empty{margin-top:10px}
+@media(max-width:560px){.cal-r,.cal-f{grid-template-columns:44px minmax(0,1fr)}.cal-u{grid-column:2}}`; document.head.appendChild(st); }
 }
 async function library(){
 if (!user) return go('/entrar');
