@@ -499,29 +499,31 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       toast(following ? 'Ya no sigues esta serie' : 'Siguiendo · te avisaremos de cada volumen'); series(slug);
     };
   }
-  // ---------- página pública del equipo ----------
+  // ---------- página pública del equipo (diseño en teampage.js) ----------
   async function team(slug){
-    const { data: t } = await sb.from('teams').select('id,slug,name,bio,color,langs,settings,avatar_path,banner_path,status').eq('slug', slug).maybeSingle();
-    if (!t) { app.innerHTML = '<h1>Este equipo no está en el estante</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
-    const S = t.settings || {}, c = t.color || '#f2c230', on = k => S[k] !== false;
-    const [{ data: works }, { data: mem }] = await Promise.all([
-      sb.from('series').select(SERIES).eq('team_id', t.id).eq('published', true).is('archived_at', null).order('title'),
-      on('show_members') ? sb.from('team_members').select('role,profiles(username,avatar_url),team_roles(name,color)').eq('team_id', t.id) : { data: [] }]);
-    const feat = on('show_featured') && (works || []).find(w => w.slug === S.featured_works);
-    const LG = { ja: 'japonés', ko: 'coreano', zh: 'chino', en: 'inglés' }, langs = (t.langs || []).map(l => LG[l]).filter(Boolean);
-    const LK = [['website','Sitio web'],['patreon','Patreon'],['kofi','Ko-fi'],['discord','Discord'],['twitter','X / Twitter']].filter(([k]) => /^https:\/\//.test(S[k] || ''));
-    const caps = (works || []).reduce((a, w) => a + (w.chapters?.[0]?.count || 0), 0);
-    app.innerHTML = `<div class="ui-wrap tp" style="--c:${esc(c)}">
-      <div class="tp-ban" style="${t.banner_path ? `background:url('${esc(media(t.banner_path))}') center/cover` : `background:linear-gradient(135deg, ${esc(c)}, #14120d)`}"></div>
-      <section class="tp-head"><span class="tp-av">${t.avatar_path ? `<img src="${esc(media(t.avatar_path))}" alt="">` : esc(t.name.slice(0, 2).toUpperCase())}</span>
-        <div><h1>${esc(t.name)}</h1><p class="mono">${[langs.length ? 'Traducimos del ' + langs.join(', ') : '', (works || []).length + ((works || []).length === 1 ? ' obra' : ' obras'), t.status && t.status !== 'Activo' ? t.status : ''].filter(Boolean).join(' · ')}</p></div></section>
-      ${t.bio ? `<p class="ui-syn tp-bio">${esc(t.bio)}</p>` : ''}
-      ${LK.length ? `<div class="ui-chips">${LK.map(([k, l]) => `<a class="ui-chip tp-lk" href="${esc(S[k])}" target="_blank" rel="noopener">${l} ↗</a>`).join('')}</div>` : ''}
-      ${on('show_stats') ? `<div class="tp-stats">${[[(works || []).length, 'obras'], [caps, 'capítulos'], [(works || []).reduce((a, w) => a + (w.views || 0), 0), 'lecturas']].map(([v, k]) => `<span><b>${(+v).toLocaleString('es-MX')}</b><small>${k}</small></span>`).join('')}</div>` : ''}
-      ${feat ? `<section><div class="ui-h2"><h2>Obra destacada</h2></div><a class="tp-feat" href="/serie/${esc(feat.slug)}">${book(feat)}<span><b>${esc(feat.title)}</b><span class="ui-syn">${esc(feat.synopsis || '')}</span></span></a></section>` : ''}
-      ${on('show_works') && works?.length ? `<section><div class="ui-h2"><h2>Obras</h2></div><div class="tp-works">${works.map(w => `<a href="/serie/${esc(w.slug)}" class="tp-w">${book(w, null, true)}<b>${esc(w.short || w.title)}</b><small>${w.chapters?.[0]?.count || 0} cap. · ${(TL[w.translation_status] || TL.active)[0]}</small></a>`).join('')}</div></section>` : ''}
-      ${on('show_members') && mem?.length ? `<section><div class="ui-h2"><h2>Integrantes</h2></div><div class="ui-chips">${mem.map(m => `<span class="ui-chip">${esc(m.profiles?.username || '—')} <small style="color:${esc(m.role === 'owner' ? c : m.team_roles?.color || '#a89f8a')}">${m.role === 'owner' ? 'Propietario' : esc(m.team_roles?.name || '')}</small></span>`).join('')}</div></section>` : ''}
-    </div>`;
+    const [TP, AN] = await Promise.all([import('/teampage.js?v=11'), import('/anim.js?v=7')]); TP.ensureFonts();
+    app.innerHTML = '<p class="mono">Abriendo la página del equipo…</p>';
+    const D = await TP.loadTeamData(sb, slug);
+    if (!D) { app.innerHTML = '<h1>Este equipo no está en el estante</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
+    const tok = new URLSearchParams(location.search).get('vista');
+    let design = D.t.design, draft = false;
+    if (tok && /^[0-9a-f-]{36}$/i.test(tok)) { const { data } = await sb.rpc('team_design_preview', { p_slug: slug, p_token: tok }); if (data) { design = data; draft = true; } }
+    let canEdit = false; const u2 = (await sb.auth.getUser()).data.user;
+    if (u2) { const { data: p } = await sb.rpc('my_team_permissions', { t: D.t.id }); canEdit = !!p?.profile; }
+    TP.ensureFonts([TP.normalize(design, D.t.color).font]);
+    document.title = D.t.name + ' · El Obi del Lector';
+    let md = document.querySelector('meta[name=description]'); if (!md) { md = document.createElement('meta'); md.name = 'description'; document.head.appendChild(md); } md.content = (TP.normalize(design).motto || D.t.bio || 'Grupo traductor en El Obi del Lector').slice(0, 160);
+    const top = (canEdit ? '<div class="tp2-top"><a class="tp2-edit" href="/estudio/preferencias">⚙ Personalizar</a></div>' : '') + (draft ? '<div class="tp2-draft"><b>Vista previa del borrador</b><span>Así se verá la página cuando el equipo publique los cambios.</span></div>' : '');
+    app.innerHTML = `<div class="tp2-page">${TP.render(D, design, { esc, media, top })}</div>`;
+    const root = app.querySelector('.tp2'); TP.bind(root);
+    team.stop?.(); team.stop = AN.animate(root, TP.effective(design, D.t.color));
+    const off = () => { if (!document.body.contains(root)) { team.stop?.(); team.stop = null; removeEventListener('popstate', off); } }; addEventListener('popstate', off); document.addEventListener('click', function cl(e){ if (e.target.closest('a[href^="/"]')) { setTimeout(() => { if (!document.body.contains(root)) { team.stop?.(); team.stop = null; document.removeEventListener('click', cl, true); } }, 50); } }, true);
+    let following = false, n = 0;
+    const [{ data: cnt }, fr] = await Promise.all([sb.rpc('team_followers', { p_team: D.t.id }), u2 ? sb.from('team_follows').select('team_id').eq('team_id', D.t.id).eq('user_id', u2.id) : { data: [] }]);
+    n = cnt || 0; following = !!fr.data?.length; TP.fillFollow(root, following, n);
+    root.addEventListener('click', async e => { const b = e.target.closest('[data-follow]'); if (!b) return; if (!u2) return go('/entrar'); b.disabled = true;
+      const { error } = following ? await sb.from('team_follows').delete().eq('team_id', D.t.id).eq('user_id', u2.id) : await sb.from('team_follows').insert({ team_id: D.t.id, user_id: u2.id });
+      b.disabled = false; if (error) return toast(error.message); following = !following; n += following ? 1 : -1; TP.fillFollow(root, following, n); toast(following ? 'Ahora sigues a ' + D.t.name : 'Dejaste de seguir a ' + D.t.name); });
   }
   return { home, catalog, series, releases, refreshBadge, team };
 }

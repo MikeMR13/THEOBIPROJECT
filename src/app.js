@@ -2,14 +2,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
 const { createReader } = await import('/reader.js?v=9');
-const { createUI } = await import('/ui.js?v=17');
+const { createUI } = await import('/ui.js?v=27');
 export const sb = createClient(url, key, { auth: { persistSession: true } });
 const $ = s => document.querySelector(s), app = $('#app');
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 2800); };
 let user = null, profile = null, me = null;
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
-let ST; const st = async () => ST ||= (await import('/studio.js?v=19')).createStudio(CTX());
+let ST; const st = async () => ST ||= (await import('/studio.js?v=31')).createStudio(CTX());
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=4')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
 let U; const ui = () => U ||= createUI(CTX());
@@ -21,7 +21,7 @@ me = user ? ((await sb.rpc('whoami')).data || null) : null;
 const pr = me?.platform_role || 'lector';
 const ini = esc((profile?.username || user?.email || '?')[0].toUpperCase());
 $('#session').innerHTML = user
-? `<details class="ob-bell"><summary aria-label="Avisos"><span aria-hidden="true">鈴</span><em id="bell-n" hidden></em></summary><div class="ob-menu ob-nt" id="bell-list"><p class="mono">Cargando…</p></div></details><details class="ob-user"><summary aria-label="Menú de cuenta"><span class="ob-av">${profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : ini}</span></summary><div class="ob-menu"><div class="who2"><strong>${esc(profile?.username || user.email)}</strong><small>${RL[pr]}${profile?.donor_tier ? ' · 援 Donador' : ''}</small></div><a href="/perfil">Mi perfil</a><a href="/biblioteca">Mi biblioteca</a>${pr === 'bibliotecario' ? '<a href="/bibliotecario">Mostrador del Bibliotecario</a>' : ''}${pr !== 'lector' ? '<a href="/estudio">Estudio</a>' : '<a href="/solicitud">Crear mi grupo traductor</a>'}<button id="out">Salir</button></div></details>`
+? `<details class="ob-bell"><summary aria-label="Avisos"><span aria-hidden="true">鈴</span><em id="bell-n" hidden></em></summary><div class="ob-menu ob-nt" id="bell-list"><p class="mono">Cargando…</p></div></details><details class="ob-user"><summary aria-label="Menú de cuenta"><span class="ob-av">${profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : ini}</span></summary><div class="ob-menu"><div class="who2"><strong>${esc(profile?.username || user.email)}</strong><small>${RL[pr]}${profile?.donor_tier ? ' · 援 Donador' : ''}</small></div><a href="/perfil">Mi perfil</a><a href="/biblioteca">Mi biblioteca</a>${pr === 'bibliotecario' ? '<a href="/bibliotecario">Mostrador del Bibliotecario</a>' : ''}${pr !== 'lector' ? '<a href="/estudio">Estudio</a><a href="/estudio/preferencias">Preferencias del equipo</a>' : '<a href="/solicitud">Crear mi grupo traductor</a>'}<button id="out">Salir</button></div></details>`
 : `<button class="btn" id="in">Entrar</button>`;
 const dd = $('#session .ob-user'); if (dd) dd.querySelector('.ob-menu').addEventListener('click', e => { if (e.target.closest('a')) dd.open = false; });
 $('#out')?.addEventListener('click', async () => { await sb.auth.signOut(); location.href = '/'; });
@@ -67,6 +67,8 @@ if (p === '/estudio/equipo') return (await st()).team();
 if (p === '/estudio/flujo') return (await st()).board();
 if (p === '/estudio/bitacora') return (await st()).log();
 if (p === '/estudio/perfil') return (await st()).profile();
+if (p === '/estudio/preferencias') return (await st()).prefs();
+if (p === '/estudio/anuncios') return (await st()).announcements();
 if (p === '/estudio/comunidad') return (await st()).community();
 if (p === '/estudio/estadisticas') return (await st()).stats();
 if (p === '/estudio/descargas') return (await st()).downloads();

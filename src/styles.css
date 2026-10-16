@@ -228,3 +228,6 @@ select{background:#16140f;border:2px solid var(--line);color:var(--paper);paddin
 .imp-nav{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:16px}
 .imp-ficha{margin-bottom:12px}.imp-ficha>summary{display:flex;gap:6px 14px;flex-wrap:wrap;align-items:baseline;cursor:pointer;list-style:none}.imp-ficha>summary::-webkit-details-marker{display:none}.imp-ficha>summary b::before{content:'▸ ';color:var(--gold)}.imp-ficha[open]>summary b::before{content:'▾ '}.imp-ficha>summary .mono{font-size:11px}
 .imp-fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:12px;margin-top:12px}.imp-fg>label:not(.tb-inl){display:grid;gap:5px;font-size:13px;font-weight:600}.imp-fg .wide{grid-column:1/-1}.imp-fg input,.imp-fg textarea{font-size:14px}.imp-fg textarea{font-family:Literata,serif;line-height:1.5}.imp-fg .tb-inl{font-size:13px;font-weight:400}
+
+/* página del equipo: ocupa todo el ancho */
+.tp2-page{position:relative;width:100vw;margin:-40px 0 -80px calc(50% - 50vw)}
