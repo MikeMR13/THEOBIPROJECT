@@ -9,7 +9,7 @@ const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 2800); };
 let user = null, profile = null, me = null;
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
-let ST; const st = async () => ST ||= (await import('/studio.js?v=16')).createStudio(CTX());
+let ST; const st = async () => ST ||= (await import('/studio.js?v=17')).createStudio(CTX());
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=4')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
 let U; const ui = () => U ||= createUI(CTX());
@@ -48,7 +48,7 @@ addEventListener('popstate', render);
 document.addEventListener('click', e => { document.querySelectorAll('.ob-user[open],.ob-bell[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
 async function render(){
 const p = location.pathname; let m;
-scrollTo(0, 0);
+scrollTo(0, 0); document.body.classList.remove('in-studio');
 if ((m = p.match(/^\/serie\/([\w-]+)$/))) return ui().series(m[1]);
 if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) return rd().open(m[1], +m[2]);
 if ((m = p.match(/^\/anotaciones\/([\w-]+)$/))) return rd().annotationsPage(m[1]);

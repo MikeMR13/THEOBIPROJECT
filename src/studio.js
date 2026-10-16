@@ -8,6 +8,7 @@ const GT = ['Personaje','Lugar','Organización','Honorífico','Cargo o título',
 const BT = [['paragraph','Párrafo'],['heading','Título'],['quote','Cita'],['note','Nota del traductor'],['image','Ilustración'],['separator','Separador'],['ruby','Furigana']];
 
 const STCSS = `
+body.in-studio>.top{display:none}body.in-studio>main{max-width:none;margin:0;padding:0}body.in-studio .s2{margin:0;min-height:100vh}body.in-studio .ed-bar,body.in-studio .st-sticky{top:0}
 .s2{display:grid;grid-template-columns:248px minmax(0,1fr);margin:-40px calc(-1 * clamp(16px,4vw,56px)) -80px;min-height:calc(100vh - 64px);background:#0d0c0a}
 .s2-side{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#2f2a20 transparent;display:flex;flex-direction:column;gap:22px;padding:22px 16px;background:#110f0b;border-right:1px solid #2f2a20}
 .s2-brand{display:flex;align-items:center;gap:10px;color:var(--paper);text-decoration:none}.s2-brand b{display:block;font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:18px;line-height:1}.s2-brand small{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#a89f8a}
@@ -71,7 +72,7 @@ export function createStudio(ctx){
   const NAV = [['/estudio','総','Resumen'],['/estudio/obras','作','Obras'],['/estudio/glosario','語','Glosario'],['/estudio/importar','入','Importar'],['/estudio/multimedia','画','Multimedia'],['/estudio/flujo','流','Flujo de trabajo'],['/estudio/comunidad','評','Comunidad'],['/estudio/estadisticas','統','Estadísticas'],['/estudio/descargas','落','Descargas'],['/estudio/perfil','顔','Página del equipo'],['/estudio/equipo','班','Equipo'],['/estudio/bitacora','録','Bitácora','log']];
   const CRUMB = { '/estudio': 'RESUMEN', '/estudio/obras': 'OBRAS', '/estudio/glosario': 'GLOSARIO', '/estudio/importar': 'IMPORTAR', '/estudio/multimedia': 'MULTIMEDIA', '/estudio/equipo': 'EQUIPO', '/estudio/flujo': 'FLUJO DE TRABAJO', '/estudio/perfil': 'PÁGINA DEL EQUIPO', '/estudio/bitacora': 'BITÁCORA', '/estudio/comunidad': 'COMUNIDAD', '/estudio/estadisticas': 'ESTADÍSTICAS', '/estudio/descargas': 'DESCARGAS', '/estudio/obra': 'OBRAS · FICHA' };
   const css = () => { if (document.getElementById('st2-css')) return; const st = document.createElement('style'); st.id = 'st2-css'; st.textContent = STCSS; document.head.appendChild(st); };
-  const shell = (title, body, tab) => { css(); const t = tab === '/estudio/obra' ? '/estudio/obras' : tab; const me = getMe?.();
+  const shell = (title, body, tab) => { css(); document.body.classList.add('in-studio'); const t = tab === '/estudio/obra' ? '/estudio/obras' : tab; const me = getMe?.();
     return `<div class="s2"><aside class="s2-side">
       <a class="s2-brand" href="/estudio"><span class="s2-seal">帯</span><span><b>Estudio Editorial</b><small>EL OBI DEL LECTOR</small></span></a>
       <div class="s2-team"><small>EQUIPO</small>${teamPicker()}<span>Tú: ${T.team?.role === 'owner' ? 'Propietario' : esc(T.roleName || ROLE_L[T.team?.role] || 'Miembro')}${T.works != null ? ' · ' + T.works + (T.works === 1 ? ' obra' : ' obras') : ''}</span>${me?.platform_role === 'bibliotecario' ? '<span class="s2-bib">También eres <b>Bibliotecario</b>. Aquí actúas como miembro de tu equipo. <a href="/bibliotecario">Ir al Mostrador →</a></span>' : ''}</div>
