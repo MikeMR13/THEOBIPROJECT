@@ -201,42 +201,88 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 
   // ---------- Inicio ----------
   let heroT;
+  const HOME_CSS = `
+.ob-fest{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:22px 0 0;padding:12px 16px;border:1px solid var(--fc);border-left:4px solid var(--fc);background:color-mix(in srgb,var(--fc) 9%,#16140f);color:var(--paper);text-decoration:none}
+.ob-fest:hover{color:var(--paper);background:color-mix(in srgb,var(--fc) 15%,#16140f)}.ob-fest b{font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:18px}.ob-fest span{font-size:13px;color:var(--mute)}.ob-fest em{margin-left:auto;font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--fc)}
+.ob-hi{display:flex;align-items:center;gap:14px 24px;flex-wrap:wrap;margin:28px 0 0;padding:20px 22px;border:1px solid var(--line);background:#16140f}.ob-hi p{margin:0;flex:1 1 320px;font-size:15px;line-height:1.55;text-wrap:pretty}.ob-hi div{display:flex;gap:10px;flex-wrap:wrap}
+.ob-hi a{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;font-weight:600;text-decoration:none;border:1px solid var(--gold)}.ob-hi .a1{background:var(--gold);color:#0d0c0a}.ob-hi .a2{color:var(--paper)}
+.ob-next{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px}
+.ob-nx{display:grid;gap:4px;padding:16px;border:1px solid var(--line);border-top:3px solid var(--gold);background:#16140f;color:var(--paper);text-decoration:none}.ob-nx:hover{border-color:var(--gold);color:var(--paper)}
+.ob-nx .w{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--gold)}.ob-nx b{font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:18px}.ob-nx small{font-size:13px;color:var(--mute)}
+.ob-carw{position:relative}.ob-car{display:grid;grid-auto-flow:column;grid-auto-columns:clamp(132px,16vw,172px);gap:18px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 2px 14px;scrollbar-width:thin;scrollbar-color:#3d3628 transparent}
+.ob-cc{scroll-snap-align:start;display:grid;gap:8px;align-content:start;color:var(--paper);text-decoration:none}.ob-cc:hover{color:var(--paper)}
+.ob-cc .cv{position:relative;aspect-ratio:2/3;background:#1c1a14 center/cover no-repeat;border:1px solid var(--line);transition:transform .25s,box-shadow .25s}.ob-cc:hover .cv{transform:translateY(-4px);box-shadow:0 12px 26px rgba(0,0,0,.45)}
+.ob-cc .cv.no{display:flex;align-items:flex-end;padding:10px;font-family:'Shippori Mincho B1',serif;font-size:15px;line-height:1.25;background:linear-gradient(160deg,var(--c),#16140f)}
+.ob-cc .cv i{position:absolute;top:8px;left:0;padding:3px 8px;background:var(--gold);color:#0d0c0a;font:700 11px/1.3 'IBM Plex Mono',monospace;font-style:normal;letter-spacing:.04em}
+.ob-cc b{font-size:14px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.ob-cc small{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--mute)}
+.ob-cc.all .cv{display:flex;align-items:center;justify-content:center;border-style:dashed;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--gold)}
+.ob-arr{display:flex;gap:8px;margin-left:auto}.ob-arr button{width:44px;height:44px;background:#16140f;border:1px solid var(--line);color:var(--paper);font-size:20px;cursor:pointer}.ob-arr button:hover{border-color:var(--gold);color:var(--gold)}.ob-arr button:disabled{opacity:.35;cursor:default}
+.ob-st .r2{display:flex;align-items:center;gap:16px;margin-left:auto}
+@media(max-width:560px){.ob-arr{display:none}.ob-fest em{margin-left:0}}
+`;
   async function home(){
     app.innerHTML = '<p class="mono">Cargando la biblioteca…</p>';
-    const [{ data: series }, { data: latest }, prog] = await Promise.all([
+    rkCss(); if (!document.getElementById('ob2-css')) { const st = document.createElement('style'); st.id = 'ob2-css'; st.textContent = HOME_CSS; document.head.appendChild(st); }
+    const u = getUser(), now = new Date();
+    const [{ data: series }, { data: latest }, prog, { data: rkW }, { data: rkH }, { data: top10 }, { data: nextRel }, pr, festKey, AN] = await Promise.all([
       sb.from('series').select(SERIES).order('views', { ascending: false }),
-      sb.from('chapters').select('num,title,publish_at,series_id').eq('status', 'published').is('deleted_at', null).order('publish_at', { ascending: false }).limit(40),
-      progressMap()]);
-    const list = series || [], byId = Object.fromEntries(list.map(s => [s.id, s]));
+      sb.from('chapters').select('num,title,publish_at,series_id').eq('status', 'published').is('deleted_at', null).order('publish_at', { ascending: false }).limit(80),
+      progressMap(),
+      sb.rpc('ranking_list', { p_list: 'leidas', p_period: 'semana', p_limit: 6 }),
+      sb.rpc('ranking_list', { p_list: 'leidas', p_period: 'historico', p_limit: 6 }),
+      sb.from('rankings').select('series_id,pos,list').eq('period', 'semana').lte('pos', 10),
+      sb.from('schedule').select('label,at,kind,series_id,series(title,slug,cover_path)').gte('at', now.toISOString()).order('at').limit(12),
+      u ? sb.from('profiles').select('adult_ok').eq('id', u.id).maybeSingle() : { data: null },
+      import('/season.js?v=3').then(S => S.load(sb).then(() => S.platformKey())).catch(() => null),
+      import('/anim.js?v=8').catch(() => null)]);
+    const adultOk = !!pr?.data?.adult_ok;
+    const list = (series || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) && (!s.adult || adultOk)), byId = Object.fromEntries(list.map(s => [s.id, s]));
     const lastCh = {}; (latest || []).forEach(c => { lastCh[c.series_id] ||= c; });
     const feat = [...list].sort((a, b) => new Date(lastCh[b.id]?.publish_at || 0) - new Date(lastCh[a.id]?.publish_at || 0)).slice(0, 5);
     const cont = Object.values(prog).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).filter(p => byId[p.series_id]).slice(0, 6);
-    const upd = (latest || []).filter(c => byId[c.series_id]).slice(0, 6);
+    // Actualizaciones agrupadas por obra: varios capítulos seguidos = una fila.
+    const grp = []; for (const c of (latest || []).filter(c => byId[c.series_id])) { let g = grp.find(x => x.id === c.series_id); if (!g) { if (grp.length >= 6) continue; grp.push(g = { id: c.series_id, chs: [] }); } if (g.chs.length < 20) g.chs.push(c); }
+    const caps = chs => { const n = [...new Set(chs.map(c => c.num))].sort((a, b) => a - b); if (n.length === 1) return 'Cap. ' + n[0]; const run = n.every((x, i) => !i || x - n[i - 1] === 1); return 'Caps. ' + (run ? n[0] + '–' + n[n.length - 1] : n.slice(0, 4).join(', ') + (n.length > 4 ? '…' : '')); };
+    const top = {}; (top10 || []).forEach(r => { if (!top[r.series_id] || r.pos < top[r.series_id]) top[r.series_id] = r.pos; });
+    const rkUse = (rkW || []).filter(r => byId[r.series_id]).length ? { rows: rkW, per: 'semana', lbl: 'lectores distintos · esta semana' } : { rows: rkH || [], per: 'historico', lbl: 'vistas · de todos los tiempos' };
+    const rk = rkUse.rows.filter(r => byId[r.series_id]).slice(0, 6);
+    const nx = (nextRel || []).filter(e => e.series && (!e.series_id || byId[e.series_id])).slice(0, 3);
+    const until = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
+    const fs = festKey && AN?.SEASONS?.[festKey]; const fest = fs && fs.g !== 'est' ? fs : null;
+    const shelf = list.slice(0, 24);
+    const cover = s => s.cover_path ? `<span class="cv" style="background-image:url('${esc(media(s.cover_path))}')">${top[s.id] ? `<i>TOP ${top[s.id]}</i>` : ''}</span>` : `<span class="cv no" style="--c:${esc(color(s))}">${top[s.id] ? `<i>TOP ${top[s.id]}</i>` : ''}${esc(s.short || s.title)}</span>`;
     app.innerHTML = `<div class="ob-page">
       <div class="ob-mast"><b>翻訳図書館</b><span>Biblioteca de novelas ligeras · Español latino</span></div>
-      ${upd.length ? `<div class="ob-tick" aria-label="Novedades"><div class="ob-track">${[0, 1].map(k => `<span${k ? ' aria-hidden="true"' : ''}>${[...upd, ...upd].slice(0, Math.max(6, upd.length)).map((c, i) => `<span>${i === 0 ? 'NUEVO · ' : '★ '}${esc(byId[c.series_id].title)} · Cap. ${c.num}</span>`).join('')}</span>`).join('')}</div></div>` : ''}
+      ${grp.length ? `<div class="ob-tick" aria-label="Novedades"><div class="ob-track">${[0, 1].map(k => `<span${k ? ' aria-hidden="true"' : ''}>${[...grp, ...grp].slice(0, Math.max(6, grp.length)).map((g, i) => `<span>${i === 0 ? 'NUEVO · ' : '★ '}${esc(byId[g.id].title)} · ${caps(g.chs)}</span>`).join('')}</span>`).join('')}</div></div>` : ''}
+      ${fest ? `<a class="ob-fest" href="/calendario" style="--fc:${esc(fest.ac)}"><b>${esc(fest.l)}</b><span>El sitio se viste de temporada.</span><em>Ver en el calendario →</em></a>` : ''}
       ${feat.length ? '<section class="ob-hero" id="hero"></section>' : ''}
+      ${u ? '' : `<div class="ob-hi"><p><strong>Bienvenido a El Obi del Lector.</strong> Novelas ligeras traducidas al español por grupos de fans. Crea una cuenta para guardar tu progreso, seguir obras y recibir avisos de capítulos nuevos.</p><div><a class="a1" href="/entrar">Crear cuenta</a><a class="a2" href="/catalogo">Explorar el catálogo</a></div></div>`}
       ${cont.length ? `<section class="ob-sec"><div class="ob-st"><span class="k">続読</span><h2>Continuar leyendo</h2><a class="r" href="/biblioteca">Mi biblioteca →</a></div><div class="ui-cont ob-anim">${cont.map(p => { const s = byId[p.series_id]; return `<a class="ui-ccard" href="/leer/${s.slug}/${p.chapter_num}" style="--c:${esc(color(s))}"><span class="th" style="background-image:${s.cover_path ? `url('${esc(media(s.cover_path))}')` : 'none'}"></span><span><span class="ui-lbl">Capítulo ${p.chapter_num} · ${ago(p.updated_at)}</span><br><strong>${esc(s.title)}</strong><span class="ui-bar"><i style="width:${Math.round((p.pct || 0) * 100)}%"></i></span></span></a>`; }).join('')}</div></section>` : ''}
-      <section class="ob-sec"><div class="ob-st"><span class="k">新着</span><h2>Últimas actualizaciones</h2><a class="r" href="/calendario">Calendario →</a></div>
-        <div class="ob-upd ob-anim">${upd.map(c => { const s = byId[c.series_id]; return `<a class="ob-urow" href="/leer/${s.slug}/${c.num}"><i style="background:${esc(color(s))}"></i><span><b>${esc(s.title)}</b><span class="t">Cap. ${c.num} — ${esc(c.title)}</span></span><time>${ago(c.publish_at)}</time></a>`; }).join('') || '<p class="mono">Aún no hay capítulos publicados.</p>'}</div></section>
-      <section class="ob-sec"><div class="ob-st"><span class="k">人気</span><h2>Más leídas</h2><span class="r">por vistas · últimos 30 días</span></div>
-        <div class="ob-rank ob-anim">${list.slice(0, 6).map((s, i) => `<a class="ob-ritem" href="/serie/${s.slug}"><span class="n">${i + 1}</span><span class="c" style="background-image:${s.cover_path ? `url('${esc(media(s.cover_path))}')` : 'none'}"></span><b>${esc(s.title)}</b><small>${(s.views || 0).toLocaleString('es-MX')} vistas · ${s.chapters?.[0]?.count || 0} cap.</small></a>`).join('')}</div></section>
-      <section class="ob-sec"><div class="ob-st"><span class="k">書架</span><h2>Series</h2><a class="r" href="/catalogo">Ver todas →</a></div>
-        <div class="ob-shelf">${list.map((s, i) => `<a class="ob-spine" href="/serie/${s.slug}" style="background:${esc(s.theme?.spine || SPINES[i % SPINES.length])};height:${250 + ((s.chapters?.[0]?.count || 0) % 5) * 14}px"><span>${esc(s.title)}</span></a>`).join('')}</div></section></div>`;
-    if (feat.length) heroSlide(feat, 0, prog, lastCh);
+      <section class="ob-sec"><div class="ob-st"><span class="k">新着</span><h2>Últimas actualizaciones</h2><a class="r" href="/lanzamientos">Todos los lanzamientos →</a></div>
+        <div class="ob-upd ob-anim">${grp.map(g => { const s = byId[g.id], c = g.chs[0]; return `<a class="ob-urow" href="/leer/${s.slug}/${c.num}"><i style="background:${esc(color(s))}"></i><span><b>${esc(s.title)}</b><span class="t">${caps(g.chs)}${g.chs.length === 1 && c.title ? ' — ' + esc(c.title) : ''}</span></span><time>${ago(c.publish_at)}</time></a>`; }).join('') || '<p class="mono">Aún no hay capítulos publicados.</p>'}</div></section>
+      ${nx.length ? `<section class="ob-sec"><div class="ob-st"><span class="k">予定</span><h2>Próximos lanzamientos</h2><a class="r" href="/calendario">Calendario →</a></div>
+        <div class="ob-next ob-anim">${nx.map(e => `<a class="ob-nx" href="/serie/${esc(e.series.slug)}"><span class="w">${until(e.at)} · ${new Date(e.at).toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span><b>${esc(e.series.title)}</b><small>${e.kind === 'volume' ? 'Volumen completo · ' : ''}${esc(e.label || '')}</small></a>`).join('')}</div></section>` : ''}
+      ${rk.length ? `<section class="ob-sec"><div class="ob-st"><span class="k">人気</span><h2>Más leídas</h2><span class="r2"><span class="mono" style="font-size:12px">${rkUse.lbl}</span><a class="r" href="/ranking?lista=leidas&periodo=${rkUse.per}">Ver ranking →</a></span></div>
+        <div class="ob-rank ob-anim">${rk.map((r, i) => { const s = byId[r.series_id]; return `<a class="ob-ritem" href="/serie/${s.slug}"><span class="n">${i + 1}</span><span class="c" style="background-image:${s.cover_path ? `url('${esc(media(s.cover_path))}')` : 'none'}"></span><b>${esc(s.title)}</b><small>${Math.round(+r.score || 0).toLocaleString('es-MX')} ${rkUse.per === 'semana' ? 'lectores' : 'vistas'} · ${s.chapters?.[0]?.count || 0} cap.</small></a>`; }).join('')}</div></section>` : ''}
+      ${shelf.length ? `<section class="ob-sec"><div class="ob-st"><span class="k">書架</span><h2>Series</h2><span class="r2"><a class="r" href="/catalogo">Ver todas →</a><span class="ob-arr"><button type="button" data-car="-1" aria-label="Anteriores">‹</button><button type="button" data-car="1" aria-label="Siguientes">›</button></span></span></div>
+        <div class="ob-carw"><div class="ob-car" id="ob-car">${shelf.map(s => `<a class="ob-cc" href="/serie/${s.slug}">${cover(s)}<b>${esc(s.title)}</b><small>${s.chapters?.[0]?.count || 0} cap. · ${(TL[s.translation_status] || TL.active)[0]}</small></a>`).join('')}${list.length > shelf.length ? `<a class="ob-cc all" href="/catalogo"><span class="cv">Ver las ${list.length} →</span></a>` : ''}</div></div></section>` : ''}</div>`;
+    const car = $('#ob-car');
+    if (car) { const btns = app.querySelectorAll('[data-car]'), upd = () => { btns[0].disabled = car.scrollLeft < 4; btns[1].disabled = car.scrollLeft + car.clientWidth >= car.scrollWidth - 4; };
+      btns.forEach(bt => bt.onclick = () => car.scrollBy({ left: +bt.dataset.car * car.clientWidth * .85, behavior: 'smooth' })); car.addEventListener('scroll', upd, { passive: true }); upd(); }
+    if (feat.length) heroSlide(feat, 0, prog, lastCh, top);
   }
-  function heroSlide(feat, i, prog, lastCh){
+  function heroSlide(feat, i, prog, lastCh, top = {}){
     clearTimeout(heroT); const el = $('#hero'); if (!el) return;
-    const s = feat[i], p = prog[s.id], lc = lastCh[s.id], n = p?.chapter_num || lc?.num || 1;
+    const s = feat[i], p = prog[s.id], lc = lastCh[s.id], n = p?.chapter_num || lc?.num || 1; const fresh = lc && Date.now() - new Date(lc.publish_at) < 7 * 864e5;
     const tag = (s.synopsis || '').split(/(?<=[.!?…])\s/)[0].slice(0, 90);
     el.innerHTML = `<span class="ob-vk" aria-hidden="true">新刊案内</span>
       <div class="ob-cov"><div class="f" style="${s.cover_path ? `background-image:url('${esc(media(s.cover_path))}')` : ''}"></div></div>
-      <div class="ob-txt"><span class="ob-kick">第${KN(lc?.num || 1)}章 · 新刊</span><br><span class="ob-badge">NUEVO · CAP. ${lc?.num || 1}</span>
+      <div class="ob-txt"><span class="ob-kick">第${KN(lc?.num || 1)}章${fresh ? ' · 新刊' : ''}</span><br><span class="ob-badge">${fresh ? 'NUEVO · CAP. ' + (lc?.num || 1) : 'CAP. ' + (lc?.num || 1) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${top[s.id] ? `<a class="rk-bdg" href="/ranking" style="margin:0 0 0 10px;vertical-align:middle"><b>#${top[s.id]}</b>Top de la semana</a>` : ''}
         <h1>${esc(s.title)}</h1>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn">${esc(s.synopsis ? ((s.synopsis || '').slice(tag.length).trim() || s.synopsis) : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), (s.chapters?.[0]?.count || 0) + ' capítulos en español'].filter(Boolean).join(' · ') + '.')}</p>
         <div class="ob-acts"><a class="a1" href="/leer/${s.slug}/${n}">${p ? 'Continuar capítulo ' + n : 'Leer capítulo ' + (lc?.num || 1)}</a><a class="a2" href="/serie/${s.slug}">Ver la serie</a></div></div>
       ${feat.length > 1 ? `<div class="ob-pager">${feat.map((f, j) => `<button data-j="${j}" class="${j === i ? 'on' : ''}">${String(j + 1).padStart(2, '0')}${j === i ? ' · ' + esc(f.short || f.title).slice(0, 14) : ''}</button>`).join('')}<button data-j="${(i + 1) % feat.length}" aria-label="Siguiente">›</button></div>` : ''}`;
-    el.querySelectorAll('[data-j]').forEach(b => b.onclick = () => heroSlide(feat, +b.dataset.j, prog, lastCh));
-    if (feat.length > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches) heroT = setTimeout(() => { if (document.body.contains(el)) heroSlide(feat, el.matches(':hover') ? i : (i + 1) % feat.length, prog, lastCh); }, 8000);
+    el.querySelectorAll('[data-j]').forEach(b => b.onclick = () => heroSlide(feat, +b.dataset.j, prog, lastCh, top));
+    if (feat.length > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches) heroT = setTimeout(() => { if (document.body.contains(el)) heroSlide(feat, el.matches(':hover') ? i : (i + 1) % feat.length, prog, lastCh, top); }, 8000);
   }
   const card = (s, st, lc) => `<a class="ui-card" href="/serie/${s.slug}" data-id="${s.id}">${st ? `<span class="ui-st ${st[1]}">${esc(st[0])}</span>` : ''}${book(s, null, true)}<h3>${esc(s.title)}</h3><span class="meta">${pill(s.translation_status)}<span>${s.chapters?.[0]?.count ?? 0} cap.</span>${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</span>${lc ? `<span class="last">Último: cap. ${lc.num} · ${ago(lc.publish_at)}</span>` : ''}</a>`;
 

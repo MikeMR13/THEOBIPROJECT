@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
 const { createReader } = await import('/reader.js?v=11');
-const { createUI } = await import('/ui.js?v=26');
+const { createUI } = await import('/ui.js?v=27');
 export const sb = createClient(url, key, { auth: { persistSession: true } });
 const $ = s => document.querySelector(s), app = $('#app');
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -29,12 +29,13 @@ $('#in')?.addEventListener('click', () => go('/entrar'));
 if (user) bell();
 }
 async function bell(){
+if (!document.getElementById('nt-css')) { const st = document.createElement('style'); st.id = 'nt-css'; st.textContent = '.nt-ln{cursor:pointer}.nt-ln small{display:flex;justify-content:space-between;gap:10px}.nt-ln em{font-style:normal;color:var(--gold)}.nt-ln:hover span{text-decoration:underline;text-underline-offset:3px}'; document.head.appendChild(st); }
 const { count } = await sb.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('read', false);
 const n = $('#bell-n'); if (n) { n.hidden = !count; n.textContent = count > 9 ? '9+' : count; }
 const d = $('.ob-bell'); if (!d || d.dataset.b) return; d.dataset.b = '1';
 d.addEventListener('toggle', async () => { if (!d.open) return; const { data } = await sb.from('notifications').select('id,kind,body,link,read,created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(20);
 const ago = x => { const m = Math.round((Date.now() - new Date(x)) / 60000); return m < 60 ? 'hace ' + Math.max(1, m) + ' min' : m < 1440 ? 'hace ' + Math.round(m / 60) + ' h' : 'hace ' + Math.round(m / 1440) + ' d'; };
-$('#bell-list').innerHTML = (data || []).length ? '<strong class="nt-h">Avisos</strong>' + data.map(x => `<a href="${esc(/^\/[\w\/-]*$/.test(x.link?.href || '') ? x.link.href : '/')}" class="nt-it${x.read ? '' : ' new'}"><span>${esc(x.body)}</span><small>${ago(x.created_at)}</small></a>`).join('') : '<p class="mono" style="padding:10px">Sin avisos por ahora.</p>';
+$('#bell-list').innerHTML = (data || []).length ? '<strong class="nt-h">Avisos</strong>' + data.map(x => { const h = typeof x.link === 'string' ? x.link : x.link?.href || '', ok = /^\/(?!\/)[\w\/\-.?=&%#,]*$/.test(h); return ok ? `<a href="${esc(h)}" class="nt-it nt-ln${x.read ? '' : ' new'}"><span>${esc(x.body)}</span><small>${ago(x.created_at)}<em>Abrir →</em></small></a>` : `<div class="nt-it${x.read ? '' : ' new'}"><span>${esc(x.body)}</span><small>${ago(x.created_at)}</small></div>`; }).join('') : '<p class="mono" style="padding:10px">Sin avisos por ahora.</p>';
 $('#bell-list').onclick = e => { if (e.target.closest('a')) d.open = false; };
 if ((data || []).some(x => !x.read)) { await sb.rpc('notifications_read_all'); $('#bell-n').hidden = true; } });
 }
