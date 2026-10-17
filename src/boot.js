@@ -1,8 +1,7 @@
 // Arranque temprano (script clásico con defer, corre antes que los módulos).
 (function(){
-  // 1. Google Fonts sin bloquear el primer pintado: llega como media="print" y aquí pasa a "all".
-  var l = document.getElementById('gf');
-  if (l) { var on = function(){ l.media = 'all'; }; if (l.sheet) on(); else l.addEventListener('load', on); }
+  // 1. Google Fonts sin bloquear el primer pintado: llegan como media="print" y aquí pasan a "all". gf2 (japonesas, ~110 KB de CSS) va con prioridad baja.
+  ['gf', 'gf2'].forEach(function(id){ var l = document.getElementById(id); if (!l) return; var on = function(){ l.media = 'all'; }; if (l.sheet) on(); else l.addEventListener('load', on); });
   // 2. En el inicio, pide home_feed ya, en paralelo con la descarga del JS, y precarga la portada destacada (LCP).
   var C = window.OBI_CONFIG; if (!C || location.pathname !== '/' || !window.fetch) return;
   // Sin cabeceras propias (apikey va en la URL) para que el navegador no haga la consulta previa OPTIONS: un viaje menos.
