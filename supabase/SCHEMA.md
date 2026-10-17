@@ -93,3 +93,8 @@ Buckets: obi-epub (privado), avatars, obi-media, obi-app (públicos). Extensione
 - Avisos `kind = 'capitulo'` a quien sigue la obra (`follows`, salvo `channels.web = false` e integrantes del equipo). Trigger `chapters_notify_followers` + cron `obi-chapter-notify` (cada 10 min, capítulos programados). Agrupa: si hay un aviso sin leer de la misma obra, lo actualiza a «N capítulos nuevos» (`link` = {href, series, n, from}). `private.chapter_notified` evita duplicados; lo publicado antes de la migración no avisa.
 - `reader_stats(p_user default auth.uid())` → {chapters, month, series, finished, following, genres[{g,n}]}. Solo el propio lector o si `profiles.public_activity`.
 - `reader_public(p_username)` → perfil público (ruta `/lector/:usuario`).
+
+## Inicio (20261026)
+- `platform_settings.featured` jsonb: ids de obras destacadas en el carrusel del inicio (máx. 8; el Mostrador usa 5). Pestaña «Inicio» del Bibliotecario.
+- `team_announce_set` guarda `announce.at` (fecha de publicación) para ordenar los anuncios en el inicio.
+- `home_reviews(p_limit)` → reseñas recientes (detecta columnas de `reviews`; respeta +18).
