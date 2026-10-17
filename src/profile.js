@@ -168,7 +168,7 @@ export async function preferences(C){
   const { sb, app, esc, url, toast, getUser, uploadAvatar, reload } = C; css();
   const user = getUser(); if (!user) return C.go('/entrar');
   const MED = p => p ? (/^https?:/.test(p) ? p : url + '/storage/v1/object/public/obi-media/' + encodeURI(p)) : '';
-  const TABS = [['perfil', 'Perfil público'], ['privacidad', 'Privacidad'], ['adulto', 'Contenido +18'], ['cuenta', 'Cuenta']];
+  const TABS = [['perfil', 'Perfil público'], ['privacidad', 'Privacidad'], ['lectura', 'Lectura'], ['adulto', 'Contenido +18'], ['cuenta', 'Cuenta']];
   const tab = TABS.some(t => t[0] === new URLSearchParams(location.search).get('s')) ? new URLSearchParams(location.search).get('s') : 'perfil';
   app.innerHTML = '<p class="mono">Cargando preferencias…</p>';
   const { data: P, error } = await sb.from('profiles').select('username,avatar_url,bio,banner_url,seal_kanji,accent,links,favorites,profile_sections,public_activity,adult_ok,profile_visibility,discoverable,show_since,hide_reading,hidden_series,delete_requested_at').eq('id', user.id).single();
@@ -177,6 +177,64 @@ export async function preferences(C){
   const tg = (id, on, label) => `<button type="button" class="pf-tg" id="${id}" aria-pressed="${!!on}" aria-label="${esc(label)}"><i></i></button>`;
   const flip = b => b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
 
+  if (tab === 'lectura') {
+    const DEF = { theme: 'oscuro', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', illus: true, continuous: 'off', cw: 'show', autonext: true, autosecs: 5 };
+    let R = { global: {}, per_volume: {} }; try { R = { global: {}, per_volume: {}, ...JSON.parse(localStorage.getItem('obi-reader-prefs') || '{}') }; } catch {}
+    const { data: rp } = await sb.from('reader_prefs').select('global,per_volume').eq('user_id', user.id).maybeSingle(); if (rp) R = { global: rp.global || {}, per_volume: rp.per_volume || {} };
+    const vids = Object.keys(R.per_volume || {});
+    const { data: vols } = vids.length ? await sb.from('volumes').select('id,num,series:series_id(title,theme)').in('id', vids) : { data: [] };
+    let G = { ...DEF, ...R.global }, pt;
+    const persist = () => { localStorage.setItem('obi-reader-prefs', JSON.stringify(R)); clearTimeout(pt); pt = setTimeout(async () => { const { error } = await sb.from('reader_prefs').upsert({ user_id: user.id, global: R.global, per_volume: R.per_volume, updated_at: new Date().toISOString() }); if (error) toast(error.message); }, 400); };
+    const set = (k, v) => { G[k] = v; R.global = { ...G }; persist(); draw(); };
+    const seg = (k, l, o) => `<div style="display:grid;gap:8px"><span style="font-size:13px;font-weight:600;color:#e3dccb">${l}</span><div class="lc-tabs" style="justify-self:start">${o.map(([v, t]) => `<button type="button" data-k="${k}" data-v="${v}" class="${String(G[k]) === v ? 'on' : ''}" aria-pressed="${String(G[k]) === v}" style="--ac:var(--gold)">${t}</button>`).join('')}</div></div>`;
+    const TH = { claro: ['#f6f1e5', '#1e1b15', '#e3dccb'], sepia: ['#efe2c6', '#3b2f1e', '#d8c7a2'], oscuro: ['#16140f', '#e9e1cd', '#2a2519'] };
+    const FF = { original: 'Literata, serif', Literata: 'Literata, serif', serif: "Georgia, 'Times New Roman', serif", sans: "'IBM Plex Sans', sans-serif" };
+    const sumV = v => [v.theme, v.font && v.font !== 'original' ? v.font : '', v.size ? v.size + ' px' : '', v.align === 'justificada' ? 'justificada' : ''].filter(Boolean).join(' · ').toUpperCase() || 'AJUSTES PROPIOS';
+    const draw = () => {
+      const th = TH[G.theme] || TH.oscuro, auto = G.continuous === 'off', season = localStorage.getItem('obi-season') !== 'off';
+      app.innerHTML = shell(`<div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;min-width:0">
+        <div style="flex:1 1 340px;display:grid;gap:30px;min-width:0">
+          <div style="display:grid;gap:6px"><h2>Lectura</h2><p class="pf-note">Tus ajustes se aplican a todas las obras, aunque el equipo haya definido otro estilo. Se guardan al momento.</p></div>
+          <div style="display:grid;gap:14px"><h3>Texto</h3>
+            ${seg('theme', 'Tema', [['claro', 'Claro'], ['sepia', 'Sepia'], ['oscuro', 'Oscuro']])}
+            ${seg('font', 'Tipografía', [['original', 'Original del EPUB'], ['Literata', 'Literata'], ['serif', 'Serif'], ['sans', 'Sans']])}
+            ${seg('width', 'Ancho', [['estrecho', 'Estrecho'], ['normal', 'Normal'], ['amplio', 'Amplio']])}
+            ${seg('lh', 'Interlineado', [['compacto', 'Compacto'], ['comodo', 'Cómodo'], ['amplio', 'Amplio']])}
+            ${seg('align', 'Alineación', [['izquierda', 'Izquierda'], ['justificada', 'Justificada']])}
+            <label style="display:grid;gap:8px;max-width:360px"><span style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:#e3dccb">Tamaño<span class="mono" style="color:var(--gold)" id="lc-sz">${G.size} px</span></span><input type="range" id="lc-size" min="14" max="30" value="${G.size}" style="accent-color:var(--gold)"></label></div>
+          <div style="display:grid;gap:12px"><h3>Al terminar un capítulo</h3>
+            ${seg('continuous', 'Modo', [['off', 'Por capítulo'], ['volume', 'Continua en el volumen'], ['all', 'Continua entre volúmenes']])}
+            ${auto ? `<div class="pf-row" style="display:grid;gap:12px"><div style="display:flex;gap:16px;align-items:center;justify-content:space-between"><span style="display:grid;gap:3px"><b style="font-size:14px">Pasar solo al siguiente capítulo</b><span class="pf-note" style="font-size:13px">Con cuenta atrás; puedes detenerla.</span></span>${tg('lc-auto', G.autonext !== false, 'Pasar solo al siguiente')}</div>
+              <label style="display:grid;gap:8px;opacity:${G.autonext !== false ? 1 : .45}"><span style="display:flex;justify-content:space-between;font-size:13px;font-weight:600">Espera<span class="mono" style="color:var(--gold)" id="lc-sc">${G.autosecs} s</span></span><input type="range" id="lc-secs" min="3" max="30" value="${G.autosecs}" ${G.autonext !== false ? '' : 'disabled'} style="accent-color:var(--gold)"></label></div>` : ''}</div>
+          <div style="display:grid;gap:10px"><h3>Contenido</h3>
+            <div class="pf-row" style="justify-content:space-between"><span style="display:grid;gap:3px;flex:1 1 220px"><b style="font-size:14px">Mostrar ilustraciones</b><span class="pf-note" style="font-size:13px">Las imágenes dentro del capítulo.</span></span>${tg('lc-illus', G.illus !== false, 'Mostrar ilustraciones')}</div>
+            <div class="pf-row" style="justify-content:space-between"><span style="display:grid;gap:3px;flex:1 1 220px"><b style="font-size:14px">Temas de temporada</b><span class="pf-note" style="font-size:13px">Decoración de festivales y estaciones en la plataforma.</span></span>${tg('lc-season', season, 'Temas de temporada')}</div>
+            ${seg('cw', 'Avisos de contenido', [['show', 'Mostrar plegable'], ['icon', 'Solo icono'], ['hide', 'No mostrar']])}</div>
+          <div style="display:grid;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h3>Ajustes guardados por volumen</h3><span class="mono" style="font-size:11px">SE CREAN DESDE EL LECTOR</span></div>
+            ${Object.keys(R.per_volume || {}).length ? Object.entries(R.per_volume).map(([id, v]) => { const vo = (vols || []).find(x => x.id === id); return `<div class="pf-row"><span style="width:34px;height:46px;flex:none;background:${esc(vo?.series?.theme?.color || '#2a2519')}"></span><span style="display:grid;gap:3px;flex:1 1 200px;min-width:0"><b style="font-size:14px">${esc(vo ? vo.series?.title + ' · Vol. ' + vo.num : 'Volumen eliminado')}</b><span class="mono" style="font-size:12px">${esc(sumV(v))}</span></span><button type="button" class="btn ghost sm" data-delv="${esc(id)}" style="flex:none;white-space:nowrap">Borrar</button></div>`; }).join('') : '<p class="pf-note">No tienes ajustes por volumen.</p>'}</div>
+          <div class="pf-up" style="padding-top:16px;border-top:1px solid var(--line)"><button type="button" class="btn ghost" id="lc-reset">Restablecer valores</button><span class="pf-note" style="font-size:13px">Vuelve a los ajustes originales. No borra los de cada volumen.</span></div>
+        </div>
+        <aside style="flex:1 1 320px;max-width:460px;position:sticky;top:80px;display:grid;gap:10px"><span class="mono" style="font-size:11px;letter-spacing:.14em">VISTA PREVIA</span>
+          <div id="lc-pv" style="background:${th[0]};color:${th[1]};border:1px solid var(--line);padding:28px ${{ estrecho: 48, normal: 30, amplio: 16 }[G.width] || 30}px;display:grid;gap:14px">
+            <span class="mono" style="font-size:11px;letter-spacing:.14em;opacity:.7;color:inherit">VOL. 2 · CAP. 14</span>
+            <h4 style="margin:0;font:800 ${Math.round(G.size * 1.3)}px/1.2 'Shippori Mincho B1',serif">El archivo de las horas</h4>
+            ${['La bibliotecaria dejó la lámpara sobre el mostrador y abrió el registro. Nadie había pedido ese libro en cuarenta años, y sin embargo la ficha tenía una fecha de hoy escrita con su propia letra.', '—¿Quién lo devolvió? —preguntó, aunque ya sabía la respuesta.'].map(t => `<p class="lc-pp" style="margin:0;font-family:${FF[G.font] || FF.original};font-size:${G.size}px;line-height:${{ compacto: 1.45, comodo: 1.7, amplio: 1.95 }[G.lh] || 1.7};text-align:${G.align === 'justificada' ? 'justify' : 'left'};hyphens:auto">${t}</p>`).join('')}
+            ${G.illus !== false ? `<div style="aspect-ratio:16/9;background:${th[2]};display:grid;place-items:center;font:11px 'IBM Plex Mono',monospace;opacity:.8">ILUSTRACIÓN</div>` : ''}
+          </div></aside></div>`);
+      const $ = s => app.querySelector(s);
+      app.querySelectorAll('[data-k]').forEach(b => b.onclick = () => set(b.dataset.k, b.dataset.v));
+      $('#lc-size').oninput = e => { G.size = +e.target.value; $('#lc-sz').textContent = G.size + ' px'; app.querySelectorAll('.lc-pp').forEach(x => x.style.fontSize = G.size + 'px'); $('#lc-pv h4').style.fontSize = Math.round(G.size * 1.3) + 'px'; };
+      $('#lc-size').onchange = () => set('size', G.size);
+      $('#lc-secs')?.addEventListener('input', e => { G.autosecs = +e.target.value; $('#lc-sc').textContent = G.autosecs + ' s'; });
+      $('#lc-secs')?.addEventListener('change', () => set('autosecs', G.autosecs));
+      $('#lc-auto')?.addEventListener('click', () => set('autonext', G.autonext === false));
+      $('#lc-illus').onclick = () => set('illus', G.illus === false);
+      $('#lc-season').onclick = () => { localStorage.getItem('obi-season') === 'off' ? localStorage.removeItem('obi-season') : localStorage.setItem('obi-season', 'off'); dispatchEvent(new Event('obi-season')); draw(); };
+      app.querySelectorAll('[data-delv]').forEach(b => b.onclick = () => { delete R.per_volume[b.dataset.delv]; persist(); toast('Ajustes del volumen borrados'); draw(); });
+      $('#lc-reset').onclick = () => { if (!confirm('¿Volver a los ajustes originales de lectura?')) return; G = { ...DEF }; R.global = {}; persist(); toast('Ajustes restablecidos'); draw(); };
+    };
+    draw(); return;
+  }
   if (tab === 'privacidad') {
     const S = Object.fromEntries(SECS.map(([k, , d]) => [k, P.profile_sections?.[k] ?? d]));
     const [{ data: hs }, { data: rvs }, { data: prev }] = await Promise.all([
