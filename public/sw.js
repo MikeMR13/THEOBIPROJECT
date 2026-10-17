@@ -1,6 +1,6 @@
 /*@shell*/const V='obi-dev',SHELL=['/','/manifest.webmanifest','/icon.svg'];/*@end*/
 // La línea de arriba la reescribe scripts/build.mjs con la versión y la lista exacta de archivos (sin studio.js ni admin.js).
-const IMG = 'obi-img', IMG_MAX = 400, NAV_MS = 2500;
+const IMG = 'obi-img', IMG_MAX = 400, NAV_MS = 4000;
 let puts = 0;
 self.addEventListener('install', e => e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V && k !== V + '-ch' && k !== V + '-lib' && k !== IMG && !k.startsWith('obi-offline')).map(k => caches.delete(k)))).then(() => self.clients.claim())));
