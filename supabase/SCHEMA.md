@@ -98,3 +98,7 @@ Buckets: obi-epub (privado), avatars, obi-media, obi-app (públicos). Extensione
 - `platform_settings.featured` jsonb: ids de obras destacadas en el carrusel del inicio (máx. 8; el Mostrador usa 5). Pestaña «Inicio» del Bibliotecario.
 - `team_announce_set` guarda `announce.at` (fecha de publicación) para ordenar los anuncios en el inicio.
 - `home_reviews(p_limit)` → reseñas recientes (detecta columnas de `reviews`; respeta +18).
+
+## Reseñas (20261027)
+- `series_reviews(series_id, user_id, body 30–1500, created_at, updated_at)` una por lector y obra; lectura pública, escritura propia (el Bibliotecario puede borrar). Se copiaron las de `reviews` si existían.
+- `series_reviews_list(p_series, p_limit)` → [{mine, username, avatar_url, body, at, created_at, score}]. `home_reviews` ahora lee de `series_reviews`.
