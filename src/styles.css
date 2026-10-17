@@ -1,3 +1,4 @@
+:root{--wrap:1600px}
 :root{--ink:#0d0c0a;--paper:#f3ecd9;--gold:#f2c230;--line:#2f2a20;--mute:#a89f8a}
 *{box-sizing:border-box}body{margin:0;background:var(--ink);color:var(--paper);font-family:'IBM Plex Sans',system-ui,sans-serif}
 a{color:var(--gold)}a:hover{color:var(--paper)}
@@ -5,7 +6,7 @@ a{color:var(--gold)}a:hover{color:var(--paper)}
 .brand{font-family:'Shippori Mincho B1',serif;font-size:22px;color:var(--paper);text-decoration:none;display:flex;gap:10px;align-items:center}
 .seal{border:2px solid var(--gold);color:var(--gold);width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;transform:rotate(-6deg)}
 nav{display:flex;gap:14px;flex-wrap:wrap}nav a{color:var(--paper);text-decoration:none;font-weight:600;font-size:14px}nav a.gold{color:var(--gold)}
-main{max-width:1100px;margin:0 auto;padding:40px clamp(16px,4vw,56px) 80px}
+main{max-width:var(--wrap);margin:0 auto;padding:40px clamp(16px,4vw,56px) 80px}
 h1,h2{font-family:'Shippori Mincho B1',serif;font-weight:500}
 .card{display:grid;grid-template-columns:90px minmax(0,1fr);gap:20px;padding:18px;background:var(--paper);color:var(--ink);margin-top:-6px;border-top:6px solid var(--c,var(--gold));cursor:pointer;transition:transform .3s}
 .card:hover{transform:translateY(-10px)}.cover{aspect-ratio:3/4;background:#1c1a14 center/cover}
@@ -231,3 +232,5 @@ select{background:#16140f;border:2px solid var(--line);color:var(--paper);paddin
 
 /* página del equipo: ocupa todo el ancho */
 .tp2-page{position:relative;width:100vw;margin:-40px 0 -80px calc(50% - 50vw)}
+
+main>p,main>h1+p{max-width:75ch}
