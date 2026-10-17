@@ -1,4 +1,4 @@
-import { blocksToEditor, editorToBlocks, pasteToEditor, renderBlock, warningsHTML, teaserHTML, figureHTML, makesBlock, FONTS, CW } from './blocks.js';
+import { blocksToEditor, editorToBlocks, pasteToEditor, renderBlock, warningsHTML, teaserHTML, figureHTML, makesBlock, FONTS, CW } from './blocks.js?v=1';
 // Estudio del traductor: obras, volúmenes, publicación, editor con guardado atómico, importador EPUB/DOCX/PDF, multimedia, equipo y colaboraciones.
 const LIMITS = { file: 80 * 1024 * 1024, entries: 15000, unzipped: 300 * 1024 * 1024, image: 8 * 1024 * 1024 };
 const ACTIONS = [['view','Ver'],['edit','Editar'],['create','Crear'],['import','Importar'],['publish','Publicar'],['schedule','Programar'],['delete','Borrar'],['review','Revisar']];
@@ -229,6 +229,7 @@ export function createStudio(ctx){
   async function teamData(){
     const { data: works } = await sb.from('series').select('id,slug,title,short,synopsis,genres,cover_path,translation_status,published,views,theme,volumes(count)').eq('team_id', T.team.id).is('archived_at', null).order('title');
     const ids = (works || []).map(w => w.id);
+    import('./thumbs.js?v=1').then(m => m.heal(sb, T.team.id, PUB)).catch(() => {});
     if (!ids.length) return { works: [], chs: [], sched: [], reps: [] };
     const now = new Date().toISOString();
     const [{ data: chs }, { data: sched }, { data: reps }] = await Promise.all([

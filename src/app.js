@@ -1,8 +1,9 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
+import { createClient } from '/supabase.js?v=1';
+import { createReader } from '/reader.js?v=13';
+import { createUI } from '/ui.js?v=31';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
-const { createReader } = await import('/reader.js?v=13');
-const { createUI } = await import('/ui.js?v=31');
 export const sb = createClient(url, key, { auth: { persistSession: true } });
 const $ = s => document.querySelector(s), app = $('#app');
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -14,19 +15,31 @@ let AD; const ad = async () => AD ||= (await import('/admin.js?v=8')).createAdmi
 let R; const rd = () => R ||= createReader(CTX());
 let U; const ui = () => U ||= createUI(CTX());
 const RL = { bibliotecario: 'Bibliotecario', publicador: 'Publicador', lector: 'Lector' };
+// La sesión sale del almacenamiento local (sin red) y se pinta al instante con el perfil guardado;
+// perfil y whoami llegan en paralelo y actualizan la barra. meReady avisa cuándo `me` es definitivo.
+let meReady = Promise.resolve(), lastBar = '';
 async function loadSession(){
-const { data } = await sb.auth.getUser(); user = data.user;
-profile = user ? (await sb.from('profiles').select('*').eq('id', user.id).maybeSingle()).data : null;
-me = user ? ((await sb.rpc('whoami')).data || null) : null;
+const { data } = await sb.auth.getSession(); user = data.session?.user || null;
+if (!user) { profile = me = null; drawSession(); meReady = Promise.resolve(); return; }
+try { const c = JSON.parse(localStorage.getItem('obi-me') || 'null'); if (c?.id === user.id) ({ profile, me } = c); else profile = me = null; } catch {}
+drawSession();
+const uid = user.id;
+meReady = Promise.all([sb.from('profiles').select('*').eq('id', uid).maybeSingle(), sb.rpc('whoami')]).then(([p, w]) => {
+  if (user?.id !== uid) return; profile = p.data; me = w.data || null;
+  try { localStorage.setItem('obi-me', JSON.stringify({ id: uid, profile, me })); } catch {}
+  drawSession(); bell();
+}).catch(e => console.warn('perfil', e));
+}
+function drawSession(){
 const pr = me?.platform_role || 'lector';
 const ini = esc((profile?.username || user?.email || '?')[0].toUpperCase());
-$('#session').innerHTML = user
+const h = user
 ? `<details class="ob-bell"><summary aria-label="Avisos"><span aria-hidden="true">鈴</span><em id="bell-n" hidden></em></summary><div class="ob-menu ob-nt" id="bell-list"><p class="mono">Cargando…</p></div></details><details class="ob-user"><summary aria-label="Menú de cuenta"><span class="ob-av">${profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : ini}</span></summary><div class="ob-menu"><div class="who2"><strong>${esc(profile?.username || user.email)}</strong><small>${RL[pr]}${profile?.donor_tier ? ' · 援 Donador' : ''}</small></div><a href="/perfil">Mi perfil</a><a href="/biblioteca">Mi biblioteca</a>${pr === 'bibliotecario' ? '<a href="/bibliotecario">Mostrador del Bibliotecario</a>' : ''}${pr !== 'lector' ? '<a href="/estudio">Estudio</a><a href="/estudio/preferencias">Preferencias del equipo</a>' : '<a href="/solicitud">Crear mi grupo traductor</a>'}<button id="out">Salir</button></div></details>`
 : `<button class="btn" id="in">Entrar</button>`;
+if (h === lastBar) return; lastBar = h; $('#session').innerHTML = h;
 const dd = $('#session .ob-user'); if (dd) dd.querySelector('.ob-menu').addEventListener('click', e => { if (e.target.closest('a')) dd.open = false; });
-$('#out')?.addEventListener('click', async () => { await sb.auth.signOut(); location.href = '/'; });
+$('#out')?.addEventListener('click', async () => { try { localStorage.removeItem('obi-me'); } catch {} await sb.auth.signOut(); location.href = '/'; });
 $('#in')?.addEventListener('click', () => go('/entrar'));
-if (user) bell();
 }
 async function bell(){
 if (!document.getElementById('nt-css')) { const st = document.createElement('style'); st.id = 'nt-css'; st.textContent = '.nt-ln{cursor:pointer}.nt-ln small{display:flex;justify-content:space-between;gap:10px}.nt-ln em{font-style:normal;color:var(--gold)}.nt-ln:hover span{text-decoration:underline;text-underline-offset:3px}'; document.head.appendChild(st); }
@@ -49,7 +62,8 @@ addEventListener('popstate', render);
 document.addEventListener('click', e => { document.querySelectorAll('.ob-user[open],.ob-bell[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
 let PS = null; const seasons = async () => PS ||= await import('/season.js?v=3');
 addEventListener('obi-season', () => { afterRender(); });
-async function render(){ const S = await seasons(); S.clear(); await S.load(sb); await render0(); afterRender(); }
+// Se dibuja la página sin esperar la temporada; afterRender la aplica cuando llega.
+function render(){ seasons().then(S => { S.clear(); S.load(sb); }); return render0().then(afterRender); }
 async function afterRender(){
   const S = await seasons(); await S.load(sb); const p = location.pathname; let m;
   try {
@@ -67,6 +81,7 @@ async function afterRender(){
 async function render0(){
 const p = location.pathname; let m;
 scrollTo(0, 0); document.body.classList.remove('in-studio');
+if (p.startsWith('/estudio') || p === '/perfil' || p === '/solicitud') await meReady;
 if ((m = p.match(/^\/serie\/([\w-]+)$/))) return ui().series(m[1]);
 if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) return rd().open(m[1], +m[2]);
 if ((m = p.match(/^\/anotaciones\/([\w-]+)$/))) return rd().annotationsPage(m[1]);
@@ -279,7 +294,7 @@ if (error) throw error;
 const { data } = sb.storage.from('avatars').getPublicUrl(path);
 const { error: e2 } = await sb.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', user.id);
 if (e2) throw e2;
-await loadSession();
+await loadSession(); await meReady;
 }
 function avatarBox(title, sub){
 const cur = profile?.avatar_url;
@@ -345,10 +360,10 @@ $('#rqcancel')?.addEventListener('click', async () => { if (!confirm('¿Retirar 
 function notFound(){ app.innerHTML = '<h1>Esta página no está en el estante</h1><p><a href="/">Volver al inicio</a></p>'; }
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 let authEv = null;
-sb.auth.onAuthStateChange(ev => { loadSession().then(() => ui().refreshBadge()); if (['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(ev) && authEv !== null) seasons().then(S => S.load(sb, true)).then(() => afterRender()); authEv = ev; });
+sb.auth.onAuthStateChange(ev => { if (ev !== 'INITIAL_SESSION') loadSession().then(() => ui().refreshBadge()); if (['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(ev) && authEv !== null) seasons().then(S => S.load(sb, true)).then(() => afterRender()); authEv = ev; });
 loadSession().then(() => {
 const qs = new URLSearchParams(location.search), hash = new URLSearchParams(location.hash.slice(1));
 if (hash.get('error_description')) { history.replaceState({}, '', '/entrar'); render(); return toast(hash.get('error_description').includes('expired') ? 'El enlace expiró. Inicia sesión para recibir otro.' : hash.get('error_description')); }
-if (qs.has('bienvenida') && user) { history.replaceState({}, '', '/'); return welcome(); }
+if (qs.has('bienvenida') && user) { history.replaceState({}, '', '/'); return meReady.then(welcome); }
 render(); ui().refreshBadge();
 });

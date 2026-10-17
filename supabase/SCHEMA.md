@@ -108,3 +108,9 @@ Buckets: obi-epub (privado), avatars, obi-media, obi-app (públicos). Extensione
 - `follows`: política de update propia; `channels.web = false` apaga los avisos de esa obra (Biblioteca › Avisos).
 - `series_feedback(p_series)` → {avg, n, month, dist[5], reviews_n, reviews[5], ranks[]} para integrantes (Estudio › Estadísticas › Recepción).
 - `series_reviews_list` ahora incluye `uid` del autor.
+
+## Rendimiento (20261029)
+- `series.cover_thumb_path`: miniatura WebP de 360 px. El trigger `series_thumb_reset` la vacía si cambia `cover_path`. Se escribe solo con `series_set_thumb(p_series, p_cover, p_thumb)` (integrante del equipo, archivo en `{team}/thumbs/`).
+- `series_last` (vista, security_invoker): último capítulo publicado por obra.
+- `unread_counts()` → `{ series_id: n }` para la insignia de capítulos nuevos.
+- `home_feed()` → JSON con todo lo público del inicio. Lee `private.home_snapshot`, que cron `obi-home-snapshot` recalcula cada 5 min con `private.refresh_home()`. El +18 se filtra en el navegador.

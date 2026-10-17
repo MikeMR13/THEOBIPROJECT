@@ -80,7 +80,16 @@ Además, cada visita vuelve a descargar los archivos porque el service worker si
 - Páginas: red con límite de 2.5 s y la copia guardada como respaldo.
 - Portadas (`destination: image`): la guardada al instante y se actualiza en segundo plano. Se piden en modo CORS (para no guardar respuestas opacas) y el caché se limita a 400.
 
-**Pendiente:** medir con Lighthouse (móvil) antes y después del despliegue. La carpeta `dist-min/` ya no se usa y se puede borrar.
+**Pendiente:** medir con Lighthouse (móvil) después del despliegue.
+
+## Medición de referencia (antes) · 17 oct 2026, PageSpeed móvil
+Rendimiento **72** · FCP 3.3 s · LCP 5.6 s · TBT 30 ms · CLS 0.004 · SI 3.6 s.
+Principal causa: la hoja de Google Fonts (120 KB) bloqueaba el render (ahorro estimado de 2.4 s). Corregido con `media="print"` + `boot.js`, que la activa al llegar. También se agregó la metadescripción (SEO 90).
+
+Del árbol de dependencias (latencia crítica 2,385 ms):
+- supabase-js llegaba en ~20 piezas desde esm.sh (incluidos buffer, process, events…). Ahora la compilación lo empaqueta en `/supabase.js`, un solo archivo propio, con sello y caché de un año. Si falla, usa esm.sh.
+- El inicio esperaba a todo el JS para pedir los datos. Ahora `boot.js` pide `home_feed` (por GET) mientras se descarga el JS, y precarga la portada destacada con `fetchpriority=high` (aviso «Descubrimiento de LCP»).
+- `blocks.js` iba sin versión: ahora lleva sello y precarga. La carpeta `dist-min/` ya no se usa y se puede borrar.
 
 **Fases 4–5 · hechas en código** (falta aplicar la migración `20261029_rendimiento_inicio.sql` **antes** de desplegar)
 - `home_feed()`: el inicio pasa de ~11 consultas a 1. Lee `private.home_snapshot`, que pg_cron recalcula cada 5 min (`obi-home-snapshot`); si la copia tiene más de 6 min, se recalcula al momento. El filtro +18 sigue en el navegador. Si el RPC falla, el inicio vuelve a las consultas de antes.
