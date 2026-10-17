@@ -109,9 +109,34 @@ const until = d => { const m = Math.round((d - Date.now()) / 60000); if (m < 0) 
 const dayKey = d => ymd(d), groups = []; for (const it of items) { const k = dayKey(it.d); let g = groups[groups.length - 1]; if (!g || g.k !== k) groups.push(g = { k, d: it.d, list: [] }); g.list.push(it); }
 const label = d => { const k = ymd(d); return k === ymd(now) ? 'Hoy' : k === ymd(new Date(Date.now() + 864e5)) ? 'Mañana' : d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }); };
 const win = s => { if (s.w) { const [a1, b1] = s.w, f = x => new Date('2000-' + x + 'T12:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }); return a1 === b1 ? f(a1) : f(a1) + ' – ' + f(b1); } return ''; };
+const INFO = {
+  halloween: ['Noche del 31 de octubre de origen celta (Samhain), cuando se creía que el mundo de los vivos y el de los espíritus se acercaban.', 'Disfraces, calabazas talladas, casas decoradas y el «dulce o truco».'],
+  muertos: ['Tradición mexicana para recordar a los difuntos: el 1 de noviembre a los niños y el 2 a los adultos. Es Patrimonio Cultural Inmaterial de la UNESCO.', 'Altares con fotos, cempasúchil, velas, pan de muerto, calaveritas de azúcar y visitas al panteón.'],
+  navidad: ['Celebración cristiana del nacimiento de Jesús el 25 de diciembre, hoy también una fiesta familiar en buena parte del mundo.', 'Árbol, nacimientos, posadas, cena de Nochebuena e intercambio de regalos.'],
+  anonuevo: ['Despedida del año que termina y bienvenida al nuevo, la noche del 31 de diciembre al 1 de enero.', 'Cuenta regresiva, fuegos artificiales, doce uvas a medianoche y propósitos para el año.'],
+  valentin: ['Día del amor y la amistad, el 14 de febrero, que toma el nombre de un mártir romano.', 'Cartas, flores, chocolates y salidas con la pareja o los amigos. En Japón y Corea las chicas regalan chocolate y el 14 de marzo (White Day) se corresponde.'],
+  pascua: ['Fiesta cristiana de la resurrección de Jesús. Su fecha cambia cada año: el domingo después de la primera luna llena de primavera (norte).', 'Huevos de colores, búsqueda de huevos, conejo de Pascua y comidas familiares.'],
+  shogatsu: ['El Año Nuevo japonés, la fiesta más importante del año en Japón. Las celebraciones principales van del 1 al 3 de enero.', 'Primera visita al santuario (hatsumōde), osechi ryōri, tarjetas nengajō y sobres con dinero (otoshidama) para los niños.'],
+  setsubun: ['Marca el día antes del inicio de la primavera en el calendario lunar japonés; se ahuyenta la mala suerte del año.', 'Se lanzan frijoles tostados gritando «¡Fuera demonios, dentro la fortuna!» (oni wa soto, fuku wa uchi) y se come el ehōmaki.'],
+  hinamatsuri: ['El Día de las Niñas, el 3 de marzo: las familias piden salud y felicidad para sus hijas.', 'Se exhiben muñecas hina vestidas como la corte imperial Heian y se comen dulces hina-arare y sake dulce.'],
+  hanami: ['La contemplación de los cerezos en flor. Florecen solo una o dos semanas, por eso simbolizan lo efímero de la vida.', 'Picnics bajo los sakura con familia y amigos, de día y también de noche (yozakura) con faroles.'],
+  tanabata: ['El Festival de las Estrellas, el 7 de julio: según la leyenda, es la única noche del año en que Orihime y Hikoboshi (Vega y Altair) pueden verse.', 'Se escriben deseos en tiras de papel (tanzaku) y se cuelgan en ramas de bambú.'],
+  obon: ['Festividad budista en la que se cree que los espíritus de los antepasados vuelven a casa a visitar a la familia.', 'Visitas a las tumbas, bailes bon odori y faroles flotando en ríos para despedir a los espíritus (tōrō nagashi).'],
+  tsukimi: ['La contemplación de la luna de otoño, en la noche de luna llena del octavo mes lunar, considerada la más bella del año.', 'Se ofrecen dango de arroz y espigas de susuki, y se mira la luna en familia.'],
+  shichigosan: ['Celebración del 15 de noviembre por el crecimiento de niñas de 3 y 7 años y niños de 3 y 5 años.', 'Los niños visten kimono, la familia visita el santuario y se compran caramelos chitose-ame, que desean una vida larga.'],
+  seollal: ['El Año Nuevo lunar coreano, una de las dos fiestas más grandes de Corea; dura tres días.', 'Reverencia a los mayores (sebae), que dan dinero a los niños; sopa de pastel de arroz (tteokguk) y juegos tradicionales con hanbok.'],
+  chuseok: ['El «Día de Acción de Gracias» coreano, en la luna llena del octavo mes lunar; celebra la cosecha y honra a los antepasados.', 'Viaje a la ciudad natal, ritual charye, visita a las tumbas y pasteles de arroz songpyeon.'],
+  dano: ['Festival del quinto día del quinto mes lunar, ligado a la siembra y a desear buena salud en verano.', 'Lavarse el cabello con agua de iris, columpios para las mujeres y lucha ssireum.'],
+  buda: ['Celebración del nacimiento de Buda, el octavo día del cuarto mes lunar; día festivo en Corea.', 'Templos y calles se llenan de faroles de loto y hay desfiles de linternas (Yeondeunghoe).'],
+  pepero: ['El 11 de noviembre (11/11): la fecha parece cuatro palitos, como las galletas Pepero.', 'Se regalan galletas Pepero a pareja, amigos y compañeros.'],
+  primavera: ['Empieza con el equinoccio: el día y la noche duran casi lo mismo y los días comienzan a alargarse.', 'Flores, temperaturas templadas y, en Japón, el inicio del año escolar.'],
+  verano: ['Empieza con el solsticio: el día más largo del año.', 'Vacaciones, festivales al aire libre y, en Japón, fuegos artificiales (hanabi) y yukata.'],
+  otono: ['Empieza con el equinoccio de otoño: los días se acortan y las hojas cambian de color.', 'Cosechas, momiji (hojas rojas) y la «temporada de la lectura» en Japón.'],
+  invierno: ['Empieza con el solsticio: la noche más larga del año.', 'Frío, nieve en muchas regiones y las fiestas de fin de año.']
+};
 const row = it => it.t === 'rel'
   ? `<a class="cal-r" href="/serie/${esc(it.e.series.slug)}"><span class="cal-h">${it.d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span><span class="cal-b"><b>${esc(it.e.series.title)}</b><small>${it.e.kind === 'volume' ? 'Volumen completo · ' : ''}${esc(it.e.label)}</small></span><span class="cal-u">${until(it.d)}</span></a>`
-  : `<div class="cal-f${auto.has(it.k) ? ' on' : ''}" style="--fc:${it.s.ac}"><i style="background-image:url('${it.s.m ? AN.motifURL(it.s.m, it.s.ac, it.s.c2) : ''}')"></i><span class="cal-b"><b>${esc(it.s.l)}</b><small>${{ occ: 'Festividad', jp: 'Festividad japonesa', kr: 'Festividad coreana', est: 'Estación · hemisferio ' + hemi }[it.s.g]}${win(it.s) ? ' · ' + win(it.s) : ''}${auto.has(it.k) ? ' · el sitio se viste de temporada' : ''}</small></span><span class="cal-u">${until(it.d)}</span></div>`;
+  : `<details class="cal-f${auto.has(it.k) ? ' on' : ''}" style="--fc:${it.s.ac}"><summary><i style="background-image:url('${it.s.m ? AN.motifURL(it.s.m, it.s.ac, it.s.c2) : ''}')"></i><span class="cal-b"><b>${esc(it.s.l)}</b><small>${{ occ: 'Festividad', jp: 'Festividad japonesa', kr: 'Festividad coreana', est: 'Estación · hemisferio ' + hemi }[it.s.g]}${win(it.s) ? ' · ' + win(it.s) : ''}${auto.has(it.k) ? ' · el sitio se viste de temporada' : ''}</small></span><span class="cal-u">${until(it.d)}${INFO[it.k] ? '<span class="cal-m">Ver más</span>' : ''}</span></summary>${INFO[it.k] ? `<div class="cal-x"><p>${esc(INFO[it.k][0])}</p><p><b>Cómo se celebra:</b> ${esc(INFO[it.k][1])}</p></div>` : ''}</details>`;
 app.innerHTML = '<div class="ui-cath"><div><h1>Calendario</h1><p>Lo que viene en los próximos dos meses: capítulos y volúmenes programados, y las festividades.</p></div><span class="kj" aria-hidden="true">予定</span></div>'
   + '<div class="cal-bar"><a class="mono" href="/lanzamientos">← Ya publicados</a><span class="mono">Horario de tu dispositivo · ' + esc(Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ')) + '</span></div>'
   + (groups.length ? groups.map(g => `<section class="cal-d"><h2>${label(g.d)}<span class="mono">${g.d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' })}</span></h2>${g.list.map(row).join('')}</section>`).join('') : '<p class="mono">Nada programado ni festividades en los próximos dos meses.</p>')
@@ -119,12 +144,16 @@ app.innerHTML = '<div class="ui-cath"><div><h1>Calendario</h1><p>Lo que viene en
 if (!document.getElementById('cal-css')) { const st = document.createElement('style'); st.id = 'cal-css'; st.textContent = `
 .cal-bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 26px}.cal-bar .mono{font-size:12px}
 .cal-d{margin:0 0 26px}.cal-d h2{display:flex;align-items:baseline;gap:10px;margin:0 0 10px;font-size:22px;font-weight:500;text-transform:capitalize}.cal-d h2 .mono{font-size:12px;color:var(--mute)}
-.cal-r,.cal-f{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 14px;margin-bottom:6px;background:#16140f;border:1px solid var(--line);color:var(--paper);text-decoration:none}
+.cal-r,.cal-f>summary{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 14px;color:var(--paper);text-decoration:none}
+.cal-r,.cal-f{margin-bottom:6px;background:#16140f;border:1px solid var(--line);display:block}.cal-r{display:grid}
+.cal-f>summary{cursor:pointer;list-style:none}.cal-f>summary::-webkit-details-marker{display:none}.cal-f>summary:hover{background:color-mix(in srgb,var(--fc) 10%,transparent)}
+.cal-u{display:grid;justify-items:end;gap:4px}.cal-m{font-size:11px;color:var(--fc);text-decoration:underline;text-underline-offset:3px}.cal-m::after{content:' ▾'}.cal-f[open] .cal-m{font-size:0}.cal-f[open] .cal-m::after{content:'Ver menos ▴';font-size:11px}
+.cal-x{padding:0 14px 14px 84px;display:grid;gap:8px}.cal-x p{margin:0;font-size:14px;line-height:1.6;color:var(--paper);text-wrap:pretty;max-width:68ch}.cal-x b{color:var(--fc);font-weight:500}
 .cal-r{border-left:4px solid var(--gold)}.cal-r:hover{border-color:var(--gold);color:var(--paper)}.cal-h{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--gold)}
 .cal-b{display:grid;gap:2px;min-width:0}.cal-b b{font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:18px}.cal-b small{font-size:12px;color:var(--mute)}.cal-u{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mute);white-space:nowrap}
 .cal-f{border-left:4px solid var(--fc);background:color-mix(in srgb,var(--fc) 7%,#16140f)}.cal-f i{width:40px;height:40px;justify-self:center;background:center/contain no-repeat}.cal-f.on{border-color:var(--fc)}
 .cal-empty{margin-top:10px}
-@media(max-width:560px){.cal-r,.cal-f{grid-template-columns:44px minmax(0,1fr)}.cal-u{grid-column:2}}`; document.head.appendChild(st); }
+@media(max-width:560px){.cal-r,.cal-f>summary{grid-template-columns:44px minmax(0,1fr)}.cal-u{grid-column:2;justify-items:start}.cal-x{padding-left:14px}}`; document.head.appendChild(st); }
 }
 async function library(){
 if (!user) return go('/entrar');
