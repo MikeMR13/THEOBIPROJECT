@@ -101,8 +101,8 @@ const CSS2 = "\n.top{display:flex!important;align-items:center;gap:12px 28px;pad
 const LEN = { short: ['Cortas · menos de 20 cap.', n => n < 20], long: ['Largas · 20 cap. o más', n => n >= 20] };
 const FK = [['tl', 'tl'], ['orig', 'original'], ['type', 'tipo'], ['len', 'largo']];
 const norm = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-const readF = () => { const u = new URLSearchParams(location.search), l = k => (u.get(k) || '').split(',').map(decodeURIComponent).filter(Boolean); const f = { q: u.get('q') || '', gin: l('g'), gout: l('sin'), adult: u.get('adulto') !== '0', sort: u.get('orden') || 'popular' }; FK.forEach(([k, p]) => f[k] = u.get(p) || ''); return f; };
-const writeF = f => { const u = new URLSearchParams(); if (f.q.trim()) u.set('q', f.q.trim()); if (f.gin.length) u.set('g', f.gin.join(',')); if (f.gout.length) u.set('sin', f.gout.join(',')); FK.forEach(([k, p]) => f[k] && u.set(p, f[k])); if (!f.adult) u.set('adulto', '0'); if (f.sort !== 'popular') u.set('orden', f.sort); const qs = u.toString(); history.replaceState({}, '', '/catalogo' + (qs ? '?' + qs : '')); };
+const readF = () => { const u = new URLSearchParams(location.search), l = k => (u.get(k) || '').split(',').map(decodeURIComponent).filter(Boolean); const f = { q: u.get('q') || '', gin: l('g'), gout: l('sin'), adult: u.get('adulto') !== '0', sort: u.get('orden') || 'popular', top: u.get('top') === '1' }; FK.forEach(([k, p]) => f[k] = u.get(p) || ''); return f; };
+const writeF = f => { const u = new URLSearchParams(); if (f.q.trim()) u.set('q', f.q.trim()); if (f.gin.length) u.set('g', f.gin.join(',')); if (f.gout.length) u.set('sin', f.gout.join(',')); FK.forEach(([k, p]) => f[k] && u.set(p, f[k])); if (!f.adult) u.set('adulto', '0'); if (f.top) u.set('top', '1'); if (f.sort !== 'popular') u.set('orden', f.sort); const qs = u.toString(); history.replaceState({}, '', '/catalogo' + (qs ? '?' + qs : '')); };
 const TL = { active: ['En traducción', '#a9d18e'], paused: ['En pausa', '#f2c230'], completed: ['Traducción completa', '#8cc3f2'], abandoned: ['Abandonada', '#f59e7a'], withdrawn: ['Retirada', '#f59e7a'] };
 const OR = { publishing: 'En publicación', completed: 'Completada', paused: 'En pausa', cancelled: 'Cancelada' };
 const SQ = { waiting: 'En espera de secuela', none: 'Sin secuela confirmada', announced: 'Secuela anunciada', publishing: 'Secuela en publicación', completed: 'Secuela completada' };
@@ -131,6 +131,25 @@ const RK_CSS = `
 .tp2-rkl{display:grid}.tp2-rki{display:grid;grid-template-columns:52px 40px minmax(0,1fr) auto;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid var(--ln);color:var(--fg)!important;text-decoration:none}.tp2-rki .n{font-family:var(--tf);font-weight:800;font-size:26px;color:var(--act);text-align:center}.tp2-rki .cv{width:40px;aspect-ratio:2/3;background:var(--sf) center/cover;border:1px solid var(--ln)}.tp2-rki b{font-weight:600}.tp2-rki .m{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mu)}.tp2-rk .tp2-sh{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}.tp2-rk .tp2-sh a{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--act)}
 @media(max-width:560px){.rk-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 14px}.rk-n{font-size:18px;min-width:38px;height:38px}.rk-c.top .rk-n{min-width:46px;height:46px;font-size:24px}}
 `;
+const SR_CSS = `
+.sr-pop{position:absolute;top:calc(100% + 8px);left:0;right:0;min-width:min(420px,92vw);max-height:70vh;overflow:auto;z-index:70;background:#14120d;border:1px solid #3d3628;box-shadow:0 18px 40px rgba(0,0,0,.5)}
+.sr-g{display:grid;padding:6px 0;border-bottom:1px solid #221f18}.sr-h{padding:6px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#a89f8a}
+.sr-g a{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;align-items:center;padding:8px 14px;color:var(--paper);text-decoration:none}.sr-g a:hover,.sr-g a:focus-visible{background:#1c1a14;color:var(--paper)}
+.sr-g b{display:block;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sr-g small{display:block;font-size:12px;color:#a89f8a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sr-cv{width:34px;height:48px;background:center/cover no-repeat}.sr-ic{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid #3d3628;font-family:'Shippori Mincho B1',serif;color:var(--gold)}
+.sr-all{display:block;padding:12px 14px;font-size:13px;color:var(--gold);text-decoration:none}.sr-all:hover{background:#1c1a14}.sr-none{margin:0;padding:14px;font-size:13px;color:#a89f8a}
+.sr-big{width:100%;padding:16px 18px;margin:0 0 22px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font:inherit;font-size:18px}.sr-big:focus{outline:none;border-color:var(--gold)}
+.sr-page{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:18px;align-items:start}.sr-page .sr-g{border:1px solid #2f2a20;background:#14120d}
+.ob-tab{display:none}
+@media(max-width:760px){.ob-tab{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:80;background:rgba(13,12,10,.97);border-top:1px solid #2f2a20;padding-bottom:env(safe-area-inset-bottom);backdrop-filter:blur(8px)}
+.ob-tab a{display:grid;justify-items:center;gap:2px;min-height:56px;padding:8px 2px 6px;font-size:11px;color:#a89f8a;text-decoration:none}.ob-tab a span{font-family:'Shippori Mincho B1',serif;font-size:19px;line-height:1}.ob-tab a.on{color:var(--gold)}
+body:not(.no-tab){padding-bottom:calc(64px + env(safe-area-inset-bottom))}body.no-tab .ob-tab{display:none}.ob-nav{flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none}.sr-pop{position:fixed;top:auto;left:8px;right:8px;min-width:0;margin-top:8px}}
+.fx-prog{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;margin-left:auto}.fx-bar{width:120px;height:4px;background:#2f2a20}.fx-bar i{display:block;height:100%;background:#a9d18e}
+.fx-tag{margin-left:auto;align-self:center;padding:1px 6px;font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;background:var(--gold);color:#0d0c0a}.fx-tag.here{background:none;color:var(--gold);border:1px solid var(--gold)}
+.ui-chl a.here{color:var(--gold)}.fx-hide .ui-chl li.is-read{display:none}
+`;
+const srCss = () => { if (document.getElementById('sr-css')) return; const s = document.createElement('style'); s.id = 'sr-css'; s.textContent = SR_CSS; document.head.appendChild(s); };
+const fxCss = srCss;
 const rkCss = () => { if (document.getElementById('rk-css')) return; const s = document.createElement('style'); s.id = 'rk-css'; s.textContent = RK_CSS; document.head.appendChild(s); };
 export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   if (!document.getElementById('ui-css')) { const s = document.createElement('style'); s.id = 'ui-css'; s.textContent = CSS; document.head.appendChild(s); const s2 = document.createElement('style'); s2.textContent = CSS2; document.head.appendChild(s2); }
@@ -149,9 +168,57 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       <div class="ob-tools"><input class="ob-search" id="ob-q" type="search" placeholder="Buscar títulos, autores…" aria-label="Buscar"></div>`;
     addEventListener('scroll', () => top.classList.toggle('ob-min', scrollY > 40), { passive: true });
     top.querySelector('.ob-tools').appendChild(ses);
-    top.querySelector('#ob-q').onkeydown = e => { if (e.key === 'Enter') { const q = e.target.value.trim(); go('/catalogo' + (q ? '?q=' + encodeURIComponent(q) : '')); } };
-    const mark = () => top.querySelectorAll('.ob-nav a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === location.pathname || (a.textContent === 'Catálogo' && location.pathname.startsWith('/serie'))));
+    srCss(); const q = top.querySelector('#ob-q'), tools = top.querySelector('.ob-tools'); tools.style.position = 'relative';
+    const pop = document.createElement('div'); pop.className = 'sr-pop'; pop.hidden = true; tools.appendChild(pop);
+    let qt, qn = 0; const close = () => { pop.hidden = true; };
+    q.oninput = () => { clearTimeout(qt); const v = q.value.trim(); if (v.length < 2) return close(); qt = setTimeout(async () => { const my = ++qn, html = await searchHTML(v, 4); if (my !== qn || q.value.trim() !== v) return; pop.innerHTML = html + `<a class="sr-all" href="/buscar?q=${encodeURIComponent(v)}">Ver todos los resultados →</a>`; pop.hidden = false; }, 180); };
+    q.onkeydown = e => { if (e.key === 'Enter') { const v = q.value.trim(); close(); go('/buscar' + (v ? '?q=' + encodeURIComponent(v) : '')); } if (e.key === 'Escape') close(); };
+    q.onfocus = () => { if (pop.innerHTML && q.value.trim().length >= 2) pop.hidden = false; };
+    document.addEventListener('click', e => { if (!e.target.closest('.ob-tools')) close(); else if (e.target.closest('.sr-pop a')) { close(); q.value = ''; } });
+    const tab = document.createElement('nav'); tab.className = 'ob-tab'; tab.setAttribute('aria-label', 'Navegación');
+    tab.innerHTML = [['/', '家', 'Inicio'], ['/catalogo', '目', 'Catálogo'], ['/biblioteca', '書', 'Biblioteca'], ['/buscar', '探', 'Buscar'], ['/perfil', '人', 'Perfil']].map(([h, k, l]) => `<a href="${h}"><span aria-hidden="true">${k}</span>${l}</a>`).join('');
+    document.body.appendChild(tab);
+    const mark = () => { const p = location.pathname; top.querySelectorAll('.ob-nav a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === p || (a.textContent === 'Catálogo' && p.startsWith('/serie'))));
+      tab.querySelectorAll('a').forEach(a => { const h = a.getAttribute('href'); a.classList.toggle('on', h === '/' ? p === '/' : p.startsWith(h) || (h === '/catalogo' && p.startsWith('/serie')) || (h === '/perfil' && p.startsWith('/lector/'))); });
+      document.body.classList.toggle('no-tab', /^\/(leer|estudio)\b/.test(p)); };
     addEventListener('popstate', mark); document.addEventListener('click', () => setTimeout(mark, 0)); mark();
+  }
+  let SIDX = null;
+  const searchIndex = () => SIDX ||= (async () => { const u = getUser();
+    const [{ data: ss }, { data: ts }, pr] = await Promise.all([sb.from('series').select('id,slug,title,short,original,author,illustrator,genres,tags,adult,cover_path,translation_status,theme,teams(name,slug,color),chapters(count)').eq('published', true),
+      sb.from('teams').select('slug,name,avatar_path,status'), u ? sb.from('profiles').select('adult_ok').eq('id', u.id).maybeSingle() : { data: null }]);
+    const ok = !!pr?.data?.adult_ok; return { series: (ss || []).filter(x => x.translation_status !== 'withdrawn' && (!x.adult || ok)), teams: (ts || []).filter(t => !t.status || t.status === 'active') }; })().catch(e => { SIDX = null; throw e; });
+  async function searchData(q, lim){
+    const I = await searchIndex(), n = norm(q), has = t => norm(t).includes(n), byId = Object.fromEntries(I.series.map(x => [x.id, x]));
+    const works = I.series.filter(x => has([x.title, x.short, x.original].join(' '))).slice(0, lim);
+    const am = new Map(); I.series.forEach(x => [x.author, x.illustrator].filter(Boolean).forEach(a => { if (has(a)) { const k = a.trim(); am.set(k, (am.get(k) || 0) + 1); } }));
+    const authors = [...am].sort((a, b) => b[1] - a[1]).slice(0, lim);
+    const teams = I.teams.filter(t => has(t.name)).slice(0, lim);
+    const tm = new Map(); I.series.forEach(x => [...(x.genres || []).map(g => ['g', g]), ...(Array.isArray(x.tags) ? x.tags : []).map(t => ['t', t])].forEach(([k, v]) => { if (has(v)) { const key = k + '|' + v; tm.set(key, (tm.get(key) || 0) + 1); } }));
+    const tags = [...tm].sort((a, b) => b[1] - a[1]).slice(0, lim).map(([k, c]) => { const [t, v] = k.split('|'); return { t, v, c }; });
+    const like = q.replace(/[%_,()\\]/g, ' ').trim();
+    const { data: ch } = like.length >= 2 ? await sb.from('chapters').select('num,title,series_id').eq('status', 'published').is('deleted_at', null).ilike('title', '%' + like + '%').limit(lim * 3) : { data: [] };
+    const chapters = (ch || []).filter(c => byId[c.series_id]).slice(0, lim).map(c => ({ ...c, s: byId[c.series_id] }));
+    return { works, authors, teams, tags, chapters };
+  }
+  async function searchHTML(q, lim){
+    let R; try { R = await searchData(q, lim); } catch { return '<p class="sr-none">No se pudo buscar. Intenta de nuevo.</p>'; }
+    const grp = (t, items) => items.length ? `<div class="sr-g"><span class="sr-h">${t}</span>${items.join('')}</div>` : '';
+    const cv = x => `<span class="sr-cv" style="${x.cover_path ? `background-image:url('${esc(media(x.cover_path))}')` : `background:${esc(color(x))}`}"></span>`;
+    const html = grp('Obras', R.works.map(x => `<a href="/serie/${x.slug}">${cv(x)}<span><b>${esc(x.title)}</b><small>${esc([x.author, x.teams?.name].filter(Boolean).join(' · '))}</small></span></a>`))
+      + grp('Autores', R.authors.map(([a, c]) => `<a href="/catalogo?q=${encodeURIComponent(a)}"><span class="sr-ic">著</span><span><b>${esc(a)}</b><small>${c} ${c === 1 ? 'obra' : 'obras'}</small></span></a>`))
+      + grp('Equipos', R.teams.map(t => `<a href="/equipo/${esc(t.slug)}"><span class="sr-ic">訳</span><span><b>${esc(t.name)}</b><small>Equipo traductor</small></span></a>`))
+      + grp('Géneros y etiquetas', R.tags.map(t => `<a href="/catalogo?${t.t === 'g' ? 'g=' + encodeURIComponent(t.v) : 'q=' + encodeURIComponent(t.v)}"><span class="sr-ic">${t.t === 'g' ? '類' : '#'}</span><span><b>${esc(t.v)}</b><small>${t.t === 'g' ? 'Género' : 'Etiqueta'} · ${t.c} ${t.c === 1 ? 'obra' : 'obras'}</small></span></a>`))
+      + grp('Capítulos', R.chapters.map(c => `<a href="/leer/${c.s.slug}/${c.num}"><span class="sr-ic">章</span><span><b>${esc(c.title || 'Capítulo ' + c.num)}</b><small>${esc(c.s.title)} · Cap. ${c.num}</small></span></a>`));
+    return html || `<p class="sr-none">Nada coincide con «${esc(q)}».</p>`;
+  }
+  async function search(){
+    srCss(); const q0 = new URLSearchParams(location.search).get('q') || '';
+    app.innerHTML = `<div class="ui-cath"><div><h1>Buscar</h1><p>Obras, autores, equipos, géneros, etiquetas y capítulos.</p></div><span class="kj" aria-hidden="true">検索</span></div>
+      <input id="sr-q" class="sr-big" type="search" placeholder="Escribe al menos 2 letras…" value="${esc(q0)}" aria-label="Buscar" autocomplete="off"><div id="sr-res" class="sr-page"></div>`;
+    const inp = $('#sr-q'), box = $('#sr-res'); let t, n = 0;
+    const run = async () => { const v = inp.value.trim(); history.replaceState({}, '', '/buscar' + (v ? '?q=' + encodeURIComponent(v) : '')); if (v.length < 2) { box.innerHTML = ''; return; } const my = ++n; box.innerHTML = '<p class="mono">Buscando…</p>'; const h = await searchHTML(v, 12); if (my === n && document.body.contains(box)) box.innerHTML = h; };
+    inp.oninput = () => { clearTimeout(t); t = setTimeout(run, 200); }; if (!matchMedia('(hover:none)').matches || !q0) inp.focus(); run();
   }
   const KN = n => { const d = '〇一二三四五六七八九'; if (n < 10) return d[n]; if (n < 20) return '十' + (n % 10 ? d[n % 10] : ''); if (n < 100) return d[Math.floor(n / 10)] + '十' + (n % 10 ? d[n % 10] : ''); return String(n); };
   const SPINES = ['#f2c230', '#efe6d2', '#d9822b', '#e0a526', '#b5a27a'];
@@ -219,18 +286,20 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 .ob-cc.all .cv{display:flex;align-items:center;justify-content:center;border-style:dashed;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--gold)}
 .ob-arr{display:flex;gap:8px;margin-left:auto}.ob-arr button{width:44px;height:44px;background:#16140f;border:1px solid var(--line);color:var(--paper);font-size:20px;cursor:pointer}.ob-arr button:hover{border-color:var(--gold);color:var(--gold)}.ob-arr button:disabled{opacity:.35;cursor:default}
 .ob-st .r2{display:flex;align-items:center;gap:16px;margin-left:auto}
+.ob-tms{display:grid;gap:34px}.ob-tmh{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;margin:0 0 14px}.ob-tmh a{display:flex;align-items:center;gap:10px;color:var(--paper);text-decoration:none}.ob-tmh a::before{content:'';width:12px;height:12px;background:var(--tc)}.ob-tmh a b{font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:20px}.ob-tmh a:hover b{color:var(--gold)}.ob-tmh .mono{font-size:12px;color:var(--mute)}
 @media(max-width:560px){.ob-arr{display:none}.ob-fest em{margin-left:0}}
 `;
   async function home(){
     app.innerHTML = '<p class="mono">Cargando la biblioteca…</p>';
     rkCss(); if (!document.getElementById('ob2-css')) { const st = document.createElement('style'); st.id = 'ob2-css'; st.textContent = HOME_CSS; document.head.appendChild(st); }
     const u = getUser(), now = new Date();
-    const [{ data: series }, { data: latest }, prog, { data: rkW }, { data: rkH }, { data: top10 }, { data: nextRel }, pr, festKey, AN] = await Promise.all([
+    const [{ data: series }, { data: latest }, prog, { data: rkW }, { data: rkH }, { data: rkAll }, { data: top10 }, { data: nextRel }, pr, festKey, AN] = await Promise.all([
       sb.from('series').select(SERIES).order('views', { ascending: false }),
       sb.from('chapters').select('num,title,publish_at,series_id').eq('status', 'published').is('deleted_at', null).order('publish_at', { ascending: false }).limit(80),
       progressMap(),
       sb.rpc('ranking_list', { p_list: 'leidas', p_period: 'semana', p_limit: 6 }),
       sb.rpc('ranking_list', { p_list: 'leidas', p_period: 'historico', p_limit: 6 }),
+      sb.rpc('ranking_list', { p_list: 'leidas', p_period: 'semana', p_limit: 100 }),
       sb.from('rankings').select('series_id,pos,list').eq('period', 'semana').lte('pos', 10),
       sb.from('schedule').select('label,at,kind,series_id,series(title,slug,cover_path)').gte('at', now.toISOString()).order('at').limit(12),
       u ? sb.from('profiles').select('adult_ok').eq('id', u.id).maybeSingle() : { data: null },
@@ -251,6 +320,10 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const until = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
     const fs = festKey && AN?.SEASONS?.[festKey]; const fest = fs && fs.g !== 'est' ? fs : null;
     const shelf = list.slice(0, 24);
+    const tmap = new Map(); (rkAll || []).forEach(r => { const x = byId[r.series_id], t = x?.teams; if (!t?.slug) return; let g = tmap.get(t.slug); if (!g) tmap.set(t.slug, g = { t, sum: 0, rows: [] }); g.sum += +r.score || 0; g.rows.push({ s: x, n: +r.score || 0 }); });
+    const teamsTop = [...tmap.values()].sort((a, b) => b.sum - a.sum).slice(0, 6);
+    const tcar = (g, i) => `<div class="ob-tm"><div class="ob-tmh"><a href="/equipo/${esc(g.t.slug)}" style="--tc:${esc(g.t.color || '#f2c230')}"><b>${esc(g.t.name)}</b></a><span class="mono">${Math.round(g.sum).toLocaleString('es-MX')} lectores esta semana</span><span class="ob-arr"><button type="button" data-tcar="${i}" data-d="-1" aria-label="Anteriores">‹</button><button type="button" data-tcar="${i}" data-d="1" aria-label="Siguientes">›</button></span></div>
+      <div class="ob-car" id="ob-tcar-${i}">${g.rows.slice(0, 15).map((r, j) => `<a class="ob-cc" href="/serie/${r.s.slug}">${cover(r.s)}<b>${j + 1}. ${esc(r.s.title)}</b><small>${Math.round(r.n).toLocaleString('es-MX')} lectores</small></a>`).join('')}</div></div>`;
     const cover = s => s.cover_path ? `<span class="cv" style="background-image:url('${esc(media(s.cover_path))}')">${top[s.id] ? `<i>TOP ${top[s.id]}</i>` : ''}</span>` : `<span class="cv no" style="--c:${esc(color(s))}">${top[s.id] ? `<i>TOP ${top[s.id]}</i>` : ''}${esc(s.short || s.title)}</span>`;
     app.innerHTML = `<div class="ob-page">
       <div class="ob-mast"><b>翻訳図書館</b><span>Biblioteca de novelas ligeras · Español latino</span></div>
@@ -265,11 +338,13 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         <div class="ob-next ob-anim">${nx.map(e => `<a class="ob-nx" href="/serie/${esc(e.series.slug)}"><span class="w">${until(e.at)} · ${new Date(e.at).toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span><b>${esc(e.series.title)}</b><small>${e.kind === 'volume' ? 'Volumen completo · ' : ''}${esc(e.label || '')}</small></a>`).join('')}</div></section>` : ''}
       ${rk.length ? `<section class="ob-sec"><div class="ob-st"><span class="k">人気</span><h2>Más leídas</h2><span class="r2"><span class="mono" style="font-size:12px">${rkUse.lbl}</span><a class="r" href="/ranking?lista=leidas&periodo=${rkUse.per}">Ver ranking →</a></span></div>
         <div class="ob-rank ob-anim">${rk.map((r, i) => { const s = byId[r.series_id]; return `<a class="ob-ritem" href="/serie/${s.slug}"><span class="n">${i + 1}</span><span class="c" style="background-image:${s.cover_path ? `url('${esc(media(s.cover_path))}')` : 'none'}"></span><b>${esc(s.title)}</b><small>${Math.round(+r.score || 0).toLocaleString('es-MX')} ${rkUse.per === 'semana' ? 'lectores' : 'vistas'} · ${s.chapters?.[0]?.count || 0} cap.</small></a>`; }).join('')}</div></section>` : ''}
+      ${teamsTop.length ? `<section class="ob-sec"><div class="ob-st"><span class="k">訳者</span><h2>Lo más visto de cada equipo</h2><span class="r2"><span class="mono" style="font-size:12px">esta semana</span></span></div><div class="ob-tms">${teamsTop.map(tcar).join('')}</div></section>` : ''}
       ${shelf.length ? `<section class="ob-sec"><div class="ob-st"><span class="k">書架</span><h2>Series</h2><span class="r2"><a class="r" href="/catalogo">Ver todas →</a><span class="ob-arr"><button type="button" data-car="-1" aria-label="Anteriores">‹</button><button type="button" data-car="1" aria-label="Siguientes">›</button></span></span></div>
         <div class="ob-carw"><div class="ob-car" id="ob-car">${shelf.map(s => `<a class="ob-cc" href="/serie/${s.slug}">${cover(s)}<b>${esc(s.title)}</b><small>${s.chapters?.[0]?.count || 0} cap. · ${(TL[s.translation_status] || TL.active)[0]}</small></a>`).join('')}${list.length > shelf.length ? `<a class="ob-cc all" href="/catalogo"><span class="cv">Ver las ${list.length} →</span></a>` : ''}</div></div></section>` : ''}</div>`;
     const car = $('#ob-car');
     if (car) { const btns = app.querySelectorAll('[data-car]'), upd = () => { btns[0].disabled = car.scrollLeft < 4; btns[1].disabled = car.scrollLeft + car.clientWidth >= car.scrollWidth - 4; };
       btns.forEach(bt => bt.onclick = () => car.scrollBy({ left: +bt.dataset.car * car.clientWidth * .85, behavior: 'smooth' })); car.addEventListener('scroll', upd, { passive: true }); upd(); }
+    app.querySelectorAll('[data-tcar]').forEach(bt => bt.onclick = () => { const c = $('#ob-tcar-' + bt.dataset.tcar); c?.scrollBy({ left: +bt.dataset.d * c.clientWidth * .85, behavior: 'smooth' }); });
     if (feat.length) heroSlide(feat, 0, prog, lastCh, top);
   }
   function heroSlide(feat, i, prog, lastCh, top = {}){
@@ -303,6 +378,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       sb.from('chapters').select('num,publish_at,series_id').eq('status', 'published').is('deleted_at', null).order('publish_at', { ascending: false }).limit(500),
       progressMap(),
       u ? sb.from('follows').select('series_id').eq('user_id', u.id) : { data: [] }]);
+    const [{ data: rkw }, { data: rkh }] = await Promise.all([sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'semana'), sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'historico')]);
+    const rkRows = (rkw || []).length ? rkw : (rkh || []), RK = Object.fromEntries(rkRows.map(r => [r.series_id, r.pos])), rkLbl = (rkw || []).length ? 'de la semana' : 'histórico';
     const all = (data || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status));
     const last = {}; (latest || []).forEach(c => { last[c.series_id] ||= c; });
     const fol = new Set((folR.data || []).map(r => r.series_id)), nCh = s => s.chapters?.[0]?.count || 0;
@@ -311,7 +388,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       if (p) return ['Leyendo · cap. ' + p.chapter_num, 'reading'];
       if (fol.has(s.id)) return ['Siguiendo', 'follow'];
       return null; };
-    const SORT = { popular: ['Más leídas', (a, b) => (b.views || 0) - (a.views || 0)], recent: ['Actualizadas', (a, b) => new Date(last[b.id]?.publish_at || 0) - new Date(last[a.id]?.publish_at || 0)], az: ['Título A–Z', (a, b) => a.title.localeCompare(b.title, 'es')], chapters: ['Más capítulos', (a, b) => nCh(b) - nCh(a)] };
+    const SORT = { popular: ['Más leídas', (a, b) => (b.views || 0) - (a.views || 0)], ranking: ['Ranking ' + rkLbl, (a, b) => (RK[a.id] ?? 1e9) - (RK[b.id] ?? 1e9) || (b.views || 0) - (a.views || 0)], recent: ['Actualizadas', (a, b) => new Date(last[b.id]?.publish_at || 0) - new Date(last[a.id]?.publish_at || 0)], az: ['Título A–Z', (a, b) => a.title.localeCompare(b.title, 'es')], chapters: ['Más capítulos', (a, b) => nCh(b) - nCh(a)] };
     const genres = [...new Set(all.flatMap(s => s.genres || []))].sort((a, b) => a.localeCompare(b, 'es'));
     const types = [...new Set(all.map(s => s.work_type || 'Novela ligera'))].sort();
     const origs = Object.keys(OR).filter(k => all.some(s => s.original_status === k));
@@ -331,7 +408,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
           </div>
           <div class="ui-fcol"><span class="ui-lbl">Géneros · un toque incluye, dos excluyen</span><div class="ui-chips">${genres.map(g => `<button class="ui-chip" data-g="${esc(g)}" title="Toca para incluir · otra vez para excluir · otra más para quitar">${esc(g)}</button>`).join('') || '<span class="mono">Sin géneros</span>'}</div></div>
         </div></details>
-        <div class="ui-fend"><label class="ui-tog"><input type="checkbox" id="cat-adult" ${F.adult ? '' : 'checked'}> Ocultar series +18</label>
+        <div class="ui-fend"><span style="display:flex;gap:8px 18px;flex-wrap:wrap"><label class="ui-tog"><input type="checkbox" id="cat-adult" ${F.adult ? '' : 'checked'}> Ocultar series +18</label><label class="ui-tog"><input type="checkbox" id="cat-top" ${F.top ? 'checked' : ''}> Solo Top 10 ${rkLbl}</label></span>
           <div class="r"><span class="ui-chips" role="group" aria-label="Vista"><button class="ui-chip" data-view="fichero">Fichero</button><button class="ui-chip" data-view="portadas">Portadas</button></span><span class="cnt" id="cat-count"></span><button class="ui-lnk" id="cat-clear" hidden>Limpiar filtros</button></div></div>
       </div>
       <div id="cat-grid"></div>
@@ -340,7 +417,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       return (!q || norm([s.title, s.short, s.original, s.author, ...(Array.isArray(s.tags) ? s.tags : [])].join(' ')).includes(q))
         && f.gin.every(x => g.includes(x)) && !f.gout.some(x => g.includes(x))
         && (!f.tl || s.translation_status === f.tl) && (!f.orig || s.original_status === f.orig)
-        && (!f.type || (s.work_type || 'Novela ligera') === f.type) && (!f.len || LEN[f.len]?.[1](nCh(s))) && (f.adult || !s.adult); }; };
+        && (!f.type || (s.work_type || 'Novela ligera') === f.type) && (!f.len || LEN[f.len]?.[1](nCh(s))) && (f.adult || !s.adult) && (!f.top || (RK[s.id] || 99) <= 10); }; };
     const actives = () => [
       ...(F.q.trim() ? [['la búsqueda «' + F.q.trim() + '»', f => { f.q = ''; }]] : []),
       ...F.gin.map(g => ['solo ' + g, f => { f.gin = f.gin.filter(x => x !== g); }]),
@@ -349,7 +426,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       ...(F.orig ? [['original ' + (OR[F.orig] || F.orig).toLowerCase(), f => { f.orig = ''; }]] : []),
       ...(F.type ? [[F.type, f => { f.type = ''; }]] : []),
       ...(F.len ? [[LEN[F.len]?.[0] || F.len, f => { f.len = ''; }]] : []),
-      ...(!F.adult ? [['ocultar +18', f => { f.adult = true; }]] : [])];
+      ...(!F.adult ? [['ocultar +18', f => { f.adult = true; }]] : []),
+      ...(F.top ? [['solo Top 10', f => { f.top = false; }]] : [])];
     const clone = () => ({ ...F, gin: [...F.gin], gout: [...F.gout] });
     const draw = () => {
       const list = all.filter(pass(F)).sort((SORT[F.sort] || SORT.popular)[1]), act = actives();
@@ -410,7 +488,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     addEventListener('keydown', onKey);
     let qt; $('#cat-q').oninput = e => { F.q = e.target.value; clearTimeout(qt); qt = setTimeout(draw, 150); };
     $('#cat-adult').onchange = e => { F.adult = !e.target.checked; draw(); };
-    $('#cat-clear').onclick = () => { Object.assign(F, { q: '', gin: [], gout: [], adult: true }); FK.forEach(([k]) => F[k] = ''); $('#cat-q').value = ''; $('#cat-adult').checked = false; draw(); };
+    $('#cat-top').onchange = e => { F.top = e.target.checked; if (F.top && F.sort === 'popular') F.sort = 'ranking'; draw(); };
+    $('#cat-clear').onclick = () => { Object.assign(F, { q: '', gin: [], gout: [], adult: true, top: false }); $('#cat-top').checked = false; FK.forEach(([k]) => F[k] = ''); $('#cat-q').value = ''; $('#cat-adult').checked = false; draw(); };
     document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { F[b.dataset.f] = b.dataset.v; draw(); });
     document.querySelectorAll('[data-sort]').forEach(b => b.onclick = () => { F.sort = b.dataset.sort; draw(); });
     document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { const g = b.dataset.g;
@@ -538,7 +617,12 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const buyOf = v => (buys || []).filter(b => b.volume_id === v.id || (!b.volume_id && b.vol === v.num));
     const dlOf = v => (dls || []).filter(d => d.volume_id === v.id || (!d.volume_id && d.vol === v.num));
     const read = new Set((readR.data || []).map(r => r.chapter_id)), p = prog[s.id], following = !!(folR.data || []).length;
-    const first = (chs || [])[0];
+    const first = (chs || [])[0], allCh = chs || [], nRead = allCh.filter(c => read.has(c.id)).length;
+    const pIdx = p ? allCh.findIndex(c => c.num === p.chapter_num) : -1;
+    const nextUnread = allCh.slice(Math.max(0, pIdx)).find(c => !read.has(c.id) && c.num !== p?.chapter_num) || allCh.find(c => !read.has(c.id));
+    const isNew = c => c.publish_at && Date.now() - new Date(c.publish_at) < 7 * 864e5 && !read.has(c.id);
+    const hideRead = localStorage.getItem('obi-hide-read') === '1';
+    fxCss();
     app.innerHTML = `<div class="ui-wrap">
       <section class="ui-sh" style="--c:${esc(color(s))};--bg:${s.cover_path ? `url('${esc(media(s.cover_path))}')` : 'none'}">
         ${book(s)}
@@ -554,23 +638,24 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
             ${s.sequel_status ? `<div><span class="ui-lbl">Secuela</span><b>${SQ[s.sequel_status]}</b></div>` : ''}
             <div><span class="ui-lbl">Contenido</span><b>${(vols || []).length} vol. · ${(chs || []).length} cap.</b></div>
           </div>
-          <div class="acts" style="display:flex;gap:10px;flex-wrap:wrap">${first ? `<a class="btn" href="/leer/${s.slug}/${p?.chapter_num || first.num}">${p ? 'Continuar · Cap. ' + p.chapter_num : 'Empezar a leer'}</a>` : ''}<button class="btn ghost" id="follow">${following ? '✓ Siguiendo' : 'Seguir serie'}</button><a class="btn ghost" href="/anotaciones/${esc(s.slug)}">Mis anotaciones</a></div>
+          <div class="acts" style="display:flex;gap:10px;flex-wrap:wrap">${first ? `<a class="btn" href="/leer/${s.slug}/${p?.chapter_num || first.num}">${p ? 'Seguir donde ibas · Cap. ' + p.chapter_num + (p.pct > .02 && p.pct < .95 ? ' · ' + Math.round(p.pct * 100) + '%' : '') : 'Empezar a leer'}</a>` : ''}${p && nextUnread && nextUnread.num !== p.chapter_num ? `<a class="btn ghost" href="/leer/${s.slug}/${nextUnread.num}">Siguiente sin leer · Cap. ${nextUnread.num}</a>` : ''}<button class="btn ghost" id="follow">${following ? '✓ Siguiendo' : 'Seguir serie'}</button><a class="btn ghost" href="/anotaciones/${esc(s.slug)}">Mis anotaciones</a></div>
         </div>
       </section>
       ${s.synopsis ? `<section><div class="ui-h2"><h2>Sinopsis</h2></div><p class="ui-syn">${esc(s.synopsis)}</p></section>` : ''}
-      <section><div class="ui-h2"><h2>Volúmenes</h2><span class="mono">${read.size ? [...read].filter(id => (chs || []).some(c => c.id === id)).length + ' leídos' : ''}</span></div><div class="ui-vols">
+      <section><div class="ui-h2"><h2>Volúmenes</h2>${u && allCh.length ? `<span class="fx-prog"><span class="mono">${nRead} de ${allCh.length} leídos</span><span class="fx-bar"><i style="width:${Math.round(nRead / allCh.length * 100)}%"></i></span>${nRead ? `<label class="ui-tog"><input type="checkbox" id="fx-hide" ${hideRead ? 'checked' : ''}> Ocultar leídos</label>` : ''}</span>` : ''}</div><div class="ui-vols${hideRead && nRead ? ' fx-hide' : ''}" id="fx-vols">
         ${(vols || []).map(v => { const list = (chs || []).filter(c => c.volume_id === v.id || (!c.volume_id && c.vol === v.num)); return `<article class="ui-vol"><span class="th" style="background-image:${v.cover_path ? `url('${esc(media(v.cover_path))}')` : s.cover_path ? `url('${esc(media(s.cover_path))}')` : 'none'}"></span><div><span class="ui-lbl">Volumen ${v.num} · ${list.length} capítulos</span><h3>${esc(v.title && v.title !== String(v.num) && v.title.length > 2 ? v.title : 'Volumen ' + v.num)}</h3>${v.synopsis ? `<p class="mono" style="margin:6px 0 0;font-size:13px;line-height:1.5">${esc(v.synopsis)}</p>` : ''}
-          <ul class="ui-chl">${list.map(c => `<li><a href="/leer/${s.slug}/${c.num}" class="${read.has(c.id) ? 'read' : ''}"><span class="n">${c.num}</span><span>${esc(c.title)}</span></a></li>`).join('')}</ul>${buyOf(v).length ? `<div class="ui-dl ui-buy"><span class="ui-lbl">Compra la edición oficial</span>${buyOf(v).map(b => `<button class="ui-dlb buy" data-buy="${b.id}">${esc(b.store)}<small>${esc([b.fmt, b.region].filter(Boolean).join(' · '))}</small></button>`).join('')}</div>` : ''}${dlOf(v).length ? `<div class="ui-dl"><span class="ui-lbl">Descargar</span>${dlOf(v).map(d => d.locked ? `<a class="ui-dlb lock" href="/apoyar" title="Solo para donadores">援 ${esc(d.fmt)}<small>${esc(d.label || d.provider || '')} · donadores</small></a>` : `<button class="ui-dlb" data-dl="${d.id}">↓ ${esc(d.fmt)}<small>${esc(d.label || d.provider || '')}</small></button>`).join('')}</div>` : ''}</div></article>`; }).join('') || '<p class="mono">Aún no hay volúmenes publicados.</p>'}
+          <ul class="ui-chl">${list.map(c => `<li class="${read.has(c.id) ? 'is-read' : ''}"><a href="/leer/${s.slug}/${c.num}" class="${read.has(c.id) ? 'read' : ''}${p?.chapter_num === c.num ? ' here' : ''}"><span class="n">${c.num}</span><span>${esc(c.title)}</span>${p?.chapter_num === c.num ? '<em class="fx-tag here">Aquí vas</em>' : isNew(c) ? '<em class="fx-tag">Nuevo</em>' : ''}</a></li>`).join('')}</ul>${buyOf(v).length ? `<div class="ui-dl ui-buy"><span class="ui-lbl">Compra la edición oficial</span>${buyOf(v).map(b => `<button class="ui-dlb buy" data-buy="${b.id}">${esc(b.store)}<small>${esc([b.fmt, b.region].filter(Boolean).join(' · '))}</small></button>`).join('')}</div>` : ''}${dlOf(v).length ? `<div class="ui-dl"><span class="ui-lbl">Descargar</span>${dlOf(v).map(d => d.locked ? `<a class="ui-dlb lock" href="/apoyar" title="Solo para donadores">援 ${esc(d.fmt)}<small>${esc(d.label || d.provider || '')} · donadores</small></a>` : `<button class="ui-dlb" data-dl="${d.id}">↓ ${esc(d.fmt)}<small>${esc(d.label || d.provider || '')}</small></button>`).join('')}</div>` : ''}</div></article>`; }).join('') || '<p class="mono">Aún no hay volúmenes publicados.</p>'}
       </div></section></div>`;
     app.querySelectorAll('[data-buy]').forEach(b => b.onclick = async () => { const w = window.open('about:blank', '_blank'); const { data } = await sb.rpc('purchase_open', { p_id: +b.dataset.buy }); if (data && w) { w.opener = null; w.location = data; } else w?.close(); });
     app.querySelectorAll('[data-dl]').forEach(b => b.onclick = async () => { b.disabled = true; const w = window.open('about:blank', '_blank'); const { data, error } = await sb.rpc('download_open', { p_id: +b.dataset.dl }); b.disabled = false; if (error || !data) { w?.close(); return toast(error?.hint || error?.message || 'Enlace no disponible'); } if (w) { w.opener = null; w.location = data; } else location.href = data; });
     rkCss(); seriesRank(s);
+    $('#fx-hide')?.addEventListener('change', e => { localStorage.setItem('obi-hide-read', e.target.checked ? '1' : '0'); $('#fx-vols').classList.toggle('fx-hide', e.target.checked); });
     $('#follow').onclick = async e => {
       if (!getUser()) return go('/entrar');
       const b = e.currentTarget; b.disabled = true;
       const r = following ? await sb.from('follows').delete().eq('user_id', getUser().id).eq('series_id', s.id) : await sb.from('follows').upsert({ series_id: s.id, user_id: getUser().id });
       b.disabled = false; if (r.error) return toast(r.error.message);
-      toast(following ? 'Ya no sigues esta serie' : 'Siguiendo · te avisaremos de cada volumen'); series(slug);
+      toast(following ? 'Ya no sigues esta serie' : 'Siguiendo · te avisaremos de cada capítulo nuevo'); series(slug);
     };
   }
   // ---------- Ranking ----------
@@ -674,5 +759,5 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       const { error } = following ? await sb.from('team_follows').delete().eq('team_id', D.t.id).eq('user_id', u2.id) : await sb.from('team_follows').insert({ team_id: D.t.id, user_id: u2.id });
       b.disabled = false; if (error) return toast(error.message); following = !following; n += following ? 1 : -1; TP.fillFollow(root, following, n); toast(following ? 'Ahora sigues a ' + D.t.name : 'Dejaste de seguir a ' + D.t.name); });
   }
-  return { home, catalog, series, releases, refreshBadge, team, ranking };
+  return { home, catalog, series, releases, refreshBadge, team, ranking, search };
 }

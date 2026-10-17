@@ -1,7 +1,7 @@
 // Lector de El Obi del Lector: por capítulo o continuo, fuentes EPUB, progreso exacto, leídos, historial, sin conexión y anotaciones.
 const OFF_CACHE = 'obi-offline-v1', OFF_INDEX = 'obi-offline-index', PREF_KEY = 'obi-reader-prefs';
 import { cleanInline, renderBlock, warningsHTML, teaserHTML } from './blocks.js';
-const DEF = { theme: 'oscuro', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', illus: true, continuous: 'off', cw: 'show' };
+const DEF = { theme: 'oscuro', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', illus: true, continuous: 'off', cw: 'show', autonext: true };
 const COLORS = { gold: '#f2c230', rose: '#f29bb0', sky: '#8cc3f2', mint: '#9fdcb0' };
 const SEC_LABEL = { 'Capítulo': 'Cap.', 'Prólogo': 'Prólogo', 'Interludio': 'Interludio', 'Epílogo': 'Epílogo', 'Afterword': 'Epílogo del autor', 'Extra': 'Extra' };
 
@@ -165,13 +165,32 @@ export function createReader(ctx){
     logHistory(ch); prefetchNext(ch);
     observe();
   }
+  let autoIo, autoT, autoStop = null;
+  const untilTxt = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
   function footer(){
     const ch = S.active, pv = prevOf(ch), nx = nextOf(ch), p = effective(ch.volume_id);
     const cont = p.continuous !== 'off' && nx && (p.continuous === 'all' || nx.vol === ch.vol);
+    const auto = !cont && nx && p.autonext !== false && autoStop !== ch.id;
+    const nextInfo = S.nextAt ? `<p class="rd-nexts"><span class="mono">Próximo capítulo</span><b>${new Date(S.nextAt).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</b><small>${untilTxt(S.nextAt)} · te avisaremos si sigues la serie</small></p>` : '';
+    clearInterval(autoT); autoIo?.disconnect();
     $('.rd-foot').innerHTML = cont ? '<p class="mono" style="text-align:center">Sigue bajando para continuar…</p>'
       : `<div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap">${pv ? `<a class="btn ghost" href="/leer/${S.series.slug}/${pv.num}">‹ ${esc(pv.title)}</a>` : '<span></span>'}${nx ? `<a class="btn" href="/leer/${S.series.slug}/${nx.num}">${nx.vol !== ch.vol ? 'Volumen ' + nx.vol + ' · ' : ''}${esc(nx.title)} ›</a>` : '<span class="mono">Has llegado al último capítulo publicado.</span>'}</div>
+         ${auto ? '<p class="rd-auto" id="rd-auto" hidden><span>Siguiente capítulo en <b id="rd-auto-n">5</b> s</span><button class="btn ghost" data-act="auto-cancel">Cancelar</button></p>' : ''}
+         ${!nx ? nextInfo + `<p style="text-align:center"><a class="btn ghost" href="/serie/${S.series.slug}">Ver la ficha de la serie</a></p>` : ''}
          <p style="text-align:center"><button class="btn ghost" data-act="report">Reportar errata</button></p>`;
     $('[data-act="report"]')?.addEventListener('click', report);
+    if (!document.getElementById('rd-auto-css')) { const st = document.createElement('style'); st.id = 'rd-auto-css'; st.textContent = '.rd-auto{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin:18px 0;padding:12px 16px;border:1px solid var(--gold,#f2c230)}.rd-auto b{color:var(--gold,#f2c230);font-size:1.2em}.rd-nexts{display:grid;justify-items:center;gap:4px;margin:26px auto;padding:18px;max-width:440px;border:1px solid currentColor;text-align:center}.rd-nexts b{font-size:1.1em;text-transform:capitalize}.rd-nexts small{opacity:.75}'; document.head.appendChild(st); }
+    if (!auto) return;
+    const box = $('#rd-auto'), foot = $('.rd-foot');
+    const stop = () => { clearInterval(autoT); autoT = null; if (box) box.hidden = true; };
+    box.querySelector('[data-act="auto-cancel"]').onclick = () => { autoStop = ch.id; stop(); autoIo?.disconnect(); box.remove(); };
+    autoIo = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting || scrollY < 200) return stop();
+      if (autoT) return; let n = 5; box.hidden = false; $('#rd-auto-n').textContent = n;
+      autoT = setInterval(() => { if (!document.body.contains(box)) return stop(); n--; const el = $('#rd-auto-n'); if (el) el.textContent = n;
+        if (n <= 0) { stop(); const u = getUser(); if (u && !S.readMarked?.has(ch.id)) { S.readMarked?.add(ch.id); sb.from('read_chapters').upsert({ user_id: u.id, chapter_id: ch.id }); } go(`/leer/${S.series.slug}/${nx.num}`); } }, 1000);
+    }, { threshold: .6 });
+    autoIo.observe(foot);
   }
 
   // ---------- lectura continua + capítulo activo ----------
@@ -255,6 +274,7 @@ export function createReader(ctx){
       ${opt('illus', { label: 'Ilustraciones', o: [['true','Mostrar'],['false','Ocultar']] })}
       ${opt('cw', { label: 'Avisos de contenido', o: [['show','Mostrar plegable'],['icon','Solo icono'],['hide','No mostrar']] })}
       ${opt('continuous', { label: 'Lectura', o: [['off','Por capítulo'],['volume','Continua dentro del volumen'],['all','Continua entre volúmenes']] })}
+      ${p.continuous === 'off' ? opt('autonext', { label: 'Al terminar un capítulo', o: [['true','Pasar solo al siguiente (5 s)'],['false','Quedarme al final']] }) : ''}
       <label class="rd-scope"><input type="checkbox" ${localStorage.getItem('obi-season') === 'off' ? '' : 'checked'} data-season> Mostrar temas de temporada en la plataforma</label>
       <label class="rd-scope"><input type="checkbox" ${scoped ? 'checked' : ''} data-scope> Guardar estos ajustes solo para el Volumen ${ch.vol}</label>` });
     if (!pn) return;
@@ -265,7 +285,7 @@ export function createReader(ctx){
   }
   function setPref(k, v, live){
     const vid = S.active.volume_id, tgt = S.remote.per_volume[vid] || S.remote.global;
-    tgt[k] = v; savePrefs(); applyPrefs(k);
+    tgt[k] = v; savePrefs(); applyPrefs(k); if (k === 'autonext' || k === 'continuous') footer();
     if (!live) { panel().hidden = true; prefsPanel(); }
   }
   async function applyPrefs(k){

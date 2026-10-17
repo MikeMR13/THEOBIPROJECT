@@ -1,8 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
-const { createReader } = await import('/reader.js?v=11');
-const { createUI } = await import('/ui.js?v=27');
+const { createReader } = await import('/reader.js?v=12');
+const { createUI } = await import('/ui.js?v=28');
 export const sb = createClient(url, key, { auth: { persistSession: true } });
 const $ = s => document.querySelector(s), app = $('#app');
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -40,7 +40,7 @@ $('#bell-list').onclick = e => { if (e.target.closest('a')) d.open = false; };
 if ((data || []).some(x => !x.read)) { await sb.rpc('notifications_read_all'); $('#bell-n').hidden = true; } });
 }
 const routes = {
-'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': calendar, '/ranking': () => ui().ranking(), '/lanzamientos': () => ui().releases(), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/solicitud': solicitud,
+'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': calendar, '/ranking': () => ui().ranking(), '/lanzamientos': () => ui().releases(), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/buscar': () => ui().search(), '/solicitud': solicitud,
 '/bibliotecario': async () => (await ad()).render(), '/admin': async () => { history.replaceState({}, '', '/bibliotecario'); (await ad()).render(); },
 };
 export function go(path){ history.pushState({}, '', path); render(); }
@@ -71,6 +71,7 @@ if ((m = p.match(/^\/serie\/([\w-]+)$/))) return ui().series(m[1]);
 if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) return rd().open(m[1], +m[2]);
 if ((m = p.match(/^\/anotaciones\/([\w-]+)$/))) return rd().annotationsPage(m[1]);
 if ((m = p.match(/^\/equipo\/([\w-]+)$/))) return ui().team(m[1]);
+if ((m = p.match(/^\/lector\/([^/]+)$/))) return lector(decodeURIComponent(m[1]));
 if (p.startsWith('/estudio')) {
   if (!user) return go('/entrar');
   if (!me || me.platform_role === 'lector') { app.innerHTML = '<h1>El Estudio es para Publicadores</h1><p>Tu cuenta es de Lector. Para publicar, solicita crear tu grupo traductor; el Bibliotecario revisa cada solicitud.</p><p style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="/solicitud">Solicitar mi grupo traductor</a><a class="btn ghost" href="/">Volver al inicio</a></p>'; return; }
@@ -156,16 +157,63 @@ if (!document.getElementById('cal-css')) { const st = document.createElement('st
 .cal-empty{margin-top:10px}
 @media(max-width:560px){.cal-r,.cal-f>summary{grid-template-columns:44px minmax(0,1fr)}.cal-u{grid-column:2;justify-items:start}.cal-x{padding-left:14px}}`; document.head.appendChild(st); }
 }
+const MED = p => p ? (/^https?:/.test(p) ? p : url + '/storage/v1/object/public/obi-media/' + encodeURI(p)) : '';
+const LB_CSS = `
+.lb-tabs{display:flex;gap:0;overflow-x:auto;border-bottom:1px solid #2f2a20;margin:0 0 24px;scrollbar-width:none}.lb-tabs a{flex:none;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;color:#a89f8a;text-decoration:none;border-bottom:2px solid transparent;font-weight:600}
+.lb-tabs a.on{color:var(--paper);border-color:var(--gold)}.lb-tabs a em{font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:1px 6px;background:#2f2a20;color:var(--paper)}.lb-tabs a.on em{background:var(--gold);color:#0d0c0a}
+.lb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,150px),1fr));gap:26px 18px}
+.lb-c{display:grid;gap:8px;align-content:start;color:var(--paper);text-decoration:none}.lb-c:hover{color:var(--paper)}.lb-c .cv{position:relative;aspect-ratio:2/3;background:#1c1a14 center/cover no-repeat;border:1px solid #2f2a20;transition:transform .25s}.lb-c:hover .cv{transform:translateY(-4px)}
+.lb-c .cv.no{display:flex;align-items:flex-end;padding:10px;font-family:'Shippori Mincho B1',serif;background:linear-gradient(160deg,var(--c),#16140f)}
+.lb-c .cv em{position:absolute;top:8px;right:0;padding:2px 8px;background:var(--gold);color:#0d0c0a;font:700 11px/1.3 'IBM Plex Mono',monospace;font-style:normal}.lb-c .cv em.ok{background:#a9d18e}
+.lb-c .bar{height:3px;background:#2f2a20}.lb-c .bar i{display:block;height:100%;background:var(--gold)}.lb-c b{font-size:14px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.lb-c small{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89f8a}
+.lb-empty{padding:28px;border:1px dashed #3d3628;color:#a89f8a;display:grid;gap:12px;justify-items:start}.lb-h{display:grid;gap:0}.lb-h a{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;padding:10px 0;border-bottom:1px solid #221f18;color:var(--paper);text-decoration:none;font-size:14px}.lb-h a:hover{color:var(--gold)}.lb-h .mono{font-size:12px}
+.st-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:12px;margin:14px 0}.st-k{padding:16px;border:1px solid #2f2a20;background:#16140f;display:grid;gap:4px}.st-k b{font-family:'Shippori Mincho B1',serif;font-size:32px;font-weight:500;color:var(--gold);line-height:1}.st-k span{font-size:13px;color:#a89f8a}
+.st-gen{display:grid;gap:8px;max-width:520px}.st-gen div{display:grid;grid-template-columns:140px minmax(0,1fr) 40px;gap:10px;align-items:center;font-size:14px}.st-gen i{height:8px;background:var(--gold)}.st-gen small{font-family:'IBM Plex Mono',monospace;color:#a89f8a;text-align:right}
+`;
+const lbCss = () => { if (document.getElementById('lb-css')) return; const s = document.createElement('style'); s.id = 'lb-css'; s.textContent = LB_CSS; document.head.appendChild(s); };
 async function library(){
 if (!user) return go('/entrar');
-const [cont, hist] = await Promise.all([rd().continueList(), rd().historyList()]);
-const { count } = await sb.from('read_chapters').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
-app.innerHTML = `<h1>Mi biblioteca</h1>
-<h2>Seguir leyendo</h2>${cont.map(r => `<p><a href="/leer/${r.slug}/${r.num}">${esc(r.title)} · Cap. ${r.num}</a> <span class="mono">${Math.round((r.pct||0)*100)}%</span> · <a href="/anotaciones/${r.slug}">Anotaciones</a></p>`).join('') || '<p class="mono">Abre un capítulo y aquí aparecerá.</p>'}
-<p class="mono">${count || 0} capítulos marcados como leídos</p>
-<h2>Sin conexión</h2><div id="off">${rd().offlineList()}</div>
-<h2>Historial</h2>${hist.map(h => `<p><span class="mono">${new Date(h.opened_at).toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'})}</span> · <a href="/leer/${h.chapters.series.slug}/${h.chapters.num}">${esc(h.chapters.series.title)} · ${esc(h.chapters.title)}</a></p>`).join('') || '<p class="mono">Sin historial todavía.</p>'}`;
-const off = $('#off'); rd().bindOfflineList(off, library);
+lbCss(); app.innerHTML = '<p class="mono">Cargando tu biblioteca…</p>';
+const TABS = [['leyendo', 'Leyendo'], ['pendientes', 'Pendientes'], ['terminadas', 'Terminadas'], ['offline', 'Sin conexión'], ['historial', 'Historial']];
+const tab = TABS.some(t => t[0] === new URLSearchParams(location.search).get('t')) ? new URLSearchParams(location.search).get('t') : 'leyendo';
+const [{ data: prog }, { data: fol }, { data: rc }] = await Promise.all([
+  sb.from('reading_progress').select('series_id,chapter_num,pct,updated_at').eq('user_id', user.id),
+  sb.from('follows').select('series_id').eq('user_id', user.id),
+  sb.from('read_chapters').select('chapter_id').eq('user_id', user.id)]);
+const ids = [...new Set([...(prog || []), ...(fol || [])].map(r => r.series_id))];
+const [{ data: ser }, { data: chs }] = ids.length ? await Promise.all([
+  sb.from('series').select('id,slug,title,short,cover_path,translation_status,theme,teams(color)').in('id', ids),
+  sb.from('chapters').select('id,num,series_id,publish_at').eq('status', 'published').is('deleted_at', null).in('series_id', ids).order('num')]) : [{ data: [] }, { data: [] }];
+const read = new Set((rc || []).map(r => r.chapter_id)), P = Object.fromEntries((prog || []).map(r => [r.series_id, r])), F = new Set((fol || []).map(r => r.series_id));
+const now = Date.now(), by = {}; (chs || []).forEach(c => { if (c.publish_at && new Date(c.publish_at) > now) return; (by[c.series_id] ||= []).push(c); });
+const W = (ser || []).map(s => { const list = by[s.id] || [], nr = list.filter(c => read.has(c.id)).length, nu = list.find(c => !read.has(c.id));
+  return { s, p: P[s.id], tot: list.length, nr, unread: list.length - nr, nextU: nu, done: s.translation_status === 'completed' && list.length > 0 && nr >= list.length, fol: F.has(s.id), lastAt: list.length ? list[list.length - 1].publish_at : null }; });
+const L = {
+  leyendo: W.filter(w => w.p && !w.done).sort((a, b) => new Date(b.p.updated_at) - new Date(a.p.updated_at)),
+  pendientes: W.filter(w => w.fol && w.unread > 0 && !w.done).sort((a, b) => new Date(b.lastAt || 0) - new Date(a.lastAt || 0)),
+  terminadas: W.filter(w => w.done).sort((a, b) => a.s.title.localeCompare(b.s.title, 'es'))};
+const cv = (w, badge) => { const c = w.s.theme?.color || w.s.teams?.color || '#f2c230'; return w.s.cover_path ? `<span class="cv" style="background-image:url('${esc(MED(w.s.cover_path))}')">${badge}</span>` : `<span class="cv no" style="--c:${esc(c)}">${badge}${esc(w.s.short || w.s.title)}</span>`; };
+const card = (w, k) => { const href = k === 'pendientes' && w.nextU ? `/leer/${w.s.slug}/${w.nextU.num}` : k === 'leyendo' ? `/leer/${w.s.slug}/${w.p.chapter_num}` : `/serie/${w.s.slug}`;
+  const badge = k === 'pendientes' ? `<em>${w.unread} sin leer</em>` : k === 'terminadas' ? '<em class="ok">✓ Completa</em>' : '';
+  const sub = k === 'leyendo' ? `Cap. ${w.p.chapter_num}${w.p.pct > .02 && w.p.pct < .95 ? ' · ' + Math.round(w.p.pct * 100) + '%' : ''} · ${w.nr}/${w.tot}` : k === 'pendientes' ? (w.nextU ? 'Sigue en el cap. ' + w.nextU.num : '') : w.tot + ' capítulos';
+  return `<a class="lb-c" href="${href}">${cv(w, badge)}${w.tot ? `<span class="bar"><i style="width:${Math.round(w.nr / w.tot * 100)}%"></i></span>` : ''}<b>${esc(w.s.title)}</b><small>${sub}</small></a>`; };
+const EMPTY = { leyendo: 'Abre cualquier capítulo y aparecerá aquí.', pendientes: 'Sigue una obra desde su ficha: cuando salga un capítulo que no has leído, aparecerá aquí.', terminadas: 'Aquí aparecen las obras completas que leíste de principio a fin.' };
+const n = k => L[k] ? L[k].length : null;
+app.innerHTML = `<div class="ui-cath"><div><h1>Mi biblioteca</h1><p>${read.size} capítulos leídos · ${F.size} obras seguidas</p></div><span class="kj" aria-hidden="true">書庫</span></div>
+<nav class="lb-tabs">${TABS.map(([k, l]) => `<a href="/biblioteca${k === 'leyendo' ? '' : '?t=' + k}" class="${k === tab ? 'on' : ''}">${l}${n(k) ? `<em>${n(k)}</em>` : ''}</a>`).join('')}</nav><div id="lb-body"></div>`;
+const box = $('#lb-body');
+if (L[tab]) box.innerHTML = L[tab].length ? `<div class="lb-grid">${L[tab].map(w => card(w, tab)).join('')}</div>` : `<div class="lb-empty"><span>${EMPTY[tab]}</span><a class="btn ghost" href="/catalogo">Explorar el catálogo</a></div>`;
+else if (tab === 'offline') { box.innerHTML = `<div id="off">${rd().offlineList()}</div>`; rd().bindOfflineList($('#off'), library); }
+else { const hist = await rd().historyList(); box.innerHTML = hist.length ? `<div class="lb-h">${hist.map(h => `<a href="/leer/${h.chapters.series.slug}/${h.chapters.num}"><span class="mono">${new Date(h.opened_at).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}</span><span>${esc(h.chapters.series.title)} · ${esc(h.chapters.title)}</span></a>`).join('')}</div>` : '<div class="lb-empty">Sin historial todavía.</div>'; }
+}
+const statsHTML = st => st ? `<div class="st-grid"><div class="st-k"><b>${(+st.chapters).toLocaleString('es-MX')}</b><span>capítulos leídos</span></div><div class="st-k"><b>${st.month}</b><span>en los últimos 30 días</span></div><div class="st-k"><b>${st.series}</b><span>obras empezadas</span></div><div class="st-k"><b>${st.finished}</b><span>obras terminadas</span></div><div class="st-k"><b>${st.following}</b><span>obras seguidas</span></div></div>
+${(st.genres || []).length ? `<h3 style="margin:22px 0 10px">Géneros favoritos</h3><div class="st-gen">${st.genres.map(g => `<div><span>${esc(g.g)}</span><i style="width:${Math.max(4, Math.round(g.n / st.genres[0].n * 100))}%"></i><small>${g.n}</small></div>`).join('')}</div>` : ''}` : '';
+async function lector(name){
+lbCss(); app.innerHTML = '<p class="mono">Cargando perfil…</p>';
+const { data: r } = await sb.rpc('reader_public', { p_username: name });
+if (!r) { app.innerHTML = '<h1>Lector no encontrado</h1><p><a href="/">Volver al inicio</a></p>'; return; }
+app.innerHTML = `<div class="ui-cath"><div style="display:flex;gap:18px;align-items:center"><span class="ob-av" style="width:72px;height:72px;font-size:28px">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase())}</span><div><h1 style="margin:0">${esc(r.username)}</h1>${r.bio ? `<p>${esc(r.bio)}</p>` : ''}</div></div><span class="kj" aria-hidden="true">読者</span></div>
+${r.public_activity && r.stats ? statsHTML(r.stats) : '<p class="mono">Este lector mantiene privadas sus estadísticas.</p>'}`;
 }
 async function support(){
 const { data } = await sb.from('patreon_tiers').select('*').order('price_usd');
@@ -240,8 +288,14 @@ bindAvatar(welcome);
 }
 async function perfil(){
 if (!user) return go('/entrar');
-app.innerHTML = `<h1>Mi perfil</h1><p class="mono">Rol en la plataforma: ${RL[me?.platform_role || 'lector']}</p>${avatarBox(esc(profile?.username || ''), esc(user.email))}`;
+lbCss();
+const { data: st } = await sb.rpc('reader_stats');
+app.innerHTML = `<h1>Mi perfil</h1><p class="mono">Rol en la plataforma: ${RL[me?.platform_role || 'lector']}</p>${avatarBox(esc(profile?.username || ''), esc(user.email))}
+<h2 style="margin-top:36px">Mis estadísticas</h2>${statsHTML(st) || '<p class="mono">Aún no hay lecturas registradas.</p>'}
+<label class="ui-tog" style="margin-top:16px"><input type="checkbox" id="pf-pub" ${profile?.public_activity ? 'checked' : ''}> Mostrar mis estadísticas en mi perfil público</label>
+${profile?.username ? `<p class="mono" style="font-size:12px">Tu perfil público: <a href="/lector/${encodeURIComponent(profile.username)}">/lector/${esc(profile.username)}</a></p>` : ''}`;
 bindAvatar(perfil);
+$('#pf-pub').onchange = async e => { const v = e.target.checked; const { error } = await sb.from('profiles').update({ public_activity: v }).eq('id', user.id); if (error) { e.target.checked = !v; return toast(error.message); } profile.public_activity = v; toast(v ? 'Tus estadísticas ahora son públicas' : 'Tus estadísticas son privadas'); };
 }
 const LANGS = ['Japonés', 'Inglés', 'Coreano', 'Chino'];
 async function solicitud(){
