@@ -2,10 +2,10 @@
 -- Nuevos campos editables por el propio lector; reader_public devuelve todo lo que la página necesita en una sola llamada.
 
 create or replace function private.valid_links(l jsonb) returns boolean language sql immutable set search_path = '' as $$
-  select jsonb_typeof(l) = 'array' and jsonb_array_length(l) <= 8 and not exists (
+  select jsonb_typeof(l) = 'array' and jsonb_array_length(l) <= 12 and not exists (
     select 1 from jsonb_array_elements(l) e
     where jsonb_typeof(e) <> 'object'
-       or coalesce(e->>'k', '') not in ('discord', 'x', 'instagram', 'tiktok', 'web')
+       or coalesce(e->>'k', '') not in ('discord', 'x', 'instagram', 'tiktok', 'web', 'youtube', 'twitch', 'facebook', 'threads', 'bluesky', 'reddit', 'telegram', 'patreon', 'kofi', 'wattpad', 'goodreads', 'anilist', 'myanimelist', 'pixiv', 'spotify', 'steam', 'github')
        or coalesce(e->>'url', '') !~ '^https://[^\s<>"]{3,200}$'
        or (e ? 'on' and jsonb_typeof(e->'on') <> 'boolean'))
 $$;
