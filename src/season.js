@@ -21,7 +21,8 @@ let CFG = null, loading = null, stops = [];
 const LUNAR = ['seollal', 'chuseok', 'tsukimi', 'dano', 'buda', 'pascua'];
 // Fechas que cambian cada año: las de la base (sincronizadas con Calendarific) reemplazan a las escritas en el código.
 async function mergeDates(sb){ try { const { data } = await sb.from('season_calendar').select('key,day').in('key', LUNAR).not('day', 'is', null); for (const r of data || []) { const s = SEASONS[r.key]; if (s?.d) s.d.years[+r.day.slice(0, 4)] = r.day.slice(5); } } catch {} }
-export function load(sb, force){ if (loading && !force) return loading; loading = Promise.all([sb.from('platform_settings').select('seasons').eq('id', 1).maybeSingle().then(({ data }) => (CFG = data?.seasons || {}), () => (CFG = {})), mergeDates(sb)]).then(() => CFG); return loading; }
+// Si la lectura falla (p. ej. sesión con token vencido al entrar), no se guarda el fallo: se reintenta en la siguiente carga.
+export function load(sb, force){ if (loading && !force) return loading; const p = loading = Promise.all([sb.from('platform_settings').select('seasons').eq('id', 1).maybeSingle().then(({ data, error }) => { if (error || !data) { if (loading === p) loading = null; return CFG || {}; } return (CFG = data.seasons || {}); }, () => { if (loading === p) loading = null; return CFG || {}; }), mergeDates(sb)]).then(([c]) => c); return p; }
 export const config = () => CFG || {};
 export const isOff = () => { try { return localStorage.getItem('obi-season') === 'off'; } catch { return false; } };
 export const setOff = v => { try { v ? localStorage.setItem('obi-season', 'off') : localStorage.removeItem('obi-season'); } catch {} dispatchEvent(new Event('obi-season')); };

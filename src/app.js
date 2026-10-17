@@ -46,7 +46,7 @@ export function go(path){ history.pushState({}, '', path); render(); }
 document.addEventListener('click', e => { const a = e.target.closest('a[href^="/"]'); if (a && !a.target) { e.preventDefault(); go(a.getAttribute('href')); } });
 addEventListener('popstate', render);
 document.addEventListener('click', e => { document.querySelectorAll('.ob-user[open],.ob-bell[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
-let PS = null; const seasons = async () => PS ||= await import('/season.js?v=2');
+let PS = null; const seasons = async () => PS ||= await import('/season.js?v=3');
 addEventListener('obi-season', () => { afterRender(); });
 async function render(){ const S = await seasons(); S.clear(); await S.load(sb); await render0(); afterRender(); }
 async function afterRender(){
@@ -58,7 +58,9 @@ async function afterRender(){
     if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) return S.apply('reader');
     if ((m = p.match(/^\/serie\/([\w-]+)$/))) { const { data } = await sb.from('series').select('teams(design)').eq('slug', m[1]).maybeSingle(); const T = data?.teams?.design?.seasons, { activeSeason } = await import('/anim.js?v=8'); const k = T ? activeSeason(T) : null; if (location.pathname !== p) return; return k ? S.apply('series', { key: k, greet: T.greet?.[k] || '' }) : S.apply('series'); }
     if ((m = p.match(/^\/equipo\/([\w-]+)$/))) { const { data } = await sb.from('teams').select('design').eq('slug', m[1]).maybeSingle(); const { activeSeason } = await import('/anim.js?v=8'); if (location.pathname !== p) return; if (data?.design?.seasons && activeSeason(data.design.seasons)) return S.clear(); return S.apply('team'); }
-    S.clear();
+    // El resto de páginas públicas (Apoyar, Entrar, Registro, Perfil, Biblioteca, Calendario…) también llevan la temporada; el Estudio y el Mostrador no.
+    if (p.startsWith('/estudio') || p.startsWith('/bibliotecario') || p === '/admin') return S.clear();
+    return S.apply('page');
   } catch (e) { console.warn('temporada', e); }
 }
 async function render0(){
@@ -249,7 +251,8 @@ $('#rqcancel')?.addEventListener('click', async () => { if (!confirm('¿Retirar 
 }
 function notFound(){ app.innerHTML = '<h1>Esta página no está en el estante</h1><p><a href="/">Volver al inicio</a></p>'; }
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
-sb.auth.onAuthStateChange(() => loadSession().then(() => ui().refreshBadge()));
+let authEv = null;
+sb.auth.onAuthStateChange(ev => { loadSession().then(() => ui().refreshBadge()); if (['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(ev) && authEv !== null) seasons().then(S => S.load(sb, true)).then(() => afterRender()); authEv = ev; });
 loadSession().then(() => {
 const qs = new URLSearchParams(location.search), hash = new URLSearchParams(location.hash.slice(1));
 if (hash.get('error_description')) { history.replaceState({}, '', '/entrar'); render(); return toast(hash.get('error_description').includes('expired') ? 'El enlace expiró. Inicia sesión para recibir otro.' : hash.get('error_description')); }
