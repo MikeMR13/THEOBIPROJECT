@@ -4,8 +4,26 @@ const ICON = {
   x: ['X', 'M5 5l14 14M19 5L5 19', 'https://x.com/usuario'],
   instagram: ['Instagram', 'M7 4h10a3 3 0 013 3v10a3 3 0 01-3 3H7a3 3 0 01-3-3V7a3 3 0 013-3z M12 9a3 3 0 110 6 3 3 0 010-6z M17 7h.01', 'https://instagram.com/usuario'],
   tiktok: ['TikTok', 'M14 4v10a3.5 3.5 0 11-3.5-3.5 M14 4c.5 2.5 2 4 4.5 4', 'https://tiktok.com/@usuario'],
-  web: ['Sitio web', 'M12 3a9 9 0 110 18 9 9 0 010-18z M3 12h18 M12 3c3 3 3 15 0 18 M12 3c-3 3-3 15 0 18', 'https://…']
+  web: ['Sitio web', 'M12 3a9 9 0 110 18 9 9 0 010-18z M3 12h18 M12 3c3 3 3 15 0 18 M12 3c-3 3-3 15 0 18', 'https://…'],
+  youtube: ['YouTube', 'M4 7.5C4 6 5 5 6.5 5h11C19 5 20 6 20 7.5v9c0 1.5-1 2.5-2.5 2.5h-11C5 19 4 18 4 16.5z M10 9l5 3-5 3z', 'https://youtube.com/@usuario'],
+  twitch: ['Twitch', 'M5 4h14v10l-4 4h-3l-3 3v-3H5z M11 8v4 M15 8v4', 'https://twitch.tv/usuario'],
+  facebook: ['Facebook', 'M15 4h-2a4 4 0 00-4 4v3H7v3h2v7h3v-7h2.5l.5-3h-3V8a1 1 0 011-1h2z', 'https://facebook.com/usuario'],
+  threads: ['Threads', 'M16 11c-.5-3-2.5-4-4.5-4C9 7 7 9 7 12s2 5 5 5c2.5 0 4.5-1.5 4.5-3.5S15 10.5 12.5 10.5 10 12 10 13s1 1.5 2 1.5c2 0 3-2 3-5', 'https://threads.net/@usuario'],
+  bluesky: ['Bluesky', 'M12 11c-1.5-3-5-6-7-6-1 0-1 1.5-1 2.5 0 2 1 4 3.5 4.5C5 12.5 4 14 6 16s4 0 6-4c2 4 4 6 6 4s1-3.5-1.5-4C19 11.5 20 9.5 20 7.5 20 6.5 20 5 19 5c-2 0-5.5 3-7 6z', 'https://bsky.app/profile/usuario'],
+  reddit: ['Reddit', 'M12 9c4 0 7 2 7 5s-3 5-7 5-7-2-7-5 3-5 7-5z M12 9l1-5 4 1 M17.5 5h.01 M9.5 13.5h.01 M14.5 13.5h.01 M9.5 16c1.5 1 3.5 1 5 0', 'https://reddit.com/u/usuario'],
+  telegram: ['Telegram', 'M20 4L3 11l6 2 2 6 3-4 5 4z M9 13l11-9', 'https://t.me/usuario'],
+  patreon: ['Patreon', 'M14.5 4a5.5 5.5 0 110 11 5.5 5.5 0 010-11z M5 4v16', 'https://patreon.com/usuario'],
+  kofi: ['Ko-fi', 'M4 8h12v6a4 4 0 01-4 4H8a4 4 0 01-4-4z M16 9h2a2 2 0 010 4h-2 M10 11l-1.5-1.2a1 1 0 011.5-1.2 1 1 0 011.5 1.2z', 'https://ko-fi.com/usuario'],
+  wattpad: ['Wattpad', 'M4 7l3 10 3-7 2 7 3-10 M17 7l1.5 5L20 7', 'https://wattpad.com/user/usuario'],
+  goodreads: ['Goodreads', 'M15 5v10a4 4 0 01-8 0 M11 5a4 4 0 110 8 4 4 0 010-8z', 'https://goodreads.com/usuario'],
+  anilist: ['AniList', 'M4 19L9 5h3l5 14 M6.5 13h5 M15 5h3v9.5h2', 'https://anilist.co/user/usuario'],
+  myanimelist: ['MyAnimeList', 'M3 16V8l3 4 3-4v8 M12 16l2.5-8L17 16 M13 13h3 M19 8v8h2', 'https://myanimelist.net/profile/usuario'],
+  pixiv: ['Pixiv', 'M7 20V5 M7 6h5a4.5 4.5 0 010 9H7', 'https://pixiv.net/users/…'],
+  spotify: ['Spotify', 'M12 3a9 9 0 110 18 9 9 0 010-18z M7 9.5c3.5-1 7-.7 10 1 M7.5 12.5c3-.8 6-.5 8.5 1 M8 15.5c2.5-.6 4.5-.4 6.5.7', 'https://open.spotify.com/user/…'],
+  steam: ['Steam', 'M12 3a9 9 0 110 18 9 9 0 010-18z M15 7a2.5 2.5 0 110 5 2.5 2.5 0 010-5z M3.5 13l5 2 M8.5 15a2 2 0 103.5-1.5l1.5-2', 'https://steamcommunity.com/id/usuario'],
+  github: ['GitHub', 'M9 19c-4 1.5-4-2-6-2.5 M15 21v-3.5c0-1 .1-1.5-.5-2 2.5-.3 5-1.2 5-5.5a4.2 4.2 0 00-1.2-3 4 4 0 00-.1-3s-1-.3-3.2 1.2a11 11 0 00-6 0C6.8 3.7 5.8 4 5.8 4a4 4 0 00-.1 3 4.2 4.2 0 00-1.2 3c0 4.3 2.5 5.2 5 5.5-.6.5-.6 1.2-.5 2V21', 'https://github.com/usuario']
 };
+const GROUPS = [['Redes', ['discord', 'x', 'instagram', 'tiktok', 'facebook', 'threads', 'bluesky', 'reddit', 'telegram']], ['Video y streaming', ['youtube', 'twitch']], ['Lectura y anime', ['goodreads', 'anilist', 'myanimelist', 'wattpad']], ['Apoyo', ['patreon', 'kofi']], ['Otros', ['pixiv', 'spotify', 'steam', 'github', 'web']]];
 const svg = (k, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICON[k][1]}"/></svg>`;
 const SWATCH = ['#f2c230', '#d9922b', '#f59e7a', '#c9a8f2', '#8cc3f2', '#a9d18e', '#e3dccb'];
 const SECS = [['favs', 'Favoritas', true], ['seals', 'Sellos', true], ['shelves', 'Estanterías', false], ['reviews', 'Reseñas', false]];
@@ -176,7 +194,7 @@ export async function preferences(C){
   let dirty = false; const mark = () => { dirty = true; const s = app.querySelector('#pf-st'); if (s) s.textContent = 'Cambios sin guardar'; };
   const favHTML = () => D.favs.map((s, i) => `<span><span class="lc-cv" style="--c:${esc(s.theme?.color || '#2a2519')};${s.cover_path ? `background-image:url('${esc(MED(s.cover_thumb_path || s.cover_path))}')` : ''}">${esc(s.title)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.title)}</span><button type="button" class="pf-x" data-rf="${i}" aria-label="Quitar ${esc(s.title)}">×</button></span>`).join('') || '<p class="pf-note">Aún no eliges favoritas.</p>';
   const linkRow = (l, i) => `<div class="pf-row ${l.on ? '' : 'off'}"><span class="ic">${svg(l.k, 18)}</span>
-    <select data-lk="${i}" aria-label="Red">${Object.entries(ICON).map(([k, [n]]) => `<option value="${k}" ${k === l.k ? 'selected' : ''}>${n}</option>`).join('')}</select>
+    <select data-lk="${i}" aria-label="Red">${GROUPS.map(([g, ks]) => `<optgroup label="${g}">${ks.map(k => `<option value="${k}" ${k === l.k ? 'selected' : ''}>${ICON[k][0]}</option>`).join('')}</optgroup>`).join('')}</select>
     <input data-lu="${i}" value="${esc(l.url || '')}" placeholder="${ICON[l.k][2]}" inputmode="url" aria-label="Enlace de ${ICON[l.k][0]}">
     <button type="button" class="pf-tg" data-lo="${i}" aria-pressed="${l.on}" aria-label="Mostrar en el perfil"><i></i></button>
     <button type="button" class="pf-x" data-lx="${i}" aria-label="Quitar enlace">×</button></div>`;
@@ -192,7 +210,7 @@ export async function preferences(C){
       <div style="display:grid;gap:10px"><h3>Favoritas <small class="pf-note">(${D.favs.length}/5)</small></h3><div class="pf-favs">${favHTML()}</div>
         ${D.favs.length < 5 ? '<input class="pf-q" id="fq" placeholder="Busca una obra para añadirla…" autocomplete="off" style="max-width:420px"><div class="pf-res" id="fr"></div>' : ''}</div>
       <div style="display:grid;gap:10px"><h3>Enlaces</h3>${D.links.map(linkRow).join('')}
-        ${D.links.length < 8 ? '<button type="button" class="btn ghost sm" id="addl" style="justify-self:start">+ Añadir enlace</button>' : ''}</div>
+        ${D.links.length < 12 ? '<button type="button" class="btn ghost sm" id="addl" style="justify-self:start">+ Añadir enlace</button>' : ''}</div>
       <div style="display:grid;gap:10px"><h3>Secciones visibles</h3><div class="pf-sl">${SECS.map(([k, l]) => `<div><span>${l}</span>${tg('s-' + k, D.sec[k], l)}</div>`).join('')}<div><span>Estadísticas</span>${tg('s-pub', D.pub, 'Estadísticas')}</div></div></div>
       <div class="pf-save"><span class="mono" id="pf-st">${dirty ? 'Cambios sin guardar' : ''}</span><a class="btn ghost" href="/lector/${encodeURIComponent(P.username)}">Ver perfil</a><button class="btn" id="save">Guardar cambios</button></div>`);
     const $ = s => app.querySelector(s), $$ = s => app.querySelectorAll(s);
