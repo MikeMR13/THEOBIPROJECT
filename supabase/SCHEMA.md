@@ -102,3 +102,9 @@ Buckets: obi-epub (privado), avatars, obi-media, obi-app (públicos). Extensione
 ## Reseñas (20261027)
 - `series_reviews(series_id, user_id, body 30–1500, created_at, updated_at)` una por lector y obra; lectura pública, escritura propia (el Bibliotecario puede borrar). Se copiaron las de `reviews` si existían.
 - `series_reviews_list(p_series, p_limit)` → [{mine, username, avatar_url, body, at, created_at, score}]. `home_reviews` ahora lee de `series_reviews`.
+
+## Moderación, avisos y recepción (20261028)
+- `review_reports` (reason spoiler|ofensiva|spam|otra, status open|removed|dismissed). Cola: `admin_review_queue()`; `admin_review_resolve(p_series, p_author, p_action)` (removed borra la reseña y avisa al autor, kind moderacion). Pestaña «Reseñas» del Mostrador.
+- `follows`: política de update propia; `channels.web = false` apaga los avisos de esa obra (Biblioteca › Avisos).
+- `series_feedback(p_series)` → {avg, n, month, dist[5], reviews_n, reviews[5], ranks[]} para integrantes (Estudio › Estadísticas › Recepción).
+- `series_reviews_list` ahora incluye `uid` del autor.
