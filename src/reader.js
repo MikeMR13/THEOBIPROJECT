@@ -167,6 +167,18 @@ export function createReader(ctx){
   }
   let autoIo, autoT, autoStop = null;
   const untilTxt = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
+  async function rateBox(){
+    const el = $('#rd-rate'); if (!el) return;
+    if (!document.getElementById('rd-rate-css')) { const st = document.createElement('style'); st.id = 'rd-rate-css'; st.textContent = '.rd-rate{display:grid;justify-items:center;gap:6px;margin:26px auto 8px;text-align:center}.rd-rate h3{margin:0;font-size:1.05em}.rd-rate .st{display:flex}.rd-rate .st button{width:44px;height:48px;padding:0;background:none;border:0;font-size:30px;line-height:1;color:currentColor;opacity:.25;cursor:pointer}.rd-rate .st button.on{color:#f2c230;opacity:1}.rd-rate .st:hover button{color:#f2c230;opacity:1}.rd-rate .st button:hover~button{color:currentColor;opacity:.25}.rd-rate small{opacity:.75}'; document.head.appendChild(st); }
+    const sid = S.series.id, { data } = await sb.rpc('series_rating', { p_series: sid }); if (!document.body.contains(el)) return;
+    const r = data || {}, mine = r.mine || 0, u = getUser();
+    el.innerHTML = `<h3>${mine ? 'Tu calificación de ' : '¿Qué te pareció '}«${esc(S.series.title)}»${mine ? '' : '?'}</h3><span class="st" role="group" aria-label="Calificar">${[1, 2, 3, 4, 5].map(v => `<button type="button" data-v="${v}" class="${v <= mine ? 'on' : ''}" aria-pressed="${v === mine}" aria-label="${v} estrella${v > 1 ? 's' : ''}">★</button>`).join('')}</span><small>${r.n ? (+r.avg).toFixed(1) + ' de promedio · ' + r.n + (r.n === 1 ? ' voto' : ' votos') : 'Aún nadie la ha calificado'}${u ? (mine ? ' · toca tu estrella otra vez para quitar el voto' : '') : ' · entra para calificar'}</small>`;
+    el.querySelectorAll('[data-v]').forEach(b => b.onclick = async () => {
+      if (!getUser()) return go('/entrar');
+      const v = +b.dataset.v, uid = getUser().id;
+      const { error } = v === mine ? await sb.from('series_ratings').delete().eq('series_id', sid).eq('user_id', uid) : await sb.from('series_ratings').upsert({ series_id: sid, user_id: uid, score: v, updated_at: new Date().toISOString() });
+      if (error) return toast(error.message); toast(v === mine ? 'Quitaste tu voto' : '¡Gracias! Calificaste con ' + v + (v === 1 ? ' estrella' : ' estrellas')); rateBox(); });
+  }
   function footer(){
     const ch = S.active, pv = prevOf(ch), nx = nextOf(ch), p = effective(ch.volume_id);
     const cont = p.continuous !== 'off' && nx && (p.continuous === 'all' || nx.vol === ch.vol);
@@ -176,10 +188,11 @@ export function createReader(ctx){
     $('.rd-foot').innerHTML = cont ? '<p class="mono" style="text-align:center">Sigue bajando para continuar…</p>'
       : `<div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap">${pv ? `<a class="btn ghost" href="/leer/${S.series.slug}/${pv.num}">‹ ${esc(pv.title)}</a>` : '<span></span>'}${nx ? `<a class="btn" href="/leer/${S.series.slug}/${nx.num}">${nx.vol !== ch.vol ? 'Volumen ' + nx.vol + ' · ' : ''}${esc(nx.title)} ›</a>` : '<span class="mono">Has llegado al último capítulo publicado.</span>'}</div>
          ${auto ? '<p class="rd-auto" id="rd-auto" hidden><span>Siguiente capítulo en <b id="rd-auto-n">5</b> s</span><button class="btn ghost" data-act="auto-cancel">Cancelar</button></p>' : ''}
-         ${!nx ? nextInfo + `<p style="text-align:center"><a class="btn ghost" href="/serie/${S.series.slug}">Ver la ficha de la serie</a></p>` : ''}
+         ${!nx ? '<div class="rd-rate" id="rd-rate"></div>' + nextInfo + `<p style="text-align:center"><a class="btn ghost" href="/serie/${S.series.slug}#rv-sec">Escribir una reseña · ver la ficha</a></p>` : ''}
          <p style="text-align:center"><button class="btn ghost" data-act="report">Reportar errata</button></p>`;
     $('[data-act="report"]')?.addEventListener('click', report);
     if (!document.getElementById('rd-auto-css')) { const st = document.createElement('style'); st.id = 'rd-auto-css'; st.textContent = '.rd-auto{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin:18px 0;padding:12px 16px;border:1px solid var(--gold,#f2c230)}.rd-auto b{color:var(--gold,#f2c230);font-size:1.2em}.rd-nexts{display:grid;justify-items:center;gap:4px;margin:26px auto;padding:18px;max-width:440px;border:1px solid currentColor;text-align:center}.rd-nexts b{font-size:1.1em;text-transform:capitalize}.rd-nexts small{opacity:.75}'; document.head.appendChild(st); }
+    if (!nx) rateBox();
     if (!auto) return;
     const box = $('#rd-auto'), foot = $('.rd-foot');
     const stop = () => { clearInterval(autoT); autoT = null; if (box) box.hidden = true; };

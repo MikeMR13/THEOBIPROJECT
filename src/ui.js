@@ -150,6 +150,15 @@ body:not(.no-tab){padding-bottom:calc(64px + env(safe-area-inset-bottom))}body.n
 `;
 const srCss = () => { if (document.getElementById('sr-css')) return; const s = document.createElement('style'); s.id = 'sr-css'; s.textContent = SR_CSS; document.head.appendChild(s); };
 const fxCss = srCss;
+const RV_CSS = `
+.rv-form{display:grid;gap:8px;max-width:760px;margin:0 0 22px}.rv-form textarea{width:100%;padding:12px 14px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font:inherit;font-size:15px;line-height:1.55;resize:vertical}.rv-form textarea:focus{outline:none;border-color:var(--gold)}
+.rv-fr{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.rv-fr .mono,.rv-form small{font-size:12px;color:#a89f8a}
+.rv-list{display:grid;gap:12px;max-width:760px}.rv-it{display:grid;gap:8px;padding:16px;border:1px solid #2f2a20;background:#16140f;max-width:760px}.rv-it.me{border-color:var(--gold);margin:0 0 14px}
+.rv-it header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.rv-it header>span:nth-child(2){display:grid;font-size:14px}.rv-it header a{color:var(--paper);font-weight:600}.rv-it header small{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89f8a}
+.rv-av{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;overflow:hidden;background:#2f2a20;font-weight:700}.rv-av img{width:100%;height:100%;object-fit:cover}
+.rv-st{margin-left:auto;color:var(--gold);letter-spacing:1px}.rv-st i{font-style:normal;color:#3d3628}.rv-it p{margin:0;font-size:15px;line-height:1.6;text-wrap:pretty}.rv-acts{display:flex;gap:14px}.rv-login{font-size:14px}
+`;
+const rvCss = () => { if (document.getElementById('rv-css')) return; const s = document.createElement('style'); s.id = 'rv-css'; s.textContent = RV_CSS; document.head.appendChild(s); };
 const rkCss = () => { if (document.getElementById('rk-css')) return; const s = document.createElement('style'); s.id = 'rk-css'; s.textContent = RK_CSS; document.head.appendChild(s); };
 export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   if (!document.getElementById('ui-css')) { const s = document.createElement('style'); s.id = 'ui-css'; s.textContent = CSS; document.head.appendChild(s); const s2 = document.createElement('style'); s2.textContent = CSS2; document.head.appendChild(s2); }
@@ -701,13 +710,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         </div>
       </section>
       ${s.synopsis ? `<section><div class="ui-h2"><h2>Sinopsis</h2></div><p class="ui-syn">${esc(s.synopsis)}</p></section>` : ''}
+      <section id="rv-sec"><div class="ui-h2"><h2>Reseñas</h2><span class="mono" id="rv-n"></span></div><div id="rv-box"><p class="mono">Cargando reseñas…</p></div></section>
       <section><div class="ui-h2"><h2>Volúmenes</h2>${u && allCh.length ? `<span class="fx-prog"><span class="mono">${nRead} de ${allCh.length} leídos</span><span class="fx-bar"><i style="width:${Math.round(nRead / allCh.length * 100)}%"></i></span>${nRead ? `<label class="ui-tog"><input type="checkbox" id="fx-hide" ${hideRead ? 'checked' : ''}> Ocultar leídos</label>` : ''}</span>` : ''}</div><div class="ui-vols${hideRead && nRead ? ' fx-hide' : ''}" id="fx-vols">
         ${(vols || []).map(v => { const list = (chs || []).filter(c => c.volume_id === v.id || (!c.volume_id && c.vol === v.num)); return `<article class="ui-vol"><span class="th" style="background-image:${v.cover_path ? `url('${esc(media(v.cover_path))}')` : s.cover_path ? `url('${esc(media(s.cover_path))}')` : 'none'}"></span><div><span class="ui-lbl">Volumen ${v.num} · ${list.length} capítulos</span><h3>${esc(v.title && v.title !== String(v.num) && v.title.length > 2 ? v.title : 'Volumen ' + v.num)}</h3>${v.synopsis ? `<p class="mono" style="margin:6px 0 0;font-size:13px;line-height:1.5">${esc(v.synopsis)}</p>` : ''}
           <ul class="ui-chl">${list.map(c => `<li class="${read.has(c.id) ? 'is-read' : ''}"><a href="/leer/${s.slug}/${c.num}" class="${read.has(c.id) ? 'read' : ''}${p?.chapter_num === c.num ? ' here' : ''}"><span class="n">${c.num}</span><span>${esc(c.title)}</span>${p?.chapter_num === c.num ? '<em class="fx-tag here">Aquí vas</em>' : isNew(c) ? '<em class="fx-tag">Nuevo</em>' : ''}</a></li>`).join('')}</ul>${buyOf(v).length ? `<div class="ui-dl ui-buy"><span class="ui-lbl">Compra la edición oficial</span>${buyOf(v).map(b => `<button class="ui-dlb buy" data-buy="${b.id}">${esc(b.store)}<small>${esc([b.fmt, b.region].filter(Boolean).join(' · '))}</small></button>`).join('')}</div>` : ''}${dlOf(v).length ? `<div class="ui-dl"><span class="ui-lbl">Descargar</span>${dlOf(v).map(d => d.locked ? `<a class="ui-dlb lock" href="/apoyar" title="Solo para donadores">援 ${esc(d.fmt)}<small>${esc(d.label || d.provider || '')} · donadores</small></a>` : `<button class="ui-dlb" data-dl="${d.id}">↓ ${esc(d.fmt)}<small>${esc(d.label || d.provider || '')}</small></button>`).join('')}</div>` : ''}</div></article>`; }).join('') || '<p class="mono">Aún no hay volúmenes publicados.</p>'}
       </div></section></div>`;
     app.querySelectorAll('[data-buy]').forEach(b => b.onclick = async () => { const w = window.open('about:blank', '_blank'); const { data } = await sb.rpc('purchase_open', { p_id: +b.dataset.buy }); if (data && w) { w.opener = null; w.location = data; } else w?.close(); });
     app.querySelectorAll('[data-dl]').forEach(b => b.onclick = async () => { b.disabled = true; const w = window.open('about:blank', '_blank'); const { data, error } = await sb.rpc('download_open', { p_id: +b.dataset.dl }); b.disabled = false; if (error || !data) { w?.close(); return toast(error?.hint || error?.message || 'Enlace no disponible'); } if (w) { w.opener = null; w.location = data; } else location.href = data; });
-    rkCss(); seriesRank(s);
+    rkCss(); seriesRank(s); reviews(s);
     $('#fx-hide')?.addEventListener('change', e => { localStorage.setItem('obi-hide-read', e.target.checked ? '1' : '0'); $('#fx-vols').classList.toggle('fx-hide', e.target.checked); });
     $('#follow').onclick = async e => {
       if (!getUser()) return go('/entrar');
@@ -737,15 +747,41 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       toast(v === mine ? 'Quitaste tu voto' : 'Calificaste con ' + v + (v === 1 ? ' estrella' : ' estrellas')); seriesRank(s);
     });
   }
+  async function reviews(s){
+    const box = $('#rv-box'); if (!box) return; rvCss();
+    const { data, error } = await sb.rpc('series_reviews_list', { p_series: s.id, p_limit: 30 });
+    if (!document.body.contains(box)) return;
+    if (error) { box.innerHTML = '<p class="mono">No se pudieron cargar las reseñas.</p>'; return; }
+    const L = data || [], mine = L.find(r => r.mine), others = L.filter(r => !r.mine), u = getUser();
+    $('#rv-n').textContent = L.length ? L.length + (L.length === 1 ? ' reseña' : ' reseñas') : '';
+    const stars = n => n ? `<span class="rv-st" aria-label="${n} de 5 estrellas">${'★'.repeat(n)}<i>${'★'.repeat(5 - n)}</i></span>` : '';
+    const item = r => `<article class="rv-it${r.mine ? ' me' : ''}"><header><span class="rv-av">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase())}</span><span>${r.username ? `<a href="/lector/${encodeURIComponent(r.username)}">${esc(r.username)}</a>` : 'Lector'}${r.mine ? ' · <b>tu reseña</b>' : ''}<small>${ago(r.at)}${r.at !== r.created_at ? ' · editada' : ''}</small></span>${stars(r.score)}</header><p>${esc(r.body).replace(/\n/g, '<br>')}</p>${r.mine ? '<div class="rv-acts"><button class="ui-lnk" data-rv="edit">Editar</button><button class="ui-lnk" data-rv="del">Borrar</button></div>' : ''}</article>`;
+    const form = (txt = '') => `<form class="rv-form" id="rv-form"><label for="rv-t" class="ui-lbl">${mine ? 'Edita tu reseña' : 'Escribe una reseña'}</label><textarea id="rv-t" rows="5" maxlength="1500" placeholder="¿Qué te pareció? Evita spoilers importantes.">${esc(txt)}</textarea><div class="rv-fr"><span class="mono" id="rv-c">${txt.length} / 1500 · mínimo 30</span><span style="display:flex;gap:8px">${mine ? '<button type="button" class="btn ghost" data-rv="cancel">Cancelar</button>' : ''}<button class="btn" type="submit">${mine ? 'Guardar cambios' : 'Publicar reseña'}</button></span></div><small class="mono">Tu calificación con estrellas se muestra junto a tu reseña.</small></form>`;
+    const draw = editing => {
+      box.innerHTML = (u ? (mine && !editing ? item(mine) : form(mine?.body || '')) : `<p class="rv-login"><a href="/entrar">Entra</a> para escribir una reseña.</p>`)
+        + (others.length ? `<div class="rv-list">${others.map(item).join('')}</div>` : (!mine ? '<p class="mono">Aún no hay reseñas. ¡Sé la primera persona en opinar!</p>' : ''));
+      const t = $('#rv-t'); if (t) t.oninput = () => { $('#rv-c').textContent = t.value.length + ' / 1500 · mínimo 30'; };
+      box.querySelector('[data-rv="edit"]')?.addEventListener('click', () => draw(true));
+      box.querySelector('[data-rv="cancel"]')?.addEventListener('click', () => draw(false));
+      box.querySelector('[data-rv="del"]')?.addEventListener('click', async () => { if (!confirm('¿Borrar tu reseña?')) return; const { error } = await sb.from('series_reviews').delete().eq('series_id', s.id).eq('user_id', u.id); if (error) return toast(error.message); toast('Reseña borrada'); reviews(s); });
+      const fm = $('#rv-form'); if (fm) fm.onsubmit = async e => { e.preventDefault(); const v = t.value.trim(); if (v.length < 30) return toast('La reseña necesita al menos 30 caracteres');
+        const btn = fm.querySelector('[type="submit"]'); btn.disabled = true;
+        const { error } = await sb.from('series_reviews').upsert({ series_id: s.id, user_id: u.id, body: v, updated_at: new Date().toISOString() }); btn.disabled = false;
+        if (error) return toast(error.message); toast(mine ? 'Reseña actualizada' : 'Reseña publicada'); reviews(s); };
+    };
+    draw(false);
+  }
   async function ranking(){
     rkCss();
     const qs = new URLSearchParams(location.search);
     const R = { list: RK_L[qs.get('lista')] ? qs.get('lista') : 'leidas', period: RK_P[qs.get('periodo')] ? qs.get('periodo') : 'semana', genre: qs.get('genero') || '', status: ['en_curso', 'terminada'].includes(qs.get('estado')) ? qs.get('estado') : '' };
     app.innerHTML = '<p class="mono">Cargando el ranking…</p>';
+    let autoHist = false;
+    if (!qs.get('periodo')) { const { count } = await sb.from('rankings').select('series_id', { count: 'exact', head: true }).eq('list', R.list).eq('period', 'semana'); if (!count) { R.period = RK_OK[R.list] ? R.period : 'historico'; autoHist = R.period === 'historico'; } }
     const { data: gs } = await sb.from('series').select('genres').eq('published', true);
     const genres = [...new Set((gs || []).flatMap(x => x.genres || []))].sort((a, b) => a.localeCompare(b, 'es'));
     if (R.genre && !genres.includes(R.genre)) R.genre = '';
-    app.innerHTML = `<div class="ui-cath"><div><h1>Ranking</h1><p>Las obras que más se leen, más suben y más gustan.</p></div><span class="kj" aria-hidden="true">番付</span></div>
+    app.innerHTML = `<div class="ui-cath"><div><h1>Ranking</h1><p>Las obras que más se leen, más suben y más gustan.</p></div><span class="kj" aria-hidden="true">番付</span></div>${autoHist ? '<p class="mono" id="rk-autoh" style="margin:-6px 0 18px;font-size:13px">Esta semana todavía no hay suficientes lecturas: te mostramos el ranking de todos los tiempos.</p>' : ''}
       <div class="rk-bar">
         <div class="ui-chips" role="group" aria-label="Lista">${Object.entries(RK_L).map(([k, l]) => `<button class="ui-chip" data-rl="${k}">${l}</button>`).join('')}</div>
         <div class="rk-row"><div class="rk-seg" role="group" aria-label="Periodo">${Object.entries(RK_P).map(([k, l]) => `<button type="button" data-rp="${k}">${l}</button>`).join('')}</div>
