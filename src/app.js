@@ -10,6 +10,8 @@ const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 2800); };
 let user = null, profile = null, me = null;
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
+let PF; const pf = async () => PF ||= await import('/profile.js?v=1');
+const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
 let ST; const st = async () => ST ||= (await import('/studio.js?v=34')).createStudio(CTX());
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=8')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
@@ -34,7 +36,7 @@ function drawSession(){
 const pr = me?.platform_role || 'lector';
 const ini = esc((profile?.username || user?.email || '?')[0].toUpperCase());
 const h = user
-? `<details class="ob-bell"><summary aria-label="Avisos"><span aria-hidden="true">鈴</span><em id="bell-n" hidden></em></summary><div class="ob-menu ob-nt" id="bell-list"><p class="mono">Cargando…</p></div></details><details class="ob-user"><summary aria-label="Menú de cuenta"><span class="ob-av">${profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : ini}</span></summary><div class="ob-menu"><div class="who2"><strong>${esc(profile?.username || user.email)}</strong><small>${RL[pr]}${profile?.donor_tier ? ' · 援 Donador' : ''}</small></div><a href="/perfil">Mi perfil</a><a href="/biblioteca">Mi biblioteca</a>${pr === 'bibliotecario' ? '<a href="/bibliotecario">Mostrador del Bibliotecario</a>' : ''}${pr !== 'lector' ? '<a href="/estudio">Estudio</a><a href="/estudio/preferencias">Preferencias del equipo</a>' : '<a href="/solicitud">Crear mi grupo traductor</a>'}<button id="out">Salir</button></div></details>`
+? `<details class="ob-bell"><summary aria-label="Avisos"><span aria-hidden="true">鈴</span><em id="bell-n" hidden></em></summary><div class="ob-menu ob-nt" id="bell-list"><p class="mono">Cargando…</p></div></details><details class="ob-user"><summary aria-label="Menú de cuenta"><span class="ob-av">${profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : ini}</span></summary><div class="ob-menu"><div class="who2"><strong>${esc(profile?.username || user.email)}</strong><small>${RL[pr]}${profile?.donor_tier ? ' · 援 Donador' : ''}</small></div><a href="/perfil">Mi perfil</a><a href="/biblioteca">Mi biblioteca</a><a href="/preferencias">Preferencias</a>${pr === 'bibliotecario' ? '<a href="/bibliotecario">Mostrador del Bibliotecario</a>' : ''}${pr !== 'lector' ? '<a href="/estudio">Estudio</a><a href="/estudio/preferencias">Preferencias del equipo</a>' : '<a href="/solicitud">Crear mi grupo traductor</a>'}<button id="out">Salir</button></div></details>`
 : `<button class="btn" id="in">Entrar</button>`;
 if (h === lastBar) return; lastBar = h; $('#session').innerHTML = h;
 const dd = $('#session .ob-user'); if (dd) dd.querySelector('.ob-menu').addEventListener('click', e => { if (e.target.closest('a')) dd.open = false; });
@@ -53,7 +55,7 @@ $('#bell-list').onclick = e => { if (e.target.closest('a')) d.open = false; };
 if ((data || []).some(x => !x.read)) { await sb.rpc('notifications_read_all'); $('#bell-n').hidden = true; } });
 }
 const routes = {
-'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': calendar, '/ranking': () => ui().ranking(), '/lanzamientos': () => ui().releases(), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/buscar': () => ui().search(), '/solicitud': solicitud,
+'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': calendar, '/ranking': () => ui().ranking(), '/lanzamientos': () => ui().releases(), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/preferencias': async () => (await pf()).preferences(PCTX()), '/buscar': () => ui().search(), '/solicitud': solicitud,
 '/bibliotecario': async () => (await ad()).render(), '/admin': async () => { history.replaceState({}, '', '/bibliotecario'); (await ad()).render(); },
 };
 export function go(path){ history.pushState({}, '', path); render(); }
@@ -81,7 +83,7 @@ async function afterRender(){
 async function render0(){
 const p = location.pathname; let m;
 scrollTo(0, 0); document.body.classList.remove('in-studio');
-if (p.startsWith('/estudio') || p === '/perfil' || p === '/solicitud') await meReady;
+if (p.startsWith('/estudio') || p === '/perfil' || p === '/preferencias' || p === '/solicitud') await meReady;
 if ((m = p.match(/^\/serie\/([\w-]+)$/))) return ui().series(m[1]);
 if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) return rd().open(m[1], +m[2]);
 if ((m = p.match(/^\/anotaciones\/([\w-]+)$/))) return rd().annotationsPage(m[1]);
@@ -232,13 +234,7 @@ else { const hist = await rd().historyList(); box.innerHTML = hist.length ? `<di
 }
 const statsHTML = st => st ? `<div class="st-grid"><div class="st-k"><b>${(+st.chapters).toLocaleString('es-MX')}</b><span>capítulos leídos</span></div><div class="st-k"><b>${st.month}</b><span>en los últimos 30 días</span></div><div class="st-k"><b>${st.series}</b><span>obras empezadas</span></div><div class="st-k"><b>${st.finished}</b><span>obras terminadas</span></div><div class="st-k"><b>${st.following}</b><span>obras seguidas</span></div></div>
 ${(st.genres || []).length ? `<h3 style="margin:22px 0 10px">Géneros favoritos</h3><div class="st-gen">${st.genres.map(g => `<div><span>${esc(g.g)}</span><i style="width:${Math.max(4, Math.round(g.n / st.genres[0].n * 100))}%"></i><small>${g.n}</small></div>`).join('')}</div>` : ''}` : '';
-async function lector(name){
-lbCss(); app.innerHTML = '<p class="mono">Cargando perfil…</p>';
-const { data: r } = await sb.rpc('reader_public', { p_username: name });
-if (!r) { app.innerHTML = '<h1>Lector no encontrado</h1><p><a href="/">Volver al inicio</a></p>'; return; }
-app.innerHTML = `<div class="ui-cath"><div style="display:flex;gap:18px;align-items:center"><span class="ob-av" style="width:72px;height:72px;font-size:28px">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase())}</span><div><h1 style="margin:0">${esc(r.username)}</h1>${r.bio ? `<p>${esc(r.bio)}</p>` : ''}</div></div><span class="kj" aria-hidden="true">読者</span></div>
-${r.public_activity && r.stats ? statsHTML(r.stats) : '<p class="mono">Este lector mantiene privadas sus estadísticas.</p>'}`;
-}
+async function lector(name){ return (await pf()).publicProfile(PCTX(), name); }
 async function support(){
 const { data } = await sb.from('patreon_tiers').select('*').order('price_usd');
 app.innerHTML = '<h1>Apoya a los traductores</h1><p>Tu membresía de Patreon activa el acceso anticipado y el sello 援 automáticamente.</p>' + ((data||[]).map(t => `<div style="border:2px solid var(--line);padding:18px;margin:10px 0"><h2 style="margin:0">${esc(t.name)}</h2><p class="mono">$${t.price_usd} USD/mes · ${t.early_weeks ? t.early_weeks + ' semana(s) de adelanto' : 'sin adelanto'}</p></div>`).join('') || '<p class="mono">Los niveles aparecerán cuando un equipo conecte Patreon.</p>');
@@ -317,7 +313,7 @@ const { data: st } = await sb.rpc('reader_stats');
 app.innerHTML = `<h1>Mi perfil</h1><p class="mono">Rol en la plataforma: ${RL[me?.platform_role || 'lector']}</p>${avatarBox(esc(profile?.username || ''), esc(user.email))}
 <h2 style="margin-top:36px">Mis estadísticas</h2>${statsHTML(st) || '<p class="mono">Aún no hay lecturas registradas.</p>'}
 <label class="ui-tog" style="margin-top:16px"><input type="checkbox" id="pf-pub" ${profile?.public_activity ? 'checked' : ''}> Mostrar mis estadísticas en mi perfil público</label>
-${profile?.username ? `<p class="mono" style="font-size:12px">Tu perfil público: <a href="/lector/${encodeURIComponent(profile.username)}">/lector/${esc(profile.username)}</a></p>` : ''}`;
+${profile?.username ? `<p class="mono" style="font-size:12px">Tu perfil público: <a href="/lector/${encodeURIComponent(profile.username)}">/lector/${esc(profile.username)}</a> · <a href="/preferencias">Editar carnet, favoritas y enlaces</a></p>` : ''}`;
 bindAvatar(perfil);
 $('#pf-pub').onchange = async e => { const v = e.target.checked; const { error } = await sb.from('profiles').update({ public_activity: v }).eq('id', user.id); if (error) { e.target.checked = !v; return toast(error.message); } profile.public_activity = v; toast(v ? 'Tus estadísticas ahora son públicas' : 'Tus estadísticas son privadas'); };
 }
