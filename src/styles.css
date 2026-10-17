@@ -1,4 +1,4 @@
-:root{--wrap:1600px}
+:root{--wrap:1920px}
 :root{--ink:#0d0c0a;--paper:#f3ecd9;--gold:#f2c230;--line:#2f2a20;--mute:#a89f8a}
 *{box-sizing:border-box}body{margin:0;background:var(--ink);color:var(--paper);font-family:'IBM Plex Sans',system-ui,sans-serif}
 a{color:var(--gold)}a:hover{color:var(--paper)}
