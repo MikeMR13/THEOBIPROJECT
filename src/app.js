@@ -324,7 +324,7 @@ async function perfil(){
 if (!user) return go('/entrar');
 lbCss();
 const { data: st } = await sb.rpc('reader_stats');
-app.innerHTML = `<h1>Mi perfil</h1><p class="mono">Rol en la plataforma: ${RL[me?.platform_role || 'lector']}</p>${avatarBox(esc(profile?.username || ''), esc(user.email))}
+app.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between"><h1 style="margin:0">Mi perfil</h1>${profile?.username ? `<span style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn" href="/lector/${encodeURIComponent(profile.username)}">Ver mi carnet público</a><a class="btn ghost" href="/preferencias">Editar carnet</a></span>` : ''}</div><p class="mono">Rol en la plataforma: ${RL[me?.platform_role || 'lector']}</p>${avatarBox(esc(profile?.username || ''), esc(user.email))}
 <h2 style="margin-top:36px">Mis estadísticas</h2>${statsHTML(st) || '<p class="mono">Aún no hay lecturas registradas.</p>'}
 <label class="ui-tog" style="margin-top:16px"><input type="checkbox" id="pf-pub" ${profile?.public_activity ? 'checked' : ''}> Mostrar mis estadísticas en mi perfil público</label>
 ${profile?.username ? `<p class="mono" style="font-size:12px">Tu perfil público: <a href="/lector/${encodeURIComponent(profile.username)}">/lector/${esc(profile.username)}</a> · <a href="/preferencias">Editar carnet, favoritas y enlaces</a></p>` : ''}`;
