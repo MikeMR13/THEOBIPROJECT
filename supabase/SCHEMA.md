@@ -79,3 +79,12 @@ Buckets: obi-epub (privado), avatars, obi-media, obi-app (públicos). Extensione
 - `team_announce_set(p_team, p_announce)`: publica el anuncio directo en el diseño publicado y en el borrador.
 - `season_calendar` (2026–2029) + cron diario `obi-season-notices` → `private.notify_seasons()` avisa 7 días antes.
 - Permiso de equipo usado: «profile».
+
+## Ranking (migración 20261024_ranking.sql)
+- `series_daily(series_id, day, n)`: lecturas únicas por obra (1 por lector o dispositivo y día). `private.series_seen` deduplica (se purga a los 2 días).
+- `track_view(p_chapter, p_device)`: sigue sumando `chapter_views` por capítulo; `series_daily` y `series.views` solo una vez por lector/día.
+- `series_ratings(series_id, user_id, score 1–5)` (RLS: cada quien lo suyo). `series_rating(p_series)` → {avg, n, mine}. Se copiaron los votos de `ratings` si existían.
+- `read_chapters.read_at` (los anteriores sin fecha: solo cuentan en Histórico).
+- `rankings(list, period, series_id, pos, prev_pos, score, votes, computed_at)` lectura pública. Listas: leidas, tendencia, calificadas (≥25 votos), terminadas, novedades (≤30 días). Periodos: hoy, semana, mes, anio, historico (tendencia/novedades solo hoy–mes). Top 500 por lista.
+- `private.compute_rankings()` cron `obi-rankings` cada 6 h. Avisa (`notifications`, kind tablero) a los integrantes cuando una obra entra al Top 10 semanal de cualquier lista (máx. 1 por obra/lista cada 7 días).
+- `ranking_list(p_list, p_period, p_genre, p_status, p_limit)`: filtra +18 según `profiles.adult_ok`; estado en_curso = active/paused, terminada = completed.
