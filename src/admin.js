@@ -72,10 +72,10 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
 
   async function panel(me){
     app.innerHTML = `<div class="bb"><div class="bb-top"><div><span class="ui-lbl">Mostrador del Bibliotecario</span><h1>Hola, ${esc(me.username)}</h1></div><button class="btn ghost" id="bbout">Cerrar sesión</button></div>
-      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['solicitudes','Solicitudes'],['compras','Enlaces de compra'],['temporadas','Temporadas'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
+      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['solicitudes','Solicitudes'],['compras','Enlaces de compra'],['inicio','Inicio'],['temporadas','Temporadas'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
     $('#bbout').onclick = async () => { await sb.auth.signOut(); location.href = '/'; };
     app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; panel(me); });
-    try { await ({ resumen, usuarios, equipos, solicitudes, compras, temporadas, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
+    try { await ({ resumen, usuarios, equipos, solicitudes, compras, inicio, temporadas, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
   }
   const view = () => $('#bbv');
 
@@ -134,6 +134,25 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   }
 
 
+  async function inicio(){
+    const [{ data: row, error }, { data: ss }] = await Promise.all([sb.from('platform_settings').select('featured').eq('id', 1).single(), sb.from('series').select('id,title,cover_path,adult,translation_status,teams(name)').eq('published', true).order('title')]);
+    if (error) throw error;
+    const all = (ss || []).filter(x => x.translation_status !== 'withdrawn'), by = Object.fromEntries(all.map(x => [x.id, x]));
+    let F = (Array.isArray(row.featured) ? row.featured : []).filter(id => by[id]), dirty = false;
+    const MED = p => p ? (/^https?:/.test(p) ? p : url + '/storage/v1/object/public/obi-media/' + encodeURI(p)) : '';
+    const draw = () => { view().innerHTML = `<div class="bb-box"><h3>Destacadas del inicio</h3><p class="mono" style="font-size:13px;margin:0 0 14px;line-height:1.5">Las obras que aparecen en el carrusel grande del inicio, en este orden (máximo 5). Si la lista está vacía, se muestran las obras con el capítulo más reciente.</p>
+      <div style="display:grid;gap:8px;margin:0 0 14px">${F.map((id, i) => { const x = by[id]; return `<div style="display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px;border:1px solid #2f2a20;background:#16140f"><span style="width:40px;height:56px;background:#1c1a14 center/cover no-repeat;${x.cover_path ? `background-image:url('${esc(MED(x.cover_path))}')` : ''}"></span><span><b>${i + 1}. ${esc(x.title)}</b><br><small class="mono">${esc(x.teams?.name || '')}${x.adult ? ' · +18 (solo lo verán quienes confirmaron su edad)' : ''}</small></span><span style="display:flex;gap:6px"><button class="bb-mini" data-up="${i}" ${i ? '' : 'disabled'} aria-label="Subir">↑</button><button class="bb-mini" data-dn="${i}" ${i < F.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button><button class="bb-mini red" data-rm="${i}">Quitar</button></span></div>`; }).join('') || '<p class="mono">Sin destacadas: el inicio usa las obras actualizadas más recientemente.</p>'}</div>
+      ${F.length < 5 ? `<div class="bb-row" style="align-items:end"><label style="flex:1">Agregar obra<select id="bb-fsel"><option value="">Elige una obra…</option>${all.filter(x => !F.includes(x.id)).map(x => `<option value="${x.id}">${esc(x.title)}${x.teams?.name ? ' · ' + esc(x.teams.name) : ''}</option>`).join('')}</select></label><button class="btn ghost" id="bb-fadd">Agregar</button></div>` : ''}
+      <div class="bb-row" style="margin-top:14px;align-items:center"><button class="btn" id="bb-fsave" ${dirty ? '' : 'disabled'}>Guardar destacadas</button><span class="mono" style="font-size:12px">${dirty ? 'Cambios sin guardar' : 'Guardado'}</span></div></div>`;
+      const v = view(), mv = (i, j) => { const [x] = F.splice(i, 1); F.splice(j, 0, x); dirty = true; draw(); };
+      v.querySelectorAll('[data-up]').forEach(b => b.onclick = () => mv(+b.dataset.up, +b.dataset.up - 1));
+      v.querySelectorAll('[data-dn]').forEach(b => b.onclick = () => mv(+b.dataset.dn, +b.dataset.dn + 1));
+      v.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { F.splice(+b.dataset.rm, 1); dirty = true; draw(); });
+      const add = v.querySelector('#bb-fadd'); if (add) add.onclick = () => { const id = v.querySelector('#bb-fsel').value; if (!id) return toast('Elige una obra'); F.push(id); dirty = true; draw(); };
+      v.querySelector('#bb-fsave').onclick = async e => { e.currentTarget.disabled = true; const { error } = await sb.from('platform_settings').update({ featured: F, updated_at: new Date().toISOString() }).eq('id', 1); if (error) { e.currentTarget.disabled = false; return toast(msg(error)); } dirty = false; toast('Destacadas guardadas'); draw(); };
+    };
+    draw();
+  }
   async function temporadas(){
     const PS = await import('/season.js?v=3');
     const [{ data: row, error }, { data: cal }, { data: slog }, { data: lun }] = await Promise.all([sb.from('platform_settings').select('seasons,updated_at').eq('id', 1).single(), sb.from('season_calendar').select('key,label,starts,hemi').gte('starts', new Date().toISOString().slice(0, 10)).order('starts').limit(120), sb.from('season_sync_log').select('ran_at,ok,detail').order('id', { ascending: false }).limit(1), sb.from('season_calendar').select('key,day,source').in('key', ['seollal', 'chuseok', 'tsukimi', 'dano', 'buda', 'pascua']).not('day', 'is', null).order('day')]);

@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
 const { createReader } = await import('/reader.js?v=12');
-const { createUI } = await import('/ui.js?v=28');
+const { createUI } = await import('/ui.js?v=29');
 export const sb = createClient(url, key, { auth: { persistSession: true } });
 const $ = s => document.querySelector(s), app = $('#app');
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -10,7 +10,7 @@ const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display =
 let user = null, profile = null, me = null;
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
 let ST; const st = async () => ST ||= (await import('/studio.js?v=33')).createStudio(CTX());
-let AD; const ad = async () => AD ||= (await import('/admin.js?v=6')).createAdmin(CTX());
+let AD; const ad = async () => AD ||= (await import('/admin.js?v=7')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
 let U; const ui = () => U ||= createUI(CTX());
 const RL = { bibliotecario: 'Bibliotecario', publicador: 'Publicador', lector: 'Lector' };
