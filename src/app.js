@@ -10,8 +10,8 @@ const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 2800); };
 let user = null, profile = null, me = null;
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
-let PF; const pf = async () => PF ||= await import('/profile.js?v=1');
-const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
+let PF; const pf = async () => PF ||= await import('/profile.js?v=2');
+const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
 let ST; const st = async () => ST ||= (await import('/studio.js?v=34')).createStudio(CTX());
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=8')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
@@ -29,8 +29,17 @@ const uid = user.id;
 meReady = Promise.all([sb.from('profiles').select('*').eq('id', uid).maybeSingle(), sb.rpc('whoami')]).then(([p, w]) => {
   if (user?.id !== uid) return; profile = p.data; me = w.data || null;
   try { localStorage.setItem('obi-me', JSON.stringify({ id: uid, profile, me })); } catch {}
-  drawSession(); bell();
+  drawSession(); bell(); delBanner();
 }).catch(e => console.warn('perfil', e));
+}
+function delBanner(){
+  document.getElementById('obi-del')?.remove(); const d = profile?.delete_requested_at; if (!d) return;
+  const end = new Date(new Date(d).getTime() + 30 * 864e5).toLocaleDateString('es-MX', { dateStyle: 'long' });
+  const b = document.createElement('div'); b.id = 'obi-del'; b.setAttribute('role', 'alert');
+  b.style.cssText = 'position:fixed;left:50%;bottom:76px;transform:translateX(-50%);z-index:50;max-width:min(92vw,620px);display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;padding:12px 16px;background:#1a0f0c;border:1px solid #c8402e;color:#f3ecd9;font-size:14px;box-shadow:0 12px 30px rgba(0,0,0,.5)';
+  b.innerHTML = `<span style="flex:1 1 260px">Tu cuenta se eliminará el <b>${end}</b>. Tu perfil ya no es visible.</span><button class="btn" id="obi-undel">Cancelar eliminación</button>`;
+  document.body.appendChild(b);
+  b.querySelector('#obi-undel').onclick = async () => { const { error } = await sb.rpc('cancel_account_deletion'); if (error) return toast(error.message); profile.delete_requested_at = null; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, profile, me })); } catch {} b.remove(); toast('Eliminación cancelada. ¡Qué bueno que te quedas!'); };
 }
 function drawSession(){
 const pr = me?.platform_role || 'lector';
@@ -215,12 +224,17 @@ const card = (w, k) => { const href = k === 'pendientes' && w.nextU ? `/leer/${w
   const badge = k === 'pendientes' ? `<em>${w.unread} sin leer</em>` : k === 'terminadas' ? '<em class="ok">✓ Completa</em>' : '';
   const sub = k === 'leyendo' ? `Cap. ${w.p.chapter_num}${w.p.pct > .02 && w.p.pct < .95 ? ' · ' + Math.round(w.p.pct * 100) + '%' : ''} · ${w.nr}/${w.tot}` : k === 'pendientes' ? (w.nextU ? 'Sigue en el cap. ' + w.nextU.num : '') : w.tot + ' capítulos';
   return `<a class="lb-c" href="${href}">${cv(w, badge)}${w.tot ? `<span class="bar"><i style="width:${Math.round(w.nr / w.tot * 100)}%"></i></span>` : ''}<b>${esc(w.s.title)}</b><small>${sub}</small></a>`; };
+const HID = new Set(profile?.hidden_series || []);
+const cardW = (w, k) => `<div style="display:grid;gap:4px;align-content:start">${card(w, k)}<button type="button" class="ui-lnk" data-hide="${w.s.id}" style="justify-self:start;font-size:12px;color:#a89f8a;min-height:32px">${HID.has(w.s.id) ? 'Mostrar en mi perfil' : 'Ocultar del perfil'}</button></div>`;
 const EMPTY = { leyendo: 'Abre cualquier capítulo y aparecerá aquí.', pendientes: 'Sigue una obra desde su ficha: cuando salga un capítulo que no has leído, aparecerá aquí.', terminadas: 'Aquí aparecen las obras completas que leíste de principio a fin.' };
 const n = k => L[k] ? L[k].length : null;
 app.innerHTML = `<div class="ui-cath"><div><h1>Mi biblioteca</h1><p>${read.size} capítulos leídos · ${F.size} obras seguidas</p></div><span class="kj" aria-hidden="true">書庫</span></div>
 <nav class="lb-tabs">${TABS.map(([k, l]) => `<a href="/biblioteca${k === 'leyendo' ? '' : '?t=' + k}" class="${k === tab ? 'on' : ''}">${l}${n(k) ? `<em>${n(k)}</em>` : ''}</a>`).join('')}</nav><div id="lb-body"></div>`;
 const box = $('#lb-body');
-if (L[tab]) box.innerHTML = L[tab].length ? `<div class="lb-grid">${L[tab].map(w => card(w, tab)).join('')}</div>` : `<div class="lb-empty"><span>${EMPTY[tab]}</span><a class="btn ghost" href="/catalogo">Explorar el catálogo</a></div>`;
+if (L[tab]) { box.innerHTML = L[tab].length ? `<div class="lb-grid">${L[tab].map(w => cardW(w, tab)).join('')}</div>` : `<div class="lb-empty"><span>${EMPTY[tab]}</span><a class="btn ghost" href="/catalogo">Explorar el catálogo</a></div>`;
+  box.querySelectorAll('[data-hide]').forEach(b => b.onclick = async () => { const id = b.dataset.hide, on = !HID.has(id); on ? HID.add(id) : HID.delete(id);
+    const { error } = await sb.from('profiles').update({ hidden_series: [...HID] }).eq('id', user.id); if (error) { on ? HID.delete(id) : HID.add(id); return toast(error.message); }
+    if (profile) profile.hidden_series = [...HID]; b.textContent = on ? 'Mostrar en mi perfil' : 'Ocultar del perfil'; toast(on ? 'Oculta de tu perfil público' : 'Visible en tu perfil público'); }); }
 else if (tab === 'avisos') {
   const FL = (fol || []).map(r => ({ r, s: (ser || []).find(x => x.id === r.series_id) })).filter(x => x.s).sort((a, b) => a.s.title.localeCompare(b.s.title, 'es'));
   box.innerHTML = FL.length ? `<p class="mono" style="margin:0 0 14px;font-size:13px">Elige de qué obras quieres aviso en la campana cuando salga un capítulo nuevo.</p><div class="lb-av">${FL.map(({ r, s }) => { const on = r.channels?.web !== false; return `<div class="lb-ai"><a href="/serie/${s.slug}">${esc(s.title)}</a><label class="ui-tog"><input type="checkbox" data-av="${s.id}" ${on ? 'checked' : ''}> Avisarme</label><button class="ui-lnk" data-unf="${s.id}">Dejar de seguir</button></div>`; }).join('')}</div>`

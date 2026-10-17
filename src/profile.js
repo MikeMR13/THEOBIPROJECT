@@ -124,15 +124,20 @@ export async function publicProfile(C, name){
   app.innerHTML = '<p class="mono">Cargando perfil…</p>';
   const { data: r } = await sb.rpc('reader_public', { p_username: name });
   if (!r) { app.innerHTML = '<h1>Lector no encontrado</h1><p><a href="/">Volver al inicio</a></p>'; return; }
+  if (r.private) { app.innerHTML = `<div class="lc" style="--ac:#5a503b"><section style="border:1px solid var(--line);background:#14120e;padding:40px 22px;display:grid;justify-items:center;gap:12px;text-align:center;max-width:520px;margin:20px auto">
+      <span class="lc-av" style="width:96px;height:96px;font-size:40px;color:var(--mute)">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase())}</span>
+      <h1 style="margin:0;font:800 30px 'Shippori Mincho B1',serif">${esc(r.username)}</h1>
+      <p style="margin:0;color:var(--mute)">${r.private === 'auth' ? 'Inicia sesión para ver el carnet de este lector.' : 'Este lector mantiene su perfil privado.'}</p>
+      ${r.private === 'auth' ? '<a class="btn" href="/entrar">Entrar</a>' : ''}</section></div>`; return; }
   const ac = r.accent || '#f2c230', favs = r.favorites || [], se = r.seals;
   const seals = se ? [se.donor && ['援', 'Apoya a los traductores en Patreon'],
     se.chapters >= 1000 ? ['千', 'Más de 1000 capítulos leídos'] : se.chapters >= 100 ? ['百', 'Más de 100 capítulos leídos'] : se.chapters >= 10 ? ['十', 'Más de 10 capítulos leídos'] : null,
-    se.useful && ['評', 'Escribió una reseña útil']].filter(Boolean) : [];
+    se.reviews >= 3 && ['評', 'Ha escrito 3 reseñas o más']].filter(Boolean) : [];
   const bg = r.banner_url ? `<div class="lc-bg" style="background-image:url('${esc(r.banner_url)}')"></div>`
     : favs.length ? `<div class="lc-bg" style="--n:${favs.length}">${favs.map(f => `<span style="background-color:${esc(f.color)};${f.cover_path ? `background-image:url('${esc(cov(f))}')` : ''}"></span>`).join('')}</div>`
     : '<div class="lc-bg" style="opacity:.35"></div>';
   const card = s => `<span class="lc-cv" style="--c:${esc(s.color || '#2a2519')};${s.cover_path ? `background-image:url('${esc(cov(s))}')` : ''}">${esc(s.title)}</span>`;
-  const sh = r.shelves || {}, firstShelf = (SHELF.find(([k]) => sh[k]?.n) || SHELF[0])[0];
+  const SHV = SHELF.filter(([k]) => !(k === 'reading' && r.hide_reading)), sh = r.shelves || {}, firstShelf = (SHV.find(([k]) => sh[k]?.n) || SHV[0])[0];
   const shelfBody = k => { const x = sh[k]; if (!x?.n) return '<p class="lc-empty">Nada en este estante todavía.</p>';
     return `<div class="lc-shg">${x.items.map(s => `<a href="/serie/${esc(s.slug)}">${card(s)}<span>${esc(s.title)}</span></a>`).join('')}</div>${x.n > 6 ? `<span class="lc-more">+${x.n - 6} más</span>` : ''}`; };
   const stars = n => '★'.repeat(n || 0) + '☆'.repeat(Math.max(0, 5 - (n || 0)));
@@ -140,19 +145,19 @@ export async function publicProfile(C, name){
     <section class="lc-card">${bg}<div class="lc-sh"></div>${r.kanji ? `<span class="lc-kj" title="Sello de ${esc(r.username)}">${esc(r.kanji)}</span>` : ''}
       <div class="lc-in">
         <span class="lc-av">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase())}</span>
-        <div class="lc-tx"><span class="k">CARNET DE LECTOR · 読者証 · DESDE ${new Date(r.since).toLocaleDateString('es-MX', { month: 'short', year: 'numeric' }).toUpperCase()}</span>
+        <div class="lc-tx"><span class="k">CARNET DE LECTOR · 読者証${r.since ? ' · DESDE ' + new Date(r.since).toLocaleDateString('es-MX', { month: 'short', year: 'numeric' }).toUpperCase() : ''}</span>
           <h1>${esc(r.username)}</h1>${r.bio ? `<p>${esc(r.bio)}</p>` : ''}
           ${r.links?.length ? `<div class="lc-ln">${r.links.filter(l => ICON[l.k]).map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener nofollow ugc">${svg(l.k)}${ICON[l.k][0]}</a>`).join('')}</div>` : ''}
         </div>
         ${seals.length ? `<div class="lc-se">${seals.map(([k, t]) => `<span title="${t}" aria-label="${t}">${k}</span>`).join('')}</div>` : ''}
       </div></section>
     ${favs.length ? `<section class="lc-sec"><h2>Favoritas</h2><div class="lc-fav">${favs.map(s => `<a href="/serie/${esc(s.slug)}">${card(s)}<span>${esc(s.title)}</span></a>`).join('')}</div></section>` : ''}
-    ${r.shelves ? `<section class="lc-sec"><div class="lc-hd"><h2>Estanterías</h2><div class="lc-tabs" role="tablist">${SHELF.map(([k, l]) => `<button role="tab" data-sh="${k}" class="${k === firstShelf ? 'on' : ''}" aria-selected="${k === firstShelf}">${l} · ${sh[k]?.n || 0}</button>`).join('')}</div></div><div id="lc-shb">${shelfBody(firstShelf)}</div></section>` : ''}
-    ${r.reviews?.length ? `<section class="lc-sec"><h2>Reseñas más votadas</h2><div class="lc-rv">${r.reviews.map(v => `<article>
+    ${r.shelves ? `<section class="lc-sec"><div class="lc-hd"><h2>Estanterías</h2><div class="lc-tabs" role="tablist">${SHV.map(([k, l]) => `<button role="tab" data-sh="${k}" class="${k === firstShelf ? 'on' : ''}" aria-selected="${k === firstShelf}">${l} · ${sh[k]?.n || 0}</button>`).join('')}</div></div><div id="lc-shb">${shelfBody(firstShelf)}</div></section>` : ''}
+    ${r.reviews?.length ? `<section class="lc-sec"><h2>Reseñas recientes</h2><div class="lc-rv">${r.reviews.map(v => `<article>
         <a href="/serie/${esc(v.series.slug)}" aria-label="${esc(v.series.title)}">${card(v.series)}</a>
-        <div><a class="t" href="/serie/${esc(v.series.slug)}">${esc(v.series.title)}</a><span style="color:var(--ac);letter-spacing:2px" aria-label="${v.stars} de 5">${stars(v.stars)}</span>
-        ${v.title ? `<b>${esc(v.title)}</b>` : ''}<p class="${v.spoiler ? 'sp' : ''}" ${v.spoiler ? 'title="Contiene spoilers · toca para ver" tabindex="0"' : ''}>${esc(v.body)}${v.body?.length >= 400 ? '…' : ''}</p>
-        <small>▲ ${v.votes} ${v.votes === 1 ? 'útil' : 'útiles'}</small></div></article>`).join('')}</div></section>` : ''}
+        <div><a class="t" href="/serie/${esc(v.series.slug)}">${esc(v.series.title)}</a>${v.stars ? `<span style="color:var(--ac);letter-spacing:2px" aria-label="${v.stars} de 5">${stars(v.stars)}</span>` : ''}
+        <p>${esc(v.body)}${v.body?.length >= 400 ? '…' : ''}</p>
+        <small>${new Date(v.at).toLocaleDateString('es-MX', { dateStyle: 'medium' })}</small></div></article>`).join('')}</div></section>` : ''}
     ${r.public_activity && r.stats ? `<section class="lc-sec"><h2>Estadísticas</h2>${statsHTML(r.stats)}</section>` : ''}
   </div>`;
   app.querySelectorAll('[data-sh]').forEach(b => b.onclick = () => { app.querySelectorAll('[data-sh]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); app.querySelector('#lc-shb').innerHTML = shelfBody(b.dataset.sh); });
@@ -163,15 +168,61 @@ export async function preferences(C){
   const { sb, app, esc, url, toast, getUser, uploadAvatar, reload } = C; css();
   const user = getUser(); if (!user) return C.go('/entrar');
   const MED = p => p ? (/^https?:/.test(p) ? p : url + '/storage/v1/object/public/obi-media/' + encodeURI(p)) : '';
-  const TABS = [['perfil', 'Perfil público'], ['adulto', 'Contenido +18'], ['cuenta', 'Cuenta']];
+  const TABS = [['perfil', 'Perfil público'], ['privacidad', 'Privacidad'], ['adulto', 'Contenido +18'], ['cuenta', 'Cuenta']];
   const tab = TABS.some(t => t[0] === new URLSearchParams(location.search).get('s')) ? new URLSearchParams(location.search).get('s') : 'perfil';
   app.innerHTML = '<p class="mono">Cargando preferencias…</p>';
-  const { data: P, error } = await sb.from('profiles').select('username,avatar_url,bio,banner_url,seal_kanji,accent,links,favorites,profile_sections,public_activity,adult_ok').eq('id', user.id).single();
+  const { data: P, error } = await sb.from('profiles').select('username,avatar_url,bio,banner_url,seal_kanji,accent,links,favorites,profile_sections,public_activity,adult_ok,profile_visibility,discoverable,show_since,hide_reading,hidden_series,delete_requested_at').eq('id', user.id).single();
   if (error) { app.innerHTML = `<h1>Preferencias</h1><p class="mono">No se pudieron cargar: ${esc(error.message)}</p>`; return; }
   const shell = body => `<h1>Preferencias</h1><div class="pf"><nav class="pf-nav">${TABS.map(([k, l]) => `<a href="/preferencias${k === 'perfil' ? '' : '?s=' + k}" class="${k === tab ? 'on' : ''}">${l}</a>`).join('')}</nav><div class="pf-body">${body}</div></div>`;
   const tg = (id, on, label) => `<button type="button" class="pf-tg" id="${id}" aria-pressed="${!!on}" aria-label="${esc(label)}"><i></i></button>`;
   const flip = b => b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
 
+  if (tab === 'privacidad') {
+    const S = Object.fromEntries(SECS.map(([k, , d]) => [k, P.profile_sections?.[k] ?? d]));
+    const [{ data: hs }, { data: rvs }, { data: prev }] = await Promise.all([
+      P.hidden_series?.length ? sb.from('series').select('id,title,cover_path,cover_thumb_path,theme').in('id', P.hidden_series) : { data: [] },
+      sb.from('series_reviews').select('anonymous').eq('user_id', user.id), sb.rpc('deletion_preview')]);
+    const save = async (patch, msg) => { const { error } = await sb.from('profiles').update(patch).eq('id', user.id); if (error) { toast(error.message); return false; } Object.assign(P, patch); C.setProfile?.(patch); if (msg) toast(msg); return true; };
+    const VIS = [['all', 'Todos', 'Cualquiera con el enlace, aunque no tenga cuenta.'], ['auth', 'Solo con cuenta', 'Lectores que hayan iniciado sesión.'], ['none', 'Nadie', 'Solo tú. Los demás ven tu nombre y avatar.']];
+    const OPT = [['discoverable', 'Aparecer en la búsqueda de lectores', 'Otros pueden encontrarte por tu nombre en Buscar.'], ['show_since', 'Mostrar «miembro desde» en el carnet', 'La fecha en que creaste tu cuenta.'], ['hide_reading', 'Ocultar qué estoy leyendo ahora', 'El estante «Leyendo» desaparece de tu carnet.']];
+    const nRv = (rvs || []).length, nAn = (rvs || []).filter(r => r.anonymous).length, pend = prev?.requested_at || P.delete_requested_at;
+    const endDate = d => new Date(new Date(d).getTime() + 30 * 864e5).toLocaleDateString('es-MX', { dateStyle: 'long' });
+    const teamsHTML = (prev?.teams || []).length ? `<div class="pf-row" style="display:grid;gap:4px"><span class="mono" style="color:var(--gold);font-size:11px;letter-spacing:.12em">ERES PROPIETARIO DE ${prev.teams.length} ${prev.teams.length === 1 ? 'EQUIPO' : 'EQUIPOS'}</span>${prev.teams.map(t => `<span>«${esc(t.name)}» ${t.heir ? `pasará a <b>@${esc(t.heir)}</b>, su admin más antiguo.` : 'no tiene otro admin: quedará <b>en pausa</b> hasta que el Bibliotecario lo asigne.'}</span>`).join('')}</div>` : '';
+    const MED2 = s => MED(s.cover_thumb_path || s.cover_path);
+    app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Privacidad</h2><p class="pf-note">Decide quién ve tu carnet y qué se muestra en él. Se guarda al momento.</p></div>
+      <div style="display:grid;gap:12px"><h3>¿Quién ve mi perfil?</h3><div class="pf-sl" role="radiogroup" aria-label="Quién ve mi perfil">${VIS.map(([k, l, d]) => `<label style="display:grid;gap:4px;padding:14px 16px;border:2px solid ${P.profile_visibility === k ? 'var(--gold)' : '#2c281e'};background:${P.profile_visibility === k ? '#1f1c15' : '#0d0c0a'};cursor:pointer"><span style="display:flex;gap:10px;align-items:center;font-weight:700"><input type="radio" name="vis" value="${k}" ${P.profile_visibility === k ? 'checked' : ''} style="accent-color:var(--gold);width:18px;height:18px">${l}</span><span class="pf-note" style="font-size:13px">${d}</span></label>`).join('')}</div></div>
+      <div style="display:grid;gap:10px"><h3>Visibilidad</h3>${OPT.map(([k, l, d]) => `<div class="pf-row" style="justify-content:space-between"><span style="display:grid;gap:3px;flex:1 1 240px"><b style="font-size:14px">${l}</b><span class="pf-note" style="font-size:13px">${d}</span></span>${tg('o-' + k, P[k], l)}</div>`).join('')}</div>
+      <div style="display:grid;gap:10px"><h3>Secciones del carnet</h3><div class="pf-sl">${SECS.map(([k, l]) => `<div><span>${l}</span>${tg('s-' + k, S[k], l)}</div>`).join('')}<div><span>Estadísticas</span>${tg('s-pub', P.public_activity, 'Estadísticas')}</div></div></div>
+      <div style="display:grid;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h3>Obras ocultas de mis estantes</h3><a class="mono" style="font-size:11px" href="/biblioteca">SE OCULTAN DESDE MI BIBLIOTECA</a></div>
+        <div id="pv-hid">${(hs || []).length ? hs.map(s => `<div class="pf-row"><span style="width:34px;height:46px;flex:none;background:${esc(s.theme?.color || '#2a2519')} center/cover ${s.cover_path ? `url('${esc(MED2(s))}')` : ''}"></span><span style="flex:1;min-width:0;font-weight:600">${esc(s.title)}</span><button type="button" class="btn ghost sm" data-unhide="${s.id}" style="flex:none;white-space:nowrap">Mostrar de nuevo</button></div>`).join('') : '<p class="pf-note">No tienes obras ocultas.</p>'}</div></div>
+      <div style="display:grid;gap:8px"><h3>Reseñas</h3><p class="pf-note" style="color:#e3dccb;max-width:62ch">Al publicar cada reseña eliges si va con tu nombre o como <b>Lector anónimo</b>. Las anónimas no aparecen en tu carnet ni cuentan para el sello 評.</p><span class="mono" style="font-size:12px">${nRv} ${nRv === 1 ? 'RESEÑA' : 'RESEÑAS'} · ${nAn} ${nAn === 1 ? 'ANÓNIMA' : 'ANÓNIMAS'}</span></div>
+      <div style="display:grid;gap:10px"><h3>Tus datos</h3><div class="pf-up"><button type="button" class="btn ghost" id="pv-exp">Descargar mis datos (JSON)</button><span class="pf-note" style="font-size:13px">Perfil, biblioteca, progreso, reseñas, calificaciones y preferencias.</span></div></div>
+      <div style="display:grid;gap:12px;border:1px solid #6b2a20;background:#1a0f0c;padding:18px" id="pv-del">
+        <h3 style="color:#f59e7a">Eliminar mi cuenta</h3>
+        ${pend ? `<p style="margin:0;font-size:14px;line-height:1.55">Tu cuenta se eliminará el <b>${endDate(pend)}</b>. Mientras tanto tu perfil no es visible.</p><button type="button" class="btn" id="pv-undel" style="justify-self:start">Cancelar eliminación</button>`
+        : `<p style="margin:0;font-size:14px;line-height:1.55;color:#e3dccb;max-width:62ch">Tu perfil desaparece al momento. Tienes <b>30 días</b> para arrepentirte entrando de nuevo; después se borra todo de forma definitiva.</p>
+        <button type="button" class="btn ghost" id="pv-open" style="justify-self:start;border-color:#c8402e;color:#f59e7a">Eliminar mi cuenta…</button>
+        <div id="pv-conf" hidden style="gap:12px;border-top:1px dashed #6b2a20;padding-top:14px">${teamsHTML}
+          <label class="pf-f"><span>Escribe <span class="mono" style="color:#f59e7a">ELIMINAR</span> para confirmar</span><input id="pv-word" autocomplete="off" style="max-width:260px;border-color:#6b2a20"></label>
+          <span style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn" id="pv-go" disabled style="background:#c8402e;color:#fff">Eliminar en 30 días</button><button type="button" class="btn ghost" id="pv-cancel">Cancelar</button></span></div>`}
+      </div>`);
+    const $ = s => app.querySelector(s);
+    app.querySelectorAll('[name="vis"]').forEach(i => i.onchange = async () => { if (await save({ profile_visibility: i.value }, 'Visibilidad actualizada')) preferences(C); });
+    OPT.forEach(([k]) => $('#o-' + k).onclick = async e => { const b = e.currentTarget, v = !P[k]; if (await save({ [k]: v })) flip(b); });
+    SECS.forEach(([k]) => $('#s-' + k).onclick = async e => { const b = e.currentTarget; S[k] = !S[k]; if (await save({ profile_sections: { ...S } })) flip(b); else S[k] = !S[k]; });
+    $('#s-pub').onclick = async e => { const b = e.currentTarget; if (await save({ public_activity: !P.public_activity })) flip(b); };
+    app.querySelectorAll('[data-unhide]').forEach(b => b.onclick = async () => { if (await save({ hidden_series: (P.hidden_series || []).filter(x => x !== b.dataset.unhide) }, 'Vuelve a verse en tu perfil')) preferences(C); });
+    $('#pv-exp').onclick = async e => { const b = e.currentTarget; b.disabled = true; const { data, error } = await sb.rpc('export_my_data'); b.disabled = false; if (error) return toast(error.message);
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })); a.download = 'obi-mis-datos-' + new Date().toISOString().slice(0, 10) + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
+    $('#pv-open')?.addEventListener('click', () => { $('#pv-conf').hidden = false; $('#pv-conf').style.display = 'grid'; $('#pv-open').hidden = true; $('#pv-word').focus(); });
+    $('#pv-cancel')?.addEventListener('click', () => { $('#pv-conf').hidden = true; $('#pv-conf').style.display = ''; $('#pv-open').hidden = false; });
+    $('#pv-word')?.addEventListener('input', e => { $('#pv-go').disabled = e.target.value.trim().toUpperCase() !== 'ELIMINAR'; });
+    $('#pv-go')?.addEventListener('click', async () => { const { error } = await sb.rpc('request_account_deletion'); if (error) return toast(error.message);
+      C.setProfile?.({ delete_requested_at: new Date().toISOString() }); C.delBanner?.(); toast('Tu cuenta se eliminará en 30 días'); preferences(C); });
+    $('#pv-undel')?.addEventListener('click', async () => { const { error } = await sb.rpc('cancel_account_deletion'); if (error) return toast(error.message);
+      C.setProfile?.({ delete_requested_at: null }); C.delBanner?.(); toast('Eliminación cancelada'); preferences(C); });
+    return;
+  }
   if (tab === 'adulto') {
     app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Contenido +18</h2><p class="pf-note">Las obras marcadas +18 están ocultas en el inicio, el catálogo, la búsqueda y los perfiles hasta que lo actives.</p></div>
       <div class="pf-row" style="max-width:560px"><span style="flex:1">Tengo 18 años o más y quiero ver obras +18</span>${tg('ad', P.adult_ok, 'Mostrar obras +18')}</div>`);
@@ -211,7 +262,7 @@ export async function preferences(C){
         ${D.favs.length < 5 ? '<input class="pf-q" id="fq" placeholder="Busca una obra para añadirla…" autocomplete="off" style="max-width:420px"><div class="pf-res" id="fr"></div>' : ''}</div>
       <div style="display:grid;gap:10px"><h3>Enlaces</h3>${D.links.map(linkRow).join('')}
         ${D.links.length < 12 ? '<button type="button" class="btn ghost sm" id="addl" style="justify-self:start">+ Añadir enlace</button>' : ''}</div>
-      <div style="display:grid;gap:10px"><h3>Secciones visibles</h3><div class="pf-sl">${SECS.map(([k, l]) => `<div><span>${l}</span>${tg('s-' + k, D.sec[k], l)}</div>`).join('')}<div><span>Estadísticas</span>${tg('s-pub', D.pub, 'Estadísticas')}</div></div></div>
+      <p class="pf-note">Qué secciones se muestran y quién ve tu carnet se elige en <a href="/preferencias?s=privacidad">Privacidad</a>.</p>
       <div class="pf-save"><span class="mono" id="pf-st">${dirty ? 'Cambios sin guardar' : ''}</span><a class="btn ghost" href="/lector/${encodeURIComponent(P.username)}">Ver perfil</a><button class="btn" id="save">Guardar cambios</button></div>`);
     const $ = s => app.querySelector(s), $$ = s => app.querySelectorAll(s);
     $('#bio').oninput = e => { D.bio = e.target.value; mark(); };
@@ -223,8 +274,6 @@ export async function preferences(C){
     $$('[data-lo]').forEach(b => b.onclick = () => { const l = D.links[+b.dataset.lo]; l.on = !l.on; mark(); draw(); });
     $$('[data-lx]').forEach(b => b.onclick = () => { D.links.splice(+b.dataset.lx, 1); mark(); draw(); });
     $('#addl')?.addEventListener('click', () => { const used = new Set(D.links.map(l => l.k)); D.links.push({ k: Object.keys(ICON).find(k => !used.has(k)) || 'web', url: '', on: true }); mark(); draw(); app.querySelector(`[data-lk="${D.links.length - 1}"]`)?.focus(); });
-    SECS.forEach(([k]) => $('#s-' + k).onclick = e => { D.sec[k] = !D.sec[k]; flip(e.currentTarget); mark(); });
-    $('#s-pub').onclick = e => { D.pub = !D.pub; flip(e.currentTarget); mark(); };
     let qt; $('#fq')?.addEventListener('input', e => { clearTimeout(qt); const q = e.target.value; qt = setTimeout(async () => {
       const box = $('#fr'); if (q.trim().length < 2) { box.innerHTML = ''; return; }
       const { data } = await sb.rpc('favorite_candidates', { p_q: q }); const have = new Set(D.favs.map(f => f.id));
@@ -243,7 +292,7 @@ export async function preferences(C){
       const links = []; for (const l of D.links) { if (!l.url) continue; let u = l.url; if (!/^https?:\/\//i.test(u)) u = 'https://' + u.replace(/^\/+/, ''); u = u.replace(/^http:/i, 'https:');
         if (!/^https:\/\/[^\s<>"]{3,200}$/.test(u)) return toast(`Revisa el enlace de ${ICON[l.k][0]}`); links.push({ k: l.k, url: u, on: !!l.on }); }
       b.disabled = true; b.textContent = 'Guardando…';
-      const { error } = await sb.from('profiles').update({ bio: D.bio.trim() || null, seal_kanji: D.kanji || null, accent: D.accent, banner_url: D.banner, links, favorites: D.favs.map(f => f.id), profile_sections: D.sec, public_activity: D.pub }).eq('id', user.id);
+      const { error } = await sb.from('profiles').update({ bio: D.bio.trim() || null, seal_kanji: D.kanji || null, accent: D.accent, banner_url: D.banner, links, favorites: D.favs.map(f => f.id) }).eq('id', user.id);
       b.disabled = false; b.textContent = 'Guardar cambios';
       if (error) return toast(/links/.test(error.message) ? 'Revisa los enlaces' : /seal_kanji/.test(error.message) ? 'El sello debe ser un solo kanji' : error.message);
       D.links = links; dirty = false; toast('Perfil guardado'); reload?.(); draw(); };
