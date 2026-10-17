@@ -72,10 +72,10 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
 
   async function panel(me){
     app.innerHTML = `<div class="bb"><div class="bb-top"><div><span class="ui-lbl">Mostrador del Bibliotecario</span><h1>Hola, ${esc(me.username)}</h1></div><button class="btn ghost" id="bbout">Cerrar sesión</button></div>
-      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['solicitudes','Solicitudes'],['compras','Enlaces de compra'],['inicio','Inicio'],['temporadas','Temporadas'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
+      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['solicitudes','Solicitudes'],['compras','Enlaces de compra'],['inicio','Inicio'],['resenas','Reseñas'],['temporadas','Temporadas'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
     $('#bbout').onclick = async () => { await sb.auth.signOut(); location.href = '/'; };
     app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; panel(me); });
-    try { await ({ resumen, usuarios, equipos, solicitudes, compras, inicio, temporadas, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
+    try { await ({ resumen, usuarios, equipos, solicitudes, compras, inicio, resenas, temporadas, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
   }
   const view = () => $('#bbv');
 
@@ -134,6 +134,16 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   }
 
 
+  async function resenas(){
+    const Q = await rpc('admin_review_queue'), RS = { spoiler: 'Spoilers', ofensiva: 'Ofensiva', spam: 'Spam', otra: 'Otro motivo' };
+    view().innerHTML = Q.length ? `<div style="display:grid;gap:12px">${Q.map((r, i) => `<div class="bb-box"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3 style="margin:0"><a href="/serie/${esc(r.slug)}">${esc(r.title)}</a> · reseña de ${esc(r.author || 'Lector')}</h3><span class="mono" style="color:#f59e7a">${r.n} ${r.n === 1 ? 'reporte' : 'reportes'}</span></div>
+      <p style="margin:10px 0;padding:12px;background:#0d0c0a;border:1px solid #2f2a20;font-size:14px;line-height:1.55;white-space:pre-wrap">${esc(r.body)}</p>
+      <p class="mono" style="font-size:12px;margin:0 0 12px">${r.reports.map(x => esc(RS[x.reason] || x.reason) + (x.note ? ' — «' + esc(x.note) + '»' : '') + ' · ' + esc(x.by || '—')).join('<br>')}</p>
+      <div class="bb-row"><button class="bb-mini red" data-res="${i}|removed">Retirar reseña</button><button class="bb-mini" data-res="${i}|dismissed">Descartar reportes</button></div></div>`).join('')}</div>` : '<p class="mono">No hay reseñas reportadas.</p>';
+    view().querySelectorAll('[data-res]').forEach(b => b.onclick = async () => { const [i, a] = b.dataset.res.split('|'), r = Q[+i];
+      if (a === 'removed' && !confirm('¿Retirar esta reseña? Se avisará a su autor.')) return; b.disabled = true;
+      try { await rpc('admin_review_resolve', { p_series: r.series_id, p_author: r.author_id, p_action: a }); toast(a === 'removed' ? 'Reseña retirada' : 'Reportes descartados'); resenas(); } catch (e) { b.disabled = false; toast(msg(e)); } });
+  }
   async function inicio(){
     const [{ data: row, error }, { data: ss }] = await Promise.all([sb.from('platform_settings').select('featured').eq('id', 1).single(), sb.from('series').select('id,title,cover_path,adult,translation_status,teams(name)').eq('published', true).order('title')]);
     if (error) throw error;

@@ -2,15 +2,15 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
 const { createReader } = await import('/reader.js?v=13');
-const { createUI } = await import('/ui.js?v=30');
+const { createUI } = await import('/ui.js?v=31');
 export const sb = createClient(url, key, { auth: { persistSession: true } });
 const $ = s => document.querySelector(s), app = $('#app');
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 2800); };
 let user = null, profile = null, me = null;
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
-let ST; const st = async () => ST ||= (await import('/studio.js?v=33')).createStudio(CTX());
-let AD; const ad = async () => AD ||= (await import('/admin.js?v=7')).createAdmin(CTX());
+let ST; const st = async () => ST ||= (await import('/studio.js?v=34')).createStudio(CTX());
+let AD; const ad = async () => AD ||= (await import('/admin.js?v=8')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
 let U; const ui = () => U ||= createUI(CTX());
 const RL = { bibliotecario: 'Bibliotecario', publicador: 'Publicador', lector: 'Lector' };
@@ -166,6 +166,7 @@ const LB_CSS = `
 .lb-c .cv.no{display:flex;align-items:flex-end;padding:10px;font-family:'Shippori Mincho B1',serif;background:linear-gradient(160deg,var(--c),#16140f)}
 .lb-c .cv em{position:absolute;top:8px;right:0;padding:2px 8px;background:var(--gold);color:#0d0c0a;font:700 11px/1.3 'IBM Plex Mono',monospace;font-style:normal}.lb-c .cv em.ok{background:#a9d18e}
 .lb-c .bar{height:3px;background:#2f2a20}.lb-c .bar i{display:block;height:100%;background:var(--gold)}.lb-c b{font-size:14px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.lb-c small{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89f8a}
+.lb-av{display:grid;max-width:720px}.lb-ai{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid #221f18}.lb-ai a{color:var(--paper);font-weight:600;text-decoration:none}.lb-ai a:hover{color:var(--gold)}@media(max-width:560px){.lb-ai{grid-template-columns:1fr auto}.lb-ai a{grid-column:1/-1}}
 .lb-empty{padding:28px;border:1px dashed #3d3628;color:#a89f8a;display:grid;gap:12px;justify-items:start}.lb-h{display:grid;gap:0}.lb-h a{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;padding:10px 0;border-bottom:1px solid #221f18;color:var(--paper);text-decoration:none;font-size:14px}.lb-h a:hover{color:var(--gold)}.lb-h .mono{font-size:12px}
 .st-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:12px;margin:14px 0}.st-k{padding:16px;border:1px solid #2f2a20;background:#16140f;display:grid;gap:4px}.st-k b{font-family:'Shippori Mincho B1',serif;font-size:32px;font-weight:500;color:var(--gold);line-height:1}.st-k span{font-size:13px;color:#a89f8a}
 .st-gen{display:grid;gap:8px;max-width:520px}.st-gen div{display:grid;grid-template-columns:140px minmax(0,1fr) 40px;gap:10px;align-items:center;font-size:14px}.st-gen i{height:8px;background:var(--gold)}.st-gen small{font-family:'IBM Plex Mono',monospace;color:#a89f8a;text-align:right}
@@ -174,11 +175,11 @@ const lbCss = () => { if (document.getElementById('lb-css')) return; const s = d
 async function library(){
 if (!user) return go('/entrar');
 lbCss(); app.innerHTML = '<p class="mono">Cargando tu biblioteca…</p>';
-const TABS = [['leyendo', 'Leyendo'], ['pendientes', 'Pendientes'], ['terminadas', 'Terminadas'], ['offline', 'Sin conexión'], ['historial', 'Historial']];
+const TABS = [['leyendo', 'Leyendo'], ['pendientes', 'Pendientes'], ['terminadas', 'Terminadas'], ['avisos', 'Avisos'], ['offline', 'Sin conexión'], ['historial', 'Historial']];
 const tab = TABS.some(t => t[0] === new URLSearchParams(location.search).get('t')) ? new URLSearchParams(location.search).get('t') : 'leyendo';
 const [{ data: prog }, { data: fol }, { data: rc }] = await Promise.all([
   sb.from('reading_progress').select('series_id,chapter_num,pct,updated_at').eq('user_id', user.id),
-  sb.from('follows').select('series_id').eq('user_id', user.id),
+  sb.from('follows').select('series_id,channels').eq('user_id', user.id),
   sb.from('read_chapters').select('chapter_id').eq('user_id', user.id)]);
 const ids = [...new Set([...(prog || []), ...(fol || [])].map(r => r.series_id))];
 const [{ data: ser }, { data: chs }] = ids.length ? await Promise.all([
@@ -203,6 +204,14 @@ app.innerHTML = `<div class="ui-cath"><div><h1>Mi biblioteca</h1><p>${read.size}
 <nav class="lb-tabs">${TABS.map(([k, l]) => `<a href="/biblioteca${k === 'leyendo' ? '' : '?t=' + k}" class="${k === tab ? 'on' : ''}">${l}${n(k) ? `<em>${n(k)}</em>` : ''}</a>`).join('')}</nav><div id="lb-body"></div>`;
 const box = $('#lb-body');
 if (L[tab]) box.innerHTML = L[tab].length ? `<div class="lb-grid">${L[tab].map(w => card(w, tab)).join('')}</div>` : `<div class="lb-empty"><span>${EMPTY[tab]}</span><a class="btn ghost" href="/catalogo">Explorar el catálogo</a></div>`;
+else if (tab === 'avisos') {
+  const FL = (fol || []).map(r => ({ r, s: (ser || []).find(x => x.id === r.series_id) })).filter(x => x.s).sort((a, b) => a.s.title.localeCompare(b.s.title, 'es'));
+  box.innerHTML = FL.length ? `<p class="mono" style="margin:0 0 14px;font-size:13px">Elige de qué obras quieres aviso en la campana cuando salga un capítulo nuevo.</p><div class="lb-av">${FL.map(({ r, s }) => { const on = r.channels?.web !== false; return `<div class="lb-ai"><a href="/serie/${s.slug}">${esc(s.title)}</a><label class="ui-tog"><input type="checkbox" data-av="${s.id}" ${on ? 'checked' : ''}> Avisarme</label><button class="ui-lnk" data-unf="${s.id}">Dejar de seguir</button></div>`; }).join('')}</div>`
+    : '<div class="lb-empty">Aún no sigues ninguna obra. Usa «Seguir serie» en la ficha de una obra.</div>';
+  box.querySelectorAll('[data-av]').forEach(i => i.onchange = async () => { const r = (fol || []).find(x => x.series_id === i.dataset.av), ch = { ...(r.channels || {}), web: i.checked };
+    const { error } = await sb.from('follows').update({ channels: ch }).eq('user_id', user.id).eq('series_id', i.dataset.av); if (error) { i.checked = !i.checked; return toast(error.message); } r.channels = ch; toast(i.checked ? 'Recibirás avisos de esta obra' : 'Ya no recibirás avisos de esta obra'); });
+  box.querySelectorAll('[data-unf]').forEach(b => b.onclick = async () => { if (!confirm('¿Dejar de seguir esta obra?')) return; const { error } = await sb.from('follows').delete().eq('user_id', user.id).eq('series_id', b.dataset.unf); if (error) return toast(error.message); toast('Ya no sigues esta obra'); library(); });
+}
 else if (tab === 'offline') { box.innerHTML = `<div id="off">${rd().offlineList()}</div>`; rd().bindOfflineList($('#off'), library); }
 else { const hist = await rd().historyList(); box.innerHTML = hist.length ? `<div class="lb-h">${hist.map(h => `<a href="/leer/${h.chapters.series.slug}/${h.chapters.num}"><span class="mono">${new Date(h.opened_at).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}</span><span>${esc(h.chapters.series.title)} · ${esc(h.chapters.title)}</span></a>`).join('')}</div>` : '<div class="lb-empty">Sin historial todavía.</div>'; }
 }
