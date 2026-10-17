@@ -88,3 +88,8 @@ Buckets: obi-epub (privado), avatars, obi-media, obi-app (públicos). Extensione
 - `rankings(list, period, series_id, pos, prev_pos, score, votes, computed_at)` lectura pública. Listas: leidas, tendencia, calificadas (≥25 votos), terminadas, novedades (≤30 días). Periodos: hoy, semana, mes, anio, historico (tendencia/novedades solo hoy–mes). Top 500 por lista.
 - `private.compute_rankings()` cron `obi-rankings` cada 6 h. Avisa (`notifications`, kind tablero) a los integrantes cuando una obra entra al Top 10 semanal de cualquier lista (máx. 1 por obra/lista cada 7 días).
 - `ranking_list(p_list, p_period, p_genre, p_status, p_limit)`: filtra +18 según `profiles.adult_ok`; estado en_curso = active/paused, terminada = completed.
+
+## Lectores: avisos y estadísticas (20261025)
+- Avisos `kind = 'capitulo'` a quien sigue la obra (`follows`, salvo `channels.web = false` e integrantes del equipo). Trigger `chapters_notify_followers` + cron `obi-chapter-notify` (cada 10 min, capítulos programados). Agrupa: si hay un aviso sin leer de la misma obra, lo actualiza a «N capítulos nuevos» (`link` = {href, series, n, from}). `private.chapter_notified` evita duplicados; lo publicado antes de la migración no avisa.
+- `reader_stats(p_user default auth.uid())` → {chapters, month, series, finished, following, genres[{g,n}]}. Solo el propio lector o si `profiles.public_activity`.
+- `reader_public(p_username)` → perfil público (ruta `/lector/:usuario`).
