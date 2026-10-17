@@ -427,7 +427,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const s = feat[i], p = prog[s.id], lc = lastCh[s.id], n = p?.chapter_num || lc?.num || 1; const fresh = lc && Date.now() - new Date(lc.publish_at) < 7 * 864e5;
     const tag = (s.synopsis || '').split(/(?<=[.!?…])\s/)[0].slice(0, 90);
     el.innerHTML = `<span class="ob-vk" aria-hidden="true">新刊案内</span>
-      <div class="ob-cov"><div class="f" style="${s.cover_path ? `background-image:url('${esc(media(s.cover_path))}')` : ''}"></div></div>
+      <div class="ob-cov"><div class="f" style="${s.cover_path ? `background-image:url('${esc(matchMedia('(max-width: 700px)').matches ? thumb(s) : media(s.cover_path))}')` : ''}"></div></div>
       <div class="ob-txt"><span class="ob-kick">第${KN(lc?.num || 1)}章${fresh ? ' · 新刊' : ''}</span><br><span class="ob-badge">${fresh ? 'NUEVO · CAP. ' + (lc?.num || 1) : 'CAP. ' + (lc?.num || 1) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${top[s.id] ? `<a class="rk-bdg" href="/ranking" style="margin:0 0 0 10px;vertical-align:middle"><b>#${top[s.id]}</b>Top de la semana</a>` : ''}
         <h1>${esc(s.title)}</h1>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn">${esc(s.synopsis ? ((s.synopsis || '').slice(tag.length).trim() || s.synopsis) : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), (s.chapters?.[0]?.count || 0) + ' capítulos en español'].filter(Boolean).join(' · ') + '.')}</p>
         <div class="ob-acts"><a class="a1" href="/leer/${s.slug}/${n}">${p ? 'Continuar capítulo ' + n : 'Leer capítulo ' + (lc?.num || 1)}</a><a class="a2" href="/serie/${s.slug}">Ver la serie</a></div></div>
