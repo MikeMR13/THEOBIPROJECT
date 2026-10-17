@@ -71,9 +71,9 @@ const CSS = `
 .obi-sea-greet{display:flex;gap:12px;align-items:center;margin:0 0 22px;padding:10px 12px 10px 14px;background:color-mix(in srgb,var(--sea) 14%,#16140f);border:1px solid var(--sea);font-family:'Shippori Mincho B1',serif;font-size:17px;line-height:1.35}
 .obi-sea-greet i{width:34px;height:34px;flex:none;background:center/contain no-repeat}.obi-sea-greet span{flex:1;display:grid;gap:2px}.obi-sea-greet small{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--sea)}
 .obi-sea-greet button{flex:none;width:32px;height:32px;background:none;border:1px solid #3d3628;color:#a89f8a;font-size:18px;cursor:pointer}.obi-sea-greet button:hover{border-color:var(--sea);color:var(--paper)}
-.obi-sea-cor{position:absolute;top:0;width:clamp(48px,6vw,84px);aspect-ratio:1;background:center/contain no-repeat;pointer-events:none;z-index:0;opacity:.9;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}.obi-sea-cor.l{left:0;transform:translate(-28%,-28%) rotate(-10deg)}.obi-sea-cor.r{right:0;transform:translate(28%,-28%) rotate(12deg) scaleX(-1)}
-html[data-season] #hero{overflow:visible}html[data-season] #hero>:not(.obi-sea-cor):not(.obi-sea-orn){position:relative;z-index:1}
-.obi-sea-orn{position:absolute;left:0;right:0;bottom:0;height:clamp(34px,5vw,56px);background:center bottom/auto 100% repeat-x;pointer-events:none;z-index:0;opacity:.75}
+.obi-sea-cor{position:absolute;top:0;width:clamp(48px,6vw,84px);aspect-ratio:1;background:center/contain no-repeat;pointer-events:none;z-index:-1;opacity:.9;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}.obi-sea-cor.l{left:0;transform:translate(-28%,-28%) rotate(-10deg)}.obi-sea-cor.r{right:0;transform:translate(28%,-28%) rotate(12deg) scaleX(-1)}
+html[data-season] #hero{isolation:isolate}
+.obi-sea-orn{position:absolute;left:0;right:0;bottom:0;height:clamp(34px,5vw,56px);background:center bottom/auto 100% repeat-x;pointer-events:none;z-index:-1;opacity:.75}
 .obi-sea-rd{display:inline-flex;align-items:center;gap:6px;padding:0 10px 0 4px;height:32px;border:1px solid var(--ln);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mt,#a89f8a)}.obi-sea-rd i{width:22px;height:22px;background:center/contain no-repeat}
 .obi-sea-pg{position:absolute;left:0;right:0;bottom:-1px;height:3px;pointer-events:none}.obi-sea-pg i{display:block;height:100%;background:var(--sea);transform-origin:left;transform:scaleX(0)}
 .rd-bar{position:sticky}
