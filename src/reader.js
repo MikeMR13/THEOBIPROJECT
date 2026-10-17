@@ -127,7 +127,8 @@ export function createReader(ctx){
   });
 
   // una vista por capítulo y día en este dispositivo
-  function trackView(ch){ if (!navigator.onLine) return; const k = 'obi-v-' + ch.id, d = new Date().toDateString(); try { if (localStorage.getItem(k) === d) return; localStorage.setItem(k, d); } catch {} sb.rpc('track_view', { p_chapter: ch.id }).then(() => {}, () => {}); }
+  const devId = () => { try { let d = localStorage.getItem('obi-dev'); if (!d) { d = crypto.randomUUID(); localStorage.setItem('obi-dev', d); } return d; } catch { return null; } };
+  function trackView(ch){ if (!navigator.onLine) return; const k = 'obi-v-' + ch.id, d = new Date().toDateString(); try { if (localStorage.getItem(k) === d) return; localStorage.setItem(k, d); } catch {} sb.rpc('track_view', { p_chapter: ch.id, p_device: devId() }).then(() => {}, () => {}); }
   // ---------- vista ----------
   async function open(slug, num){
     app.innerHTML = '<p class="mono">Abriendo capítulo…</p>';

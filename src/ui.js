@@ -107,6 +107,31 @@ const TL = { active: ['En traducción', '#a9d18e'], paused: ['En pausa', '#f2c23
 const OR = { publishing: 'En publicación', completed: 'Completada', paused: 'En pausa', cancelled: 'Cancelada' };
 const SQ = { waiting: 'En espera de secuela', none: 'Sin secuela confirmada', announced: 'Secuela anunciada', publishing: 'Secuela en publicación', completed: 'Secuela completada' };
 
+const RK_L = { leidas: 'Más leídas', tendencia: 'Tendencia', calificadas: 'Mejor calificadas', terminadas: 'Más terminadas', novedades: 'Novedades en ascenso' };
+const RK_P = { hoy: 'Hoy', semana: 'Semana', mes: 'Mes', anio: 'Año', historico: 'Histórico' };
+const RK_PF = { hoy: 'de hoy', semana: 'de la semana', mes: 'del mes', anio: 'del año', historico: 'de todos los tiempos' };
+const RK_OK = { tendencia: ['hoy', 'semana', 'mes'], novedades: ['hoy', 'semana', 'mes'] };
+const RK_D = { leidas: 'Lectores distintos: cada persona cuenta una vez al día por obra.', tendencia: 'Las que más lecturas ganaron frente al periodo anterior.', calificadas: 'Promedio de estrellas. Solo entran obras con 25 votos o más en el periodo.', terminadas: 'Lectores que llegaron al último capítulo publicado.', novedades: 'Obras con su primer capítulo publicado hace 30 días o menos.' };
+const RK_E = { calificadas: 'Todavía ninguna obra llega a 25 votos en este periodo. Califica las que leas desde su ficha.', tendencia: 'Ninguna obra ganó lecturas frente al periodo anterior.', novedades: 'No hay obras nuevas con lecturas en este periodo.' };
+const RK_CSS = `
+.rk-bar{display:grid;gap:12px;margin:0 0 26px}.rk-row{display:flex;gap:12px 18px;flex-wrap:wrap;align-items:center}
+.rk-seg{display:inline-flex;flex-wrap:wrap;border:1px solid #3d3628}.rk-seg button{min-height:40px;padding:0 14px;background:none;border:0;border-right:1px solid #3d3628;color:#cfc6b0;font:inherit;font-size:13px;font-weight:600;cursor:pointer}.rk-seg button:last-child{border-right:0}.rk-seg button.on{background:var(--gold);color:#0d0c0a}.rk-seg button:disabled{opacity:.35;cursor:not-allowed}
+.rk-sel{display:flex;gap:8px;align-items:center}.rk-sel select{min-height:40px;font-size:13px}
+.rk-desc{margin:0;font-size:12px;color:#a89f8a;line-height:1.5}
+.rk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,168px),1fr));gap:30px 20px}
+.rk-c{position:relative;display:grid;gap:10px;align-content:start;color:var(--paper);text-decoration:none}.rk-c .ui-book{transition:transform .2s}.rk-c:hover .ui-book{transform:translateY(-4px)}.rk-c:hover b{color:var(--gold)}
+.rk-n{position:absolute;z-index:2;top:-10px;left:-8px;min-width:44px;height:44px;padding:0 8px;display:flex;align-items:center;justify-content:center;background:#0d0c0a;border:2px solid var(--c);font-family:'Shippori Mincho B1',serif;font-weight:800;font-size:22px;line-height:1;color:var(--paper);box-shadow:0 4px 12px rgba(0,0,0,.45)}
+.rk-c.top .rk-n{min-width:56px;height:56px;font-size:30px;background:var(--gold);border-color:var(--gold);color:#0d0c0a}
+.rk-b{display:grid;gap:3px}.rk-b b{font-size:15px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.rk-b small{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89f8a}
+.rk-s{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#cfc6b0}
+.rk-mv{font-weight:600;font-size:11px;padding:1px 5px;border:1px solid currentColor;line-height:1.4}.rk-mv.up{color:#a9d18e}.rk-mv.dn{color:#f59e7a}.rk-mv.eq{color:#7d745f;border-color:transparent}.rk-mv.new{color:var(--gold)}
+.rk-upd{margin:28px 0 0;font-size:12px;color:#7d745f}
+.rk-bdgs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}.rk-bdgs:empty{display:none}.rk-bdg{display:inline-flex;align-items:center;gap:8px;min-height:32px;padding:0 12px 0 0;background:#16140f;border:1px solid var(--gold);color:var(--paper)!important;font-size:13px;font-weight:600;text-decoration:none}.rk-bdg b{display:flex;align-items:center;align-self:stretch;padding:0 9px;background:var(--gold);color:#0d0c0a;font-family:'Shippori Mincho B1',serif;font-size:16px}.rk-bdg:hover{background:#1f1c14}
+.rk-rate{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0}.rk-stars{display:inline-flex}.rk-stars button{width:36px;height:40px;padding:0;background:none;border:0;font-size:24px;line-height:1;color:#3d3628;cursor:pointer}.rk-stars button.avg{color:#b5a27a}.rk-stars button.on{color:var(--gold)}.rk-stars:hover button{color:var(--gold)}.rk-stars button:hover~button{color:#3d3628}.rk-rate .mono{font-size:12px}
+.tp2-rkl{display:grid}.tp2-rki{display:grid;grid-template-columns:52px 40px minmax(0,1fr) auto;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid var(--ln);color:var(--fg)!important;text-decoration:none}.tp2-rki .n{font-family:var(--tf);font-weight:800;font-size:26px;color:var(--act);text-align:center}.tp2-rki .cv{width:40px;aspect-ratio:2/3;background:var(--sf) center/cover;border:1px solid var(--ln)}.tp2-rki b{font-weight:600}.tp2-rki .m{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mu)}.tp2-rk .tp2-sh{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}.tp2-rk .tp2-sh a{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--act)}
+@media(max-width:560px){.rk-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 14px}.rk-n{font-size:18px;min-width:38px;height:38px}.rk-c.top .rk-n{min-width:46px;height:46px;font-size:24px}}
+`;
+const rkCss = () => { if (document.getElementById('rk-css')) return; const s = document.createElement('style'); s.id = 'rk-css'; s.textContent = RK_CSS; document.head.appendChild(s); };
 export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   if (!document.getElementById('ui-css')) { const s = document.createElement('style'); s.id = 'ui-css'; s.textContent = CSS; document.head.appendChild(s); const s2 = document.createElement('style'); s2.textContent = CSS2; document.head.appendChild(s2); }
   chrome();
@@ -120,7 +145,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const top = document.querySelector('header.top'); if (!top || top.dataset.ob) return; top.dataset.ob = '1';
     const ses = document.getElementById('session');
     top.innerHTML = `<a href="/" class="ob-brand"><span class="ob-seal">帯</span><span class="ob-word"><b>El Obi del Lector</b></span></a>
-      <nav class="ob-nav">${[['/','Inicio'],['/catalogo','Catálogo'],['/lanzamientos','Lanzamientos'],['/biblioteca','Mi biblioteca'],['/calendario','Calendario'],['/catalogo?orden=popular','Ranking']].map(([h,l]) => `<a href="${h}">${l}</a>`).join('')}<a href="/apoyar" class="ob-sup">援 Apoyar</a></nav>
+      <nav class="ob-nav">${[['/','Inicio'],['/catalogo','Catálogo'],['/lanzamientos','Lanzamientos'],['/biblioteca','Mi biblioteca'],['/calendario','Calendario'],['/ranking','Ranking']].map(([h,l]) => `<a href="${h}">${l}</a>`).join('')}<a href="/apoyar" class="ob-sup">援 Apoyar</a></nav>
       <div class="ob-tools"><input class="ob-search" id="ob-q" type="search" placeholder="Buscar títulos, autores…" aria-label="Buscar"></div>`;
     addEventListener('scroll', () => top.classList.toggle('ob-min', scrollY > 40), { passive: true });
     top.querySelector('.ob-tools').appendChild(ses);
@@ -473,6 +498,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         <div><span class="ui-lbl">${esc(s.work_type || 'Novela ligera')}${s.demographic ? ' · ' + esc(s.demographic) : ''}</span>
           <h1>${esc(s.title)}</h1>${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
           <div class="ui-chips">${pill(s.translation_status)}${(s.genres || []).map(g => `<a class="ui-chip" href="/catalogo?g=${encodeURIComponent(g)}">${esc(g)}</a>`).join('')}${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</div>
+          <div class="rk-bdgs" id="rk-bdg"></div><div class="rk-rate" id="rk-rate"></div>
           <div class="ui-facts">
             ${s.author ? `<div><span class="ui-lbl">Autor</span><b>${esc(s.author)}</b></div>` : ''}
             ${s.illustrator ? `<div><span class="ui-lbl">Ilustración</span><b>${esc(s.illustrator)}</b></div>` : ''}
@@ -491,6 +517,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       </div></section></div>`;
     app.querySelectorAll('[data-buy]').forEach(b => b.onclick = async () => { const w = window.open('about:blank', '_blank'); const { data } = await sb.rpc('purchase_open', { p_id: +b.dataset.buy }); if (data && w) { w.opener = null; w.location = data; } else w?.close(); });
     app.querySelectorAll('[data-dl]').forEach(b => b.onclick = async () => { b.disabled = true; const w = window.open('about:blank', '_blank'); const { data, error } = await sb.rpc('download_open', { p_id: +b.dataset.dl }); b.disabled = false; if (error || !data) { w?.close(); return toast(error?.hint || error?.message || 'Enlace no disponible'); } if (w) { w.opener = null; w.location = data; } else location.href = data; });
+    rkCss(); seriesRank(s);
     $('#follow').onclick = async e => {
       if (!getUser()) return go('/entrar');
       const b = e.currentTarget; b.disabled = true;
@@ -498,6 +525,81 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       b.disabled = false; if (r.error) return toast(r.error.message);
       toast(following ? 'Ya no sigues esta serie' : 'Siguiendo · te avisaremos de cada volumen'); series(slug);
     };
+  }
+  // ---------- Ranking ----------
+  const fmtN = n => Number(n).toLocaleString('es-MX');
+  async function seriesRank(s){
+    const [{ data: rb }, { data: rt }] = await Promise.all([sb.from('rankings').select('list,period,pos').eq('series_id', s.id).lte('pos', 10), sb.rpc('series_rating', { p_series: s.id })]);
+    const bx = $('#rk-bdg'); if (bx && rb?.length) {
+      const PO = ['semana', 'mes', 'hoy', 'anio', 'historico'], seen = new Set();
+      const best = rb.sort((a, b) => PO.indexOf(a.period) - PO.indexOf(b.period) || a.pos - b.pos).filter(r => !seen.has(r.list) && seen.add(r.list)).slice(0, 2);
+      bx.innerHTML = best.map(r => `<a class="rk-bdg" href="/ranking?lista=${r.list}&periodo=${r.period}"><b>#${r.pos}</b>${RK_L[r.list]} ${RK_PF[r.period]}</a>`).join('');
+    }
+    const el = $('#rk-rate'); if (!el) return;
+    const r = rt || {}, mine = r.mine || 0, u = getUser(), shown = mine || Math.round(+r.avg || 0);
+    el.innerHTML = `<span class="rk-stars" role="group" aria-label="Calificar">${[1, 2, 3, 4, 5].map(v => `<button type="button" data-star="${v}" aria-label="${v} estrella${v > 1 ? 's' : ''}" aria-pressed="${v === mine}" class="${v <= shown ? (mine ? 'on' : 'avg') : ''}">★</button>`).join('')}</span><span class="mono">${r.n ? (+r.avg).toFixed(1) + ' · ' + r.n + (r.n === 1 ? ' voto' : ' votos') : 'Sin votos todavía'}${mine ? ' · tu voto: ' + mine + ' (tócalo otra vez para quitarlo)' : u ? '' : ' · entra para calificar'}</span>`;
+    el.querySelectorAll('[data-star]').forEach(b => b.onclick = async () => {
+      if (!getUser()) return go('/entrar');
+      const v = +b.dataset.star, uid = getUser().id;
+      const { error } = v === mine ? await sb.from('series_ratings').delete().eq('series_id', s.id).eq('user_id', uid) : await sb.from('series_ratings').upsert({ series_id: s.id, user_id: uid, score: v, updated_at: new Date().toISOString() });
+      if (error) return toast(error.message);
+      toast(v === mine ? 'Quitaste tu voto' : 'Calificaste con ' + v + (v === 1 ? ' estrella' : ' estrellas')); seriesRank(s);
+    });
+  }
+  async function ranking(){
+    rkCss();
+    const qs = new URLSearchParams(location.search);
+    const R = { list: RK_L[qs.get('lista')] ? qs.get('lista') : 'leidas', period: RK_P[qs.get('periodo')] ? qs.get('periodo') : 'semana', genre: qs.get('genero') || '', status: ['en_curso', 'terminada'].includes(qs.get('estado')) ? qs.get('estado') : '' };
+    app.innerHTML = '<p class="mono">Cargando el ranking…</p>';
+    const { data: gs } = await sb.from('series').select('genres').eq('published', true);
+    const genres = [...new Set((gs || []).flatMap(x => x.genres || []))].sort((a, b) => a.localeCompare(b, 'es'));
+    if (R.genre && !genres.includes(R.genre)) R.genre = '';
+    app.innerHTML = `<div class="ui-cath"><div><h1>Ranking</h1><p>Las obras que más se leen, más suben y más gustan.</p></div><span class="kj" aria-hidden="true">番付</span></div>
+      <div class="rk-bar">
+        <div class="ui-chips" role="group" aria-label="Lista">${Object.entries(RK_L).map(([k, l]) => `<button class="ui-chip" data-rl="${k}">${l}</button>`).join('')}</div>
+        <div class="rk-row"><div class="rk-seg" role="group" aria-label="Periodo">${Object.entries(RK_P).map(([k, l]) => `<button type="button" data-rp="${k}">${l}</button>`).join('')}</div>
+          <label class="rk-sel"><span class="ui-lbl">Género</span><select id="rk-g"><option value="">Todos</option>${genres.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('')}</select></label>
+          <div class="rk-seg" role="group" aria-label="Estado">${[['', 'Todas'], ['en_curso', 'En curso'], ['terminada', 'Terminadas']].map(([k, l]) => `<button type="button" data-rs="${k}">${l}</button>`).join('')}</div></div>
+        <p class="mono rk-desc" id="rk-desc"></p>
+      </div><div id="rk"></div>`;
+    $('#rk-g').value = R.genre;
+    const sync = () => {
+      const ok = RK_OK[R.list]; if (ok && !ok.includes(R.period)) R.period = 'semana';
+      const q = new URLSearchParams(); if (R.list !== 'leidas') q.set('lista', R.list); if (R.period !== 'semana') q.set('periodo', R.period); if (R.genre) q.set('genero', R.genre); if (R.status) q.set('estado', R.status);
+      history.replaceState({}, '', '/ranking' + (q.toString() ? '?' + q : ''));
+      app.querySelectorAll('[data-rl]').forEach(b => { b.classList.toggle('on', b.dataset.rl === R.list); b.setAttribute('aria-pressed', b.dataset.rl === R.list); });
+      app.querySelectorAll('[data-rp]').forEach(b => { b.classList.toggle('on', b.dataset.rp === R.period); b.disabled = !!ok && !ok.includes(b.dataset.rp); b.setAttribute('aria-pressed', b.dataset.rp === R.period); });
+      app.querySelectorAll('[data-rs]').forEach(b => { b.classList.toggle('on', b.dataset.rs === R.status); b.setAttribute('aria-pressed', b.dataset.rs === R.status); });
+      $('#rk-desc').textContent = RK_D[R.list];
+    };
+    let tk = 0;
+    const draw = async () => {
+      sync(); const my = ++tk, box = $('#rk'); box.innerHTML = '<p class="mono">Cargando…</p>';
+      const { data, error } = await sb.rpc('ranking_list', { p_list: R.list, p_period: R.period, p_genre: R.genre || null, p_status: R.status || null, p_limit: 20 });
+      if (my !== tk || !document.body.contains(box)) return;
+      if (error) { box.innerHTML = `<p style="color:#f59e7a">No se pudo cargar el ranking: ${esc(error.message)}</p>`; return; }
+      if (!data?.length) { box.innerHTML = `<div class="ui-empty"><p><strong>${R.genre || R.status ? 'Ninguna obra con estos filtros entra en esta lista.' : RK_E[R.list] || 'Aún no hay lecturas en este periodo.'}</strong></p></div>`; return; }
+      const { data: ss } = await sb.from('series').select(SERIES).in('id', data.map(r => r.series_id));
+      if (my !== tk) return;
+      const by = Object.fromEntries((ss || []).map(s => [s.id, s])), filtered = !!(R.genre || R.status), anyPrev = data.some(r => r.prev_pos != null);
+      const mv = r => filtered ? '' : r.prev_pos == null ? (anyPrev ? '<span class="rk-mv new">Nuevo</span>' : '') : r.prev_pos > r.gpos ? `<span class="rk-mv up" title="Subió ${r.prev_pos - r.gpos} desde la última actualización">▲${r.prev_pos - r.gpos}</span>` : r.prev_pos < r.gpos ? `<span class="rk-mv dn" title="Bajó ${r.gpos - r.prev_pos} desde la última actualización">▼${r.gpos - r.prev_pos}</span>` : '<span class="rk-mv eq" title="Sin cambios">=</span>';
+      const sc = r => ({ leidas: fmtN(r.score) + ' lecturas', tendencia: '+' + fmtN(r.score) + ' lecturas', calificadas: (+r.score).toFixed(1) + ' ★ · ' + r.votes + ' votos', terminadas: fmtN(r.score) + (+r.score === 1 ? ' lector' : ' lectores') + ' al día', novedades: fmtN(r.score) + ' lecturas' })[R.list];
+      box.innerHTML = `<div class="rk-grid">${data.filter(r => by[r.series_id]).map(r => { const s = by[r.series_id]; return `<a class="rk-c${r.pos <= 3 ? ' top' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${r.pos}">${r.pos}</span>${book(s, null, true)}<span class="rk-b"><b>${esc(s.title)}</b>${s.teams?.name ? `<small>${esc(s.teams.name)}</small>` : ''}<span class="rk-s">${sc(r)}${mv(r)}</span></span></a>`; }).join('')}</div>
+        <p class="mono rk-upd">Actualizado ${ago(data[0].computed_at)} · se recalcula cada 6 horas${filtered ? ' · con filtros no se muestra el movimiento' : ''}</p>`;
+    };
+    app.querySelectorAll('[data-rl]').forEach(b => b.onclick = () => { R.list = b.dataset.rl; draw(); });
+    app.querySelectorAll('[data-rp]').forEach(b => b.onclick = () => { R.period = b.dataset.rp; draw(); });
+    app.querySelectorAll('[data-rs]').forEach(b => b.onclick = () => { R.status = b.dataset.rs; draw(); });
+    $('#rk-g').onchange = e => { R.genre = e.target.value; draw(); };
+    draw();
+  }
+  async function teamRank(root, teamId){
+    const { data: tw } = await sb.from('series').select('id,slug,title,cover_path').eq('team_id', teamId).eq('published', true);
+    if (!tw?.length) return;
+    const { data: tr } = await sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'semana').lte('pos', 50).in('series_id', tw.map(w => w.id)).order('pos');
+    const box = root.querySelector('.tp2-in'); if (!tr?.length || !box || !document.body.contains(root)) return;
+    rkCss(); const by = Object.fromEntries(tw.map(w => [w.id, w]));
+    box.insertAdjacentHTML('beforeend', `<section class="tp2-sec tp2-rk"><div class="tp2-sh"><h2>En el ranking</h2><a href="/ranking">Más leídas de la semana →</a></div><div class="tp2-rkl">${tr.map(r => { const w = by[r.series_id]; return `<a class="tp2-rki" href="/serie/${esc(w.slug)}"><span class="n">#${r.pos}</span><span class="cv" style="${w.cover_path ? `background-image:url('${esc(media(w.cover_path))}')` : ''}"></span><b>${esc(w.title)}</b><span class="m">de 50</span></a>`; }).join('')}</div></section>`);
   }
   // ---------- página pública del equipo (diseño en teampage.js) ----------
   async function team(slug){
@@ -515,7 +617,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     let md = document.querySelector('meta[name=description]'); if (!md) { md = document.createElement('meta'); md.name = 'description'; document.head.appendChild(md); } md.content = (TP.normalize(design).motto || D.t.bio || 'Grupo traductor en El Obi del Lector').slice(0, 160);
     const top = (canEdit ? '<div class="tp2-top"><a class="tp2-edit" href="/estudio/preferencias">⚙ Personalizar</a></div>' : '') + (draft ? '<div class="tp2-draft"><b>Vista previa del borrador</b><span>Así se verá la página cuando el equipo publique los cambios.</span></div>' : '');
     app.innerHTML = `<div class="tp2-page">${TP.render(D, design, { esc, media, top })}</div>`;
-    const root = app.querySelector('.tp2'); TP.bind(root);
+    const root = app.querySelector('.tp2'); TP.bind(root); if (!draft) teamRank(root, D.t.id);
     team.stop?.(); team.stop = AN.animate(root, TP.effective(design, D.t.color));
     const off = () => { if (!document.body.contains(root)) { team.stop?.(); team.stop = null; removeEventListener('popstate', off); } }; addEventListener('popstate', off); document.addEventListener('click', function cl(e){ if (e.target.closest('a[href^="/"]')) { setTimeout(() => { if (!document.body.contains(root)) { team.stop?.(); team.stop = null; document.removeEventListener('click', cl, true); } }, 50); } }, true);
     let following = false, n = 0;
@@ -525,5 +627,5 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       const { error } = following ? await sb.from('team_follows').delete().eq('team_id', D.t.id).eq('user_id', u2.id) : await sb.from('team_follows').insert({ team_id: D.t.id, user_id: u2.id });
       b.disabled = false; if (error) return toast(error.message); following = !following; n += following ? 1 : -1; TP.fillFollow(root, following, n); toast(following ? 'Ahora sigues a ' + D.t.name : 'Dejaste de seguir a ' + D.t.name); });
   }
-  return { home, catalog, series, releases, refreshBadge, team };
+  return { home, catalog, series, releases, refreshBadge, team, ranking };
 }

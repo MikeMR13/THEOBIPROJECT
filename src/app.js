@@ -1,8 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
-const { createReader } = await import('/reader.js?v=10');
-const { createUI } = await import('/ui.js?v=25');
+const { createReader } = await import('/reader.js?v=11');
+const { createUI } = await import('/ui.js?v=26');
 export const sb = createClient(url, key, { auth: { persistSession: true } });
 const $ = s => document.querySelector(s), app = $('#app');
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -39,7 +39,7 @@ $('#bell-list').onclick = e => { if (e.target.closest('a')) d.open = false; };
 if ((data || []).some(x => !x.read)) { await sb.rpc('notifications_read_all'); $('#bell-n').hidden = true; } });
 }
 const routes = {
-'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': calendar, '/lanzamientos': () => ui().releases(), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/solicitud': solicitud,
+'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': calendar, '/ranking': () => ui().ranking(), '/lanzamientos': () => ui().releases(), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/solicitud': solicitud,
 '/bibliotecario': async () => (await ad()).render(), '/admin': async () => { history.replaceState({}, '', '/bibliotecario'); (await ad()).render(); },
 };
 export function go(path){ history.pushState({}, '', path); render(); }
