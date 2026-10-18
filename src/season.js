@@ -43,6 +43,7 @@ export function apply(kind, o = {}){
   const act = (v.match(/--act:(#[0-9a-f]{6})/i) || [])[1] || s.ac, pat = (v.match(/--pat:(url\('[^']*'\)|none)/) || [])[1] || 'none';
   const mot = s.m ? motifURL(s.m, s.ac, s.c2) : '', mob = matchMedia('(max-width:700px)').matches, still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const H = document.documentElement; H.dataset.season = k; H.style.setProperty('--sea', act); stops.push(() => { delete H.dataset.season; H.style.removeProperty('--sea'); });
+  if (kind === 'studio') { H.style.setProperty('--gold', act); stops.push(() => H.style.removeProperty('--gold')); return; }
   if (kind === 'reader') {
     const bar = document.querySelector('.rd-bar'); if (!bar) return;
     if (mot) mk('obi-sea-rd', bar.querySelector('.rd-tools') || bar).innerHTML = `<i style="background-image:url('${mot}')"></i>${esc(s.l)}`;

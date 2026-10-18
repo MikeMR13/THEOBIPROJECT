@@ -68,7 +68,7 @@ body.in-studio .ob-tools .ob-search,body.in-studio .ob-tools .ob-bell,body.in-st
 .s2-nt{display:grid;grid-template-columns:8px minmax(0,1fr);gap:10px;padding:10px 12px;border-bottom:1px solid #221f18;color:var(--paper);text-decoration:none;font-size:13px;line-height:1.4}.s2-nt:hover{background:#1c1a14;color:var(--paper)}.s2-nt i{width:8px;height:8px;margin-top:6px;opacity:.35}.s2-nt.new i{opacity:1}.s2-nt.new{background:#1a1710}.s2-nt small{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89f8a;margin-top:2px}
 .s2-qh{padding:8px 12px 4px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#a89f8a}.s2-qr{display:grid;gap:2px;padding:8px 12px;color:var(--paper);text-decoration:none;font-size:13px}.s2-qr:hover,.s2-qr:focus{background:#1c1a14;color:var(--paper)}.s2-qr small{font-size:12px;color:#a89f8a}
 @media(max-width:860px){.s2-srch input{width:150px}.s2-tz select{max-width:120px}}
-body.in-studio>.top{display:none}body.in-studio>main{max-width:none;margin:0;padding:0}body.in-studio .s2{margin:0;min-height:100vh}body.in-studio .ed-bar,body.in-studio .st-sticky{top:0}
+body.in-studio>.top,body.in-studio header.top{display:none!important}body.in-studio .s2-tools .ob-user{display:block!important}.s2-tools .ob-user .ob-menu{z-index:70}body.in-studio>main{max-width:none;margin:0;padding:0}body.in-studio .s2{margin:0;min-height:100vh}body.in-studio .ed-bar,body.in-studio .st-sticky{top:0}
 .s2{display:grid;grid-template-columns:248px minmax(0,1fr);margin:-40px calc(-1 * clamp(16px,4vw,56px)) -80px;min-height:calc(100vh - 64px);background:#0d0c0a}
 .s2-side{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#2f2a20 transparent;display:flex;flex-direction:column;gap:22px;padding:22px 16px;background:#110f0b;border-right:1px solid #2f2a20}
 .s2-brand{display:flex;align-items:center;gap:10px;color:var(--paper);text-decoration:none}.s2-brand b{display:block;font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:18px;line-height:1}.s2-brand small{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#a89f8a}
@@ -169,14 +169,20 @@ export function createStudio(ctx){
       <a class="s2-back" href="/">← Volver al sitio</a></aside>
       <section class="st-main s2-main"><header class="s2-head"><div class="s2-ht"><small>ESTUDIO · ${esc((T.team?.name || '').toUpperCase())} · ${CRUMB[tab] || esc(title.toUpperCase())}</small><h1>${title}</h1></div>${topTools()}</header>${body}</section></div>`; };
   // barra superior: zona horaria, avisos, búsqueda y cuenta
-  const topTools = () => { queueMicrotask(bellCount); const u = getUser(), k = tzPick();
+  const topTools = () => { queueMicrotask(bellCount); setTimeout(mountMe, 0); const u = getUser(), k = tzPick();
     const opts = [['device', 'Mi dispositivo · ' + tzLabel(devTz())], ...(T.tz ? [['team', 'Equipo · ' + tzLabel(T.tz)]] : []), ...TZS.filter(([z]) => z !== devTz() && z !== T.tz).map(([z, l]) => [z, l])];
     if (!opts.some(o => o[0] === k)) opts.push([k, tzLabel(k)]);
     return `<div class="s2-tools">
       <label class="s2-tz" title="Zona con la que se muestran y programan las fechas"><span aria-hidden="true">◷</span><select id="st-tz" aria-label="Zona horaria">${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
       <div class="s2-bellw"><button type="button" class="s2-bell" id="st-bell" aria-label="Avisos" aria-expanded="false"><span aria-hidden="true">鈴</span><em id="st-bell-n" hidden></em></button><div class="s2-pop" id="st-bell-list" hidden></div></div>
       <div class="s2-srch"><input id="st-q" type="search" placeholder="Buscar en el Estudio…" autocomplete="off" aria-label="Buscar en el Estudio"><div class="s2-pop" id="st-q-res" hidden></div></div>
-      <a class="s2-me" href="/perfil" title="Mi perfil">${esc(((u?.email || '?')[0] || '?').toUpperCase())}</a></div>`; };
+      <span id="st-me"><a class="s2-me" href="/perfil" title="Mi perfil">${esc(((u?.email || '?')[0] || '?').toUpperCase())}</a></span></div>`; };
+  // el mismo menú de cuenta que en el sitio (foto, Mi perfil, Preferencias, Salir…), copiado del encabezado público
+  const mountMe = () => { const slot = document.getElementById('st-me'), src = document.querySelector('#session .ob-user'); if (!slot || !src || slot.dataset.ok) return; slot.dataset.ok = '1';
+    const d = src.cloneNode(true); d.open = false; const out = d.querySelector('#out'); if (out) { out.removeAttribute('id'); out.onclick = () => document.getElementById('out')?.click(); }
+    d.querySelector('.ob-menu')?.addEventListener('click', e => { if (e.target.closest('a')) d.open = false; });
+    document.addEventListener('click', e => { if (d.open && !d.contains(e.target)) d.open = false; });
+    slot.replaceChildren(d); };
   const agoS = d => { const m = Math.round((Date.now() - new Date(d)) / 60000); return m < 60 ? 'hace ' + Math.max(1, m) + ' min' : m < 1440 ? 'hace ' + Math.round(m / 60) + ' h' : 'hace ' + Math.round(m / 1440) + ' d'; };
   async function bellCount(){ const u = getUser(); if (!u) return; const { count } = await sb.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', u.id).eq('read', false); const n = document.getElementById('st-bell-n'); if (n) { n.hidden = !count; n.textContent = count > 9 ? '9+' : count; } }
   async function bellOpen(){
