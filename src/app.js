@@ -124,6 +124,7 @@ if (p.startsWith('/estudio')) {
 }
 if (p === '/estudio') return (await st()).home();
 if (p === '/estudio/obras') return (await st()).works();
+if (p === '/estudio/nueva') return (await st()).newWork();
 if ((m = p.match(/^\/estudio\/obra\/([\w-]+)$/))) return (await st()).work(m[1]);
 if ((m = p.match(/^\/estudio\/editar\/([\w-]+)$/))) return (await st()).editor(m[1]);
 if (p === '/estudio/importar') return (await st()).importer();

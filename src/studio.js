@@ -158,7 +158,7 @@ export function createStudio(ctx){
   const busy = async (btn, fn) => { if (btn?.disabled) return; if (btn) { btn.disabled = true; btn.dataset.l = btn.textContent; btn.textContent = 'Un momento…'; } try { return await fn(); } catch (e) { toast(e.hint || e.message || 'Error'); } finally { if (btn) { btn.disabled = false; btn.textContent = btn.dataset.l; } } };
   const ROLE_L = { owner: 'Propietario', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
   const NAV = [['/estudio','総','Resumen'],['/estudio/anuncios','告','Anuncios'],['/estudio/obras','作','Obras'],['/estudio/glosario','語','Glosario'],['/estudio/importar','入','Importar'],['/estudio/multimedia','画','Multimedia'],['/estudio/flujo','流','Flujo de trabajo'],['/estudio/comunidad','評','Comunidad'],['/estudio/estadisticas','統','Estadísticas'],['/estudio/descargas','落','Descargas'],['/estudio/perfil','顔','Página del equipo'],['/estudio/preferencias','彩','Preferencias'],['/estudio/equipo','班','Equipo'],['/estudio/bitacora','録','Bitácora','log']];
-  const CRUMB = { '/estudio': 'RESUMEN', '/estudio/obras': 'OBRAS', '/estudio/glosario': 'GLOSARIO', '/estudio/importar': 'IMPORTAR', '/estudio/multimedia': 'MULTIMEDIA', '/estudio/equipo': 'EQUIPO', '/estudio/flujo': 'FLUJO DE TRABAJO', '/estudio/preferencias': 'PREFERENCIAS', '/estudio/anuncios': 'ANUNCIOS', '/estudio/perfil': 'PÁGINA DEL EQUIPO', '/estudio/bitacora': 'BITÁCORA', '/estudio/comunidad': 'COMUNIDAD', '/estudio/estadisticas': 'ESTADÍSTICAS', '/estudio/descargas': 'DESCARGAS', '/estudio/obra': 'OBRAS · FICHA' };
+  const CRUMB = { '/estudio': 'RESUMEN', '/estudio/obras': 'OBRAS', '/estudio/nueva': 'NUEVA OBRA', '/estudio/glosario': 'GLOSARIO', '/estudio/importar': 'IMPORTAR', '/estudio/multimedia': 'MULTIMEDIA', '/estudio/equipo': 'EQUIPO', '/estudio/flujo': 'FLUJO DE TRABAJO', '/estudio/preferencias': 'PREFERENCIAS', '/estudio/anuncios': 'ANUNCIOS', '/estudio/perfil': 'PÁGINA DEL EQUIPO', '/estudio/bitacora': 'BITÁCORA', '/estudio/comunidad': 'COMUNIDAD', '/estudio/estadisticas': 'ESTADÍSTICAS', '/estudio/descargas': 'DESCARGAS', '/estudio/obra': 'OBRAS · FICHA' };
   const css = () => { if (document.getElementById('st2-css')) return; const st = document.createElement('style'); st.id = 'st2-css'; st.textContent = STCSS; document.head.appendChild(st); };
   const shell = (title, body, tab) => { css(); document.body.classList.add('in-studio'); const t = tab === '/estudio/obra' ? '/estudio/obras' : tab; const me = getMe?.();
     return `<div class="s2"><aside class="s2-side">
@@ -313,7 +313,46 @@ export function createStudio(ctx){
     app.innerHTML = shell('Resumen', body, '/estudio'); bindPicker(home);
     app.querySelectorAll('[data-fix],[data-dis]').forEach(b => b.onclick = () => busy(b, async () => { const fix = !!b.dataset.fix; const { error } = await sb.from('reports').update({ status: fix ? 'fixed' : 'dismissed' }).eq('id', b.dataset.fix || b.dataset.dis); if (error) throw error; toast(fix ? 'Errata marcada como corregida' : 'Errata descartada'); home(); }));
   }
-  const emptyState = () => `<div class="s2-empty"><span>空</span><h2>Tu estudio está vacío</h2><p>Empieza importando un EPUB, DOCX o PDF: armamos la obra con su portada, índice e ilustraciones.</p>${can('import') ? '<a class="btn" href="/estudio/importar">⇪ Importar mi primera obra</a>' : '<p class="mono">Pide a tu propietario permiso para importar.</p>'}</div>`;
+  const emptyState = () => `<div class="s2-empty"><span>空</span><h2>Tu estudio está vacío</h2><p>Empieza importando un EPUB, DOCX o PDF: armamos la obra con su portada, índice e ilustraciones.</p>${can('create') || can('import') ? '<span style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><a class="btn" href="/estudio/nueva">＋ Crear mi primera obra</a></span>' : '<p class="mono">Pide a tu propietario permiso para crear obras.</p>'}</div>`;
+
+  // ---------- nueva obra paso a paso ----------
+  async function newWork(){
+    if (!(await ensure())) return;
+    const TAB = '/estudio/obras';
+    if (!can('create')) { app.innerHTML = shell('Nueva obra', can('import') ? '<p>Tu rol solo permite importar. <a href="/estudio/importar">Importar un archivo →</a></p>' : '<p>Tu rol no permite crear obras.</p>', TAB); bindPicker(newWork); return; }
+    const N = { title: '', original: '', author: '', illustrator: '', work_type: WTYPES[0]?.[0] ?? WTYPES[0], synopsis: '', vtitle: '' }; let made = null;
+    const steps = n => `<ol class="st-steps" style="margin:0 0 22px">${['Obra', 'Primer volumen', 'Primer capítulo'].map((l, i) => `<li style="${i === n ? 'color:var(--gold);font-weight:700' : ''}">${l}</li>`).join('')}</ol>`;
+    const box = (h, inner) => `<section class="wk-box" style="max-width:760px;display:grid;gap:12px"><h2>${h}</h2>${inner}</section>`;
+    const step1 = () => { app.innerHTML = shell('Nueva obra', `${steps(0)}
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px;max-width:980px;margin:0 0 22px">
+        <div class="wk-box" style="border-top:4px solid var(--gold);display:grid;gap:6px"><b>Desde cero</b><span class="mono" style="font-size:12px;line-height:1.5">Llenas los datos de la obra, creamos el Volumen 1 y escribes el primer capítulo en el editor.</span></div>
+        ${can('import') ? '<a class="wk-box" href="/estudio/importar" style="display:grid;gap:6px;text-decoration:none;color:var(--paper)"><b>Importar un archivo →</b><span class="mono" style="font-size:12px;line-height:1.5">EPUB, DOCX o PDF: armamos la obra, el volumen, los capítulos, la portada y las ilustraciones.</span></a>' : ''}</div>
+      ${box('Datos de la obra', `<label>Título en español *<input id="nw-title" maxlength="200" value="${esc(N.title)}" placeholder="Por ejemplo: La bruja del faro"></label>
+        <label>Título original<input id="nw-original" maxlength="200" value="${esc(N.original)}"></label>
+        <div class="wk-g2"><label>Autor<input id="nw-author" maxlength="120" value="${esc(N.author)}"></label><label>Ilustración<input id="nw-illustrator" maxlength="120" value="${esc(N.illustrator)}"></label></div>
+        <label>Tipo<select id="nw-work_type">${WTYPES.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}" ${String(N.work_type) === String(v) ? 'selected' : ''}>${esc(l)}</option>`; }).join('')}</select></label>
+        <label>Sinopsis<textarea id="nw-synopsis" rows="4" maxlength="3000">${esc(N.synopsis)}</textarea></label>
+        <span class="mono" style="font-size:12px">La obra se crea privada. Géneros, etiquetas, portada y el resto de la ficha se completan después en «Datos de la obra».</span>
+        <span style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" id="nw-go">Crear obra y continuar →</button><a class="btn ghost" href="/estudio/obras">Cancelar</a></span>`)}`, TAB); bindPicker(newWork);
+      ['title', 'original', 'author', 'illustrator', 'work_type', 'synopsis'].forEach(k => { const el = $('#nw-' + k); el[el.tagName === 'SELECT' ? 'onchange' : 'oninput'] = e => { N[k] = e.target.value; }; });
+      $('#nw-title').focus();
+      $('#nw-go').onclick = e => busy(e.currentTarget, async () => {
+        const title = N.title.trim(); if (!title) { $('#nw-title').focus(); throw new Error('Escribe el título de la obra'); }
+        let slug = slugify(title); const { data: taken } = await sb.from('series').select('id').eq('slug', slug).limit(1); if (taken?.length) slug += '-' + Date.now().toString(36).slice(-4);
+        const r = await sb.from('series').insert({ team_id: T.team.id, slug, title, short: title.slice(0, 26), original: N.original.trim() || null, author: N.author.trim() || null, illustrator: N.illustrator.trim() || null, work_type: N.work_type || null, synopsis: N.synopsis.trim() || null, published: false }).select().single();
+        if (r.error) throw new Error(errMsg(r.error)); made = { s: r.data }; T.works = null; toast('Obra creada'); step2(); }); };
+    const step2 = () => { app.innerHTML = shell('Nueva obra', `${steps(1)}${box('Volumen 1 de «' + esc(made.s.title) + '»', `
+        <label>Título del volumen (opcional)<input id="nw-vt" maxlength="200" value="${esc(N.vtitle)}" placeholder="Volumen 1"></label>
+        <span style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" id="nw-v">Crear volumen y escribir el capítulo 1 →</button>${can('import') ? '<a class="btn ghost" href="/estudio/importar">⇪ Importar este volumen desde un archivo</a>' : ''}</span>
+        <span class="mono" style="font-size:12px">Al importar, elige «${esc(made.s.title)}» como obra y Volumen 1.</span>
+        <a class="lnk" href="/estudio/obra/${made.s.slug}">Omitir por ahora e ir a la obra</a>`)}`, TAB); bindPicker(newWork);
+      $('#nw-vt').oninput = e => { N.vtitle = e.target.value; };
+      $('#nw-v').onclick = e => busy(e.currentTarget, async () => {
+        if (!made.v) { const vt = N.vtitle.trim(); const r = await sb.from('volumes').insert({ series_id: made.s.id, num: 1, status: 'draft', ...(vt ? { title: vt } : {}) }).select('id,num').single(); if (r.error) throw new Error(errMsg(r.error)); made.v = r.data; }
+        const c = await sb.from('chapters').insert({ series_id: made.s.id, volume_id: made.v.id, vol: 1, num: 1, title: 'Capítulo 1', body: [], status: 'draft', section_type: 'Capítulo' }).select('id').single(); if (c.error) throw new Error(errMsg(c.error));
+        toast('Volumen 1 y capítulo 1 listos · ya puedes escribir'); go('/estudio/editar/' + c.data.id); }); };
+    step1();
+  }
 
   // ---------- obras ----------
   async function works(){
@@ -334,7 +373,7 @@ export function createStudio(ctx){
           <span class="ac">${can('create') ? `<button class="btn" data-new="${w.id}">＋ Nuevo capítulo</button>` : ''}<a class="btn ghost" href="/estudio/obra/${w.slug}">Abrir ficha</a>${can('import') ? '<a class="btn ghost" href="/estudio/importar">Importar volumen</a>' : ''}<a class="lnk" href="/serie/${w.slug}">Ver en el sitio ↗</a></span></div></article>`; };
     const body = `${(inv || []).map(c => `<div class="st-card"><span>${esc(c.inviter?.name || 'Un equipo')} te invita a colaborar en <strong>${esc(c.series?.title)}</strong></span><span><button class="btn" data-acc="${c.id}">Aceptar</button> <button class="btn ghost" data-rej="${c.id}">Rechazar</button></span></div>`).join('')}
       ${pick && list.length ? '<div class="st-card"><span>¿En qué obra va el nuevo capítulo? Toca «＋ Nuevo capítulo» en la obra.</span></div>' : ''}
-      ${list.length ? `<div class="s2-works">${list.map(card).join('')}${can('import') ? '<a class="s2-add" href="/estudio/importar"><span>＋</span>Nueva obra<small>Importa un EPUB, DOCX o PDF</small></a>' : ''}</div>` : emptyState()}
+      ${list.length ? `<div class="s2-works">${list.map(card).join('')}${can('create') || can('import') ? '<a class="s2-add" href="/estudio/nueva"><span>＋</span>Nueva obra<small>Desde cero con el editor o importando un EPUB, DOCX o PDF</small></a>' : ''}</div>` : emptyState()}
       ${(collab || []).length ? `<h2 class="s2-h2">Colaboraciones</h2><div class="s2-box">${collab.map(c => `<p><a href="/serie/${c.series.slug}">${esc(c.series.title)}</a> <span class="mono">de ${esc(c.series.teams?.name)}</span></p>`).join('')}</div>` : ''}`;
     app.innerHTML = shell('Mis obras', body, '/estudio/obras'); bindPicker(works);
     app.querySelectorAll('[data-new]').forEach(b => b.onclick = () => busy(b, () => newChapter(list.find(w => w.id === b.dataset.new))));
@@ -2132,5 +2171,5 @@ export function createStudio(ctx){
     $('#pf-share').onclick = e => busy(e.currentTarget, async () => { clearTimeout(saveT); await rpc('team_design_save', { p_team: T.team.id, p_design: d }); if (!token) token = await rpc('team_design_new_token', { p_team: T.team.id }); const link = location.origin + '/equipo/' + T.team.slug + '?vista=' + token; try { await navigator.clipboard.writeText(link); toast('Enlace copiado · cualquiera con él ve el borrador'); } catch { prompt('Copia este enlace:', link); } });
   }
 
-  return { home, works, work, editor, importer, library: () => library(), team, board, log, profile, prefs, announcements, community, stats, downloads, glossary, isMember: async () => { const u = getUser(); if (!u) return false; const { count } = await sb.from('team_members').select('*', { count: 'exact', head: true }).eq('user_id', u.id); return count > 0; } };
+  return { home, works, newWork, work, editor, importer, library: () => library(), team, board, log, profile, prefs, announcements, community, stats, downloads, glossary, isMember: async () => { const u = getUser(); if (!u) return false; const { count } = await sb.from('team_members').select('*', { count: 'exact', head: true }).eq('user_id', u.id); return count > 0; } };
 }
