@@ -234,3 +234,5 @@ select{background:#16140f;border:2px solid var(--line);color:var(--paper);paddin
 .tp2-page{position:relative;width:100vw;margin:-40px 0 -80px calc(50% - 50vw)}
 
 main>p,main>h1+p{max-width:75ch}
+
+.foot{max-width:var(--wrap);margin:0 auto;padding:22px clamp(16px,4vw,56px) 96px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px 22px;font-size:13px;color:var(--mute)}.foot a{color:var(--mute)}.foot a:hover{color:var(--gold)}body.no-tab .foot,body.in-studio .foot{display:none}
