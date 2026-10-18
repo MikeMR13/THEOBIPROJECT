@@ -142,7 +142,7 @@ export async function publicProfile(C, name, opt = {}){
     return `<div class="lc-shg">${x.items.map(s => `<a href="/serie/${esc(s.slug)}">${card(s)}<span>${esc(s.title)}</span></a>`).join('')}</div>${x.n > 6 ? `<span class="lc-more">+${x.n - 6} más</span>` : ''}`; };
   const stars = n => '★'.repeat(n || 0) + '☆'.repeat(Math.max(0, 5 - (n || 0)));
   const VIS = { all: 'Visible para todos', auth: 'Visible solo con cuenta', none: 'Privado: solo tú lo ves' };
-  const bar = opt.owner ? `<div style="display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between"><span style="display:grid;gap:2px"><h1 style="margin:0;font:800 30px 'Shippori Mincho B1',serif">Mi perfil</h1><span class="mono" style="font-size:12px">${VIS[opt.visibility] || ''} · <a href="/lector/${encodeURIComponent(r.username)}">/lector/${esc(r.username)}</a></span></span><span style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn" href="/preferencias">Editar carnet</a><a class="btn ghost" href="/preferencias?s=privacidad">Privacidad</a></span></div>` : '';
+  const bar = opt.owner ? `<div style="display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between"><span style="display:grid;gap:2px"><h1 style="margin:0;font:800 30px 'Shippori Mincho B1',serif">Mi perfil</h1><span class="mono" style="font-size:12px">${VIS[opt.visibility] || ''} · <a href="/lector/${encodeURIComponent(r.username)}" id="lc-cp" title="Copiar enlace público">/lector/${esc(r.username)} ⧉</a></span></span><span style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn" href="/preferencias">Editar carnet</a><a class="btn ghost" href="/preferencias?s=privacidad">Privacidad</a></span></div>` : '';
   const mine = opt.owner && !(r.public_activity && r.stats) && own.data ? `<section class="lc-sec"><div class="lc-hd"><h2>Mis estadísticas</h2><span class="mono" style="font-size:11px">SOLO TÚ VES ESTO · <a href="/preferencias?s=privacidad">HACERLAS PÚBLICAS</a></span></div>${statsHTML(own.data) || '<p class="lc-empty">Aún no hay lecturas registradas.</p>'}</section>` : '';
   const empty = opt.owner && !r.bio && !r.kanji && !favs.length && !r.links?.length ? `<p class="lc-empty" style="border:1px dashed var(--line);padding:14px 16px">Tu carnet está vacío. <a href="/preferencias">Añade bio, kanji, favoritas y enlaces</a>.</p>` : '';
   app.innerHTML = `<div class="lc" style="--ac:${esc(ac)}">${bar}
@@ -166,6 +166,7 @@ export async function publicProfile(C, name, opt = {}){
   </div>`;
   app.querySelectorAll('[data-sh]').forEach(b => b.onclick = () => { app.querySelectorAll('[data-sh]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); app.querySelector('#lc-shb').innerHTML = shelfBody(b.dataset.sh); });
   app.querySelectorAll('.lc-rv .sp').forEach(p => p.onclick = p.onkeydown = () => p.classList.remove('sp'));
+  const cp = app.querySelector('#lc-cp'); if (cp) cp.onclick = async e => { e.preventDefault(); e.stopPropagation(); try { await navigator.clipboard.writeText(location.origin + cp.getAttribute('href')); cp.textContent = 'Enlace copiado ✓'; } catch { cp.textContent = location.origin + cp.getAttribute('href'); } };
 }
 
 export async function preferences(C){
@@ -296,7 +297,7 @@ export async function preferences(C){
   }
   if (tab === 'cuenta') {
     app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Cuenta</h2><p class="pf-note">Correo: <b>${esc(user.email)}</b></p></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn ghost" id="pw">Cambiar contraseña</button><a class="btn ghost" href="/perfil">Mi perfil</a><a class="btn ghost" href="/lector/${encodeURIComponent(P.username)}">Ver mi perfil público</a></div>`);
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn ghost" id="pw">Cambiar contraseña</button><a class="btn ghost" href="/perfil">Mi perfil</a></div>`);
     app.querySelector('#pw').onclick = async () => { const { error } = await sb.auth.resetPasswordForEmail(user.email, { redirectTo: location.origin + '/restablecer' }); toast(error ? error.message : 'Te enviamos un enlace a tu correo para cambiarla'); };
     return;
   }
@@ -312,7 +313,7 @@ export async function preferences(C){
     <button type="button" class="pf-tg" data-lo="${i}" aria-pressed="${l.on}" aria-label="Mostrar en el perfil"><i></i></button>
     <button type="button" class="pf-x" data-lx="${i}" aria-label="Quitar enlace">×</button></div>`;
   const draw = () => {
-    app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Perfil público</h2><p class="pf-note">Así te ven los demás en <a href="/lector/${encodeURIComponent(P.username)}">/lector/${esc(P.username)}</a>.</p></div>
+    app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Perfil público</h2><p class="pf-note">Así te ven los demás en <a href="/perfil">/lector/${esc(P.username)}</a>.</p></div>
       <div class="pf-grid">
         <div class="pf-f">Foto<span class="pf-up"><span class="lc-av" style="--ac:${esc(D.accent)};width:60px;height:60px;font-size:26px">${P.avatar_url ? `<img src="${esc(P.avatar_url)}" alt="">` : esc((P.username || '?')[0].toUpperCase())}</span><label class="btn ghost sm">Cambiar foto<input type="file" id="fav" accept="image/jpeg,image/png,image/webp"></label></span></div>
         <div class="pf-f">Portada del carnet<span class="pf-up"><span class="pf-ban" style="${D.banner ? `background-image:url('${esc(D.banner)}')` : ''}"></span><label class="btn ghost sm">${D.banner ? 'Cambiar' : 'Subir'}<input type="file" id="fban" accept="image/jpeg,image/png,image/webp"></label>${D.banner ? '<button type="button" class="btn ghost sm" id="noban">Quitar</button>' : ''}</span><small class="pf-note" style="font-size:12px">Sin portada se usa un collage de tus favoritas.</small></div>
