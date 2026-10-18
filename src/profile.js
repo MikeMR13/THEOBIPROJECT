@@ -123,6 +123,7 @@ export async function publicProfile(C, name, opt = {}){
   const cov = s => MED(s.cover_thumb_path || s.cover_path);
   app.innerHTML = '<p class="mono">Cargando perfil…</p>';
   const [{ data: r }, own] = await Promise.all([sb.rpc('reader_public', { p_username: name }), opt.owner ? sb.rpc('reader_stats') : { data: null }]);
+  if (!r && !opt.alias) { const { data: nn } = await sb.rpc('username_resolve', { p_name: name }); if (nn) { history.replaceState({}, '', '/lector/' + encodeURIComponent(nn)); return publicProfile(C, nn, { ...opt, alias: true }); } }
   if (!r) { app.innerHTML = '<h1>Lector no encontrado</h1><p><a href="/">Volver al inicio</a></p>'; return; }
   if (r.private) { app.innerHTML = `<div class="lc" style="--ac:#5a503b"><section style="border:1px solid var(--line);background:#14120e;padding:40px 22px;display:grid;justify-items:center;gap:12px;text-align:center;max-width:520px;margin:20px auto">
       <span class="lc-av" style="width:96px;height:96px;font-size:40px;color:var(--mute)">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase())}</span>
@@ -173,10 +174,10 @@ export async function preferences(C){
   const { sb, app, esc, url, toast, getUser, uploadAvatar, reload } = C; css();
   const user = getUser(); if (!user) return C.go('/entrar');
   const MED = p => p ? (/^https?:/.test(p) ? p : url + '/storage/v1/object/public/obi-media/' + encodeURI(p)) : '';
-  const TABS = [['perfil', 'Perfil público'], ['privacidad', 'Privacidad'], ['lectura', 'Lectura'], ['adulto', 'Contenido +18'], ['cuenta', 'Cuenta']];
+  const TABS = [['perfil', 'Perfil público'], ['privacidad', 'Privacidad'], ['lectura', 'Lectura'], ['avisos', 'Avisos'], ['adulto', 'Contenido +18'], ['cuenta', 'Cuenta']];
   const tab = TABS.some(t => t[0] === new URLSearchParams(location.search).get('s')) ? new URLSearchParams(location.search).get('s') : 'perfil';
   app.innerHTML = '<p class="mono">Cargando preferencias…</p>';
-  const { data: P, error } = await sb.from('profiles').select('username,avatar_url,bio,banner_url,seal_kanji,accent,links,favorites,profile_sections,public_activity,adult_ok,profile_visibility,discoverable,show_since,hide_reading,hidden_series,delete_requested_at').eq('id', user.id).single();
+  const { data: P, error } = await sb.from('profiles').select('username,avatar_url,bio,banner_url,seal_kanji,accent,links,favorites,profile_sections,public_activity,adult_ok,profile_visibility,discoverable,show_since,hide_reading,hidden_series,delete_requested_at,notify,username_changed_at').eq('id', user.id).single();
   if (error) { app.innerHTML = `<h1>Preferencias</h1><p class="mono">No se pudieron cargar: ${esc(error.message)}</p>`; return; }
   const shell = body => `<h1>Preferencias</h1><div class="pf"><nav class="pf-nav">${TABS.map(([k, l]) => `<a href="/preferencias${k === 'perfil' ? '' : '?s=' + k}" class="${k === tab ? 'on' : ''}">${l}</a>`).join('')}</nav><div class="pf-body">${body}</div></div>`;
   const tg = (id, on, label) => `<button type="button" class="pf-tg" id="${id}" aria-pressed="${!!on}" aria-label="${esc(label)}"><i></i></button>`;
@@ -286,6 +287,37 @@ export async function preferences(C){
       C.setProfile?.({ delete_requested_at: null }); C.delBanner?.(); toast('Eliminación cancelada'); preferences(C); });
     return;
   }
+  if (tab === 'avisos') {
+    const KINDS = [['capitulo', 'Capítulos nuevos', 'De las obras que sigues.', true], ['respuesta', 'Respuestas a tus comentarios', 'Cuando alguien contesta lo que escribiste.', true], ['errata', 'Erratas que reportaste', 'Cuando el equipo revisa tu reporte.', true], ['tablero', 'Estudio y equipos', 'Tablero, temporadas y ranking. Solo si formas parte de un equipo.', false]];
+    const FREQ = [['off', 'Nunca', 'Solo en la campana.'], ['inmediato', 'Al momento', 'Un correo en cuanto llega el aviso.'], ['diario', 'Resumen diario', 'Un solo correo a las 9:00, si hay novedades.'], ['semanal', 'Resumen semanal', 'Los lunes a las 9:00, si hay novedades.']];
+    const N = { web: {}, email: {}, freq: 'off', ...(P.notify || {}) }; N.web = { ...N.web }; N.email = { ...N.email };
+    const onW = k => N.web[k] !== false, onE = (k, d) => N.email[k] ?? d;
+    const [{ data: fol }] = await Promise.all([sb.from('follows').select('series_id,channels').eq('user_id', user.id)]);
+    const { data: ser } = (fol || []).length ? await sb.from('series').select('id,slug,title').in('id', fol.map(f => f.series_id)) : { data: [] };
+    const FL = (fol || []).map(r => ({ r, s: (ser || []).find(x => x.id === r.series_id) })).filter(x => x.s).sort((x, y) => x.s.title.localeCompare(y.s.title, 'es'));
+    const save = async () => { N.tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; const v = { web: N.web, email: N.email, freq: N.freq, tz: N.tz }; const { error } = await sb.from('profiles').update({ notify: v }).eq('id', user.id); if (error) { toast(error.message); return false; } P.notify = v; return true; };
+    const lbl = 'font-size:11px;letter-spacing:.1em;color:var(--mute);display:grid;justify-items:center;gap:4px';
+    const draw = () => {
+      const off = N.freq === 'off';
+      app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Avisos</h2><p class="pf-note">Elige qué te avisamos y por dónde. Se guarda al momento.</p></div>
+      <div style="display:grid;gap:12px"><h3>Correo</h3><p class="pf-note">Se envía a <b>${esc(user.email)}</b>.</p><div class="pf-sl" role="radiogroup" aria-label="Frecuencia de correo">${FREQ.map(([k, l, d]) => `<label style="display:grid;gap:4px;padding:14px 16px;border:2px solid ${N.freq === k ? 'var(--gold)' : '#2c281e'};background:${N.freq === k ? '#1f1c15' : '#0d0c0a'};cursor:pointer"><span style="display:flex;gap:10px;align-items:center;font-weight:700"><input type="radio" name="fq" value="${k}" ${N.freq === k ? 'checked' : ''} style="accent-color:var(--gold);width:18px;height:18px">${l}</span><span class="pf-note" style="font-size:13px">${d}</span></label>`).join('')}</div></div>
+      <div style="display:grid;gap:10px"><h3>Qué te avisamos</h3>${KINDS.map(([k, l, d, de]) => `<div class="pf-row" style="justify-content:space-between"><span style="display:grid;gap:3px;flex:1 1 240px"><b style="font-size:14px">${l}</b><span class="pf-note" style="font-size:13px">${d}</span></span><span style="display:flex;gap:18px"><span class="mono" style="${lbl}">CAMPANA${tg('w-' + k, onW(k), l + ' en la campana')}</span><span class="mono" style="${lbl};opacity:${off ? .4 : 1}">CORREO${tg('e-' + k, !off && onE(k, de), l + ' por correo')}</span></span></div>`).join('')}
+      <p class="pf-note" style="font-size:13px">Los avisos de moderación sobre tu cuenta siempre llegan a la campana.</p></div>
+      <div style="display:grid;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h3>Obras que sigues</h3><span class="mono" style="font-size:11px">${FL.length} ${FL.length === 1 ? 'OBRA' : 'OBRAS'}</span></div>
+      ${!onW('capitulo') && off ? '<p class="pf-note" style="font-size:13px">Tienes desactivados los avisos de capítulos nuevos: estos interruptores no tendrán efecto hasta que los actives arriba.</p>' : ''}
+      ${FL.length ? `<div style="display:grid;gap:8px">${FL.map(({ r, s }) => `<div class="pf-row" style="justify-content:space-between"><a href="/serie/${esc(s.slug)}" style="flex:1 1 200px;font-weight:600">${esc(s.title)}</a><span style="display:flex;gap:12px;align-items:center"><button type="button" class="ui-lnk" data-unf="${s.id}" style="font-size:12px;color:var(--mute)">Dejar de seguir</button>${tg('f-' + s.id, r.channels?.web !== false, 'Avisos de ' + s.title)}</span></div>`).join('')}</div>` : '<p class="pf-note">Aún no sigues ninguna obra. Usa «Seguir serie» en la ficha de una obra.</p>'}</div>`);
+      const $ = s => app.querySelector(s);
+      app.querySelectorAll('[name="fq"]').forEach(i => i.onchange = async () => { const prev = N.freq; N.freq = i.value; if (await save()) { toast(i.value === 'off' ? 'Ya no recibirás correos' : 'Frecuencia de correo guardada'); draw(); } else N.freq = prev; });
+      KINDS.forEach(([k, , , de]) => {
+        $('#w-' + k).onclick = async e => { const b = e.currentTarget; N.web[k] = !onW(k); if (await save()) flip(b); else N.web[k] = !N.web[k]; };
+        $('#e-' + k).onclick = async e => { if (off) return toast('Elige primero con qué frecuencia quieres correos'); const b = e.currentTarget; N.email[k] = !onE(k, de); if (await save()) flip(b); else N.email[k] = !N.email[k]; };
+      });
+      FL.forEach(({ r, s }) => { $('#f-' + s.id).onclick = async e => { const b = e.currentTarget, ch = { ...(r.channels || {}), web: r.channels?.web === false };
+        const { error } = await sb.from('follows').update({ channels: ch }).eq('user_id', user.id).eq('series_id', s.id); if (error) return toast(error.message); r.channels = ch; flip(b); }; });
+      app.querySelectorAll('[data-unf]').forEach(b => b.onclick = async () => { if (!confirm('¿Dejar de seguir esta obra?')) return; const id = b.dataset.unf; const { error } = await sb.from('follows').delete().eq('user_id', user.id).eq('series_id', id); if (error) return toast(error.message); FL.splice(FL.findIndex(x => x.s.id === id), 1); toast('Ya no sigues esta obra'); draw(); });
+    };
+    draw(); return;
+  }
   if (tab === 'adulto') {
     app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Contenido +18</h2><p class="pf-note">Las obras marcadas +18 están ocultas en el inicio, el catálogo, la búsqueda y los perfiles hasta que lo actives.</p></div>
       <div class="pf-row" style="max-width:560px"><span style="flex:1">Tengo 18 años o más y quiero ver obras +18</span>${tg('ad', P.adult_ok, 'Mostrar obras +18')}</div>`);
@@ -296,9 +328,30 @@ export async function preferences(C){
     return;
   }
   if (tab === 'cuenta') {
-    app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Cuenta</h2><p class="pf-note">Correo: <b>${esc(user.email)}</b></p></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn ghost" id="pw">Cambiar contraseña</button><a class="btn ghost" href="/perfil">Mi perfil</a></div>`);
-    app.querySelector('#pw').onclick = async () => { const { error } = await sb.auth.resetPasswordForEmail(user.email, { redirectTo: location.origin + '/restablecer' }); toast(error ? error.message : 'Te enviamos un enlace a tu correo para cambiarla'); };
+    const nextU = P.username_changed_at ? new Date(new Date(P.username_changed_at).getTime() + 30 * 864e5) : null, lockU = nextU && nextU > new Date();
+    const last = user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString('es-MX', { dateStyle: 'long', timeStyle: 'short' }) : '';
+    const blk = (t, d, body) => `<div style="display:grid;gap:10px"><h3>${t}</h3>${d ? `<p class="pf-note" style="font-size:13px">${d}</p>` : ''}${body}</div>`;
+    app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Cuenta</h2><p class="pf-note">Tus datos de acceso. Nadie más ve tu correo.</p></div>
+      ${blk('Nombre de usuario', `Es tu dirección pública: /lector/${esc(P.username)}. Si lo cambias, el enlace anterior seguirá llevando a tu carnet durante 90 días. Puedes cambiarlo una vez cada 30 días.`,
+        `<form id="fu" class="pf-row" style="gap:10px"><input id="un" value="${esc(P.username)}" minlength="2" maxlength="32" autocomplete="username" aria-label="Nombre de usuario" style="flex:1 1 220px" ${lockU ? 'disabled' : ''}><button class="btn" ${lockU ? 'disabled' : ''}>Guardar</button></form>${lockU ? `<p class="pf-note" style="font-size:13px">Podrás cambiarlo de nuevo el ${nextU.toLocaleDateString('es-MX', { dateStyle: 'long' })}.</p>` : ''}<p id="un-err" role="alert" style="color:#f59e7a;margin:0;font-size:13px"></p>`)}
+      ${blk('Correo', user.new_email ? `Cambio pendiente a <b>${esc(user.new_email)}</b>: confirma el enlace que enviamos a los dos correos.` : `Ahora: <b>${esc(user.email)}</b>. Te enviaremos un enlace al correo actual y otro al nuevo; el cambio se aplica al confirmar ambos.`,
+        `<form id="fe" class="pf-row" style="gap:10px"><input id="em" type="email" autocomplete="email" placeholder="nuevo@correo.com" aria-label="Nuevo correo" style="flex:1 1 220px" required><button class="btn">Cambiar correo</button></form><p id="em-err" role="alert" style="color:#f59e7a;margin:0;font-size:13px"></p>`)}
+      ${blk('Contraseña', 'Te enviaremos un enlace a tu correo para elegir una nueva.', '<button class="btn ghost" id="pw" style="justify-self:start">Cambiar contraseña</button>')}
+      ${blk('Sesiones', last ? `Último inicio de sesión: ${last}.` : '', '<div class="pf-row" style="justify-content:space-between"><span class="pf-note" style="flex:1 1 240px;font-size:13px">¿Entraste desde un equipo ajeno o perdiste un dispositivo? Cierra todas las demás sesiones; esta seguirá abierta.</span><button class="btn ghost" id="so">Cerrar las demás sesiones</button></div>')}
+      <p class="pf-note" style="font-size:13px">Para descargar tus datos o eliminar tu cuenta, ve a <a href="/preferencias?s=privacidad">Privacidad</a>.</p>`);
+    const $ = s => app.querySelector(s), EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    $('#fu').onsubmit = async e => { e.preventDefault(); const v = $('#un').value.trim(); $('#un-err').textContent = '';
+      if (v === P.username) return; if (v.length < 2 || v.length > 32) return $('#un-err').textContent = 'Entre 2 y 32 caracteres.';
+      if (!/^[\p{L}\p{N}_.-]+$/u.test(v)) return $('#un-err').textContent = 'Usa solo letras, números, punto, guion y guion bajo (sin espacios).';
+      if (!confirm(`¿Cambiar tu nombre a «${v}»? Tu enlace pasará a ser /lector/${v}.`)) return;
+      const { data, error } = await sb.rpc('change_username', { p_new: v }); if (error) return $('#un-err').textContent = error.message;
+      P.username = data; P.username_changed_at = new Date().toISOString(); C.setProfile?.({ username: data, username_changed_at: P.username_changed_at }); toast('Nombre de usuario actualizado'); preferences(C); };
+    $('#fe').onsubmit = async e => { e.preventDefault(); const v = $('#em').value.trim().toLowerCase(); $('#em-err').textContent = '';
+      if (!EMAIL_RE.test(v)) return $('#em-err').textContent = 'Escribe un correo válido.'; if (v === user.email) return $('#em-err').textContent = 'Ese ya es tu correo.';
+      const { error } = await sb.auth.updateUser({ email: v }, { emailRedirectTo: location.origin + '/preferencias?s=cuenta' }); if (error) return $('#em-err').textContent = error.message;
+      toast('Revisa los dos correos para confirmar el cambio'); $('#em').value = ''; };
+    $('#pw').onclick = async () => { const { error } = await sb.auth.resetPasswordForEmail(user.email, { redirectTo: location.origin + '/restablecer' }); toast(error ? error.message : 'Te enviamos un enlace a tu correo para cambiarla'); };
+    $('#so').onclick = async () => { if (!confirm('¿Cerrar sesión en todos los demás dispositivos?')) return; const { error } = await sb.auth.signOut({ scope: 'others' }); toast(error ? error.message : 'Listo: las demás sesiones se cerraron'); };
     return;
   }
 

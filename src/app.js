@@ -10,7 +10,7 @@ const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 2800); };
 let user = null, profile = null, me = null;
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
-let PF; const pf = async () => PF ||= await import('/profile.js?v=4');
+let PF; const pf = async () => PF ||= await import('/profile.js?v=5');
 const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
 let ST; const st = async () => ST ||= (await import('/studio.js?v=34')).createStudio(CTX());
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=8')).createAdmin(CTX());
@@ -237,7 +237,7 @@ if (L[tab]) { box.innerHTML = L[tab].length ? `<div class="lb-grid">${L[tab].map
     if (profile) profile.hidden_series = [...HID]; b.textContent = on ? 'Mostrar en mi perfil' : 'Ocultar del perfil'; toast(on ? 'Oculta de tu perfil público' : 'Visible en tu perfil público'); }); }
 else if (tab === 'avisos') {
   const FL = (fol || []).map(r => ({ r, s: (ser || []).find(x => x.id === r.series_id) })).filter(x => x.s).sort((a, b) => a.s.title.localeCompare(b.s.title, 'es'));
-  box.innerHTML = FL.length ? `<p class="mono" style="margin:0 0 14px;font-size:13px">Elige de qué obras quieres aviso en la campana cuando salga un capítulo nuevo.</p><div class="lb-av">${FL.map(({ r, s }) => { const on = r.channels?.web !== false; return `<div class="lb-ai"><a href="/serie/${s.slug}">${esc(s.title)}</a><label class="ui-tog"><input type="checkbox" data-av="${s.id}" ${on ? 'checked' : ''}> Avisarme</label><button class="ui-lnk" data-unf="${s.id}">Dejar de seguir</button></div>`; }).join('')}</div>`
+  box.innerHTML = FL.length ? `<p class="mono" style="margin:0 0 14px;font-size:13px">Elige de qué obras quieres aviso en la campana cuando salga un capítulo nuevo. <a href="/preferencias?s=avisos">Más opciones de avisos y correo</a>.</p><div class="lb-av">${FL.map(({ r, s }) => { const on = r.channels?.web !== false; return `<div class="lb-ai"><a href="/serie/${s.slug}">${esc(s.title)}</a><label class="ui-tog"><input type="checkbox" data-av="${s.id}" ${on ? 'checked' : ''}> Avisarme</label><button class="ui-lnk" data-unf="${s.id}">Dejar de seguir</button></div>`; }).join('')}</div>`
     : '<div class="lb-empty">Aún no sigues ninguna obra. Usa «Seguir serie» en la ficha de una obra.</div>';
   box.querySelectorAll('[data-av]').forEach(i => i.onchange = async () => { const r = (fol || []).find(x => x.series_id === i.dataset.av), ch = { ...(r.channels || {}), web: i.checked };
     const { error } = await sb.from('follows').update({ channels: ch }).eq('user_id', user.id).eq('series_id', i.dataset.av); if (error) { i.checked = !i.checked; return toast(error.message); } r.channels = ch; toast(i.checked ? 'Recibirás avisos de esta obra' : 'Ya no recibirás avisos de esta obra'); });
