@@ -256,7 +256,7 @@ export function createStudio(ctx){
   const wcolor = s => s?.theme?.color || T.team?.color || '#f2c230';
   const UTAG_INK = c => { const m = /^#?([\da-f]{6})$/i.exec(c || ''); if (!m) return '#0d0c0a'; const n = parseInt(m[1], 16), l = (0.299 * (n >> 16) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255; return l > 0.55 ? '#0d0c0a' : '#fbf8f1'; };
   const utagOn = t => !!(t && t.on && (t.text || '').trim() && (!t.until || new Date(t.until + 'T23:59:59') >= new Date()));
-  const utagHTML = t => { const c = /^#[\da-f]{6}$/i.test(t.color || '') ? t.color : '#f2c230', solid = t.style !== 'outline'; return `<span class="ob-utag" style="display:inline-flex;align-items:center;margin-left:8px;padding:2px 8px;font:600 11px/1.5 'IBM Plex Mono',monospace;letter-spacing:.04em;text-transform:uppercase;vertical-align:2px;white-space:nowrap;${solid ? `background:${c};color:${UTAG_INK(c)};border:1px solid ${c}` : `background:transparent;color:${c};border:1px solid ${c}`}">${esc(t.text.trim().slice(0, 24))}</span>`; };
+  const utagHTML = t => { const c0 = /^#[\da-f]{6}$/i.test(t.color || '') ? t.color : '#f2c230', c = t.season ? `var(--sea,${c0})` : c0, ink = t.season ? '#0d0c0a' : UTAG_INK(c0), solid = t.style !== 'outline'; return `<span class="ob-utag" style="display:inline-flex;align-items:center;margin-left:8px;padding:2px 8px;font:600 11px/1.5 'IBM Plex Mono',monospace;letter-spacing:.04em;text-transform:uppercase;vertical-align:2px;white-space:nowrap;${solid ? `background:${c};color:${ink};border:1px solid ${c}` : `background:transparent;color:${c};border:1px solid ${c}`}">${esc(t.text.trim().slice(0, 24))}</span>`; };
 
   async function teamData(){
     const { data: works } = await sb.from('series').select('id,slug,title,short,synopsis,genres,cover_path,translation_status,published,views,theme,volumes(count)').eq('team_id', T.team.id).is('archived_at', null).order('title');
@@ -587,7 +587,7 @@ export function createStudio(ctx){
     });
     if (tab === 'avisos') {
       // ---- aviso en actualizaciones (se guarda aparte, en series.theme.update_tag)
-      let utDirty = false; const UT = Object.assign({ on: false, text: '', color: wcolor(s), style: 'solid', until: '' }, s.theme?.update_tag || {});
+      let utDirty = false; const UT = Object.assign({ on: false, text: '', color: wcolor(s), style: 'solid', until: '', season: false }, s.theme?.update_tag || {});
       const UT_PRE = ['Nuevo volumen', 'Nuevo nivel', 'Capítulo extra', 'Volumen completo', 'Final', 'De regreso'], UT_COL = ['#f2c230', '#d9922b', '#f59e7a', '#c9a8f2', '#8cc3f2', '#a9d18e', wcolor(s)];
       const drawUT = () => { const box = $('#wk-utag-b'); if (!box) return; const ed = can('edit') ? '' : 'disabled';
         const pv = utagOn({ ...UT, on: true }) ? utagHTML(UT) : '<span class="mono" style="font-size:11px;margin-left:8px">(escribe un texto)</span>';
@@ -597,6 +597,7 @@ export function createStudio(ctx){
           <div class="ed-chips">${UT_PRE.map(p => `<button type="button" class="ed-chip ${UT.text === p ? 'on' : ''}" data-utp="${esc(p)}" ${ed}>${esc(p)}</button>`).join('')}</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="mono" style="font-size:12px">Color</span>${[...new Set(UT_COL)].map(c => `<button type="button" data-utc="${c}" aria-label="Color ${c}" aria-pressed="${UT.color === c}" style="width:26px;height:26px;background:${c};border:2px solid ${UT.color === c ? '#f3ecd9' : 'transparent'};outline:1px solid #3d3628;cursor:pointer" ${ed}></button>`).join('')}<input type="color" id="ut-c" value="${esc(UT.color)}" aria-label="Otro color" style="width:34px;height:28px;padding:0;border:1px solid #3d3628;background:none" ${ed}></div>
           <div style="display:flex;gap:14px;flex-wrap:wrap"><label class="tb-inl"><input type="radio" name="ut-s" value="solid" ${UT.style !== 'outline' ? 'checked' : ''} ${ed}> Sólido</label><label class="tb-inl"><input type="radio" name="ut-s" value="outline" ${UT.style === 'outline' ? 'checked' : ''} ${ed}> Contorno</label></div>
+          <label class="tb-inl"><input type="checkbox" id="ut-sea" ${UT.season ? 'checked' : ''} ${ed}> Adaptar el color al tema de temporada<small class="mono" style="display:block">Mientras haya una temporada activa (Otoño, Navidad…) el aviso toma su color; fuera de temporada usa el color elegido.</small></label>
           <label>Mostrar hasta<input type="date" id="ut-u" value="${esc(UT.until || '')}" style="width:auto" ${ed}><small class="mono">Vacío = hasta que lo quites. Después de esa fecha se oculta solo.</small></label>
           ${can('edit') ? '<span style="display:flex;gap:8px;align-items:center"><button type="button" class="btn sm" id="ut-save">Guardar aviso</button><span class="mono" id="ut-st"></span></span>' : ''}</div>`;
         const pvb = $('#wk-utag-pv'); if (pvb) { const ttl = esc(s.title), cov = s.cover_path ? `background:url('${esc(media(s.cover_path))}') center/cover` : 'background:#2f2a20';
@@ -614,10 +615,11 @@ export function createStudio(ctx){
         $('#ut-c')?.addEventListener('change', e => { UT.color = e.target.value; drawUT(); dirtyUT(); });
         box.querySelectorAll('[name=ut-s]').forEach(r => r.onchange = () => { UT.style = r.value; drawUT(); dirtyUT(); });
         $('#ut-u')?.addEventListener('change', e => { UT.until = e.target.value; dirtyUT(); });
+        $('#ut-sea')?.addEventListener('change', e => { UT.season = e.target.checked; drawUT(); dirtyUT(); });
         $('#ut-save')?.addEventListener('click', e => busy(e.currentTarget, async () => {
           if (UT.on && !UT.text.trim()) throw new Error('Escribe el texto del aviso');
           const { data: cur, error: e1 } = await sb.from('series').select('theme').eq('id', s.id).single(); if (e1) throw new Error(errMsg(e1));
-          const theme = { ...(cur?.theme || {}), update_tag: { on: !!UT.on, text: UT.text.trim().slice(0, 24), color: UT.color, style: UT.style === 'outline' ? 'outline' : 'solid', until: UT.until || null } };
+          const theme = { ...(cur?.theme || {}), update_tag: { on: !!UT.on, text: UT.text.trim().slice(0, 24), color: UT.color, style: UT.style === 'outline' ? 'outline' : 'solid', until: UT.until || null, season: !!UT.season } };
           const { data: upd, error } = await sb.from('series').update({ theme }).eq('id', s.id).select('id,theme'); if (error) throw new Error(errMsg(error));
           if (!upd?.length || JSON.stringify(upd[0].theme?.update_tag) !== JSON.stringify(theme.update_tag)) throw new Error('La base de datos no guardó el aviso (permiso o regla de la tabla «series»). Revisa con diagnostico_avisos.sql.');
           s.theme = theme; utDirty = false; const st3 = $('#ut-st'); if (st3) st3.textContent = '✓ Guardado'; toast(UT.on ? 'Aviso «' + UT.text.trim() + '» activo en actualizaciones' : 'Aviso oculto'); })); };
