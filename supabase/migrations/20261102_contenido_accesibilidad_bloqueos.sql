@@ -61,3 +61,5 @@ begin
 end $$;
 drop trigger if exists comments_block_guard on public.comments;
 create trigger comments_block_guard before insert on public.comments for each row execute function private.comments_block_guard();
+
+grant update (ui_prefs) on public.profiles to authenticated;

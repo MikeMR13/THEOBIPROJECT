@@ -105,3 +105,6 @@ grant execute on function public.username_resolve(text) to anon, authenticated;
 
 select cron.unschedule('obi-alias-purge') where exists (select 1 from cron.job where jobname = 'obi-alias-purge');
 select cron.schedule('obi-alias-purge', '41 4 * * *', $$delete from public.username_aliases where changed_at < now() - interval '90 days'$$);
+
+-- La tabla profiles usa permisos por columna: el lector solo puede editar estas.
+grant update (notify) on public.profiles to authenticated;
