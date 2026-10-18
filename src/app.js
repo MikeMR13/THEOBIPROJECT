@@ -1,7 +1,7 @@
 // Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
 import { createClient } from '/supabase.js?v=1';
 import { createReader } from '/reader.js?v=14';
-import { createUI } from '/ui.js?v=39';
+import { createUI } from '/ui.js?v=40';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
 export const sb = createClient(url, key, { auth: { persistSession: true } });

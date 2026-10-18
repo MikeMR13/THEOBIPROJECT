@@ -28,7 +28,8 @@ label{display:grid;gap:6px;font-size:13px;font-weight:600}.btn:disabled{opacity:
 .rd .btn.ghost{color:var(--fg);border-color:var(--ln);padding:7px 11px;font-size:13px}
 .rd-panel{position:sticky;top:calc(var(--top-h,62px) + var(--rd-h,58px));z-index:4;max-width:560px;margin:10px 0 0 auto;max-height:70vh;overflow:auto;padding:16px;background:var(--bg);border:2px solid var(--ln);display:grid;gap:12px}
 .rd-panel[hidden]{display:none}
-@media(max-width:700px){.rd-panel{position:fixed;left:0;right:0;top:calc(var(--top-h,62px) + var(--rd-h,58px));margin:0;max-width:none;max-height:calc(100dvh - var(--top-h,62px) - var(--rd-h,58px) - 8px);border-width:0 0 2px;z-index:6;box-shadow:0 12px 24px rgba(0,0,0,.45)}}
+@media(max-width:700px){body:has(.rd) header.top{position:relative!important}.rd{--top-h:0px}}
+@media(max-width:700px){.rd-panel{position:sticky;top:calc(var(--top-h,62px) + var(--rd-h,58px));margin:0;max-width:none;max-height:calc(100dvh - var(--top-h,62px) - var(--rd-h,58px) - 8px);border-width:0 0 2px;z-index:6;box-shadow:0 12px 24px rgba(0,0,0,.45)}}
 .rd-panel h4{margin:8px 0 2px;font-family:'Shippori Mincho B1',serif;font-weight:500}.rd-panel a{display:block;padding:4px 0;color:var(--fg);text-decoration:none;font-size:14px}.rd-panel a.on{color:var(--gold);font-weight:700}
 .rd-opt{display:grid;gap:6px}.rd-opt>div{display:flex;gap:4px;flex-wrap:wrap}.rd-opt button{background:none;border:1px solid var(--ln);color:var(--fg);padding:6px 10px;font:inherit;font-size:12px;cursor:pointer}.rd-opt button.on{background:var(--gold);color:#0d0c0a;border-color:var(--gold)}
 .rd-scope{display:flex;gap:8px;align-items:center;font-weight:400;font-size:13px}.rd-scope input{width:auto}
