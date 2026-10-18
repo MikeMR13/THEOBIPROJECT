@@ -34,6 +34,7 @@ const CSS = `
 .ui-filters{display:grid;gap:12px;padding:18px;background:#14120d;border:1px solid var(--line);margin-bottom:28px}
 .ui-filters input{max-width:420px}
 .ui-sh{position:relative;display:grid;grid-template-columns:minmax(180px,260px) minmax(0,1fr);gap:clamp(24px,4vw,48px);padding:clamp(24px,4vw,44px);background:#14120d;border-top:6px solid var(--c,var(--gold));overflow:hidden}
+html[data-season] .ui-sh{border-top-color:var(--sea)}
 .ui-sh::before{content:'';position:absolute;inset:0;background:var(--bg) center/cover;opacity:.12;filter:blur(22px)}.ui-sh>*{position:relative}
 .ui-sh h1{font-size:clamp(30px,4.5vw,52px);line-height:1.08;margin:8px 0 6px}
 .ui-sh .orig{font-family:'Shippori Mincho B1',serif;color:var(--mute);font-size:18px;margin:0 0 16px}
@@ -179,7 +180,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   const ago = d => { if (!d) return ''; const s = (Date.now() - new Date(d)) / 1000; if (s < 3600) return 'hace ' + Math.max(1, Math.round(s / 60)) + ' min'; if (s < 86400) return 'hace ' + Math.round(s / 3600) + ' h'; if (s < 2592000) return 'hace ' + Math.round(s / 86400) + ' d'; return new Date(d).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }); };
   const book = (s, sub, slim) => `<div class="ui-book" style="--c:${esc(color(s))};background-image:${s.cover_path ? `url('${esc(media(s.cover_path))}')` : 'none'}"><div class="ui-obi${slim ? ' slim' : ''}"><small>${esc(sub || s.teams?.name || 'El Obi del Lector')}</small>${slim ? '' : esc(s.short || s.title)}</div></div>`;
   const pill = st => { const [l, c] = TL[st] || TL.active; return `<span class="ui-pill" style="color:${c}">${l}</span>`; };
-  const SERIES = 'id,slug,title,short,original,author,illustrator,publisher,synopsis,genres,tags,theme,cover_path,cover_thumb_path,adult,work_type,demographic,translation_status,original_status,sequel_status,views,teams(name,slug,color),chapters(count),volumes(count)';
+  const SERIES = 'id,slug,title,short,original,author,illustrator,publisher,synopsis,genres,tags,theme,cover_path,cover_thumb_path,adult,work_type,demographic,translation_status,original_status,sequel_status,views,teams(name,slug,color,avatar_path),chapters(count),volumes(count)';
   function chrome(){
     const top = document.querySelector('header.top'); if (!top || top.dataset.ob) return; top.dataset.ob = '1';
     const topH = () => document.documentElement.style.setProperty('--top-h', Math.ceil(top.getBoundingClientRect().height) + 'px'); topH(); if (window.ResizeObserver) new ResizeObserver(topH).observe(top); else addEventListener('resize', topH);
@@ -742,7 +743,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
           <div class="ui-facts">
             ${s.author ? `<div><span class="ui-lbl">Autor</span><b>${esc(s.author)}</b></div>` : ''}
             ${s.illustrator ? `<div><span class="ui-lbl">Ilustración</span><b>${esc(s.illustrator)}</b></div>` : ''}
-            <div><span class="ui-lbl">Traducción</span><b>${s.teams?.slug ? `<a href="/equipo/${esc(s.teams.slug)}">${esc(s.teams.name)}</a>` : esc(s.teams?.name || '—')}</b></div>
+            <div><span class="ui-lbl">Traducción</span>${s.teams?.avatar_path ? `<a href="/equipo/${esc(s.teams.slug || '')}" title="${esc(s.teams.name)}" style="display:inline-flex;align-items:center;gap:10px;color:var(--paper);text-decoration:none;font-weight:600;font-size:14px"><img src="${esc(media(s.teams.avatar_path))}" alt="${esc(s.teams.name)}" style="height:44px;max-width:160px;object-fit:contain"></a>` : `<b>${s.teams?.slug ? `<a href="/equipo/${esc(s.teams.slug)}">${esc(s.teams.name)}</a>` : esc(s.teams?.name || '—')}</b>`}</div>
             ${s.original_status ? `<div><span class="ui-lbl">Obra original</span><b>${OR[s.original_status]}</b></div>` : ''}
             ${s.sequel_status ? `<div><span class="ui-lbl">Secuela</span><b>${SQ[s.sequel_status]}</b></div>` : ''}
             <div><span class="ui-lbl">Contenido</span><b>${(vols || []).length} vol. · ${(chs || []).length} cap.</b></div>
