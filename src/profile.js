@@ -144,9 +144,11 @@ export async function publicProfile(C, name, opt = {}){
   const stars = n => '★'.repeat(n || 0) + '☆'.repeat(Math.max(0, 5 - (n || 0)));
   const VIS = { all: 'Visible para todos', auth: 'Visible solo con cuenta', none: 'Privado: solo tú lo ves' };
   const bar = opt.owner ? `<div style="display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between"><span style="display:grid;gap:2px"><h1 style="margin:0;font:800 30px 'Shippori Mincho B1',serif">Mi perfil</h1><span class="mono" style="font-size:12px">${VIS[opt.visibility] || ''} · <a href="/lector/${encodeURIComponent(r.username)}" id="lc-cp" title="Copiar enlace público">/lector/${esc(r.username)} ⧉</a></span></span><span style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn" href="/preferencias">Editar carnet</a><a class="btn ghost" href="/preferencias?s=privacidad">Privacidad</a></span></div>` : '';
+  const meU = C.getUser?.(), blk = !opt.owner && meU && r.username ? [...(window.__obiBlocks?.values() || [])].find(b => b.username === r.username) : null;
+  const act = !opt.owner && meU && r.username && C.getProfile?.()?.username !== r.username ? `<div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;align-items:center">${blk ? `<span class="mono" style="font-size:11px;color:var(--mute)">${blk.kind === 'block' ? 'LO BLOQUEASTE' : 'LO SILENCIASTE'}</span><button type="button" class="btn ghost sm" id="lc-unb">${blk.kind === 'block' ? 'Desbloquear' : 'Quitar silencio'}</button>` : '<button type="button" class="btn ghost sm" data-blk="mute">Silenciar</button><button type="button" class="btn ghost sm" data-blk="block">Bloquear</button>'}</div>` : '';
   const mine = opt.owner && !(r.public_activity && r.stats) && own.data ? `<section class="lc-sec"><div class="lc-hd"><h2>Mis estadísticas</h2><span class="mono" style="font-size:11px">SOLO TÚ VES ESTO · <a href="/preferencias?s=privacidad">HACERLAS PÚBLICAS</a></span></div>${statsHTML(own.data) || '<p class="lc-empty">Aún no hay lecturas registradas.</p>'}</section>` : '';
   const empty = opt.owner && !r.bio && !r.kanji && !favs.length && !r.links?.length ? `<p class="lc-empty" style="border:1px dashed var(--line);padding:14px 16px">Tu carnet está vacío. <a href="/preferencias">Añade bio, kanji, favoritas y enlaces</a>.</p>` : '';
-  app.innerHTML = `<div class="lc" style="--ac:${esc(ac)}">${bar}
+  app.innerHTML = `<div class="lc" style="--ac:${esc(ac)}">${bar}${act}
     <section class="lc-card">${bg}<div class="lc-sh"></div>${r.kanji ? `<span class="lc-kj" title="Sello de ${esc(r.username)}">${esc(r.kanji)}</span>` : ''}
       <div class="lc-in">
         <span class="lc-av">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase())}</span>
@@ -167,6 +169,11 @@ export async function publicProfile(C, name, opt = {}){
   </div>`;
   app.querySelectorAll('[data-sh]').forEach(b => b.onclick = () => { app.querySelectorAll('[data-sh]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); app.querySelector('#lc-shb').innerHTML = shelfBody(b.dataset.sh); });
   app.querySelectorAll('.lc-rv .sp').forEach(p => p.onclick = p.onkeydown = () => p.classList.remove('sp'));
+  const reBlk = async () => { const { data } = await sb.rpc('my_blocks'); if (Array.isArray(data)) window.obiSetBlocks?.(data); publicProfile(C, name, opt); };
+  app.querySelectorAll('[data-blk]').forEach(b => b.onclick = async () => { const k = b.dataset.blk;
+    if (!confirm(k === 'block' ? `¿Bloquear a ${r.username}? No verás sus comentarios ni reseñas y no podrá responder a los tuyos.` : `¿Silenciar a ${r.username}? Dejarás de ver sus comentarios y reseñas.`)) return;
+    const { error } = await sb.rpc('block_user', { p_username: r.username, p_kind: k }); if (error) return C.toast?.(error.message); C.toast?.(k === 'block' ? 'Lector bloqueado' : 'Lector silenciado'); reBlk(); });
+  const ub = app.querySelector('#lc-unb'); if (ub) ub.onclick = async () => { const { error } = await sb.rpc('unblock_user', { p_id: blk.id }); if (error) return C.toast?.(error.message); C.toast?.('Quitado de tu lista'); reBlk(); };
   const cp = app.querySelector('#lc-cp'); if (cp) cp.onclick = async e => { e.preventDefault(); e.stopPropagation(); try { await navigator.clipboard.writeText(location.origin + cp.getAttribute('href')); cp.textContent = 'Enlace copiado ✓'; } catch { cp.textContent = location.origin + cp.getAttribute('href'); } };
 }
 
@@ -174,14 +181,18 @@ export async function preferences(C){
   const { sb, app, esc, url, toast, getUser, uploadAvatar, reload } = C; css();
   const user = getUser(); if (!user) return C.go('/entrar');
   const MED = p => p ? (/^https?:/.test(p) ? p : url + '/storage/v1/object/public/obi-media/' + encodeURI(p)) : '';
-  const TABS = [['perfil', 'Perfil público'], ['privacidad', 'Privacidad'], ['lectura', 'Lectura'], ['avisos', 'Avisos'], ['adulto', 'Contenido +18'], ['cuenta', 'Cuenta']];
+  const TABS = [['perfil', 'Perfil público'], ['privacidad', 'Privacidad'], ['lectura', 'Lectura'], ['avisos', 'Avisos'], ['adulto', 'Contenido'], ['pantalla', 'Accesibilidad'], ['bloqueos', 'Bloqueos'], ['cuenta', 'Cuenta']];
   const tab = TABS.some(t => t[0] === new URLSearchParams(location.search).get('s')) ? new URLSearchParams(location.search).get('s') : 'perfil';
   app.innerHTML = '<p class="mono">Cargando preferencias…</p>';
-  const { data: P, error } = await sb.from('profiles').select('username,avatar_url,bio,banner_url,seal_kanji,accent,links,favorites,profile_sections,public_activity,adult_ok,profile_visibility,discoverable,show_since,hide_reading,hidden_series,delete_requested_at,notify,username_changed_at').eq('id', user.id).single();
+  const { data: P, error } = await sb.from('profiles').select('username,avatar_url,bio,banner_url,seal_kanji,accent,links,favorites,profile_sections,public_activity,adult_ok,profile_visibility,discoverable,show_since,hide_reading,hidden_series,delete_requested_at,notify,username_changed_at,ui_prefs').eq('id', user.id).single();
   if (error) { app.innerHTML = `<h1>Preferencias</h1><p class="mono">No se pudieron cargar: ${esc(error.message)}</p>`; return; }
   const shell = body => `<h1>Preferencias</h1><div class="pf"><nav class="pf-nav">${TABS.map(([k, l]) => `<a href="/preferencias${k === 'perfil' ? '' : '?s=' + k}" class="${k === tab ? 'on' : ''}">${l}</a>`).join('')}</nav><div class="pf-body">${body}</div></div>`;
   const tg = (id, on, label) => `<button type="button" class="pf-tg" id="${id}" aria-pressed="${!!on}" aria-label="${esc(label)}"><i></i></button>`;
   const flip = b => b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
+  const UI = { motion: 'system', hour: 'auto', hide: [], ...(window.__obiUI || {}), ...(P.ui_prefs || {}) };
+  const saveUI = async patch => { const prev = { ...UI }; Object.assign(UI, patch); window.obiSetUI?.({ ...UI }); const { error } = await sb.from('profiles').update({ ui_prefs: UI }).eq('id', user.id); if (error) { Object.assign(UI, prev); window.obiSetUI?.({ ...UI }); toast(error.message); return false; } P.ui_prefs = { ...UI }; C.setProfile?.({ ui_prefs: P.ui_prefs }); return true; };
+  const card = (name, k, cur, l, d) => `<label style="display:grid;gap:4px;padding:14px 16px;border:2px solid ${cur === k ? 'var(--gold)' : '#2c281e'};background:${cur === k ? '#1f1c15' : '#0d0c0a'};cursor:pointer"><span style="display:flex;gap:10px;align-items:center;font-weight:700"><input type="radio" name="${name}" value="${k}" ${cur === k ? 'checked' : ''} style="accent-color:var(--gold);width:18px;height:18px">${l}</span>${d ? `<span class="pf-note" style="font-size:13px">${d}</span>` : ''}</label>`;
+  const optRow = (id, on, l, d) => `<div class="pf-row" style="justify-content:space-between"><span style="display:grid;gap:3px;flex:1 1 240px"><b style="font-size:14px">${l}</b>${d ? `<span class="pf-note" style="font-size:13px">${d}</span>` : ''}</span>${tg(id, on, l)}</div>`;
 
   if (tab === 'lectura') {
     const DEF = { theme: 'oscuro', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', illus: true, continuous: 'off', cw: 'show', autonext: true, autosecs: 5 };
@@ -319,13 +330,59 @@ export async function preferences(C){
     draw(); return;
   }
   if (tab === 'adulto') {
-    app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Contenido +18</h2><p class="pf-note">Las obras marcadas +18 están ocultas en el inicio, el catálogo, la búsqueda y los perfiles hasta que lo actives.</p></div>
-      <div class="pf-row" style="max-width:560px"><span style="flex:1">Tengo 18 años o más y quiero ver obras +18</span>${tg('ad', P.adult_ok, 'Mostrar obras +18')}</div>`);
-    const b = app.querySelector('#ad'); b.onclick = async () => { const v = b.getAttribute('aria-pressed') !== 'true';
-      if (v && !confirm('Confirma que tienes 18 años o más.')) return;
-      const { error } = await sb.from('profiles').update({ adult_ok: v }).eq('id', user.id); if (error) return toast(error.message);
-      flip(b); toast(v ? 'Obras +18 visibles' : 'Obras +18 ocultas'); };
-    return;
+    const { data: gs } = await sb.from('series').select('genres,tags').eq('published', true);
+    const opts = [...new Set((gs || []).flatMap(x => [...(x.genres || []), ...(Array.isArray(x.tags) ? x.tags : [])]).filter(Boolean).map(String))].sort((x, y) => x.localeCompare(y, 'es'));
+    const has = g => UI.hide.some(h => h.toLowerCase() === g.toLowerCase());
+    const draw = () => {
+      app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Contenido</h2><p class="pf-note">Decide qué obras aparecen cuando exploras. Se guarda al momento.</p></div>
+      <div style="display:grid;gap:10px"><h3>Obras +18</h3>${optRow('ad', P.adult_ok, 'Tengo 18 años o más y quiero ver obras +18', 'Si está apagado, se ocultan en el inicio, el catálogo, la búsqueda y los perfiles.')}</div>
+      <div style="display:grid;gap:10px"><h3>Géneros y etiquetas ocultos</h3><p class="pf-note" style="font-size:13px">Las obras con alguno de estos no aparecen en el inicio, el catálogo ni la búsqueda. Si llegas por un enlace, la ficha sigue abierta; y en el catálogo vuelven a salir si filtras por ese género.</p>
+        ${UI.hide.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px">${UI.hide.map((g, i) => `<span class="pf-row" style="padding:2px 2px 2px 14px;gap:2px;font-size:14px">${esc(g)}<button type="button" class="pf-x" data-hx="${i}" aria-label="Volver a mostrar ${esc(g)}">×</button></span>`).join('')}</div>` : '<p class="pf-note">No ocultas nada por ahora.</p>'}
+        <form id="hf" class="pf-row" style="gap:10px;max-width:560px"><input id="hq" list="hl" placeholder="Escribe un género o etiqueta…" aria-label="Género o etiqueta a ocultar" style="flex:1 1 220px" autocomplete="off"><datalist id="hl">${opts.filter(o => !has(o)).map(o => `<option value="${esc(o)}"></option>`).join('')}</datalist><button class="btn">Ocultar</button></form></div>
+      <p class="pf-note" style="font-size:13px">Los avisos de contenido dentro de los capítulos se eligen en <a href="/preferencias?s=lectura">Lectura</a>.</p>`);
+      const b = app.querySelector('#ad'); b.onclick = async () => { const v = b.getAttribute('aria-pressed') !== 'true';
+        if (v && !confirm('Confirma que tienes 18 años o más.')) return;
+        const { error } = await sb.from('profiles').update({ adult_ok: v }).eq('id', user.id); if (error) return toast(error.message);
+        P.adult_ok = v; C.setProfile?.({ adult_ok: v }); flip(b); toast(v ? 'Obras +18 visibles' : 'Obras +18 ocultas'); };
+      app.querySelectorAll('[data-hx]').forEach(x => x.onclick = async () => { const g = UI.hide[+x.dataset.hx]; if (await saveUI({ hide: UI.hide.filter((_, i) => i !== +x.dataset.hx) })) { toast('«' + g + '» vuelve a mostrarse'); draw(); } });
+      app.querySelector('#hf').onsubmit = async e => { e.preventDefault(); const q = app.querySelector('#hq').value.trim(); if (!q) return;
+        const g = opts.find(o => o.toLowerCase() === q.toLowerCase()); if (!g) return toast('Ese género o etiqueta no está en el catálogo');
+        if (has(g)) return toast('Ya está oculto'); if (UI.hide.length >= 40) return toast('Puedes ocultar hasta 40');
+        if (await saveUI({ hide: [...UI.hide, g] })) { toast('Obras con «' + g + '» ocultas'); draw(); app.querySelector('#hq')?.focus(); } };
+    };
+    draw(); return;
+  }
+  if (tab === 'pantalla') {
+    const MOT = [['system', 'Como mi dispositivo', 'Sigue el ajuste «reducir movimiento» de tu sistema.'], ['reduce', 'Reducir movimiento', 'Sin animaciones de temporada, carrusel del inicio ni transiciones.']];
+    const HR = [['auto', 'Automático', ''], ['24', '24 horas', '18:30'], ['12', '12 horas', '6:30 p. m.']];
+    const OPT = [['contrast', 'Más contraste', 'Textos secundarios y bordes más claros.'], ['underline', 'Subrayar los enlaces', 'Distingue los enlaces sin depender del color.'], ['focus', 'Resaltar el foco del teclado', 'Un borde dorado grueso al navegar con Tab.']];
+    const draw = () => {
+      app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Accesibilidad</h2><p class="pf-note">Se guarda en tu cuenta y se aplica al momento en todos tus dispositivos. El tamaño y la tipografía de los capítulos están en <a href="/preferencias?s=lectura">Lectura</a>.</p></div>
+      <div style="display:grid;gap:12px"><h3>Movimiento</h3><div class="pf-sl" role="radiogroup" aria-label="Movimiento">${MOT.map(([k, l, d]) => card('mo', k, UI.motion, l, d)).join('')}</div></div>
+      <div style="display:grid;gap:10px"><h3>Lectura de la interfaz</h3>${OPT.map(([k, l, d]) => optRow('a-' + k, UI[k], l, d)).join('')}</div>
+      <div style="display:grid;gap:12px"><h3>Formato de hora</h3><div class="pf-sl" role="radiogroup" aria-label="Formato de hora">${HR.map(([k, l, d]) => card('hr', k, UI.hour, l, d)).join('')}</div><p class="pf-note" style="font-size:13px">Las fechas y horas se muestran en la zona horaria de tu dispositivo: ${esc((Intl.DateTimeFormat().resolvedOptions().timeZone || '').replace(/_/g, ' '))}.</p></div>`);
+      app.querySelectorAll('[name="mo"]').forEach(i => i.onchange = async () => { if (await saveUI({ motion: i.value })) { toast(i.value === 'reduce' ? 'Movimiento reducido' : 'Movimiento según tu dispositivo'); draw(); } });
+      app.querySelectorAll('[name="hr"]').forEach(i => i.onchange = async () => { if (await saveUI({ hour: i.value })) { toast('Formato de hora guardado'); draw(); } });
+      OPT.forEach(([k]) => app.querySelector('#a-' + k).onclick = async e => { const b = e.currentTarget; if (await saveUI({ [k]: !UI[k] })) flip(b); });
+    };
+    draw(); return;
+  }
+  if (tab === 'bloqueos') {
+    let L = []; const load = async () => { const { data, error } = await sb.rpc('my_blocks'); if (error) { toast(error.message); return; } L = data || []; window.obiSetBlocks?.(L); };
+    await load();
+    const KL = { mute: 'Silenciado', block: 'Bloqueado' };
+    const draw = () => {
+      app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Bloqueos</h2><p class="pf-note">Nadie se entera de que lo silenciaste o bloqueaste.</p></div>
+      <div class="pf-sl"><div style="display:grid;gap:4px;padding:14px 16px;border:1px solid #2c281e;background:#0d0c0a"><b>Silenciar</b><span class="pf-note" style="font-size:13px">Dejas de ver sus comentarios y reseñas.</span></div><div style="display:grid;gap:4px;padding:14px 16px;border:1px solid #2c281e;background:#0d0c0a"><b>Bloquear</b><span class="pf-note" style="font-size:13px">Además, no puede responder a tus comentarios.</span></div></div>
+      <form id="bf" class="pf-row" style="gap:10px"><input id="bq" placeholder="Nombre de usuario" aria-label="Nombre de usuario" autocomplete="off" style="flex:1 1 200px"><select id="bk" aria-label="Tipo"><option value="mute">Silenciar</option><option value="block">Bloquear</option></select><button class="btn">Añadir</button></form>
+      <div style="display:grid;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h3>Tu lista</h3><span class="mono" style="font-size:11px">${L.length} ${L.length === 1 ? 'LECTOR' : 'LECTORES'}</span></div>
+      ${L.length ? `<div style="display:grid;gap:8px">${L.map(b => `<div class="pf-row" style="justify-content:space-between"><span style="display:flex;gap:10px;align-items:center;flex:1 1 200px"><span class="lc-av" style="width:36px;height:36px;font-size:15px">${b.avatar_url ? `<img src="${esc(b.avatar_url)}" alt="">` : esc((b.username || '?')[0].toUpperCase())}</span><a href="/lector/${encodeURIComponent(b.username)}">${esc(b.username)}</a></span><span style="display:flex;gap:10px;align-items:center"><select data-bk="${b.id}" aria-label="Tipo para ${esc(b.username)}">${Object.entries(KL).map(([k, l]) => `<option value="${k}" ${b.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select><button type="button" class="btn ghost sm" data-ub="${b.id}">Quitar</button></span></div>`).join('')}</div>` : '<p class="pf-note">No has silenciado ni bloqueado a nadie. También puedes hacerlo desde el carnet de cualquier lector.</p>'}</div>`);
+      app.querySelector('#bf').onsubmit = async e => { e.preventDefault(); const n = app.querySelector('#bq').value.trim().replace(/^@/, ''), k = app.querySelector('#bk').value; if (!n) return;
+        const { error } = await sb.rpc('block_user', { p_username: n, p_kind: k }); if (error) return toast(error.message); await load(); toast(k === 'block' ? 'Lector bloqueado' : 'Lector silenciado'); draw(); };
+      app.querySelectorAll('[data-bk]').forEach(s => s.onchange = async () => { const b = L.find(x => x.id === s.dataset.bk); const { error } = await sb.rpc('block_user', { p_username: b.username, p_kind: s.value }); if (error) return toast(error.message); await load(); toast(s.value === 'block' ? 'Ahora está bloqueado' : 'Ahora está silenciado'); draw(); });
+      app.querySelectorAll('[data-ub]').forEach(x => x.onclick = async () => { const { error } = await sb.rpc('unblock_user', { p_id: x.dataset.ub }); if (error) return toast(error.message); await load(); toast('Quitado de tu lista'); draw(); });
+    };
+    draw(); return;
   }
   if (tab === 'cuenta') {
     const nextU = P.username_changed_at ? new Date(new Date(P.username_changed_at).getTime() + 30 * 864e5) : null, lockU = nextU && nextU > new Date();

@@ -1,7 +1,7 @@
 // Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
 import { createClient } from '/supabase.js?v=1';
-import { createReader } from '/reader.js?v=13';
-import { createUI } from '/ui.js?v=31';
+import { createReader } from '/reader.js?v=14';
+import { createUI } from '/ui.js?v=32';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
 export const sb = createClient(url, key, { auth: { persistSession: true } });
@@ -10,24 +10,39 @@ const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 2800); };
 let user = null, profile = null, me = null;
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
-let PF; const pf = async () => PF ||= await import('/profile.js?v=5');
+let PF; const pf = async () => PF ||= await import('/profile.js?v=6');
 const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
 let ST; const st = async () => ST ||= (await import('/studio.js?v=34')).createStudio(CTX());
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=8')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
 let U; const ui = () => U ||= createUI(CTX());
+
+// Preferencias de pantalla (Accesibilidad) y lectores silenciados/bloqueados: se aplican al instante desde el almacenamiento local.
+const readJ = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
+const A11Y_CSS = 'html.a11y-still *,html.a11y-still *::before,html.a11y-still *::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}html.a11y-hc{--paper:#fffaf0;--mute:#ddd4bf;--line:#5f5745}html.a11y-ul a:not(.btn){text-decoration:underline!important;text-underline-offset:3px}html.a11y-fc :focus-visible{outline:3px solid var(--gold)!important;outline-offset:3px!important}';
+function applyUI(P = readJ('obi-ui', {})){ window.__obiUI = P || {}; const H = document.documentElement;
+  H.classList.toggle('a11y-still', P?.motion === 'reduce'); H.classList.toggle('a11y-hc', !!P?.contrast); H.classList.toggle('a11y-ul', !!P?.underline); H.classList.toggle('a11y-fc', !!P?.focus);
+  if (!document.getElementById('a11y-css')) { const s = document.createElement('style'); s.id = 'a11y-css'; s.textContent = A11Y_CSS; document.head.appendChild(s); } }
+window.obiSetUI = P => { try { localStorage.setItem('obi-ui', JSON.stringify(P || {})); } catch {} applyUI(P || {}); };
+window.obiSetBlocks = L => { window.__obiBlocks = new Map((L || []).map(b => [b.id, b])); try { localStorage.setItem('obi-blocks', JSON.stringify(L || [])); } catch {} };
+applyUI(); window.obiSetBlocks(readJ('obi-blocks', []));
+{ const MM = window.matchMedia.bind(window); window.matchMedia = q => /prefers-reduced-motion:\s*reduce/.test(q) && window.__obiUI?.motion === 'reduce' ? MM('all') : MM(q); }
+{ const hc = o => { const h = window.__obiUI?.hour; if (h !== '12' && h !== '24') return o; if (o && (o.hour12 !== undefined || o.hourCycle)) return o; return { ...(o || {}), hour12: h === '12' }; };
+  for (const k of ['toLocaleString', 'toLocaleTimeString']) { const f = Date.prototype[k]; Date.prototype[k] = function(l, o){ return f.call(this, l, hc(o)); }; } }
 const RL = { bibliotecario: 'Bibliotecario', publicador: 'Publicador', lector: 'Lector' };
 // La sesión sale del almacenamiento local (sin red) y se pinta al instante con el perfil guardado;
 // perfil y whoami llegan en paralelo y actualizan la barra. meReady avisa cuándo `me` es definitivo.
 let meReady = Promise.resolve(), lastBar = '';
 async function loadSession(){
 const { data } = await sb.auth.getSession(); user = data.session?.user || null;
-if (!user) { profile = me = null; drawSession(); meReady = Promise.resolve(); return; }
+if (!user) { profile = me = null; window.obiSetBlocks([]); drawSession(); meReady = Promise.resolve(); return; }
 try { const c = JSON.parse(localStorage.getItem('obi-me') || 'null'); if (c?.id === user.id) ({ profile, me } = c); else profile = me = null; } catch {}
 drawSession();
 const uid = user.id;
 meReady = Promise.all([sb.from('profiles').select('*').eq('id', uid).maybeSingle(), sb.rpc('whoami')]).then(([p, w]) => {
   if (user?.id !== uid) return; profile = p.data; me = w.data || null;
+  if (profile?.ui_prefs && Object.keys(profile.ui_prefs).length) window.obiSetUI(profile.ui_prefs);
+  sb.rpc('my_blocks').then(({ data }) => { if (user?.id === uid && Array.isArray(data)) window.obiSetBlocks(data); });
   try { localStorage.setItem('obi-me', JSON.stringify({ id: uid, profile, me })); } catch {}
   drawSession(); bell(); delBanner();
 }).catch(e => console.warn('perfil', e));

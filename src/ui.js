@@ -1,4 +1,6 @@
 // Vistas públicas con la identidad visual de El Obi del Lector: Inicio, Catálogo y Ficha de serie.
+// Géneros/etiquetas que el lector ocultó en Preferencias › Contenido.
+const hidS = s => { const H = window.__obiUI?.hide; if (!H?.length) return false; const S = new Set(H.map(x => String(x).toLowerCase())); return [...(s.genres || []), ...(Array.isArray(s.tags) ? s.tags : [])].some(g => S.has(String(g).toLowerCase())); };
 const CSS = `
 .ui-wrap{display:grid;gap:56px}
 .ui-h2{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 18px}.ui-h2 h2{margin:0;font-size:30px}.ui-h2 a{font-size:13px;font-weight:600}
@@ -197,7 +199,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   const searchIndex = () => SIDX ||= (async () => { const u = getUser();
     const [{ data: ss }, { data: ts }, pr] = await Promise.all([sb.from('series').select('id,slug,title,short,original,author,illustrator,genres,tags,adult,cover_path,translation_status,theme,teams(name,slug,color),chapters(count)').eq('published', true),
       sb.from('teams').select('slug,name,avatar_path,status'), u ? sb.from('profiles').select('adult_ok').eq('id', u.id).maybeSingle() : { data: null }]);
-    const ok = !!pr?.data?.adult_ok; return { series: (ss || []).filter(x => x.translation_status !== 'withdrawn' && (!x.adult || ok)), teams: (ts || []).filter(t => !t.status || t.status === 'active') }; })().catch(e => { SIDX = null; throw e; });
+    const ok = !!pr?.data?.adult_ok; return { series: (ss || []).filter(x => x.translation_status !== 'withdrawn' && (!x.adult || ok) && !hidS(x)), teams: (ts || []).filter(t => !t.status || t.status === 'active') }; })().catch(e => { SIDX = null; throw e; });
   async function searchData(q, lim){
     const I = await searchIndex(), n = norm(q), has = t => norm(t).includes(n), byId = Object.fromEntries(I.series.map(x => [x.id, x]));
     const works = I.series.filter(x => has([x.title, x.short, x.original].join(' '))).slice(0, lim);
@@ -335,7 +337,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const { series, latest, rkW, rkH, top10 } = FD, ps = { featured: FD.featured }, nextRel = (FD.nextRel || []).filter(e => new Date(e.at) > Date.now());
     if (location.pathname !== '/') return;
     const adultOk = !!pr?.data?.adult_ok;
-    const list = (series || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) && (!s.adult || adultOk)), byId = Object.fromEntries(list.map(s => [s.id, s]));
+    const list = (series || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) && (!s.adult || adultOk) && !hidS(s)), byId = Object.fromEntries(list.map(s => [s.id, s]));
     const lastCh = {}; (latest || []).forEach(c => { lastCh[c.series_id] ||= c; });
     const picks = (Array.isArray(ps?.featured) ? ps.featured : []).map(id => byId[id]).filter(Boolean);
     const feat = picks.length ? picks.slice(0, 5) : [...list].sort((a, b) => new Date(lastCh[b.id]?.publish_at || 0) - new Date(lastCh[a.id]?.publish_at || 0)).slice(0, 5);
@@ -458,7 +460,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       u ? sb.from('follows').select('series_id').eq('user_id', u.id) : { data: [] },
       sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'semana'), sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'historico')]);
     const rkRows = (rkw || []).length ? rkw : (rkh || []), RK = Object.fromEntries(rkRows.map(r => [r.series_id, r.pos])), rkLbl = (rkw || []).length ? 'de la semana' : 'histórico';
-    const all = (data || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status));
+    const all = (data || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) && (!hidS(s) || F.gin.some(g => (s.genres || []).includes(g))));
     const last = {}; (latest || []).forEach(c => { last[c.series_id] ||= c; });
     const fol = new Set((folR.data || []).map(r => r.series_id)), nCh = s => s.chapters?.[0]?.count || 0;
     const status = s => { const p = prog[s.id], lc = last[s.id];
@@ -762,7 +764,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const { data, error } = await sb.rpc('series_reviews_list', { p_series: s.id, p_limit: 30 });
     if (!document.body.contains(box)) return;
     if (error) { box.innerHTML = '<p class="mono">No se pudieron cargar las reseñas.</p>'; return; }
-    const L = data || [], mine = L.find(r => r.mine), others = L.filter(r => !r.mine), u = getUser();
+    const L = data || [], mine = L.find(r => r.mine), others = L.filter(r => !r.mine && !window.__obiBlocks?.has(r.uid)), u = getUser();
     $('#rv-n').textContent = L.length ? L.length + (L.length === 1 ? ' reseña' : ' reseñas') : '';
     const stars = n => n ? `<span class="rv-st" aria-label="${n} de 5 estrellas">${'★'.repeat(n)}<i>${'★'.repeat(5 - n)}</i></span>` : '';
     const item = r => `<article class="rv-it${r.mine ? ' me' : ''}"><header><span class="rv-av">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase())}</span><span>${r.username && !r.anon ? `<a href="/lector/${encodeURIComponent(r.username)}">${esc(r.username)}</a>` : r.anon ? 'Lector anónimo' : 'Lector'}${r.mine ? ' · <b>tu reseña</b>' + (r.anon ? ' · anónima' : '') : ''}<small>${ago(r.at)}${r.at !== r.created_at ? ' · editada' : ''}</small></span>${stars(r.score)}</header><p>${esc(r.body).replace(/\n/g, '<br>')}</p>${r.mine ? '<div class="rv-acts"><button class="ui-lnk" data-rv="edit">Editar</button><button class="ui-lnk" data-rv="del">Borrar</button></div>' : r.ref ? `<div class="rv-acts"><button class="ui-lnk" data-rep="${esc(r.ref)}" style="color:#a89f8a;font-size:12px">Reportar</button></div>` : ''}</article>`;

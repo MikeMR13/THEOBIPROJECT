@@ -441,7 +441,7 @@ export function createReader(ctx){
       S.teamIds ? { data: null } : sb.from('team_members').select('user_id').eq('team_id', S.series.team_id)]);
     if (tm) S.teamIds = new Set(tm.map(x => x.user_id));
     if (pn.dataset.kind !== 'coms' || S.active !== ch) return;
-    const u = getUser(), all = list || [], top = all.filter(c => !c.parent_id).sort((a, b) => (b.pinned - a.pinned) || (new Date(b.created_at) - new Date(a.created_at)));
+    const u = getUser(), all = (list || []).filter(c => !window.__obiBlocks?.has(c.user_id)), top = all.filter(c => !c.parent_id).sort((a, b) => (b.pinned - a.pinned) || (new Date(b.created_at) - new Date(a.created_at)));
     const kids = id => all.filter(c => c.parent_id === id);
     const ago = d => { const m = Math.round((Date.now() - new Date(d)) / 60000); return m < 60 ? 'hace ' + Math.max(1, m) + ' min' : m < 1440 ? 'hace ' + Math.round(m / 60) + ' h' : 'hace ' + Math.round(m / 1440) + ' d'; };
     const one = (c, reply) => `<div class="cm-it${reply ? ' re' : ''}" data-cid="${c.id}"><span class="cm-hd"><b>${esc(c.profiles?.username || 'Lector')}</b>${S.teamIds?.has(c.user_id) ? '<span class="cm-tm">EQUIPO</span>' : ''}${c.pinned ? '<span class="cm-tm pin">FIJADO</span>' : ''}<span class="mono">${ago(c.created_at)}</span></span>
