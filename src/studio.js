@@ -99,6 +99,31 @@ body.in-studio>.top{display:none}body.in-studio>main{max-width:none;margin:0;pad
 .s2-empty{display:grid;justify-items:center;gap:14px;padding:70px 24px;background:#14120d;border:1px dashed #3d3628;text-align:center}.s2-empty>span{font-family:'Shippori Mincho B1',serif;font-weight:800;font-size:56px;color:#3d3628}.s2-empty h2{margin:0;font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:28px}.s2-empty p{margin:0;max-width:52ch;color:#a89f8a;line-height:1.6}
 .s2-h2{font-family:'Shippori Mincho B1',serif;font-weight:500;margin:32px 0 12px}
 @media(max-width:860px){.s2{grid-template-columns:1fr}.s2-side{position:static;height:auto;flex-direction:row;flex-wrap:wrap;gap:12px;padding:14px 16px}.s2-brand,.s2-team,.s2-back{display:none}.s2-nav{display:flex;flex-wrap:wrap;gap:4px;width:100%}.s2-nav a{padding:8px 10px}.s2-nav em{margin-left:6px}.s2-quick{display:flex;flex-wrap:wrap;width:100%}.s2-quick small{display:none}.s2-q{flex:1 1 auto}.s2-work{grid-template-columns:96px minmax(0,1fr);gap:14px}}
+.ed-crumb{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}.ed-nav{margin-left:auto;display:flex;gap:12px;align-items:center}.ed-nav a{color:var(--paper);text-decoration:none;font-weight:600}.ed-nav a:hover{color:var(--gold)}.ed-nav .off{opacity:.35}
+.ed-pres{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;margin:0 0 10px;border:1px solid #8cc3f2;background:#101a22;font-size:14px;line-height:1.5}.ed-pres .dot{width:10px;height:10px;border-radius:50%;background:#8cc3f2;margin-top:6px;flex:none;box-shadow:0 0 0 4px rgba(140,195,242,.2)}
+.ed-origw{display:none;gap:8px;align-content:start;position:sticky;top:76px}
+.ed-split[data-view="orig"]{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.ed-split[data-view="orig"] .ed-origw{display:grid}.ed-split[data-view="orig"] .ed-pvw{display:none}.ed-split[data-view="orig"] .ed-docw{display:block}
+.ed-orig{max-height:calc(100vh - 150px);overflow:auto;padding:18px 20px;background:#110f0b;border:1px solid #2f2a20;font-size:16px;line-height:1.75;color:#d9d0ba}
+.ed-orig p{margin:0 0 10px;padding:4px 8px 4px 34px;position:relative;cursor:pointer;border-left:2px solid transparent}.ed-orig p .n{position:absolute;left:6px;top:7px;font:11px 'IBM Plex Mono',monospace;color:#7d7462}.ed-orig p:hover{background:#17140f}.ed-orig p.on{border-left-color:var(--gold);background:#1f1c15;color:var(--paper)}
+.ed-orig textarea{width:100%;min-height:60vh;background:transparent;border:0;color:inherit;font:inherit;resize:vertical;outline:none}
+@media(max-width:900px){.ed-split[data-view="orig"]{grid-template-columns:minmax(0,1fr)}.ed-origw{position:static}.ed-orig{max-height:40vh}}
+.ed.zen{position:fixed;inset:0;z-index:80;background:#0d0c0a;overflow:auto;padding:24px clamp(16px,6vw,120px) 100px;margin:0;max-width:none}
+.ed.zen>p.mono,.ed.zen #localcard,.ed.zen #pres,.ed.zen #p-set,.ed.zen #p-rev,.ed.zen #p-hist,.ed.zen #p-coms,.ed.zen #gwarn,.ed.zen .ed-pvw,.ed.zen .ed-origw,.ed.zen .ed-pub,.ed.zen #b-rev,.ed.zen #b-hist,.ed.zen .ed-bar .end{display:none!important}
+.ed.zen .ed-split{grid-template-columns:minmax(0,1fr)!important}.ed.zen .ed-docw{display:block!important}
+.ed.zen .ed-doc{background:transparent;border-color:transparent;font-size:20px;max-width:66ch;min-height:70vh}
+.ed.zen .ed-bar,.ed.zen .ed-top{opacity:.3;transition:opacity .2s}.ed.zen .ed-bar:hover,.ed.zen .ed-bar:focus-within,.ed.zen .ed-top:hover,.ed.zen .ed-top:focus-within{opacity:1}
+.ed-zenbar{display:none}.ed.zen .ed-zenbar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;position:fixed;left:0;right:0;bottom:0;padding:12px clamp(16px,6vw,120px);background:#14120d;border-top:1px solid #2f2a20;z-index:81}
+.ed-zenbar b{font-size:20px;color:var(--gold)}.ed-zenbar input{width:84px;padding:4px 6px}.ed-zenbar .zp{flex:1 1 160px;height:6px;background:#2f2a20}.ed-zenbar .zp i{display:block;height:100%;background:var(--gold)}
+#b-zen[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+.wk-t{min-width:720px}.wk-th,.wk-tr{grid-template-columns:52px 44px minmax(160px,1fr) 110px 150px auto}
+.wk-sel{display:flex;gap:8px;align-items:center}.wk-sel input,.wk-th input{width:16px;height:16px;accent-color:var(--gold)}.wk-grip{cursor:grab;color:#7d7462;font-size:16px;line-height:1}.wk-tr[draggable="true"]:hover .wk-grip{color:var(--gold)}
+.wk-tr.sel{background:#1f1c15}.wk-tr.drag{opacity:.4}.wk-tr.drop-a{box-shadow:inset 0 2px 0 var(--gold)}.wk-tr.drop-b{box-shadow:inset 0 -2px 0 var(--gold)}.wk-vh.drop-v{outline:2px dashed var(--gold);outline-offset:-4px}
+.wk-stg{display:inline-block;margin-left:8px;padding:1px 7px;font:10px/1.6 'IBM Plex Mono',monospace;letter-spacing:.06em;color:var(--c);border:1px solid var(--c);vertical-align:2px;white-space:nowrap}
+.wk-flt{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:0 0 14px}.wk-flt input[type=search]{flex:0 1 260px;min-height:38px}.wk-flt .ed-chips{gap:6px}
+.wk-bulk{position:sticky;bottom:12px;z-index:30;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:16px;padding:12px 16px;background:#1f1c15;border:1px solid var(--gold);box-shadow:0 10px 30px rgba(0,0,0,.5)}.wk-bulk select{min-height:34px}
+.wk-bp{flex-basis:100%;display:grid;gap:10px;padding-top:10px;border-top:1px solid #3d3628}.wk-bp .row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}.wk-bp ol{margin:0;padding-left:20px;font:12px/1.7 'IBM Plex Mono',monospace;color:#a89f8a;columns:2 240px}
+.wk-trash{margin-top:22px;border:1px dashed #3d3628;background:#110f0b}.wk-trash>summary{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;padding:12px 16px;cursor:pointer;list-style:none}.wk-trash>summary::-webkit-details-marker{display:none}.wk-trash>summary::before{content:'▸';color:#a89f8a}.wk-trash[open]>summary::before{content:'▾'}
+.wk-trl{display:grid;border-top:1px solid #2f2a20}.wk-tri{display:flex;flex-wrap:wrap;gap:8px 14px;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid #221f18;font-size:14px}.wk-tri small{display:block;font:11px 'IBM Plex Mono',monospace;color:#a89f8a;margin-top:2px}.wk-trash>.lnk{margin:12px 16px}
 `;
 export function createStudio(ctx){
   const { sb, app, $, esc, toast, go, getUser, getMe, url } = ctx;
@@ -313,19 +338,29 @@ export function createStudio(ctx){
     const { data: s } = await sb.from('series').select('*').eq('slug', slug).maybeSingle();
     if (!s) return go('/estudio');
     const tab = new URLSearchParams(location.search).get('tab') === 'datos' ? 'datos' : 'caps';
-    const [{ data: vols }, { data: chs }, { data: cols }, { data: events }, { data: dls }, { data: buys }] = await Promise.all([
+    const [{ data: vols }, { data: chs }, { data: cols }, { data: events }, { data: dls }, { data: buys }, { data: tch }, { data: tvol }] = await Promise.all([
       sb.from('volumes').select('*').eq('series_id', s.id).is('deleted_at', null).order('num'),
-      sb.from('chapters').select('id,num,vol,volume_id,title,status,section_type,publish_at,updated_at').eq('series_id', s.id).is('deleted_at', null).order('num'),
+      sb.from('chapters').select('id,num,vol,volume_id,title,status,section_type,publish_at,updated_at,stage').eq('series_id', s.id).is('deleted_at', null).order('num'),
       sb.from('collaborations').select('id,status,invited:teams!collaborations_invited_team_fkey(name,slug,color)').eq('series_id', s.id),
       sb.from('publication_events').select('event,summary,created_at').eq('series_id', s.id).order('created_at', { ascending: false }).limit(10),
       sb.from('download_links').select('id,volume_id,vol').eq('series_id', s.id),
-      sb.from('purchase_links').select('id,store,region,fmt,verified').eq('series_id', s.id)]);
+      sb.from('purchase_links').select('id,store,region,fmt,verified').eq('series_id', s.id),
+      sb.from('chapters').select('id,num,vol,volume_id,title,section_type,status,deleted_at').eq('series_id', s.id).not('deleted_at', 'is', null).order('num'),
+      sb.from('volumes').select('id,num,title,cover_path,epub_fonts,deleted_at').eq('series_id', s.id).not('deleted_at', 'is', null).order('num')]);
     const C = chs || [], V = vols || [], st = TLS[s.translation_status] || TLS.active, c0 = wcolor(s);
     const n = k => C.filter(c => c.status === k).length;
+    const TC = tch || [], TV = tvol || [], allNums = [...C, ...TC].map(c => +c.num || 0);
+    const F = ((work.f ||= {})[s.id] ||= { st: '', stage: '', q: '' }), filtered = !!(F.st || F.stage || F.q.trim());
+    const SEL = ((work.sel ||= {})[s.id] ||= new Set()); [...SEL].forEach(x => { if (!C.some(c => c.id === x)) SEL.delete(x); });
+    const nrm = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const stg = c => c.status === 'draft' ? (STG[c.stage] ? c.stage : 'traduciendo') : null;
+    const passes = c => (!F.st || c.status === F.st) && (!F.stage || stg(c) === F.stage) && (!F.q.trim() || nrm(c.num + ' ' + c.title).includes(nrm(F.q.trim())));
+    const canSel = can('publish') || can('schedule') || can('delete') || can('edit') || can('board'), canDrag = can('edit') && !filtered;
     const open = work.open?.[s.id] || (work.open = { ...(work.open || {}), [s.id]: new Set(V.length <= 2 ? V.map(v => v.id) : V.slice(-1).map(v => v.id)) })[s.id];
     const fmtD = d => d ? fmtTz(d, { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
     const listOf = v => C.filter(c => c.volume_id === v.id || (!c.volume_id && c.vol === v.num));
-    const volHTML = v => { const L = listOf(v), vs = VST[v.status] || VST.draft, isOpen = open.has(v.id), nd = (dls || []).filter(d => d.volume_id === v.id || (!d.volume_id && d.vol === v.num)).length;
+    const volOf = c => V.find(v => v.id === c.volume_id) || V.find(v => v.num === c.vol);
+    const volHTML = v => { const L = listOf(v), LL = L.filter(passes), vs = VST[v.status] || VST.draft, isOpen = open.has(v.id) || (filtered && LL.length > 0), nd = (dls || []).filter(d => d.volume_id === v.id || (!d.volume_id && d.vol === v.num)).length;
       const meta = [L.length + (L.length === 1 ? ' capítulo' : ' capítulos'), vs[0] + (v.status === 'scheduled' && v.published_at ? ' · ' + fmtD(v.published_at) : v.status === 'published' && v.published_at ? ' · ' + fmtD(v.published_at) : ''), v.is_final ? 'volumen final' : ''].filter(Boolean).join(' · ');
       return `<section class="wk-vol" data-v="${v.id}"><button type="button" class="wk-vh" data-tog="${v.id}" aria-expanded="${isOpen}">
         <span class="wk-vc" style="${v.cover_path ? `background-image:url('${esc(media(v.cover_path))}')` : ''};border-top-color:${c0}"></span>
@@ -341,9 +376,9 @@ export function createStudio(ctx){
           ${can('publish') && v.status === 'hidden' ? `<button class="btn ghost sm" data-show="${v.id}">Mostrar</button>` : ''}
           ${can('delete') ? `<button class="lnk danger" data-delvol="${v.id}">Borrar volumen</button>` : ''}</div>
           <div class="wk-ve" id="ve-${v.id}" hidden></div>
-          <div class="wk-tw"><div class="wk-t"><div class="wk-th"><span>N.º</span><span>TÍTULO</span><span>ESTADO</span><span>FECHA</span><span></span></div>
-          ${L.map(c => { const cs = VST[c.status] || VST.draft; return `<div class="wk-tr"><span class="mono">${c.num}</span><span class="wk-tt">${c.section_type && c.section_type !== 'Capítulo' ? `<em>${esc(c.section_type)}</em> ` : ''}${esc(c.title)}</span><span class="mono" style="color:${cs[1]}">● ${cs[0]}</span><span class="mono">${c.status === 'draft' ? 'edit. ' + fmtD(c.updated_at) : fmtD(c.publish_at)}</span>
-            <span class="wk-ra">${can('edit') ? `<a class="btn ghost xs" href="/estudio/editar/${c.id}">Editar</a>` : ''}${can('publish') && c.status === 'draft' && v.status === 'published' ? `<button class="btn ghost xs gold" data-cpub="${c.id}">Publicar</button>` : ''}${can('delete') ? `<button class="lnk danger" data-delch="${c.id}" aria-label="Borrar ${esc(c.title)}">Borrar</button>` : ''}</span></div>`; }).join('') || '<p class="tb-empty">Este volumen aún no tiene capítulos.</p>'}</div></div>` : ''}</section>`; };
+          <div class="wk-tw"><div class="wk-t"><div class="wk-th"><span>${canSel && LL.length ? `<input type="checkbox" data-allv="${v.id}" aria-label="Seleccionar los capítulos del volumen ${v.num}" ${LL.every(c => SEL.has(c.id)) ? 'checked' : ''}>` : ''}</span><span>N.º</span><span>TÍTULO</span><span>ESTADO</span><span>FECHA</span><span></span></div>
+          ${LL.map(c => { const cs = VST[c.status] || VST.draft, sk = stg(c); return `<div class="wk-tr${SEL.has(c.id) ? ' sel' : ''}" data-row="${c.id}" data-vol="${v.id}" ${canDrag ? 'draggable="true"' : ''}><span class="wk-sel">${canDrag ? '<span class="wk-grip" title="Arrastra para reordenar o llévalo a otro volumen" aria-hidden="true">⠿</span>' : ''}${canSel ? `<input type="checkbox" data-pick="${c.id}" ${SEL.has(c.id) ? 'checked' : ''} aria-label="Seleccionar ${esc(c.title)}">` : ''}</span><span class="mono">${c.num}</span><span class="wk-tt">${c.section_type && c.section_type !== 'Capítulo' ? `<em>${esc(c.section_type)}</em> ` : ''}${esc(c.title)}${sk ? `<span class="wk-stg" style="--c:${STG[sk][2]}">${STG[sk][0]}</span>` : ''}</span><span class="mono" style="color:${cs[1]}">● ${cs[0]}</span><span class="mono">${c.status === 'draft' ? 'edit. ' + fmtD(c.updated_at) : fmtD(c.publish_at)}</span>
+            <span class="wk-ra">${can('edit') ? `<a class="btn ghost xs" href="/estudio/editar/${c.id}">Editar</a>` : ''}${can('publish') && c.status === 'draft' && v.status === 'published' ? `<button class="btn ghost xs gold" data-cpub="${c.id}">Publicar</button>` : ''}${can('delete') ? `<button class="lnk danger" data-delch="${c.id}" aria-label="Enviar ${esc(c.title)} a la papelera">Borrar</button>` : ''}</span></div>`; }).join('') || (L.length ? '<p class="tb-empty">Ningún capítulo de este volumen coincide con el filtro.</p>' : '<p class="tb-empty">Este volumen aún no tiene capítulos.</p>')}</div></div>` : ''}</section>`; };
     const D = { title: s.title || '', short: s.short || '', original: s.original || '', author: s.author || '', illustrator: s.illustrator || '', work_type: s.work_type || 'Novela ligera', demographic: s.demographic || '', translation_status: s.translation_status || 'active', original_status: s.original_status || '', synopsis: s.synopsis || '', adult: !!s.adult, genres: [...(s.genres || [])], tags: [...(s.tags || [])] };
     const sel = (k, opts) => `<select data-d="${k}">${opts.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}" ${String(D[k]) === v ? 'selected' : ''}>${esc(l)}</option>`; }).join('')}</select>`;
     const inp = (k, l, a = '') => `<label>${l}<input data-d="${k}" value="${esc(D[k])}" ${a}></label>`;
@@ -366,27 +401,121 @@ export function createStudio(ctx){
         <section class="wk-box"><h2>Historial de publicación</h2>${(events || []).map(e => `<p class="mono" style="margin:0">${fmtTz(e.created_at, { dateStyle: 'short', timeStyle: 'short' })} · ${esc(e.summary)}</p>`).join('') || '<p class="mono" style="margin:0">Sin eventos.</p>'}</section>
       </div>
       ${can('edit') ? '<div class="wk-save"><span class="mono" id="wk-dirty"></span><button class="btn" id="wk-savebtn">Guardar datos</button></div>' : ''}</div>`;
+    const chip = (k, val, l) => `<button type="button" class="ed-chip ${F[k] === val ? 'on' : ''}" aria-pressed="${F[k] === val}" data-f${k}="${val}">${l}</button>`;
+    const filterBar = () => C.length ? `<div class="wk-flt"><input type="search" id="wk-q" value="${esc(F.q)}" placeholder="Buscar capítulo por número o título" aria-label="Buscar capítulo">
+      <span class="ed-chips" role="group" aria-label="Estado">${chip('st', '', 'Todos')}${chip('st', 'draft', 'Borradores · ' + n('draft'))}${chip('st', 'scheduled', 'Programados · ' + n('scheduled'))}${chip('st', 'published', 'Publicados · ' + n('published'))}</span>
+      <span class="ed-chips" role="group" aria-label="Etapa del tablero">${chip('stage', '', 'Todas las etapas')}${Object.entries(STG).map(([k, [l]]) => chip('stage', k, l + ' · ' + C.filter(c => stg(c) === k).length)).join('')}</span>
+      ${filtered ? '<button type="button" class="lnk" id="wk-fclear">Quitar filtros</button>' : ''}${filtered && can('edit') ? '<span class="mono">Quita los filtros para reordenar arrastrando.</span>' : ''}</div>` : '';
+    const left = d => Math.max(0, 30 - Math.floor((Date.now() - new Date(d)) / 864e5));
+    const TCx = TC.filter(c => !TV.some(v => v.id === c.volume_id));
+    const trashHTML = () => (TC.length || TV.length) ? `<details class="wk-trash" id="wk-trash" ${work.trashOpen ? 'open' : ''}><summary><b>Papelera</b><span class="mono">${[TV.length ? TV.length + (TV.length === 1 ? ' volumen' : ' volúmenes') : '', TCx.length ? TCx.length + (TCx.length === 1 ? ' capítulo' : ' capítulos') : ''].filter(Boolean).join(' · ')} · se vacía sola a los 30 días</span></summary><div class="wk-trl">
+      ${TV.map(v => `<div class="wk-tri"><span><b>Volumen ${v.num}${v.title && v.title !== String(v.num) && !/^volumen\s*\d+$/i.test(v.title) ? ' · ' + esc(v.title) : ''}</b><small>${TC.filter(c => c.volume_id === v.id).length} capítulos · quedan ${left(v.deleted_at)} días</small></span>${can('delete') ? `<span class="wk-ra"><button class="btn ghost xs" data-trv="${v.id}">Restaurar</button><button class="lnk danger" data-purv="${v.id}">Borrar definitivamente</button></span>` : ''}</div>`).join('')}
+      ${TCx.map(c => `<div class="wk-tri"><span><b>${c.section_type && c.section_type !== 'Capítulo' ? esc(c.section_type) : 'Cap. ' + c.num} — ${esc(c.title)}</b><small>Vol. ${c.vol}${c.status === 'published' ? ' · estaba publicado' : ''} · quedan ${left(c.deleted_at)} días</small></span>${can('delete') ? `<span class="wk-ra"><button class="btn ghost xs" data-trc="${c.id}">Restaurar</button><button class="lnk danger" data-purc="${c.id}">Borrar definitivamente</button></span>` : ''}</div>`).join('')}
+      </div>${can('delete') ? '<button type="button" class="lnk danger" id="wk-empty">Vaciar papelera</button>' : ''}</details>` : '';
     app.innerHTML = shell(esc(s.title), `<div class="wk">
       <div class="wk-top"><span class="pl" style="--p:${st[1]}">${st[0]}</span><span class="mono">${V.length} ${V.length === 1 ? 'volumen' : 'volúmenes'} · ${n('published')} publicados · ${n('scheduled')} programados · ${n('draft')} borradores</span>
         <span class="wk-acts">${can('create') ? '<button class="btn sm" id="wk-new">＋ Nuevo capítulo</button>' : ''}${can('import') ? '<a class="btn ghost sm" href="/estudio/importar">Importar volumen</a>' : ''}<a class="btn ghost sm" href="?tab=datos" data-tab="datos">Editar datos</a><a class="lnk" href="/serie/${esc(s.slug)}">Ver en el sitio ↗</a></span></div>
       <div class="wk-tabs" role="tablist">${[['caps', 'Volúmenes y capítulos'], ['datos', 'Datos de la obra']].map(([k, l]) => `<a role="tab" aria-selected="${tab === k}" class="${tab === k ? 'on' : ''}" href="${k === 'datos' ? '?tab=datos' : location.pathname}" data-tab="${k}">${l}</a>`).join('')}</div>
-      ${tab === 'caps' ? `${V.map(volHTML).join('') || '<p class="tb-empty">Esta obra aún no tiene volúmenes.</p>'}${can('create') ? '<button class="wk-addv" id="addvol"><span>＋</span>Nuevo volumen</button>' : ''}` : datos()}</div>`, '/estudio/obra');
+      ${tab === 'caps' ? `${filterBar()}${V.map(volHTML).join('') || '<p class="tb-empty">Esta obra aún no tiene volúmenes.</p>'}${can('create') ? '<button class="wk-addv" id="addvol"><span>＋</span>Nuevo volumen</button>' : ''}${trashHTML()}<div id="wk-bulkw"></div>` : datos()}</div>`, '/estudio/obra');
     bindPicker(home);
     const on = (sel2, fn) => app.querySelectorAll(sel2).forEach(b => b.onclick = e => { e.preventDefault(); busy(b, () => fn(b)); });
     const again = () => work(slug);
     app.querySelectorAll('[data-tab]').forEach(a => a.onclick = e => { e.preventDefault(); history.replaceState({}, '', a.dataset.tab === 'datos' ? location.pathname + '?tab=datos' : location.pathname); again(); });
     app.querySelectorAll('[data-tog]').forEach(b => b.onclick = () => { const id = b.dataset.tog; open.has(id) ? open.delete(id) : open.add(id); again(); });
-    on('#wk-new', async () => { const v = V[V.length - 1]; if (!v) throw new Error('Crea primero un volumen'); const num = Math.max(0, ...C.map(c => c.num)) + 1; const { data, error } = await sb.from('chapters').insert({ series_id: s.id, volume_id: v.id, vol: v.num, num, title: 'Capítulo ' + num, body: [], status: 'draft', section_type: 'Capítulo' }).select('id').single(); if (error) throw error; go('/estudio/editar/' + data.id); });
-    on('#addvol', async () => { const nn = Math.max(0, ...V.map(v => v.num)) + 1; const { data, error } = await sb.from('volumes').insert({ series_id: s.id, num: nn, status: 'draft' }).select('id').single(); if (error) throw error; open.add(data.id); again(); });
+    on('#wk-new', async () => { const v = V[V.length - 1]; if (!v) throw new Error('Crea primero un volumen'); const num = Math.max(0, ...allNums) + 1; const { data, error } = await sb.from('chapters').insert({ series_id: s.id, volume_id: v.id, vol: v.num, num, title: 'Capítulo ' + num, body: [], status: 'draft', section_type: 'Capítulo' }).select('id').single(); if (error) throw error; go('/estudio/editar/' + data.id); });
+    on('#addvol', async () => { const nn = Math.max(0, ...V.map(v => v.num), ...TV.map(v => v.num)) + 1; const { data, error } = await sb.from('volumes').insert({ series_id: s.id, num: nn, status: 'draft' }).select('id').single(); if (error) throw error; open.add(data.id); again(); });
     on('[data-pub]', async b => { const { error } = await sb.rpc('publish_volume', { p_volume: b.dataset.pub }); if (error) throw new Error(errMsg(error)); toast('Volumen publicado · se envió un solo aviso a los seguidores'); again(); });
     on('[data-sch]', async b => { const at = app.querySelector(`[data-at="${b.dataset.sch}"]`).value; if (!at) throw new Error('Elige fecha y hora'); const d = new Date(fromLocal(at)); if (d <= new Date()) throw new Error('La fecha debe ser futura'); const { error } = await sb.rpc('publish_volume', { p_volume: b.dataset.sch, p_at: d.toISOString() }); if (error) throw new Error(errMsg(error)); toast('Programado para ' + fmtTz(d)); again(); });
     on('[data-unsch]', async b => { await sb.from('chapters').update({ status: 'draft' }).eq('volume_id', b.dataset.unsch).eq('status', 'scheduled'); const { error } = await sb.from('volumes').update({ status: 'draft' }).eq('id', b.dataset.unsch); if (error) throw error; again(); });
     on('[data-hide]', async b => { const { error } = await sb.from('volumes').update({ status: 'hidden' }).eq('id', b.dataset.hide); if (error) throw error; again(); });
     on('[data-show]', async b => { const { error } = await sb.from('volumes').update({ status: 'published' }).eq('id', b.dataset.show); if (error) throw error; again(); });
-    on('[data-addch]', async b => { const num = Math.max(0, ...C.map(c => c.num)) + 1; const { data, error } = await sb.from('chapters').insert({ series_id: s.id, volume_id: b.dataset.addch, vol: +b.dataset.n, num, title: 'Capítulo ' + num, body: [], status: 'draft', section_type: 'Capítulo' }).select('id').single(); if (error) throw error; go('/estudio/editar/' + data.id); });
+    on('[data-addch]', async b => { const num = Math.max(0, ...allNums) + 1; const { data, error } = await sb.from('chapters').insert({ series_id: s.id, volume_id: b.dataset.addch, vol: +b.dataset.n, num, title: 'Capítulo ' + num, body: [], status: 'draft', section_type: 'Capítulo' }).select('id').single(); if (error) throw error; go('/estudio/editar/' + data.id); });
     on('[data-cpub]', async b => { const { error } = await sb.from('chapters').update({ status: 'published', publish_at: new Date().toISOString() }).eq('id', b.dataset.cpub); if (error) throw new Error(/approval_required/.test(error.message) ? 'El equipo exige una revisión aprobada antes de publicar.' : errMsg(error)); toast('Capítulo publicado'); again(); });
-    on('[data-delch]', async b => { if (!confirm('¿Borrar este capítulo? Sus imágenes sin uso también se eliminarán.')) return; await deleteChapters([b.dataset.delch]); again(); });
-    on('[data-delvol]', async b => { if (!confirm('¿Borrar el volumen y todos sus capítulos?')) return; const v = V.find(x => x.id === b.dataset.delvol); await deleteChapters(listOf(v).map(c => c.id), [v.cover_path, ...(v.epub_fonts || []).map(f => pathOf(f.url))]); const { error } = await sb.from('volumes').delete().eq('id', v.id); if (error) throw error; again(); });
+    on('[data-delch]', async b => { if (!confirm('¿Enviar este capítulo a la papelera? Podrás restaurarlo durante 30 días.')) return; const { error } = await sb.rpc('trash_chapters', { p_ids: [b.dataset.delch] }); if (error) throw new Error(errMsg(error)); SEL.delete(b.dataset.delch); toast('Capítulo en la papelera'); again(); });
+    on('[data-delvol]', async b => { if (!confirm('¿Enviar el volumen y todos sus capítulos a la papelera? Podrás restaurarlo durante 30 días.')) return; const { error } = await sb.rpc('trash_volume', { p_id: b.dataset.delvol }); if (error) throw new Error(errMsg(error)); toast('Volumen en la papelera'); again(); });
+    // ---- filtros
+    app.querySelectorAll('[data-fst]').forEach(b => b.onclick = () => { F.st = b.dataset.fst; again(); });
+    app.querySelectorAll('[data-fstage]').forEach(b => b.onclick = () => { F.stage = b.dataset.fstage; again(); });
+    $('#wk-fclear')?.addEventListener('click', () => { Object.assign(F, { st: '', stage: '', q: '' }); again(); });
+    const q0 = $('#wk-q'); if (q0) { let qt = 0; q0.oninput = () => { clearTimeout(qt); qt = setTimeout(() => { F.q = q0.value; work.focusQ = true; again(); }, 350); }; if (work.focusQ) { work.focusQ = false; q0.focus(); q0.setSelectionRange(q0.value.length, q0.value.length); } }
+    // ---- selección y acciones en lote
+    const ordered = () => V.flatMap(v => listOf(v).map(c => ({ c, vid: v.id })));
+    const picked = () => ordered().filter(x => SEL.has(x.c.id)).map(x => x.c);
+    const okPub = c => c.status === 'draft' && volOf(c)?.status === 'published';
+    const syncAll = () => app.querySelectorAll('[data-allv]').forEach(a => { const ids = [...app.querySelectorAll(`[data-vol="${a.dataset.allv}"] [data-pick]`)].map(i => i.dataset.pick); a.checked = ids.length > 0 && ids.every(i => SEL.has(i)); });
+    app.querySelectorAll('[data-pick]').forEach(i => i.onchange = () => { i.checked ? SEL.add(i.dataset.pick) : SEL.delete(i.dataset.pick); i.closest('.wk-tr').classList.toggle('sel', i.checked); syncAll(); drawBulk(); });
+    app.querySelectorAll('[data-allv]').forEach(a => a.onchange = () => { app.querySelectorAll(`[data-vol="${a.dataset.allv}"] [data-pick]`).forEach(i => { i.checked = a.checked; a.checked ? SEL.add(i.dataset.pick) : SEL.delete(i.dataset.pick); i.closest('.wk-tr').classList.toggle('sel', a.checked); }); drawBulk(); });
+    const loop = async (list, fn) => { let ok = 0; const bad = []; for (const c of list) { const { error } = await fn(c); if (error) bad.push('Cap. ' + c.num + ': ' + (/approval_required/.test(error.message) ? 'necesita una revisión aprobada' : errMsg(error))); else ok++; } return { ok, bad }; };
+    const report = (r, verb) => { toast(r.ok + ' ' + (r.ok === 1 ? 'capítulo ' : 'capítulos ') + verb + (r.bad.length ? ' · ' + r.bad.length + ' con error' : '')); if (r.bad.length) alert('No se pudieron procesar:\n' + r.bad.join('\n')); SEL.clear(); again(); };
+    const addDaysLocal = (v, k) => { const [D0, H0] = v.split('T'), [y, m, d] = D0.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + k)).toISOString().slice(0, 10) + 'T' + H0; };
+    const dowOf = v => new Date(v.split('T')[0] + 'T12:00:00Z').getUTCDay();
+    const DOW = [['1', 'L'], ['2', 'M'], ['3', 'X'], ['4', 'J'], ['5', 'V'], ['6', 'S'], ['0', 'D']];
+    function seriesDates(start, every, days, count){ const out = []; if (!start) return out; if (days.length) { for (let k = 0; out.length < count && k < 3660; k++) { const v = addDaysLocal(start, k); if (days.includes(String(dowOf(v)))) out.push(v); } } else for (let k = 0; k < count; k++) out.push(addDaysLocal(start, k * every)); return out; }
+    async function commitOrder(list, msg){
+      const ren = list.filter((x, i) => +x.c.num !== i + 1), moved = list.filter(x => (volOf(x.c)?.id) !== x.vid);
+      if (!ren.length && !moved.length) return false;
+      const pubR = ren.filter(x => x.c.status === 'published').length;
+      if (ren.length && !confirm(`${msg}\n\nSe renumerarán ${ren.length} capítulo(s) para que la numeración siga el nuevo orden${pubR ? `; ${pubR} ya publicado(s) cambiará(n) de número y de enlace` : ''}. ¿Continuar?`)) return false;
+      const { error } = await sb.rpc('reorder_chapters', { p_series: s.id, p_items: list.map(x => ({ id: x.c.id, volume_id: x.vid })) }); if (error) throw new Error(errMsg(error)); return true;
+    }
+    function drawBulk(){
+      const w = $('#wk-bulkw'); if (!w) return; if (!SEL.size) { w.innerHTML = ''; return; }
+      w.innerHTML = `<div class="wk-bulk" role="region" aria-label="Acciones en lote"><b>${SEL.size} ${SEL.size === 1 ? 'capítulo' : 'capítulos'}</b>
+        ${can('publish') ? '<button class="btn sm green" data-bk="pub">⇪ Publicar</button>' : ''}
+        ${can('schedule') ? '<button class="btn ghost sm" data-bk="sch">◷ Programar</button><button class="btn ghost sm" data-bk="ser">◷ En serie</button>' : ''}
+        ${can('edit') && V.length > 1 ? `<select data-bk="move" aria-label="Mover a otro volumen"><option value="">Mover a…</option>${V.map(v => `<option value="${v.id}">Volumen ${v.num}</option>`).join('')}</select>` : ''}
+        ${can('board') ? `<select data-bk="stage" aria-label="Cambiar etapa del tablero"><option value="">Etapa…</option>${Object.entries(STG).map(([k, [l]]) => `<option value="${k}">${l}</option>`).join('')}</select>` : ''}
+        ${can('delete') ? '<button class="lnk danger" data-bk="trash">Enviar a la papelera</button>' : ''}
+        <button class="lnk" data-bk="clear" style="margin-left:auto">Deseleccionar</button><div class="wk-bp" id="wk-bp" hidden></div></div>`;
+      const bp = $('#wk-bp'), L2 = picked(), elig = L2.filter(okPub), skip = L2.length - elig.length;
+      const skipNote = skip ? `<span class="mono">Se omiten ${skip}: solo se publican o programan borradores de volúmenes ya publicados (para un volumen nuevo usa «Programar volumen»).</span>` : '';
+      const B = k => w.querySelector(`[data-bk="${k}"]`);
+      B('clear').onclick = () => { SEL.clear(); app.querySelectorAll('[data-pick]').forEach(i => { i.checked = false; i.closest('.wk-tr').classList.remove('sel'); }); syncAll(); drawBulk(); };
+      B('pub')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!elig.length) throw new Error('Ninguno se puede publicar ahora: solo borradores de volúmenes ya publicados.'); if (!confirm(`¿Publicar ahora ${elig.length} capítulo(s)?${skip ? ` Se omiten ${skip}.` : ''}`)) return; const at = new Date().toISOString(); report(await loop(elig, c => sb.from('chapters').update({ status: 'published', publish_at: at }).eq('id', c.id)), 'publicados'); }));
+      B('sch')?.addEventListener('click', () => { bp.hidden = !bp.hidden; bp.innerHTML = `<div class="row"><label class="mono">Fecha y hora <input type="datetime-local" id="bk-at"></label>${tzHint()}<button class="btn sm" id="bk-go">Programar ${elig.length}</button></div>${skipNote}`;
+        $('#bk-go').onclick = e => busy(e.currentTarget, async () => { const v = $('#bk-at').value; if (!v) throw new Error('Elige fecha y hora'); const d = new Date(fromLocal(v)); if (d <= new Date()) throw new Error('La fecha debe ser futura'); if (!elig.length) throw new Error('Ninguno se puede programar'); report(await loop(elig, c => sb.from('chapters').update({ status: 'scheduled', publish_at: d.toISOString() }).eq('id', c.id)), 'programados para ' + fmtTz(d)); }); });
+      B('ser')?.addEventListener('click', () => { bp.hidden = !bp.hidden; const S = { start: '', every: 7, days: [] };
+        const dr = () => { const ds = seriesDates(S.start, S.every, S.days, elig.length);
+          bp.innerHTML = `<div class="row"><label class="mono">Primer capítulo <input type="datetime-local" id="sr-at" value="${S.start}"></label>${tzHint()}
+            <label class="mono">Cada <select id="sr-ev">${[[1, 'día'], [2, '2 días'], [3, '3 días'], [7, 'semana'], [14, '2 semanas']].map(([k, l]) => `<option value="${k}" ${S.every === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+            <span class="mono">o solo los</span><span class="ed-chips">${DOW.map(([k, l]) => `<button type="button" class="ed-chip ${S.days.includes(k) ? 'on' : ''}" aria-pressed="${S.days.includes(k)}" data-dw="${k}">${l}</button>`).join('')}</span></div>
+            ${ds.length ? `<ol>${elig.map((c, i) => `<li>Cap. ${c.num} → ${fmtTz(fromLocal(ds[i]), { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</li>`).join('')}</ol>` : '<span class="mono">Elige la fecha del primero para ver el calendario.</span>'}
+            ${skipNote}<div class="row"><button class="btn sm" id="sr-go" ${ds.length && elig.length ? '' : 'disabled'}>Programar ${elig.length} en serie</button><span class="mono">En el orden de la lista. Los días de la semana tienen prioridad sobre «cada».</span></div>`;
+          $('#sr-at').onchange = e => { S.start = e.target.value; dr(); }; $('#sr-ev').onchange = e => { S.every = +e.target.value; S.days = []; dr(); };
+          bp.querySelectorAll('[data-dw]').forEach(b => b.onclick = () => { const k = b.dataset.dw; S.days = S.days.includes(k) ? S.days.filter(x => x !== k) : [...S.days, k]; dr(); });
+          $('#sr-go').onclick = e => busy(e.currentTarget, async () => { if (new Date(fromLocal(ds[0])) <= new Date()) throw new Error('El primer capítulo debe programarse en el futuro'); let i = 0; report(await loop(elig, c => sb.from('chapters').update({ status: 'scheduled', publish_at: new Date(fromLocal(ds[i++])).toISOString() }).eq('id', c.id)), 'programados en serie'); }); };
+        dr(); });
+      B('move')?.addEventListener('change', e => { const vid = e.target.value; if (!vid) return; busy(null, async () => { const list = ordered(), mv = list.filter(x => SEL.has(x.c.id)), rest = list.filter(x => !SEL.has(x.c.id)); mv.forEach(x => { x.vid = vid; });
+        const ti = V.findIndex(v => v.id === vid), at = (() => { let k = -1; rest.forEach((x, i) => { if (V.findIndex(v => v.id === x.vid) <= ti) k = i; }); return k + 1; })(); rest.splice(at, 0, ...mv);
+        if (await commitOrder(rest, `Mover ${mv.length} capítulo(s) al volumen ${V[ti].num}.`)) { toast('Capítulos movidos'); SEL.clear(); again(); } else e.target.value = ''; }); });
+      B('stage')?.addEventListener('change', e => { const k = e.target.value; if (!k) return; busy(null, async () => { const L3 = L2.filter(c => c.status === 'draft'); if (!L3.length) throw new Error('La etapa solo aplica a borradores'); report(await loop(L3, c => sb.rpc('chapter_move', { p_id: c.id, p_stage: k, p_assignee: null })), 'pasados a «' + STG[k][0] + '»'); }); });
+      B('trash')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!confirm(`¿Enviar ${L2.length} capítulo(s) a la papelera? Podrás restaurarlos durante 30 días.`)) return; const { error } = await sb.rpc('trash_chapters', { p_ids: L2.map(c => c.id) }); if (error) throw new Error(errMsg(error)); toast(L2.length + ' en la papelera'); SEL.clear(); again(); }));
+    }
+    drawBulk();
+    // ---- arrastrar para reordenar o cambiar de volumen
+    let dragId = null;
+    const moveTo = (cid, targetId, after, vid) => busy(null, async () => {
+      const list = ordered(), i0 = list.findIndex(x => x.c.id === cid); if (i0 < 0) return; const [it] = list.splice(i0, 1); it.vid = vid;
+      let at; if (targetId) at = list.findIndex(x => x.c.id === targetId) + (after ? 1 : 0);
+      else { const ti = V.findIndex(v => v.id === vid); at = 0; list.forEach((x, i) => { if (V.findIndex(v => v.id === x.vid) <= ti) at = i + 1; }); }
+      list.splice(at, 0, it); if (await commitOrder(list, `Mover «${it.c.title}».`)) { toast('Orden actualizado'); again(); } });
+    app.querySelectorAll('.wk-tr[draggable="true"]').forEach(r => {
+      r.ondragstart = e => { if (e.target.closest('input,button,a,select')) return e.preventDefault(); dragId = r.dataset.row; r.classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragId); };
+      r.ondragend = () => { dragId = null; r.classList.remove('drag'); app.querySelectorAll('.drop-a,.drop-b,.drop-v').forEach(x => x.classList.remove('drop-a', 'drop-b', 'drop-v')); };
+      r.ondragover = e => { if (!dragId || r.dataset.row === dragId) return; e.preventDefault(); const bx = r.getBoundingClientRect(), af = e.clientY > bx.top + bx.height / 2; r.classList.toggle('drop-b', af); r.classList.toggle('drop-a', !af); };
+      r.ondragleave = () => r.classList.remove('drop-a', 'drop-b');
+      r.ondrop = e => { e.preventDefault(); if (!dragId) return; const af = r.classList.contains('drop-b'); r.classList.remove('drop-a', 'drop-b'); moveTo(dragId, r.dataset.row, af, r.dataset.vol); };
+    });
+    if (canDrag) app.querySelectorAll('.wk-vh').forEach(h => { h.ondragover = e => { if (dragId) { e.preventDefault(); h.classList.add('drop-v'); } }; h.ondragleave = () => h.classList.remove('drop-v'); h.ondrop = e => { e.preventDefault(); h.classList.remove('drop-v'); if (dragId) moveTo(dragId, null, true, h.dataset.tog); }; });
+    // ---- papelera
+    $('#wk-trash')?.addEventListener('toggle', e => { work.trashOpen = e.currentTarget.open; });
+    const purgeVols = async vs => { for (const v of vs) { await deleteChapters(TC.filter(c => c.volume_id === v.id).map(c => c.id), [v.cover_path, ...(v.epub_fonts || []).map(f => pathOf(f.url))]); const { error } = await sb.from('volumes').delete().eq('id', v.id); if (error) throw new Error(errMsg(error)); } };
+    on('[data-trc]', async b => { const { error } = await sb.rpc('restore_trash', { p_chapters: [b.dataset.trc], p_volumes: [] }); if (error) throw new Error(errMsg(error)); toast('Capítulo restaurado'); again(); });
+    on('[data-trv]', async b => { const { error } = await sb.rpc('restore_trash', { p_chapters: [], p_volumes: [b.dataset.trv] }); if (error) throw new Error(errMsg(error)); toast('Volumen restaurado'); again(); });
+    on('[data-purc]', async b => { if (!confirm('¿Borrar definitivamente este capítulo? No se podrá recuperar y sus imágenes sin uso se eliminarán.')) return; await deleteChapters([b.dataset.purc]); again(); });
+    on('[data-purv]', async b => { if (!confirm('¿Borrar definitivamente el volumen y sus capítulos? No se podrá recuperar.')) return; await purgeVols(TV.filter(v => v.id === b.dataset.purv)); again(); });
+    on('#wk-empty', async () => { if (!confirm('¿Vaciar la papelera? Todo se borrará definitivamente.')) return; await purgeVols(TV); await deleteChapters(TCx.map(c => c.id)); toast('Papelera vaciada'); again(); });
+    if (can('delete')) { const oldV = TV.filter(v => !left(v.deleted_at)), oldC = TCx.filter(c => !left(c.deleted_at)); if (oldV.length || oldC.length) (async () => { try { await purgeVols(oldV); if (oldC.length) await deleteChapters(oldC.map(c => c.id)); } catch (e) { console.warn('papelera', e); } })(); }
     app.querySelectorAll('[data-vedit]').forEach(b => b.onclick = () => { const v = V.find(x => x.id === b.dataset.vedit), box = $('#ve-' + v.id); if (!box.hidden) { box.hidden = true; return; }
       box.hidden = false; box.innerHTML = `<div class="imp-fg" style="margin:0">
         <label>Título del volumen<input name="title" maxlength="200" value="${esc(v.title && v.title !== String(v.num) ? v.title : '')}" placeholder="Volumen ${v.num}"></label><label>Subtítulo<input name="subtitle" maxlength="200" value="${esc(v.subtitle || '')}"></label>
@@ -445,11 +574,12 @@ export function createStudio(ctx){
     const { data: c } = await sb.from('chapters').select('*, series(slug,title,team_id)').eq('id', id).maybeSingle();
     if (!c) return go('/estudio');
     const KEY = 'obi-draft-' + id, now = new Date().toISOString();
-    const [{ data: gl }, { data: coms }, { data: reps0 }, { data: nx }] = await Promise.all([
+    const [{ data: gl }, { data: coms }, { data: reps0 }, { data: nx }, { data: sib }] = await Promise.all([
       sb.from('glossary_terms').select('term,category').eq('series_id', c.series_id),
       sb.from('comments').select('id,para,body,spoiler,created_at,user_id').eq('chapter_id', id).is('parent_id', null).order('created_at', { ascending: false }).limit(100),
       sb.from('reports').select('id,kind,quote,fix,created_at').eq('chapter_id', id).eq('status', 'open').order('created_at', { ascending: false }),
-      sb.from('schedule').select('at').eq('series_id', c.series_id).gte('at', now).order('at').limit(1)]);
+      sb.from('schedule').select('at').eq('series_id', c.series_id).gte('at', now).order('at').limit(1),
+      sb.from('chapters').select('id,num,title,section_type,vol').eq('series_id', c.series_id).is('deleted_at', null).order('num')]);
     const reps = reps0 || [], who = await names((coms || []).map(x => x.user_id));
     const terms = (gl || []).filter(g => /\p{Lu}/u.test(g.term)).sort((a, b) => b.term.length - a.term.length);
     const nextWhen = nx?.[0]?.at ? fmtTz(nx[0].at, { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'fecha del siguiente';
@@ -459,10 +589,14 @@ export function createStudio(ctx){
     const local = (() => { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } })();
     const hasLocal = local?.at && (local.html || local.blocks);
     const ST2 = { draft: 'Borrador', scheduled: 'Programado', published: 'Publicado' };
+    const SIB = sib || [], si = SIB.findIndex(x => x.id === id), prevC = si > 0 ? SIB[si - 1] : null, nextC = si >= 0 && si < SIB.length - 1 ? SIB[si + 1] : null;
+    const chLbl = x => (x.section_type && x.section_type !== 'Capítulo' ? x.section_type : 'Cap. ' + x.num) + (x.title ? ' — ' + x.title : '');
+    const meU = getUser(), myName = (await names([meU?.id]))[meU?.id] || 'Alguien del equipo';
+    let src = c.source_text || '', srcEdit = !src.trim(), srcT = 0, curIdx = -1, chan = null;
     app.innerHTML = shell('Editar capítulo', `<div class="ed">
-      <p class="mono"><a href="/estudio/obra/${c.series.slug}">‹ ${esc(c.series.title)}</a> · Vol. ${c.vol} · <span id="stpill">${ST2[c.status] || c.status}</span> · versión <span id="ver">${version}</span> · <span id="count"></span></p>
+      <p class="mono ed-crumb"><span><a href="/estudio/obra/${c.series.slug}">‹ ${esc(c.series.title)}</a> · Vol. ${c.vol} · <span id="stpill">${ST2[c.status] || c.status}</span> · versión <span id="ver">${version}</span> · <span id="count"></span></span><span class="ed-nav">${prevC ? `<a href="/estudio/editar/${prevC.id}" title="${esc(chLbl(prevC))} · Ctrl+Alt+←">← Anterior</a>` : '<span class="off">← Anterior</span>'}<span>${si + 1} / ${SIB.length}</span>${nextC ? `<a href="/estudio/editar/${nextC.id}" title="${esc(chLbl(nextC))} · Ctrl+Alt+→">Siguiente →</a>` : '<span class="off">Siguiente →</span>'}</span></p>
       ${hasLocal ? `<div class="st-card" id="localcard"><span>Hay una copia local sin guardar del ${fmtTz(local.at)}${local.version !== version ? ` (hecha sobre la versión ${local.version}; la actual es ${version})` : ''}.</span><span><button class="btn" id="restore">Recuperar</button> <button class="btn ghost" id="discard">Descartar</button></span></div>` : ''}
-      <div id="ctx"></div>
+      <div id="ctx"></div><div id="pres"></div>
       <div class="ed-top">
         <input id="ttl" value="${esc(c.title)}" aria-label="Título del capítulo">
         <select id="stype" aria-label="Tipo de sección">${SEC.map(s => `<option ${s === meta.section_type ? 'selected' : ''}>${s}</option>`).join('')}</select>
@@ -470,6 +604,7 @@ export function createStudio(ctx){
         <button class="btn ghost" id="b-rev" aria-expanded="false" aria-controls="p-rev">✓ Revisar</button>
         <button class="btn ghost" id="b-hist" aria-expanded="false" aria-controls="p-hist">◷ Historial</button>
         <button class="btn ghost" id="save" title="Ctrl/Cmd+S">Guardar</button>
+        <button class="btn ghost" id="b-zen" title="Modo concentración · Ctrl+Shift+F" aria-pressed="false">⛶ Concentración</button>
         <span class="ed-pub" id="pub"></span>
       </div>
       <div class="ed-box" id="p-rev" hidden></div>
@@ -490,21 +625,23 @@ export function createStudio(ctx){
         <button class="ed-btn" data-act="ruby" title="Furigana sobre la selección">ルビ</button><button class="ed-btn" data-act="sep" title="Separador de escena">※</button><button class="ed-btn" data-act="img" title="Insertar ilustración">▣ Imagen</button><input type="file" id="imgf" accept="image/*" hidden>
         <button class="ed-btn" data-cmd="undo" title="Deshacer (Ctrl+Z)">↶</button><button class="ed-btn" data-cmd="redo" title="Rehacer">↷</button>
         <span class="end"><button class="ed-btn" data-act="find" aria-expanded="false">Buscar y reemplazar</button><button class="ed-btn" data-act="coms" aria-expanded="false">Lectores · ${(coms || []).length + reps.length}</button><span class="div"></span>
-          <button class="ed-btn" data-view="edit">Editor</button><button class="ed-btn" data-view="split">Ambos</button><button class="ed-btn" data-view="preview">Vista previa</button></span>
+          <button class="ed-btn" data-view="orig" title="Texto original junto al editor">Original</button><button class="ed-btn" data-view="edit">Editor</button><button class="ed-btn" data-view="split">Ambos</button><button class="ed-btn" data-view="preview">Vista previa</button></span>
       </div>
       <div id="ask"></div>
       <div class="ed-find" id="p-find" hidden><input type="text" id="fq" placeholder="Buscar" aria-label="Buscar"><input type="text" id="rq" placeholder="Reemplazar por" aria-label="Reemplazar por"><label class="mono" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="fcase" style="width:auto"> Mayúsculas exactas</label><button class="btn ghost" id="fnext">Siguiente</button><button class="btn" id="frep">Reemplazar todo</button><span class="mono" id="finfo"></span></div>
       <div class="ed-box" id="p-coms" hidden></div>
       <div id="gwarn"></div>
       <div class="ed-split" id="split" data-view="${UI.view}">
+        <div class="ed-origw" id="origw"><div class="ed-pvbar"><span class="mono">ORIGINAL</span><span class="mono" id="orig-n"></span><span class="div"></span><button class="ed-btn" id="orig-edit">Editar</button><button class="ed-btn on" id="orig-sync" aria-pressed="true" title="Desplazar el original al párrafo en el que escribes">Sincronizar</button></div><div class="ed-orig" id="orig"></div></div>
         <div class="ed-docw"><div class="ed-doc" id="doc" contenteditable="true" spellcheck="true" lang="es" role="textbox" aria-multiline="true" aria-label="Texto del capítulo"></div></div>
         <div class="ed-pvw"><div class="ed-pvbar"><span class="mono">VISTA DEL LECTOR</span>${[['oscuro','Oscuro'],['sepia','Sepia'],['claro','Claro']].map(([k, l]) => `<button class="ed-btn" data-theme="${k}">${l}</button>`).join('')}<span class="div"></span><button class="ed-btn" data-device="desk">Escritorio</button><button class="ed-btn" data-device="mobile">Móvil</button></div><div class="ed-pv" id="pv"></div></div>
-      </div></div>`, '/estudio/obra');
+      </div><div class="ed-zenbar" id="zenbar" role="status"></div></div>`, '/estudio/obra');
     bindPicker(home);
     const doc = $('#doc'), pv = $('#pv'), root = $('.ed');
     try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch {}
     const load = blocks => { doc.innerHTML = blocksToEditor(blocks, media); };
     load(c.body);
+    const blocksEls = () => [...doc.childNodes].filter(makesBlock);
     const title = () => $('#ttl').value.trim() || 'Sin título';
     const setState = (cls, msg) => { const s = $('#state'); if (!s) return; s.className = 'ed-state ' + cls; s.textContent = msg; };
     const topOf = n => { while (n && n.parentNode !== doc) n = n.parentNode; return n; };
@@ -519,6 +656,7 @@ export function createStudio(ctx){
       pv.innerHTML = `<div class="rd" data-theme="${UI.theme}" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="--rs:${UI.device === 'mobile' ? 17 : 19}px"><article class="rd-ch"><header class="rd-head"><span class="mono">Volumen ${c.vol} · ${esc(label)}</span><h2>${esc(tt)}</h2></header>${warningsHTML(meta.content_warnings, 'show')}<div class="rd-body">${blocks.map((b, i) => renderBlock(b, i, { media })).join('') || '<p class="mono">Capítulo vacío.</p>'}</div>${meta.teaser_on && meta.teaser.trim() ? teaserHTML(meta.teaser, nextWhen) : ''}</article></div>`;
       const words = blocks.reduce((a, b) => a + (b.text || '').split(/\s+/).filter(Boolean).length, 0);
       $('#count').textContent = `${words.toLocaleString('es-MX')} palabras · ${Math.max(1, Math.round(words / 230))} min de lectura · ${blocks.filter(b => b.type === 'image').length} imágenes`;
+      const on2 = $('#orig-n'); if (on2) { const P2 = origParas(); on2.textContent = P2.length ? `${P2.length} párr. · traducción ${blocksEls().length}` : ''; }
       $('#setsum').textContent = (meta.teaser_on && meta.teaser.trim() ? 'avance ✓' : 'sin avance') + ' · ' + (meta.content_warnings.length ? meta.content_warnings.length + ' marcador(es)' : 'sin marcadores');
     }
 
@@ -571,6 +709,7 @@ export function createStudio(ctx){
         return false;
       }
       version = data; if ($('#ver')) $('#ver').textContent = version;
+      try { chan?.send({ type: 'broadcast', event: 'saved', payload: { version, name: myName, by: meU?.id } }); } catch {}
       if (edits === mine) { dirty = false; localStorage.removeItem(KEY); setState('', manual ? '✓ Guardado · versión creada' : '✓ Guardado automáticamente'); } else setState('busy', 'Cambios sin guardar');
       if ($('#p-hist') && !$('#p-hist').hidden) drawHist();
       return true;
@@ -579,7 +718,7 @@ export function createStudio(ctx){
       edits++; dirty = true; if (!doc.firstElementChild && !doc.textContent.trim()) doc.innerHTML = '<p><br></p>';
       if (!conflict) setState('busy', 'Cambios sin guardar');
       localStorage.setItem(KEY, JSON.stringify({ html: doc.innerHTML, title: $('#ttl').value, meta, version, at: Date.now() }));
-      clearTimeout(pvT); pvT = setTimeout(() => { lint(); preview(); }, 250);
+      clearTimeout(pvT); pvT = setTimeout(() => { lint(); preview(); drawZen(); }, 250);
       clearTimeout(autoT); autoT = setTimeout(() => doSave(false), 5000);
     }
 
@@ -644,9 +783,60 @@ export function createStudio(ctx){
     }
     const after = html => { const ref = cur(), tp = document.createElement('template'); tp.innerHTML = html; const nodes = [...tp.content.childNodes]; if (ref) ref.after(...nodes); else doc.append(...nodes); const last = nodes[nodes.length - 1]; if (!last.nextElementSibling) last.after(Object.assign(document.createElement('p'), { innerHTML: '<br>' })); changed(); };
 
+    // texto original al lado, párrafo a párrafo
+    function origParas(){ return src.split(/\r?\n/).map(x => x.trim()).filter(Boolean); }
+    async function saveSrc(){ const { error } = await sb.from('chapters').update({ source_text: src }).eq('id', id); if (error) toast('No se pudo guardar el original: ' + errMsg(error)); }
+    function syncOrig(){ const box = $('#orig'); if (!box || srcEdit || UI.view !== 'orig') return; box.querySelectorAll('p.on').forEach(p => p.classList.remove('on')); const p = box.querySelector(`[data-op="${curIdx}"]`); if (!p) return; p.classList.add('on'); if (UI.sync !== false) box.scrollTo({ top: p.offsetTop - box.clientHeight / 3, behavior: 'smooth' }); }
+    function drawOrig(){
+      const box = $('#orig'); if (!box) return; const P = origParas();
+      $('#orig-n').textContent = P.length ? `${P.length} párr. · traducción ${blocksEls().length}` : '';
+      const eb = $('#orig-edit'); eb.textContent = srcEdit ? 'Listo' : 'Editar'; eb.hidden = srcEdit && !P.length;
+      box.innerHTML = srcEdit ? `<textarea id="orig-ta" aria-label="Texto original" placeholder="Pega aquí el texto original (japonés, inglés…). Cada línea es un párrafo y se empareja con el párrafo del mismo número en tu traducción. Se guarda solo y los lectores no lo ven.">${esc(src)}</textarea>`
+        : P.map((t, i) => `<p data-op="${i}"><span class="n">${i + 1}</span>${esc(t)}</p>`).join('');
+      const ta = $('#orig-ta'); if (ta) ta.oninput = () => { src = ta.value; clearTimeout(srcT); srcT = setTimeout(saveSrc, 1200); };
+      syncOrig();
+    }
+    $('#orig-edit').onclick = () => { if (srcEdit) { clearTimeout(srcT); saveSrc(); srcEdit = !origParas().length; } else srcEdit = true; drawOrig(); if (srcEdit) $('#orig-ta')?.focus(); };
+    $('#orig-sync').onclick = e => { UI.sync = UI.sync === false; e.currentTarget.classList.toggle('on', UI.sync); e.currentTarget.setAttribute('aria-pressed', UI.sync); if (UI.sync) syncOrig(); };
+    $('#orig').addEventListener('click', e => { const p = e.target.closest('[data-op]'); if (!p) return; const el = blocksEls()[+p.dataset.op]; if (!el) return toast('Tu traducción todavía no tiene ese párrafo'); curIdx = +p.dataset.op; syncOrig(); flashBlock(el); const r = document.createRange(); r.selectNodeContents(el); r.collapse(true); const sl = getSelection(); sl.removeAllRanges(); sl.addRange(r); doc.focus({ preventScroll: true }); });
+
+    // quién más está editando (presencia en tiempo real) y aviso cuando otro guarda
+    try {
+      chan = sb.channel('obi-edit-' + id, { config: { presence: { key: meU?.id || 'anon' } } });
+      const drawPres = () => { const box = $('#pres'); if (!box) return; const o = [...new Set(Object.entries(chan.presenceState()).filter(([k]) => k !== meU?.id).map(([, v]) => v[0]?.name || 'Alguien'))];
+        box.innerHTML = o.length ? `<div class="ed-pres" role="status"><span class="dot" aria-hidden="true"></span><span><b>${o.map(esc).join(', ')}</b> ${o.length === 1 ? 'también está' : 'también están'} editando este capítulo. Si ambos guardan, el segundo recibirá un aviso de conflicto: pónganse de acuerdo antes de seguir.</span></div>` : ''; };
+      chan.on('presence', { event: 'sync' }, drawPres)
+        .on('broadcast', { event: 'saved' }, ({ payload: pl }) => { if (!pl || pl.by === meU?.id || !(pl.version > version) || !$('#ctx')) return;
+          $('#ctx').innerHTML = `<div class="ed-ctx"><span><b>${esc(pl.name || 'Alguien')}</b> guardó la versión ${pl.version}.${dirty ? ' Tienes cambios sin guardar: si guardas ahora habrá conflicto. Siguen a salvo en tu copia local.' : ''}</span><button class="btn" id="reload2">Cargar la versión nueva</button></div>`;
+          $('#reload2').onclick = () => { if (!dirty || confirm('Tus cambios sin guardar quedarán en tu copia local para recuperarlos. ¿Cargar la versión nueva?')) editor(id); }; })
+        .subscribe(stt => { if (stt === 'SUBSCRIBED') chan.track({ name: myName, at: Date.now() }); });
+    } catch {}
+
+    // modo concentración con meta de palabras del día
+    const GOALK = 'obi-ed-goal', DAYK = 'obi-ed-day', today = () => new Date().toLocaleDateString('en-CA');
+    const wc = () => (doc.innerText || '').split(/\s+/).filter(Boolean).length;
+    const dayData = () => { let d = null; try { d = JSON.parse(localStorage.getItem(DAYK) || 'null'); } catch {} if (!d || d.date !== today()) d = { date: today(), base: {}, done: {} }; if (d.base[id] == null) { d.base[id] = wc(); try { localStorage.setItem(DAYK, JSON.stringify(d)); } catch {} } return d; };
+    const todayWords = () => { const d = dayData(); d.done[id] = Math.max(0, wc() - d.base[id]); try { localStorage.setItem(DAYK, JSON.stringify(d)); } catch {} return Object.values(d.done).reduce((a, b) => a + b, 0); };
+    function drawZen(){
+      const z = $('#zenbar'); if (!z || !root.classList.contains('zen')) return;
+      const g = Math.max(50, +localStorage.getItem(GOALK) || 1000), nW = todayWords(), pct = Math.min(100, Math.round(nW / g * 100));
+      z.innerHTML = `<span class="mono">HOY</span><b>${nW.toLocaleString('es-MX')}</b><span class="mono">de <input id="zgoal" type="number" min="50" step="50" value="${g}" aria-label="Meta de palabras del día"> palabras</span><span class="zp" aria-hidden="true"><i style="width:${pct}%"></i></span><span class="mono">${pct >= 100 ? '¡Meta cumplida!' : pct + ' %'}</span><span class="mono">${esc($('#state')?.textContent || '')}</span><button class="btn ghost sm" id="zexit">Salir · Esc</button>`;
+      $('#zgoal').onchange = e => { localStorage.setItem(GOALK, Math.max(50, +e.target.value || 1000)); drawZen(); };
+      $('#zexit').onclick = () => zen(false);
+    }
+    function zen(onZ){
+      root.classList.toggle('zen', onZ); $('#b-zen').setAttribute('aria-pressed', onZ); document.body.style.overflow = onZ ? 'hidden' : '';
+      if (onZ) { if (UI.view === 'preview') { UI.view = 'edit'; views(); } if (root.requestFullscreen && !document.fullscreenElement) root.requestFullscreen().catch(() => {}); drawZen(); doc.focus(); }
+      else if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    }
+    const fsc = () => { if (document.body.contains(root) && !document.fullscreenElement && root.classList.contains('zen')) zen(false); };
+    document.addEventListener('fullscreenchange', fsc);
+    $('#b-zen').onclick = () => zen(!root.classList.contains('zen'));
+    dayData();
+
     // eventos
     doc.addEventListener('input', changed);
-    function onSel(){ if (!document.body.contains(doc)) return document.removeEventListener('selectionchange', onSel); const s = getSelection(); if (s.rangeCount && doc.contains(s.anchorNode)) { lastRange = s.getRangeAt(0).cloneRange(); const tg = topOf(s.anchorNode)?.tagName; $('#blk').value = /^H[1-6]$/.test(tg) ? 'H3' : ['BLOCKQUOTE', 'ASIDE'].includes(tg) ? tg : 'P'; } }
+    function onSel(){ if (!document.body.contains(doc)) return document.removeEventListener('selectionchange', onSel); const s = getSelection(); if (s.rangeCount && doc.contains(s.anchorNode)) { lastRange = s.getRangeAt(0).cloneRange(); const tb = topOf(s.anchorNode), tg = tb?.tagName, bi = blocksEls().indexOf(tb); if (bi >= 0 && bi !== curIdx) { curIdx = bi; syncOrig(); } $('#blk').value = /^H[1-6]$/.test(tg) ? 'H3' : ['BLOCKQUOTE', 'ASIDE'].includes(tg) ? tg : 'P'; } }
     document.addEventListener('selectionchange', onSel);
     doc.addEventListener('paste', e => {
       e.preventDefault(); const html = e.clipboardData.getData('text/html'), plain = e.clipboardData.getData('text/plain'), out = pasteToEditor(html, plain);
@@ -688,7 +878,7 @@ export function createStudio(ctx){
       else if (d.act === 'img') $('#imgf').click();
       else if (d.act === 'find') { if (toggleP('#p-find', el)) $('#fq').focus(); }
       else if (d.act === 'coms') toggleP('#p-coms', el, drawComs);
-      else if (d.view) { UI.view = d.view; localStorage.setItem('obi-ed-view', d.view); views(); }
+      else if (d.view) { UI.view = d.view; localStorage.setItem('obi-ed-view', d.view); views(); if (d.view === 'orig') drawOrig(); }
       else if (d.theme) { UI.theme = d.theme; views(); preview(); }
       else if (d.device) { UI.device = d.device; views(); preview(); }
       else if (d.fix) { fix(d.fix); toast('Revisión aplicada'); }
@@ -706,13 +896,17 @@ export function createStudio(ctx){
     $('#restore')?.addEventListener('click', () => { const tmp = document.createElement('div'); tmp.innerHTML = local.html || ''; load(local.blocks || editorToBlocks(tmp)); $('#ttl').value = local.title || $('#ttl').value; if (local.meta) { Object.assign(meta, local.meta); $('#stype').value = meta.section_type; $('#teaser').value = meta.teaser; $('#teaser_on').checked = meta.teaser_on; root.querySelectorAll('[data-cw]').forEach(b => b.classList.toggle('on', meta.content_warnings.includes(b.dataset.cw))); } $('#localcard').remove(); changed(); });
     $('#discard')?.addEventListener('click', () => { localStorage.removeItem(KEY); $('#localcard').remove(); });
     const alive = () => document.body.contains(root);
-    const key = e => { if (!alive()) return cleanup(); if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); $('#save').click(); } };
+    const key = e => { if (!alive()) return cleanup(); const k = (e.key || '').toLowerCase(), m = e.ctrlKey || e.metaKey;
+      if (m && !e.shiftKey && !e.altKey && k === 's') { e.preventDefault(); $('#save').click(); }
+      else if (m && e.shiftKey && k === 'f') { e.preventDefault(); zen(!root.classList.contains('zen')); }
+      else if (k === 'escape' && root.classList.contains('zen') && !document.fullscreenElement) zen(false);
+      else if (m && e.altKey && (k === 'arrowleft' || k === 'arrowright')) { const t = k === 'arrowleft' ? prevC : nextC; if (t) { e.preventDefault(); zen(false); if (dirty) doSave(false); go('/estudio/editar/' + t.id); } } };
     const leave = e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } };
-    const nav = e => { if (!alive()) return cleanup(); if (dirty && e.target.closest('a[href]')) doSave(false); };
+    const nav = e => { if (!alive()) return cleanup(); if (e.target.closest('a[href]')) { if (root.classList.contains('zen')) zen(false); if (dirty) doSave(false); } };
     const vis = () => { if (!alive()) return cleanup(); if (document.hidden && dirty) doSave(false); };
-    const cleanup = () => { removeEventListener('keydown', key); removeEventListener('beforeunload', leave); document.removeEventListener('click', nav, true); document.removeEventListener('visibilitychange', vis); clearTimeout(autoT); };
+    const cleanup = () => { removeEventListener('keydown', key); removeEventListener('beforeunload', leave); document.removeEventListener('click', nav, true); document.removeEventListener('visibilitychange', vis); document.removeEventListener('fullscreenchange', fsc); clearTimeout(autoT); if (srcT) { clearTimeout(srcT); saveSrc(); srcT = 0; } try { if (chan) sb.removeChannel(chan); } catch {} chan = null; document.body.style.overflow = ''; };
     addEventListener('keydown', key); addEventListener('beforeunload', leave); document.addEventListener('click', nav, true); document.addEventListener('visibilitychange', vis);
-    views(); drawPub(); lint(); preview();
+    views(); drawPub(); lint(); preview(); drawOrig();
   }
 
   // ---------- importador ----------
