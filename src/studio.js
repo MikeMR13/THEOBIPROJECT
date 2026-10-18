@@ -618,7 +618,8 @@ export function createStudio(ctx){
           if (UT.on && !UT.text.trim()) throw new Error('Escribe el texto del aviso');
           const { data: cur, error: e1 } = await sb.from('series').select('theme').eq('id', s.id).single(); if (e1) throw new Error(errMsg(e1));
           const theme = { ...(cur?.theme || {}), update_tag: { on: !!UT.on, text: UT.text.trim().slice(0, 24), color: UT.color, style: UT.style === 'outline' ? 'outline' : 'solid', until: UT.until || null } };
-          const { error } = await sb.from('series').update({ theme }).eq('id', s.id); if (error) throw new Error(errMsg(error));
+          const { data: upd, error } = await sb.from('series').update({ theme }).eq('id', s.id).select('id,theme'); if (error) throw new Error(errMsg(error));
+          if (!upd?.length || JSON.stringify(upd[0].theme?.update_tag) !== JSON.stringify(theme.update_tag)) throw new Error('La base de datos no guardó el aviso (permiso o regla de la tabla «series»). Revisa con diagnostico_avisos.sql.');
           s.theme = theme; utDirty = false; const st3 = $('#ut-st'); if (st3) st3.textContent = '✓ Guardado'; toast(UT.on ? 'Aviso «' + UT.text.trim() + '» activo en actualizaciones' : 'Aviso oculto'); })); };
       drawUT();
       const leaveUT = e => { if (utDirty && document.body.contains($('#ut-save'))) { e.preventDefault(); e.returnValue = ''; } else removeEventListener('beforeunload', leaveUT); }; addEventListener('beforeunload', leaveUT);

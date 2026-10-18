@@ -57,7 +57,8 @@ export function apply(kind, o = {}){
   }
   const txt = o.greet !== undefined ? o.greet : (C.greet?.[k] ?? SUGGEST[k] ?? '');
   const app = document.getElementById('app');
-  if (txt && app) { const g = document.createElement('div'); g.className = 'obi-sea-greet'; g.innerHTML = `<i style="background-image:url('${mot}')"></i><span><small>${esc(s.l.toUpperCase())}</small>${esc(txt)}</span><button type="button" aria-label="Ocultar temas de temporada" title="Ocultar temas de temporada">×</button>`; app.prepend(g); stops.push(() => g.remove()); g.querySelector('button').onclick = () => setOff(true); }
+  const gk = 'obi-sea-greet-x', gHidden = (() => { try { return localStorage.getItem(gk) === k; } catch { return false; } })();
+  if (txt && app && !gHidden) { const g = document.createElement('div'); g.className = 'obi-sea-greet'; g.innerHTML = `<i style="background-image:url('${mot}')"></i><span><small>${esc(s.l.toUpperCase())}</small>${esc(txt)}</span><button type="button" aria-label="Ocultar este mensaje" title="Ocultar este mensaje (el tema de temporada sigue activo)">×</button>`; app.prepend(g); stops.push(() => g.remove()); g.querySelector('button').onclick = () => { try { localStorage.setItem(gk, k); } catch {} g.remove(); }; }
   if (kind === 'home' && mot) {
     const hero = document.getElementById('hero');
     if (hero) { const put = () => { if (hero.querySelector('.obi-sea-cor')) return; hero.insertAdjacentHTML('beforeend', `<span class="obi-sea-cor l" style="background-image:url('${mot}')"></span><span class="obi-sea-cor r" style="background-image:url('${motifURL(s.m, s.c2, s.ac)}')"></span><span class="obi-sea-orn" style="background-image:url('${ornURL(s.p, s.ac)}')"></span>`); };
