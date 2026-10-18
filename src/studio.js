@@ -522,7 +522,7 @@ export function createStudio(ctx){
     if (can('delete')) { const oldV = TV.filter(v => !left(v.deleted_at)), oldC = TCx.filter(c => !left(c.deleted_at)); if (oldV.length || oldC.length) (async () => { try { await purgeVols(oldV); if (oldC.length) await deleteChapters(oldC.map(c => c.id)); } catch (e) { console.warn('papelera', e); } })(); }
     app.querySelectorAll('[data-vedit]').forEach(b => b.onclick = () => { const v = V.find(x => x.id === b.dataset.vedit), box = $('#ve-' + v.id); if (!box.hidden) { box.hidden = true; return; }
       box.hidden = false; box.innerHTML = `<div class="imp-fg" style="margin:0">
-        <label>Título del volumen<input name="title" maxlength="200" value="${esc(v.title && v.title !== String(v.num) ? v.title : '')}" placeholder="Volumen ${v.num}"></label><label>Subtítulo<input name="subtitle" maxlength="200" value="${esc(v.subtitle || '')}"></label>
+        <label>Número de volumen<input name="vnum" type="number" min="1" max="999" step="1" value="${v.num}"></label><label>Título del volumen<input name="title" maxlength="200" value="${esc(v.title && v.title !== String(v.num) ? v.title : '')}" placeholder="Volumen ${v.num}"></label><label>Subtítulo<input name="subtitle" maxlength="200" value="${esc(v.subtitle || '')}"></label>
         <label>Salida en Japón<input name="jp_release" type="date" value="${esc(v.jp_release || '')}"></label><label>Capítulos previstos<input name="planned_chapters" type="number" min="0" max="999" value="${v.planned_chapters ?? ''}"></label>
         <label class="wide">Sinopsis<textarea name="synopsis" rows="3" maxlength="3000">${esc(v.synopsis || '')}</textarea></label>
         <label class="tb-inl wide"><input type="checkbox" name="synopsis_spoiler" ${v.synopsis_spoiler ? 'checked' : ''}> La sinopsis contiene spoilers del volumen anterior</label>
@@ -554,7 +554,14 @@ export function createStudio(ctx){
         const patch = { title: f('title').value.trim() || String(v.num), subtitle: f('subtitle').value.trim() || null, jp_release: f('jp_release').value || null, planned_chapters: f('planned_chapters').value === '' ? null : Math.max(0, +f('planned_chapters').value), synopsis: f('synopsis').value.trim() || null, synopsis_spoiler: f('synopsis_spoiler').checked, is_final: f('is_final').checked };
         if (f('ext_on').checked) { const u2 = f('external_url').value.trim(); if (!/^https:\/\/[^\s/]+\.[^\s]{2,}/i.test(u2)) throw new Error('Escribe el enlace completo del volumen, empezando por https://'); Object.assign(patch, { external_url: u2, external_site: f('external_site').value.trim() || null, external_only: box.querySelector('[name=external_only]:checked')?.value !== '0' }); }
         else Object.assign(patch, { external_url: null, external_site: null, external_only: false });
-        const { error } = await sb.from('volumes').update(patch).eq('id', v.id); if (error) throw new Error(errMsg(error)); toast('Volumen guardado'); again(); });
+        const nn = Math.round(+f('vnum').value);
+        if (nn !== v.num) { if (!(nn >= 1 && nn <= 999)) throw new Error('El número de volumen va de 1 a 999');
+          const live = V.find(x => x.id !== v.id && x.num === nn), gone = (TV || []).find(x => x.id !== v.id && x.num === nn);
+          if (live && !confirm(`Ya existe el Volumen ${nn}. ¿Intercambiar números? El Volumen ${nn} pasará a ser el ${v.num}.`)) return;
+          if (!live && gone && !confirm(`Hay un Volumen ${nn} en la papelera. Pasará a ser el ${v.num} para dejar libre el número. ¿Continuar?`)) return;
+          if (patch.title === String(v.num)) patch.title = String(nn);
+          const r = await sb.rpc('renumber_volume', { p_volume: v.id, p_num: nn }); if (r.error) throw new Error(errMsg(r.error)); }
+        const { error } = await sb.from('volumes').update(patch).eq('id', v.id); if (error) throw new Error(errMsg(error)); toast(nn !== v.num ? `Volumen guardado · ahora es el Volumen ${nn}` : 'Volumen guardado'); again(); });
     });
     if (tab === 'datos') {
       let dirty = false; const mark = () => { dirty = true; const d = $('#wk-dirty'); if (d) d.textContent = 'Cambios sin guardar'; };
@@ -1088,6 +1095,10 @@ export function createStudio(ctx){
       const t = tocTitles[it.href] || blocks.find(b => b.type === 'heading')?.text || doc.title?.trim() || `Sección ${chapters.length + 1}`;
       chapters.push({ title: t.slice(0, 200), type: /pr[oó]log/i.test(t) ? 'Prólogo' : /ep[ií]log/i.test(t) ? 'Epílogo' : /afterword|palabras del autor/i.test(t) ? 'Afterword' : /interlud/i.test(t) ? 'Interludio' : 'Capítulo', blocks });
     }
+    const tally = { body: new Map(), heading: new Map() };
+    for (const c of chapters) for (const b of c.blocks) { const f = b.html?.match(/^<span data-epub-family="(\d+)">/)?.[1]; if (f == null) continue; const m = tally[b.type === 'heading' ? 'heading' : 'body']; m.set(+f, (m.get(+f) || 0) + (b.text || '').length); }
+    const top1 = m => [...m].sort((x, y) => y[1] - x[1])[0]?.[0], famL = [...famIdx.keys()], roleB = top1(tally.body), roleH = top1(tally.heading);
+    fonts.forEach(f => { const i = famL.indexOf(f.family.toLowerCase()), u = []; if (i === roleB) u.push('body'); if (i === roleH) u.push('heading'); if (u.length) f.use = u; });
     for (const [k, v] of images) if (v.lazy) images.set(k, { blob: new Blob([await v.lazy.async('blob')], { type: v.type }), type: v.type, name: v.name });
     const md = n => [...X.getElementsByTagNameNS('*', n)].map(e => e.textContent.trim()).filter(Boolean);
     const metas = [...X.getElementsByTagNameNS('*', 'meta')];
@@ -1192,7 +1203,7 @@ export function createStudio(ctx){
         P.meta ||= {}; document.getElementById('imp-fonts')?.remove(); P.fontVars = '';
         if (P.fonts?.length) { const fl = [...new Set(P.fonts.map(f => f.family))], stl = document.createElement('style'); stl.id = 'imp-fonts';
           stl.textContent = P.fonts.map(f => `@font-face{font-family:"imp-${fl.indexOf(f.family)}";src:url("${URL.createObjectURL(new Blob([f.bytes]))}");font-style:${/italic|oblique/i.test(f.style) ? 'italic' : 'normal'};font-weight:${/^\d+$|bold|normal/.test(f.weight) ? f.weight : 'normal'}}`).join('');
-          document.head.appendChild(stl); P.fontVars = fl.map((_, i) => `--f${i}:"imp-${i}",inherit`).join(';') + ';'; }
+          document.head.appendChild(stl); P.fontVars = fl.map((_, i) => `--f${i}:"imp-${i}",inherit`).join(';') + ';'; const rb = P.fonts.find(f => f.use?.includes('body')), rh = P.fonts.find(f => f.use?.includes('heading')); if (rb) P.fontVars += `--fb:"imp-${fl.indexOf(rb.family)}",Literata,serif;`; if (rh) P.fontVars += `--fh:"imp-${fl.indexOf(rh.family)}",Literata,serif;`; }
         P.urls = new Map([...P.images].map(([k, v]) => [k, v.blob ? URL.createObjectURL(v.blob) : '']));
         suggestSkips(P);
         const key = (P.meta.series || P.title).toLowerCase();
@@ -1341,7 +1352,7 @@ export function createStudio(ctx){
         const keys = D.allImgs ? imgKeys() : [...usedImgs()].filter(k => P.images.get(k)?.blob);
         const map = {}; let n = 0;
         for (const key of keys) { const im = P.images.get(key); st(`Subiendo imágenes a Multimedia ${++n}/${keys.length}…`); if (im.blob.size > LIMITS.image) { toast(`${im.name} supera 8 MB y se omitió`); continue; } map['img:' + key] = await up('', im.name, im.blob, im.type || imgType(im.name)); }
-        const fonts = []; for (const f of P.fonts) { st('Subiendo fuentes…'); const p = await up('fuentes/', f.name, new Blob([f.bytes]), /woff2/.test(f.name) ? 'font/woff2' : /woff/.test(f.name) ? 'font/woff' : /otf/.test(f.name) ? 'font/otf' : 'font/ttf'); fonts.push({ url: PUB + p, family: f.family, style: f.style, weight: f.weight }); }
+        const fonts = []; for (const f of P.fonts) { st('Subiendo fuentes…'); const p = await up('fuentes/', f.name, new Blob([f.bytes]), /woff2/.test(f.name) ? 'font/woff2' : /woff/.test(f.name) ? 'font/woff' : /otf/.test(f.name) ? 'font/otf' : 'font/ttf'); fonts.push({ url: PUB + p, family: f.family, style: f.style, weight: f.weight, ...(f.use ? { use: f.use } : {}) }); }
         const cov = D.cover ? map[D.cover] || null : null;
         st('Guardando el volumen…');
         if (!vol) {

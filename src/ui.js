@@ -174,6 +174,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   const SERIES = 'id,slug,title,short,original,author,illustrator,publisher,synopsis,genres,tags,theme,cover_path,cover_thumb_path,adult,work_type,demographic,translation_status,original_status,sequel_status,views,teams(name,slug,color),chapters(count),volumes(count)';
   function chrome(){
     const top = document.querySelector('header.top'); if (!top || top.dataset.ob) return; top.dataset.ob = '1';
+    const topH = () => document.documentElement.style.setProperty('--top-h', Math.ceil(top.getBoundingClientRect().height) + 'px'); topH(); if (window.ResizeObserver) new ResizeObserver(topH).observe(top); else addEventListener('resize', topH);
     const ses = document.getElementById('session');
     top.innerHTML = `<a href="/" class="ob-brand"><span class="ob-seal">帯</span><span class="ob-word"><b>El Obi del Lector</b></span></a>
       <nav class="ob-nav">${[['/','Inicio'],['/catalogo','Catálogo'],['/lanzamientos','Lanzamientos'],['/biblioteca','Mi biblioteca'],['/calendario','Calendario'],['/ranking','Ranking']].map(([h,l]) => `<a href="${h}">${l}</a>`).join('')}<a href="/apoyar" class="ob-sup">援 Apoyar</a></nav>

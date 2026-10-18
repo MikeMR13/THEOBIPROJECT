@@ -65,8 +65,17 @@ export function createReader(ctx){
     const css = vol.epub_fonts.map(f => `@font-face{font-family:"obi-${vol.num}-${f.family.replace(/"/g, '')}";src:url("${f.url}");font-style:${f.style === 'oblique' ? 'oblique' : f.style || 'normal'};font-weight:${f.weight || 'normal'};font-display:swap}`).join('');
     const st = document.createElement('style'); st.dataset.vol = vol.id; st.textContent = css; document.head.appendChild(st);
   }
+  // rol de cada fuente: el que guardó el importador (use) o, en volúmenes viejos, una pista por el nombre
+  const HEAD_RE = /gothic|goth|title|head|midashi|antique|heavy|black|bold|display|ゴシック|見出し/i;
+  function fontRoles(vol){ const fl = familiesOf(vol), fs = vol?.epub_fonts || [];
+    let body = fs.find(f => (f.use || []).includes('body'))?.family, head = fs.find(f => (f.use || []).includes('heading'))?.family;
+    if (!fs.some(f => f.use)) { head = fl.find(f => HEAD_RE.test(f)); body = fl.length === 1 && !head ? fl[0] : fl.find(f => f !== head && !HEAD_RE.test(f) && fl.length <= 2); }
+    return { body, head }; }
   function fontVars(vol, p){
-    return familiesOf(vol).map((fam, i) => `--f${i}:${p.font === 'original' ? `"obi-${vol.num}-${fam.replace(/"/g, '')}",` : ''}inherit`).join(';');
+    const nm = fam => `"obi-${vol.num}-${fam.replace(/"/g, '')}"`, fb = "Literata,'Shippori Mincho B1',serif";
+    const v = familiesOf(vol).map((fam, i) => `--f${i}:${p.font === 'original' ? nm(fam) + ',' : ''}inherit`);
+    if (p.font === 'original') { const r = fontRoles(vol); if (r.body) v.push(`--fb:${nm(r.body)},${fb}`); if (r.head) v.push(`--fh:${nm(r.head)},${fb}`); }
+    return v.join(';');
   }
 
   // ---------- render de bloques ----------
