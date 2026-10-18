@@ -72,10 +72,10 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
 
   async function panel(me){
     app.innerHTML = `<div class="bb"><div class="bb-top"><div><span class="ui-lbl">Mostrador del Bibliotecario</span><h1>Hola, ${esc(me.username)}</h1></div><button class="btn ghost" id="bbout">Cerrar sesión</button></div>
-      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['solicitudes','Solicitudes'],['compras','Enlaces de compra'],['inicio','Inicio'],['resenas','Reseñas'],['temporadas','Temporadas'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
+      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['solicitudes','Solicitudes'],['compras','Enlaces de compra'],['inicio','Inicio'],['resenas','Reseñas'],['temporadas','Temporadas'],['apoyar','Botón Apoyar'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
     $('#bbout').onclick = async () => { await sb.auth.signOut(); location.href = '/'; };
     app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; panel(me); });
-    try { await ({ resumen, usuarios, equipos, solicitudes, compras, inicio, resenas, temporadas, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
+    try { await ({ resumen, usuarios, equipos, solicitudes, compras, inicio, resenas, temporadas, apoyar, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
   }
   const view = () => $('#bbv');
 
@@ -160,6 +160,49 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       v.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { F.splice(+b.dataset.rm, 1); dirty = true; draw(); });
       const add = v.querySelector('#bb-fadd'); if (add) add.onclick = () => { const id = v.querySelector('#bb-fsel').value; if (!id) return toast('Elige una obra'); F.push(id); dirty = true; draw(); };
       v.querySelector('#bb-fsave').onclick = async e => { e.currentTarget.disabled = true; const { error } = await sb.from('platform_settings').update({ featured: F, updated_at: new Date().toISOString() }).eq('id', 1); if (error) { e.currentTarget.disabled = false; return toast(msg(error)); } dirty = false; toast('Destacadas guardadas'); draw(); };
+    };
+    draw();
+  }
+  async function apoyar(){
+    const { data: row, error } = await sb.from('platform_settings').select('support').eq('id', 1).single(); if (error) throw error;
+    const KIND = [['paypal', 'PayPal'], ['kofi', 'Ko-fi'], ['patreon', 'Patreon'], ['bmac', 'Buy Me a Coffee'], ['mercadopago', 'Mercado Pago'], ['otro', 'Otro enlace']];
+    const C = Object.assign({ show: true, label: '援 Apoyar', mode: 'patreon', url: '', title: 'Apoya a los traductores', intro: '', links: [] }, row.support || {}); C.links = [...(C.links || [])]; let dirty = false;
+    const MODES = [['patreon', 'Página con los niveles de Patreon', 'La página actual: muestra los niveles de Patreon de los equipos.'], ['links', 'Página con enlaces', 'Tarjetas con tus enlaces: PayPal, Ko-fi, Patreon y los que agregues.'], ['both', 'Enlaces y niveles de Patreon', 'Primero los enlaces y debajo los niveles de Patreon.'], ['external', 'Ir directo a un enlace', 'El botón abre un solo enlace (por ejemplo, tu Patreon) sin pasar por la página.']];
+    const draw = () => { const V = view();
+      V.innerHTML = `<div class="bb-box"><h3>Botón Apoyar</h3><p class="mono" style="font-size:13px;margin:0 0 14px;line-height:1.5">Configura el botón «Apoyar» de la barra superior y la página /apoyar de toda la plataforma.</p>
+        <div style="display:grid;gap:14px;max-width:760px">
+          <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sp-show" ${C.show !== false ? 'checked' : ''} style="width:auto"> Mostrar el botón en la barra superior</label>
+          <label>Texto del botón<input id="sp-label" maxlength="24" value="${esc(C.label)}"></label>
+          <fieldset style="display:grid;gap:8px;border:1px solid #2f2a20;padding:12px"><legend class="mono" style="font-size:12px;padding:0 6px">Al pulsarlo</legend>${MODES.map(([k, l, d]) => `<label style="display:flex;gap:10px;align-items:flex-start"><input type="radio" name="sp-mode" value="${k}" ${C.mode === k ? 'checked' : ''} style="width:auto;margin-top:4px"><span><b>${l}</b><br><small class="mono">${d}</small></span></label>`).join('')}</fieldset>
+          ${C.mode === 'external' ? `<label>Enlace al que lleva el botón<input id="sp-url" type="url" placeholder="https://www.patreon.com/tu-pagina" value="${esc(C.url)}"></label>` : `
+          <label>Título de la página<input id="sp-title" maxlength="80" value="${esc(C.title)}"></label>
+          <label>Texto de presentación<textarea id="sp-intro" rows="3" maxlength="600">${esc(C.intro)}</textarea></label>`}
+          ${C.mode === 'links' || C.mode === 'both' ? `<div style="display:grid;gap:8px"><b>Enlaces</b>${C.links.map((l, i) => `<div style="display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:8px;align-items:start;padding:10px;border:1px solid #2f2a20;background:#16140f">
+              <select data-lk="${i}" data-f="kind">${KIND.map(([k, n]) => `<option value="${k}" ${l.kind === k ? 'selected' : ''}>${n}</option>`).join('')}</select>
+              <span style="display:grid;gap:6px"><input data-lk="${i}" data-f="url" type="url" placeholder="https://…" value="${esc(l.url || '')}"><input data-lk="${i}" data-f="label" maxlength="60" placeholder="Nombre visible (opcional)" value="${esc(l.label || '')}"><input data-lk="${i}" data-f="note" maxlength="160" placeholder="Descripción corta (opcional)" value="${esc(l.note || '')}"></span>
+              <span style="display:flex;gap:6px"><button class="bb-mini" data-lu="${i}" ${i ? '' : 'disabled'} aria-label="Subir">↑</button><button class="bb-mini" data-ld="${i}" ${i < C.links.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button><button class="bb-mini red" data-lr="${i}">Quitar</button></span></div>`).join('') || '<p class="mono">Aún no hay enlaces.</p>'}
+            ${C.links.length < 12 ? '<div class="bb-row"><button class="btn ghost" id="sp-add">＋ Agregar enlace</button></div>' : ''}</div>` : ''}
+          <div class="bb-row" style="align-items:center"><button class="btn" id="sp-save" ${dirty ? '' : 'disabled'}>Guardar</button><a class="btn ghost" href="/apoyar" target="_blank">Ver la página</a><span class="mono" style="font-size:12px">${dirty ? 'Cambios sin guardar' : 'Guardado'}</span></div></div></div>`;
+      const mark = () => { dirty = true; const b = V.querySelector('#sp-save'); if (b) b.disabled = false; const s = b?.parentElement.querySelector('.mono'); if (s) s.textContent = 'Cambios sin guardar'; };
+      V.querySelector('#sp-show').onchange = e => { C.show = e.target.checked; mark(); };
+      V.querySelector('#sp-label').oninput = e => { C.label = e.target.value; mark(); };
+      V.querySelectorAll('[name=sp-mode]').forEach(r => r.onchange = () => { C.mode = r.value; dirty = true; draw(); });
+      [['sp-url', 'url'], ['sp-title', 'title'], ['sp-intro', 'intro']].forEach(([id, k]) => { const el = V.querySelector('#' + id); if (el) el.oninput = e => { C[k] = e.target.value; mark(); }; });
+      V.querySelectorAll('[data-lk]').forEach(el => el[el.tagName === 'SELECT' ? 'onchange' : 'oninput'] = e => { C.links[+el.dataset.lk][el.dataset.f] = e.target.value; mark(); });
+      const mv = (i, j) => { const [x] = C.links.splice(i, 1); C.links.splice(j, 0, x); dirty = true; draw(); };
+      V.querySelectorAll('[data-lu]').forEach(b => b.onclick = () => mv(+b.dataset.lu, +b.dataset.lu - 1));
+      V.querySelectorAll('[data-ld]').forEach(b => b.onclick = () => mv(+b.dataset.ld, +b.dataset.ld + 1));
+      V.querySelectorAll('[data-lr]').forEach(b => b.onclick = () => { C.links.splice(+b.dataset.lr, 1); dirty = true; draw(); });
+      const add = V.querySelector('#sp-add'); if (add) add.onclick = () => { C.links.push({ kind: ['paypal', 'kofi', 'patreon'].find(k => !C.links.some(l => l.kind === k)) || 'otro', url: '', label: '', note: '' }); dirty = true; draw(); };
+      V.querySelector('#sp-save').onclick = async e => {
+        if (C.mode === 'external' && !/^https:\/\/[^\s/]+\.[^\s]{2,}/i.test(C.url.trim())) return toast('Escribe el enlace completo, empezando por https://');
+        const bad = C.links.findIndex(l => !/^https:\/\/[^\s/]+\.[^\s]{2,}/i.test((l.url || '').trim())); if ((C.mode === 'links' || C.mode === 'both') && bad >= 0) return toast('El enlace ' + (bad + 1) + ' debe empezar por https://');
+        if (C.mode === 'links' && !C.links.length) return toast('Agrega al menos un enlace');
+        e.currentTarget.disabled = true;
+        const support = { show: C.show !== false, label: (C.label || '').trim().slice(0, 24) || '援 Apoyar', mode: C.mode, url: (C.url || '').trim(), title: (C.title || '').trim().slice(0, 80), intro: (C.intro || '').trim().slice(0, 600), links: C.links.map(l => ({ kind: l.kind, url: (l.url || '').trim(), label: (l.label || '').trim().slice(0, 60), note: (l.note || '').trim().slice(0, 160) })) };
+        const { data: up, error } = await sb.from('platform_settings').update({ support, updated_at: new Date().toISOString() }).eq('id', 1).select('id');
+        if (error || !up?.length) { e.currentTarget.disabled = false; return toast(error ? msg(error) : 'No se guardó: falta ejecutar el SQL 20261110_boton_apoyar.sql'); }
+        dirty = false; toast('Botón Apoyar guardado'); draw(); };
     };
     draw();
   }

@@ -188,6 +188,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       <nav class="ob-nav">${[['/','Inicio'],['/catalogo','Catálogo'],['/lanzamientos','Lanzamientos'],['/biblioteca','Mi biblioteca'],['/calendario','Calendario'],['/ranking','Ranking']].map(([h,l]) => `<a href="${h}">${l}</a>`).join('')}<a href="/apoyar" class="ob-sup">援 Apoyar</a></nav>
       <div class="ob-tools"><input class="ob-search" id="ob-q" type="search" placeholder="Buscar títulos, autores…" aria-label="Buscar"></div>`;
     addEventListener('scroll', () => top.classList.toggle('ob-min', scrollY > 40), { passive: true });
+    sb.from('platform_settings').select('support').eq('id', 1).maybeSingle().then(({ data }) => { const c = data?.support || {}, b = top.querySelector('.ob-sup'); if (!b) return; if (c.show === false) b.hidden = true; if (c.label) b.textContent = c.label.slice(0, 24); if (c.mode === 'external' && /^https:\/\//.test(c.url || '')) { b.href = c.url; b.target = '_blank'; b.rel = 'noopener'; } }, () => {});
     top.querySelector('.ob-tools').appendChild(ses);
     srCss(); const q = top.querySelector('#ob-q'), tools = top.querySelector('.ob-tools'); tools.style.position = 'relative';
     const pop = document.createElement('div'); pop.className = 'sr-pop'; pop.hidden = true; tools.appendChild(pop);
