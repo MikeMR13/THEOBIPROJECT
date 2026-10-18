@@ -715,13 +715,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     if (!s) { app.innerHTML = '<h1>Esta serie no está en el estante</h1><p><a href="/catalogo">Volver al catálogo</a></p>'; return; }
     const u = getUser();
     const [{ data: vols }, { data: chs }, prog, readR, folR, { data: dls }, { data: buys }] = await Promise.all([
-      sb.from('volumes').select('id,num,title,cover_path,synopsis,status,external_url,external_site,external_only').eq('series_id', s.id).is('deleted_at', null).order('num'),
+      sb.from('volumes').select('id,num,title,cover_path,synopsis,status,external_url,external_site,external_only').eq('series_id', s.id).is('deleted_at', null).order('num', { ascending: false }),
       sb.from('chapters').select('id,num,vol,volume_id,title,section_type,publish_at').eq('series_id', s.id).is('deleted_at', null).order('num'),
       progressMap(),
       u ? sb.from('read_chapters').select('chapter_id').eq('user_id', u.id) : { data: [] },
       u ? sb.from('follows').select('series_id').eq('user_id', u.id).eq('series_id', s.id) : { data: [] },
       sb.rpc('series_downloads', { p_series: s.id }),
       sb.from('purchase_links').select('id,volume_id,vol,store,region,fmt').eq('series_id', s.id).eq('verified', true).order('vol').order('id')]);
+    (vols || []).sort((a, b) => (parseFloat(b.num) || 0) - (parseFloat(a.num) || 0));
     const buyOf = v => (buys || []).filter(b => b.volume_id === v.id || (!b.volume_id && b.vol === v.num));
     const dlOf = v => (dls || []).filter(d => d.volume_id === v.id || (!d.volume_id && d.vol === v.num));
     const read = new Set((readR.data || []).map(r => r.chapter_id)), p = prog[s.id], following = !!(folR.data || []).length;
