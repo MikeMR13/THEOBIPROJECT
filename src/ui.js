@@ -335,11 +335,17 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       sb.from('platform_settings').select('featured').eq('id', 1).maybeSingle()]).then(([a, b, c, d, e, f, g]) => ({ series: a.data, latest: b.data, rkW: c.data, rkH: d.data, top10: e.data, nextRel: f.data, featured: g.data?.featured }));
     const feed = () => { const pre = window.OBI_HOME; window.OBI_HOME = null;
       return (pre || sb.rpc('home_feed').then(({ data, error }) => error ? null : data)).then(d => Array.isArray(d?.series) ? d : legacy(), legacy); };
-    const [FD, prog, pr, festKey, AN] = await Promise.all([
+    const [FD, prog, pr, festKey, AN, VR, TR] = await Promise.all([
       feed(), progressMap(),
       u ? sb.from('profiles').select('adult_ok').eq('id', u.id).maybeSingle() : { data: null },
       import('/season.js?v=3').then(S => S.load(sb).then(() => S.platformKey())).catch(() => null),
-      import('/anim.js?v=8').catch(() => null)]);
+      import('/anim.js?v=8').catch(() => null),
+      // portada del último volumen publicado y aviso del equipo: se piden aparte porque home_feed no los trae
+      sb.from('volumes').select('series_id,num,cover_path,status').is('deleted_at', null).not('cover_path', 'is', null).then(r => r, () => ({ data: [] })),
+      sb.from('series').select('id,theme').eq('published', true).then(r => r, () => ({ data: [] }))]);
+    { const vc = {}; (VR?.data || []).filter(v => !v.status || v.status === 'published').forEach(v => { if (!vc[v.series_id] || v.num > vc[v.series_id].num) vc[v.series_id] = v; });
+      const th = Object.fromEntries((TR?.data || []).map(x => [x.id, x.theme]));
+      (FD?.series || []).forEach(s => { if (th[s.id] !== undefined) s.theme = th[s.id]; const v = vc[s.id]; if (v && v.cover_path !== s.cover_path) { s.cover_path = v.cover_path; s.cover_thumb_path = null; } }); }
     const { series, latest, rkW, rkH, top10 } = FD, ps = { featured: FD.featured }, nextRel = (FD.nextRel || []).filter(e => new Date(e.at) > Date.now());
     if (location.pathname !== '/') return;
     const adultOk = !!pr?.data?.adult_ok;
@@ -371,7 +377,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       <div class="ob-car" id="ob-tcar-${i}">${g.rows.slice(0, 15).map((r, j) => cc(r.s, Math.round(r.n).toLocaleString('es-MX') + ' lectores', '#' + (j + 1))).join('')}</div></div>`;
     app.innerHTML = `<div class="ob-page">
       <div class="ob-mast"><b>翻訳図書館</b><span>Biblioteca de novelas ligeras · Español latino</span></div>
-      ${grp.length ? `<div class="ob-tick" aria-label="Novedades"><div class="ob-track">${[0, 1].map(k => `<span${k ? ' aria-hidden="true"' : ''}>${[...grp, ...grp].slice(0, Math.max(6, grp.length)).map((g, i) => `<a href="/leer/${byId[g.id].slug}/${g.chs[0].num}"${k ? ' tabindex="-1"' : ''} style="color:inherit;text-decoration:none">${i === 0 ? 'NUEVO · ' : '★ '}${esc(byId[g.id].title)} · ${caps(g.chs)}</a>`).join('')}</span>`).join('')}</div></div>` : ''}
+      ${grp.length ? `<div class="ob-tick" aria-label="Novedades"><div class="ob-track">${[0, 1].map(k => `<span${k ? ' aria-hidden="true"' : ''}>${[...grp, ...grp].slice(0, Math.max(6, grp.length)).map((g, i) => `<a href="/leer/${byId[g.id].slug}/${g.chs[0].num}"${k ? ' tabindex="-1"' : ''} style="color:inherit;text-decoration:none">${utagOn(byId[g.id].theme?.update_tag) ? `<b style="color:${esc(byId[g.id].theme.update_tag.color || 'inherit')}">${esc(byId[g.id].theme.update_tag.text.trim().slice(0, 24).toUpperCase())}</b> · ` : i === 0 ? 'NUEVO · ' : '★ '}${esc(byId[g.id].title)} · ${caps(g.chs)}</a>`).join('')}</span>`).join('')}</div></div>` : ''}
       ${fest ? `<a class="ob-fest" href="/calendario" style="--fc:${esc(fest.ac)}"><b>${esc(fest.l)}</b><span>El sitio se viste de temporada.</span><em>Ver en el calendario →</em></a>` : ''}
       ${feat.length ? '<section class="ob-hero" id="hero"></section>' : ''}
       ${genres.length ? `<nav class="ob-gen" aria-label="Géneros">${genres.map(([g, n]) => `<a href="/catalogo?g=${encodeURIComponent(g)}">${esc(g)}<small>${n}</small></a>`).join('')}</nav>` : ''}
@@ -439,7 +445,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     el.innerHTML = `<span class="ob-vk" aria-hidden="true">新刊案内</span>
       <div class="ob-cov"><div class="f" style="${s.cover_path ? `background-image:url('${esc(matchMedia('(max-width: 700px)').matches ? thumb(s) : media(s.cover_path))}')` : ''}"></div></div>
       <div class="ob-txt"><span class="ob-kick">第${KN(lc?.num || 1)}章${fresh ? ' · 新刊' : ''}</span><br><span class="ob-badge">${fresh ? 'NUEVO · CAP. ' + (lc?.num || 1) : 'CAP. ' + (lc?.num || 1) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${top[s.id] ? `<a class="rk-bdg" href="/ranking" style="margin:0 0 0 10px;vertical-align:middle"><b>#${top[s.id]}</b>Top de la semana</a>` : ''}
-        <h1><a class="ob-h1a" href="/serie/${s.slug}">${esc(s.title)}</a></h1>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn">${esc(s.synopsis ? ((s.synopsis || '').slice(tag.length).trim() || s.synopsis) : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), (s.chapters?.[0]?.count || 0) + ' capítulos en español'].filter(Boolean).join(' · ') + '.')}</p>
+        <h1><a class="ob-h1a" href="/serie/${s.slug}">${esc(s.title)}</a>${utag(s)}</h1>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn">${esc(s.synopsis ? ((s.synopsis || '').slice(tag.length).trim() || s.synopsis) : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), (s.chapters?.[0]?.count || 0) + ' capítulos en español'].filter(Boolean).join(' · ') + '.')}</p>
         <div class="ob-acts"><a class="a1" href="/leer/${s.slug}/${n}">${p ? 'Continuar capítulo ' + n : 'Leer capítulo ' + (lc?.num || 1)}</a><a class="a2" href="/serie/${s.slug}">Ver la serie</a></div></div>
       ${feat.length > 1 ? `<div class="ob-pager">${feat.map((f, j) => `<button data-j="${j}" class="${j === i ? 'on' : ''}">${String(j + 1).padStart(2, '0')}${j === i ? ' · ' + esc(f.short || f.title).slice(0, 14) : ''}</button>`).join('')}<button data-j="${(i + 1) % feat.length}" aria-label="Siguiente">›</button></div>` : ''}`;
     el.querySelectorAll('[data-j]').forEach(b => b.onclick = () => heroSlide(feat, +b.dataset.j, prog, lastCh, top));
