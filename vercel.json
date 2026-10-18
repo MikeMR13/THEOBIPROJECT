@@ -33,7 +33,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://esm.sh https://qfllthjpjuaztppvpsrk.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://qfllthjpjuaztppvpsrk.supabase.co; font-src https://fonts.gstatic.com https://*.supabase.co; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh https://fonts.gstatic.com https://fonts.googleapis.com; worker-src 'self' blob:; frame-src 'self'; child-src 'self' blob:; frame-ancestors 'self'; object-src 'none'"
+          "value": "default-src 'self'; script-src 'self' https://esm.sh https://qfllthjpjuaztppvpsrk.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://qfllthjpjuaztppvpsrk.supabase.co; font-src https://fonts.gstatic.com https://*.supabase.co; img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh https://fonts.gstatic.com https://fonts.googleapis.com; worker-src 'self' blob:; frame-src 'self'; child-src 'self' blob:; frame-ancestors 'self'; object-src 'none'"
         }
       ]
     },
