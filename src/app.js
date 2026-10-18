@@ -48,6 +48,7 @@ meReady = Promise.all([sb.from('profiles').select('*').eq('id', uid).maybeSingle
   sb.rpc('my_blocks').then(({ data }) => { if (user?.id === uid && Array.isArray(data)) window.obiSetBlocks(data); });
   try { localStorage.setItem('obi-me', JSON.stringify({ id: uid, profile, me })); } catch {}
   drawSession(); bell(); delBanner();
+  if (profile?.needs_username && !['/elige-nombre', '/privacidad', '/condiciones-servicio'].includes(location.pathname)) go('/elige-nombre');
 }).catch(e => console.warn('perfil', e));
 }
 function delBanner(){
@@ -82,7 +83,7 @@ $('#bell-list').onclick = e => { if (e.target.closest('a')) d.open = false; };
 if ((data || []).some(x => !x.read)) { await sb.rpc('notifications_read_all'); $('#bell-n').hidden = true; } });
 }
 const routes = {
-'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': calendar, '/ranking': () => ui().ranking(), '/lanzamientos': () => ui().releases(), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/preferencias': async () => (await pf()).preferences(PCTX()), '/buscar': () => ui().search(), '/solicitud': solicitud, '/privacidad': async () => (await lg()).privacy(app), '/condiciones-servicio': async () => (await lg()).terms(app),
+'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': calendar, '/ranking': () => ui().ranking(), '/lanzamientos': () => ui().releases(), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/preferencias': async () => (await pf()).preferences(PCTX()), '/buscar': () => ui().search(), '/solicitud': solicitud, '/elige-nombre': chooseName, '/privacidad': async () => (await lg()).privacy(app), '/condiciones-servicio': async () => (await lg()).terms(app),
 '/bibliotecario': async () => (await ad()).render(), '/admin': async () => { history.replaceState({}, '', '/bibliotecario'); (await ad()).render(); },
 };
 export function go(path){ history.pushState({}, '', path); render(); }
@@ -277,6 +278,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 function login(mode = 'in'){
 const up = mode === 'up';
 app.innerHTML = `<h1>${up ? 'Crear cuenta' : 'Entrar'}</h1>
+<div style="display:grid;gap:14px;max-width:380px;margin:0 0 14px"><button type="button" id="gg" style="display:flex;align-items:center;justify-content:center;gap:12px;min-height:46px;padding:0 16px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:4px;font:600 15px 'IBM Plex Sans',system-ui,sans-serif;cursor:pointer"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>${up ? 'Registrarte con Google' : 'Continuar con Google'}</button>
+<div class="mono" style="display:flex;align-items:center;gap:12px;color:var(--mute);font-size:11px;letter-spacing:.1em"><span style="flex:1;height:1px;background:var(--line)"></span>O CON TU CORREO<span style="flex:1;height:1px;background:var(--line)"></span></div></div>
 <form id="f" novalidate style="display:grid;gap:10px;max-width:380px">
 ${up ? '<label>Nombre de usuario<input name="username" autocomplete="username" minlength="2" maxlength="32" required></label>' : ''}
 <label>Correo<input name="email" type="email" autocomplete="email" required placeholder="correo@ejemplo.com"></label>
@@ -287,6 +290,9 @@ ${up ? '<p style="margin:0;font-size:13px;color:var(--mute)">Al crear una cuenta
 </form>
 <p style="display:flex;gap:16px;flex-wrap:wrap"><a href="#" id="sw">${up ? '¿Ya tienes cuenta? Entra' : '¿No tienes cuenta? Regístrate'}</a>${up ? '' : '<a href="#" id="fg">¿Olvidaste tu contraseña?</a>'}</p>`;
 const f = $('#f'), err = $('#err'), btn = $('#go');
+$('#gg').onclick = async () => { const b = $('#gg'); b.disabled = true; err.textContent = '';
+const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + '/', queryParams: { prompt: 'select_account' } } });
+if (error) { b.disabled = false; err.textContent = authMsg(error); } };
 $('#sw').onclick = e => { e.preventDefault(); history.replaceState({}, '', up ? '/entrar' : '/registro'); login(up ? 'in' : 'up'); };
 $('#fg')?.addEventListener('click', async e => {
 e.preventDefault(); const email = f.email.value.trim();
@@ -309,6 +315,32 @@ if (error) { err.textContent = authMsg(error); return; }
 if (up && !data.session) { toast('Cuenta creada. Revisa tu correo y pulsa «Confirmar mi cuenta».'); history.replaceState({}, '', '/entrar'); return login('in'); }
 toast('¡Bienvenido!'); go('/');
 };
+}
+// Lectores que entraron con Google: eligen su nombre de usuario la primera vez.
+async function chooseName(){
+if (!user) return go('/entrar');
+await meReady;
+if (!profile?.needs_username) return go('/');
+const meta = user.user_metadata || {}, pic = meta.avatar_url || meta.picture || '';
+const sug = (meta.full_name || meta.name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, '_').replace(/[^\p{L}\p{N}_.-]/gu, '').slice(0, 24) || profile.username;
+app.innerHTML = `<div style="display:grid;gap:18px;max-width:460px"><h1 style="margin:0">¡Bienvenido a la biblioteca!</h1>
+<p style="margin:0">Elige cómo te verán los demás lectores. También será tu dirección pública: <span class="mono">/lector/<b id="cn-prev" style="color:var(--gold)">${esc(sug)}</b></span></p>
+<form id="cn" style="display:grid;gap:12px"><label>Nombre de usuario<input id="cn-u" value="${esc(sug)}" minlength="2" maxlength="32" autocomplete="username" required></label>
+${pic && !profile.avatar_url ? `<label style="display:flex;gap:12px;align-items:center;cursor:pointer"><input type="checkbox" id="cn-pic" checked style="width:18px;height:18px;accent-color:var(--gold)"><img src="${esc(pic)}" alt="" width="40" height="40" referrerpolicy="no-referrer" style="border-radius:50%;object-fit:cover">Usar mi foto de Google</label>` : ''}
+<p id="cn-err" role="alert" style="color:#f59e7a;margin:0;min-height:1.2em"></p><button class="btn" style="justify-self:start">Guardar y entrar</button></form>
+<p style="margin:0;font-size:13px;color:var(--mute)">Podrás cambiarlo después en Preferencias › Cuenta. <a href="#" id="cn-keep">Mantener «${esc(profile.username)}»</a></p></div>`;
+$('#cn-u').oninput = e => { $('#cn-prev').textContent = e.target.value.trim(); };
+const done = async () => {
+  if ($('#cn-pic')?.checked) { const { error } = await sb.from('profiles').update({ avatar_url: pic }).eq('id', user.id); if (!error) profile.avatar_url = pic; }
+  profile.needs_username = false; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, profile, me })); } catch {}
+  lastBar = ''; drawSession(); toast('¡Listo! Ya eres parte de la biblioteca'); go('/'); };
+$('#cn').onsubmit = async e => { e.preventDefault(); const v = $('#cn-u').value.trim(); $('#cn-err').textContent = '';
+  if (v.length < 2 || v.length > 32) { $('#cn-err').textContent = 'Entre 2 y 32 caracteres.'; return; }
+  if (!/^[\p{L}\p{N}_.-]+$/u.test(v)) { $('#cn-err').textContent = 'Usa solo letras, números, punto, guion y guion bajo (sin espacios).'; return; }
+  const b = e.submitter; if (b) b.disabled = true;
+  const { data, error } = await sb.rpc('set_initial_username', { p_new: v }); if (b) b.disabled = false;
+  if (error) { $('#cn-err').textContent = error.message; return; } profile.username = data; done(); };
+$('#cn-keep').onclick = async e => { e.preventDefault(); const { error } = await sb.rpc('keep_username'); if (error) return toast(error.message); done(); };
 }
 function resetPassword(){
 app.innerHTML = `<h1>Nueva contraseña</h1><form id="f" style="display:grid;gap:10px;max-width:380px"><label>Contraseña nueva<input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label><p id="err" role="alert" style="color:#f59e7a;margin:0"></p><button class="btn">Guardar</button></form>`;
