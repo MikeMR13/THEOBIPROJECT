@@ -24,8 +24,10 @@ async function mergeDates(sb){ try { const { data } = await sb.from('season_cale
 // Si la lectura falla (p. ej. sesión con token vencido al entrar), no se guarda el fallo: se reintenta en la siguiente carga.
 export function load(sb, force){ if (loading && !force) return loading; const p = loading = Promise.all([sb.from('platform_settings').select('seasons').eq('id', 1).maybeSingle().then(({ data, error }) => { if (error || !data) { if (loading === p) loading = null; return CFG || {}; } return (CFG = data.seasons || {}); }, () => { if (loading === p) loading = null; return CFG || {}; }), mergeDates(sb)]).then(([c]) => c); return p; }
 export const config = () => CFG || {};
+// Una sola vez: antes la × del saludo apagaba los temas sin querer; se vuelven a encender. Desde Preferencias se pueden apagar de nuevo.
+try { if (!localStorage.getItem('obi-season-mig1')) { localStorage.removeItem('obi-season'); localStorage.setItem('obi-season-mig1', '1'); } } catch {}
 export const isOff = () => { try { return localStorage.getItem('obi-season') === 'off'; } catch { return false; } };
-export const setOff = v => { try { v ? localStorage.setItem('obi-season', 'off') : localStorage.removeItem('obi-season'); } catch {} dispatchEvent(new Event('obi-season')); };
+export const setOff = v => { try { localStorage.setItem('obi-season-mig1', '1'); v ? localStorage.setItem('obi-season', 'off') : localStorage.removeItem('obi-season'); } catch {} dispatchEvent(new Event('obi-season')); };
 const sim = () => { const q = new URLSearchParams(location.search).get('temporada'); return q && SEASONS[q] ? q : null; };
 export function platformKey(date = new Date()){ return sim() || activeSeason({ auto: config().auto || [], hemi: hemiOf(Intl.DateTimeFormat().resolvedOptions().timeZone) }, date); }
 export function clear(){ stops.splice(0).forEach(f => { try { f(); } catch {} }); }

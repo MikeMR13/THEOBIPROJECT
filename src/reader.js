@@ -302,7 +302,7 @@ export function createReader(ctx){
     if (!pn) return;
     pn.onclick = e => { const b = e.target.closest('button[data-k]'); if (b) setPref(b.dataset.k, b.dataset.v === 'true' ? true : b.dataset.v === 'false' ? false : b.dataset.v); };
     pn.querySelector('[data-k="size"]').oninput = e => setPref('size', +e.target.value, true);
-    pn.querySelector('[data-season]').onchange = e => { e.target.checked ? localStorage.removeItem('obi-season') : localStorage.setItem('obi-season', 'off'); dispatchEvent(new Event('obi-season')); };
+    pn.querySelector('[data-season]').onchange = e => { e.target.checked ? localStorage.removeItem('obi-season') : (localStorage.setItem('obi-season-mig1', '1'), localStorage.setItem('obi-season', 'off')); dispatchEvent(new Event('obi-season')); };
     pn.querySelector('[data-scope]').onchange = e => { if (e.target.checked) S.remote.per_volume[vid] = { ...S.remote.global }; else delete S.remote.per_volume[vid]; savePrefs(); applyPrefs(); };
   }
   function setPref(k, v, live){

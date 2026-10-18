@@ -247,7 +247,7 @@ export async function preferences(C){
       $('#lc-secs')?.addEventListener('change', () => set('autosecs', G.autosecs));
       $('#lc-auto')?.addEventListener('click', () => set('autonext', G.autonext === false));
       $('#lc-illus').onclick = () => set('illus', G.illus === false);
-      $('#lc-season').onclick = () => { localStorage.getItem('obi-season') === 'off' ? localStorage.removeItem('obi-season') : localStorage.setItem('obi-season', 'off'); dispatchEvent(new Event('obi-season')); draw(); };
+      $('#lc-season').onclick = () => { localStorage.getItem('obi-season') === 'off' ? localStorage.removeItem('obi-season') : (localStorage.setItem('obi-season-mig1', '1'), localStorage.setItem('obi-season', 'off')); dispatchEvent(new Event('obi-season')); draw(); };
       app.querySelectorAll('[data-delv]').forEach(b => b.onclick = () => { delete R.per_volume[b.dataset.delv]; persist(); toast('Ajustes del volumen borrados'); draw(); });
       $('#lc-reset').onclick = () => { if (!confirm('¿Volver a los ajustes originales de lectura?')) return; G = { ...DEF }; R.global = {}; persist(); toast('Ajustes restablecidos'); draw(); };
     };
