@@ -10,7 +10,7 @@ const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 2800); };
 let user = null, profile = null, me = null;
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
-let PF; const pf = async () => PF ||= await import('/profile.js?v=3');
+let PF; const pf = async () => PF ||= await import('/profile.js?v=4');
 const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
 let ST; const st = async () => ST ||= (await import('/studio.js?v=34')).createStudio(CTX());
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=8')).createAdmin(CTX());
@@ -248,7 +248,7 @@ else { const hist = await rd().historyList(); box.innerHTML = hist.length ? `<di
 }
 const statsHTML = st => st ? `<div class="st-grid"><div class="st-k"><b>${(+st.chapters).toLocaleString('es-MX')}</b><span>capítulos leídos</span></div><div class="st-k"><b>${st.month}</b><span>en los últimos 30 días</span></div><div class="st-k"><b>${st.series}</b><span>obras empezadas</span></div><div class="st-k"><b>${st.finished}</b><span>obras terminadas</span></div><div class="st-k"><b>${st.following}</b><span>obras seguidas</span></div></div>
 ${(st.genres || []).length ? `<h3 style="margin:22px 0 10px">Géneros favoritos</h3><div class="st-gen">${st.genres.map(g => `<div><span>${esc(g.g)}</span><i style="width:${Math.max(4, Math.round(g.n / st.genres[0].n * 100))}%"></i><small>${g.n}</small></div>`).join('')}</div>` : ''}` : '';
-async function lector(name){ return (await pf()).publicProfile(PCTX(), name); }
+async function lector(name){ await meReady; if (user && profile?.username && profile.username.toLowerCase() === name.toLowerCase()) { history.replaceState({}, '', '/perfil'); return perfil(); } return (await pf()).publicProfile(PCTX(), name); }
 async function support(){
 const { data } = await sb.from('patreon_tiers').select('*').order('price_usd');
 app.innerHTML = '<h1>Apoya a los traductores</h1><p>Tu membresía de Patreon activa el acceso anticipado y el sello 援 automáticamente.</p>' + ((data||[]).map(t => `<div style="border:2px solid var(--line);padding:18px;margin:10px 0"><h2 style="margin:0">${esc(t.name)}</h2><p class="mono">$${t.price_usd} USD/mes · ${t.early_weeks ? t.early_weeks + ' semana(s) de adelanto' : 'sin adelanto'}</p></div>`).join('') || '<p class="mono">Los niveles aparecerán cuando un equipo conecte Patreon.</p>');
@@ -322,14 +322,8 @@ bindAvatar(welcome);
 }
 async function perfil(){
 if (!user) return go('/entrar');
-lbCss();
-const { data: st } = await sb.rpc('reader_stats');
-app.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between"><h1 style="margin:0">Mi perfil</h1>${profile?.username ? `<span style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn" href="/lector/${encodeURIComponent(profile.username)}">Ver mi carnet público</a><a class="btn ghost" href="/preferencias">Editar carnet</a></span>` : ''}</div><p class="mono">Rol en la plataforma: ${RL[me?.platform_role || 'lector']}</p>${avatarBox(esc(profile?.username || ''), esc(user.email))}
-<h2 style="margin-top:36px">Mis estadísticas</h2>${statsHTML(st) || '<p class="mono">Aún no hay lecturas registradas.</p>'}
-<label class="ui-tog" style="margin-top:16px"><input type="checkbox" id="pf-pub" ${profile?.public_activity ? 'checked' : ''}> Mostrar mis estadísticas en mi perfil público</label>
-${profile?.username ? `<p class="mono" style="font-size:12px">Tu perfil público: <a href="/lector/${encodeURIComponent(profile.username)}">/lector/${esc(profile.username)}</a> · <a href="/preferencias">Editar carnet, favoritas y enlaces</a></p>` : ''}`;
-bindAvatar(perfil);
-$('#pf-pub').onchange = async e => { const v = e.target.checked; const { error } = await sb.from('profiles').update({ public_activity: v }).eq('id', user.id); if (error) { e.target.checked = !v; return toast(error.message); } profile.public_activity = v; toast(v ? 'Tus estadísticas ahora son públicas' : 'Tus estadísticas son privadas'); };
+if (!profile?.username) { app.innerHTML = '<p class="mono">Cargando perfil…</p>'; return; }
+return (await pf()).publicProfile(PCTX(), profile.username, { owner: true, visibility: profile.profile_visibility });
 }
 const LANGS = ['Japonés', 'Inglés', 'Coreano', 'Chino'];
 async function solicitud(){

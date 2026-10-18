@@ -117,12 +117,12 @@ const CSS = `
 `;
 const css = () => { if (document.getElementById('lc-css')) return; const s = document.createElement('style'); s.id = 'lc-css'; s.textContent = CSS; document.head.appendChild(s); };
 
-export async function publicProfile(C, name){
+export async function publicProfile(C, name, opt = {}){
   const { sb, app, esc, url, statsHTML } = C; css();
   const MED = p => p ? (/^https?:/.test(p) ? p : url + '/storage/v1/object/public/obi-media/' + encodeURI(p)) : '';
   const cov = s => MED(s.cover_thumb_path || s.cover_path);
   app.innerHTML = '<p class="mono">Cargando perfil…</p>';
-  const { data: r } = await sb.rpc('reader_public', { p_username: name });
+  const [{ data: r }, own] = await Promise.all([sb.rpc('reader_public', { p_username: name }), opt.owner ? sb.rpc('reader_stats') : { data: null }]);
   if (!r) { app.innerHTML = '<h1>Lector no encontrado</h1><p><a href="/">Volver al inicio</a></p>'; return; }
   if (r.private) { app.innerHTML = `<div class="lc" style="--ac:#5a503b"><section style="border:1px solid var(--line);background:#14120e;padding:40px 22px;display:grid;justify-items:center;gap:12px;text-align:center;max-width:520px;margin:20px auto">
       <span class="lc-av" style="width:96px;height:96px;font-size:40px;color:var(--mute)">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase())}</span>
@@ -141,7 +141,11 @@ export async function publicProfile(C, name){
   const shelfBody = k => { const x = sh[k]; if (!x?.n) return '<p class="lc-empty">Nada en este estante todavía.</p>';
     return `<div class="lc-shg">${x.items.map(s => `<a href="/serie/${esc(s.slug)}">${card(s)}<span>${esc(s.title)}</span></a>`).join('')}</div>${x.n > 6 ? `<span class="lc-more">+${x.n - 6} más</span>` : ''}`; };
   const stars = n => '★'.repeat(n || 0) + '☆'.repeat(Math.max(0, 5 - (n || 0)));
-  app.innerHTML = `<div class="lc" style="--ac:${esc(ac)}">
+  const VIS = { all: 'Visible para todos', auth: 'Visible solo con cuenta', none: 'Privado: solo tú lo ves' };
+  const bar = opt.owner ? `<div style="display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between"><span style="display:grid;gap:2px"><h1 style="margin:0;font:800 30px 'Shippori Mincho B1',serif">Mi perfil</h1><span class="mono" style="font-size:12px">${VIS[opt.visibility] || ''} · <a href="/lector/${encodeURIComponent(r.username)}">/lector/${esc(r.username)}</a></span></span><span style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn" href="/preferencias">Editar carnet</a><a class="btn ghost" href="/preferencias?s=privacidad">Privacidad</a></span></div>` : '';
+  const mine = opt.owner && !(r.public_activity && r.stats) && own.data ? `<section class="lc-sec"><div class="lc-hd"><h2>Mis estadísticas</h2><span class="mono" style="font-size:11px">SOLO TÚ VES ESTO · <a href="/preferencias?s=privacidad">HACERLAS PÚBLICAS</a></span></div>${statsHTML(own.data) || '<p class="lc-empty">Aún no hay lecturas registradas.</p>'}</section>` : '';
+  const empty = opt.owner && !r.bio && !r.kanji && !favs.length && !r.links?.length ? `<p class="lc-empty" style="border:1px dashed var(--line);padding:14px 16px">Tu carnet está vacío. <a href="/preferencias">Añade bio, kanji, favoritas y enlaces</a>.</p>` : '';
+  app.innerHTML = `<div class="lc" style="--ac:${esc(ac)}">${bar}
     <section class="lc-card">${bg}<div class="lc-sh"></div>${r.kanji ? `<span class="lc-kj" title="Sello de ${esc(r.username)}">${esc(r.kanji)}</span>` : ''}
       <div class="lc-in">
         <span class="lc-av">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase())}</span>
@@ -150,7 +154,7 @@ export async function publicProfile(C, name){
           ${r.links?.length ? `<div class="lc-ln">${r.links.filter(l => ICON[l.k]).map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener nofollow ugc">${svg(l.k)}${ICON[l.k][0]}</a>`).join('')}</div>` : ''}
         </div>
         ${seals.length ? `<div class="lc-se">${seals.map(([k, t]) => `<span title="${t}" aria-label="${t}">${k}</span>`).join('')}</div>` : ''}
-      </div></section>
+      </div></section>${empty}
     ${favs.length ? `<section class="lc-sec"><h2>Favoritas</h2><div class="lc-fav">${favs.map(s => `<a href="/serie/${esc(s.slug)}">${card(s)}<span>${esc(s.title)}</span></a>`).join('')}</div></section>` : ''}
     ${r.shelves ? `<section class="lc-sec"><div class="lc-hd"><h2>Estanterías</h2><div class="lc-tabs" role="tablist">${SHV.map(([k, l]) => `<button role="tab" data-sh="${k}" class="${k === firstShelf ? 'on' : ''}" aria-selected="${k === firstShelf}">${l} · ${sh[k]?.n || 0}</button>`).join('')}</div></div><div id="lc-shb">${shelfBody(firstShelf)}</div></section>` : ''}
     ${r.reviews?.length ? `<section class="lc-sec"><h2>Reseñas recientes</h2><div class="lc-rv">${r.reviews.map(v => `<article>
@@ -158,7 +162,7 @@ export async function publicProfile(C, name){
         <div><a class="t" href="/serie/${esc(v.series.slug)}">${esc(v.series.title)}</a>${v.stars ? `<span style="color:var(--ac);letter-spacing:2px" aria-label="${v.stars} de 5">${stars(v.stars)}</span>` : ''}
         <p>${esc(v.body)}${v.body?.length >= 400 ? '…' : ''}</p>
         <small>${new Date(v.at).toLocaleDateString('es-MX', { dateStyle: 'medium' })}</small></div></article>`).join('')}</div></section>` : ''}
-    ${r.public_activity && r.stats ? `<section class="lc-sec"><h2>Estadísticas</h2>${statsHTML(r.stats)}</section>` : ''}
+    ${r.public_activity && r.stats ? `<section class="lc-sec"><h2>Estadísticas</h2>${statsHTML(r.stats)}</section>` : ''}${mine}
   </div>`;
   app.querySelectorAll('[data-sh]').forEach(b => b.onclick = () => { app.querySelectorAll('[data-sh]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); app.querySelector('#lc-shb').innerHTML = shelfBody(b.dataset.sh); });
   app.querySelectorAll('.lc-rv .sp').forEach(p => p.onclick = p.onkeydown = () => p.classList.remove('sp'));
@@ -292,7 +296,7 @@ export async function preferences(C){
   }
   if (tab === 'cuenta') {
     app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Cuenta</h2><p class="pf-note">Correo: <b>${esc(user.email)}</b></p></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn ghost" id="pw">Cambiar contraseña</button><a class="btn ghost" href="/perfil">Mis estadísticas</a><a class="btn ghost" href="/lector/${encodeURIComponent(P.username)}">Ver mi perfil público</a></div>`);
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn ghost" id="pw">Cambiar contraseña</button><a class="btn ghost" href="/perfil">Mi perfil</a><a class="btn ghost" href="/lector/${encodeURIComponent(P.username)}">Ver mi perfil público</a></div>`);
     app.querySelector('#pw').onclick = async () => { const { error } = await sb.auth.resetPasswordForEmail(user.email, { redirectTo: location.origin + '/restablecer' }); toast(error ? error.message : 'Te enviamos un enlace a tu correo para cambiarla'); };
     return;
   }
@@ -321,7 +325,7 @@ export async function preferences(C){
       <div style="display:grid;gap:10px"><h3>Enlaces</h3>${D.links.map(linkRow).join('')}
         ${D.links.length < 12 ? '<button type="button" class="btn ghost sm" id="addl" style="justify-self:start">+ Añadir enlace</button>' : ''}</div>
       <p class="pf-note">Qué secciones se muestran y quién ve tu carnet se elige en <a href="/preferencias?s=privacidad">Privacidad</a>.</p>
-      <div class="pf-save"><span class="mono" id="pf-st">${dirty ? 'Cambios sin guardar' : ''}</span><a class="btn ghost" href="/lector/${encodeURIComponent(P.username)}">Ver perfil</a><button class="btn" id="save">Guardar cambios</button></div>`);
+      <div class="pf-save"><span class="mono" id="pf-st">${dirty ? 'Cambios sin guardar' : ''}</span><a class="btn ghost" href="/perfil">Ver mi perfil</a><button class="btn" id="save">Guardar cambios</button></div>`);
     const $ = s => app.querySelector(s), $$ = s => app.querySelectorAll(s);
     $('#bio').oninput = e => { D.bio = e.target.value; mark(); };
     $('#kj').oninput = e => { D.kanji = e.target.value.trim(); mark(); };
