@@ -344,7 +344,7 @@ export function createStudio(ctx){
     if (!(await ensure())) return;
     const { data: s } = await sb.from('series').select('*').eq('slug', slug).maybeSingle();
     if (!s) return go('/estudio');
-    const tab = new URLSearchParams(location.search).get('tab') === 'datos' ? 'datos' : 'caps';
+    const tab = ({ datos: 'datos', avisos: 'avisos' })[new URLSearchParams(location.search).get('tab')] || 'caps';
     const [{ data: vols }, { data: chs }, { data: cols }, { data: events }, { data: dls }, { data: buys }, { data: tch }, { data: tvol }] = await Promise.all([
       sb.from('volumes').select('*').eq('series_id', s.id).is('deleted_at', null).order('num'),
       sb.from('chapters').select('id,num,vol,volume_id,title,status,section_type,publish_at,updated_at,stage').eq('series_id', s.id).is('deleted_at', null).order('num'),
@@ -399,7 +399,6 @@ export function createStudio(ctx){
       <div class="wk-col">
         <section class="wk-box"><h2>Géneros</h2><div class="ed-chips" id="wk-gen">${[...new Set([...GENRES, ...D.genres])].map(g => `<button type="button" class="ed-chip ${D.genres.includes(g) ? 'on' : ''}" aria-pressed="${D.genres.includes(g)}" data-gen="${esc(g)}">${esc(g)}</button>`).join('')}</div><small class="mono">Hasta 4. Se usan en los filtros del Catálogo.</small></section>
         <section class="wk-box"><h2>Etiquetas</h2><div class="wk-tags" id="wk-tags">${D.tags.map((t, i) => `<span>#${esc(t)}<button type="button" data-untag="${i}" aria-label="Quitar ${esc(t)}">×</button></span>`).join('')}<input id="wk-tag" maxlength="30" placeholder="Escribe y pulsa Enter" aria-label="Nueva etiqueta"></div><small class="mono">Detalles para quien busca algo concreto: sirvienta, nobleza, comedia romántica…</small></section>
-        <section class="wk-box" id="wk-utag"><h2>Aviso en actualizaciones</h2><small class="mono">Texto resaltado junto al título en Inicio › Últimas actualizaciones y en Lanzamientos.</small><div id="wk-utag-b"></div></section>
         <section class="wk-box" style="border-top:4px solid #a9d18e"><h2>Compra oficial</h2><small class="mono">Enlaces para apoyar al autor. Se proponen por volumen y el Bibliotecario los verifica.</small>
           <div class="ed-chips">${(buys || []).map(b => `<span class="wk-buy" style="border-color:${b.verified ? '#a9d18e' : '#3d3628'};color:${b.verified ? '#a9d18e' : '#a89f8a'}">${b.verified ? '✓' : '◷'} ${esc(b.store)}${b.region ? ' · ' + esc(b.region) : ''}</span>`).join('') || '<span class="mono">Aún sin enlaces.</span>'}</div>
           <a class="btn ghost sm" href="/estudio/descargas" style="justify-self:start">Gestionar compra y descargas</a></section>
@@ -409,6 +408,8 @@ export function createStudio(ctx){
         <section class="wk-box"><h2>Historial de publicación</h2>${(events || []).map(e => `<p class="mono" style="margin:0">${fmtTz(e.created_at, { dateStyle: 'short', timeStyle: 'short' })} · ${esc(e.summary)}</p>`).join('') || '<p class="mono" style="margin:0">Sin eventos.</p>'}</section>
       </div>
       ${can('edit') ? '<div class="wk-save"><span class="mono" id="wk-dirty"></span><button class="btn" id="wk-savebtn">Guardar datos</button></div>' : ''}</div>`;
+    const avisos = () => `<div class="wk-dat"><section class="wk-box" id="wk-utag"><h2>Aviso en actualizaciones</h2><small class="mono">Texto resaltado junto al título de la obra en Inicio › Últimas actualizaciones y en Lanzamientos. Úsalo para anunciar un volumen nuevo, un nivel nuevo, un capítulo extra o lo que el equipo quiera.</small><div id="wk-utag-b"></div></section>
+      <div class="wk-col"><section class="wk-box"><h2>Vista previa</h2><div id="wk-utag-pv"></div></section></div></div>`;
     const chip = (k, val, l) => `<button type="button" class="ed-chip ${F[k] === val ? 'on' : ''}" aria-pressed="${F[k] === val}" data-f${k}="${val}">${l}</button>`;
     const filterBar = () => C.length ? `<div class="wk-flt"><input type="search" id="wk-q" value="${esc(F.q)}" placeholder="Buscar capítulo por número o título" aria-label="Buscar capítulo">
       <span class="ed-chips" role="group" aria-label="Estado">${chip('st', '', 'Todos')}${chip('st', 'draft', 'Borradores · ' + n('draft'))}${chip('st', 'scheduled', 'Programados · ' + n('scheduled'))}${chip('st', 'published', 'Publicados · ' + n('published'))}</span>
@@ -423,12 +424,12 @@ export function createStudio(ctx){
     app.innerHTML = shell(esc(s.title), `<div class="wk">
       <div class="wk-top"><span class="pl" style="--p:${st[1]}">${st[0]}</span><span class="mono">${V.length} ${V.length === 1 ? 'volumen' : 'volúmenes'} · ${n('published')} publicados · ${n('scheduled')} programados · ${n('draft')} borradores</span>
         <span class="wk-acts">${can('create') ? '<button class="btn sm" id="wk-new">＋ Nuevo capítulo</button>' : ''}${can('import') ? '<a class="btn ghost sm" href="/estudio/importar">Importar volumen</a>' : ''}<a class="btn ghost sm" href="?tab=datos" data-tab="datos">Editar datos</a><a class="lnk" href="/serie/${esc(s.slug)}">Ver en el sitio ↗</a></span></div>
-      <div class="wk-tabs" role="tablist">${[['caps', 'Volúmenes y capítulos'], ['datos', 'Datos de la obra']].map(([k, l]) => `<a role="tab" aria-selected="${tab === k}" class="${tab === k ? 'on' : ''}" href="${k === 'datos' ? '?tab=datos' : location.pathname}" data-tab="${k}">${l}</a>`).join('')}</div>
-      ${tab === 'caps' ? `${filterBar()}${V.map(volHTML).join('') || '<p class="tb-empty">Esta obra aún no tiene volúmenes.</p>'}${can('create') ? '<button class="wk-addv" id="addvol"><span>＋</span>Nuevo volumen</button>' : ''}${trashHTML()}<div id="wk-bulkw"></div>` : datos()}</div>`, '/estudio/obra');
+      <div class="wk-tabs" role="tablist">${[['caps', 'Volúmenes y capítulos'], ['datos', 'Datos de la obra'], ['avisos', 'Avisos']].map(([k, l]) => `<a role="tab" aria-selected="${tab === k}" class="${tab === k ? 'on' : ''}" href="${k === 'caps' ? location.pathname : '?tab=' + k}" data-tab="${k}">${l}</a>`).join('')}</div>
+      ${tab === 'caps' ? `${filterBar()}${V.map(volHTML).join('') || '<p class="tb-empty">Esta obra aún no tiene volúmenes.</p>'}${can('create') ? '<button class="wk-addv" id="addvol"><span>＋</span>Nuevo volumen</button>' : ''}${trashHTML()}<div id="wk-bulkw"></div>` : tab === 'avisos' ? avisos() : datos()}</div>`, '/estudio/obra');
     bindPicker(home);
     const on = (sel2, fn) => app.querySelectorAll(sel2).forEach(b => b.onclick = e => { e.preventDefault(); busy(b, () => fn(b)); });
     const again = () => work(slug);
-    app.querySelectorAll('[data-tab]').forEach(a => a.onclick = e => { e.preventDefault(); history.replaceState({}, '', a.dataset.tab === 'datos' ? location.pathname + '?tab=datos' : location.pathname); again(); });
+    app.querySelectorAll('[data-tab]').forEach(a => a.onclick = e => { e.preventDefault(); history.replaceState({}, '', a.dataset.tab === 'caps' ? location.pathname : location.pathname + '?tab=' + a.dataset.tab); again(); });
     app.querySelectorAll('[data-tog]').forEach(b => b.onclick = () => { const id = b.dataset.tog; open.has(id) ? open.delete(id) : open.add(id); again(); });
     on('#wk-new', async () => { const v = V[V.length - 1]; if (!v) throw new Error('Crea primero un volumen'); const num = Math.max(0, ...allNums) + 1; const { data, error } = await sb.from('chapters').insert({ series_id: s.id, volume_id: v.id, vol: v.num, num, title: 'Capítulo ' + num, body: [], status: 'draft', section_type: 'Capítulo' }).select('id').single(); if (error) throw error; go('/estudio/editar/' + data.id); });
     on('#addvol', async () => { const nn = Math.max(0, ...V.map(v => v.num), ...TV.map(v => v.num)) + 1; const { data, error } = await sb.from('volumes').insert({ series_id: s.id, num: nn, status: 'draft' }).select('id').single(); if (error) throw error; open.add(data.id); again(); });
@@ -584,15 +585,9 @@ export function createStudio(ctx){
           const r = await sb.rpc('renumber_volume', { p_volume: v.id, p_num: nn }); if (r.error) throw new Error(errMsg(r.error)); }
         const { error } = await sb.from('volumes').update(patch).eq('id', v.id); if (error) throw new Error(errMsg(error)); toast((nn !== v.num ? `Volumen guardado · ahora es el Volumen ${nn}` : 'Volumen guardado') + (acc !== (v.access || 'public') ? ' · acceso: ' + ({ public: 'público general', donors: 'solo mecenas', tier: 'desde ' + (tierSel.selectedOptions[0]?.textContent || 'el nivel elegido') })[acc] : '')); again(); });
     });
-    if (tab === 'datos') {
-      let dirty = false; const mark = () => { dirty = true; const d = $('#wk-dirty'); if (d) d.textContent = 'Cambios sin guardar'; };
-      app.querySelectorAll('[data-d]').forEach(i => i[i.type === 'checkbox' || i.tagName === 'SELECT' ? 'onchange' : 'oninput'] = () => { D[i.dataset.d] = i.type === 'checkbox' ? i.checked : i.value; if (i.dataset.d === 'synopsis') $('#syncount').textContent = i.value.length + ' / 1500'; mark(); });
-      $('#wk-gen').onclick = e => { const b = e.target.closest('[data-gen]'); if (!b) return; const g = b.dataset.gen, has = D.genres.includes(g); if (!has && D.genres.length >= 4) return toast('Máximo 4 géneros'); D.genres = has ? D.genres.filter(x => x !== g) : [...D.genres, g]; b.classList.toggle('on', !has); b.setAttribute('aria-pressed', !has); mark(); };
-      const drawTags = () => { const box = $('#wk-tags'), inpT = $('#wk-tag'); box.querySelectorAll('span').forEach(x => x.remove()); inpT.insertAdjacentHTML('beforebegin', D.tags.map((t, i) => `<span>#${esc(t)}<button type="button" data-untag="${i}" aria-label="Quitar ${esc(t)}">×</button></span>`).join('')); };
-      $('#wk-tags').onclick = e => { const b = e.target.closest('[data-untag]'); if (b) { D.tags.splice(+b.dataset.untag, 1); drawTags(); mark(); } else $('#wk-tag').focus(); };
-      $('#wk-tag').onkeydown = e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); const v = e.target.value.trim().replace(/^#/, '').toLowerCase(); if (v && !D.tags.includes(v)) { if (D.tags.length >= 20) return toast('Máximo 20 etiquetas'); D.tags.push(v); drawTags(); mark(); } e.target.value = ''; } };
+    if (tab === 'avisos') {
       // ---- aviso en actualizaciones (se guarda aparte, en series.theme.update_tag)
-      const UT = Object.assign({ on: false, text: '', color: wcolor(s), style: 'solid', until: '' }, s.theme?.update_tag || {});
+      let utDirty = false; const UT = Object.assign({ on: false, text: '', color: wcolor(s), style: 'solid', until: '' }, s.theme?.update_tag || {});
       const UT_PRE = ['Nuevo volumen', 'Nuevo nivel', 'Capítulo extra', 'Volumen completo', 'Final', 'De regreso'], UT_COL = ['#f2c230', '#d9922b', '#f59e7a', '#c9a8f2', '#8cc3f2', '#a9d18e', wcolor(s)];
       const drawUT = () => { const box = $('#wk-utag-b'); if (!box) return; const ed = can('edit') ? '' : 'disabled';
         const pv = utagOn({ ...UT, on: true }) ? utagHTML(UT) : '<span class="mono" style="font-size:11px;margin-left:8px">(escribe un texto)</span>';
@@ -603,12 +598,17 @@ export function createStudio(ctx){
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="mono" style="font-size:12px">Color</span>${[...new Set(UT_COL)].map(c => `<button type="button" data-utc="${c}" aria-label="Color ${c}" aria-pressed="${UT.color === c}" style="width:26px;height:26px;background:${c};border:2px solid ${UT.color === c ? '#f3ecd9' : 'transparent'};outline:1px solid #3d3628;cursor:pointer" ${ed}></button>`).join('')}<input type="color" id="ut-c" value="${esc(UT.color)}" aria-label="Otro color" style="width:34px;height:28px;padding:0;border:1px solid #3d3628;background:none" ${ed}></div>
           <div style="display:flex;gap:14px;flex-wrap:wrap"><label class="tb-inl"><input type="radio" name="ut-s" value="solid" ${UT.style !== 'outline' ? 'checked' : ''} ${ed}> Sólido</label><label class="tb-inl"><input type="radio" name="ut-s" value="outline" ${UT.style === 'outline' ? 'checked' : ''} ${ed}> Contorno</label></div>
           <label>Mostrar hasta<input type="date" id="ut-u" value="${esc(UT.until || '')}" style="width:auto" ${ed}><small class="mono">Vacío = hasta que lo quites. Después de esa fecha se oculta solo.</small></label>
-          <div style="padding:10px 12px;background:#0d0c0a;border:1px solid #2f2a20;display:flex;align-items:center;gap:10px"><i style="width:4px;align-self:stretch;background:${esc(wcolor(s))}"></i><span><b>${esc(D.title || s.title)}</b>${pv}<br><span class="mono" style="font-size:12px">Vista previa · así se ve en Inicio</span></span></div>
           ${can('edit') ? '<span style="display:flex;gap:8px;align-items:center"><button type="button" class="btn sm" id="ut-save">Guardar aviso</button><span class="mono" id="ut-st"></span></span>' : ''}</div>`;
-        const dirtyUT = () => { const e = $('#ut-st'); if (e) e.textContent = 'Sin guardar'; };
-        $('#ut-on')?.addEventListener('change', e => { UT.on = e.target.checked; dirtyUT(); });
-        $('#ut-t')?.addEventListener('input', e => { UT.text = e.target.value; dirtyUT(); });
-        $('#ut-t')?.addEventListener('change', drawUT);
+        const pvb = $('#wk-utag-pv'); if (pvb) { const ttl = esc(s.title), cov = s.cover_path ? `background:url('${esc(media(s.cover_path))}') center/cover` : 'background:#2f2a20';
+          pvb.innerHTML = `<div style="display:grid;gap:14px"><div><span class="mono" style="font-size:11px">INICIO · ÚLTIMAS ACTUALIZACIONES</span>
+            <div style="margin-top:6px;padding:10px 12px;background:#0d0c0a;border:1px solid #2f2a20;display:flex;align-items:center;gap:10px"><i style="width:4px;align-self:stretch;background:${esc(wcolor(s))}"></i><span style="flex:1;min-width:0"><b>${ttl}</b>${pv}<br><span class="mono" style="font-size:12px">Cap. 12 — Ejemplo</span></span><span class="mono" style="font-size:12px">hace 2 h</span></div></div>
+            <div><span class="mono" style="font-size:11px">LANZAMIENTOS</span>
+            <div style="margin-top:6px;padding:12px;background:#0d0c0a;border:1px solid #2f2a20;display:grid;grid-template-columns:56px minmax(0,1fr);gap:12px;align-items:start"><span style="width:56px;height:80px;${cov}"></span><span><b style="font-size:16px">${ttl}</b>${pv}<br><span class="mono" style="font-size:12px">Novela ligera · ${esc(T.team?.name || '')}</span></span></div></div>
+            ${UT.on ? '' : '<p class="mono" style="font-size:12px;margin:0">El aviso está apagado: actívalo con «Mostrar el aviso» y guarda.</p>'}</div>`; }
+        const dirtyUT = () => { utDirty = true; const e = $('#ut-st'); if (e) e.textContent = 'Cambios sin guardar'; }; if (utDirty) { const e = $('#ut-st'); if (e) e.textContent = 'Cambios sin guardar'; }
+        $('#ut-on')?.addEventListener('change', e => { UT.on = e.target.checked; drawUT(); dirtyUT(); });
+        $('#ut-t')?.addEventListener('input', e => { UT.text = e.target.value; const t = $('#wk-utag-pv'); if (t) t.querySelectorAll('.ob-utag').forEach(x => x.textContent = e.target.value.trim().slice(0, 24)); dirtyUT(); });
+        $('#ut-t')?.addEventListener('change', () => { drawUT(); dirtyUT(); });
         box.querySelectorAll('[data-utp]').forEach(b => b.onclick = () => { UT.text = b.dataset.utp; UT.on = true; drawUT(); dirtyUT(); });
         box.querySelectorAll('[data-utc]').forEach(b => b.onclick = () => { UT.color = b.dataset.utc; drawUT(); dirtyUT(); });
         $('#ut-c')?.addEventListener('change', e => { UT.color = e.target.value; drawUT(); dirtyUT(); });
@@ -619,8 +619,17 @@ export function createStudio(ctx){
           const { data: cur, error: e1 } = await sb.from('series').select('theme').eq('id', s.id).single(); if (e1) throw new Error(errMsg(e1));
           const theme = { ...(cur?.theme || {}), update_tag: { on: !!UT.on, text: UT.text.trim().slice(0, 24), color: UT.color, style: UT.style === 'outline' ? 'outline' : 'solid', until: UT.until || null } };
           const { error } = await sb.from('series').update({ theme }).eq('id', s.id); if (error) throw new Error(errMsg(error));
-          s.theme = theme; const st3 = $('#ut-st'); if (st3) st3.textContent = '✓ Guardado'; toast(UT.on ? 'Aviso «' + UT.text.trim() + '» activo en actualizaciones' : 'Aviso oculto'); })); };
+          s.theme = theme; utDirty = false; const st3 = $('#ut-st'); if (st3) st3.textContent = '✓ Guardado'; toast(UT.on ? 'Aviso «' + UT.text.trim() + '» activo en actualizaciones' : 'Aviso oculto'); })); };
       drawUT();
+      const leaveUT = e => { if (utDirty && document.body.contains($('#ut-save'))) { e.preventDefault(); e.returnValue = ''; } else removeEventListener('beforeunload', leaveUT); }; addEventListener('beforeunload', leaveUT);
+    }
+    if (tab === 'datos') {
+      let dirty = false; const mark = () => { dirty = true; const d = $('#wk-dirty'); if (d) d.textContent = 'Cambios sin guardar'; };
+      app.querySelectorAll('[data-d]').forEach(i => i[i.type === 'checkbox' || i.tagName === 'SELECT' ? 'onchange' : 'oninput'] = () => { D[i.dataset.d] = i.type === 'checkbox' ? i.checked : i.value; if (i.dataset.d === 'synopsis') $('#syncount').textContent = i.value.length + ' / 1500'; mark(); });
+      $('#wk-gen').onclick = e => { const b = e.target.closest('[data-gen]'); if (!b) return; const g = b.dataset.gen, has = D.genres.includes(g); if (!has && D.genres.length >= 4) return toast('Máximo 4 géneros'); D.genres = has ? D.genres.filter(x => x !== g) : [...D.genres, g]; b.classList.toggle('on', !has); b.setAttribute('aria-pressed', !has); mark(); };
+      const drawTags = () => { const box = $('#wk-tags'), inpT = $('#wk-tag'); box.querySelectorAll('span').forEach(x => x.remove()); inpT.insertAdjacentHTML('beforebegin', D.tags.map((t, i) => `<span>#${esc(t)}<button type="button" data-untag="${i}" aria-label="Quitar ${esc(t)}">×</button></span>`).join('')); };
+      $('#wk-tags').onclick = e => { const b = e.target.closest('[data-untag]'); if (b) { D.tags.splice(+b.dataset.untag, 1); drawTags(); mark(); } else $('#wk-tag').focus(); };
+      $('#wk-tag').onkeydown = e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); const v = e.target.value.trim().replace(/^#/, '').toLowerCase(); if (v && !D.tags.includes(v)) { if (D.tags.length >= 20) return toast('Máximo 20 etiquetas'); D.tags.push(v); drawTags(); mark(); } e.target.value = ''; } };
       on('#wk-savebtn', async () => {
         if (!D.title.trim()) throw new Error('El título no puede quedar vacío');
         const patch = { title: D.title.trim(), short: D.short.trim() || D.title.trim().slice(0, 26), original: D.original.trim() || null, author: D.author.trim() || null, illustrator: D.illustrator.trim() || null, work_type: D.work_type, demographic: D.demographic || null, translation_status: D.translation_status, original_status: D.original_status || null, synopsis: D.synopsis.trim() || null, adult: D.adult, genres: D.genres, tags: D.tags };
