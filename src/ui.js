@@ -187,6 +187,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   function chrome(){
     const top = document.querySelector('header.top'); if (!top || top.dataset.ob) return; top.dataset.ob = '1';
     const topH = () => document.documentElement.style.setProperty('--top-h', Math.ceil(top.getBoundingClientRect().height) + 'px'); topH(); if (window.ResizeObserver) new ResizeObserver(topH).observe(top); else addEventListener('resize', topH);
+    { let bar = null; const ro = window.ResizeObserver ? new ResizeObserver(() => bar && document.documentElement.style.setProperty('--rd-h', Math.ceil(bar.getBoundingClientRect().height) + 'px')) : null; const look = () => { const b = document.querySelector('.rd-bar'); if (b === bar) return; if (bar && ro) ro.unobserve(bar); bar = b; if (b) { document.documentElement.style.setProperty('--rd-h', Math.ceil(b.getBoundingClientRect().height) + 'px'); ro?.observe(b); } }; new MutationObserver(look).observe(document.getElementById('app') || document.body, { childList: true, subtree: true }); look(); }
     const ses = document.getElementById('session');
     top.innerHTML = `<a href="/" class="ob-brand"><span class="ob-seal">帯</span><span class="ob-word"><b>El Obi del Lector</b></span></a>
       <nav class="ob-nav">${[['/','Inicio'],['/catalogo','Catálogo'],['/lanzamientos','Lanzamientos'],['/biblioteca','Mi biblioteca'],['/calendario','Calendario'],['/ranking','Ranking']].map(([h,l]) => `<a href="${h}">${l}</a>`).join('')}<a href="/apoyar" class="ob-sup">援 Apoyar</a></nav>
