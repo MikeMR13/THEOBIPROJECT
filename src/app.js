@@ -1,7 +1,7 @@
 // Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
 import { createClient } from '/supabase.js?v=1';
 import { createReader } from '/reader.js?v=14';
-import { createUI } from '/ui.js?v=32';
+import { createUI } from '/ui.js?v=33';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
 export const sb = createClient(url, key, { auth: { persistSession: true } });
@@ -10,7 +10,7 @@ const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 2800); };
 let user = null, profile = null, me = null;
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
-let PF; const pf = async () => PF ||= await import('/profile.js?v=6');
+let PF; const pf = async () => PF ||= await import('/profile.js?v=7');
 const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
 let ST; const st = async () => ST ||= (await import('/studio.js?v=34')).createStudio(CTX());
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=8')).createAdmin(CTX());
@@ -20,15 +20,17 @@ let U; const ui = () => U ||= createUI(CTX());
 // Preferencias de pantalla (Accesibilidad) y lectores silenciados/bloqueados: se aplican al instante desde el almacenamiento local.
 const readJ = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
 const A11Y_CSS = 'html.a11y-still *,html.a11y-still *::before,html.a11y-still *::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}html.a11y-hc{--paper:#fffaf0;--mute:#ddd4bf;--line:#5f5745}html.a11y-ul a:not(.btn){text-decoration:underline!important;text-underline-offset:3px}html.a11y-fc :focus-visible{outline:3px solid var(--gold)!important;outline-offset:3px!important}';
-function applyUI(P = readJ('obi-ui', {})){ window.__obiUI = P || {}; const H = document.documentElement;
+function applyUI(P = readJ('obi-ui', {})){ P = { ...(P || {}) }; if (P.tz) { try { new Intl.DateTimeFormat('es', { timeZone: P.tz }); } catch { delete P.tz; } } window.__obiUI = P; const H = document.documentElement;
   H.classList.toggle('a11y-still', P?.motion === 'reduce'); H.classList.toggle('a11y-hc', !!P?.contrast); H.classList.toggle('a11y-ul', !!P?.underline); H.classList.toggle('a11y-fc', !!P?.focus);
   if (!document.getElementById('a11y-css')) { const s = document.createElement('style'); s.id = 'a11y-css'; s.textContent = A11Y_CSS; document.head.appendChild(s); } }
 window.obiSetUI = P => { try { localStorage.setItem('obi-ui', JSON.stringify(P || {})); } catch {} applyUI(P || {}); };
 window.obiSetBlocks = L => { window.__obiBlocks = new Map((L || []).map(b => [b.id, b])); try { localStorage.setItem('obi-blocks', JSON.stringify(L || [])); } catch {} };
 applyUI(); window.obiSetBlocks(readJ('obi-blocks', []));
 { const MM = window.matchMedia.bind(window); window.matchMedia = q => /prefers-reduced-motion:\s*reduce/.test(q) && window.__obiUI?.motion === 'reduce' ? MM('all') : MM(q); }
-{ const hc = o => { const h = window.__obiUI?.hour; if (h !== '12' && h !== '24') return o; if (o && (o.hour12 !== undefined || o.hourCycle)) return o; return { ...(o || {}), hour12: h === '12' }; };
-  for (const k of ['toLocaleString', 'toLocaleTimeString']) { const f = Date.prototype[k]; Date.prototype[k] = function(l, o){ return f.call(this, l, hc(o)); }; } }
+// Formato de hora (12/24 h) y zona horaria elegidos en Preferencias › Accesibilidad se aplican a todas las fechas mostradas.
+{ const hc = o => { const U = window.__obiUI || {}, h = U.hour; let r = o; if ((h === '12' || h === '24') && !(o && (o.hour12 !== undefined || o.hourCycle))) r = { ...(r || {}), hour12: h === '12' }; if (U.tz && !(o && o.timeZone)) r = { ...(r || {}), timeZone: U.tz }; return r; };
+  for (const k of ['toLocaleString', 'toLocaleTimeString', 'toLocaleDateString']) { const f = Date.prototype[k]; Date.prototype[k] = function(l, o){ return f.call(this, l, hc(o)); }; } }
+window.obiTZ = () => window.__obiUI?.tz || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 const RL = { bibliotecario: 'Bibliotecario', publicador: 'Publicador', lector: 'Lector' };
 // La sesión sale del almacenamiento local (sin red) y se pinta al instante con el perfil guardado;
 // perfil y whoami llegan en paralelo y actualizan la barra. meReady avisa cuándo `me` es definitivo.
@@ -138,12 +140,12 @@ return (routes[p] || notFound)();
 async function calendar(){
 app.innerHTML = '<p class="mono">Cargando el calendario…</p>';
 const DAYS = 60, now = new Date(), end = new Date(Date.now() + DAYS * 864e5), d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const TZ = window.obiTZ(), ymd = d => d.toLocaleDateString('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
 const [S, AN, { data: rel }, { data: cal }] = await Promise.all([seasons(), import('/anim.js?v=8'),
   sb.from('schedule').select('label,at,kind,series(title,slug)').gte('at', now.toISOString()).lte('at', end.toISOString()).order('at').limit(120),
   sb.from('season_calendar').select('key,label,starts,day,hemi').lte('starts', ymd(end)).gte('starts', ymd(new Date(Date.now() - 40 * 864e5))).order('starts')]);
 await S.load(sb);
-const hemi = S.hemiOf(Intl.DateTimeFormat().resolvedOptions().timeZone), auto = new Set(S.config().auto || []);
+const hemi = S.hemiOf(TZ), auto = new Set(S.config().auto || []);
 const fests = [];
 for (let i = 0; i <= DAYS; i++) { const d = new Date(d0.getTime() + i * 864e5); for (const [k, s] of Object.entries(AN.SEASONS)) { if (s.g === 'est') continue; const was = AN.activeSeason({ auto: [k] }, new Date(d.getTime() - 864e5)) === k, is = AN.activeSeason({ auto: [k] }, d) === k; if (is && (!was || i === 0)) fests.push({ k, s, d }); } }
 const seasonStarts = (cal || []).filter(c => ['primavera', 'verano', 'otono', 'invierno'].includes(c.key) && c.hemi === hemi && new Date(c.starts + 'T12:00') >= d0).map(c => ({ k: c.key, s: AN.SEASONS[c.key], d: new Date(c.starts + 'T12:00') }));
@@ -181,7 +183,7 @@ const row = it => it.t === 'rel'
   ? `<a class="cal-r" href="/serie/${esc(it.e.series.slug)}"><span class="cal-h">${it.d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span><span class="cal-b"><b>${esc(it.e.series.title)}</b><small>${it.e.kind === 'volume' ? 'Volumen completo · ' : ''}${esc(it.e.label)}</small></span><span class="cal-u">${until(it.d)}</span></a>`
   : `<details class="cal-f${auto.has(it.k) ? ' on' : ''}" style="--fc:${it.s.ac}"><summary><i style="background-image:url('${it.s.m ? AN.motifURL(it.s.m, it.s.ac, it.s.c2) : ''}')"></i><span class="cal-b"><b>${esc(it.s.l)}</b><small>${{ occ: 'Festividad', jp: 'Festividad japonesa', kr: 'Festividad coreana', est: 'Estación · hemisferio ' + hemi }[it.s.g]}${win(it.s) ? ' · ' + win(it.s) : ''}${auto.has(it.k) ? ' · el sitio se viste de temporada' : ''}</small></span><span class="cal-u">${until(it.d)}${INFO[it.k] ? '<span class="cal-m">Ver más</span>' : ''}</span></summary>${INFO[it.k] ? `<div class="cal-x"><p>${esc(INFO[it.k][0])}</p><p><b>Cómo se celebra:</b> ${esc(INFO[it.k][1])}</p></div>` : ''}</details>`;
 app.innerHTML = '<div class="ui-cath"><div><h1>Calendario</h1><p>Lo que viene en los próximos dos meses: capítulos y volúmenes programados, y las festividades.</p></div><span class="kj" aria-hidden="true">予定</span></div>'
-  + '<div class="cal-bar"><a class="mono" href="/lanzamientos">← Ya publicados</a><span class="mono">Horario de tu dispositivo · ' + esc(Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ')) + '</span></div>'
+  + '<div class="cal-bar"><a class="mono" href="/lanzamientos">← Ya publicados</a><span class="mono">' + (window.__obiUI?.tz ? '<a href="/preferencias?s=pantalla">Tu zona horaria</a>' : 'Horario de tu dispositivo') + ' · ' + esc(TZ.replace(/_/g, ' ')) + '</span></div>'
   + (groups.length ? groups.map(g => `<section class="cal-d"><h2>${label(g.d)}<span class="mono">${g.d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' })}</span></h2>${g.list.map(row).join('')}</section>`).join('') : '<p class="mono">Nada programado ni festividades en los próximos dos meses.</p>')
   + ((rel || []).length ? '' : '<p class="mono cal-empty">Aún no hay capítulos ni volúmenes programados. Cuando un equipo programe uno desde el Estudio, aparecerá aquí.</p>');
 if (!document.getElementById('cal-css')) { const st = document.createElement('style'); st.id = 'cal-css'; st.textContent = `

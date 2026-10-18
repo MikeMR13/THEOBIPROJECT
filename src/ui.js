@@ -199,9 +199,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   const searchIndex = () => SIDX ||= (async () => { const u = getUser();
     const [{ data: ss }, { data: ts }, pr] = await Promise.all([sb.from('series').select('id,slug,title,short,original,author,illustrator,genres,tags,adult,cover_path,translation_status,theme,teams(name,slug,color),chapters(count)').eq('published', true),
       sb.from('teams').select('slug,name,avatar_path,status'), u ? sb.from('profiles').select('adult_ok').eq('id', u.id).maybeSingle() : { data: null }]);
-    const ok = !!pr?.data?.adult_ok; return { series: (ss || []).filter(x => x.translation_status !== 'withdrawn' && (!x.adult || ok) && !hidS(x)), teams: (ts || []).filter(t => !t.status || t.status === 'active') }; })().catch(e => { SIDX = null; throw e; });
+    const ok = !!pr?.data?.adult_ok; return { series: (ss || []).filter(x => x.translation_status !== 'withdrawn' && (!x.adult || ok)), teams: (ts || []).filter(t => !t.status || t.status === 'active') }; })().catch(e => { SIDX = null; throw e; });
   async function searchData(q, lim){
-    const I = await searchIndex(), n = norm(q), has = t => norm(t).includes(n), byId = Object.fromEntries(I.series.map(x => [x.id, x]));
+    const I0 = await searchIndex(), I = { ...I0, series: I0.series.filter(x => !hidS(x)) }, n = norm(q), has = t => norm(t).includes(n), byId = Object.fromEntries(I.series.map(x => [x.id, x]));
     const works = I.series.filter(x => has([x.title, x.short, x.original].join(' '))).slice(0, lim);
     const am = new Map(); I.series.forEach(x => [x.author, x.illustrator].filter(Boolean).forEach(a => { if (has(a)) { const k = a.trim(); am.set(k, (am.get(k) || 0) + 1); } }));
     const authors = [...am].sort((a, b) => b[1] - a[1]).slice(0, lim);
@@ -411,7 +411,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       const today = new Date().toISOString().slice(0, 10);
       const A = (an || []).filter(t => t.ann && (t.ann.title || t.ann.text) && (!t.ann.until || t.ann.until >= today)).sort((a, b) => new Date(b.ann.at || 0) - new Date(a.ann.at || 0)).slice(0, 4);
       if (A.length) fill('ob-s-ann', `<section class="ob-sec" data-from="ob-s-ann">${head('告知', 'Anuncios de los equipos')}<div class="ob-anns">${A.map(t => `<article class="ob-ann" style="--tc:${esc(t.color || '#f2c230')}"><a class="tm" href="/equipo/${esc(t.slug)}">${esc(t.name)}</a>${t.ann.at ? `<span class="mono">${ago(t.ann.at)}</span>` : ''}${t.ann.title ? `<h3>${esc(t.ann.title)}</h3>` : ''}${t.ann.text ? `<p>${esc(t.ann.text)}</p>` : ''}${t.ann.url && /^(https:\/\/|\/)/.test(t.ann.url) ? `<a class="go" href="${esc(t.ann.url)}"${t.ann.url.startsWith('/') ? '' : ' target="_blank" rel="noopener"'}>${esc(t.ann.label || 'Ver más')} →</a>` : `<a class="go" href="/equipo/${esc(t.slug)}">Ir a la página del equipo →</a>`}</article>`).join('')}</div></section>`);
-      const V = (Array.isArray(rv) ? rv : []).filter(r => byId[r.series_id]).slice(0, 6);
+      const BU = new Set([...(window.__obiBlocks?.values() || [])].map(b => b.username)), V = (Array.isArray(rv) ? rv : []).filter(r => byId[r.series_id] && !(r.username && BU.has(r.username))).slice(0, 6);
       if (V.length) fill('ob-s-rev', `<section class="ob-sec" data-from="ob-s-rev">${head('書評', 'Reseñas recientes')}<div class="ob-revs">${V.map(r => `<a class="ob-rev" href="/serie/${esc(r.slug)}"><span class="c" style="${r.cover_path ? `background-image:url('${esc(thumb(r))}')` : ''}"></span><span><b>${esc(r.title)}</b>${r.score ? `<span class="st" aria-label="${r.score} de 5">${'★'.repeat(r.score)}<i>${'★'.repeat(5 - r.score)}</i></span>` : ''}<q>${esc(r.body)}</q><small>${esc(r.anon ? 'Lector anónimo' : r.username || 'Lector')} · ${ago(r.at)}</small></span></a>`).join('')}</div></section>`);
       if (!u) return;
       const fol = (fo || []).map(r => r.series_id).filter(id => byId[id]); fol.forEach(id => seen.add(id));

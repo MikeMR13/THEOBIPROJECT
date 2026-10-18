@@ -190,7 +190,8 @@ export async function preferences(C){
   const tg = (id, on, label) => `<button type="button" class="pf-tg" id="${id}" aria-pressed="${!!on}" aria-label="${esc(label)}"><i></i></button>`;
   const flip = b => b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
   const UI = { motion: 'system', hour: 'auto', hide: [], ...(window.__obiUI || {}), ...(P.ui_prefs || {}) };
-  const saveUI = async patch => { const prev = { ...UI }; Object.assign(UI, patch); window.obiSetUI?.({ ...UI }); const { error } = await sb.from('profiles').update({ ui_prefs: UI }).eq('id', user.id); if (error) { Object.assign(UI, prev); window.obiSetUI?.({ ...UI }); toast(error.message); return false; } P.ui_prefs = { ...UI }; C.setProfile?.({ ui_prefs: P.ui_prefs }); return true; };
+  const saveUI = async patch => { const prev = { ...UI }; Object.assign(UI, patch); window.obiSetUI?.({ ...UI }); const upd = { ui_prefs: UI }; if ('tz' in patch && P.notify) upd.notify = { ...P.notify, tz: UI.tz || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' };
+    const { error } = await sb.from('profiles').update(upd).eq('id', user.id); if (error) { Object.assign(UI, prev); window.obiSetUI?.({ ...UI }); toast(error.message); return false; } P.ui_prefs = { ...UI }; if (upd.notify) P.notify = upd.notify; C.setProfile?.(upd.notify ? { ui_prefs: P.ui_prefs, notify: upd.notify } : { ui_prefs: P.ui_prefs }); return true; };
   const card = (name, k, cur, l, d) => `<label style="display:grid;gap:4px;padding:14px 16px;border:2px solid ${cur === k ? 'var(--gold)' : '#2c281e'};background:${cur === k ? '#1f1c15' : '#0d0c0a'};cursor:pointer"><span style="display:flex;gap:10px;align-items:center;font-weight:700"><input type="radio" name="${name}" value="${k}" ${cur === k ? 'checked' : ''} style="accent-color:var(--gold);width:18px;height:18px">${l}</span>${d ? `<span class="pf-note" style="font-size:13px">${d}</span>` : ''}</label>`;
   const optRow = (id, on, l, d) => `<div class="pf-row" style="justify-content:space-between"><span style="display:grid;gap:3px;flex:1 1 240px"><b style="font-size:14px">${l}</b>${d ? `<span class="pf-note" style="font-size:13px">${d}</span>` : ''}</span>${tg(id, on, l)}</div>`;
 
@@ -306,7 +307,7 @@ export async function preferences(C){
     const [{ data: fol }] = await Promise.all([sb.from('follows').select('series_id,channels').eq('user_id', user.id)]);
     const { data: ser } = (fol || []).length ? await sb.from('series').select('id,slug,title').in('id', fol.map(f => f.series_id)) : { data: [] };
     const FL = (fol || []).map(r => ({ r, s: (ser || []).find(x => x.id === r.series_id) })).filter(x => x.s).sort((x, y) => x.s.title.localeCompare(y.s.title, 'es'));
-    const save = async () => { N.tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; const v = { web: N.web, email: N.email, freq: N.freq, tz: N.tz }; const { error } = await sb.from('profiles').update({ notify: v }).eq('id', user.id); if (error) { toast(error.message); return false; } P.notify = v; return true; };
+    const save = async () => { N.tz = window.obiTZ?.() || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; const v = { web: N.web, email: N.email, freq: N.freq, tz: N.tz }; const { error } = await sb.from('profiles').update({ notify: v }).eq('id', user.id); if (error) { toast(error.message); return false; } P.notify = v; return true; };
     const lbl = 'font-size:11px;letter-spacing:.1em;color:var(--mute);display:grid;justify-items:center;gap:4px';
     const draw = () => {
       const off = N.freq === 'off';
@@ -355,13 +356,20 @@ export async function preferences(C){
   if (tab === 'pantalla') {
     const MOT = [['system', 'Como mi dispositivo', 'Sigue el ajuste «reducir movimiento» de tu sistema.'], ['reduce', 'Reducir movimiento', 'Sin animaciones de temporada, carrusel del inicio ni transiciones.']];
     const HR = [['auto', 'Automático', ''], ['24', '24 horas', '18:30'], ['12', '12 horas', '6:30 p. m.']];
+    const DEV = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    let TZS = []; try { TZS = Intl.supportedValuesOf('timeZone'); } catch { TZS = ['America/Mexico_City', 'America/Bogota', 'America/Lima', 'America/Santiago', 'America/Argentina/Buenos_Aires', 'America/Caracas', 'America/New_York', 'America/Los_Angeles', 'Europe/Madrid', 'Asia/Tokyo', 'Asia/Seoul', 'UTC']; }
+    if (UI.tz && !TZS.includes(UI.tz)) TZS = [UI.tz, ...TZS];
     const OPT = [['contrast', 'Más contraste', 'Textos secundarios y bordes más claros.'], ['underline', 'Subrayar los enlaces', 'Distingue los enlaces sin depender del color.'], ['focus', 'Resaltar el foco del teclado', 'Un borde dorado grueso al navegar con Tab.']];
     const draw = () => {
       app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Accesibilidad</h2><p class="pf-note">Se guarda en tu cuenta y se aplica al momento en todos tus dispositivos. El tamaño y la tipografía de los capítulos están en <a href="/preferencias?s=lectura">Lectura</a>.</p></div>
       <div style="display:grid;gap:12px"><h3>Movimiento</h3><div class="pf-sl" role="radiogroup" aria-label="Movimiento">${MOT.map(([k, l, d]) => card('mo', k, UI.motion, l, d)).join('')}</div></div>
       <div style="display:grid;gap:10px"><h3>Lectura de la interfaz</h3>${OPT.map(([k, l, d]) => optRow('a-' + k, UI[k], l, d)).join('')}</div>
-      <div style="display:grid;gap:12px"><h3>Formato de hora</h3><div class="pf-sl" role="radiogroup" aria-label="Formato de hora">${HR.map(([k, l, d]) => card('hr', k, UI.hour, l, d)).join('')}</div><p class="pf-note" style="font-size:13px">Las fechas y horas se muestran en la zona horaria de tu dispositivo: ${esc((Intl.DateTimeFormat().resolvedOptions().timeZone || '').replace(/_/g, ' '))}.</p></div>`);
+      <div style="display:grid;gap:12px"><h3>Formato de hora</h3><div class="pf-sl" role="radiogroup" aria-label="Formato de hora">${HR.map(([k, l, d]) => card('hr', k, UI.hour, l, d)).join('')}</div></div>
+      <div style="display:grid;gap:10px"><h3>Zona horaria</h3><p class="pf-note" style="font-size:13px">Para el calendario de estrenos, las horas de publicación y tus resúmenes por correo.</p>
+        <div class="pf-row" style="gap:10px;max-width:560px"><select id="tz" aria-label="Zona horaria" style="flex:1 1 260px"><option value="">Automática · ${esc(DEV.replace(/_/g, ' '))}</option>${TZS.map(z => `<option value="${esc(z)}" ${UI.tz === z ? 'selected' : ''}>${esc(z.replace(/_/g, ' '))}</option>`).join('')}</select></div>
+        <p class="pf-note" style="font-size:13px">Ahora mismo: ${esc(new Date().toLocaleString('es-MX', { weekday: 'long', hour: 'numeric', minute: '2-digit' }))}.</p></div>`);
       app.querySelectorAll('[name="mo"]').forEach(i => i.onchange = async () => { if (await saveUI({ motion: i.value })) { toast(i.value === 'reduce' ? 'Movimiento reducido' : 'Movimiento según tu dispositivo'); draw(); } });
+      app.querySelector('#tz').onchange = async e => { if (await saveUI({ tz: e.target.value })) { toast(e.target.value ? 'Zona horaria: ' + e.target.value.replace(/_/g, ' ') : 'Zona horaria automática'); draw(); } };
       app.querySelectorAll('[name="hr"]').forEach(i => i.onchange = async () => { if (await saveUI({ hour: i.value })) { toast('Formato de hora guardado'); draw(); } });
       OPT.forEach(([k]) => app.querySelector('#a-' + k).onclick = async e => { const b = e.currentTarget; if (await saveUI({ [k]: !UI[k] })) flip(b); });
     };
