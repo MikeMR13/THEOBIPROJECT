@@ -452,7 +452,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   function heroSlide(feat, i, prog, lastCh, top = {}){
     clearTimeout(heroT); const el = $('#hero'); if (!el) return;
     const s = feat[i], p = prog[s.id], lc = lastCh[s.id], n = p?.chapter_num || lc?.num || 1; const fresh = lc && Date.now() - new Date(lc.publish_at) < 7 * 864e5;
-    const tag = (s.synopsis || '').split(/(?<=[.!?…])\s/)[0].slice(0, 90);
+    // frase de gancho: la primera oración completa (acepta comillas de cierre); si es larga o no hay más texto, no se separa
+    const sents = (s.synopsis || '').trim().split(/(?<=[.!?…]["”»'’)]*)\s+/); let tag = sents.length > 1 && sents[0].length <= 110 ? sents[0] : '';
     el.innerHTML = `<span class="ob-vk" aria-hidden="true">新刊案内</span>
       <div class="ob-cov"><div class="f" style="${s.cover_path ? `background-image:url('${esc(matchMedia('(max-width: 700px)').matches ? thumb(s) : media(s.cover_path))}')` : ''}"></div></div>
       <div class="ob-txt"><span class="ob-kick">第${KN(lc?.num || 1)}章${fresh ? ' · 新刊' : ''}</span><br>${heroTag(s)}<span class="ob-badge">${fresh ? 'NUEVO · CAP. ' + (lc?.num || 1) : 'CAP. ' + (lc?.num || 1) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${top[s.id] ? `<a class="rk-bdg" href="/ranking" style="margin:0 0 0 10px;vertical-align:middle"><b>#${top[s.id]}</b>Top de la semana</a>` : ''}
