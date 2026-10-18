@@ -167,6 +167,11 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   chrome();
   const media = p => p ? (/^https?:/.test(p) ? p : `${url}/storage/v1/object/public/obi-media/${encodeURI(p)}`) : '';
   const thumb = s => media(s?.cover_thumb_path || s?.cover_path);
+  // aviso resaltado que el equipo configura en la ficha (series.theme.update_tag)
+  const UTAG_INK = c => { const m = /^#?([\da-f]{6})$/i.exec(c || ''); if (!m) return '#0d0c0a'; const n = parseInt(m[1], 16), l = (0.299 * (n >> 16) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255; return l > 0.55 ? '#0d0c0a' : '#fbf8f1'; };
+  const utagOn = t => !!(t && t.on && (t.text || '').trim() && (!t.until || new Date(t.until + 'T23:59:59') >= new Date()));
+  const utagHTML = t => { const c = /^#[\da-f]{6}$/i.test(t.color || '') ? t.color : '#f2c230', solid = t.style !== 'outline'; return `<span class="ob-utag" style="display:inline-flex;align-items:center;margin-left:8px;padding:2px 8px;font:600 11px/1.5 'IBM Plex Mono',monospace;letter-spacing:.04em;text-transform:uppercase;vertical-align:2px;white-space:nowrap;${solid ? `background:${c};color:${UTAG_INK(c)};border:1px solid ${c}` : `background:transparent;color:${c};border:1px solid ${c}`}">${esc(t.text.trim().slice(0, 24))}</span>`; };
+  const utag = s => utagOn(s?.theme?.update_tag) ? utagHTML(s.theme.update_tag) : '';
   const color = s => s?.theme?.color || s?.teams?.color || '#f2c230';
   const ago = d => { if (!d) return ''; const s = (Date.now() - new Date(d)) / 1000; if (s < 3600) return 'hace ' + Math.max(1, Math.round(s / 60)) + ' min'; if (s < 86400) return 'hace ' + Math.round(s / 3600) + ' h'; if (s < 2592000) return 'hace ' + Math.round(s / 86400) + ' d'; return new Date(d).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }); };
   const book = (s, sub, slim) => `<div class="ui-book" style="--c:${esc(color(s))};background-image:${s.cover_path ? `url('${esc(media(s.cover_path))}')` : 'none'}"><div class="ui-obi${slim ? ' slim' : ''}"><small>${esc(sub || s.teams?.name || 'El Obi del Lector')}</small>${slim ? '' : esc(s.short || s.title)}</div></div>`;
@@ -374,7 +379,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       ${cont.length ? `<section class="ob-sec">${head('続読', 'Continuar leyendo', '<a class="r" href="/biblioteca">Mi biblioteca →</a>')}<div class="ui-cont ob-anim">${cont.map(p => { const s = byId[p.series_id]; return `<a class="ui-ccard" href="/leer/${s.slug}/${p.chapter_num}" style="--c:${esc(color(s))}"><span class="th" style="background-image:${s.cover_path ? `url('${esc(thumb(s))}')` : 'none'}"></span><span><span class="ui-lbl">Capítulo ${p.chapter_num} · ${ago(p.updated_at)}</span><br><strong>${esc(s.title)}</strong><span class="ui-bar"><i style="width:${Math.round((p.pct || 0) * 100)}%"></i></span></span></a>`; }).join('')}</div></section>` : ''}
       <div id="ob-s-pend"></div><div id="ob-s-foryou"></div>
       <section class="ob-sec">${head('新着', 'Últimas actualizaciones', '<a class="r" href="/lanzamientos">Todos los lanzamientos →</a>')}
-        <div class="ob-upd ob-anim">${grp.map(g => { const s = byId[g.id], c = g.chs[0]; return `<a class="ob-urow" href="/leer/${s.slug}/${c.num}"><i style="background:${esc(color(s))}"></i><span><b>${esc(s.title)}</b><span class="t">${caps(g.chs)}${g.chs.length === 1 && c.title ? ' — ' + esc(c.title) : ''}</span></span><time>${ago(c.publish_at)}</time></a>`; }).join('') || '<p class="mono">Aún no hay capítulos publicados.</p>'}</div></section>
+        <div class="ob-upd ob-anim">${grp.map(g => { const s = byId[g.id], c = g.chs[0]; return `<a class="ob-urow" href="/leer/${s.slug}/${c.num}"><i style="background:${esc(color(s))}"></i><span><b>${esc(s.title)}${utag(s)}</b><span class="t">${caps(g.chs)}${g.chs.length === 1 && c.title ? ' — ' + esc(c.title) : ''}</span></span><time>${ago(c.publish_at)}</time></a>`; }).join('') || '<p class="mono">Aún no hay capítulos publicados.</p>'}</div></section>
       ${nx.length ? `<section class="ob-sec">${head('予定', 'Próximos lanzamientos', '<a class="r" href="/calendario">Calendario →</a>')}
         <div class="ob-next ob-anim">${nx.map(e => `<a class="ob-nx" href="/serie/${esc(e.series.slug)}"><span class="w">${until(e.at)} · ${new Date(e.at).toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span><b>${esc(e.series.title)}</b><small>${e.kind === 'volume' ? 'Volumen completo · ' : ''}${esc(e.label || '')}</small></a>`).join('')}</div></section>` : ''}
       ${rk.length ? `<section class="ob-sec">${head('人気', 'Más leídas', `<span class="r2"><span class="mono" style="font-size:12px">${rkUse.lbl}</span><a class="r" href="/ranking?lista=leidas&periodo=${rkUse.per}">Ver ranking →</a></span>`)}
@@ -587,7 +592,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const R = { team: qs.get('equipo') || '', hide: qs.get('pendientes') === '1', dense: localStorage.getItem('obi-rel-dense') === '1', showMuted: false, type: qs.get('tipo') || '', mine: qs.get('sigo') === '1', shown: 20, by: qs.get('ver') === 'volumen' ? 'vol' : qs.get('ver') === 'capitulo' ? 'cap' : (localStorage.getItem('obi-rel-by') === 'vol' ? 'vol' : 'cap') };
     const prog = await progressMap();
     const [{ data: chs }, { data: ser }, readR, folR, pend] = await Promise.all([
-      sb.from('chapters').select('id,num,vol,volume_id,title,publish_at,series_id,volumes(num)').eq('status', 'published').is('deleted_at', null).order('publish_at', { ascending: false }).order('num', { ascending: false }).limit(400),
+      sb.from('chapters').select('id,num,vol,volume_id,title,publish_at,series_id,volumes(num,cover_path,deleted_at)').eq('status', 'published').is('deleted_at', null).order('publish_at', { ascending: false }).order('num', { ascending: false }).limit(400),
       sb.from('series').select(SERIES),
       u ? sb.from('read_chapters').select('chapter_id').eq('user_id', u.id) : { data: [] },
       u ? sb.from('follows').select('series_id').eq('user_id', u.id) : { data: [] },
@@ -598,6 +603,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     (chs || []).forEach(c => { const s = byId[c.series_id]; if (!s || ['withdrawn'].includes(s.translation_status)) return; if (!gi[s.id]) { gi[s.id] = { s, list: [] }; groups.push(gi[s.id]); } gi[s.id].list.push(c); });
     groups.forEach(g => g.list.sort((a, b) => new Date(b.publish_at) - new Date(a.publish_at) || b.num - a.num));
     groups.sort((a, b) => new Date(b.list[0].publish_at) - new Date(a.list[0].publish_at));
+    // portada de una actualización: la del volumen más reciente con portada entre sus capítulos; si no, la de la obra
+    const ucov = g => { const c = g.list.filter(x => x.volumes?.cover_path && !x.volumes.deleted_at).sort((a, b) => (b.volumes.num ?? 0) - (a.volumes.num ?? 0))[0]; return c ? media(c.volumes.cover_path) : g.s.cover_path ? thumb(g.s) : ''; };
     const vnum = c => c.volumes?.num ?? c.vol, sameV = (a, b) => a.volume_id && b.volume_id ? a.volume_id === b.volume_id : a.vol === b.vol;
     const types = [...new Set(groups.map(g => g.s.work_type || 'Novela ligera'))].sort();
     const teams = [...new Set(groups.map(g => g.s.teams?.name).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
@@ -625,14 +632,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const volCard = (g, i) => { const s = g.s, top = g.list[0], nums = g.list.map(c => c.num), lo = Math.min(...nums), hi = Math.max(...nums), n = g.list.length;
       const unread = g.list.filter(c => !read.has(c.id)).sort((a, b) => a.num - b.num), vl = vnum(top) != null ? 'Vol. ' + vnum(top) : 'Capítulos sueltos';
       return `<article class="ui-rl" style="--c:${esc(color(s))};--d:${Math.min(i, 8) * 0.04}s">
-        <a class="cv" href="/serie/${s.slug}" data-id="${s.id}" aria-label="Vista rápida de ${esc(s.title)}" style="${s.cover_path ? `background-image:url('${esc(thumb(s))}')` : ''}"></a>
-        <div class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a>
+        <a class="cv" href="/serie/${s.slug}" data-id="${s.id}" aria-label="Vista rápida de ${esc(s.title)}" style="${ucov(g) ? `background-image:url('${esc(ucov(g))}')` : ''}"></a>
+        <div class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a>${utag(s)}
           <span class="mt"><b>${vl}</b> · ${n === 1 ? '1 capítulo' : n + ' capítulos'} (cap. ${lo === hi ? lo : lo + '–' + hi}) · ${ago(top.publish_at)}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}</span>
           <div class="acts">${unread.length ? `<a class="btn" href="/leer/${s.slug}/${unread[0].num}">${unread.length === n ? 'Leer ' + vl.toLowerCase() : 'Seguir en cap. ' + unread[0].num}</a>` : '<span class="mono" style="align-self:center">✓ Ya lo leíste</span>'}<button class="btn ghost" data-fol="${s.id}">${fol.has(s.id) ? '✓ Siguiendo' : 'Seguir'}</button>${u && unread.length ? `<button class="btn ghost" data-rd="${s.id}" data-vk="${esc(g.key)}">Marcar volumen como leído</button>` : ''}<button class="btn ghost" data-mute="${s.id}" title="No mostrar esta serie en Lanzamientos">Silenciar</button></div></div></article>`; };
     const rowCard = (g, i) => { const s = g.s, top = g.list[0], nums = g.list.map(c => c.num), unread = g.list.filter(c => !read.has(c.id)).sort((a, b) => a.num - b.num);
       const what = R.by === 'vol' ? `${vnum(top) != null ? 'Vol. ' + vnum(top) : 'Capítulos sueltos'} · cap. ${Math.min(...nums) === Math.max(...nums) ? nums[0] : Math.min(...nums) + '–' + Math.max(...nums)}` : g.list.slice(0, 3).map(c => 'cap. ' + c.num + (read.has(c.id) ? ' ✓' : '')).join(', ');
       const n = R.by === 'vol' ? unread[0]?.num : (nextOf(s) ?? unread[0]?.num);
-      return `<article class="ui-rc" style="--c:${esc(color(s))}"><span class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a><span class="mt">${what}${pend[s.id] ? ` · <span class="pend">te ${pend[s.id] === 1 ? 'falta 1' : 'faltan ' + pend[s.id]}</span>` : ''}</span></span><span class="w">${ago(top.publish_at)}</span>${n ? `<a class="btn" href="/leer/${s.slug}/${n}">Leer cap. ${n}</a>` : '<span class="mono">✓ Leído</span>'}</article>`; };
+      return `<article class="ui-rc" style="--c:${esc(color(s))}"><span class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a>${utag(s)}<span class="mt">${what}${pend[s.id] ? ` · <span class="pend">te ${pend[s.id] === 1 ? 'falta 1' : 'faltan ' + pend[s.id]}</span>` : ''}</span></span><span class="w">${ago(top.publish_at)}</span>${n ? `<a class="btn" href="/leer/${s.slug}/${n}">Leer cap. ${n}</a>` : '<span class="mono">✓ Leído</span>'}</article>`; };
     const draw = () => {
       const unit = n => R.by === 'vol' ? (n === 1 ? 'volumen' : 'volúmenes') : (n === 1 ? 'serie' : 'series');
       const list = (R.by === 'vol' ? volGroups() : groups).filter(g => (!R.type || (g.s.work_type || 'Novela ligera') === R.type) && (!R.mine || fol.has(g.s.id)) && (!R.team || g.s.teams?.name === R.team) && !muted.has(g.s.id) && (!R.hide || g.list.some(c => !read.has(c.id))));
@@ -644,8 +651,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         if (R.by === 'vol') { html += volCard(g, i); return; }
         const s = g.s, top = g.list[0], sameVol = g.list.filter(c => sameV(c, top) && new Date(top.publish_at) - new Date(c.publish_at) < DAY).length;
         html += `<article class="ui-rl" style="--c:${esc(color(s))};--d:${Math.min(i, 8) * 0.04}s">
-          <a class="cv" href="/serie/${s.slug}" data-id="${s.id}" aria-label="Vista rápida de ${esc(s.title)}" style="${s.cover_path ? `background-image:url('${esc(thumb(s))}')` : ''}"></a>
-          <div class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a><span class="mt">${esc(s.work_type || 'Novela ligera')}${s.teams?.name ? ` · <b>${esc(s.teams.name)}</b>` : ''}${fol.has(s.id) ? ' · Siguiendo' : ''}${pend[s.id] ? ` · <span class="pend">te ${pend[s.id] === 1 ? 'falta 1 capítulo' : 'faltan ' + pend[s.id] + ' capítulos'}</span>` : ''}</span>
+          <a class="cv" href="/serie/${s.slug}" data-id="${s.id}" aria-label="Vista rápida de ${esc(s.title)}" style="${ucov(g) ? `background-image:url('${esc(ucov(g))}')` : ''}"></a>
+          <div class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a>${utag(s)}<span class="mt">${esc(s.work_type || 'Novela ligera')}${s.teams?.name ? ` · <b>${esc(s.teams.name)}</b>` : ''}${fol.has(s.id) ? ' · Siguiendo' : ''}${pend[s.id] ? ` · <span class="pend">te ${pend[s.id] === 1 ? 'falta 1 capítulo' : 'faltan ' + pend[s.id] + ' capítulos'}</span>` : ''}</span>
             <div class="its">${g.list.slice(0, 3).map(c => item(s, c)).join('')}${sameVol >= 3 ? `<a class="it vol" href="/serie/${s.slug}"><b>Vol. ${vnum(top)} completo</b><small>${sameVol} capítulos</small></a>` : ''}</div>${acts(g)}</div></article>`;
       });
       $('#rel').innerHTML = (html ? `<div class="ui-rlist${R.dense ? ' dense' : ''}">${html}</div>` : `<p class="mono">${R.mine ? 'Las series que sigues aún no tienen capítulos publicados.' : (R.hide ? 'Ya leíste todo lo publicado aquí. ' : '') + 'No hay lanzamientos con estos filtros.'}</p>`) + (list.length > R.shown ? `<button class="btn ghost ui-more" id="rel-more">Ver más · ${list.length - R.shown} ${unit(list.length - R.shown)}</button>` : '');

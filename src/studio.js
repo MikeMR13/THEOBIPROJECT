@@ -254,6 +254,10 @@ export function createStudio(ctx){
   const MON = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
   const TLS = { active: ['En traducción', '#a9d18e'], paused: ['En pausa', '#f2c230'], completed: ['Completada', '#8cc3f2'], abandoned: ['Abandonada', '#a89f8a'], withdrawn: ['Retirada', '#f59e7a'] };
   const wcolor = s => s?.theme?.color || T.team?.color || '#f2c230';
+  const UTAG_INK = c => { const m = /^#?([\da-f]{6})$/i.exec(c || ''); if (!m) return '#0d0c0a'; const n = parseInt(m[1], 16), l = (0.299 * (n >> 16) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255; return l > 0.55 ? '#0d0c0a' : '#fbf8f1'; };
+  const utagOn = t => !!(t && t.on && (t.text || '').trim() && (!t.until || new Date(t.until + 'T23:59:59') >= new Date()));
+  const utagHTML = t => { const c = /^#[\da-f]{6}$/i.test(t.color || '') ? t.color : '#f2c230', solid = t.style !== 'outline'; return `<span class="ob-utag" style="display:inline-flex;align-items:center;margin-left:8px;padding:2px 8px;font:600 11px/1.5 'IBM Plex Mono',monospace;letter-spacing:.04em;text-transform:uppercase;vertical-align:2px;white-space:nowrap;${solid ? `background:${c};color:${UTAG_INK(c)};border:1px solid ${c}` : `background:transparent;color:${c};border:1px solid ${c}`}">${esc(t.text.trim().slice(0, 24))}</span>`; };
+
   async function teamData(){
     const { data: works } = await sb.from('series').select('id,slug,title,short,synopsis,genres,cover_path,translation_status,published,views,theme,volumes(count)').eq('team_id', T.team.id).is('archived_at', null).order('title');
     const ids = (works || []).map(w => w.id);
@@ -395,6 +399,7 @@ export function createStudio(ctx){
       <div class="wk-col">
         <section class="wk-box"><h2>Géneros</h2><div class="ed-chips" id="wk-gen">${[...new Set([...GENRES, ...D.genres])].map(g => `<button type="button" class="ed-chip ${D.genres.includes(g) ? 'on' : ''}" aria-pressed="${D.genres.includes(g)}" data-gen="${esc(g)}">${esc(g)}</button>`).join('')}</div><small class="mono">Hasta 4. Se usan en los filtros del Catálogo.</small></section>
         <section class="wk-box"><h2>Etiquetas</h2><div class="wk-tags" id="wk-tags">${D.tags.map((t, i) => `<span>#${esc(t)}<button type="button" data-untag="${i}" aria-label="Quitar ${esc(t)}">×</button></span>`).join('')}<input id="wk-tag" maxlength="30" placeholder="Escribe y pulsa Enter" aria-label="Nueva etiqueta"></div><small class="mono">Detalles para quien busca algo concreto: sirvienta, nobleza, comedia romántica…</small></section>
+        <section class="wk-box" id="wk-utag"><h2>Aviso en actualizaciones</h2><small class="mono">Texto resaltado junto al título en Inicio › Últimas actualizaciones y en Lanzamientos.</small><div id="wk-utag-b"></div></section>
         <section class="wk-box" style="border-top:4px solid #a9d18e"><h2>Compra oficial</h2><small class="mono">Enlaces para apoyar al autor. Se proponen por volumen y el Bibliotecario los verifica.</small>
           <div class="ed-chips">${(buys || []).map(b => `<span class="wk-buy" style="border-color:${b.verified ? '#a9d18e' : '#3d3628'};color:${b.verified ? '#a9d18e' : '#a89f8a'}">${b.verified ? '✓' : '◷'} ${esc(b.store)}${b.region ? ' · ' + esc(b.region) : ''}</span>`).join('') || '<span class="mono">Aún sin enlaces.</span>'}</div>
           <a class="btn ghost sm" href="/estudio/descargas" style="justify-self:start">Gestionar compra y descargas</a></section>
@@ -527,6 +532,12 @@ export function createStudio(ctx){
         <label class="wide">Sinopsis<textarea name="synopsis" rows="3" maxlength="3000">${esc(v.synopsis || '')}</textarea></label>
         <label class="tb-inl wide"><input type="checkbox" name="synopsis_spoiler" ${v.synopsis_spoiler ? 'checked' : ''}> La sinopsis contiene spoilers del volumen anterior</label>
         <label class="tb-inl wide"><input type="checkbox" name="is_final" ${v.is_final ? 'checked' : ''}> Es el último volumen (al publicarlo, la traducción queda como completa)</label>
+        <div class="wide wk-vacc" style="display:grid;gap:6px;padding:10px 0;border-top:1px solid #2f2a20;border-bottom:1px solid #2f2a20"><b style="font-size:13px">Quién puede leerlo</b>
+          <label class="tb-inl"><input type="radio" name="access" value="public" ${(v.access || 'public') === 'public' ? 'checked' : ''}> Público general</label>
+          <label class="tb-inl"><input type="radio" name="access" value="donors" ${v.access === 'donors' ? 'checked' : ''}> Solo mecenas, de cualquier nivel</label>
+          <label class="tb-inl"><input type="radio" name="access" value="tier" ${v.access === 'tier' ? 'checked' : ''}> Desde el nivel <select name="access_tier" style="width:auto"><option value="">Cargando niveles…</option></select></label>
+          <span class="wk-vau" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" ${(v.access || 'public') === 'public' ? 'hidden' : ''}><label class="tb-inl">Abrir a todo público el <input type="datetime-local" name="access_until" value="${v.access_until ? toLocal(v.access_until) : ''}" style="width:auto"></label>${tzHint()}<span class="mono" style="font-size:11px">Opcional. Vacío = sigue restringido.</span></span>
+          <span class="mono" style="font-size:11px">El equipo siempre lo ve. Los lectores sin acceso lo ven bloqueado con el enlace para apoyar. Puedes cambiarlo cuando quieras, también después de publicado.</span></div>
         <div class="wide wk-vcov"><span class="wk-vcp" id="vcp-${v.id}" style="${v.cover_path ? `background-image:url('${esc(media(v.cover_thumb_path || v.cover_path))}')` : ''}">${v.cover_path ? '' : 'Sin portada'}</span>
           <span style="display:grid;gap:6px"><b style="font-size:13px">Portada del volumen</b><span class="mono" style="font-size:11px">JPG, PNG o WebP · máx. 8 MB · se recomienda vertical 2:3 (por ejemplo 1200 × 1800 px).</span>
           <span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label class="btn ghost sm" style="cursor:pointer">${v.cover_path ? 'Cambiar portada' : 'Subir portada'}<input type="file" name="cover" accept="image/jpeg,image/png,image/webp" hidden></label>${v.cover_path ? '<button type="button" class="lnk danger" data-vcovdel>Quitar portada</button>' : ''}<span class="mono" id="vcs-${v.id}"></span></span></span></div>
@@ -537,6 +548,11 @@ export function createStudio(ctx){
             <label class="tb-inl"><input type="radio" name="external_only" value="1" ${v.external_only !== false ? 'checked' : ''}> Se lee solo en su sitio: El Obi del Lector muestra el volumen y un botón «Leer en el sitio del traductor».</label>
             <label class="tb-inl"><input type="radio" name="external_only" value="0" ${v.external_only === false ? 'checked' : ''}> También se lee aquí: el enlace aparece como opción adicional.</label></div></div>
         <span class="wide" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn sm" data-vsave>Guardar volumen</button><button class="btn ghost sm" data-vcancel>Cancelar</button></span></div>`;
+      const tierSel = box.querySelector('[name=access_tier]'), auBox = box.querySelector('.wk-vau');
+      box.querySelectorAll('[name=access]').forEach(r => r.onchange = () => { auBox.hidden = r.value === 'public' && r.checked; if (r.value === 'tier' && r.checked) tierSel.focus(); });
+      sb.from('patreon_tiers').select('id,name,price_usd').eq('team_id', T.team.id).order('price_usd').then(({ data: tiers }) => { const L2 = tiers || [];
+        tierSel.innerHTML = L2.length ? L2.map(t => `<option value="${t.price_usd}" ${v.access_min_price != null && +v.access_min_price === +t.price_usd ? 'selected' : ''}>${esc(t.name)} · ${t.price_usd} USD</option>`).join('') : '<option value="">Aún no hay niveles de Patreon</option>';
+        if (!L2.length) { tierSel.disabled = true; const tr = box.querySelector('[name=access][value=tier]'); tr.disabled = true; } });
       const extOn = box.querySelector('[name=ext_on]'); extOn.onchange = () => { box.querySelector('.wk-vexf').hidden = !extOn.checked; if (extOn.checked) box.querySelector('[name=external_url]').focus(); };
       const setCover = async (path, old) => { const { error } = await sb.from('volumes').update({ cover_path: path }).eq('id', v.id); if (error) throw new Error(errMsg(error)); v.cover_path = path;
         if (old && old !== path && old.startsWith(T.team.id + '/')) { const { data: used } = await sb.rpc('media_in_use', { p_team: T.team.id, p_paths: [old] }); if (!(used || []).includes(old)) await sb.storage.from('obi-media').remove([old]); } };
@@ -554,6 +570,11 @@ export function createStudio(ctx){
         const patch = { title: f('title').value.trim() || String(v.num), subtitle: f('subtitle').value.trim() || null, jp_release: f('jp_release').value || null, planned_chapters: f('planned_chapters').value === '' ? null : Math.max(0, +f('planned_chapters').value), synopsis: f('synopsis').value.trim() || null, synopsis_spoiler: f('synopsis_spoiler').checked, is_final: f('is_final').checked };
         if (f('ext_on').checked) { const u2 = f('external_url').value.trim(); if (!/^https:\/\/[^\s/]+\.[^\s]{2,}/i.test(u2)) throw new Error('Escribe el enlace completo del volumen, empezando por https://'); Object.assign(patch, { external_url: u2, external_site: f('external_site').value.trim() || null, external_only: box.querySelector('[name=external_only]:checked')?.value !== '0' }); }
         else Object.assign(patch, { external_url: null, external_site: null, external_only: false });
+        const acc = box.querySelector('[name=access]:checked')?.value || 'public';
+        if (acc === 'tier' && !tierSel.value) throw new Error('Elige desde qué nivel se puede leer');
+        const au = acc === 'public' ? null : fromLocal(f('access_until').value);
+        if (au && new Date(au) <= new Date() && !confirm('La fecha para abrirlo a todo público ya pasó: el volumen quedará público. ¿Continuar?')) return;
+        Object.assign(patch, { access: acc, access_min_price: acc === 'tier' ? +tierSel.value : null, access_until: au });
         const nn = Math.round(+f('vnum').value);
         if (nn !== v.num) { if (!(nn >= 1 && nn <= 999)) throw new Error('El número de volumen va de 1 a 999');
           const live = V.find(x => x.id !== v.id && x.num === nn), gone = (TV || []).find(x => x.id !== v.id && x.num === nn);
@@ -561,7 +582,7 @@ export function createStudio(ctx){
           if (!live && gone && !confirm(`Hay un Volumen ${nn} en la papelera. Pasará a ser el ${v.num} para dejar libre el número. ¿Continuar?`)) return;
           if (patch.title === String(v.num)) patch.title = String(nn);
           const r = await sb.rpc('renumber_volume', { p_volume: v.id, p_num: nn }); if (r.error) throw new Error(errMsg(r.error)); }
-        const { error } = await sb.from('volumes').update(patch).eq('id', v.id); if (error) throw new Error(errMsg(error)); toast(nn !== v.num ? `Volumen guardado · ahora es el Volumen ${nn}` : 'Volumen guardado'); again(); });
+        const { error } = await sb.from('volumes').update(patch).eq('id', v.id); if (error) throw new Error(errMsg(error)); toast((nn !== v.num ? `Volumen guardado · ahora es el Volumen ${nn}` : 'Volumen guardado') + (acc !== (v.access || 'public') ? ' · acceso: ' + ({ public: 'público general', donors: 'solo mecenas', tier: 'desde ' + (tierSel.selectedOptions[0]?.textContent || 'el nivel elegido') })[acc] : '')); again(); });
     });
     if (tab === 'datos') {
       let dirty = false; const mark = () => { dirty = true; const d = $('#wk-dirty'); if (d) d.textContent = 'Cambios sin guardar'; };
@@ -570,6 +591,36 @@ export function createStudio(ctx){
       const drawTags = () => { const box = $('#wk-tags'), inpT = $('#wk-tag'); box.querySelectorAll('span').forEach(x => x.remove()); inpT.insertAdjacentHTML('beforebegin', D.tags.map((t, i) => `<span>#${esc(t)}<button type="button" data-untag="${i}" aria-label="Quitar ${esc(t)}">×</button></span>`).join('')); };
       $('#wk-tags').onclick = e => { const b = e.target.closest('[data-untag]'); if (b) { D.tags.splice(+b.dataset.untag, 1); drawTags(); mark(); } else $('#wk-tag').focus(); };
       $('#wk-tag').onkeydown = e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); const v = e.target.value.trim().replace(/^#/, '').toLowerCase(); if (v && !D.tags.includes(v)) { if (D.tags.length >= 20) return toast('Máximo 20 etiquetas'); D.tags.push(v); drawTags(); mark(); } e.target.value = ''; } };
+      // ---- aviso en actualizaciones (se guarda aparte, en series.theme.update_tag)
+      const UT = Object.assign({ on: false, text: '', color: wcolor(s), style: 'solid', until: '' }, s.theme?.update_tag || {});
+      const UT_PRE = ['Nuevo volumen', 'Nuevo nivel', 'Capítulo extra', 'Volumen completo', 'Final', 'De regreso'], UT_COL = ['#f2c230', '#d9922b', '#f59e7a', '#c9a8f2', '#8cc3f2', '#a9d18e', wcolor(s)];
+      const drawUT = () => { const box = $('#wk-utag-b'); if (!box) return; const ed = can('edit') ? '' : 'disabled';
+        const pv = utagOn({ ...UT, on: true }) ? utagHTML(UT) : '<span class="mono" style="font-size:11px;margin-left:8px">(escribe un texto)</span>';
+        box.innerHTML = `<div style="display:grid;gap:10px;margin-top:8px">
+          <label class="tb-inl"><input type="checkbox" id="ut-on" ${UT.on ? 'checked' : ''} ${ed}> Mostrar el aviso</label>
+          <label>Texto<input id="ut-t" maxlength="24" value="${esc(UT.text)}" placeholder="Nuevo volumen" ${ed}></label>
+          <div class="ed-chips">${UT_PRE.map(p => `<button type="button" class="ed-chip ${UT.text === p ? 'on' : ''}" data-utp="${esc(p)}" ${ed}>${esc(p)}</button>`).join('')}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="mono" style="font-size:12px">Color</span>${[...new Set(UT_COL)].map(c => `<button type="button" data-utc="${c}" aria-label="Color ${c}" aria-pressed="${UT.color === c}" style="width:26px;height:26px;background:${c};border:2px solid ${UT.color === c ? '#f3ecd9' : 'transparent'};outline:1px solid #3d3628;cursor:pointer" ${ed}></button>`).join('')}<input type="color" id="ut-c" value="${esc(UT.color)}" aria-label="Otro color" style="width:34px;height:28px;padding:0;border:1px solid #3d3628;background:none" ${ed}></div>
+          <div style="display:flex;gap:14px;flex-wrap:wrap"><label class="tb-inl"><input type="radio" name="ut-s" value="solid" ${UT.style !== 'outline' ? 'checked' : ''} ${ed}> Sólido</label><label class="tb-inl"><input type="radio" name="ut-s" value="outline" ${UT.style === 'outline' ? 'checked' : ''} ${ed}> Contorno</label></div>
+          <label>Mostrar hasta<input type="date" id="ut-u" value="${esc(UT.until || '')}" style="width:auto" ${ed}><small class="mono">Vacío = hasta que lo quites. Después de esa fecha se oculta solo.</small></label>
+          <div style="padding:10px 12px;background:#0d0c0a;border:1px solid #2f2a20;display:flex;align-items:center;gap:10px"><i style="width:4px;align-self:stretch;background:${esc(wcolor(s))}"></i><span><b>${esc(D.title || s.title)}</b>${pv}<br><span class="mono" style="font-size:12px">Vista previa · así se ve en Inicio</span></span></div>
+          ${can('edit') ? '<span style="display:flex;gap:8px;align-items:center"><button type="button" class="btn sm" id="ut-save">Guardar aviso</button><span class="mono" id="ut-st"></span></span>' : ''}</div>`;
+        const dirtyUT = () => { const e = $('#ut-st'); if (e) e.textContent = 'Sin guardar'; };
+        $('#ut-on')?.addEventListener('change', e => { UT.on = e.target.checked; dirtyUT(); });
+        $('#ut-t')?.addEventListener('input', e => { UT.text = e.target.value; dirtyUT(); });
+        $('#ut-t')?.addEventListener('change', drawUT);
+        box.querySelectorAll('[data-utp]').forEach(b => b.onclick = () => { UT.text = b.dataset.utp; UT.on = true; drawUT(); dirtyUT(); });
+        box.querySelectorAll('[data-utc]').forEach(b => b.onclick = () => { UT.color = b.dataset.utc; drawUT(); dirtyUT(); });
+        $('#ut-c')?.addEventListener('change', e => { UT.color = e.target.value; drawUT(); dirtyUT(); });
+        box.querySelectorAll('[name=ut-s]').forEach(r => r.onchange = () => { UT.style = r.value; drawUT(); dirtyUT(); });
+        $('#ut-u')?.addEventListener('change', e => { UT.until = e.target.value; dirtyUT(); });
+        $('#ut-save')?.addEventListener('click', e => busy(e.currentTarget, async () => {
+          if (UT.on && !UT.text.trim()) throw new Error('Escribe el texto del aviso');
+          const { data: cur, error: e1 } = await sb.from('series').select('theme').eq('id', s.id).single(); if (e1) throw new Error(errMsg(e1));
+          const theme = { ...(cur?.theme || {}), update_tag: { on: !!UT.on, text: UT.text.trim().slice(0, 24), color: UT.color, style: UT.style === 'outline' ? 'outline' : 'solid', until: UT.until || null } };
+          const { error } = await sb.from('series').update({ theme }).eq('id', s.id); if (error) throw new Error(errMsg(error));
+          s.theme = theme; const st3 = $('#ut-st'); if (st3) st3.textContent = '✓ Guardado'; toast(UT.on ? 'Aviso «' + UT.text.trim() + '» activo en actualizaciones' : 'Aviso oculto'); })); };
+      drawUT();
       on('#wk-savebtn', async () => {
         if (!D.title.trim()) throw new Error('El título no puede quedar vacío');
         const patch = { title: D.title.trim(), short: D.short.trim() || D.title.trim().slice(0, 26), original: D.original.trim() || null, author: D.author.trim() || null, illustrator: D.illustrator.trim() || null, work_type: D.work_type, demographic: D.demographic || null, translation_status: D.translation_status, original_status: D.original_status || null, synopsis: D.synopsis.trim() || null, adult: D.adult, genres: D.genres, tags: D.tags };
