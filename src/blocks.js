@@ -32,11 +32,12 @@ export function cleanInline(html, mode = 'render'){
 }
 
 const rich = b => b.html ? cleanInline(b.html) : escHtml(b.text || '');
+const AL = b => b.align === 'center' || b.align === 'right' ? ` style="text-align:${b.align}"` : '';
 export function renderBlock(b, i, o = {}){
   const t = b.type || b.t, media = o.media || (x => x);
-  if (t === 'paragraph' || t === 'p') return `<p data-b="${i}">${rich(b)}</p>`;
-  if (t === 'heading' || t === 'h') return `<h3 data-b="${i}">${rich(b)}</h3>`;
-  if (t === 'quote') return `<blockquote data-b="${i}">${rich(b)}</blockquote>`;
+  if (t === 'paragraph' || t === 'p') return `<p data-b="${i}"${AL(b)}>${rich(b)}</p>`;
+  if (t === 'heading' || t === 'h') return `<h3 data-b="${i}"${AL(b)}>${rich(b)}</h3>`;
+  if (t === 'quote') return `<blockquote data-b="${i}"${AL(b)}>${rich(b)}</blockquote>`;
   if (t === 'separator' || t === 'sep') return `<div class="sep" data-b="${i}" aria-hidden="true">※</div>`;
   if (t === 'note') return `<aside class="tn" data-b="${i}"><span class="mono">Nota del traductor</span>${rich(b)}</aside>`;
   if (t === 'ruby') return `<p data-b="${i}"><ruby>${escHtml(b.text || '')}<rt>${escHtml(b.reading || '')}</rt></ruby></p>`;
@@ -59,13 +60,13 @@ export function teaserHTML(text, when){
 export function blocksToEditor(blocks, media = x => x){
   return (blocks || []).map(b => {
     const t = b.type || b.t, inner = b.html ? cleanInline(b.html, 'store') : escHtml(b.text || '');
-    if (t === 'heading' || t === 'h') return `<h3>${inner}</h3>`;
-    if (t === 'quote') return `<blockquote>${inner}</blockquote>`;
+    if (t === 'heading' || t === 'h') return `<h3${AL(b)}>${inner}</h3>`;
+    if (t === 'quote') return `<blockquote${AL(b)}>${inner}</blockquote>`;
     if (t === 'note') return `<aside class="tn">${inner}</aside>`;
     if (t === 'separator' || t === 'sep') return '<div class="sep" contenteditable="false">※</div>';
     if (t === 'ruby') return `<p><ruby>${escHtml(b.text || '')}<rt>${escHtml(b.reading || '')}</rt></ruby></p>`;
     if (t === 'image' || t === 'img') return figureHTML(b.url || b.src, b.alt, b.caption, media);
-    return `<p>${inner}</p>`;
+    return `<p${AL(b)}>${inner}</p>`;
   }).join('') || '<p><br></p>';
 }
 export const figureHTML = (url, alt, caption, media = x => x) => `<figure contenteditable="false" data-url="${escHtml(url || '')}" data-alt="${escHtml(alt || '')}" data-caption="${escHtml(caption || '')}"><img src="${escHtml(media(url))}" alt="${escHtml(alt || '')}"><figcaption>${caption ? escHtml(caption) : '<i>Sin pie · toca para editar</i>'}</figcaption></figure>`;
@@ -73,7 +74,7 @@ export const figureHTML = (url, alt, caption, media = x => x) => `<figure conten
 export function editorToBlocks(root){
   const out = [], BLOCK = /^(P|H[1-6]|BLOCKQUOTE|ASIDE|FIGURE|DIV|HR|UL|OL|LI|SECTION)$/;
   const text = el => { const html = cleanInline(el.innerHTML, 'store'), tx = el.textContent.replace(/\u00a0/g, ' ').trim(); return { html, text: tx }; };
-  const add = (type, el) => { const v = text(el); if (!v.text) return; out.push(v.html === escHtml(v.text) ? { type, text: v.text } : { type, ...v }); };
+  const add = (type, el) => { const v = text(el); if (!v.text) return; const o = v.html === escHtml(v.text) ? { type, text: v.text } : { type, ...v }, al = el.style?.textAlign; if (al === 'center' || al === 'right') o.align = al; out.push(o); };
   let loose = null;
   const flush = () => { if (loose) { add('paragraph', loose); loose = null; } };
   for (const el of [...root.childNodes]) {

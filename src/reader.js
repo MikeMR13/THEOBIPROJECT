@@ -76,7 +76,7 @@ export function createReader(ctx){
     const vol = volOf(ch); ensureFonts(vol);
     const label = (SEC_LABEL[ch.section_type] || 'Cap.') + (ch.section_type === 'Capítulo' || !ch.section_type ? ' ' + ch.num : '');
     return `<article class="rd-ch" data-ch="${ch.id}" style="${vol ? fontVars(vol, p) : ''}">
-      <header class="rd-head"><span class="mono">Volumen ${ch.vol} · ${esc(label)}</span><h2>${esc(ch.title)}</h2></header>
+      <header class="rd-head"><span class="mono">Volumen ${ch.vol} · ${esc(label)}</span><h2${(() => { const f = (blocks || []).find(b => (b.type || b.t) === 'heading')?.html?.match(/data-epub-family="(\d+)"/)?.[1]; return f ? ` style="font-family:var(--f${f})"` : ''; })()}>${esc(ch.title)}</h2></header>
       ${warningsHTML(ch.content_warnings, p.cw)}
       <div class="rd-body">${(blocks || []).map((b, i) => block(b, i, p)).join('')}</div>
       ${ch.teaser_on && ch.teaser ? teaserHTML(ch.teaser, nextWhen()) : ''}</article>`;

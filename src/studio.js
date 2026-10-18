@@ -937,25 +937,94 @@ export function createStudio(ctx){
 
   // ---------- importador ----------
   const sha256 = async buf => [...new Uint8Array(await crypto.subtle.digest('SHA-256', buf))].map(x => x.toString(16).padStart(2, '0')).join('');
-  const htmlToBlocks = (root, imgMap) => {
-    const out = [];
-    const push = (type, el) => { const html = el.innerHTML.replace(/\s*class="[^"]*"/g, '').trim(), text = el.textContent.trim(); if (text) out.push({ type, html, text }); };
-    const walk = node => [...node.children].forEach(el => {
-      const tg = el.tagName.toLowerCase();
-      if (/^h[1-6]$/.test(tg)) push('heading', el);
-      else if (tg === 'p' || tg === 'li') { const img = el.querySelector('img,image'); if (img && !el.textContent.trim()) addImg(img); else push('paragraph', el); }
-      else if (tg === 'blockquote') push('quote', el);
-      else if (tg === 'hr') out.push({ type: 'separator' });
-      else if (tg === 'img' || tg === 'image' || tg === 'svg') addImg(tg === 'svg' ? el.querySelector('image') : el);
-      else if (el.children.length) walk(el); else if (el.textContent.trim()) push('paragraph', el);
-    });
-    const addImg = img => { if (!img) return; const src = img.getAttribute('src') || img.getAttribute('xlink:href') || img.getAttribute('href'); const key = imgMap?.resolve(src); if (key) out.push({ type: 'image', url: key, alt: img.getAttribute('alt') || '', caption: '' }); };
-    walk(root); return out;
+  // EPUB/DOCX → bloques: conserva el orden exacto de texto e ilustraciones, separadores, alineación, cursivas/negritas por CSS y fuentes incrustadas (data-epub-family).
+  const BLOCK_TAGS = /^(p|div|h[1-6]|blockquote|ul|ol|li|section|article|aside|header|footer|figure|figcaption|table|thead|tbody|tfoot|tr|td|th|hr|pre|dl|dt|dd|main|nav|center|body)$/;
+  const SEP_TEXT = /^[\s*＊※◇◆○●◎☆★♦♢◈❖✦✧✶✱·•・~〜～=＝#＃§\u3000]+$/u;
+  const SEP_CLASS = /(^|[\s_-])(sep|separator|scene[\w-]*|ornament|asterism|divider|dinkus|space-?break|section-?break|break)(\s|$|[_-])/i;
+  const TITLE_CLASS = /(^|\s)([\w-]*title[\w-]*|[\w-]*heading[\w-]*|titulo[\w-]*|h[1-6])(\s|$)/i;
+  const htmlToBlocks = (root, imgMap, css) => {
+    const out = [], tagOf = e => (e.localName || '').toLowerCase();
+    const isBlock = e => e.nodeType === 1 && BLOCK_TAGS.test(tagOf(e));
+    const hasBlock = e => [...e.children].some(c => isBlock(c) || (tagOf(c) !== 'svg' && hasBlock(c)));
+    const imgsIn = e => /^(img|image)$/.test(tagOf(e)) ? [e] : tagOf(e) === 'svg' ? [...e.querySelectorAll('image')].slice(0, 1) : [...e.querySelectorAll('img,image')];
+    const wrapKids = (e, wraps) => { const d = e.ownerDocument; let outer = null, inner = null; for (const [t, f] of wraps) { const n = d.createElement(t); if (f != null) n.setAttribute('data-epub-family', f); inner ? inner.appendChild(n) : (outer = n); inner = n; } while (e.firstChild) inner.appendChild(e.firstChild); e.appendChild(outer); };
+    const deco = (e, ctx) => { for (const c of [...e.children]) { const tg = tagOf(c); if (tg === 'svg') continue;
+      const blk = isBlock(c), base = blk ? { f: css.fam(c), b: /^h[1-6]$/.test(tg), i: false } : ctx; let next = base;
+      if (!blk || !hasBlock(c)) { const f = css.fam(c), bo = css.bold(c), it = css.italic(c), w = [];
+        if (!blk && f != null && f !== base.f) w.push(['span', f]);
+        if (bo && !base.b && !/^(b|strong|h[1-6])$/.test(tg)) w.push(['b']);
+        if (it && !base.i && !/^(i|em)$/.test(tg)) w.push(['i']);
+        if (w.length && c.firstChild && !/^(img|image|br|hr)$/.test(tg)) wrapKids(c, w);
+        next = { f: f ?? base.f, b: base.b || bo, i: base.i || it }; }
+      deco(c, next); } };
+    const sep = () => { if (out.length && out[out.length - 1].type !== 'separator') out.push({ type: 'separator' }); };
+    const addImg = img => { if (!img) return; const src = img.getAttribute('src') || img.getAttribute('xlink:href') || img.getAttributeNS?.('http://www.w3.org/1999/xlink', 'href') || img.getAttribute('href'); const key = imgMap?.resolve(src); if (!key) return;
+      if (SEP_CLASS.test(img.getAttribute('class') || '') || SEP_CLASS.test(img.parentNode?.getAttribute?.('class') || '')) return sep();
+      out.push({ type: 'image', url: key, alt: img.getAttribute('alt') || '', caption: '' }); };
+    const emit = (type, el, nodes, chain = []) => {
+      let html, text; if (nodes) { const box = el.ownerDocument.createElement('div'); let at = box; for (const w of chain) at = at.appendChild(w.cloneNode(false)); nodes.forEach(n => at.appendChild(n.cloneNode(true))); html = box.innerHTML; text = box.textContent; } else { html = el.innerHTML; text = el.textContent; }
+      text = text.replace(/\s+/g, ' ').trim(); if (!text) return;
+      if (type !== 'heading' && text.length <= 24 && SEP_TEXT.test(text)) return sep();
+      if (type === 'paragraph' && text.length <= 120 && TITLE_CLASS.test(el.getAttribute?.('class') || '')) type = 'heading';
+      html = html.replace(/\s+xmlns(:\w+)?="[^"]*"/g, '').replace(/\s*class="[^"]*"/g, '').trim(); const f = css?.fam(el); if (f != null) html = `<span data-epub-family="${f}">${html}</span>`;
+      const o = { type, html, text }, al = css?.align(el); if (al) o.align = al; out.push(o); };
+    const mixed = (type, el, chain, top = el) => { if (!imgsIn(el).length) return chain ? emit(type, top, [...el.childNodes], chain) : emit(type, el); let buf = [];
+      const flush = () => { if (buf.length) emit(type, top, buf, chain || []); buf = []; };
+      for (const c of [...el.childNodes]) { if (c.nodeType === 1 && (/^(img|image|svg)$/.test(tagOf(c)) || imgsIn(c).length)) { flush(); /^(img|image|svg)$/.test(tagOf(c)) || !c.textContent.trim() ? imgsIn(c).forEach(addImg) : mixed(type, c, [...(chain || []), c], top); } else buf.push(c); }
+      flush(); };
+    const block = (c, qt) => {
+      const tg = tagOf(c), cls = c.getAttribute('class') || '', tx = c.textContent.replace(/\s+/g, ' ').trim();
+      if (tg === 'hr') return sep();
+      if (SEP_CLASS.test(cls) && !/page/i.test(cls) && tx.length <= 24 && !imgsIn(c).length) return sep();
+      if (/^h[1-6]$/.test(tg)) return hasBlock(c) ? walk(c, 'heading') : mixed('heading', c);
+      if (tg === 'blockquote') return hasBlock(c) ? walk(c, 'quote') : mixed('quote', c);
+      if (tg === 'figcaption') { const last = out[out.length - 1]; if (last?.type === 'image' && tx && !last.caption) { last.caption = tx.slice(0, 300); return; } return mixed('paragraph', c); }
+      if (hasBlock(c)) return walk(c, qt);
+      if (!tx && !imgsIn(c).length) return;
+      mixed(qt || 'paragraph', c); };
+    const walk = (node, qt) => { let buf = [];
+      const flush = () => { if (buf.some(n => n.textContent.trim())) emit(qt || 'paragraph', node, buf); buf = []; };
+      for (const c of [...node.childNodes]) {
+        if (c.nodeType === 3) { buf.push(c); continue; } if (c.nodeType !== 1) continue;
+        const tg = tagOf(c); if (/^(script|style|head|title|meta|link)$/.test(tg)) continue;
+        if (/^(img|image|svg)$/.test(tg)) { flush(); imgsIn(c).forEach(addImg); continue; }
+        if (!isBlock(c) && !hasBlock(c)) { if (tg === 'br') { flush(); continue; } if (imgsIn(c).length) { flush(); mixed(qt || 'paragraph', c); continue; } buf.push(c); continue; }
+        flush(); block(c, qt); }
+      flush(); };
+    if (css) deco(root, { f: null, b: false, i: false });
+    walk(root);
+    while (out.length && out[out.length - 1].type === 'separator') out.pop();
+    return out;
   };
-  async function deobfuscate(zip, opf, bytes, path){
-    const enc = zip.file('META-INF/encryption.xml'); if (!enc) return bytes;
+  // estilos efectivos de una página del EPUB (hojas enlazadas + <style> + style=""), por especificidad
+  function epubStyler(doc, sheets, famIdx){
+    let css = sheets.join('\n'); for (const s of doc.getElementsByTagName('style')) css += '\n' + s.textContent;
+    css = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@font-face\s*{[^}]*}/gi, '').replace(/@(import|charset|namespace)[^;]*;/gi, '');
+    const parse = d => { const o = {}; for (const m of d.matchAll(/([\w-]+)\s*:\s*([^;]+)/g)) { const k = m[1].toLowerCase(), v = m[2].replace(/!important/i, '').trim(); if (/^(font-family|font-weight|font-style|text-align|font)$/.test(k)) o[k] = v; } return o; };
+    const spec = q => (q.match(/#[\w-]+/g) || []).length * 100 + (q.match(/\.[\w-]+|\[[^\]]+\]|:[\w-]+/g) || []).length * 10 + (q.replace(/[#.][\w-]+|\[[^\]]+\]|:[\w-]+(\([^)]*\))?/g, ' ').match(/[a-z][\w-]*/gi) || []).length;
+    const rules = []; let n = 0;
+    for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) { const sel = m[1].trim(); if (!sel || sel.startsWith('@')) continue; const d = parse(m[2]); if (!Object.keys(d).length) continue;
+      for (const s of sel.split(',')) { const q = s.replace(/::?(before|after|first-letter|first-line|selection|marker|hover|focus|active|visited|link)\b/gi, '').trim(); if (q) rules.push([spec(q), n++, q, d]); } }
+    rules.sort((x, y) => x[0] - y[0] || x[1] - y[1]);
+    const P = new Map(); for (const [, , q, d] of rules) { let els; try { els = doc.querySelectorAll(q); } catch { continue; } els.forEach(e => P.set(e, Object.assign(P.get(e) || {}, d))); }
+    const own = e => { const st = e.getAttribute?.('style'); const o = P.get(e); return st ? { ...(o || {}), ...parse(st) } : o; };
+    const famFromFont = v => (v.match(/[\d.]+(px|pt|em|rem|%|ex|ch)?(\s*\/\s*[\w.%]+)?\s+(.+)$/) || [])[3] || null;
+    const tagOf2 = x => (x.localName || '').toLowerCase();
+    const memo = new Map(), up = e => e.parentNode && e.parentNode.nodeType === 1 ? e.parentNode : null;
+    const fam = e => { if (!e) return null; if (memo.has(e)) return memo.get(e); const o = own(e); const v = o?.['font-family'] || (o?.font && famFromFont(o.font)); let r;
+      if (v) { r = null; for (const name of v.split(',').map(x => x.trim().replace(/^["']|["']$/g, '').toLowerCase())) if (famIdx.has(name)) { r = famIdx.get(name); break; } }
+      else r = fam(up(e)); memo.set(e, r); return r; };
+    const flag = (e, prop, yes, no, tags) => { for (let x = e; x; x = up(x)) { const o = own(x), v = o?.[prop] || ''; if (yes.test(v)) return true; if (no.test(v)) return false; if (o?.font && yes.test(o.font)) return true; if (tags.test(tagOf2(x))) return true; } return false; };
+    return { fam,
+      italic: e => flag(e, 'font-style', /italic|oblique/i, /normal/i, /^(i|em|cite|var)$/),
+      bold: e => flag(e, 'font-weight', /bold|bolder|[6-9]00/i, /normal|lighter|[1-5]00/i, /^(b|strong|th)$/),
+      align: e => { for (let x = e; x; x = up(x)) { const v = (own(x)?.['text-align'] || '').toLowerCase(); if (/center/.test(v)) return 'center'; if (/right|end/.test(v)) return 'right'; if (/left|start|justify/.test(v)) return null; if (tagOf2(x) === 'center') return 'center'; } return null; } };
+  }
+  const headFont = bs => { const f = (bs || []).find(b => (b.type || b.t) === 'heading')?.html?.match(/data-epub-family="(\d+)"/)?.[1]; return f ? `style="font-family:var(--f${f})"` : ''; };
+  async function deobfuscate(zip, opf, bytes, path, get = p => zip.file(p)){
+    const enc = get('META-INF/encryption.xml'); if (!enc) return bytes;
     const x = new DOMParser().parseFromString(await enc.async('string'), 'application/xml');
-    const node = [...x.getElementsByTagNameNS('*', 'EncryptedData')].find(d => (d.getElementsByTagNameNS('*', 'CipherReference')[0]?.getAttribute('URI') || '') === path);
+    const node = [...x.getElementsByTagNameNS('*', 'EncryptedData')].find(d => { const u = decodeURIComponent(d.getElementsByTagNameNS('*', 'CipherReference')[0]?.getAttribute('URI') || '').replace(/^\/+/, ''); return u.toLowerCase() === path.toLowerCase() || path.toLowerCase().endsWith('/' + u.toLowerCase()); });
     if (!node) return bytes;
     const alg = node.getElementsByTagNameNS('*', 'EncryptionMethod')[0]?.getAttribute('Algorithm') || '';
     const uid = opf.uid.replace(/[\u0020\u0009\u000d\u000a]/g, '');
@@ -964,51 +1033,82 @@ export function createStudio(ctx){
     else if (alg.includes('ns.adobe.com/pdf/enc#RC')) { const hex = uid.replace(/^urn:uuid:/i, '').replace(/-/g, ''); const key = new Uint8Array(16); for (let i = 0; i < 16; i++) key[i] = parseInt(hex.substr(i * 2, 2), 16); for (let i = 0; i < Math.min(1024, b.length); i++) b[i] ^= key[i % 16]; }
     return b;
   }
+  const EXT_T = { xhtml: 'application/xhtml+xml', html: 'application/xhtml+xml', htm: 'application/xhtml+xml', css: 'text/css', ncx: 'application/x-dtbncx+xml', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', avif: 'image/avif', ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2' };
+  const extOf = p => (p.split('?')[0].split('.').pop() || '').toLowerCase();
+  // XHTML estricto primero; si falla (entidades HTML como &nbsp;, etiquetas sin cerrar de Kindle), se lee como HTML.
+  const parseMarkup = str => { str = str.replace(/^\uFEFF/, '').trimStart(); const d = new DOMParser().parseFromString(str, 'application/xhtml+xml'); return d.getElementsByTagName('parsererror').length || !d.body ? new DOMParser().parseFromString(str, 'text/html') : d; };
+  const parseXml = str => { str = str.replace(/^\uFEFF/, '').trimStart(); const d = new DOMParser().parseFromString(str, 'application/xml'); if (d.getElementsByTagName('parsererror').length) throw new Error('El índice interno del EPUB (OPF/NCX) está dañado'); return d; };
   async function parseEpub(file){
     const { default: JSZip } = await import('https://esm.sh/jszip@3.10.1');
-    const zip = await JSZip.loadAsync(file);
+    let zip; try { zip = await JSZip.loadAsync(file); } catch { throw new Error('El archivo no es un EPUB válido (no se puede abrir como ZIP). Si viene de Kindle Create, exporta como EPUB, no como KPF.'); }
     const files = Object.values(zip.files); if (files.length > LIMITS.entries) throw new Error('El EPUB tiene demasiados archivos');
     const total = files.reduce((a, f) => a + (f._data?.uncompressedSize || 0), 0); if (total > LIMITS.unzipped) throw new Error('El EPUB descomprimido supera 300 MB');
-    const cont = new DOMParser().parseFromString(await zip.file('META-INF/container.xml').async('string'), 'application/xml');
-    const opfPath = cont.querySelector('rootfile').getAttribute('full-path'), base = opfPath.replace(/[^/]*$/, '');
-    const X = new DOMParser().parseFromString(await zip.file(opfPath).async('string'), 'application/xml');
-    const uidId = X.documentElement.getAttribute('unique-identifier'), uid = [...X.getElementsByTagNameNS('*', 'identifier')].find(e => e.getAttribute('id') === uidId)?.textContent || '';
-    const res = (from, href) => { const u = new URL(href, 'http://x/' + from); return decodeURIComponent(u.pathname.slice(1)); };
-    const items = Object.fromEntries([...X.getElementsByTagNameNS('*', 'item')].map(i => [i.getAttribute('id'), { href: res(opfPath, i.getAttribute('href')), type: i.getAttribute('media-type'), props: i.getAttribute('properties') || '' }]));
-    const title = X.getElementsByTagNameNS('*', 'title')[0]?.textContent || file.name;
+    // rutas sin distinguir mayúsculas ni barras invertidas (EPUB armados en Windows / Kindle)
+    const ci = new Map(files.filter(f => !f.dir).map(f => [f.name.replace(/\\/g, '/').toLowerCase(), f]));
+    const get = p => p && (zip.file(p) || ci.get(p.replace(/\\/g, '/').toLowerCase()) || null);
+    const text = async p => { const f = get(p); return f ? f.async('string') : null; };
+    if (get('META-INF/rights.xml')) throw new Error('Este EPUB tiene DRM (Adobe). Usa el archivo original sin protección.');
+    const encXml = await text('META-INF/encryption.xml');
+    if (encXml) { const ex = parseXml(encXml); const locked = [...ex.getElementsByTagNameNS('*', 'EncryptedData')].filter(d => !/idpf\.org\/2008\/embedding|ns\.adobe\.com\/pdf\/enc#RC/.test(d.getElementsByTagNameNS('*', 'EncryptionMethod')[0]?.getAttribute('Algorithm') || '')); if (locked.length) throw new Error('Este EPUB tiene DRM: el texto está cifrado. Usa el archivo original sin protección.'); }
+    let opfPath = null; const contXml = await text('META-INF/container.xml');
+    if (contXml) { try { const c = parseXml(contXml); opfPath = [...c.getElementsByTagNameNS('*', 'rootfile')].find(r => /oebps-package/.test(r.getAttribute('media-type') || 'oebps-package'))?.getAttribute('full-path'); } catch {} }
+    if (!opfPath || !get(opfPath)) opfPath = [...ci.values()].find(f => /\.opf$/i.test(f.name))?.name;
+    if (!opfPath) throw new Error('No encontré el índice del libro (archivo .opf). El EPUB está incompleto.');
+    opfPath = get(opfPath).name.replace(/\\/g, '/');
+    const X = parseXml(await get(opfPath).async('string'));
+    const uidId = X.documentElement.getAttribute('unique-identifier'), uid = [...X.getElementsByTagNameNS('*', 'identifier')].find(e => e.getAttribute('id') === uidId)?.textContent || X.getElementsByTagNameNS('*', 'identifier')[0]?.textContent || '';
+    const res = (from, href) => { try { const u = new URL(href.replace(/\\/g, '/'), 'http://x/' + from); const p = decodeURIComponent(u.pathname.slice(1)); return get(p)?.name || p; } catch { return href; } };
+    const items = Object.fromEntries([...X.getElementsByTagNameNS('*', 'item')].filter(i => i.getAttribute('href')).map(i => { const href = res(opfPath, i.getAttribute('href')); let type = (i.getAttribute('media-type') || '').toLowerCase().trim(); if (!type || type === 'image/jpg' || type === 'application/octet-stream' || type === 'text/plain') type = EXT_T[extOf(href)] || type; return [i.getAttribute('id'), { id: i.getAttribute('id'), href, type, props: i.getAttribute('properties') || '' }]; }));
+    const isHtml = it => /html/.test(it.type) || /^(x?html?)$/.test(extOf(it.href));
+    const title = X.getElementsByTagNameNS('*', 'title')[0]?.textContent.trim() || file.name.replace(/\.epub$/i, '');
     const images = new Map(), fonts = [];
     for (const it of Object.values(items)) {
-      if (/^image\//.test(it.type)) { const raw = await zip.file(it.href)?.async('blob'); images.set(it.href, { blob: raw && new Blob([raw], { type: it.type }), type: it.type, name: it.href.split('/').pop() }); }
-      if (/font|opentype|woff|truetype/.test(it.type) || /\.(ttf|otf|woff2?)$/i.test(it.href)) { const raw = await zip.file(it.href)?.async('uint8array'); if (raw) fonts.push({ href: it.href, bytes: await deobfuscate(zip, { uid }, raw, it.href), name: it.href.split('/').pop() }); }
+      if (/^image\//.test(it.type)) { const raw = await get(it.href)?.async('blob'); images.set(it.href, { blob: raw && new Blob([raw], { type: it.type }), type: it.type, name: it.href.split('/').pop() }); }
+      if (/font|opentype|woff|truetype|sfnt/.test(it.type) || /\.(ttf|otf|woff2?)$/i.test(it.href)) { const raw = await get(it.href)?.async('uint8array'); if (raw) fonts.push({ href: it.href, bytes: await deobfuscate(zip, { uid }, raw, it.href, get), name: it.href.split('/').pop() }); }
     }
-    // familias desde las hojas de estilo
-    const fam = {}; for (const it of Object.values(items).filter(i => i.type === 'text/css')) { const css = await zip.file(it.href)?.async('string') || ''; for (const m of css.matchAll(/@font-face\s*{([^}]*)}/g)) { const f = /font-family\s*:\s*["']?([^;"']+)/.exec(m[1])?.[1]?.trim(), src = /url\(\s*["']?([^)"']+)/.exec(m[1])?.[1], st = /font-style\s*:\s*(\w+)/.exec(m[1])?.[1] || 'normal', wt = /font-weight\s*:\s*(\w+)/.exec(m[1])?.[1] || 'normal'; if (f && src) fam[res(it.href, src)] = { family: f, style: st, weight: wt }; } }
+    // imágenes referidas en el texto pero no declaradas en el manifiesto (frecuente en exportaciones de Kindle)
+    const loose = p => { if (images.has(p)) return true; const f = get(p); if (!f || !EXT_T[extOf(p)]?.startsWith('image/')) return false; images.set(p, { lazy: f, type: EXT_T[extOf(p)], name: p.split('/').pop() }); return true; };
+    const fam = {}; for (const it of Object.values(items).filter(i => i.type === 'text/css')) { const css = await text(it.href) || ''; for (const m of css.matchAll(/@font-face\s*{([^}]*)}/g)) { const f = /font-family\s*:\s*["']?([^;"']+)/.exec(m[1])?.[1]?.trim(), src = /url\(\s*["']?([^)"']+)/.exec(m[1])?.[1], st = /font-style\s*:\s*(\w+)/.exec(m[1])?.[1] || 'normal', wt = /font-weight\s*:\s*(\w+)/.exec(m[1])?.[1] || 'normal'; if (f && src) fam[res(it.href, src)] = { family: f, style: st, weight: wt }; } }
     fonts.forEach(f => Object.assign(f, fam[f.href] || { family: f.name.replace(/\.\w+$/, ''), style: 'normal', weight: 'normal' }));
-    // títulos del índice
-    const tocTitles = {}; const nav = Object.values(items).find(i => i.props.includes('nav'));
-    if (nav) { const d = new DOMParser().parseFromString(await zip.file(nav.href).async('string'), 'application/xhtml+xml'); d.querySelectorAll('nav a[href]').forEach(a => tocTitles[res(nav.href, a.getAttribute('href')).split('#')[0]] ||= a.textContent.trim()); }
-    else { const ncx = Object.values(items).find(i => i.type === 'application/x-dtbncx+xml'); if (ncx) { const d = new DOMParser().parseFromString(await zip.file(ncx.href).async('string'), 'application/xml'); d.querySelectorAll('navPoint').forEach(n => { const s = n.querySelector('content')?.getAttribute('src'); if (s) tocTitles[res(ncx.href, s).split('#')[0]] ||= n.querySelector('text')?.textContent.trim(); }); } }
-    const chapters = [];
-    for (const ref of X.getElementsByTagNameNS('*', 'itemref')) {
-      const it = items[ref.getAttribute('idref')]; if (!it || !/html/.test(it.type)) continue;
-      const doc = new DOMParser().parseFromString(await zip.file(it.href).async('string'), 'application/xhtml+xml');
-      const blocks = htmlToBlocks(doc.body || doc.documentElement, { resolve: s => s && images.has(res(it.href, s)) ? 'img:' + res(it.href, s) : null });
+    // índice: nav de EPUB 3 (solo el «toc», no landmarks/page-list) y, si no da títulos, toc.ncx de EPUB 2 (Sigil, Kindle)
+    const tocTitles = {}; const nav = Object.values(items).find(i => /\bnav\b/.test(i.props));
+    if (nav) { const d = parseMarkup(await text(nav.href) || ''); const navs = [...d.getElementsByTagName('nav')]; const toc = navs.find(n => /toc/.test(n.getAttribute('epub:type') || n.getAttributeNS('http://www.idpf.org/2007/ops', 'type') || n.getAttribute('role') || '')) || navs[0]; toc?.querySelectorAll('a[href]').forEach(a => { const t = a.textContent.replace(/\s+/g, ' ').trim(); if (t) tocTitles[res(nav.href, a.getAttribute('href')).split('#')[0]] ||= t; }); }
+    if (!Object.keys(tocTitles).length) { const ncxId = X.getElementsByTagNameNS('*', 'spine')[0]?.getAttribute('toc'); const ncx = items[ncxId] || Object.values(items).find(i => i.type === 'application/x-dtbncx+xml' || extOf(i.href) === 'ncx'); if (ncx) { try { const d = parseXml(await text(ncx.href) || ''); [...d.getElementsByTagNameNS('*', 'navPoint')].forEach(n => { const s = n.getElementsByTagNameNS('*', 'content')[0]?.getAttribute('src'), t = n.getElementsByTagNameNS('*', 'text')[0]?.textContent.replace(/\s+/g, ' ').trim(); if (s && t) tocTitles[res(ncx.href, s).split('#')[0]] ||= t; }); } catch {} } }
+    const famIdx = new Map([...new Set(fonts.map(f => f.family))].map((f, i) => [f.toLowerCase(), i]));
+    const sheetCache = new Map(), sheet = async p => { if (!sheetCache.has(p)) sheetCache.set(p, (await text(p)) || ''); return sheetCache.get(p); };
+    const chapters = [], spine = [...X.getElementsByTagNameNS('*', 'itemref')].map(r => items[r.getAttribute('idref')]).filter(it => it && isHtml(it));
+    if (!spine.length) throw new Error('El EPUB no declara el orden de lectura (spine) o no tiene páginas de texto');
+    for (const it of spine) {
+      const raw = await text(it.href); if (raw == null) continue;
+      const doc = parseMarkup(raw);
+      const links = [...doc.querySelectorAll('link')].filter(l => /stylesheet/i.test(l.getAttribute('rel') || '') || /css/i.test(l.getAttribute('type') || '')).map(l => l.getAttribute('href')).filter(Boolean);
+      const css = epubStyler(doc, await Promise.all(links.map(h => sheet(res(it.href, h)))), famIdx);
+      const blocks = htmlToBlocks(doc.body || doc.documentElement, { resolve: s => { if (!s || /^(https?:|data:)/i.test(s)) return null; const p = res(it.href, s); return loose(p) ? 'img:' + p : null; } }, css);
       if (!blocks.length) continue;
-      const t = tocTitles[it.href] || blocks.find(b => b.type === 'heading')?.text || `Sección ${chapters.length + 1}`;
+      const t = tocTitles[it.href] || blocks.find(b => b.type === 'heading')?.text || doc.title?.trim() || `Sección ${chapters.length + 1}`;
       chapters.push({ title: t.slice(0, 200), type: /pr[oó]log/i.test(t) ? 'Prólogo' : /ep[ií]log/i.test(t) ? 'Epílogo' : /afterword|palabras del autor/i.test(t) ? 'Afterword' : /interlud/i.test(t) ? 'Interludio' : 'Capítulo', blocks });
     }
+    for (const [k, v] of images) if (v.lazy) images.set(k, { blob: new Blob([await v.lazy.async('blob')], { type: v.type }), type: v.type, name: v.name });
     const md = n => [...X.getElementsByTagNameNS('*', n)].map(e => e.textContent.trim()).filter(Boolean);
-    const metaN = n => [...X.getElementsByTagNameNS('*', 'meta')].find(m => m.getAttribute('name') === n)?.getAttribute('content');
-    const metaP = pr => [...X.getElementsByTagNameNS('*', 'meta')].find(m => m.getAttribute('property') === pr)?.textContent.trim();
+    const metas = [...X.getElementsByTagNameNS('*', 'meta')];
+    const metaN = n => metas.find(m => m.getAttribute('name') === n)?.getAttribute('content');
+    const metaP = pr => metas.find(m => m.getAttribute('property') === pr)?.textContent.trim();
     const desc = md('description')[0], synopsis = desc ? (new DOMParser().parseFromString(desc, 'text/html').body.textContent || '').trim().slice(0, 3000) : '';
     const idx = +(metaN('calibre:series_index') || metaP('group-position') || (title.match(/(?:vol(?:umen|ume)?\.?|tomo)\s*(\d+)/i) || [])[1] || 0) || null;
     const OPF = 'http://www.idpf.org/2007/opf', people = [...X.getElementsByTagNameNS('*', 'creator'), ...X.getElementsByTagNameNS('*', 'contributor')];
-    const roleOf = e => e.getAttributeNS(OPF, 'role') || e.getAttribute('opf:role') || (e.id && [...X.getElementsByTagNameNS('*', 'meta')].find(m => m.getAttribute('refines') === '#' + e.id && m.getAttribute('property') === 'role')?.textContent.trim()) || '';
+    const roleOf = e => e.getAttributeNS(OPF, 'role') || e.getAttribute('opf:role') || (e.id && metas.find(m => m.getAttribute('refines') === '#' + e.id && m.getAttribute('property') === 'role')?.textContent.trim()) || '';
     const ill = people.find(e => /^ill/i.test(roleOf(e)))?.textContent.trim() || '', aut = people.find(e => /^aut/i.test(roleOf(e)))?.textContent.trim();
     const date = (md('date')[0] || '').match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '';
     const meta = { illustrator: ill, date, author: aut || md('creator')[0] || '', publisher: md('publisher')[0] || '', synopsis, index: idx ? Math.round(idx) : null, series: metaN('calibre:series') || metaP('belongs-to-collection') || '' };
-    const coverItem = Object.values(items).find(i => i.props.includes('cover-image')) || items[metaN('cover')] || Object.values(items).find(i => /^image\//.test(i.type) && /cover|portada/i.test(i.href));
-    return { title, chapters, images, fonts, meta, cover: coverItem && images.has(coverItem.href) ? 'img:' + coverItem.href : null };
+    // portada: EPUB 3 (cover-image) → <meta name="cover"> por id o ruta (EPUB 2, Sigil, Kindle) → <guide type="cover"> → nombre de archivo
+    const mc = metaN('cover'), byIdCI = id => id && Object.values(items).find(i => i.id?.toLowerCase() === id.toLowerCase());
+    let coverItem = Object.values(items).find(i => /cover-image/.test(i.props)) || byIdCI(mc) || (mc && items[Object.keys(items).find(k => items[k].href.endsWith(mc))]);
+    let coverHref = coverItem && /^image\//.test(coverItem.type) ? coverItem.href : null;
+    if (!coverHref) { const g = [...X.getElementsByTagNameNS('*', 'reference')].find(r => /cover/i.test(r.getAttribute('type') || '')); const gh = g && res(opfPath, g.getAttribute('href')).split('#')[0];
+      const page = gh ? Object.values(items).find(i => i.href === gh) : (coverItem && isHtml(coverItem) ? coverItem : null);
+      if (page) { const d = parseMarkup(await text(page.href) || ''); const im = d.querySelector('img') || d.getElementsByTagName('image')[0]; const s = im && (im.getAttribute('src') || im.getAttribute('xlink:href') || im.getAttributeNS('http://www.w3.org/1999/xlink', 'href') || im.getAttribute('href')); if (s) coverHref = res(page.href, s); } }
+    if (!coverHref) coverHref = [...images.keys()].find(k => /cover|portada/i.test(k)) || null;
+    return { title, chapters, images, fonts, famList: [...famIdx.keys()], meta, cover: coverHref && images.has(coverHref) ? 'img:' + coverHref : null };
   }
   async function parseDocx(file){
     const { default: mammoth } = await import('https://esm.sh/mammoth@1.8.0/mammoth.browser.js');
@@ -1086,14 +1186,19 @@ export function createStudio(ctx){
         st('Calculando huella…'); fp = await sha256(await f.arrayBuffer());
         const { data: dup } = await sb.from('import_jobs').select('created_at').eq('team_id', T.team.id).eq('fingerprint', fp).eq('status', 'done').limit(1); dupAt = dup?.[0]?.created_at || null;
         st('Analizando ' + f.name + '…');
+        if (/\.(kpf|mobi|azw3?|kfx)$/i.test(f.name)) throw new Error('Ese es un formato de Kindle. En Kindle Create usa «Archivo › Exportar» y elige EPUB; en Calibre conviértelo a EPUB.');
         P = /\.epub$/i.test(f.name) ? await parseEpub(f) : /\.docx$/i.test(f.name) ? await parseDocx(f) : /\.pdf$/i.test(f.name) ? await parsePdf(f) : (() => { throw new Error('Formato no admitido'); })();
         if (!P.chapters.length) throw new Error('No encontré texto en el archivo');
-        P.meta ||= {}; P.urls = new Map([...P.images].map(([k, v]) => [k, v.blob ? URL.createObjectURL(v.blob) : '']));
+        P.meta ||= {}; document.getElementById('imp-fonts')?.remove(); P.fontVars = '';
+        if (P.fonts?.length) { const fl = [...new Set(P.fonts.map(f => f.family))], stl = document.createElement('style'); stl.id = 'imp-fonts';
+          stl.textContent = P.fonts.map(f => `@font-face{font-family:"imp-${fl.indexOf(f.family)}";src:url("${URL.createObjectURL(new Blob([f.bytes]))}");font-style:${/italic|oblique/i.test(f.style) ? 'italic' : 'normal'};font-weight:${/^\d+$|bold|normal/.test(f.weight) ? f.weight : 'normal'}}`).join('');
+          document.head.appendChild(stl); P.fontVars = fl.map((_, i) => `--f${i}:"imp-${i}",inherit`).join(';') + ';'; }
+        P.urls = new Map([...P.images].map(([k, v]) => [k, v.blob ? URL.createObjectURL(v.blob) : '']));
         suggestSkips(P);
         const key = (P.meta.series || P.title).toLowerCase();
         const guess = (works || []).find(w => w.title && key.includes(w.title.toLowerCase().slice(0, 18)));
         D.work = guess?.id || ''; D.newTitle = P.meta.series || P.title.replace(/\s*[,:\-–]?\s*(vol(umen|ume)?\.?|tomo)\s*\d+.*$/i, '').trim() || P.title; D.newAuthor = P.meta.author || '';
-        D.vnum = P.meta.index || nextVol(guess); D.cover = P.cover || null; D.workCover = !guess || !guess.cover_path; D.mode = 'append';
+        D.vnum = P.meta.index || nextVol(guess); D.cover = P.cover || null; D.workCover = !guess || !guess.cover_path; D.mode = 'replace';
         V = { title: '', subtitle: '', synopsis: P.meta.synopsis || '', synopsis_spoiler: false, publisher: P.meta.publisher || '', imprint: '', illustrator: P.meta.illustrator || '', jp_release: P.meta.date || '', planned_chapters: '', is_final: false, translator_notes: '' };
         sel = Math.max(0, P.chapters.findIndex(c => !c.skip)); splitting = false;
         st(''); step = 2; render();
@@ -1134,7 +1239,7 @@ export function createStudio(ctx){
               <select data-k="${i}" aria-label="Tipo">${SEC.map(s => `<option ${s === c.type ? 'selected' : ''}>${s}</option>`).join('')}</select>
               <span class="imp-a"><button class="ed-btn" data-mv="${i}" data-d="-1" title="Subir" ${i ? '' : 'disabled'}>↑</button><button class="ed-btn" data-mv="${i}" data-d="1" title="Bajar" ${i < ch.length - 1 ? '' : 'disabled'}>↓</button><button class="ed-btn" data-merge="${i}" title="Unir con la siguiente" ${i < ch.length - 1 ? '' : 'disabled'}>Unir ↓</button></span></li>`; }).join('')}</ol></div>
           <div class="imp-pvw"><div class="imp-lh"><b>Vista previa · ${sel + 1} de ${ch.length}</b><button class="ed-btn ${splitting ? 'on' : ''}" id="split">${splitting ? 'Toca el párrafo donde empieza la nueva sección · Cancelar' : 'Dividir esta sección…'}</button></div>
-            <div class="imp-pv${splitting ? ' splitting' : ''}" id="pv"><div class="rd" data-theme="oscuro" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="--rs:17px"><article class="rd-ch"><header class="rd-head"><span class="mono">${esc(cur.type)}</span><h2>${esc(cur.title)}</h2></header><div class="rd-body">${cur.blocks.map((b, i) => renderBlock(b, i, { media: src })).join('')}</div></article></div></div></div>
+            <div class="imp-pv${splitting ? ' splitting' : ''}" id="pv"><div class="rd" data-theme="oscuro" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="${P.fontVars || ''}--rs:17px"><article class="rd-ch"><header class="rd-head"><span class="mono">${esc(cur.type)}</span><h2 ${headFont(cur.blocks)}>${esc(cur.title)}</h2></header><div class="rd-body">${cur.blocks.map((b, i) => renderBlock(b, i, { media: src })).join('')}</div></article></div></div></div>
         </div>
         <div class="imp-nav"><button class="btn ghost" id="back">‹ Elegir otro archivo</button><button class="btn" id="next" ${inc.length ? '' : 'disabled'}>Continuar al destino ›</button></div>`;
       bindFicha();
@@ -1163,7 +1268,7 @@ export function createStudio(ctx){
     }
 
     function s3(){
-      const w = work(), ex = liveVols(w).find(v => v.num === D.vnum), keys = imgKeys(), used = usedImgs(), inc = P.chapters.filter(c => !c.skip);
+      const w = work(), ex = liveVols(w).find(v => v.num === D.vnum), gone = !ex && (w?.volumes || []).find(v => v.deleted_at && v.num === D.vnum), keys = imgKeys(), used = usedImgs(), inc = P.chapters.filter(c => !c.skip);
       const folder = `obras › ${w?.slug || slugify(D.newTitle || P.title)} › vol-${D.vnum}`;
       W().innerHTML = `<div class="imp-dest">
         <section class="imp-box"><h3>Obra y volumen</h3>
@@ -1171,9 +1276,9 @@ export function createStudio(ctx){
           ${w ? '' : `<label>Título de la obra<input id="dt" value="${esc(D.newTitle)}" maxlength="200"></label><label>Autor<input id="da" value="${esc(D.newAuthor)}" maxlength="120"></label>`}
           <label>Número de volumen<input id="dv" type="number" min="1" max="999" value="${D.vnum}"></label>
           ${ex ? `<div class="imp-warn"><span>El Volumen ${D.vnum} ya existe<span id="exc"></span>.</span>
-            <label class="tb-inl"><input type="radio" name="dm" value="append" ${D.mode === 'append' ? 'checked' : ''}> Agregar estas secciones después de las existentes</label>
-            <label class="tb-inl"><input type="radio" name="dm" value="replace" ${D.mode === 'replace' ? 'checked' : ''}> Reemplazar sus capítulos (los anteriores van a la papelera)</label></div>`
-            : `<p class="mono">Se creará el Volumen ${D.vnum}${w ? ' en ' + esc(w.title) : ''}${Object.keys(fichaRow()).length ? ', con la ficha del paso anterior' : ''}.</p>`}
+            <label class="tb-inl"><input type="radio" name="dm" value="replace" ${D.mode === 'replace' ? 'checked' : ''}> Reemplazar el volumen: capítulos, ficha y portada nuevos (los capítulos anteriores van a la papelera)</label>
+            <label class="tb-inl"><input type="radio" name="dm" value="append" ${D.mode === 'append' ? 'checked' : ''}> Agregar estas secciones después de las existentes (la ficha solo completa campos vacíos)</label></div>`
+            : gone ? `<p class="imp-warn">Hay un Volumen ${D.vnum} en la papelera. Se recupera y se llena con este archivo; sus capítulos viejos siguen en la papelera.</p>` : `<p class="mono">Se creará el Volumen ${D.vnum}${w ? ' en ' + esc(w.title) : ''}${Object.keys(fichaRow()).length ? ', con la ficha del paso anterior' : ''}.</p>`}
         </section>
         <section class="imp-box"><h3>Portada del volumen</h3>
           <p class="mono">${keys.length ? 'Toca la imagen que será la portada.' + (P.cover ? ' Marcamos la que el EPUB declara como portada.' : '') : 'El archivo no trae imágenes.'}</p>
@@ -1211,13 +1316,14 @@ export function createStudio(ctx){
       $('#go').onclick = e => busy(e.currentTarget, commit);
     }
 
+    const imgType = n => ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', avif: 'image/avif' })[(n.split('.').pop() || '').toLowerCase()] || 'application/octet-stream';
     async function commit(){
       const uploaded = [], inserted = [], inc = P.chapters.filter(c => !c.skip);
-      let job = null, createdSeries = null, createdVol = null, oldIds = [], oldGone = false, volBefore = null, seriesCoverBefore;
+      let job = null, createdSeries = null, createdVol = null, restoredVol = null, oldIds = [], oldGone = false, volBefore = null, seriesCoverBefore;
       if (D.pub === 'at' && (!D.at || new Date(fromLocal(D.at)) <= new Date())) throw new Error('Elige una fecha futura para programar');
       const ficha = fichaRow();
       let w = work(), vol = liveVols(w).find(v => v.num === D.vnum);
-      if (vol && D.mode === 'replace' && !confirm(`Se reemplazarán los capítulos del Volumen ${D.vnum}. Los anteriores van a la papelera. ¿Continuar?`)) return;
+      if (vol && D.mode === 'replace' && !confirm(`Se reemplazará el Volumen ${D.vnum}: capítulos, ficha y portada. Los capítulos anteriores van a la papelera. ¿Continuar?`)) return;
       try {
         ({ data: job } = await sb.from('import_jobs').insert({ team_id: T.team.id, created_by: getUser().id, filename: file.name, file_type: file.name.split('.').pop().toLowerCase(), mode: vol ? D.mode : 'append', status: 'running', fingerprint: fp }).select().single());
         if (!w) {
@@ -1234,17 +1340,21 @@ export function createStudio(ctx){
         const up = async (sub, name, blob, type) => { const p = dir + sub + fname(name); const { error } = await sb.storage.from('obi-media').upload(p, blob, { contentType: type }); if (error) throw error; uploaded.push(p); return p; };
         const keys = D.allImgs ? imgKeys() : [...usedImgs()].filter(k => P.images.get(k)?.blob);
         const map = {}; let n = 0;
-        for (const key of keys) { const im = P.images.get(key); st(`Subiendo imágenes a Multimedia ${++n}/${keys.length}…`); if (im.blob.size > LIMITS.image) { toast(`${im.name} supera 8 MB y se omitió`); continue; } map['img:' + key] = await up('', im.name, im.blob, im.type); }
+        for (const key of keys) { const im = P.images.get(key); st(`Subiendo imágenes a Multimedia ${++n}/${keys.length}…`); if (im.blob.size > LIMITS.image) { toast(`${im.name} supera 8 MB y se omitió`); continue; } map['img:' + key] = await up('', im.name, im.blob, im.type || imgType(im.name)); }
         const fonts = []; for (const f of P.fonts) { st('Subiendo fuentes…'); const p = await up('fuentes/', f.name, new Blob([f.bytes]), /woff2/.test(f.name) ? 'font/woff2' : /woff/.test(f.name) ? 'font/woff' : /otf/.test(f.name) ? 'font/otf' : 'font/ttf'); fonts.push({ url: PUB + p, family: f.family, style: f.style, weight: f.weight }); }
         const cov = D.cover ? map[D.cover] || null : null;
         st('Guardando el volumen…');
         if (!vol) {
+          const { data: gone } = await sb.from('volumes').select('*').eq('series_id', w.id).eq('num', D.vnum).not('deleted_at', 'is', null).limit(1);
+          if (gone?.length) { const r = await sb.from('volumes').update({ deleted_at: null }).eq('id', gone[0].id).select().single(); if (r.error) throw r.error; vol = r.data; restoredVol = vol.id; }
+        }
+        if (!vol) {
           const r = await sb.from('volumes').insert({ ...ficha, series_id: w.id, num: D.vnum, status: 'draft', epub_fonts: fonts, cover_path: cov }).select().single();
           if (r.error) throw r.error; vol = createdVol = r.data;
         }
-        const { data: existing } = await sb.from('chapters').select('id,num,vol,volume_id').eq('series_id', w.id).is('deleted_at', null);
-        if (D.mode === 'replace' && !createdVol) oldIds = (existing || []).filter(c => c.volume_id === vol.id || c.vol === D.vnum).map(c => c.id);
-        let num = Math.max(0, ...(existing || []).map(c => c.num));
+        const { data: existing, error: exErr } = await sb.from('chapters').select('id,num,vol,volume_id,deleted_at').eq('series_id', w.id); if (exErr) throw exErr;
+        if (D.mode === 'replace' && !createdVol) oldIds = (existing || []).filter(c => !c.deleted_at && (c.volume_id === vol.id || c.vol === D.vnum)).map(c => c.id);
+        let num = Math.max(0, ...(existing || []).map(c => +c.num || 0));
         const rows = inc.map((c, i) => ({ series_id: w.id, volume_id: vol.id, vol: D.vnum, num: ++num, sort_order: i, title: (c.title || 'Sin título').slice(0, 300), section_type: c.type, status: 'draft',
           body: c.blocks.map(b => b.type === 'image' ? { ...b, url: map[b.url] ? PUB + map[b.url] : b.url } : b).filter(b => b.type !== 'image' || /^https?:/.test(b.url)) }));
         for (let i = 0; i < rows.length; i += 10) { st(`Guardando capítulos ${Math.min(i + 10, rows.length)}/${rows.length}…`); const r = await sb.from('chapters').insert(rows.slice(i, i + 10)).select('id'); if (r.error) throw r.error; inserted.push(...r.data.map(x => x.id)); }
@@ -1252,7 +1362,7 @@ export function createStudio(ctx){
         if (!createdVol) {
           const { data: vr } = await sb.from('volumes').select('*').eq('id', vol.id).single();
           const patch = {}; if (fonts.length) patch.epub_fonts = fonts; if (cov) patch.cover_path = cov;
-          for (const [k, v] of Object.entries(ficha)) if ((vr?.[k] == null || vr[k] === '' || vr[k] === false) && v !== false) patch[k] = v;
+          const over = D.mode === 'replace' || !!restoredVol; for (const [k, v] of Object.entries(ficha)) if ((over || vr?.[k] == null || vr[k] === '' || vr[k] === false) && v !== false) patch[k] = v;
           if (Object.keys(patch).length) { volBefore = Object.fromEntries(Object.keys(patch).map(k => [k, vr?.[k] ?? null])); const r = await sb.from('volumes').update(patch).eq('id', vol.id); if (r.error) throw r.error; }
         }
         if (cov && D.workCover) { seriesCoverBefore = w.cover_path || null; const r = await sb.from('series').update({ cover_path: cov }).eq('id', w.id); if (r.error) throw r.error; }
@@ -1267,10 +1377,13 @@ export function createStudio(ctx){
         if (volBefore && vol) await sb.from('volumes').update(volBefore).eq('id', vol.id);
         if (seriesCoverBefore !== undefined && !createdSeries) await sb.from('series').update({ cover_path: seriesCoverBefore }).eq('id', w.id);
         if (createdVol) await sb.from('volumes').delete().eq('id', createdVol.id);
+        if (restoredVol) await sb.from('volumes').update({ deleted_at: new Date().toISOString() }).eq('id', restoredVol);
         if (createdSeries) await sb.from('series').delete().eq('id', createdSeries.id);
         if (uploaded.length) await sb.storage.from('obi-media').remove(uploaded);
         if (job) await sb.from('import_jobs').update({ status: 'failed', result: { error: er.message } }).eq('id', job.id);
-        st(''); throw new Error('Se deshizo la importación: ' + (er.hint || er.message));
+        console.error('Importación fallida', er);
+        const why = [er.message, er.details, er.hint, er.code && 'código ' + er.code].filter(Boolean).join(' · ');
+        st(''); throw new Error('Se deshizo la importación: ' + why);
       }
     }
     render();
