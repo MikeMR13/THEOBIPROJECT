@@ -368,7 +368,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const list = (series || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) && (!s.adult || adultOk) && !hidS(s)), byId = Object.fromEntries(list.map(s => [s.id, s]));
     const lastCh = {}; (latest || []).forEach(c => { lastCh[c.series_id] ||= c; });
     const picks = (Array.isArray(ps?.featured) ? ps.featured : []).map(id => byId[id]).filter(Boolean);
-    const feat = picks.length ? picks.slice(0, 5) : [...list].sort((a, b) => new Date(lastCh[b.id]?.publish_at || 0) - new Date(lastCh[a.id]?.publish_at || 0)).slice(0, 5);
+    const byNew = [...list].filter(x => lastCh[x.id]).sort((a, b) => new Date(lastCh[b.id].publish_at || 0) - new Date(lastCh[a.id].publish_at || 0));
+    const fresh = byNew.filter(x => Date.now() - new Date(lastCh[x.id].publish_at || 0) < 7 * 864e5 && !picks.includes(x)).slice(0, 3);
+    const feat = picks.length ? [...fresh, ...picks].slice(0, 6) : byNew.slice(0, 5);
     const cont = Object.values(prog).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).filter(p => byId[p.series_id]).slice(0, 6);
     const grp = []; for (const c of (latest || []).filter(c => byId[c.series_id])) { let g = grp.find(x => x.id === c.series_id); if (!g) { if (grp.length >= 6) continue; grp.push(g = { id: c.series_id, chs: [] }); } if (g.chs.length < 20) g.chs.push(c); }
     const dayK = d => { const x = new Date(d), t = new Date(); t.setHours(0, 0, 0, 0); const y = new Date(x); y.setHours(0, 0, 0, 0); const n = Math.round((t - y) / 864e5); return n <= 0 ? 'Hoy' : n === 1 ? 'Ayer' : n < 7 ? 'Esta semana' : 'Antes'; };
