@@ -1,0 +1,51 @@
+ACTUALIZACIÓN · 19-oct-2026
+La carpeta imita la estructura del proyecto: copia cada archivo en la MISMA ruta, reemplazando el actual.
+
+ORDEN PARA CARGAR
+1. Supabase › SQL Editor: ejecuta supabase/migrations/20261019_progreso_unico.sql
+2. Sube al repositorio (o al hosting) todo lo de esta carpeta:
+   vercel.json                      → raíz del proyecto
+   scripts/build.mjs                → scripts/
+   public/manifest.webmanifest      → public/
+   src/*.js, src/index.html, src/styles.css → src/
+3. Despliega (Vercel lo hace solo al subir al repositorio).
+4. Turnstile (opcional, ver CLOUDFLARE.md): variable OBI_TURNSTILE_SITE_KEY en Vercel → redeploy → y AL FINAL activar Captcha en Supabase.
+   Sin la variable, todo funciona igual que antes.
+
+QUÉ TRAE CADA ARCHIVO
+src/reader.js    Lector: carga más rápida, barra que se oculta, progreso y minutos restantes, panel Aa en vivo, modo zen (Z), ← →,
+                 temas nuevos, sangría, pantalla encendida, menú ⋯ en móvil, logo del equipo con enlace, guardado de posición corregido,
+                 aviso «Continuar ahí», índice con ✓ leídos y «te quedaste aquí».
+src/blocks.js    Imágenes sin bloquear y con medidas.
+src/ui.js        Buscador reconoce equipos «Activo»; «Continuar» sin cuenta; franja de avance en catálogo; buscador lleva a donde te quedaste.
+src/styles.css   Estilos de todo lo anterior.
+src/season.js    En el lector solo aplica los colores de la temporada.
+src/app.js       Botón «Continuar» en la barra superior; Turnstile en Entrar/Registro/Olvidé contraseña; versiones nuevas.
+src/captcha.js   NUEVO · Cloudflare Turnstile.
+src/admin.js     Turnstile en el Mostrador del Bibliotecario.
+src/profile.js   Turnstile en «Cambiar contraseña».
+src/studio.js    Sin cambios de funciones (solo versión de blocks.js).
+src/index.html   Versiones nuevas para que los navegadores descarguen lo nuevo.
+scripts/build.mjs  Lee OBI_TURNSTILE_SITE_KEY.
+vercel.json      Permite challenges.cloudflare.com en la política de seguridad.
+
+COMPROBAR DESPUÉS
+- Abre un capítulo, baja un poco, sal y vuelve: debe decir «Seguimos donde lo dejaste».
+- En Inicio/barra superior debe aparecer «Continuar · cap. X».
+- https://tu-dominio/config.js debe incluir "turnstile":"0x…" si configuraste la clave.
+
+SIN CONEXIÓN (app web)
+- /descargas: nueva página con los volúmenes guardados, «Continuar · cap. X», borrar y espacio usado. Funciona sin cuenta y sin internet.
+- Sin internet, cualquier página abre «Sin conexión» con tus descargas; el lector abre los capítulos descargados.
+- Aviso abajo: «Sin conexión · ver mis descargas» y «Conexión recuperada».
+- El progreso y los capítulos leídos sin internet se guardan en el dispositivo y se suben solos al volver la conexión.
+- El glosario viaja con el volumen descargado.
+- Comentarios y subrayados avisan que necesitan internet.
+- El navegador marca las descargas como permanentes (no las borra para liberar espacio).
+- App instalada: accesos directos «Continuar leyendo», «Mis descargas» y «Catálogo» (mantén presionado el ícono).
+
+PROBAR SIN CONEXIÓN
+1. Con internet: abre un capítulo › «Descargar volumen» (menú ⋯ en celular).
+2. Activa modo avión (o en Chrome: F12 › Red › «Sin conexión»).
+3. Abre el sitio: debe mostrar «Sin conexión» con el volumen y «Continuar · cap. X».
+4. Lee un poco, vuelve a conectar: debe salir «Tu progreso sin conexión ya se guardó en tu cuenta».
