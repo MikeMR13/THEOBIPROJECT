@@ -3,6 +3,7 @@ import { cpSync, mkdirSync, rmSync, writeFileSync, readFileSync, readdirSync, st
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 const url = process.env.OBI_SUPABASE_URL || 'https://qfllthjpjuaztppvpsrk.supabase.co', key = process.env.OBI_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_IiHzG1Jn2je075uuYVHTAg_dBVAAUf5';
+const turnstile = process.env.OBI_TURNSTILE_SITE_KEY || ''; // clave PÚBLICA de Cloudflare Turnstile (la secreta va solo en Supabase)
 if (/service_role/.test(key)) throw new Error('No uses service_role en el frontend');
 const jsIn = d => readdirSync(d).filter(f => f.endsWith('.js')).map(f => d + '/' + f);
 
@@ -16,7 +17,7 @@ if (process.argv.includes('--check')) {
 let esbuild = null; try { esbuild = await import('esbuild'); } catch { console.warn('⚠ esbuild no está instalado: se publica sin minificar'); }
 rmSync('dist', { recursive: true, force: true }); mkdirSync('dist');
 cpSync('src', 'dist', { recursive: true }); cpSync('public', 'dist', { recursive: true });
-writeFileSync('dist/config.js', 'window.OBI_CONFIG=' + JSON.stringify({ url, key, build: new Date().toISOString() }) + ';');
+writeFileSync('dist/config.js', 'window.OBI_CONFIG=' + JSON.stringify({ url, key, turnstile, build: new Date().toISOString() }) + ';');
 
 // 0. supabase-js empaquetado en un solo archivo propio (evita ~20 descargas encadenadas desde esm.sh). Si falla, se queda el puente a esm.sh.
 if (esbuild) {
