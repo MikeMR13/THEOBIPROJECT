@@ -1,7 +1,7 @@
 // Lector de El Obi del Lector: por capítulo o continuo, fuentes EPUB, progreso exacto, leídos, historial, sin conexión y anotaciones.
 const OFF_CACHE = 'obi-offline-v1', OFF_INDEX = 'obi-offline-index', PREF_KEY = 'obi-reader-prefs';
-import { cleanInline, renderBlock, warningsHTML, teaserHTML } from './blocks.js?v=1';
-const DEF = { theme: 'oscuro', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', illus: true, continuous: 'off', cw: 'show', autonext: true };
+import { cleanInline, renderBlock, warningsHTML, teaserHTML } from './blocks.js?v=2';
+const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true };
 const COLORS = { gold: '#f2c230', rose: '#f29bb0', sky: '#8cc3f2', mint: '#9fdcb0' };
 const SEC_LABEL = { 'Capítulo': 'Cap.', 'Prólogo': 'Prólogo', 'Interludio': 'Interludio', 'Epílogo': 'Epílogo', 'Afterword': 'Epílogo del autor', 'Extra': 'Extra' };
 
@@ -29,7 +29,7 @@ export function createReader(ctx){
     if (S.series?.slug === slug) return true;
     let s, ch, vo;
     try {
-      const r1 = await sb.from('series').select('id,slug,title,team_id,teams(name,reader_defaults)').eq('slug', slug).maybeSingle();
+      const r1 = await sb.from('series').select('id,slug,title,team_id,teams(name,slug,status,avatar_path,settings,reader_defaults)').eq('slug', slug).maybeSingle();
       if (r1.error) throw r1.error; s = r1.data;
       if (s) { const [a, b] = await Promise.all([
         sb.from('chapters').select('id,num,vol,title,section_type,volume_id,content_warnings,teaser,teaser_on').eq('series_id', s.id).is('deleted_at', null).order('num'),
@@ -37,9 +37,12 @@ export function createReader(ctx){
         if (a.error || b.error) throw a.error || b.error; ch = a.data; vo = b.data; }
     } catch { const m = await offlineMeta(slug); if (m) ({ series: s, chapters: ch, vols: vo } = m); }
     if (!s) return false;
-    let nextAt = null; try { const r = await sb.from('schedule').select('at').eq('series_id', s.id).gte('at', new Date().toISOString()).order('at').limit(1); nextAt = r.data?.[0]?.at || null; } catch {}
-    let gl = []; try { const r = await sb.from('glossary_terms').select('term,category,definition').eq('series_id', s.id); gl = r.data || []; } catch {}
-    Object.assign(S, { series: s, chapters: ch || [], vols: vo || [], nextAt, teamIds: null, bodies: new Map(), annots: [], gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined });
+    Object.assign(S, { series: s, chapters: ch || [], vols: vo || [], nextAt: null, teamIds: null, bodies: new Map(), annots: [], gloss: [], glMap: new Map(), glRe: undefined });
+    // calendario y glosario no bloquean la apertura: llegan después y se aplican solos
+    S.extras = Promise.all([
+      sb.from('schedule').select('at').eq('series_id', s.id).gte('at', new Date().toISOString()).order('at').limit(1).then(r => r.data?.[0]?.at || null, () => null),
+      sb.from('glossary_terms').select('term,category,definition').eq('series_id', s.id).then(r => r.data || [], () => [])
+    ]).then(([at, gl]) => { if (S.series !== s) return; Object.assign(S, { nextAt: at, gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined }); });
     return true;
   }
   async function body(ch){
@@ -51,7 +54,10 @@ export function createReader(ctx){
     if (b) S.bodies.set(ch.id, b);
     return b;
   }
-  const prefetchNext = ch => { const n = nextOf(ch); if (n && !S.bodies.has(n.id)) (window.requestIdleCallback || setTimeout)(() => body(n)); };
+  // texto del siguiente capítulo + sus 2 primeras ilustraciones (salvo modo ahorro de datos)
+  const prefetchNext = ch => { const n = nextOf(ch); if (!n || S.bodies.has(n.id)) return;
+    (window.requestIdleCallback || setTimeout)(() => body(n).then(b => { if (!b || navigator.connection?.saveData || effective(n.volume_id).illus === false) return;
+      b.filter(x => x.url || x.src).slice(0, 2).forEach(x => { const i = new Image(); i.decoding = 'async'; i.src = media(x.url || x.src); }); })); };
   const nextOf = ch => S.chapters[S.chapters.indexOf(ch) + 1];
   const prevOf = ch => S.chapters[S.chapters.indexOf(ch) - 1];
   const volOf = ch => S.vols.find(v => v.id === ch.volume_id) || S.vols.find(v => v.num === ch.vol);
@@ -81,10 +87,20 @@ export function createReader(ctx){
   // ---------- render de bloques ----------
   const block = (b, i, p) => renderBlock(b, i, { media, illus: p.illus });
   const nextWhen = () => S.nextAt ? new Date(S.nextAt).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
+  // crédito del equipo arriba del capítulo: su PNG (si lo subió y no lo desactivó) o el nombre, enlazando a su página
+  function teamHTML(){
+    const t = S.series?.teams; if (!t?.name) return '';
+    const href = t.slug && (!t.status || /^(active|activo)$/i.test(t.status)) ? `/equipo/${esc(t.slug)}` : null, logo = t.avatar_path && t.settings?.show_reader_logo !== false ? media(t.avatar_path) : '';
+    const inner = logo ? `<img src="${esc(logo)}" alt="Traducido por ${esc(t.name)}" decoding="async">` : `<span class="mono">Traducido por ${esc(t.name)}</span>`;
+    return href ? `<a class="rd-team${logo ? ' has-logo' : ''}" href="${href}" title="Ver la página de ${esc(t.name)}">${inner}</a>` : `<span class="rd-team${logo ? ' has-logo' : ''}">${inner}</span>`;
+  }
+  // si el PNG no carga, queda el crédito en texto
+  document.addEventListener('error', e => { const i = e.target; if (i?.matches?.('.rd-team img')) { i.parentElement.classList.remove('has-logo'); i.replaceWith(Object.assign(document.createElement('span'), { className: 'mono', textContent: i.alt })); } }, true);
   function chapterHTML(ch, blocks, p){
     const vol = volOf(ch); ensureFonts(vol);
     const label = (SEC_LABEL[ch.section_type] || 'Cap.') + (ch.section_type === 'Capítulo' || !ch.section_type ? ' ' + ch.num : '');
-    return `<article class="rd-ch" data-ch="${ch.id}" style="${vol ? fontVars(vol, p) : ''}">
+    return `<article class="rd-ch" lang="es" data-ch="${ch.id}" style="${vol ? fontVars(vol, p) : ''}">
+      ${teamHTML()}
       <header class="rd-head"><span class="mono">Volumen ${ch.vol} · ${esc(label)}</span><h2${(() => { const f = (blocks || []).find(b => (b.type || b.t) === 'heading')?.html?.match(/data-epub-family="(\d+)"/)?.[1]; return f ? ` style="font-family:var(--f${f})"` : ''; })()}>${esc(ch.title)}</h2></header>
       ${warningsHTML(ch.content_warnings, p.cw)}
       <div class="rd-body">${(blocks || []).map((b, i) => block(b, i, p)).join('')}</div>
@@ -97,9 +113,15 @@ export function createReader(ctx){
     const t = [...(S.gloss || [])].sort((a, b) => b.term.length - a.term.length).map(g => g.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     return S.glRe = t.length ? new RegExp('(?<![\\p{L}\\p{N}])(' + t.join('|') + ')(?![\\p{L}\\p{N}])', 'giu') : null;
   }
+  const idle = fn => (window.requestIdleCallback || (f => setTimeout(f, 16)))(fn);
+  // marca por tandas de ~8 ms en ratos libres para no congelar la apertura
   function markTerms(root){
     const re = glossRe(); if (!re || !root) return;
-    root.querySelectorAll('.rd-body p, .rd-body blockquote, .rd-body aside.tn').forEach(el => {
+    const els = [...root.querySelectorAll('.rd-body p, .rd-body blockquote, .rd-body aside.tn')]; let i = 0;
+    const run = () => { const t0 = performance.now(); while (i < els.length && performance.now() - t0 < 8) { const el = els[i++]; if (el.isConnected) markEl(el, re); } if (i < els.length) idle(run); };
+    idle(run);
+  }
+  function markEl(el, re){
       const tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest('rt,rp,ruby,.gl,.mono') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
       const nodes = []; let n; while ((n = tw.nextNode())) nodes.push(n);
       nodes.forEach(node => {
@@ -113,7 +135,6 @@ export function createReader(ctx){
         if (last < node.data.length) frag.append(node.data.slice(last));
         node.replaceWith(frag);
       });
-    });
   }
   function openTerm(el){
     const g = S.glMap?.get(el.dataset.t); if (!g) return;
@@ -138,41 +159,67 @@ export function createReader(ctx){
   // una vista por capítulo y día en este dispositivo
   const devId = () => { try { let d = localStorage.getItem('obi-dev'); if (!d) { d = crypto.randomUUID(); localStorage.setItem('obi-dev', d); } return d; } catch { return null; } };
   function trackView(ch){ if (!navigator.onLine) return; const k = 'obi-v-' + ch.id, d = new Date().toDateString(); try { if (localStorage.getItem(k) === d) return; localStorage.setItem(k, d); } catch {} sb.rpc('track_view', { p_chapter: ch.id, p_device: devId() }).then(() => {}, () => {}); }
+  // ---------- modo zen y pantalla encendida ----------
+  function zen(on = !document.body.classList.contains('rd-zen')){
+    document.body.classList.toggle('rd-zen', on); if (on) { const pn = panel(); if (pn) pn.hidden = true; }
+    if (on) document.documentElement.requestFullscreen?.().catch(() => {}); else if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) document.body.classList.remove('rd-zen'); });
+  let wl = null, wlP = false, wlT = 0;
+  async function wake(){
+    clearTimeout(wlT); wlT = setTimeout(() => wl?.release(), 300000); // se suelta tras 5 min sin desplazarse
+    if (wl || wlP || !('wakeLock' in navigator) || document.visibilityState !== 'visible' || !$('.rd') || !S.active || effective(S.active.volume_id).awake === false) return;
+    wlP = true; try { wl = await navigator.wakeLock.request('screen'); wl.addEventListener('release', () => { wl = null; }); } catch {} wlP = false;
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && $('.rd')) wake(); });
+  // ← → capítulo anterior/siguiente · Z modo zen · Esc cierra panel o sale del zen
+  document.addEventListener('keydown', e => {
+    if (!$('.rd') || !S.active || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+    const pn = panel();
+    if (e.key === 'Escape') { if (pn && !pn.hidden) pn.hidden = true; else if (document.body.classList.contains('rd-zen')) zen(false); return; }
+    if (pn && !pn.hidden) return;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { const c = e.key === 'ArrowRight' ? nextOf(S.active) : prevOf(S.active); if (c) { e.preventDefault(); go(`/leer/${S.series.slug}/${c.num}`); } }
+    if (e.key === 'z' || e.key === 'Z') zen();
+  });
+
   // ---------- vista ----------
   async function open(slug, num){
     app.innerHTML = '<p class="mono">Abriendo capítulo…</p>';
     if (!(await loadSeries(slug))) { app.innerHTML = '<h1>Serie no encontrada</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
-    if (!S.remote) await loadPrefs();
     const ch = S.chapters.find(c => c.num === num);
     if (!ch) { const { data: L } = await sb.rpc('lock_info', { p_slug: slug, p_num: num }).then(x => x, () => ({ data: null })); if (L) { const P = await import('/patreon.js?v=1'); app.innerHTML = P.lockHTML(L, esc, slug); app.querySelector('#lk-link')?.addEventListener('click', () => P.start(sb, url, 'link', null, toast)); return; } app.innerHTML = '<h1>Capítulo no disponible</h1><p>Puede que aún no se publique. <a href="/serie/' + esc(slug) + '">Volver a la obra</a></p>'; return; }
-    const b = await body(ch);
+    const annP = fetchAnnots([ch.id]);
+    const [b, , pos] = await Promise.all([body(ch), S.remote ? null : loadPrefs(), fetchPos()]);
     if (!b) { app.innerHTML = '<h1>Sin conexión</h1><p>Este capítulo no está descargado. <a href="/biblioteca">Ver descargas</a></p>'; return; }
     const p = effective(ch.volume_id);
-    S.mounted = [ch]; S.active = ch; trackView(ch);
-    app.innerHTML = `<div class="rd" data-theme="${p.theme}" data-width="${p.width}" data-lh="${p.lh}" data-align="${p.align}" data-font="${p.font}" style="--rs:${p.size}px">
+    S.mounted = [ch]; S.active = ch; S.annots = []; S.lastY = null; trackView(ch);
+    const more = `<button class="btn ghost" data-act="coms">Comentarios</button><button class="btn ghost" data-act="notes">Anotaciones</button><button class="btn ghost" data-act="offline">${isVolOffline(ch) ? '✓ Descargado' : 'Descargar volumen'}</button>`;
+    app.innerHTML = `<div class="rd" data-theme="${p.theme}" data-width="${p.width}" data-lh="${p.lh}" data-align="${p.align}" data-para="${p.para}" data-font="${p.font}" style="--rs:${p.size}px">
       <nav class="rd-bar">
-        <a href="/serie/${esc(slug)}" class="rd-back">‹ ${esc(S.series.title)}</a>
+        <span class="rd-where"><a href="/serie/${esc(slug)}" class="rd-back">‹ ${esc(S.series.title)}</a><span class="rd-left mono"></span></span>
         <div class="rd-tools">
           <button class="btn ghost" data-act="toc" aria-label="Índice">Índice</button>
           <button class="btn ghost" data-act="prefs" aria-label="Ajustes de lectura">Aa</button>
-          <button class="btn ghost" data-act="coms">Comentarios</button>
-          <button class="btn ghost" data-act="notes">Anotaciones</button>
-          <button class="btn ghost" data-act="offline">${isVolOffline(ch) ? '✓ Descargado' : 'Descargar volumen'}</button>
+          <button class="btn ghost" data-act="zen" title="Modo zen · tecla Z">Zen</button>
+          <span class="rd-wide">${more}</span>
+          <details class="rd-more"><summary class="btn ghost" aria-label="Más opciones">⋯</summary><div class="rd-more-m">${more}</div></details>
         </div>
       </nav>
+      <div class="rd-prog" aria-hidden="true"><i></i></div>
       <div class="rd-panel" hidden></div>
+      <p id="rd-earlier" hidden></p>
       <div id="rd-flow">${chapterHTML(ch, b, p)}</div>
       <div id="rd-sentinel"></div>
       <footer class="rd-foot"></footer>
       <div class="rd-pop" hidden></div>
       <div class="gl-sheet" hidden></div>
+      <button class="rd-zen-x" data-act="zen">Salir del modo zen</button>
     </div>`;
-    markTerms($('#rd-flow'));
-    bindBar(); footer();
-    await loadAnnots(); paintAnnots();
-    restorePosition(ch);
+    restorePosition(ch, pos); bindBar(); footer(); progress();
     logHistory(ch); prefetchNext(ch);
-    observe();
+    observe(); wake();
+    annP.then(l => { if (!S.mounted.includes(ch)) return; S.annots = S.annots.filter(a => a.chapter_id !== ch.id).concat(l); paintAnnots(ch.id); });
+    S.extras?.then(() => { if (!$('#rd-flow')) return; markTerms($('#rd-flow')); if (S.nextAt && !nextOf(S.active)) footer(); });
   }
   let autoIo, autoT, autoStop = null;
   const untilTxt = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
@@ -225,9 +272,11 @@ export function createReader(ctx){
       if (p.continuous === 'off' || !nx || (p.continuous === 'volume' && nx.vol !== last.vol) || S.loadingNext) return;
       S.loadingNext = true;
       const b = await body(nx); S.loadingNext = false; if (!b) return;
-      $('#rd-flow').insertAdjacentHTML('beforeend', chapterHTML(nx, b, effective(nx.volume_id))); markTerms($(`[data-ch="${nx.id}"]`));
-      S.mounted.push(nx); trackView(nx); paintAnnots(); prefetchNext(nx);
-      activeIo.observe($(`[data-ch="${nx.id}"]`));
+      $('#rd-flow').insertAdjacentHTML('beforeend', chapterHTML(nx, b, effective(nx.volume_id)));
+      const art = $(`[data-ch="${nx.id}"]`); markTerms(art);
+      S.mounted.push(nx); trackView(nx); prefetchNext(nx);
+      fetchAnnots([nx.id]).then(l => { S.annots = S.annots.filter(a => a.chapter_id !== nx.id).concat(l); paintAnnots(nx.id); });
+      activeIo.observe(art); trimMounted();
     }, { rootMargin: '800px 0px' });
     io.observe($('#rd-sentinel'));
     activeIo = new IntersectionObserver(es => es.forEach(e => {
@@ -238,19 +287,50 @@ export function createReader(ctx){
     document.querySelectorAll('.rd-ch').forEach(a => activeIo.observe(a));
     removeEventListener('scroll', onScroll); addEventListener('scroll', onScroll, { passive: true });
   }
+  // lectura continua: máximo 3 capítulos en la página; los que quedan muy atrás se retiran sin mover lo que se está leyendo
+  function trimMounted(){
+    while (S.mounted.length > 3 && S.mounted[0] !== S.active) {
+      const old = S.mounted[0], el = $(`[data-ch="${old.id}"]`);
+      if (el && el.getBoundingClientRect().bottom > -innerHeight) break;
+      const ref = $(`[data-ch="${S.active.id}"]`), t = ref?.getBoundingClientRect().top;
+      if (el) { activeIo.unobserve(el); el.remove(); }
+      S.mounted.shift(); S.annots = S.annots.filter(a => a.chapter_id !== old.id);
+      const up = $('#rd-earlier'); up.hidden = false; up.innerHTML = `<a class="btn ghost" href="/leer/${S.series.slug}/${old.num}">‹ Volver a ${esc(old.title)}</a>`;
+      if (ref) { const d = ref.getBoundingClientRect().top - t; if (d) scrollBy(0, d); }
+    }
+  }
 
   // ---------- progreso exacto, leídos e historial ----------
   const posKey = id => 'obi-pos-' + id;
   function currentBlock(){
     const art = $(`[data-ch="${S.active.id}"]`); if (!art) return { block: 0, pct: 0 };
-    const els = art.querySelectorAll('[data-b]'); let blk = 0;
-    for (const el of els) { if (el.getBoundingClientRect().bottom > 80) { blk = +el.dataset.b; break; } }
+    // búsqueda binaria: ~10 mediciones en lugar de una por párrafo
+    const els = art.querySelectorAll('[data-b]'); let lo = 0, hi = els.length - 1, at = 0;
+    while (lo <= hi) { const m = (lo + hi) >> 1; if (els[m].getBoundingClientRect().bottom > 80) { at = m; hi = m - 1; } else lo = m + 1; }
+    const blk = els.length ? +els[at].dataset.b : 0;
     const r = art.getBoundingClientRect(), pct = Math.min(1, Math.max(0, (innerHeight - r.top) / r.height));
     return { block: blk, pct };
   }
   function onScroll(){
-    if (!document.body.contains($('.rd'))) { removeEventListener('scroll', onScroll); return; }
+    if (!document.body.contains($('.rd'))) { removeEventListener('scroll', onScroll); wl?.release(); return; }
     clearTimeout(S.saveT); S.saveT = setTimeout(saveProgress, 1200);
+    if (!S.raf) S.raf = requestAnimationFrame(frame);
+  }
+  // barra que se esconde al bajar y vuelve al subir (o al llegar al final)
+  function frame(){
+    S.raf = 0; const rd = $('.rd'); if (!rd || !S.active) return;
+    const y = scrollY; if (S.lastY == null) S.lastY = y; const d = y - S.lastY;
+    if (Math.abs(d) > 6) { S.lastY = y; rd.dataset.bar = d > 0 && y > 240 && panel().hidden && pop().hidden ? 'hide' : ''; }
+    if (innerHeight + y >= document.documentElement.scrollHeight - 40) rd.dataset.bar = '';
+    progress(); wake();
+  }
+  function progress(){
+    const art = S.active && $(`[data-ch="${S.active.id}"]`), fill = $('.rd-prog i'), left = $('.rd-left'); if (!art || !fill) return;
+    const r = art.getBoundingClientRect(), pct = Math.min(1, Math.max(0, -r.top / Math.max(1, r.height - innerHeight)));
+    fill.style.transform = `scaleX(${pct})`;
+    art._w ??= (art.querySelector('.rd-body')?.textContent.match(/\S+/g) || []).length;
+    const min = Math.ceil(art._w * (1 - pct) / 230);
+    if (left) left.textContent = pct > .98 ? 'Fin del capítulo' : min <= 1 ? 'Menos de 1 min' : `≈ ${min} min restantes`;
   }
   async function saveProgress(){
     const ch = S.active, { block: blk, pct } = currentBlock(), p = effective(ch.volume_id);
@@ -259,10 +339,14 @@ export function createReader(ctx){
     sb.from('reading_progress').upsert({ user_id: user.id, series_id: S.series.id, chapter_num: ch.num, chapter_id: ch.id, block: blk, pct, mode: p.continuous === 'off' ? 'chapter' : 'continuous', updated_at: new Date().toISOString() });
     if (pct > 0.95 && !S.readMarked.has(ch.id)) { S.readMarked.add(ch.id); sb.from('read_chapters').upsert({ user_id: user.id, chapter_id: ch.id }); }
   }
-  async function restorePosition(ch){
+  async function fetchPos(){
     let pos = null; const user = getUser();
-    if (user) { const { data } = await sb.from('reading_progress').select('chapter_id,block').eq('user_id', user.id).eq('series_id', S.series.id).maybeSingle(); pos = data; }
+    if (user) try { const { data } = await sb.from('reading_progress').select('chapter_id,block').eq('user_id', user.id).eq('series_id', S.series.id).maybeSingle(); pos = data; } catch {}
     if (!pos) try { pos = JSON.parse(localStorage.getItem(posKey(S.series.id))); } catch {}
+    return pos;
+  }
+  // se llama en el mismo cuadro en que se pinta el capítulo: sin salto visible
+  function restorePosition(ch, pos){
     if (pos?.chapter_id === ch.id && pos.block > 0) { const el = $(`[data-ch="${ch.id}"] [data-b="${pos.block}"]`); if (el) { scrollTo(0, el.getBoundingClientRect().top + scrollY - 90); toast('Seguimos donde lo dejaste'); } }
     else scrollTo(0, 0);
   }
@@ -273,7 +357,7 @@ export function createReader(ctx){
 
   // ---------- barra, índice y ajustes ----------
   function bindBar(){
-    document.querySelectorAll('.rd-bar [data-act]').forEach(b => b.onclick = () => ({ toc, prefs: prefsPanel, coms: comments, notes: () => go('/anotaciones/' + S.series.slug), offline: toggleOffline })[b.dataset.act]());
+    document.querySelectorAll('.rd-bar [data-act], .rd-zen-x').forEach(b => b.onclick = () => { b.closest('details')?.removeAttribute('open'); ({ toc, prefs: prefsPanel, coms: comments, notes: () => go('/anotaciones/' + S.series.slug), offline: toggleOffline, zen: () => zen() })[b.dataset.act](); });
   }
   const panel = () => $('.rd-panel');
   function toggle(html){ const pn = panel(); if (!pn.hidden && pn.dataset.kind === html.kind) { pn.hidden = true; return null; } pn.dataset.kind = html.kind; pn.innerHTML = html.body; pn.hidden = false; return pn; }
@@ -287,16 +371,18 @@ export function createReader(ctx){
     const ch = S.active, vid = ch.volume_id, p = effective(vid), scoped = !!S.remote.per_volume[vid];
     const opt = (k, list) => `<div class="rd-opt"><span class="mono">${list.label}</span><div>${list.o.map(([v, l]) => `<button data-k="${k}" data-v="${v}" class="${String(p[k]) === String(v) ? 'on' : ''}">${l}</button>`).join('')}</div></div>`;
     const pn = toggle({ kind: 'prefs', body: `
-      ${opt('theme', { label: 'Tema', o: [['claro','Claro'],['sepia','Sepia'],['oscuro','Oscuro']] })}
-      <div class="rd-opt"><span class="mono">Tamaño · ${p.size}px</span><input type="range" min="14" max="30" value="${p.size}" data-k="size"></div>
+      ${opt('theme', { label: 'Tema', o: [['auto','Como el sistema'],['claro','Claro'],['sepia','Sepia'],['noche','Noche cálida'],['oscuro','Oscuro'],['negro','Negro (OLED)']] })}
+      <div class="rd-opt"><span class="mono">Tamaño · <b data-size-l>${p.size}px</b></span><input type="range" min="14" max="30" value="${p.size}" data-k="size"></div>
       ${opt('font', { label: 'Tipografía', o: [['original','Original del EPUB'],['Literata','Literata'],['serif','Serif'],['sans','Sans']] })}
       ${opt('width', { label: 'Ancho', o: [['estrecho','Estrecho'],['normal','Normal'],['amplio','Amplio']] })}
       ${opt('lh', { label: 'Interlineado', o: [['compacto','Compacto'],['comodo','Cómodo'],['amplio','Amplio']] })}
       ${opt('align', { label: 'Alineación', o: [['izquierda','Izquierda'],['justificada','Justificada']] })}
+      ${opt('para', { label: 'Párrafos', o: [['espacio','Separados'],['sangria','Con sangría, como libro']] })}
       ${opt('illus', { label: 'Ilustraciones', o: [['true','Mostrar'],['false','Ocultar']] })}
       ${opt('cw', { label: 'Avisos de contenido', o: [['show','Mostrar plegable'],['icon','Solo icono'],['hide','No mostrar']] })}
       ${opt('continuous', { label: 'Lectura', o: [['off','Por capítulo'],['volume','Continua dentro del volumen'],['all','Continua entre volúmenes']] })}
       ${p.continuous === 'off' ? opt('autonext', { label: 'Al terminar un capítulo', o: [['true',`Pasar solo al siguiente (${Math.min(30, Math.max(3, +p.autosecs || 5))} s)`],['false','Quedarme al final']] }) : ''}
+      ${'wakeLock' in navigator ? opt('awake', { label: 'Pantalla', o: [['true','Mantener encendida al leer'],['false','Apagado normal']] }) : ''}
       <label class="rd-scope"><input type="checkbox" ${localStorage.getItem('obi-season') === 'off' ? '' : 'checked'} data-season> Mostrar temas de temporada en la plataforma</label>
       <label class="rd-scope"><input type="checkbox" ${scoped ? 'checked' : ''} data-scope> Guardar estos ajustes solo para el Volumen ${ch.vol}</label>` });
     if (!pn) return;
@@ -308,13 +394,24 @@ export function createReader(ctx){
   function setPref(k, v, live){
     const vid = S.active.volume_id, tgt = S.remote.per_volume[vid] || S.remote.global;
     tgt[k] = v; savePrefs(); applyPrefs(k); if (k === 'autonext' || k === 'continuous') footer();
-    if (!live) { panel().hidden = true; prefsPanel(); }
+    refreshPrefs(k);
+  }
+  // el panel Aa queda abierto: solo se actualiza la opción tocada
+  function refreshPrefs(k){
+    const pn = panel(); if (pn.hidden || pn.dataset.kind !== 'prefs') return;
+    if (k === 'continuous') { const st = pn.scrollTop; pn.hidden = true; prefsPanel(); panel().scrollTop = st; return; }
+    const p = effective(S.active.volume_id);
+    pn.querySelectorAll(`button[data-k="${k}"]`).forEach(b => b.classList.toggle('on', String(p[k]) === b.dataset.v));
+    if (k === 'size') pn.querySelector('[data-size-l]').textContent = p.size + 'px';
   }
   async function applyPrefs(k){
     const p = effective(S.active.volume_id), rd = $('.rd');
-    Object.assign(rd.dataset, { theme: p.theme, width: p.width, lh: p.lh, align: p.align }); rd.style.setProperty('--rs', p.size + 'px');
+    Object.assign(rd.dataset, { theme: p.theme, width: p.width, lh: p.lh, align: p.align, para: p.para }); rd.style.setProperty('--rs', p.size + 'px');
     rd.dataset.font = p.font;
-    if (k === 'font' || k === 'illus' || k === 'cw') {
+    if (k === 'awake') { if (p.awake === false) wl?.release(); else wake(); }
+    // cambiar de fuente solo actualiza variables CSS, sin redibujar el texto
+    if (k === 'font') document.querySelectorAll('.rd-ch').forEach(a => { const c = S.chapters.find(x => x.id === a.dataset.ch), v = c && volOf(c); a.style.cssText = v ? fontVars(v, effective(c.volume_id)) : ''; });
+    if (k === 'illus' || k === 'cw') {
       const { block: blk } = currentBlock();
       $('#rd-flow').innerHTML = S.mounted.map(c => chapterHTML(c, S.bodies.get(c.id), effective(c.volume_id))).join(''); markTerms($('#rd-flow'));
       paintAnnots(); observe();
@@ -330,7 +427,8 @@ export function createReader(ctx){
   async function offlineMeta(slug){ try { const c = await caches.open(OFF_CACHE); const r = await c.match('/offline/meta/' + slug); return r ? r.json() : null; } catch { return null; } }
   async function offlineBody(ch){ try { const c = await caches.open(OFF_CACHE); const r = await c.match(offKey(ch)); return r ? r.json() : null; } catch { return null; } }
   async function toggleOffline(){
-    const ch = S.active, key = S.series.id + ':' + ch.vol, idx = offIndex(), btn = $('[data-act="offline"]');
+    const ch = S.active, key = S.series.id + ':' + ch.vol, idx = offIndex(), btns = [...document.querySelectorAll('[data-act="offline"]')];
+    const btn = { set textContent(t){ btns.forEach(b => b.textContent = t); }, set disabled(v){ btns.forEach(b => b.disabled = v); } };
     if (idx[key]) { await removeVolume(key); btn.textContent = 'Descargar volumen'; toast('Volumen ' + ch.vol + ' eliminado del dispositivo'); return; }
     if (!('caches' in window)) return toast('Tu navegador no permite guardar sin conexión');
     const list = S.chapters.filter(c => c.vol === ch.vol), c = await caches.open(OFF_CACHE), assets = new Set();
@@ -361,11 +459,10 @@ export function createReader(ctx){
   function bindOfflineList(root, after){ root.querySelectorAll('[data-off]').forEach(b => b.onclick = async () => { await removeVolume(b.dataset.off); toast('Descarga eliminada'); after(); }); }
 
   // ---------- anotaciones ----------
-  async function loadAnnots(){
-    const user = getUser(); if (!user) { S.annots = []; return; }
-    const ids = S.chapters.map(c => c.id);
-    const { data } = await sb.from('annotations').select('*').eq('user_id', user.id).in('chapter_id', ids);
-    S.annots = data || [];
+  // solo los capítulos que se piden (en el lector: los que están en pantalla)
+  async function fetchAnnots(ids){
+    const user = getUser(); if (!user || !ids.length) return [];
+    try { const { data } = await sb.from('annotations').select('*').eq('user_id', user.id).in('chapter_id', ids); return data || []; } catch { return []; }
   }
   function textOffset(blockEl, node, off){ const r = document.createRange(); r.setStart(blockEl, 0); r.setEnd(node, off); return r.toString().length; }
   function wrap(blockEl, start, end, a){
@@ -373,10 +470,14 @@ export function createReader(ctx){
     while ((n = tw.nextNode())) { const len = n.data.length, s = Math.max(start, pos), e = Math.min(end, pos + len); if (s < e) parts.push([n, s - pos, e - pos]); pos += len; if (pos >= end) break; }
     parts.forEach(([node, s, e]) => { const r = document.createRange(); r.setStart(node, s); r.setEnd(node, e); const m = document.createElement('mark'); m.className = 'an'; m.dataset.an = a.id; m.style.setProperty('--an', COLORS[a.color]); if (a.note) m.dataset.note = '1'; try { r.surroundContents(m); } catch {} });
   }
-  function paintAnnots(){
-    document.querySelectorAll('mark.an').forEach(m => m.replaceWith(...m.childNodes));
-    document.querySelectorAll('.rd-body').forEach(b => b.normalize());
-    S.annots.forEach(a => { const el = $(`[data-ch="${a.chapter_id}"] [data-b="${a.block}"]`); if (el) wrap(el, a.start_at, a.end_at, a); });
+  // repinta solo el capítulo indicado (o todos si no se indica)
+  function paintAnnots(chId){
+    const arts = chId ? [$(`[data-ch="${chId}"]`)].filter(Boolean) : [...document.querySelectorAll('.rd-ch')];
+    arts.forEach(art => {
+      art.querySelectorAll('mark.an').forEach(m => m.replaceWith(...m.childNodes));
+      art.querySelectorAll('.rd-body').forEach(b => b.normalize());
+      S.annots.filter(a => a.chapter_id === art.dataset.ch).forEach(a => { const el = art.querySelector(`[data-b="${a.block}"]`); if (el) wrap(el, a.start_at, a.end_at, a); });
+    });
   }
   const pop = () => $('.rd-pop');
   function placePop(rect){ const p = pop(); p.hidden = false; const w = p.offsetWidth; p.style.left = Math.max(8, Math.min(innerWidth - w - 8, rect.left + rect.width / 2 - w / 2)) + 'px'; p.style.top = (rect.top + scrollY - p.offsetHeight - 10) + 'px'; }
@@ -402,7 +503,7 @@ export function createReader(ctx){
     const user = getUser(); if (!user) { toast('Entra para guardar subrayados'); go('/entrar'); return null; }
     const { data, error } = await sb.from('annotations').insert({ ...d, user_id: user.id }).select().single();
     if (error) { toast('No se pudo guardar: ' + error.message); return null; }
-    S.annots.push(data); paintAnnots(); return data;
+    S.annots.push(data); paintAnnots(data.chapter_id); return data;
   }
   function cite(a){ const ch = S.chapters.find(c => c.id === a.chapter_id); return `«${a.quote}»\n— ${S.series.title}, Vol. ${ch?.vol} · ${ch?.title}\n${location.origin}/leer/${S.series.slug}/${ch?.num}`; }
   async function copyQuote(a){ const t = cite(a); try { if (navigator.share) await navigator.share({ text: t }); else { await navigator.clipboard.writeText(t); toast('Cita copiada'); } } catch {} }
@@ -418,10 +519,10 @@ export function createReader(ctx){
       const c = e.target.dataset.c, x = e.target.dataset.x;
       if (c) { a.color = c; pop().querySelectorAll('.sw').forEach(s => s.classList.toggle('on', s.dataset.c === c)); return; }
       if (x === 'quote') return copyQuote(a);
-      if (x === 'del') { await sb.from('annotations').delete().eq('id', a.id); S.annots = S.annots.filter(z => z.id !== a.id); paintAnnots(); return closePop(); }
+      if (x === 'del') { await sb.from('annotations').delete().eq('id', a.id); S.annots = S.annots.filter(z => z.id !== a.id); paintAnnots(a.chapter_id); return closePop(); }
       if (x === 'save') { const note = pop().querySelector('textarea').value.trim() || null, shared = pop().querySelector('[data-share]').checked;
         const { error } = await sb.from('annotations').update({ color: a.color, note, shared, updated_at: new Date().toISOString() }).eq('id', a.id);
-        if (error) return toast(error.message); Object.assign(a, { note, shared }); paintAnnots(); closePop(); toast('Anotación guardada'); }
+        if (error) return toast(error.message); Object.assign(a, { note, shared }); paintAnnots(a.chapter_id); closePop(); toast('Anotación guardada'); }
     };
   }
   document.addEventListener('mouseup', e => { if (!$('.rd') || e.target.closest('.rd-pop,.gl-sheet') || (e.target.closest('.gl') && getSelection().isCollapsed)) return; const m = e.target.closest('mark.an'); if (m && getSelection().isCollapsed) { const a = S.annots.find(z => String(z.id) === m.dataset.an); if (a) return editAnnot(a); } setTimeout(onSelect, 0); });
@@ -431,7 +532,7 @@ export function createReader(ctx){
   async function annotationsPage(slug){
     const user = getUser(); if (!user) return go('/entrar');
     if (!(await loadSeries(slug))) { app.innerHTML = '<h1>Serie no encontrada</h1>'; return; }
-    await loadAnnots();
+    S.annots = await fetchAnnots(S.chapters.map(c => c.id));
     const byCh = S.chapters.map(c => [c, S.annots.filter(a => a.chapter_id === c.id).sort((x, y) => x.block - y.block || x.start_at - y.start_at)]).filter(([, l]) => l.length);
     app.innerHTML = `<h1>Mis anotaciones</h1><p class="mono">${esc(S.series.title)} · ${S.annots.length} anotaciones</p>
       <p style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="md" ${S.annots.length ? '' : 'disabled'}>Exportar Markdown</button><a class="btn ghost" href="/serie/${esc(slug)}">Volver a la serie</a></p>

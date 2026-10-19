@@ -220,7 +220,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   const searchIndex = () => SIDX ||= (async () => { const u = getUser();
     const [{ data: ss }, { data: ts }, pr] = await Promise.all([sb.from('series').select('id,slug,title,short,original,author,illustrator,genres,tags,adult,cover_path,translation_status,theme,teams(name,slug,color),chapters(count)').eq('published', true),
       sb.from('teams').select('slug,name,avatar_path,status'), u ? sb.from('profiles').select('adult_ok').eq('id', u.id).maybeSingle() : { data: null }]);
-    const ok = !!pr?.data?.adult_ok; return { series: (ss || []).filter(x => x.translation_status !== 'withdrawn' && (!x.adult || ok)), teams: (ts || []).filter(t => !t.status || t.status === 'active') }; })().catch(e => { SIDX = null; throw e; });
+    const ok = !!pr?.data?.adult_ok; return { series: (ss || []).filter(x => x.translation_status !== 'withdrawn' && (!x.adult || ok)), teams: (ts || []).filter(t => !t.status || /^(active|activo)$/i.test(t.status)) }; })().catch(e => { SIDX = null; throw e; });
   async function searchData(q, lim){
     const I0 = await searchIndex(), I = { ...I0, series: I0.series.filter(x => !hidS(x)) }, n = norm(q), has = t => norm(t).includes(n), byId = Object.fromEntries(I.series.map(x => [x.id, x]));
     const works = I.series.filter(x => has([x.title, x.short, x.original].join(' '))).slice(0, lim);

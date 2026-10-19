@@ -41,7 +41,7 @@ export function renderBlock(b, i, o = {}){
   if (t === 'separator' || t === 'sep') return `<div class="sep" data-b="${i}" aria-hidden="true">※</div>`;
   if (t === 'note') return `<aside class="tn" data-b="${i}"><span class="mono">Nota del traductor</span>${rich(b)}</aside>`;
   if (t === 'ruby') return `<p data-b="${i}"><ruby>${escHtml(b.text || '')}<rt>${escHtml(b.reading || '')}</rt></ruby></p>`;
-  if (t === 'image' || t === 'img') { if (o.illus === false) return `<p class="mono" data-b="${i}">[Ilustración oculta]</p>`; const src = b.url || b.src; return src ? `<figure data-b="${i}"><img src="${escHtml(media(src))}" alt="${escHtml(b.alt || b.text || '')}" loading="lazy">${b.caption ? `<figcaption>${escHtml(b.caption)}</figcaption>` : ''}</figure>` : ''; }
+  if (t === 'image' || t === 'img') { if (o.illus === false) return `<p class="mono" data-b="${i}">[Ilustración oculta]</p>`; const src = b.url || b.src; return src ? `<figure data-b="${i}"><img src="${escHtml(media(src))}" alt="${escHtml(b.alt || b.text || '')}" loading="lazy" decoding="async"${b.w && b.h ? ` width="${+b.w}" height="${+b.h}"` : ''}>${b.caption ? `<figcaption>${escHtml(b.caption)}</figcaption>` : ''}</figure>` : ''; }
   return b.text ? `<p data-b="${i}">${escHtml(b.text)}</p>` : '';
 }
 
