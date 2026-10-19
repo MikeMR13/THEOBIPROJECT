@@ -183,7 +183,7 @@ select{background:#16140f;border:2px solid var(--line);color:var(--paper);paddin
 .pf-reader{display:grid;gap:6px}.pf-reader>div{display:grid;gap:10px;justify-items:center;padding:22px 18px;background:#f3ecd9;color:#1c1a14;text-align:center}.pf-reader img{max-width:200px;max-height:60px;object-fit:contain}.pf-reader .mono{color:#5a5244}.pf-reader>.mono{color:#a89f8a}.pf-reader b{font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:22px}
 
 /* avisos */
-#session{display:flex;gap:10px;align-items:center}
+#session{display:flex;gap:10px;align-items:center}[data-install][hidden]{display:none!important}
 #obi-net{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:70;max-width:92vw;padding:9px 14px;background:#1c1a14;border:1px solid var(--gold);color:var(--paper,#f3ecd9);font:13px 'IBM Plex Sans',sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.45)}#obi-net a{color:var(--gold)}#obi-net[data-on]{border-color:#9fdcb0}
 .off-list{display:grid;gap:8px;max-width:760px}.off-it{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:12px 14px;background:#14120d;border:1px solid #2f2a20}.off-it span{display:grid;gap:3px;min-width:0}.off-it b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.off-it small{font:11px 'IBM Plex Mono',monospace;color:var(--mute,#a89f8a)}
 @media(max-width:560px){.off-it{grid-template-columns:1fr 1fr}.off-it span{grid-column:1/-1}}

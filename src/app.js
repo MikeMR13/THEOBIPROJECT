@@ -66,7 +66,7 @@ const pr = me?.platform_role || 'lector';
 const ini = esc((profile?.username || user?.email || '?')[0].toUpperCase());
 const cont = `<a class="ob-cont" id="ob-cont" href="/biblioteca" hidden><span class="k" aria-hidden="true">続</span><span class="t"><small>Continuar</small><b></b></span></a>`;
 const h = cont + (user
-? `<details class="ob-bell"><summary aria-label="Avisos"><span aria-hidden="true">鈴</span><em id="bell-n" hidden></em></summary><div class="ob-menu ob-nt" id="bell-list"><p class="mono">Cargando…</p></div></details><details class="ob-user"><summary aria-label="Menú de cuenta"><span class="ob-av">${profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : ini}</span></summary><div class="ob-menu"><div class="who2"><strong>${esc(profile?.username || user.email)}</strong><small>${RL[pr]}${profile?.donor_tier ? ' · 援 Donador' : ''}</small></div><a href="/perfil">Mi perfil</a><a href="/biblioteca">Mi biblioteca</a><a href="/preferencias">Preferencias</a>${pr === 'bibliotecario' ? '<a href="/bibliotecario">Mostrador del Bibliotecario</a>' : ''}${pr !== 'lector' ? '<a href="/estudio">Estudio</a>' : '<a href="/solicitud">Crear mi grupo traductor</a>'}<button id="out">Salir</button></div></details>`
+? `<details class="ob-bell"><summary aria-label="Avisos"><span aria-hidden="true">鈴</span><em id="bell-n" hidden></em></summary><div class="ob-menu ob-nt" id="bell-list"><p class="mono">Cargando…</p></div></details><details class="ob-user"><summary aria-label="Menú de cuenta"><span class="ob-av">${profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : ini}</span></summary><div class="ob-menu"><div class="who2"><strong>${esc(profile?.username || user.email)}</strong><small>${RL[pr]}${profile?.donor_tier ? ' · 援 Donador' : ''}</small></div><a href="/perfil">Mi perfil</a><a href="/biblioteca">Mi biblioteca</a><a href="/preferencias">Preferencias</a><button type="button" data-install ${canInstall() ? '' : 'hidden'}>Instalar la app</button>${pr === 'bibliotecario' ? '<a href="/bibliotecario">Mostrador del Bibliotecario</a>' : ''}${pr !== 'lector' ? '<a href="/estudio">Estudio</a>' : '<a href="/solicitud">Crear mi grupo traductor</a>'}<button id="out">Salir</button></div></details>`
 : `<button class="btn" id="in">Entrar</button>`);
 if (h === lastBar) return contBtn(); lastBar = h; $('#session').innerHTML = h;
 const dd = $('#session .ob-user'); if (dd) dd.querySelector('.ob-menu').addEventListener('click', e => { if (e.target.closest('a')) dd.open = false; });
@@ -76,6 +76,32 @@ contBtn(true);
 }
 // botón «Continuar» de la barra: lo último leído (servidor o este dispositivo, lo más reciente)
 let CB = { t: 0, v: null, u: null };
+// ---------- instalar la app (Android/escritorio: aviso del navegador · iPhone/iPad: guía paso a paso) ----------
+let BIP = null;
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const canInstall = () => !isStandalone() && (!!BIP || isIOS() || /android/i.test(navigator.userAgent));
+const showInstall = () => document.querySelectorAll('[data-install]').forEach(b => { b.hidden = !canInstall(); });
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); BIP = e; showInstall(); });
+addEventListener('appinstalled', () => { BIP = null; showInstall(); toast('¡Listo! El Obi ya está en tu pantalla de inicio'); });
+document.addEventListener('click', e => { const b = e.target.closest('[data-install]'); if (!b) return; e.preventDefault(); document.querySelectorAll('.ob-user[open]').forEach(d => d.open = false); installApp(); });
+async function installApp(){
+  if (isStandalone()) return toast('Ya estás usando la app instalada');
+  if (BIP) { BIP.prompt(); const r = await BIP.userChoice.catch(() => null); if (r?.outcome === 'accepted') BIP = null; showInstall(); return; }
+  const ua = navigator.userAgent, ios = isIOS(), safari = ios && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua);
+  const steps = ios ? (safari
+      ? ['Toca el botón <b>Compartir</b> <span aria-hidden="true">(el cuadro con la flecha ↑, abajo en iPhone o arriba en iPad)</span>.', 'Desplázate y elige <b>Agregar a pantalla de inicio</b>.', 'Toca <b>Agregar</b>. El sello 帯 aparecerá con tus otras apps.']
+      : ['Abre el menú <b>Compartir</b> de este navegador (o el menú ⋯).', 'Elige <b>Agregar a pantalla de inicio</b>.', 'Si no aparece, abre esta página en <b>Safari</b> y repite los pasos.'])
+    : /android/i.test(ua) ? ['Toca el menú <b>⋮</b> del navegador (arriba a la derecha).', 'Elige <b>Instalar app</b> o <b>Agregar a pantalla principal</b>.', 'Confirma con <b>Instalar</b>.']
+    : ['En la barra de direcciones, pulsa el ícono de <b>instalar</b> (una pantalla con flecha).', 'O abre el menú del navegador y elige <b>Instalar El Obi del Lector</b>.'];
+  const d = document.createElement('dialog'); d.setAttribute('aria-labelledby', 'ins-t');
+  d.style.cssText = 'max-width:min(420px,92vw);padding:22px;background:#14120d;color:var(--paper,#f3ecd9);border:2px solid var(--gold);display:grid;gap:14px';
+  d.innerHTML = `<div style="display:flex;gap:14px;align-items:center"><img src="/apple-touch-icon.png" alt="" width="56" height="56" style="flex:none"><div><h2 id="ins-t" style="margin:0;font:800 20px 'Shippori Mincho B1',serif">Instala El Obi</h2><span class="mono" style="font-size:11px;color:var(--mute)">Abre más rápido, a pantalla completa y lee sin conexión</span></div></div>
+    <ol style="margin:0;padding-left:20px;display:grid;gap:8px;line-height:1.45">${steps.map(s => `<li>${s}</li>`).join('')}</ol>
+    <button class="btn" type="button" style="justify-self:end">Entendido</button>`;
+  document.body.appendChild(d); d.querySelector('button').onclick = () => d.close(); d.addEventListener('close', () => d.remove()); d.addEventListener('click', e => { if (e.target === d) d.close(); });
+  d.showModal();
+}
 async function contBtn(force){
   const el = $('#ob-cont'); if (!el) return;
   if (location.pathname.startsWith('/leer/') || location.pathname.startsWith('/estudio') || location.pathname.startsWith('/bibliotecario')) { el.hidden = true; return; }
@@ -116,7 +142,7 @@ function render(){ seasons().then(S => { S.clear(); S.load(sb); }); return rende
 // ---------- sin conexión ----------
 function offlinePage(){
   const on = navigator.onLine; lbCss();
-  app.innerHTML = `<div class="ui-cath"><div><h1>${on ? 'Mis descargas' : 'Sin conexión'}</h1><p>${on ? 'Volúmenes guardados en este dispositivo para leer sin internet.' : 'Puedes seguir leyendo lo que descargaste. El resto de la biblioteca vuelve cuando tengas internet.'}</p></div><span class="kj" aria-hidden="true">${on ? '保存' : '圏外'}</span></div><div id="off">${rd().offlineList()}</div>${on ? '' : '<p style="margin-top:18px"><button class="btn ghost" id="off-retry">Reintentar conexión</button></p>'}`;
+  app.innerHTML = `<div class="ui-cath"><div><h1>${on ? 'Mis descargas' : 'Sin conexión'}</h1><p>${on ? 'Volúmenes guardados en este dispositivo para leer sin internet.' : 'Puedes seguir leyendo lo que descargaste. El resto de la biblioteca vuelve cuando tengas internet.'}</p></div><span class="kj" aria-hidden="true">${on ? '保存' : '圏外'}</span></div><div id="off">${rd().offlineList()}</div>${on ? `<p style="margin-top:18px"><button class="btn ghost" type="button" data-install ${canInstall() ? '' : 'hidden'}>Instalar la app para leer sin conexión</button></p>` : '<p style="margin-top:18px"><button class="btn ghost" id="off-retry">Reintentar conexión</button></p>'}`;
   rd().bindOfflineList($('#off'), offlinePage);
   $('#off-retry')?.addEventListener('click', () => navigator.onLine ? render() : toast('Todavía sin conexión'));
 }
