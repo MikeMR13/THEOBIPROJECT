@@ -78,7 +78,7 @@ export function lockHTML(L, esc, slug) {
     <span class="mono" style="font-size:12px;letter-spacing:.14em">${esc((L.series || '').toUpperCase())}</span>
     <h1 style="margin:0;font-size:clamp(24px,4vw,34px)">${esc(L.title || '')}</h1>
     <p style="margin:0;font-size:17px;line-height:1.5">${scope} solo está disponible para mecenas de <b>${who}</b>${tier ? ' ' + tier : ''}.</p>${until}
-    <span style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">${L.url ? `<a class="btn" href="${esc((u => { try { const x = new URL(u); if (!/(^|\.)patreon\.com$/.test(x.hostname) || /\/(membership|join|checkout)(\/|$)/.test(x.pathname)) return u; x.pathname = (x.pathname === '/user' ? '/user' : x.pathname.replace(/\/+$/, '')) + '/membership'; return x.toString(); } catch { return u; } })(L.url))}" target="_blank" rel="noopener">Hazte mecenas ↗</a>` : ''}
+    <span style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">${L.url ? `<a class="btn" href="${esc((u => { try { const x = new URL(u); if (!/(^|\.)patreon\.com$/.test(x.hostname) || x.searchParams.has('u') || /\/(membership|join|checkout)(\/|$)/.test(x.pathname)) return u; x.pathname = (x.pathname === '/user' ? '/user' : x.pathname.replace(/\/+$/, '')) + '/membership'; return x.toString(); } catch { return u; } })(L.url))}" target="_blank" rel="noopener">Hazte mecenas ↗</a>` : ''}
       ${!L.signed ? '<a class="btn ghost" href="/entrar">Ya soy mecenas · Entrar</a>' : !L.linked ? '<button type="button" class="btn ghost" id="lk-link">Ya soy mecenas · Vincular Patreon</button>' : '<button type="button" class="btn ghost" id="lk-link">Actualizar mis apoyos</button>'}</span>
     <a href="/serie/${esc(slug)}" class="mono" style="font-size:13px">‹ Volver a la obra</a></section>`;
 }
