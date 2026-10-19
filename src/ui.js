@@ -300,7 +300,16 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     paint(null, o.following()); q.hidden = false; document.body.style.overflow = 'hidden'; q.querySelector('.ui-qx').focus({ preventScroll: true });
     if (!p) { const { data: f } = await sb.from('chapters').select('num').eq('series_id', s.id).eq('status', 'published').is('deleted_at', null).order('num').limit(1); if (!q.hidden) { paint(f?.[0]?.num || null, o.following()); q.querySelector('.ui-qx').focus({ preventScroll: true }); } }
   }
-  async function progressMap(){ const u = getUser(); if (!u) return {}; const { data } = await sb.from('reading_progress').select('series_id,chapter_num,pct,updated_at').eq('user_id', u.id); return Object.fromEntries((data || []).map(r => [r.series_id, r])); }
+  // progreso del servidor + el de este dispositivo (sirve sin cuenta y si el servidor va atrasado)
+  async function progressMap(){
+    const u = getUser(); let rows = [];
+    if (u) { const { data } = await sb.from('reading_progress').select('series_id,chapter_num,pct,updated_at').eq('user_id', u.id); rows = data || []; }
+    const m = Object.fromEntries(rows.map(r => [r.series_id, r]));
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!k?.startsWith('obi-pos-')) continue;
+      const l = JSON.parse(localStorage.getItem(k)), id = k.slice(8), cur = m[id]; if (!l?.num) continue;
+      if (!cur || (l.at && new Date(l.at) > new Date(cur.updated_at || 0))) m[id] = { series_id: id, chapter_num: l.num, pct: l.pct || 0, updated_at: l.at || cur?.updated_at || new Date(0).toISOString() }; } } catch {}
+    return m;
+  }
 
   // ---------- Inicio ----------
   let heroT;
@@ -354,7 +363,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const [FD, prog, pr, festKey, AN, VR, TR] = await Promise.all([
       feed(), progressMap(),
       u ? sb.from('profiles').select('adult_ok').eq('id', u.id).maybeSingle() : { data: null },
-      import('/season.js?v=3').then(S => S.load(sb).then(() => S.platformKey())).catch(() => null),
+      import('/season.js?v=4').then(S => S.load(sb).then(() => S.platformKey())).catch(() => null),
       import('/anim.js?v=8').catch(() => null),
       // portada del último volumen publicado y aviso del equipo: se piden aparte porque home_feed no los trae
       sb.from('volumes').select('series_id,num,cover_path,status').is('deleted_at', null).not('cover_path', 'is', null).then(r => r, () => ({ data: [] })),

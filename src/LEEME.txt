@@ -8,5 +8,13 @@ Sube estos 8 archivos a la raíz del sitio, reemplazando los actuales:
 - styles.css  Estilos de todo lo anterior.
 - app.js, index.html, studio.js   Solo suben el número de versión (?v=) para que los navegadores descarguen los archivos nuevos.
 
-Versiones nuevas: app 18 · ui 43 · reader 16 · blocks 2 · styles 21 · season 4.
-No requiere cambios en la base de datos.
+Versiones nuevas: app 19 · ui 44 · reader 17 · blocks 2 · styles 22 · season 4.
+ANTES de subir los archivos, ejecuta en Supabase › SQL Editor:
+- 20261019_progreso_unico.sql  Deja una sola fila de progreso por lector y serie (quita duplicados) y asegura los permisos para guardarlo.
+
+Arreglo de «dónde me quedé»:
+- Ya no se pisa el progreso con «párrafo 0» al salir del lector.
+- Se guarda al abrir el capítulo, al cerrar la pestaña, al cambiar de app y al tocar un enlace.
+- Gana la posición más reciente entre el servidor y el dispositivo.
+- Si abres otro capítulo, el lector ofrece «Continuar ahí».
+- «Continuar leyendo» funciona también sin cuenta (con lo guardado en el dispositivo).

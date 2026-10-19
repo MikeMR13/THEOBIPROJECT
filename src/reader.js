@@ -207,6 +207,7 @@ export function createReader(ctx){
       </nav>
       <div class="rd-prog" aria-hidden="true"><i></i></div>
       <div class="rd-panel" hidden></div>
+      <p id="rd-resume" class="rd-resume" hidden></p>
       <p id="rd-earlier" hidden></p>
       <div id="rd-flow">${chapterHTML(ch, b, p)}</div>
       <div id="rd-sentinel"></div>
@@ -215,7 +216,9 @@ export function createReader(ctx){
       <div class="gl-sheet" hidden></div>
       <button class="rd-zen-x" data-act="zen">Salir del modo zen</button>
     </div>`;
-    restorePosition(ch, pos); bindBar(); footer(); progress();
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    restorePosition(ch, pos); resumeBar(ch, pos); bindBar(); footer(); progress();
+    clearTimeout(S.saveT); S.saveT = setTimeout(saveProgress, 2500); // abrir el capítulo ya cuenta como «dónde voy»
     logHistory(ch); prefetchNext(ch);
     observe(); wake();
     annP.then(l => { if (!S.mounted.includes(ch)) return; S.annots = S.annots.filter(a => a.chapter_id !== ch.id).concat(l); paintAnnots(ch.id); });
@@ -333,17 +336,32 @@ export function createReader(ctx){
     if (left) left.textContent = pct > .98 ? 'Fin del capítulo' : min <= 1 ? 'Menos de 1 min' : `≈ ${min} min restantes`;
   }
   async function saveProgress(){
-    const ch = S.active, { block: blk, pct } = currentBlock(), p = effective(ch.volume_id);
-    localStorage.setItem(posKey(S.series.id), JSON.stringify({ chapter_id: ch.id, num: ch.num, block: blk, pct }));
+    const ch = S.active; if (!ch || !S.series || !$(`[data-ch="${ch.id}"]`)) return; // ya no está en pantalla: no pisar el progreso con «párrafo 0»
+    clearTimeout(S.saveT);
+    const { block: blk, pct } = currentBlock(), p = effective(ch.volume_id), at = new Date().toISOString();
+    try { localStorage.setItem(posKey(S.series.id), JSON.stringify({ chapter_id: ch.id, num: ch.num, block: blk, pct, at })); } catch {}
     const user = getUser(); if (!user) return;
-    sb.from('reading_progress').upsert({ user_id: user.id, series_id: S.series.id, chapter_num: ch.num, chapter_id: ch.id, block: blk, pct, mode: p.continuous === 'off' ? 'chapter' : 'continuous', updated_at: new Date().toISOString() });
+    sb.from('reading_progress').upsert({ user_id: user.id, series_id: S.series.id, chapter_num: ch.num, chapter_id: ch.id, block: blk, pct, mode: p.continuous === 'off' ? 'chapter' : 'continuous', updated_at: at }, { onConflict: 'user_id,series_id' }).then(({ error }) => { if (error) console.warn('progreso', error.message); });
     if (pct > 0.95 && !S.readMarked.has(ch.id)) { S.readMarked.add(ch.id); sb.from('read_chapters').upsert({ user_id: user.id, chapter_id: ch.id }); }
   }
+  // gana la posición más reciente entre la del servidor y la de este dispositivo
   async function fetchPos(){
-    let pos = null; const user = getUser();
-    if (user) try { const { data } = await sb.from('reading_progress').select('chapter_id,block').eq('user_id', user.id).eq('series_id', S.series.id).maybeSingle(); pos = data; } catch {}
-    if (!pos) try { pos = JSON.parse(localStorage.getItem(posKey(S.series.id))); } catch {}
-    return pos;
+    let srv = null, loc = null; const user = getUser();
+    if (user) try { const { data } = await sb.from('reading_progress').select('chapter_id,chapter_num,block,pct,updated_at').eq('user_id', user.id).eq('series_id', S.series.id).order('updated_at', { ascending: false }).limit(1); srv = data?.[0] || null; } catch {}
+    try { loc = JSON.parse(localStorage.getItem(posKey(S.series.id))); } catch {}
+    if (srv && loc) return new Date(loc.at || 0) > new Date(srv.updated_at || 0) ? loc : srv;
+    return srv || loc;
+  }
+  // guardar ya al salir: cerrar pestaña, cambiar de app o tocar un enlace del lector
+  addEventListener('pagehide', () => saveProgress());
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveProgress(); });
+  document.addEventListener('click', e => { if (e.target.closest?.('.rd a[href]')) saveProgress(); }, true);
+  function resumeBar(ch, pos){
+    const el = $('#rd-resume'); if (!el || !pos || pos.chapter_id === ch.id) return;
+    const at = S.chapters.find(c => c.id === pos.chapter_id) || S.chapters.find(c => c.num === (pos.num ?? pos.chapter_num)); if (!at || at === ch) return;
+    const pc = Math.round((pos.pct || 0) * 100);
+    el.innerHTML = `<span>Te quedaste en <b>${esc(at.title)}</b>${pc ? ` · ${pc} %` : ''}</span><a class="btn" href="/leer/${S.series.slug}/${at.num}">Continuar ahí</a><button class="btn ghost" type="button" aria-label="Seguir aquí">Seguir aquí</button>`;
+    el.hidden = false; el.querySelector('button').onclick = () => { el.hidden = true; };
   }
   // se llama en el mismo cuadro en que se pinta el capítulo: sin salto visible
   function restorePosition(ch, pos){
