@@ -144,7 +144,7 @@ export function createReader(ctx){
     if (!(await loadSeries(slug))) { app.innerHTML = '<h1>Serie no encontrada</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
     if (!S.remote) await loadPrefs();
     const ch = S.chapters.find(c => c.num === num);
-    if (!ch) { app.innerHTML = '<h1>Capítulo bloqueado o inexistente</h1><p>Si es acceso anticipado, apóyanos para leerlo antes. <a href="/apoyar">Ver niveles</a></p>'; return; }
+    if (!ch) { const { data: L } = await sb.rpc('lock_info', { p_slug: slug, p_num: num }).then(x => x, () => ({ data: null })); if (L) { const P = await import('/patreon.js?v=1'); app.innerHTML = P.lockHTML(L, esc, slug); app.querySelector('#lk-link')?.addEventListener('click', () => P.start(sb, url, 'link', null, toast)); return; } app.innerHTML = '<h1>Capítulo no disponible</h1><p>Puede que aún no se publique. <a href="/serie/' + esc(slug) + '">Volver a la obra</a></p>'; return; }
     const b = await body(ch);
     if (!b) { app.innerHTML = '<h1>Sin conexión</h1><p>Este capítulo no está descargado. <a href="/biblioteca">Ver descargas</a></p>'; return; }
     const p = effective(ch.volume_id);

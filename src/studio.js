@@ -450,6 +450,7 @@ export function createStudio(ctx){
         <section class="wk-box" style="border-top:4px solid #8cc3f2"><h2>Créditos compartidos</h2><small class="mono">Invita a otro grupo traductor. Al aceptar, la obra aparece en el catálogo y en el perfil de ambos equipos.</small>
           ${(cols || []).map(c => `<div class="wk-cb"><span class="wk-ini" style="background:${esc(c.invited?.color || '#8cc3f2')}">${esc((c.invited?.name || '?').slice(0, 2).toUpperCase())}</span><b>${esc(c.invited?.name || '')}</b><span class="mono">${{ pending: 'Pendiente', accepted: 'Aceptada', rejected: 'Rechazada', revoked: 'Revocada' }[c.status] || c.status}</span>${c.status !== 'revoked' && can('edit') ? `<button class="lnk danger" data-revoke="${c.id}">Revocar</button>` : '<span></span>'}</div>`).join('')}
           ${can('edit') ? '<div class="wk-inv"><input id="inv" placeholder="@alias del equipo" aria-label="Alias del equipo a invitar"><button class="btn sm blue" id="invite">Invitar</button></div>' : ''}</section>
+        <section class="wk-box" id="wk-lock" style="grid-column:1/-1"><h2>Mecenas y bloqueos</h2><small class="mono">Bloquea la obra completa o capítulos sueltos para mecenas de tu Patreon. Quien no es mecenas ve la ficha y los títulos con candado y un botón «Hazte mecenas». Los volúmenes se bloquean desde «Editar volumen».</small><div id="wk-lock-b"><p class="mono">Cargando…</p></div></section>
         <section class="wk-box" id="wk-rel"><h2>Obras relacionadas</h2><small class="mono">Precuelas, secuelas, spin-offs u obras del mismo universo. Se muestran en la ficha pública. Puedes enlazar obras de otros equipos.</small><div id="wk-rel-b"><p class="mono">Cargando…</p></div></section>
         <section class="wk-box"><h2>Historial de publicación</h2>${(events || []).map(e => `<p class="mono" style="margin:0">${fmtTz(e.created_at, { dateStyle: 'short', timeStyle: 'short' })} · ${esc(e.summary)}</p>`).join('') || '<p class="mono" style="margin:0">Sin eventos.</p>'}</section>
       </div>
@@ -729,6 +730,35 @@ export function createStudio(ctx){
       const leaveUT = e => { if (utDirty && document.body.contains($('#ut-save'))) { e.preventDefault(); e.returnValue = ''; } else removeEventListener('beforeunload', leaveUT); }; addEventListener('beforeunload', leaveUT);
     }
     if (tab === 'datos') {
+      { const ed = can('edit'), B = () => $('#wk-lock-b'); let tiers = [], SA = null, CH = [], VOL = {}, dirtyC = new Map(), conn = false;
+        const enc = (a, m) => a === 'tier' ? 'tier:' + (+m).toFixed(2) : a || 'public', dec = v => v.startsWith('tier:') ? ['tier', +v.slice(5)] : [v, null];
+        const opts = (cur) => [['public', 'Público'], ['donors', 'Todos los mecenas'], ...tiers.map(t => ['tier:' + (+t.price_usd).toFixed(2), 'Desde «' + t.name + '» · US$' + (+t.price_usd).toFixed(2)])].map(([v, l]) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`).join('');
+        const day = d => d ? new Date(d).toISOString().slice(0, 10) : '', dis = ed ? '' : 'disabled';
+        const drawL = () => { const b = B(); if (!b) return; const byV = {}; CH.forEach(c => (byV[c.volume_id || '_'] ||= []).push(c));
+          b.innerHTML = `<div style="display:grid;gap:14px;margin-top:10px">
+            ${conn ? '' : '<p class="mono" style="margin:0;padding:10px;border:1px solid #f59e7a;color:#f59e7a;font-size:12px">Tu equipo aún no conecta Patreon (Estudio › Página del equipo). Puedes configurar los bloqueos, pero nadie podrá desbloquearlos como mecenas hasta conectarlo.</p>'}
+            <div style="display:grid;gap:8px;padding:12px;border:1px solid #2f2a20;background:#16140f"><b>Obra completa</b>
+              <span style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><select id="lk-s" ${dis} style="flex:1 1 240px">${opts(enc(SA.access, SA.access_min_price))}</select>
+              <label class="mono" style="display:flex;gap:6px;align-items:center;font-size:12px">Abrir para todos el <input type="date" id="lk-su" value="${day(SA.access_until)}" ${dis}></label></span></div>
+            <details ${CH.some(c => c.access !== 'public') ? 'open' : ''}><summary style="cursor:pointer;font-weight:600">Capítulos (${CH.filter(c => c.access !== 'public').length} bloqueados de ${CH.length})</summary>
+              <div style="display:grid;gap:12px;margin-top:10px">${Object.entries(byV).sort((x, y) => (VOL[y[0]]?.num ?? -1) - (VOL[x[0]]?.num ?? -1)).map(([vid, L]) => `<div style="display:grid;gap:4px"><span class="mono" style="font-size:12px;letter-spacing:.1em">${vid === '_' ? 'SIN VOLUMEN' : 'VOLUMEN ' + esc(String(VOL[vid]?.num ?? '')) + (VOL[vid]?.access && VOL[vid].access !== 'public' ? ' · 🔒︎ volumen bloqueado' : '')}</span>
+                ${L.map(c => { const d = dirtyC.get(c.id) || c; return `<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,220px) auto;gap:8px;align-items:center;padding:6px 8px;border-bottom:1px solid #221f18"><span style="min-width:0;overflow-wrap:anywhere;font-size:14px"><span class="mono" style="font-size:12px">${c.num}</span> ${esc(c.title || '')}</span><select data-lc="${c.id}" ${dis}>${opts(enc(d.access, d.access_min_price))}</select><input type="date" data-lu="${c.id}" value="${day(d.access_until)}" title="Abrir para todos el…" ${dis} ${d.access === 'public' ? 'hidden' : ''}></div>`; }).join('')}</div>`).join('') || '<p class="mono">Sin capítulos.</p>'}</div></details>
+            ${ed ? `<span style="display:flex;gap:8px;align-items:center"><button type="button" class="btn sm" id="lk-save">Guardar bloqueos</button><span class="mono" style="font-size:12px" id="lk-st"></span></span>` : ''}</div>`;
+          const mark = () => { const t = $('#lk-st'); if (t) t.textContent = 'Cambios sin guardar'; };
+          $('#lk-s')?.addEventListener('change', e => { const [a, m] = dec(e.target.value); SA.access = a; SA.access_min_price = m; mark(); });
+          $('#lk-su')?.addEventListener('change', e => { SA.access_until = e.target.value ? e.target.value + 'T00:00:00' : null; mark(); });
+          b.querySelectorAll('[data-lc]').forEach(x => x.onchange = () => { const c = CH.find(y => y.id === x.dataset.lc), d = { ...(dirtyC.get(c.id) || c) }; [d.access, d.access_min_price] = dec(x.value); if (d.access === 'public') d.access_until = null; dirtyC.set(c.id, d); drawL(); mark(); });
+          b.querySelectorAll('[data-lu]').forEach(x => x.onchange = () => { const c = CH.find(y => y.id === x.dataset.lu), d = { ...(dirtyC.get(c.id) || c) }; d.access_until = x.value ? x.value + 'T00:00:00' : null; dirtyC.set(c.id, d); mark(); });
+          $('#lk-save')?.addEventListener('click', e => busy(e.currentTarget, async () => {
+            const tz = v => v ? new Date(v).toISOString() : null;
+            const { error } = await sb.from('series').update({ access: SA.access, access_min_price: SA.access === 'tier' ? SA.access_min_price : null, access_until: SA.access === 'public' ? null : tz(SA.access_until) }).eq('id', s.id);
+            if (error) throw new Error(/access/.test(error.message) ? 'Falta ejecutar el SQL 20261113_patreon.sql' : errMsg(error));
+            for (const [id, d] of dirtyC) { const { error: e2 } = await sb.from('chapters').update({ access: d.access, access_min_price: d.access === 'tier' ? d.access_min_price : null, access_until: d.access === 'public' ? null : tz(d.access_until) }).eq('id', id); if (e2) throw new Error(errMsg(e2)); Object.assign(CH.find(c => c.id === id), d); }
+            dirtyC.clear(); toast('Bloqueos guardados'); drawL(); })); };
+        Promise.all([sb.from('series').select('access,access_min_price,access_until').eq('id', s.id).single(), sb.from('chapters').select('id,num,title,volume_id,access,access_min_price,access_until').eq('series_id', s.id).is('deleted_at', null).order('num'),
+          sb.from('volumes').select('id,num,access').eq('series_id', s.id).is('deleted_at', null), sb.from('patreon_tiers').select('name,price_usd').eq('team_id', T.team.id).order('price_usd'), sb.from('patreon_public').select('owner').eq('owner', T.team.id).maybeSingle()])
+          .then(([a1, a2, a3, a4, a5]) => { if (a1.error) { const b = B(); if (b) b.innerHTML = `<p class="mono">${/access/.test(a1.error.message) ? 'Falta ejecutar el SQL 20261113_patreon.sql' : esc(a1.error.message)}</p>`; return; }
+            SA = a1.data; CH = a2.data || []; VOL = Object.fromEntries((a3.data || []).map(v => [v.id, v])); tiers = a4.data || []; conn = !!a5.data; drawL(); }); }
       { const KINDS = [['precuela','Precuela'],['secuela','Secuela'],['spinoff','Spin-off'],['universo','Mismo universo'],['paralela','Historia paralela'],['adaptacion','Adaptación'],['alterna','Versión alternativa'],['otra','Relacionada']], RL = [...(Array.isArray(s.relations) ? s.relations : [])]; let all = [], relDirty = false;
         const drawRel = () => { const b = $('#wk-rel-b'); if (!b) return; const by = Object.fromEntries(all.map(x => [x.id, x])), ed = can('edit');
           b.innerHTML = `<div style="display:grid;gap:8px;margin-top:8px">${RL.map((r, i) => { const x = by[r.id]; return `<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px;border:1px solid #2f2a20;background:#16140f"><span><b>${esc(x?.title || 'Obra no disponible')}</b><br><small class="mono">${esc(x?.teams?.name || '')}</small></span><span style="display:flex;gap:6px;align-items:center"><select data-rk="${i}" ${ed ? '' : 'disabled'} aria-label="Relación">${KINDS.map(([k, l]) => `<option value="${k}" ${r.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>${ed ? `<button type="button" class="lnk danger" data-rx="${i}">Quitar</button>` : ''}</span></div>`; }).join('') || '<p class="mono" style="margin:0">Sin obras relacionadas.</p>'}
@@ -1856,10 +1886,12 @@ export function createStudio(ctx){
         <label>Obra destacada<select name="feat" ${dis}><option value="">Ninguna</option>${(works || []).map(w => `<option value="${w.slug}" ${D.feat === w.slug ? 'selected' : ''}>${esc(w.short || w.title)}</option>`).join('')}</select></label>
         <div class="pf-g"><span class="pf-l">Secciones visibles</span>${SECTS.map(([k, l]) => `<label class="tb-inl"><input type="checkbox" data-sect="${k}" ${D.sect[k] ? 'checked' : ''} ${dis}> ${l}</label>`).join('')}</div>
         <div class="pf-g"><span class="pf-l">Redes y apoyo</span>${LINKS.map(([k, l, ph]) => `<label class="pf-link">${l}<input type="url" data-link="${k}" value="${esc(D.links[k])}" placeholder="${ph}" ${dis}></label>`).join('')}</div>
+        <div class="pf-g" id="pt-team"></div>
         ${edit ? '<span class="pf-save"><span class="mono" id="pfstate"></span><button class="btn" id="pfsave">Guardar página</button></span>' : ''}
       </form>
       <div class="pf-pv"><span class="mono" id="pvurl"></span><div id="pv"></div></div></div>`, '/estudio/perfil');
     bindPicker(profile);
+    import('/patreon.js?v=1').then(m => m.campaignBox(document.getElementById('pt-team'), { sb, url, esc, toast, owner: T.team.id, edit }));
     const f = $('#pf'); let dirty = false;
     const draw = () => {
       const feat = (works || []).find(w => w.slug === D.feat), c = D.color, logo = D.avatar ? media(D.avatar) : '';

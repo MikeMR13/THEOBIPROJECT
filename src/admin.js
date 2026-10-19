@@ -194,6 +194,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       V.querySelectorAll('[data-ld]').forEach(b => b.onclick = () => mv(+b.dataset.ld, +b.dataset.ld + 1));
       V.querySelectorAll('[data-lr]').forEach(b => b.onclick = () => { C.links.splice(+b.dataset.lr, 1); dirty = true; draw(); });
       const add = V.querySelector('#sp-add'); if (add) add.onclick = () => { C.links.push({ kind: ['paypal', 'kofi', 'patreon'].find(k => !C.links.some(l => l.kind === k)) || 'otro', url: '', label: '', note: '' }); dirty = true; draw(); };
+      { const pb = document.createElement('div'); pb.className = 'bb-box'; pb.style.marginTop = '18px'; V.appendChild(pb); import('/patreon.js?v=1').then(m => m.campaignBox(pb, { sb, url, esc, toast, owner: 'platform' })); }
       V.querySelector('#sp-save').onclick = async e => {
         if (C.mode === 'external' && !/^https:\/\/[^\s/]+\.[^\s]{2,}/i.test(C.url.trim())) return toast('Escribe el enlace completo, empezando por https://');
         const bad = C.links.findIndex(l => !/^https:\/\/[^\s/]+\.[^\s]{2,}/i.test((l.url || '').trim())); if ((C.mode === 'links' || C.mode === 'both') && bad >= 0) return toast('El enlace ' + (bad + 1) + ' debe empezar por https://');

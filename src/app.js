@@ -1,7 +1,7 @@
 // Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
 import { createClient } from '/supabase.js?v=1';
-import { createReader } from '/reader.js?v=14';
-import { createUI } from '/ui.js?v=41';
+import { createReader } from '/reader.js?v=15';
+import { createUI } from '/ui.js?v=42';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
 export const sb = createClient(url, key, { auth: { persistSession: true } });
@@ -11,10 +11,10 @@ const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display =
 let user = null, profile = null, me = null;
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
 let LG; const lg = async () => LG ||= await import('/legal.js?v=1');
-let PF; const pf = async () => PF ||= await import('/profile.js?v=8');
+let PF; const pf = async () => PF ||= await import('/profile.js?v=9');
 const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
-let ST; const st = async () => ST ||= (await import('/studio.js?v=37')).createStudio(CTX());
-let AD; const ad = async () => AD ||= (await import('/admin.js?v=8')).createAdmin(CTX());
+let ST; const st = async () => ST ||= (await import('/studio.js?v=38')).createStudio(CTX());
+let AD; const ad = async () => AD ||= (await import('/admin.js?v=9')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
 let U; const ui = () => U ||= createUI(CTX());
 
@@ -279,7 +279,8 @@ const tiers = (data||[]).map(t => `<div style="border:2px solid var(--line);padd
 const cards = links.map(l => { const [kn, kc] = SUP_KIND[l.kind] || SUP_KIND.otro; return `<a href="${esc(l.url)}" target="_blank" rel="noopener" style="display:grid;gap:6px;padding:18px;background:#14120d;border:1px solid #2f2a20;border-top:4px solid ${kc};color:var(--paper);text-decoration:none"><span class="mono" style="font-size:11px;letter-spacing:.12em;color:${kc}">${esc(kn.toUpperCase())}</span><b style="font-size:18px">${esc(l.label || kn)}</b>${l.note ? `<span style="font-size:14px;line-height:1.5;color:#cfc6b0">${esc(l.note)}</span>` : ''}<span style="font-weight:600;color:${kc}">Abrir →</span></a>`; }).join('');
 const grid = cards ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:14px;margin:18px 0 28px">${cards}</div>` : '';
 app.innerHTML = `<h1>${esc(C.title || 'Apoya a los traductores')}</h1><p style="max-width:68ch">${esc(C.intro || (mode === 'links' ? 'Elige cómo quieres apoyar.' : 'Tu membresía de Patreon activa el acceso anticipado y el sello 援 automáticamente.'))}</p>`
-  + (mode === 'links' ? (grid || '<p class="mono">Aún no hay enlaces de apoyo.</p>') : mode === 'both' ? grid + '<h2>Niveles de Patreon</h2>' + tiers : tiers);
+  + (mode === 'links' ? (grid || '<p class="mono">Aún no hay enlaces de apoyo.</p>') : mode === 'both' ? grid + '<h2>Niveles de Patreon</h2>' + tiers : tiers) + '<section id="wall"></section>';
+sb.rpc('platform_patrons_wall').then(({ data: W }) => { const el = document.getElementById('wall'); if (!el || !W?.length) return; el.innerHTML = `<h2 style="margin-top:36px">惠 Muro de agradecimientos</h2><p class="mono" style="margin:0 0 14px">Gracias a quienes sostienen El Obi del Lector.</p><div style="display:flex;flex-wrap:wrap;gap:10px">${W.map(w => `<a href="/lector/${esc(w.username)}" style="display:flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;border:1px solid var(--line);background:#16140f;color:var(--paper);text-decoration:none;font-weight:600;font-size:14px"><span style="width:28px;height:28px;flex:none;background:#2f2a20 center/cover;${w.avatar_url ? `background-image:url('${esc(w.avatar_url)}')` : ''}"></span>${esc(w.username)}</a>`).join('')}</div>`; }, () => {});
 }
 const AUTH_ERR = { 'Invalid login credentials':'Correo o contraseña incorrectos.', 'Email not confirmed':'Confirma tu correo antes de entrar (revisa tu bandeja).', 'User already registered':'Ese correo ya tiene cuenta. Inicia sesión.', 'Password should be at least 8 characters.':'La contraseña debe tener al menos 8 caracteres.' };
 const authMsg = e => AUTH_ERR[e?.message] || e?.message || 'Algo salió mal. Intenta de nuevo.';
@@ -287,7 +288,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 function login(mode = 'in'){
 const up = mode === 'up';
 app.innerHTML = `<h1>${up ? 'Crear cuenta' : 'Entrar'}</h1>
-<div style="display:grid;gap:14px;max-width:380px;margin:0 0 14px"><button type="button" id="gg" style="display:flex;align-items:center;justify-content:center;gap:12px;min-height:46px;padding:0 16px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:4px;font:600 15px 'IBM Plex Sans',system-ui,sans-serif;cursor:pointer"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>${up ? 'Registrarte con Google' : 'Continuar con Google'}</button>
+<div style="display:grid;gap:14px;max-width:380px;margin:0 0 14px"><button type="button" id="gg" style="display:flex;align-items:center;justify-content:center;gap:12px;min-height:46px;padding:0 16px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:4px;font:600 15px 'IBM Plex Sans',system-ui,sans-serif;cursor:pointer"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>${up ? 'Registrarte con Google' : 'Continuar con Google'}</button><button type="button" id="pt-in" style="display:flex;align-items:center;justify-content:center;gap:12px;min-height:46px;padding:0 16px;background:#16140f;color:var(--paper);border:1px solid var(--line);border-radius:4px;font:600 15px 'IBM Plex Sans',system-ui,sans-serif;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><circle cx="14.5" cy="9.5" r="5.5"/><rect x="4" y="4" width="3" height="16"/></svg>Continuar con Patreon</button>
 <div class="mono" style="display:flex;align-items:center;gap:12px;color:var(--mute);font-size:11px;letter-spacing:.1em"><span style="flex:1;height:1px;background:var(--line)"></span>O CON TU CORREO<span style="flex:1;height:1px;background:var(--line)"></span></div></div>
 <form id="f" novalidate style="display:grid;gap:10px;max-width:380px">
 ${up ? '<label>Nombre de usuario<input name="username" autocomplete="username" minlength="2" maxlength="32" required></label>' : ''}
@@ -302,6 +303,8 @@ const f = $('#f'), err = $('#err'), btn = $('#go');
 $('#gg').onclick = async () => { const b = $('#gg'); b.disabled = true; err.textContent = '';
 const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + '/', queryParams: { prompt: 'select_account' } } });
 if (error) { b.disabled = false; err.textContent = authMsg(error); } };
+$('#pt-in').onclick = async () => { $('#pt-in').disabled = true; (await import('/patreon.js?v=1')).start(sb, url, 'login', null, m => { $('#pt-in').disabled = false; err.textContent = m; }); };
+import('/patreon.js?v=1').then(P => { const n = P.returnNotice(() => {}); if (n) err.textContent = n.msg; });
 $('#sw').onclick = e => { e.preventDefault(); history.replaceState({}, '', up ? '/entrar' : '/registro'); login(up ? 'in' : 'up'); };
 $('#fg')?.addEventListener('click', async e => {
 e.preventDefault(); const email = f.email.value.trim();
