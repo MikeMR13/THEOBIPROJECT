@@ -1,7 +1,7 @@
 // Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
 import { createClient } from '/supabase.js?v=1';
-import { createReader } from '/reader.js?v=17';
-import { createUI } from '/ui.js?v=44';
+import { createReader } from '/reader.js?v=18';
+import { createUI } from '/ui.js?v=45';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
 export const sb = createClient(url, key, { auth: { persistSession: true } });
@@ -64,13 +64,31 @@ function delBanner(){
 function drawSession(){
 const pr = me?.platform_role || 'lector';
 const ini = esc((profile?.username || user?.email || '?')[0].toUpperCase());
-const h = user
+const cont = `<a class="ob-cont" id="ob-cont" href="/biblioteca" hidden><span class="k" aria-hidden="true">続</span><span class="t"><small>Continuar</small><b></b></span></a>`;
+const h = cont + (user
 ? `<details class="ob-bell"><summary aria-label="Avisos"><span aria-hidden="true">鈴</span><em id="bell-n" hidden></em></summary><div class="ob-menu ob-nt" id="bell-list"><p class="mono">Cargando…</p></div></details><details class="ob-user"><summary aria-label="Menú de cuenta"><span class="ob-av">${profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : ini}</span></summary><div class="ob-menu"><div class="who2"><strong>${esc(profile?.username || user.email)}</strong><small>${RL[pr]}${profile?.donor_tier ? ' · 援 Donador' : ''}</small></div><a href="/perfil">Mi perfil</a><a href="/biblioteca">Mi biblioteca</a><a href="/preferencias">Preferencias</a>${pr === 'bibliotecario' ? '<a href="/bibliotecario">Mostrador del Bibliotecario</a>' : ''}${pr !== 'lector' ? '<a href="/estudio">Estudio</a>' : '<a href="/solicitud">Crear mi grupo traductor</a>'}<button id="out">Salir</button></div></details>`
-: `<button class="btn" id="in">Entrar</button>`;
-if (h === lastBar) return; lastBar = h; $('#session').innerHTML = h;
+: `<button class="btn" id="in">Entrar</button>`);
+if (h === lastBar) return contBtn(); lastBar = h; $('#session').innerHTML = h;
 const dd = $('#session .ob-user'); if (dd) dd.querySelector('.ob-menu').addEventListener('click', e => { if (e.target.closest('a')) dd.open = false; });
 $('#out')?.addEventListener('click', async () => { try { localStorage.removeItem('obi-me'); } catch {} await sb.auth.signOut(); location.href = '/'; });
 $('#in')?.addEventListener('click', () => go('/entrar'));
+contBtn(true);
+}
+// botón «Continuar» de la barra: lo último leído (servidor o este dispositivo, lo más reciente)
+let CB = { t: 0, v: null, u: null };
+async function contBtn(force){
+  const el = $('#ob-cont'); if (!el) return;
+  if (location.pathname.startsWith('/leer/') || location.pathname.startsWith('/estudio') || location.pathname.startsWith('/bibliotecario')) { el.hidden = true; return; }
+  if (force || Date.now() - CB.t > 20000 || CB.u !== (user?.id || null)) {
+    CB = { t: Date.now(), v: null, u: user?.id || null }; let best = null;
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!k?.startsWith('obi-pos-')) continue; const l = JSON.parse(localStorage.getItem(k)); if (l?.num && (!best || new Date(l.at || 0) > new Date(best.at || 0))) best = { sid: k.slice(8), num: l.num, pct: l.pct, at: l.at || 0 }; } } catch {}
+    try { if (user) { const { data } = await sb.from('reading_progress').select('series_id,chapter_num,pct,updated_at,series(slug,title)').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(1); const r = data?.[0]; if (r && (!best || new Date(r.updated_at) >= new Date(best.at || 0))) best = { sid: r.series_id, num: r.chapter_num, pct: r.pct, at: r.updated_at, slug: r.series?.slug, title: r.series?.title }; }
+      if (best && !best.slug) { const { data } = await sb.from('series').select('slug,title').eq('id', best.sid).maybeSingle(); Object.assign(best, data || {}); } } catch {}
+    CB.v = best?.slug ? best : null;
+  }
+  const b = CB.v, e = $('#ob-cont'); if (!e) return; if (!b) { e.hidden = true; return; }
+  e.href = `/leer/${b.slug}/${b.num}`; e.title = `Continuar «${b.title}» · cap. ${b.num}`; e.setAttribute('aria-label', e.title);
+  e.querySelector('b').textContent = b.title; e.querySelector('small').textContent = 'Continuar · cap. ' + b.num + (b.pct > 0.02 && b.pct < 0.98 ? ' · ' + Math.round(b.pct * 100) + ' %' : ''); e.hidden = false;
 }
 async function bell(){
 if (!document.getElementById('nt-css')) { const st = document.createElement('style'); st.id = 'nt-css'; st.textContent = '.nt-ln{cursor:pointer}.nt-ln small{display:flex;justify-content:space-between;gap:10px}.nt-ln em{font-style:normal;color:var(--gold)}.nt-ln:hover span{text-decoration:underline;text-underline-offset:3px}'; document.head.appendChild(st); }
@@ -94,7 +112,7 @@ document.addEventListener('click', e => { document.querySelectorAll('.ob-user[op
 let PS = null; const seasons = async () => PS ||= await import('/season.js?v=4');
 addEventListener('obi-season', () => { afterRender(); });
 // Se dibuja la página sin esperar la temporada; afterRender la aplica cuando llega.
-function render(){ seasons().then(S => { S.clear(); S.load(sb); }); return render0().then(afterRender); }
+function render(){ seasons().then(S => { S.clear(); S.load(sb); }); return render0().then(r => { contBtn(); return afterRender(r); }); }
 async function afterRender(){
   const S = await seasons(); await S.load(sb); const p = location.pathname; let m;
   try {

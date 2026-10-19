@@ -236,10 +236,10 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     return { works, authors, teams, tags, chapters, readers: (rd || []).slice(0, lim) };
   }
   async function searchHTML(q, lim){
-    let R; try { R = await searchData(q, lim); } catch { return '<p class="sr-none">No se pudo buscar. Intenta de nuevo.</p>'; }
+    let R, prog = {}; try { [R, prog] = await Promise.all([searchData(q, lim), progressMap().catch(() => ({}))]); } catch { return '<p class="sr-none">No se pudo buscar. Intenta de nuevo.</p>'; }
     const grp = (t, items) => items.length ? `<div class="sr-g"><span class="sr-h">${t}</span>${items.join('')}</div>` : '';
     const cv = x => `<span class="sr-cv" style="${x.cover_path ? `background-image:url('${esc(thumb(x))}')` : `background:${esc(color(x))}`}"></span>`;
-    const html = grp('Obras', R.works.map(x => `<a href="/serie/${x.slug}">${cv(x)}<span><b>${esc(x.title)}</b><small>${esc([x.author, x.teams?.name].filter(Boolean).join(' · '))}</small></span></a>`))
+    const html = grp('Obras', R.works.map(x => { const p = prog[x.id]; return p ? `<a href="/leer/${x.slug}/${p.chapter_num}" title="Continuar donde te quedaste">${cv(x)}<span><b>${esc(x.title)}</b><small class="sr-cont">Continuar · cap. ${p.chapter_num}${p.pct > 0.02 && p.pct < 0.98 ? ' · ' + Math.round(p.pct * 100) + ' %' : ''}</small></span></a>` : `<a href="/serie/${x.slug}">${cv(x)}<span><b>${esc(x.title)}</b><small>${esc([x.author, x.teams?.name].filter(Boolean).join(' · '))}</small></span></a>`; }))
       + grp('Autores', R.authors.map(([a, c]) => `<a href="/catalogo?q=${encodeURIComponent(a)}"><span class="sr-ic">著</span><span><b>${esc(a)}</b><small>${c} ${c === 1 ? 'obra' : 'obras'}</small></span></a>`))
       + grp('Equipos', R.teams.map(t => `<a href="/equipo/${esc(t.slug)}"><span class="sr-ic">訳</span><span><b>${esc(t.name)}</b><small>Equipo traductor</small></span></a>`))
       + grp('Géneros y etiquetas', R.tags.map(t => `<a href="/catalogo?${t.t === 'g' ? 'g=' + encodeURIComponent(t.v) : 'q=' + encodeURIComponent(t.v)}"><span class="sr-ic">${t.t === 'g' ? '類' : '#'}</span><span><b>${esc(t.v)}</b><small>${t.t === 'g' ? 'Género' : 'Etiqueta'} · ${t.c} ${t.c === 1 ? 'obra' : 'obras'}</small></span></a>`))
@@ -488,12 +488,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     el.querySelector('[data-hp]')?.addEventListener('click', () => { heroPaused = !heroPaused; heroSlide(feat, i, prog, lastCh, top); });
     if (feat.length > 1 && !heroPaused && !matchMedia('(prefers-reduced-motion: reduce)').matches) heroT = setTimeout(() => { if (document.body.contains(el)) heroSlide(feat, el.matches(':hover') ? i : (i + 1) % feat.length, prog, lastCh, top); }, 8000);
   }
-  const card = (s, st, lc) => `<a class="ui-card" href="/serie/${s.slug}" data-id="${s.id}">${st ? `<span class="ui-st ${st[1]}">${esc(st[0])}</span>` : ''}${book(s, null, true)}<h3>${esc(s.title)}</h3><span class="meta">${pill(s.translation_status)}<span>${s.chapters?.[0]?.count ?? 0} cap.</span>${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</span>${lc ? `<span class="last">Último: cap. ${lc.num} · ${ago(lc.publish_at)}</span>` : ''}</a>`;
+  const card = (s, st, lc, p) => `<a class="ui-card" href="/serie/${s.slug}" data-id="${s.id}">${st ? `<span class="ui-st ${st[1]}">${esc(st[0])}</span>` : ''}${book(s, null, true)}${progBar(s, p)}<h3>${esc(s.title)}</h3><span class="meta">${pill(s.translation_status)}<span>${s.chapters?.[0]?.count ?? 0} cap.</span>${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</span>${lc ? `<span class="last">Último: cap. ${lc.num} · ${ago(lc.publish_at)}</span>` : ''}</a>`;
 
-  const ficha = (s, st, lc, i) => `<a class="ui-fc" href="/serie/${s.slug}" data-id="${s.id}" style="--c:${esc(color(s))};--d:${Math.min(i, 8) * 0.05}s">
+  // franja de avance en la serie: capítulo donde vas / capítulos publicados
+  const progBar = (s, p) => { const t = s.chapters?.[0]?.count || 0; if (!p || !t) return ''; const f = Math.min(1, Math.max(0.02, (p.chapter_num - 1 + (p.pct || 0)) / t)); return `<span class="ui-prog" role="img" aria-label="Vas en el capítulo ${p.chapter_num} de ${t}"><i style="width:${(f * 100).toFixed(1)}%"></i></span>`; };
+  const ficha = (s, st, lc, i, p) => `<a class="ui-fc" href="/serie/${s.slug}" data-id="${s.id}" style="--c:${esc(color(s))};--d:${Math.min(i, 8) * 0.05}s">
       <span class="cv" style="${s.cover_path ? `background-image:url('${esc(thumb(s))}')` : ''}"></span>
       <span class="bd"><span class="t">${esc(s.title)}</span>${s.original || s.author ? `<span class="o">${esc([s.original, s.author].filter(Boolean).join(' · '))}</span>` : ''}${s.synopsis ? `<span class="sy">${esc(s.synopsis)}</span>` : ''}
-        <span class="m">${s.chapters?.[0]?.count ?? 0} cap. · ${(TL[s.translation_status] || TL.active)[0]}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}${lc ? ' · último: cap. ' + lc.num + ', ' + ago(lc.publish_at) : ''}${s.adult ? ' · <span class="x">+18</span>' : ''}</span></span>
+        <span class="m">${s.chapters?.[0]?.count ?? 0} cap. · ${(TL[s.translation_status] || TL.active)[0]}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}${lc ? ' · último: cap. ' + lc.num + ', ' + ago(lc.publish_at) : ''}${s.adult ? ' · <span class="x">+18</span>' : ''}</span>${progBar(s, p)}</span>
       <span class="side">${st ? `<span class="ui-seal ${st[1]}">${esc(st[0])}</span>` : '<span></span>'}<span class="jp">第${KN(i + 1)}号</span></span></a>`;
 
   // ---------- Catálogo ----------
@@ -514,7 +516,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const fol = new Set((folR.data || []).map(r => r.series_id)), nCh = s => s.chapters?.[0]?.count || 0;
     const status = s => { const p = prog[s.id], lc = last[s.id];
       if (p && lc && lc.num > p.chapter_num && new Date(lc.publish_at) > new Date(p.updated_at)) return ['Nuevo · cap. ' + lc.num, 'new'];
-      if (p) return ['Leyendo · cap. ' + p.chapter_num, 'reading'];
+      if (p) return ['Leyendo · cap. ' + p.chapter_num + (p.pct > 0.02 && p.pct < 0.98 ? ' · ' + Math.round(p.pct * 100) + ' %' : ''), 'reading'];
       if (fol.has(s.id)) return ['Siguiendo', 'follow'];
       return null; };
     const SORT = { popular: ['Más leídas', (a, b) => (b.views || 0) - (a.views || 0)], ranking: ['Ranking ' + rkLbl, (a, b) => (RK[a.id] ?? 1e9) - (RK[b.id] ?? 1e9) || (b.views || 0) - (a.views || 0)], recent: ['Actualizadas', (a, b) => new Date(last[b.id]?.publish_at || 0) - new Date(last[a.id]?.publish_at || 0)], az: ['Título A–Z', (a, b) => a.title.localeCompare(b.title, 'es')], chapters: ['Más capítulos', (a, b) => nCh(b) - nCh(a)] };
@@ -562,7 +564,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       const list = all.filter(pass(F)).sort((SORT[F.sort] || SORT.popular)[1]), act = actives();
       const grid = $('#cat-grid'); grid.className = view === 'fichero' ? 'ui-fich' : 'ui-grid ob-anim';
       document.querySelectorAll('[data-view]').forEach(b => { b.classList.toggle('on', b.dataset.view === view); b.setAttribute('aria-pressed', b.dataset.view === view); });
-      if (list.length) grid.innerHTML = list.map((s, i) => view === 'fichero' ? ficha(s, status(s), last[s.id], i) : card(s, status(s), last[s.id])).join('');
+      if (list.length) grid.innerHTML = list.map((s, i) => view === 'fichero' ? ficha(s, status(s), last[s.id], i, prog[s.id]) : card(s, status(s), last[s.id], prog[s.id])).join('');
       else {
         const tips = act.map(([label, undo], i) => { const f = clone(); undo(f); return { i, label, n: all.filter(pass(f)).length }; }).filter(t => t.n).sort((x, y) => y.n - x.n).slice(0, 4);
         $('#cat-grid').innerHTML = `<div class="ui-empty"><p><strong>Ninguna obra coincide con estos filtros.</strong></p>${tips.length ? `<div class="ui-chips">${tips.map(t => `<button class="ui-chip" data-undo="${t.i}">Quitar ${esc(t.label)} · ${t.n} ${t.n === 1 ? 'obra' : 'obras'}</button>`).join('')}</div>` : '<p class="mono">Prueba con otra búsqueda.</p>'}<button class="ui-chip" data-undo="all" style="justify-self:start">Limpiar todos los filtros</button></div>`;

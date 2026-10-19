@@ -37,7 +37,7 @@ export function createReader(ctx){
         if (a.error || b.error) throw a.error || b.error; ch = a.data; vo = b.data; }
     } catch { const m = await offlineMeta(slug); if (m) ({ series: s, chapters: ch, vols: vo } = m); }
     if (!s) return false;
-    Object.assign(S, { series: s, chapters: ch || [], vols: vo || [], nextAt: null, teamIds: null, bodies: new Map(), annots: [], gloss: [], glMap: new Map(), glRe: undefined });
+    Object.assign(S, { series: s, chapters: ch || [], vols: vo || [], nextAt: null, teamIds: null, bodies: new Map(), annots: [], gloss: [], glMap: new Map(), glRe: undefined, readSet: null });
     // calendario y glosario no bloquean la apertura: llegan después y se aplican solos
     S.extras = Promise.all([
       sb.from('schedule').select('at').eq('series_id', s.id).gte('at', new Date().toISOString()).order('at').limit(1).then(r => r.data?.[0]?.at || null, () => null),
@@ -217,7 +217,7 @@ export function createReader(ctx){
       <button class="rd-zen-x" data-act="zen">Salir del modo zen</button>
     </div>`;
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-    restorePosition(ch, pos); resumeBar(ch, pos); bindBar(); footer(); progress();
+    S.pos = pos; restorePosition(ch, pos); resumeBar(ch, pos); bindBar(); footer(); progress();
     clearTimeout(S.saveT); S.saveT = setTimeout(saveProgress, 2500); // abrir el capítulo ya cuenta como «dónde voy»
     logHistory(ch); prefetchNext(ch);
     observe(); wake();
@@ -379,10 +379,18 @@ export function createReader(ctx){
   }
   const panel = () => $('.rd-panel');
   function toggle(html){ const pn = panel(); if (!pn.hidden && pn.dataset.kind === html.kind) { pn.hidden = true; return null; } pn.dataset.kind = html.kind; pn.innerHTML = html.body; pn.hidden = false; return pn; }
-  function toc(){
+  function tocHTML(){
     const byVol = {}; S.chapters.forEach(c => (byVol[c.vol] ||= []).push(c));
-    const pn = toggle({ kind: 'toc', body: Object.entries(byVol).map(([v, cs]) => `<h4>Volumen ${v}${volTitle(+v)}</h4>${cs.map(c => `<a href="/leer/${S.series.slug}/${c.num}" class="${c === S.active ? 'on' : ''}">${esc(c.title)}</a>`).join('')}`).join('') });
-    pn?.querySelector('.on')?.focus();
+    const done = c => S.readSet?.has(c.id) || S.readMarked.has(c.id);
+    return Object.entries(byVol).map(([v, cs]) => `<h4>Volumen ${v}${volTitle(+v)}</h4>${cs.map(c => `<a href="/leer/${S.series.slug}/${c.num}" class="${c === S.active ? 'on' : ''}${done(c) ? ' rd-done' : ''}"${c === S.active ? ' aria-current="page"' : ''}><i class="rd-ok" aria-hidden="true">${done(c) ? '✓' : ''}</i><span>${esc(c.title)}</span>${c === S.active ? '<small class="rd-here">estás aquí</small>' : S.pos?.chapter_id === c.id ? '<small class="rd-here">te quedaste aquí</small>' : ''}</a>`).join('')}`).join('');
+  }
+  function toc(){
+    const pn = toggle({ kind: 'toc', body: tocHTML() }); if (!pn) return;
+    const on = pn.querySelector('.on'); if (on) { pn.scrollTop = Math.max(0, on.offsetTop - pn.clientHeight / 3); on.focus({ preventScroll: true }); }
+    const u = getUser(); if (!u || S.readSet) return;
+    const repaint = data => { S.readSet = new Set((data || []).map(r => r.chapter_id)); const p = panel(); if (!p.hidden && p.dataset.kind === 'toc') { const st = p.scrollTop; p.innerHTML = tocHTML(); p.scrollTop = st; } };
+    sb.from('read_chapters').select('chapter_id,chapters!inner(series_id)').eq('user_id', u.id).eq('chapters.series_id', S.series.id)
+      .then(({ data, error }) => error ? sb.from('read_chapters').select('chapter_id').eq('user_id', u.id).in('chapter_id', S.chapters.slice(0, 250).map(c => c.id)).then(r => repaint(r.data)) : repaint(data));
   }
   const volTitle = n => { const v = S.vols.find(x => x.num === n); return v?.title && v.title !== String(n) ? ' · ' + esc(v.title) : ''; };
   function prefsPanel(){

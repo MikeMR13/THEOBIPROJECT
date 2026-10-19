@@ -8,7 +8,7 @@ Sube estos 8 archivos a la raíz del sitio, reemplazando los actuales:
 - styles.css  Estilos de todo lo anterior.
 - app.js, index.html, studio.js   Solo suben el número de versión (?v=) para que los navegadores descarguen los archivos nuevos.
 
-Versiones nuevas: app 19 · ui 44 · reader 17 · blocks 2 · styles 22 · season 4.
+Versiones nuevas: app 20 · ui 45 · reader 18 · blocks 2 · styles 23 · season 4.
 ANTES de subir los archivos, ejecuta en Supabase › SQL Editor:
 - 20261019_progreso_unico.sql  Deja una sola fila de progreso por lector y serie (quita duplicados) y asegura los permisos para guardarlo.
 
@@ -18,3 +18,9 @@ Arreglo de «dónde me quedé»:
 - Gana la posición más reciente entre el servidor y el dispositivo.
 - Si abres otro capítulo, el lector ofrece «Continuar ahí».
 - «Continuar leyendo» funciona también sin cuenta (con lo guardado en el dispositivo).
+
+«Continuar» en más lugares:
+- Barra superior: botón 続 «Continuar · cap. X» con lo último que leíste (en móvil, solo el sello). No aparece dentro del lector ni en el Estudio.
+- Catálogo (cuadrícula y fichero): franja de avance en la serie y «Leyendo · cap. X · 43 %».
+- Buscador: las obras que ya empezaste llevan directo a donde te quedaste.
+- Índice del lector: ✓ en capítulos leídos, «estás aquí» y «te quedaste aquí».
