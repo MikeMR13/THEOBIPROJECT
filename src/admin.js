@@ -45,7 +45,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     return panel(me);
   }
 
-  function gate(err = ''){
+  async function gate(err = ''){
     app.innerHTML = `<div class="bb bb-gate"><form class="bb-card" id="bbf" novalidate>
       <span class="bb-stamp" aria-hidden="true">司</span>
       <span class="ui-lbl" style="color:#5a5244">El Obi del Lector · Acceso restringido</span>
@@ -54,14 +54,18 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       <label>Correo<input name="email" type="email" autocomplete="username" required></label>
       <label>Contraseña<input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label>
       <span class="err" role="alert">${esc(err)}</span>
+      <div id="bb-ts"></div>
       <button class="btn">Abrir el mostrador</button></form></div>`;
     const f = $('#bbf'), er = f.querySelector('.err');
+    const CF = await import('/captcha.js?v=1'), cap = CF.mount($('#bb-ts'), { action: 'admin', theme: 'light' });
     f.onsubmit = async e => {
       e.preventDefault(); er.textContent = '';
       const email = f.email.value.trim(), password = f.password.value;
       if (!email || password.length < 8) { er.textContent = 'Escribe tu correo y tu contraseña.'; return; }
-      const b = f.querySelector('button'); b.disabled = true; b.textContent = 'Comprobando…';
-      const { error } = await sb.auth.signInWithPassword({ email, password });
+      const b = f.querySelector('button'); b.disabled = true; b.textContent = 'Verificando…';
+      let captchaToken; try { captchaToken = await cap.token(); } catch (x) { b.disabled = false; b.textContent = 'Abrir el mostrador'; er.textContent = x.message; return; }
+      b.textContent = 'Comprobando…';
+      const { error } = await sb.auth.signInWithPassword({ email, password, options: { captchaToken } }); cap.reset();
       b.disabled = false; b.textContent = 'Abrir el mostrador';
       if (error) { er.textContent = error.message === 'Invalid login credentials' ? 'Correo o contraseña incorrectos.' : error.message; return; }
       const me = await rpc('whoami').catch(() => null);
@@ -208,7 +212,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     draw();
   }
   async function temporadas(){
-    const PS = await import('/season.js?v=3');
+    const PS = await import('/season.js?v=4');
     const [{ data: row, error }, { data: cal }, { data: slog }, { data: lun }] = await Promise.all([sb.from('platform_settings').select('seasons,updated_at').eq('id', 1).single(), sb.from('season_calendar').select('key,label,starts,hemi').gte('starts', new Date().toISOString().slice(0, 10)).order('starts').limit(120), sb.from('season_sync_log').select('ran_at,ok,detail').order('id', { ascending: false }).limit(1), sb.from('season_calendar').select('key,day,source').in('key', ['seollal', 'chuseok', 'tsukimi', 'dano', 'buda', 'pascua']).not('day', 'is', null).order('day')]);
     const lastY = (lun || []).reduce((a, r) => Math.max(a, +r.day.slice(0, 4)), 0), sl = slog?.[0];
     if (error) throw error;

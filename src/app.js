@@ -11,11 +11,11 @@ const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display =
 let user = null, profile = null, me = null;
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
 let LG; const lg = async () => LG ||= await import('/legal.js?v=1');
-let PF; const pf = async () => PF ||= await import('/profile.js?v=9');
+let PF; const pf = async () => PF ||= await import('/profile.js?v=10');
 const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
-let ST; const st = async () => ST ||= (await import('/studio.js?v=38')).createStudio(CTX());
+let ST; const st = async () => ST ||= (await import('/studio.js?v=39')).createStudio(CTX());
 let AG; const ag = async () => AG ||= await import('/agenda.js?v=1');
-let AD; const ad = async () => AD ||= (await import('/admin.js?v=9')).createAdmin(CTX());
+let AD; const ad = async () => AD ||= (await import('/admin.js?v=10')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
 let U; const ui = () => U ||= createUI(CTX());
 
@@ -239,9 +239,9 @@ app.innerHTML = `<h1>${esc(C.title || 'Apoya a los traductores')}</h1><p style="
 sb.rpc('platform_patrons_wall').then(({ data: W }) => { const el = document.getElementById('wall'); if (!el || !W?.length) return; el.innerHTML = `<h2 style="margin-top:36px">惠 Muro de agradecimientos</h2><p class="mono" style="margin:0 0 14px">Gracias a quienes sostienen El Obi del Lector.</p><div style="display:flex;flex-wrap:wrap;gap:10px">${W.map(w => `<a href="/lector/${esc(w.username)}" style="display:flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;border:1px solid var(--line);background:#16140f;color:var(--paper);text-decoration:none;font-weight:600;font-size:14px"><span style="width:28px;height:28px;flex:none;background:#2f2a20 center/cover;${w.avatar_url ? `background-image:url('${esc(w.avatar_url)}')` : ''}"></span>${esc(w.username)}</a>`).join('')}</div>`; }, () => {});
 }
 const AUTH_ERR = { 'Invalid login credentials':'Correo o contraseña incorrectos.', 'Email not confirmed':'Confirma tu correo antes de entrar (revisa tu bandeja).', 'User already registered':'Ese correo ya tiene cuenta. Inicia sesión.', 'Password should be at least 8 characters.':'La contraseña debe tener al menos 8 caracteres.' };
-const authMsg = e => AUTH_ERR[e?.message] || e?.message || 'Algo salió mal. Intenta de nuevo.';
+const authMsg = e => /captcha/i.test(e?.message || '') ? 'No pudimos comprobar que no eres un bot. Espera un momento e inténtalo otra vez.' : AUTH_ERR[e?.message] || e?.message || 'Algo salió mal. Intenta de nuevo.';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-function login(mode = 'in'){
+async function login(mode = 'in'){
 const up = mode === 'up';
 app.innerHTML = `<h1>${up ? 'Crear cuenta' : 'Entrar'}</h1>
 <div style="display:grid;gap:14px;max-width:380px;margin:0 0 14px"><button type="button" id="gg" style="display:flex;align-items:center;justify-content:center;gap:12px;min-height:46px;padding:0 16px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:4px;font:600 15px 'IBM Plex Sans',system-ui,sans-serif;cursor:pointer"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>${up ? 'Registrarte con Google' : 'Continuar con Google'}</button><button type="button" id="pt-in" style="display:flex;align-items:center;justify-content:center;gap:12px;min-height:46px;padding:0 16px;background:#16140f;color:var(--paper);border:1px solid var(--line);border-radius:4px;font:600 15px 'IBM Plex Sans',system-ui,sans-serif;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><circle cx="14.5" cy="9.5" r="5.5"/><rect x="4" y="4" width="3" height="16"/></svg>Continuar con Patreon</button>
@@ -251,11 +251,14 @@ ${up ? '<label>Nombre de usuario<input name="username" autocomplete="username" m
 <label>Correo<input name="email" type="email" autocomplete="email" required placeholder="correo@ejemplo.com"></label>
 <label>Contraseña<input name="password" type="password" autocomplete="${up ? 'new-password' : 'current-password'}" minlength="8" maxlength="128" required></label>
 <p id="err" role="alert" style="color:#f59e7a;margin:0;min-height:1.2em"></p>
+<div id="cf-ts" style="min-height:0"></div>
 <button class="btn" id="go">${up ? 'Crear cuenta' : 'Entrar'}</button>
 ${up ? '<p style="margin:0;font-size:13px;color:var(--mute)">Al crear una cuenta aceptas las <a href="/condiciones-servicio">Condiciones del servicio</a> y la <a href="/privacidad">Política de privacidad</a>.</p>' : ''}
 </form>
 <p style="display:flex;gap:16px;flex-wrap:wrap"><a href="#" id="sw">${up ? '¿Ya tienes cuenta? Entra' : '¿No tienes cuenta? Regístrate'}</a>${up ? '' : '<a href="#" id="fg">¿Olvidaste tu contraseña?</a>'}</p>`;
 const f = $('#f'), err = $('#err'), btn = $('#go');
+const CF = await import('/captcha.js?v=1'), cap = CF.mount($('#cf-ts'), { action: up ? 'signup' : 'login' });
+const capTok = async () => { try { return await cap.token(); } catch (e) { err.textContent = e.message; return null; } };
 $('#gg').onclick = async () => { const b = $('#gg'); b.disabled = true; err.textContent = '';
 const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + '/', queryParams: { prompt: 'select_account' } } });
 if (error) { b.disabled = false; err.textContent = authMsg(error); } };
@@ -265,7 +268,8 @@ $('#sw').onclick = e => { e.preventDefault(); history.replaceState({}, '', up ? 
 $('#fg')?.addEventListener('click', async e => {
 e.preventDefault(); const email = f.email.value.trim();
 if (!EMAIL_RE.test(email)) { err.textContent = 'Escribe tu correo para enviarte el enlace.'; return; }
-const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/restablecer' });
+const captchaToken = await capTok(); if (CF.enabled() && !captchaToken) return;
+const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/restablecer', captchaToken }); cap.reset();
 error ? err.textContent = authMsg(error) : toast('Te enviamos un enlace para restablecer la contraseña');
 });
 f.onsubmit = async e => {
@@ -274,10 +278,13 @@ const email = f.email.value.trim(), password = f.password.value, username = f.us
 if (up && (!username || username.length < 2)) { err.textContent = 'Elige un nombre de usuario (mínimo 2 caracteres).'; return; }
 if (!EMAIL_RE.test(email)) { err.textContent = 'Escribe un correo válido.'; return; }
 if (password.length < 8 || password.length > 128) { err.textContent = 'La contraseña debe tener entre 8 y 128 caracteres.'; return; }
-btn.disabled = true; btn.textContent = 'Un momento…';
+btn.disabled = true; btn.textContent = 'Verificando…';
+const captchaToken = await capTok(); if (CF.enabled() && !captchaToken) { btn.disabled = false; btn.textContent = up ? 'Crear cuenta' : 'Entrar'; return; }
+btn.textContent = 'Un momento…';
 const { data, error } = up
-? await sb.auth.signUp({ email, password, options: { data: { username }, emailRedirectTo: location.origin + '/?bienvenida=1' } })
-: await sb.auth.signInWithPassword({ email, password });
+? await sb.auth.signUp({ email, password, options: { data: { username }, emailRedirectTo: location.origin + '/?bienvenida=1', captchaToken } })
+: await sb.auth.signInWithPassword({ email, password, options: { captchaToken } });
+cap.reset();
 btn.disabled = false; btn.textContent = up ? 'Crear cuenta' : 'Entrar';
 if (error) { err.textContent = authMsg(error); return; }
 if (up && !data.session) { toast('Cuenta creada. Revisa tu correo y pulsa «Confirmar mi cuenta».'); history.replaceState({}, '', '/entrar'); return login('in'); }

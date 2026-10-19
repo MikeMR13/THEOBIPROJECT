@@ -434,7 +434,7 @@ export async function preferences(C){
     $('#g-un')?.addEventListener('click', async () => { if (!confirm('¿Desvincular tu cuenta de Google? Seguirás entrando con tu correo y contraseña.')) return;
       const { error } = await sb.auth.unlinkIdentity(gid); if (error) return toast(error.message); toast('Cuenta de Google desvinculada'); preferences(C); });
     if (new URLSearchParams(location.search).get('enlazada') && gid) { history.replaceState({}, '', '/preferencias?s=cuenta'); toast('¡Listo! Ya puedes entrar con Google'); }
-    $('#pw').onclick = async () => { const { error } = await sb.auth.resetPasswordForEmail(user.email, { redirectTo: location.origin + '/restablecer' }); toast(error ? error.message : 'Te enviamos un enlace a tu correo para cambiarla'); };
+    $('#pw').onclick = async () => { let captchaToken; try { captchaToken = await (await import('/captcha.js?v=1')).once('reset'); } catch (e) { return toast(e.message); } const { error } = await sb.auth.resetPasswordForEmail(user.email, { redirectTo: location.origin + '/restablecer', captchaToken }); toast(error ? error.message : 'Te enviamos un enlace a tu correo para cambiarla'); };
     $('#so').onclick = async () => { if (!confirm('¿Cerrar sesión en todos los demás dispositivos?')) return; const { error } = await sb.auth.signOut({ scope: 'others' }); toast(error ? error.message : 'Listo: las demás sesiones se cerraron'); };
     return;
   }
