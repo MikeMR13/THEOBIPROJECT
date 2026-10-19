@@ -44,12 +44,8 @@ export function apply(kind, o = {}){
   const mot = s.m ? motifURL(s.m, s.ac, s.c2) : '', mob = matchMedia('(max-width:700px)').matches, still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const H = document.documentElement; H.dataset.season = k; H.style.setProperty('--sea', act); stops.push(() => { delete H.dataset.season; H.style.removeProperty('--sea'); });
   if (kind === 'studio') { H.style.setProperty('--gold', act); stops.push(() => H.style.removeProperty('--gold')); return; }
-  if (kind === 'reader') {
-    const bar = document.querySelector('.rd-bar'); if (!bar) return;
-    if (mot) mk('obi-sea-rd', bar.querySelector('.rd-tools') || bar).innerHTML = `<i style="background-image:url('${mot}')"></i>${esc(s.l)}`;
-    const pg = mk('obi-sea-pg', bar), i = document.createElement('i'); pg.appendChild(i);
-    const up = () => { const h = document.documentElement.scrollHeight - innerHeight; i.style.transform = `scaleX(${h > 0 ? Math.min(1, scrollY / h) : 0})`; };
-    addEventListener('scroll', up, { passive: true }); up(); stops.push(() => removeEventListener('scroll', up));
+  if (kind === 'reader') { // en el lector solo los colores: acento de la temporada (botones, progreso, enlaces) y la línea de la barra
+    H.style.setProperty('--gold', act); stops.push(() => H.style.removeProperty('--gold'));
     return;
   }
   const brand = document.querySelector('header.top .brand');
@@ -79,8 +75,6 @@ const CSS = `
 .obi-sea-cor{position:absolute;top:0;width:clamp(48px,6vw,84px);aspect-ratio:1;background:center/contain no-repeat;pointer-events:none;z-index:-1;opacity:.9;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}.obi-sea-cor.l{left:0;transform:translate(-28%,-28%) rotate(-10deg)}.obi-sea-cor.r{right:0;transform:translate(28%,-28%) rotate(12deg) scaleX(-1)}
 html[data-season] #hero{isolation:isolate}
 .obi-sea-orn{position:absolute;left:0;right:0;bottom:0;height:clamp(34px,5vw,56px);background:center bottom/auto 100% repeat-x;pointer-events:none;z-index:-1;opacity:.75}
-.obi-sea-rd{display:inline-flex;align-items:center;gap:6px;padding:0 10px 0 4px;height:32px;border:1px solid var(--ln);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mt,#a89f8a)}.obi-sea-rd i{width:22px;height:22px;background:center/contain no-repeat}
-.obi-sea-pg{position:absolute;left:0;right:0;bottom:-1px;height:3px;pointer-events:none}.obi-sea-pg i{display:block;height:100%;background:var(--sea);transform-origin:left;transform:scaleX(0)}
-.rd-bar{position:sticky}
-@media(max-width:700px){.obi-sea-cor.r{display:none}.obi-sea-rd{font-size:0;padding:0 4px;gap:0}.obi-sea-greet{font-size:15px}}
+html[data-season] .rd-bar{border-bottom-color:color-mix(in srgb,var(--sea) 55%,var(--ln))}
+@media(max-width:700px){.obi-sea-cor.r{display:none}.obi-sea-greet{font-size:15px}}
 `;

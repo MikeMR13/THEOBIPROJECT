@@ -1,0 +1,12 @@
+Actualización del lector · 19-oct-2026
+
+Sube estos 8 archivos a la raíz del sitio, reemplazando los actuales:
+- reader.js   Lector: carga en paralelo, glosario y anotaciones en segundo plano, barra que se oculta, progreso y minutos restantes, panel Aa en vivo, modo zen, teclado, temas nuevos, sangría, pantalla encendida, menú ⋯ en móvil, logo del equipo con enlace.
+- blocks.js   Imágenes con decoding async y medidas si existen.
+- season.js   En el lector solo aplica los colores de la temporada (sin etiqueta ni barra duplicada).
+- ui.js       El buscador reconoce el estado «Activo».
+- styles.css  Estilos de todo lo anterior.
+- app.js, index.html, studio.js   Solo suben el número de versión (?v=) para que los navegadores descarguen los archivos nuevos.
+
+Versiones nuevas: app 18 · ui 43 · reader 16 · blocks 2 · styles 21 · season 4.
+No requiere cambios en la base de datos.
