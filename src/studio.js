@@ -1864,11 +1864,11 @@ export function createStudio(ctx){
   async function profile(){
     if (!(await ensure())) return;
     const [{ data: t }, { data: works }, { mem }] = await Promise.all([
-      sb.from('teams').select('id,slug,name,bio,color,langs,settings,avatar_path,banner_path').eq('id', T.team.id).single(),
+      sb.from('teams').select('id,slug,name,bio,color,langs,settings,avatar_path,banner_path,anniversary,anniversary_msg').eq('id', T.team.id).single(),
       sb.from('series').select('id,slug,title,short,synopsis,cover_path,translation_status,theme').eq('team_id', T.team.id).is('archived_at', null).order('title'),
       teamMembers()]);
     const edit = can('profile'), S0 = t.settings || {};
-    const D = { name: t.name, slug: t.slug, bio: t.bio || '', color: t.color || '#f2c230', langs: [...(t.langs || [])], avatar: t.avatar_path, banner: t.banner_path,
+    const D = { name: t.name, slug: t.slug, bio: t.bio || '', aniv: t.anniversary || '', anivMsg: t.anniversary_msg || '', color: t.color || '#f2c230', langs: [...(t.langs || [])], avatar: t.avatar_path, banner: t.banner_path,
       feat: S0.featured_works || '', links: Object.fromEntries(LINKS.map(([k]) => [k, S0[k] || ''])), sect: Object.fromEntries(SECTS.map(([k]) => [k, S0[k] !== false])),
       logoUpd: S0.show_team_logo !== false, logoReader: S0.show_reader_logo !== false, tz: S0.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone };
     const cnt = {}; if (works?.length) { const { data: cc } = await sb.from('chapters').select('series_id').in('series_id', works.map(w => w.id)).eq('status', 'published').is('deleted_at', null).limit(5000); (cc || []).forEach(c => cnt[c.series_id] = (cnt[c.series_id] || 0) + 1); }
@@ -1880,6 +1880,8 @@ export function createStudio(ctx){
         <label>Nombre del equipo<input name="name" maxlength="80" required value="${esc(D.name)}" ${dis}></label>
         <label>Dirección<span class="pf-slug"><span class="mono">obi.lat/equipo/</span><input name="slug" maxlength="40" pattern="[a-z0-9][a-z0-9-]{1,38}[a-z0-9]" required value="${esc(D.slug)}" ${dis}></span><small class="mono">Solo minúsculas, números y guiones. Si la cambias, los enlaces viejos dejarán de funcionar.</small></label>
         <label><span class="pf-lh">Presentación<span class="mono" id="biocount">${D.bio.length}/600</span></span><textarea name="bio" rows="4" maxlength="600" ${dis}>${esc(D.bio)}</textarea></label>
+        <label>Aniversario del equipo<input type="date" name="anniversary" value="${esc(D.aniv)}" ${dis}><small class="mono">Si la dejas vacía se usa la fecha en que el equipo se creó en el Obi. Sale en el Calendario, con un sello en tu página ese día y un aviso a quien sigue sus obras.</small></label>
+        <label><span class="pf-lh">Mensaje de aniversario<span class="mono" id="anivcount">${D.anivMsg.length}/200</span></span><input name="anniversary_msg" maxlength="200" placeholder="Ej.: ¡Gracias por leer con nosotros!" value="${esc(D.anivMsg)}" ${dis}><small class="mono">Si lo dejas vacío: «N años de ${esc(D.name)}».</small></label>
         <div class="pf-g"><span class="pf-l">Color del equipo</span><span class="rl-sw" role="radiogroup" aria-label="Color del equipo">${SWATCH.map(c => `<button type="button" role="radio" aria-checked="${D.color === c}" aria-label="${c}" data-pc="${c}" style="background:${c}" ${dis}></button>`).join('')}</span></div>
         <div class="pf-g"><span class="pf-l">Traducimos del</span><span class="ed-chips">${LANGS.map(([k, l]) => `<button type="button" class="ed-chip ${D.langs.includes(k) ? 'on' : ''}" aria-pressed="${D.langs.includes(k)}" data-lang="${k}" ${dis}>${l}</button>`).join('')}</span></div>
         <div class="pf-g"><span class="pf-l">Logo</span><span class="pf-up"><span class="pf-logo" id="logobox"></span><span style="display:grid;gap:6px"><label class="btn ghost pf-file">${D.avatar ? 'Cambiar logo' : 'Subir logo'}<input type="file" id="flogo" accept="image/png,image/webp,image/jpeg" hidden ${dis}></label><small class="mono">PNG transparente · mínimo 512×512 · hasta 1 MB</small>${D.avatar && edit ? '<button type="button" class="lnk danger" id="nologo">Quitar logo</button>' : ''}</span></span>
@@ -1917,6 +1919,8 @@ export function createStudio(ctx){
     f.name.oninput = e => { D.name = e.target.value; touch(); };
     f.slug.oninput = e => { D.slug = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''); e.target.value = D.slug; touch(); };
     f.bio.oninput = e => { D.bio = e.target.value; $('#biocount').textContent = D.bio.length + '/600'; touch(); };
+    f.anniversary.oninput = e => { D.aniv = e.target.value; touch(); };
+    f.anniversary_msg.oninput = e => { D.anivMsg = e.target.value; $('#anivcount').textContent = D.anivMsg.length + '/200'; touch(); };
     f.feat.onchange = e => { D.feat = e.target.value; touch(); };
     f.tz.onchange = e => { D.tz = e.target.value; touch(); };
     f.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => { D.color = b.dataset.pc; f.querySelectorAll('[data-pc]').forEach(x => x.setAttribute('aria-checked', x === b)); touch(); });
@@ -1942,7 +1946,7 @@ export function createStudio(ctx){
       const bad = LINKS.find(([k]) => D.links[k] && !/^https:\/\//.test(D.links[k])); if (bad) throw new Error(bad[1] + ': el enlace debe empezar con https://');
       if (D.slug !== t.slug && !confirm(`¿Cambiar la dirección a obi.lat/equipo/${D.slug}? Los enlaces viejos dejarán de funcionar.`)) return;
       const settings = { ...S0, ...D.links, ...D.sect, featured_works: D.feat, show_team_logo: D.logoUpd, show_reader_logo: D.logoReader, timezone: D.tz };
-      const { error } = await sb.from('teams').update({ name: D.name.trim(), slug: D.slug, bio: D.bio.trim() || null, color: D.color, langs: D.langs, avatar_path: D.avatar, banner_path: D.banner, settings }).eq('id', T.team.id);
+      const { error } = await sb.from('teams').update({ name: D.name.trim(), slug: D.slug, bio: D.bio.trim() || null, color: D.color, langs: D.langs, avatar_path: D.avatar, banner_path: D.banner, settings, anniversary: D.aniv || null, anniversary_msg: D.anivMsg.trim() || null }).eq('id', T.team.id);
       if (error) throw new Error(/teams_slug_key/.test(error.message) ? 'Esa dirección ya la usa otro equipo' : /teams_profile_checks/.test(error.message) ? 'Revisa el nombre, la dirección y la presentación' : errMsg(error));
       Object.assign(t, { slug: D.slug }); Object.assign(T.team, { name: D.name.trim(), color: D.color, slug: D.slug }); T.tz = D.tz; dirty = false;
       $('#pfstate').textContent = '✓ Guardado'; toast('Página del equipo guardada');

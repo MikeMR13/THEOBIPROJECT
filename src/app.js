@@ -14,6 +14,7 @@ let LG; const lg = async () => LG ||= await import('/legal.js?v=1');
 let PF; const pf = async () => PF ||= await import('/profile.js?v=9');
 const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
 let ST; const st = async () => ST ||= (await import('/studio.js?v=38')).createStudio(CTX());
+let AG; const ag = async () => AG ||= await import('/agenda.js?v=1');
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=9')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
 let U; const ui = () => U ||= createUI(CTX());
@@ -83,7 +84,7 @@ $('#bell-list').onclick = e => { if (e.target.closest('a')) d.open = false; };
 if ((data || []).some(x => !x.read)) { await sb.rpc('notifications_read_all'); $('#bell-n').hidden = true; } });
 }
 const routes = {
-'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': calendar, '/ranking': () => ui().ranking(), '/lanzamientos': () => ui().releases(), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/preferencias': async () => (await pf()).preferences(PCTX()), '/buscar': () => ui().search(), '/solicitud': solicitud, '/elige-nombre': chooseName, '/privacidad': async () => (await lg()).privacy(app), '/condiciones-servicio': async () => (await lg()).terms(app),
+'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': async () => (await ag()).agenda(CTX()), '/ranking': () => ui().ranking(), '/lanzamientos': async () => (await ag()).agenda(CTX()), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/preferencias': async () => (await pf()).preferences(PCTX()), '/buscar': () => ui().search(), '/solicitud': solicitud, '/elige-nombre': chooseName, '/privacidad': async () => (await lg()).privacy(app), '/condiciones-servicio': async () => (await lg()).terms(app),
 '/bibliotecario': async () => (await ad()).render(), '/admin': async () => { history.replaceState({}, '', '/bibliotecario'); (await ad()).render(); },
 };
 export function go(path){ history.pushState({}, '', path); render(); }
@@ -99,7 +100,7 @@ async function afterRender(){
   try {
     if (p === '/') return S.apply('home');
     if (p === '/catalogo') return S.apply('catalog');
-    if (p === '/lanzamientos') return S.apply('releases');
+    if (p === '/lanzamientos' || p === '/calendario') return S.apply('releases');
     if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) return S.apply('reader');
     if ((m = p.match(/^\/serie\/([\w-]+)$/))) { const { data } = await sb.from('series').select('teams(design)').eq('slug', m[1]).maybeSingle(); const T = data?.teams?.design?.seasons, { activeSeason } = await import('/anim.js?v=8'); const k = T ? activeSeason(T) : null; if (location.pathname !== p) return; return k ? S.apply('series', { key: k, greet: T.greet?.[k] || '' }) : S.apply('series'); }
     if ((m = p.match(/^\/equipo\/([\w-]+)$/))) { const { data } = await sb.from('teams').select('design').eq('slug', m[1]).maybeSingle(); const { activeSeason } = await import('/anim.js?v=8'); if (location.pathname !== p) return; if (data?.design?.seasons && activeSeason(data.design.seasons)) return S.clear(); return S.apply('team'); }
@@ -140,72 +141,6 @@ if (p === '/estudio/estadisticas') return (await st()).stats();
 if (p === '/estudio/descargas') return (await st()).downloads();
 if ((m = p.match(/^\/estudio\/glosario(?:\/([\w-]+))?$/))) return (await st()).glossary(m[1]);
 return (routes[p] || notFound)();
-}
-async function calendar(){
-app.innerHTML = '<p class="mono">Cargando el calendario…</p>';
-const DAYS = 60, now = new Date(), end = new Date(Date.now() + DAYS * 864e5), d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-const TZ = window.obiTZ(), ymd = d => d.toLocaleDateString('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
-const [S, AN, { data: rel }, { data: cal }, { data: unl }] = await Promise.all([seasons(), import('/anim.js?v=8'),
-  sb.from('schedule').select('label,at,kind,series(title,slug)').gte('at', now.toISOString()).lte('at', end.toISOString()).order('at').limit(120),
-  sb.from('season_calendar').select('key,label,starts,day,hemi').lte('starts', ymd(end)).gte('starts', ymd(new Date(Date.now() - 40 * 864e5))).order('starts'),
-  sb.rpc('release_unlocks', { p_days: DAYS }).then(r => { if (r.error) console.warn('release_unlocks', r.error.message); return r; }, () => ({ data: [] }))]);
-await S.load(sb);
-const hemi = S.hemiOf(TZ), auto = new Set(S.config().auto || []);
-const fests = [];
-for (let i = 0; i <= DAYS; i++) { const d = new Date(d0.getTime() + i * 864e5); for (const [k, s] of Object.entries(AN.SEASONS)) { if (s.g === 'est') continue; const was = AN.activeSeason({ auto: [k] }, new Date(d.getTime() - 864e5)) === k, is = AN.activeSeason({ auto: [k] }, d) === k; if (is && (!was || i === 0)) fests.push({ k, s, d }); } }
-const seasonStarts = (cal || []).filter(c => ['primavera', 'verano', 'otono', 'invierno'].includes(c.key) && c.hemi === hemi && new Date(c.starts + 'T12:00') >= d0).map(c => ({ k: c.key, s: AN.SEASONS[c.key], d: new Date(c.starts + 'T12:00') }));
-const items = [...(rel || []).filter(e => e.series).map(e => ({ t: 'rel', d: new Date(e.at), e })), ...(unl || []).map(e => ({ t: 'unl', d: new Date(e.at), e })), ...fests.map(f => ({ t: 'fest', ...f })), ...seasonStarts.map(f => ({ t: 'fest', ...f }))].sort((x, y) => x.d - y.d || (x.t === 'fest' ? -1 : 1));
-const until = d => { const m = Math.round((d - Date.now()) / 60000); if (m < 0) return 'en curso'; if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
-const dayKey = d => ymd(d), groups = []; for (const it of items) { const k = dayKey(it.d); let g = groups[groups.length - 1]; if (!g || g.k !== k) groups.push(g = { k, d: it.d, list: [] }); g.list.push(it); }
-const label = d => { const k = ymd(d); return k === ymd(now) ? 'Hoy' : k === ymd(new Date(Date.now() + 864e5)) ? 'Mañana' : d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }); };
-const win = s => { if (s.w) { const [a1, b1] = s.w, f = x => new Date('2000-' + x + 'T12:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }); return a1 === b1 ? f(a1) : f(a1) + ' – ' + f(b1); } return ''; };
-const INFO = {
-  halloween: ['Noche del 31 de octubre de origen celta (Samhain), cuando se creía que el mundo de los vivos y el de los espíritus se acercaban.', 'Disfraces, calabazas talladas, casas decoradas y el «dulce o truco».'],
-  muertos: ['Tradición mexicana para recordar a los difuntos: el 1 de noviembre a los niños y el 2 a los adultos. Es Patrimonio Cultural Inmaterial de la UNESCO.', 'Altares con fotos, cempasúchil, velas, pan de muerto, calaveritas de azúcar y visitas al panteón.'],
-  navidad: ['Celebración cristiana del nacimiento de Jesús el 25 de diciembre, hoy también una fiesta familiar en buena parte del mundo.', 'Árbol, nacimientos, posadas, cena de Nochebuena e intercambio de regalos.'],
-  anonuevo: ['Despedida del año que termina y bienvenida al nuevo, la noche del 31 de diciembre al 1 de enero.', 'Cuenta regresiva, fuegos artificiales, doce uvas a medianoche y propósitos para el año.'],
-  valentin: ['Día del amor y la amistad, el 14 de febrero, que toma el nombre de un mártir romano.', 'Cartas, flores, chocolates y salidas con la pareja o los amigos. En Japón y Corea las chicas regalan chocolate y el 14 de marzo (White Day) se corresponde.'],
-  pascua: ['Fiesta cristiana de la resurrección de Jesús. Su fecha cambia cada año: el domingo después de la primera luna llena de primavera (norte).', 'Huevos de colores, búsqueda de huevos, conejo de Pascua y comidas familiares.'],
-  shogatsu: ['El Año Nuevo japonés, la fiesta más importante del año en Japón. Las celebraciones principales van del 1 al 3 de enero.', 'Primera visita al santuario (hatsumōde), osechi ryōri, tarjetas nengajō y sobres con dinero (otoshidama) para los niños.'],
-  setsubun: ['Marca el día antes del inicio de la primavera en el calendario lunar japonés; se ahuyenta la mala suerte del año.', 'Se lanzan frijoles tostados gritando «¡Fuera demonios, dentro la fortuna!» (oni wa soto, fuku wa uchi) y se come el ehōmaki.'],
-  hinamatsuri: ['El Día de las Niñas, el 3 de marzo: las familias piden salud y felicidad para sus hijas.', 'Se exhiben muñecas hina vestidas como la corte imperial Heian y se comen dulces hina-arare y sake dulce.'],
-  hanami: ['La contemplación de los cerezos en flor. Florecen solo una o dos semanas, por eso simbolizan lo efímero de la vida.', 'Picnics bajo los sakura con familia y amigos, de día y también de noche (yozakura) con faroles.'],
-  tanabata: ['El Festival de las Estrellas, el 7 de julio: según la leyenda, es la única noche del año en que Orihime y Hikoboshi (Vega y Altair) pueden verse.', 'Se escriben deseos en tiras de papel (tanzaku) y se cuelgan en ramas de bambú.'],
-  obon: ['Festividad budista en la que se cree que los espíritus de los antepasados vuelven a casa a visitar a la familia.', 'Visitas a las tumbas, bailes bon odori y faroles flotando en ríos para despedir a los espíritus (tōrō nagashi).'],
-  tsukimi: ['La contemplación de la luna de otoño, en la noche de luna llena del octavo mes lunar, considerada la más bella del año.', 'Se ofrecen dango de arroz y espigas de susuki, y se mira la luna en familia.'],
-  shichigosan: ['Celebración del 15 de noviembre por el crecimiento de niñas de 3 y 7 años y niños de 3 y 5 años.', 'Los niños visten kimono, la familia visita el santuario y se compran caramelos chitose-ame, que desean una vida larga.'],
-  seollal: ['El Año Nuevo lunar coreano, una de las dos fiestas más grandes de Corea; dura tres días.', 'Reverencia a los mayores (sebae), que dan dinero a los niños; sopa de pastel de arroz (tteokguk) y juegos tradicionales con hanbok.'],
-  chuseok: ['El «Día de Acción de Gracias» coreano, en la luna llena del octavo mes lunar; celebra la cosecha y honra a los antepasados.', 'Viaje a la ciudad natal, ritual charye, visita a las tumbas y pasteles de arroz songpyeon.'],
-  dano: ['Festival del quinto día del quinto mes lunar, ligado a la siembra y a desear buena salud en verano.', 'Lavarse el cabello con agua de iris, columpios para las mujeres y lucha ssireum.'],
-  buda: ['Celebración del nacimiento de Buda, el octavo día del cuarto mes lunar; día festivo en Corea.', 'Templos y calles se llenan de faroles de loto y hay desfiles de linternas (Yeondeunghoe).'],
-  pepero: ['El 11 de noviembre (11/11): la fecha parece cuatro palitos, como las galletas Pepero.', 'Se regalan galletas Pepero a pareja, amigos y compañeros.'],
-  primavera: ['Empieza con el equinoccio: el día y la noche duran casi lo mismo y los días comienzan a alargarse.', 'Flores, temperaturas templadas y, en Japón, el inicio del año escolar.'],
-  verano: ['Empieza con el solsticio: el día más largo del año.', 'Vacaciones, festivales al aire libre y, en Japón, fuegos artificiales (hanabi) y yukata.'],
-  otono: ['Empieza con el equinoccio de otoño: los días se acortan y las hojas cambian de color.', 'Cosechas, momiji (hojas rojas) y la «temporada de la lectura» en Japón.'],
-  invierno: ['Empieza con el solsticio: la noche más larga del año.', 'Frío, nieve en muchas regiones y las fiestas de fin de año.']
-};
-const row = it => it.t === 'unl'
-  ? (() => { const e = it.e, nn = (e.nums || []).map(Number), cap = nn.length > 1 ? 'Caps. ' + nn[0] + '–' + nn[nn.length - 1] : 'Cap. ' + nn[0], g = e.kind === 'general'; return `<a class="cal-r" href="/serie/${esc(e.slug)}"><span class="cal-h">${it.d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span><span class="cal-b"><b>${esc(e.stitle)}</b><small><span style="font-weight:600;color:${g ? '#a9d18e' : '#f96854'}">${g ? 'Se abre a todo público' : '🔒︎ Solo mecenas'}</span> · ${e.vnum != null ? 'Vol. ' + (+e.vnum) + ' · ' : ''}${cap}</small></span><span class="cal-u">${until(it.d)}</span></a>`; })()
-  : it.t === 'rel'
-  ? `<a class="cal-r" href="/serie/${esc(it.e.series.slug)}"><span class="cal-h">${it.d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span><span class="cal-b"><b>${esc(it.e.series.title)}</b><small>${it.e.kind === 'volume' ? 'Volumen completo · ' : ''}${esc(it.e.label)}</small></span><span class="cal-u">${until(it.d)}</span></a>`
-  : `<details class="cal-f${auto.has(it.k) ? ' on' : ''}" style="--fc:${it.s.ac}"><summary><i style="background-image:url('${it.s.m ? AN.motifURL(it.s.m, it.s.ac, it.s.c2) : ''}')"></i><span class="cal-b"><b>${esc(it.s.l)}</b><small>${{ occ: 'Festividad', jp: 'Festividad japonesa', kr: 'Festividad coreana', est: 'Estación · hemisferio ' + hemi }[it.s.g]}${win(it.s) ? ' · ' + win(it.s) : ''}${auto.has(it.k) ? ' · el sitio se viste de temporada' : ''}</small></span><span class="cal-u">${until(it.d)}${INFO[it.k] ? '<span class="cal-m">Ver más</span>' : ''}</span></summary>${INFO[it.k] ? `<div class="cal-x"><p>${esc(INFO[it.k][0])}</p><p><b>Cómo se celebra:</b> ${esc(INFO[it.k][1])}</p></div>` : ''}</details>`;
-app.innerHTML = '<div class="ui-cath"><div><h1>Calendario</h1><p>Lo que viene en los próximos dos meses: capítulos y volúmenes programados, y las festividades.</p></div><span class="kj" aria-hidden="true">予定</span></div>'
-  + '<div class="cal-bar"><a class="mono" href="/lanzamientos">← Ya publicados</a><span class="mono">' + (window.__obiUI?.tz ? '<a href="/preferencias?s=pantalla">Tu zona horaria</a>' : 'Horario de tu dispositivo') + ' · ' + esc(TZ.replace(/_/g, ' ')) + '</span></div>'
-  + (groups.length ? groups.map(g => `<section class="cal-d"><h2>${label(g.d)}<span class="mono">${g.d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' })}</span></h2>${g.list.map(row).join('')}</section>`).join('') : '<p class="mono">Nada programado ni festividades en los próximos dos meses.</p>')
-  + ((rel || []).length || (unl || []).length ? '' : '<p class="mono cal-empty">Aún no hay capítulos ni volúmenes programados. Cuando un equipo programe uno desde el Estudio, aparecerá aquí.</p>');
-if (!document.getElementById('cal-css')) { const st = document.createElement('style'); st.id = 'cal-css'; st.textContent = `
-.cal-bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 26px}.cal-bar .mono{font-size:12px}
-.cal-d{margin:0 0 26px}.cal-d h2{display:flex;align-items:baseline;gap:10px;margin:0 0 10px;font-size:22px;font-weight:500;text-transform:capitalize}.cal-d h2 .mono{font-size:12px;color:var(--mute)}
-.cal-r,.cal-f>summary{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 14px;color:var(--paper);text-decoration:none}
-.cal-r,.cal-f{margin-bottom:6px;background:#16140f;border:1px solid var(--line);display:block}.cal-r{display:grid}
-.cal-f>summary{cursor:pointer;list-style:none}.cal-f>summary::-webkit-details-marker{display:none}.cal-f>summary:hover{background:color-mix(in srgb,var(--fc) 10%,transparent)}
-.cal-u{display:grid;justify-items:end;gap:4px}.cal-m{font-size:11px;color:var(--fc);text-decoration:underline;text-underline-offset:3px}.cal-m::after{content:' ▾'}.cal-f[open] .cal-m{font-size:0}.cal-f[open] .cal-m::after{content:'Ver menos ▴';font-size:11px}
-.cal-x{padding:0 14px 14px 84px;display:grid;gap:8px}.cal-x p{margin:0;font-size:14px;line-height:1.6;color:var(--paper);text-wrap:pretty;max-width:68ch}.cal-x b{color:var(--fc);font-weight:500}
-.cal-r{border-left:4px solid var(--gold)}.cal-r:hover{border-color:var(--gold);color:var(--paper)}.cal-h{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--gold)}
-.cal-b{display:grid;gap:2px;min-width:0}.cal-b b{font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:18px}.cal-b small{font-size:12px;color:var(--mute)}.cal-u{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mute);white-space:nowrap}
-.cal-f{border-left:4px solid var(--fc);background:color-mix(in srgb,var(--fc) 7%,#16140f)}.cal-f i{width:40px;height:40px;justify-self:center;background:center/contain no-repeat}.cal-f.on{border-color:var(--fc)}
-.cal-empty{margin-top:10px}
-@media(max-width:560px){.cal-r,.cal-f>summary{grid-template-columns:44px minmax(0,1fr)}.cal-u{grid-column:2;justify-items:start}.cal-x{padding-left:14px}}`; document.head.appendChild(st); }
 }
 const MED = p => p ? (/^https?:/.test(p) ? p : url + '/storage/v1/object/public/obi-media/' + encodeURI(p)) : '';
 const LB_CSS = `
