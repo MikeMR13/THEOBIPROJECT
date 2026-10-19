@@ -112,7 +112,23 @@ document.addEventListener('click', e => { document.querySelectorAll('.ob-user[op
 let PS = null; const seasons = async () => PS ||= await import('/season.js?v=4');
 addEventListener('obi-season', () => { afterRender(); });
 // Se dibuja la página sin esperar la temporada; afterRender la aplica cuando llega.
-function render(){ seasons().then(S => { S.clear(); S.load(sb); }); return render0().then(r => { contBtn(); return afterRender(r); }); }
+function render(){ seasons().then(S => { S.clear(); S.load(sb); }); return render0().catch(e => { if (!navigator.onLine || /Failed to fetch|NetworkError|Load failed|network/i.test(e?.message || '')) return offlinePage(); throw e; }).then(r => { contBtn(); return afterRender(r); }); }
+// ---------- sin conexión ----------
+function offlinePage(){
+  const on = navigator.onLine; lbCss();
+  app.innerHTML = `<div class="ui-cath"><div><h1>${on ? 'Mis descargas' : 'Sin conexión'}</h1><p>${on ? 'Volúmenes guardados en este dispositivo para leer sin internet.' : 'Puedes seguir leyendo lo que descargaste. El resto de la biblioteca vuelve cuando tengas internet.'}</p></div><span class="kj" aria-hidden="true">${on ? '保存' : '圏外'}</span></div><div id="off">${rd().offlineList()}</div>${on ? '' : '<p style="margin-top:18px"><button class="btn ghost" id="off-retry">Reintentar conexión</button></p>'}`;
+  rd().bindOfflineList($('#off'), offlinePage);
+  $('#off-retry')?.addEventListener('click', () => navigator.onLine ? render() : toast('Todavía sin conexión'));
+}
+function netBanner(){
+  let b = document.getElementById('obi-net');
+  if (navigator.onLine) { if (b) { b.dataset.on = '1'; b.textContent = 'Conexión recuperada'; setTimeout(() => b.remove(), 2500); } return; }
+  if (!b) { b = document.createElement('div'); b.id = 'obi-net'; b.setAttribute('role', 'status'); document.body.appendChild(b); }
+  delete b.dataset.on; b.innerHTML = 'Sin conexión · <a href="/descargas">ver mis descargas</a>';
+}
+addEventListener('offline', netBanner);
+addEventListener('online', () => { netBanner(); if (user) rd().syncPending().then(n => { if (n) toast('Tu progreso sin conexión ya se guardó en tu cuenta'); }); });
+if (!navigator.onLine) netBanner();
 async function afterRender(){
   const S = await seasons(); await S.load(sb); const p = location.pathname; let m;
   try {
@@ -131,6 +147,7 @@ async function afterRender(){
 async function render0(){
 const p = location.pathname; let m;
 scrollTo(0, 0); document.body.classList.remove('in-studio');
+if (p === '/descargas' || (!navigator.onLine && !p.startsWith('/leer/'))) return offlinePage();
 if (p.startsWith('/estudio') || p === '/perfil' || p === '/preferencias' || p === '/solicitud') await meReady;
 if ((m = p.match(/^\/serie\/([\w-]+)$/))) return ui().series(m[1]);
 if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) return rd().open(m[1], +m[2]);
@@ -176,7 +193,7 @@ const LB_CSS = `
 `;
 const lbCss = () => { if (document.getElementById('lb-css')) return; const s = document.createElement('style'); s.id = 'lb-css'; s.textContent = LB_CSS; document.head.appendChild(s); };
 async function library(){
-if (!user) return go('/entrar');
+if (!user) return go(new URLSearchParams(location.search).get('t') === 'offline' ? '/descargas' : '/entrar');
 lbCss(); app.innerHTML = '<p class="mono">Cargando tu biblioteca…</p>';
 const TABS = [['leyendo', 'Leyendo'], ['pendientes', 'Pendientes'], ['terminadas', 'Terminadas'], ['avisos', 'Avisos'], ['offline', 'Sin conexión'], ['historial', 'Historial']];
 const tab = TABS.some(t => t[0] === new URLSearchParams(location.search).get('t')) ? new URLSearchParams(location.search).get('t') : 'leyendo';
@@ -389,6 +406,7 @@ $('#rqcancel')?.addEventListener('click', async () => { if (!confirm('¿Retirar 
 }
 function notFound(){ app.innerHTML = '<h1>Esta página no está en el estante</h1><p><a href="/">Volver al inicio</a></p>'; }
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+addEventListener('load', () => setTimeout(() => { if (user && navigator.onLine) rd().syncPending(); }, 5000));
 let authEv = null;
 sb.auth.onAuthStateChange(ev => { if (ev !== 'INITIAL_SESSION') loadSession().then(() => ui().refreshBadge()); if (['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(ev) && authEv !== null) seasons().then(S => S.load(sb, true)).then(() => afterRender()); authEv = ev; });
 loadSession().then(() => {

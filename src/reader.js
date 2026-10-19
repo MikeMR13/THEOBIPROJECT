@@ -27,7 +27,7 @@ export function createReader(ctx){
   // ---------- datos ----------
   async function loadSeries(slug){
     if (S.series?.slug === slug) return true;
-    let s, ch, vo;
+    let s, ch, vo, offGl = null;
     try {
       const r1 = await sb.from('series').select('id,slug,title,team_id,teams(name,slug,status,avatar_path,settings,reader_defaults)').eq('slug', slug).maybeSingle();
       if (r1.error) throw r1.error; s = r1.data;
@@ -35,14 +35,14 @@ export function createReader(ctx){
         sb.from('chapters').select('id,num,vol,title,section_type,volume_id,content_warnings,teaser,teaser_on').eq('series_id', s.id).is('deleted_at', null).order('num'),
         sb.from('volumes').select('id,num,title,epub_fonts').eq('series_id', s.id).is('deleted_at', null).order('num')]);
         if (a.error || b.error) throw a.error || b.error; ch = a.data; vo = b.data; }
-    } catch { const m = await offlineMeta(slug); if (m) ({ series: s, chapters: ch, vols: vo } = m); }
+    } catch { const m = await offlineMeta(slug); if (m) { ({ series: s, chapters: ch, vols: vo } = m); offGl = m.gloss || null; } }
     if (!s) return false;
     Object.assign(S, { series: s, chapters: ch || [], vols: vo || [], nextAt: null, teamIds: null, bodies: new Map(), annots: [], gloss: [], glMap: new Map(), glRe: undefined, readSet: null });
     // calendario y glosario no bloquean la apertura: llegan después y se aplican solos
     S.extras = Promise.all([
       sb.from('schedule').select('at').eq('series_id', s.id).gte('at', new Date().toISOString()).order('at').limit(1).then(r => r.data?.[0]?.at || null, () => null),
       sb.from('glossary_terms').select('term,category,definition').eq('series_id', s.id).then(r => r.data || [], () => [])
-    ]).then(([at, gl]) => { if (S.series !== s) return; Object.assign(S, { nextAt: at, gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined }); });
+    ]).then(([at, gl0]) => { if (S.series !== s) return; const gl = gl0.length ? gl0 : (offGl || []); Object.assign(S, { nextAt: at, gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined }); });
     return true;
   }
   async function body(ch){
@@ -190,7 +190,7 @@ export function createReader(ctx){
     if (!ch) { const { data: L } = await sb.rpc('lock_info', { p_slug: slug, p_num: num }).then(x => x, () => ({ data: null })); if (L) { const P = await import('/patreon.js?v=1'); app.innerHTML = P.lockHTML(L, esc, slug); app.querySelector('#lk-link')?.addEventListener('click', () => P.start(sb, url, 'link', null, toast)); return; } app.innerHTML = '<h1>Capítulo no disponible</h1><p>Puede que aún no se publique. <a href="/serie/' + esc(slug) + '">Volver a la obra</a></p>'; return; }
     const annP = fetchAnnots([ch.id]);
     const [b, , pos] = await Promise.all([body(ch), S.remote ? null : loadPrefs(), fetchPos()]);
-    if (!b) { app.innerHTML = '<h1>Sin conexión</h1><p>Este capítulo no está descargado. <a href="/biblioteca">Ver descargas</a></p>'; return; }
+    if (!b) { app.innerHTML = '<h1>Sin conexión</h1><p>Este capítulo no está descargado. <a href="/descargas">Ver mis descargas</a></p>'; return; }
     const p = effective(ch.volume_id);
     S.mounted = [ch]; S.active = ch; S.annots = []; S.lastY = null; trackView(ch);
     const more = `<button class="btn ghost" data-act="coms">Comentarios</button><button class="btn ghost" data-act="notes">Anotaciones</button><button class="btn ghost" data-act="offline">${isVolOffline(ch) ? '✓ Descargado' : 'Descargar volumen'}</button>`;
@@ -338,11 +338,33 @@ export function createReader(ctx){
   async function saveProgress(){
     const ch = S.active; if (!ch || !S.series || !$(`[data-ch="${ch.id}"]`)) return; // ya no está en pantalla: no pisar el progreso con «párrafo 0»
     clearTimeout(S.saveT);
-    const { block: blk, pct } = currentBlock(), p = effective(ch.volume_id), at = new Date().toISOString();
-    try { localStorage.setItem(posKey(S.series.id), JSON.stringify({ chapter_id: ch.id, num: ch.num, block: blk, pct, at })); } catch {}
-    const user = getUser(); if (!user) return;
-    sb.from('reading_progress').upsert({ user_id: user.id, series_id: S.series.id, chapter_num: ch.num, chapter_id: ch.id, block: blk, pct, mode: p.continuous === 'off' ? 'chapter' : 'continuous', updated_at: at }, { onConflict: 'user_id,series_id' }).then(({ error }) => { if (error) console.warn('progreso', error.message); });
-    if (pct > 0.95 && !S.readMarked.has(ch.id)) { S.readMarked.add(ch.id); sb.from('read_chapters').upsert({ user_id: user.id, chapter_id: ch.id }); }
+    const { block: blk, pct } = currentBlock(), p = effective(ch.volume_id), at = new Date().toISOString(), user = getUser();
+    const rec = { chapter_id: ch.id, num: ch.num, block: blk, pct, at, mode: p.continuous === 'off' ? 'chapter' : 'continuous', pending: !!user };
+    try { localStorage.setItem(posKey(S.series.id), JSON.stringify(rec)); } catch {}
+    if (!user) return;
+    pushPos(user, S.series.id, rec);
+    if (pct > 0.95 && !S.readMarked.has(ch.id)) { S.readMarked.add(ch.id); pushRead(user, ch.id); }
+  }
+  // sin conexión: el progreso queda marcado como pendiente y se sube al volver internet (syncPending)
+  function pushPos(user, sid, rec){
+    if (!navigator.onLine) return Promise.resolve(false);
+    return sb.from('reading_progress').upsert({ user_id: user.id, series_id: sid, chapter_num: rec.num, chapter_id: rec.chapter_id, block: rec.block, pct: rec.pct, mode: rec.mode || 'chapter', updated_at: rec.at }, { onConflict: 'user_id,series_id' })
+      .then(({ error }) => { if (error) { console.warn('progreso', error.message); return false; }
+        try { const cur = JSON.parse(localStorage.getItem(posKey(sid))); if (cur?.at === rec.at) { cur.pending = false; localStorage.setItem(posKey(sid), JSON.stringify(cur)); } } catch {} return true; }, () => false);
+  }
+  const RQ = 'obi-read-q';
+  function pushRead(user, chId){
+    const queue = () => { try { const a = JSON.parse(localStorage.getItem(RQ) || '[]'); if (!a.includes(chId)) a.push(chId); localStorage.setItem(RQ, JSON.stringify(a.slice(-500))); } catch {} };
+    if (!navigator.onLine) return queue();
+    sb.from('read_chapters').upsert({ user_id: user.id, chapter_id: chId }).then(({ error }) => { if (error) queue(); }, queue);
+  }
+  async function syncPending(){
+    const user = getUser(); if (!user || !navigator.onLine) return 0; let n = 0; const keys = [];
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith('obi-pos-')) keys.push(k); } } catch {}
+    for (const k of keys) { let r; try { r = JSON.parse(localStorage.getItem(k)); } catch { continue; } if (r?.pending && r.chapter_id && await pushPos(user, k.slice(8), r)) n++; }
+    let q = []; try { q = JSON.parse(localStorage.getItem(RQ) || '[]'); } catch {}
+    if (q.length) { const { error } = await sb.from('read_chapters').upsert(q.map(id => ({ user_id: user.id, chapter_id: id }))); if (!error) { localStorage.removeItem(RQ); n += q.length; } }
+    return n;
   }
   // gana la posición más reciente entre la del servidor y la de este dispositivo
   async function fetchPos(){
@@ -454,6 +476,7 @@ export function createReader(ctx){
   async function offlineBody(ch){ try { const c = await caches.open(OFF_CACHE); const r = await c.match(offKey(ch)); return r ? r.json() : null; } catch { return null; } }
   async function toggleOffline(){
     const ch = S.active, key = S.series.id + ':' + ch.vol, idx = offIndex(), btns = [...document.querySelectorAll('[data-act="offline"]')];
+    if (!idx[key] && !navigator.onLine) return toast('Necesitas conexión para descargar el volumen');
     const btn = { set textContent(t){ btns.forEach(b => b.textContent = t); }, set disabled(v){ btns.forEach(b => b.disabled = v); } };
     if (idx[key]) { await removeVolume(key); btn.textContent = 'Descargar volumen'; toast('Volumen ' + ch.vol + ' eliminado del dispositivo'); return; }
     if (!('caches' in window)) return toast('Tu navegador no permite guardar sin conexión');
@@ -466,11 +489,13 @@ export function createReader(ctx){
       b.forEach(bl => { const s = bl.url || bl.src; if (s) assets.add(media(s)); });
     }
     (volOf(ch)?.epub_fonts || []).forEach(f => assets.add(f.url));
-    await c.put('/offline/meta/' + S.series.slug, new Response(JSON.stringify({ series: S.series, chapters: S.chapters, vols: S.vols }), { headers: { 'Content-Type': 'application/json' } }));
+    await S.extras?.catch(() => {});
+    await c.put('/offline/meta/' + S.series.slug, new Response(JSON.stringify({ series: S.series, chapters: S.chapters, vols: S.vols, gloss: S.gloss || [] }), { headers: { 'Content-Type': 'application/json' } }));
     await Promise.all([...assets].map(u => fetch(u, { mode: 'cors' }).then(r => r.ok && c.put(u, r)).catch(() => {})));
     idx[key] = { slug: S.series.slug, title: S.series.title, vol: ch.vol, nums: list.map(x => x.num), assets: [...assets], at: Date.now() };
     localStorage.setItem(OFF_INDEX, JSON.stringify(idx));
     btn.disabled = false; btn.textContent = '✓ Descargado'; toast(`Volumen ${ch.vol} listo para leer sin conexión`);
+    navigator.storage?.persist?.().catch(() => {}); // que el navegador no lo borre para liberar espacio
   }
   async function removeVolume(key){
     const idx = offIndex(), it = idx[key]; if (!it) return;
@@ -479,10 +504,16 @@ export function createReader(ctx){
     delete idx[key]; localStorage.setItem(OFF_INDEX, JSON.stringify(idx));
   }
   function offlineList(){
-    const idx = offIndex(), items = Object.entries(idx);
-    return items.length ? items.map(([k, it]) => `<p style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><a href="/leer/${it.slug}/${it.nums[0]}">${esc(it.title)} · Volumen ${it.vol}</a><span class="mono">${it.nums.length} capítulos</span><button class="btn ghost" data-off="${esc(k)}">Borrar</button></p>`).join('') : '<p class="mono">No tienes volúmenes descargados. Ábrelos desde el lector con «Descargar volumen».</p>';
+    const items = Object.entries(offIndex()).sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
+    if (!items.length) return '<p class="mono">No tienes volúmenes descargados. Ábrelos desde el lector con «Descargar volumen» (en el celular, dentro del menú ⋯).</p>';
+    return `<div class="off-list">${items.map(([k, it]) => { let pos = null; try { pos = JSON.parse(localStorage.getItem(posKey(k.split(':')[0]))); } catch {}
+      const here = pos && it.nums.includes(pos.num) ? pos.num : null, n = it.nums.length;
+      return `<div class="off-it"><span><b>${esc(it.title)}</b><small>Volumen ${it.vol} · ${n} ${n === 1 ? 'capítulo' : 'capítulos'} · descargado ${new Date(it.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</small></span><a class="btn" href="/leer/${esc(it.slug)}/${here || it.nums[0]}">${here ? 'Continuar · cap. ' + here : 'Empezar a leer'}</a><button class="btn ghost" data-off="${esc(k)}">Borrar</button></div>`; }).join('')}</div><p class="mono" id="off-space"></p>`;
   }
-  function bindOfflineList(root, after){ root.querySelectorAll('[data-off]').forEach(b => b.onclick = async () => { await removeVolume(b.dataset.off); toast('Descarga eliminada'); after(); }); }
+  function bindOfflineList(root, after){
+    root.querySelectorAll('[data-off]').forEach(b => b.onclick = async () => { if (!confirm('¿Borrar este volumen del dispositivo?')) return; await removeVolume(b.dataset.off); toast('Descarga eliminada'); after(); });
+    navigator.storage?.estimate?.().then(e => { const el = root.querySelector('#off-space'); if (el && e?.usage) el.textContent = `Espacio usado en este dispositivo: ${Math.max(1, Math.round(e.usage / 1048576))} MB`; }).catch(() => {});
+  }
 
   // ---------- anotaciones ----------
   // solo los capítulos que se piden (en el lector: los que están en pantalla)
@@ -527,6 +558,7 @@ export function createReader(ctx){
   const closePop = () => { const p = pop(); if (p) p.hidden = true; };
   async function createAnnot(d){
     const user = getUser(); if (!user) { toast('Entra para guardar subrayados'); go('/entrar'); return null; }
+    if (!navigator.onLine) { toast('Sin conexión: podrás subrayar cuando vuelvas a tener internet'); return null; }
     const { data, error } = await sb.from('annotations').insert({ ...d, user_id: user.id }).select().single();
     if (error) { toast('No se pudo guardar: ' + error.message); return null; }
     S.annots.push(data); paintAnnots(data.chapter_id); return data;
@@ -572,6 +604,7 @@ export function createReader(ctx){
   // ---------- comentarios ----------
   async function comments(){
     const ch = S.active, pn = toggle({ kind: 'coms', body: '<p class="mono">Cargando comentarios…</p>' }); if (!pn) return;
+    if (!navigator.onLine) { pn.innerHTML = '<p class="mono">Los comentarios necesitan conexión a internet.</p>'; return; }
     const [{ data: list }, { data: tm }] = await Promise.all([
       sb.from('comments').select('id,parent_id,user_id,body,spoiler,pinned,para,created_at,profiles(username,avatar_url)').eq('chapter_id', ch.id).order('created_at').limit(500),
       S.teamIds ? { data: null } : sb.from('team_members').select('user_id').eq('team_id', S.series.team_id)]);
@@ -614,5 +647,5 @@ export function createReader(ctx){
     return (data || []).filter(h => h.chapters?.series);
   }
 
-  return { open, annotationsPage, offlineList, bindOfflineList, continueList, historyList };
+  return { open, annotationsPage, offlineList, bindOfflineList, continueList, historyList, syncPending };
 }
