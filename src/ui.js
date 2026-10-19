@@ -384,7 +384,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const fs = festKey && AN?.SEASONS?.[festKey]; const fest = fs && fs.g !== 'est' ? fs : null;
     const shelf = list.slice(0, 24);
     const gc = new Map(); list.forEach(x => (x.genres || []).forEach(g => gc.set(g, (gc.get(g) || 0) + 1)));
-    const genres = [...gc].sort((a, b) => b[1] - a[1]).slice(0, 12);
+    const genres = [...gc].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es')).slice(0, 6);
     const tmap = new Map(); rkWv.forEach(r => { const x = byId[r.series_id], t = x?.teams; if (!t?.slug) return; let g = tmap.get(t.slug); if (!g) tmap.set(t.slug, g = { t, sum: 0, rows: [] }); g.sum += +r.score || 0; g.rows.push({ s: x, n: +r.score || 0 }); });
     const teamsTop = [...tmap.values()].sort((a, b) => b.sum - a.sum).slice(0, 6);
     const done = list.filter(x => x.translation_status === 'completed').sort((a, b) => new Date(lastCh[b.id]?.publish_at || 0) - new Date(lastCh[a.id]?.publish_at || 0) || (b.views || 0) - (a.views || 0)).slice(0, 15);
