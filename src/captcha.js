@@ -18,7 +18,7 @@ export function mount(el, { action = 'login', theme = 'dark' } = {}){
   let id = null, tok = null, fail = null; const wait = [];
   const done = (t, e) => { tok = t; fail = e || null; wait.splice(0).forEach(([ok, no]) => e ? no(e) : ok(t)); };
   const ready = api().then(ts => { if (!el.isConnected) return;
-    id = ts.render(el, { sitekey: KEY(), action, theme, language: 'es', appearance: 'interaction-only',
+    id = ts.render(el, { sitekey: KEY(), action, theme, language: 'es', appearance: 'always', size: 'flexible',
       callback: t => done(t), 'expired-callback': () => { tok = null; ts.reset(id); },
       'error-callback': () => done(null, new Error('La verificación antibots falló. Recarga la página e inténtalo de nuevo.')) });
   }, e => done(null, e));

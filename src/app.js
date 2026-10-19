@@ -251,7 +251,7 @@ ${up ? '<label>Nombre de usuario<input name="username" autocomplete="username" m
 <label>Correo<input name="email" type="email" autocomplete="email" required placeholder="correo@ejemplo.com"></label>
 <label>Contraseña<input name="password" type="password" autocomplete="${up ? 'new-password' : 'current-password'}" minlength="8" maxlength="128" required></label>
 <p id="err" role="alert" style="color:#f59e7a;margin:0;min-height:1.2em"></p>
-<div id="cf-ts" style="min-height:0"></div>
+<div id="cf-ts" style="min-height:65px;max-width:380px"></div>
 <button class="btn" id="go">${up ? 'Crear cuenta' : 'Entrar'}</button>
 ${up ? '<p style="margin:0;font-size:13px;color:var(--mute)">Al crear una cuenta aceptas las <a href="/condiciones-servicio">Condiciones del servicio</a> y la <a href="/privacidad">Política de privacidad</a>.</p>' : ''}
 </form>

@@ -54,7 +54,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       <label>Correo<input name="email" type="email" autocomplete="username" required></label>
       <label>Contraseña<input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label>
       <span class="err" role="alert">${esc(err)}</span>
-      <div id="bb-ts"></div>
+      <div id="bb-ts" style="min-height:65px"></div>
       <button class="btn">Abrir el mostrador</button></form></div>`;
     const f = $('#bbf'), er = f.querySelector('.err');
     const CF = await import('/captcha.js?v=1'), cap = CF.mount($('#bb-ts'), { action: 'admin', theme: 'light' });
