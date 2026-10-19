@@ -33,3 +33,8 @@ self.addEventListener('fetch', e => {
   if (u.pathname.includes('/storage/v1/object/public/')) { if (req.destination === 'image') { e.respondWith(image(e, req)); return; } e.respondWith(fetch(req).catch(() => caches.match(req.url))); return; }
   if (u.pathname.includes('/rest/v1/chapters')) { e.respondWith(fetch(req).then(r => { const cp = r.clone(); caches.open(V + '-ch').then(c => c.put(req, cp)); return r; }).catch(() => caches.match(req))); }
 });
+// Notificaciones push (avisos del sitio, recordatorios y aniversarios).
+self.addEventListener('push', e => { let d = {}; try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'El Obi del Lector', { body: d.body || '', icon: '/icon.svg', badge: '/icon.svg', tag: d.tag, data: { url: d.url || '/' } })); });
+self.addEventListener('notificationclick', e => { e.notification.close(); const u = new URL(e.notification.data?.url || '/', self.location.origin).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => { for (const c of cs) if (c.url.startsWith(self.location.origin) && 'focus' in c) { if ('navigate' in c) c.navigate(u); return c.focus(); } return self.clients.openWindow(u); })); });
