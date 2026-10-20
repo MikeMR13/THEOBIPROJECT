@@ -32,6 +32,8 @@ jobs:
         run: node scripts/phase6-studio-accounts-check.mjs
       - name: Fase 6.4 Lector y predeterminados de equipos
         run: node scripts/phase6-reader-check.mjs
+      - name: Fase 6.5 regresión cruzada y sesiones concurrentes
+        run: node scripts/phase6-regression-check.mjs
       - name: Fase 6.4 Lector EPUB, preferencias y defaults de equipo
         run: node scripts/phase6-reader-check.mjs
       - name: Validar compilación Preview aislada

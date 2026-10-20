@@ -35,7 +35,7 @@ export async function mountTeamReaderDefaults({ app, sb, teamId, allowed, notify
   root.querySelector('#s2-rd-options').innerHTML=opts.map(([key,choices])=>html(key,choices)).join('');
   const val=k=>current[k]===undefined?'':String(current[k]);
   const redraw=()=>{
-    root.querySelectorAll('[data-rd-key]').forEach(el=>{el.value=val(el.dataset.rdKey)});
+    root.querySelectorAll('[data-rd-key]').forEach(el=>{el.value=val(el.dataset.rdKey);el.disabled=busy;});
     const modified=JSON.stringify(cleanReaderTeamDefaults(current))!==JSON.stringify(stored);
     save.disabled=busy||!modified;reset.disabled=busy||!Object.keys(current).length;
     status.textContent=busy?'Guardando formato…':modified?'Cambios sin guardar. No afectan la lectura hasta guardarlos.':'Predeterminados guardados. Las preferencias del lector prevalecen.';
