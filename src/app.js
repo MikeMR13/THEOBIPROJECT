@@ -114,6 +114,7 @@ async function contBtn(force){
   }
   const b = CB.v, e = $('#ob-cont'); if (!e) return; if (!b) { e.hidden = true; return; }
   e.href = `/leer/${b.slug}/${b.num}`; e.title = `Continuar «${b.title}» · cap. ${b.num}`; e.setAttribute('aria-label', e.title);
+  if (navigator.onLine && !navigator.connection?.saveData) (window.requestIdleCallback || setTimeout)(() => rd().warm(b.slug, b.num)); // «Continuar» ya listo antes del clic
   e.querySelector('b').textContent = b.title; e.querySelector('small').textContent = 'Continuar · cap. ' + b.num + (b.pct > 0.02 && b.pct < 0.98 ? ' · ' + Math.round(b.pct * 100) + ' %' : ''); e.hidden = false;
 }
 async function bell(){
