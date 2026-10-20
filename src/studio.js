@@ -1,4 +1,4 @@
-import { previewShareLink, resetTeamSession } from './studio-preview-share.js';
+import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=1';
 // El editor y el importador cargan blocks.js al abrir sus pantallas.
 // Estudio del traductor: obras, volúmenes, publicación, editor con guardado atómico, importador EPUB/DOCX/PDF, multimedia, equipo y colaboraciones.
 document.addEventListener('click', e => { const i = e.target.closest?.('input[type=date],input[type=datetime-local]'); if (i && !i.disabled && !i.readOnly) try { i.showPicker(); } catch {} });
