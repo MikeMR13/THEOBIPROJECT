@@ -216,6 +216,10 @@ export function createStudio(ctx){
   }
   const emptyState = () => `<div class="s2-empty"><span>空</span><h2>Tu estudio está vacío</h2><p>Empieza importando un EPUB, DOCX o PDF: armamos la obra con su portada, índice e ilustraciones.</p>${can('create') || can('import') ? '<span style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><a class="btn" href="/estudio/nueva">＋ Crear mi primera obra</a></span>' : '<p class="mono">Pide a tu propietario permiso para crear obras.</p>'}</div>`;
 
+  // Identificador compartido con el importador: conservar su normalización
+  // original al crear obras manualmente, sin cargar el importador completo.
+  const slugify = s => (s || 'obra').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
+
   // ---------- nueva obra paso a paso ----------
   async function newWork(){
     if (!(await ensure())) return;
