@@ -41,7 +41,22 @@ export function createStudio(ctx){
   const ROLE_L = { owner: 'Propietario', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
   const NAV = [['/estudio','総','Resumen'],['/estudio/anuncios','告','Anuncios'],['/estudio/obras','作','Obras'],['/estudio/glosario','語','Glosario'],['/estudio/importar','入','Importar'],['/estudio/multimedia','画','Multimedia'],['/estudio/flujo','流','Flujo de trabajo'],['/estudio/comunidad','評','Comunidad'],['/estudio/estadisticas','統','Estadísticas'],['/estudio/descargas','落','Descargas'],['/estudio/perfil','顔','Página del equipo'],['/estudio/preferencias','彩','Preferencias'],['/estudio/equipo','班','Equipo'],['/estudio/bitacora','録','Bitácora','log']];
   const CRUMB = { '/estudio': 'RESUMEN', '/estudio/obras': 'OBRAS', '/estudio/nueva': 'NUEVA OBRA', '/estudio/glosario': 'GLOSARIO', '/estudio/importar': 'IMPORTAR', '/estudio/multimedia': 'MULTIMEDIA', '/estudio/equipo': 'EQUIPO', '/estudio/flujo': 'FLUJO DE TRABAJO', '/estudio/preferencias': 'PREFERENCIAS', '/estudio/anuncios': 'ANUNCIOS', '/estudio/perfil': 'PÁGINA DEL EQUIPO', '/estudio/bitacora': 'BITÁCORA', '/estudio/comunidad': 'COMUNIDAD', '/estudio/estadisticas': 'ESTADÍSTICAS', '/estudio/descargas': 'DESCARGAS', '/estudio/obra': 'OBRAS · FICHA' };
-  const css = () => { if (document.getElementById('st2-css')) return; const link = document.createElement('link'); link.id = 'st2-css'; link.rel = 'stylesheet'; link.href = '/studio.css?v=1'; document.head.appendChild(link); };
+  let styleTask = null;
+  const css = () => {
+    if (styleTask) return styleTask;
+    const existing = document.getElementById('st2-css');
+    if (existing?.sheet) return (styleTask = Promise.resolve());
+    const link = existing || document.createElement('link');
+    styleTask = new Promise(resolve => {
+      link.addEventListener('load', resolve, { once: true });
+      link.addEventListener('error', resolve, { once: true });
+    });
+    if (!existing) {
+      link.id = 'st2-css'; link.rel = 'stylesheet'; link.href = '/studio.css?v=1';
+      document.head.appendChild(link);
+    }
+    return styleTask;
+  };
   const shell = (title, body, tab) => { css(); document.body.classList.add('in-studio'); const t = tab === '/estudio/obra' ? '/estudio/obras' : tab; const me = getMe?.();
     return `<div class="s2"><aside class="s2-side">
       <a class="s2-brand" href="/estudio"><span class="s2-seal">帯</span><span><b>Estudio Editorial</b><small>EL OBI DEL LECTOR</small></span></a>
@@ -122,6 +137,8 @@ export function createStudio(ctx){
 
   async function ensure(){
     const user = getUser(); if (!user) { go('/entrar'); return false; }
+    // Inicia la hoja en paralelo con permisos/datos; evita mostrar Studio sin estilos.
+    const styles = css();
     if (!T.teams.length) {
       const { data } = await sb.from('team_members').select('role,teams(id,slug,name,color)').eq('user_id', user.id);
       T.teams = (data || []).map(m => ({ ...m.teams, role: m.role }));
@@ -129,6 +146,7 @@ export function createStudio(ctx){
       await pickTeam(localStorage.getItem('obi-team') || T.teams[0].id);
     }
     if (T.works == null) { const { count } = await sb.from('series').select('id', { count: 'exact', head: true }).eq('team_id', T.team.id).is('archived_at', null); T.works = count || 0; }
+    await styles;
     return true;
   }
   async function pickTeam(id){
