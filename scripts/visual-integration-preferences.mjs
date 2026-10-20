@@ -80,7 +80,7 @@ contains(profile,"Object.assign(UI, prev)","reversión ante fallo de guardado");
 contains(profile,"sb.from('reader_prefs').upsert({ user_id: user.id, global: R.global, per_volume: R.per_volume","guardado por volumen y global");
 contains(profile,"localStorage.setItem('obi-reader-prefs', JSON.stringify(R))","persistencia local de lectura");
 contains(reader,"const effective = volId => ({ ...DEF, ...(S.series?.teams?.reader_defaults || {}), ...S.remote.global, ...(S.remote.per_volume[volId] || {}) });","prioridad: equipo → global → volumen");
-contains(reader,"const PREF_KEY = 'obi-reader-prefs'","clave de preferencias"); // alternativa: declaración junto a OFF_CACHE
+contains(reader,"PREF_KEY = 'obi-reader-prefs'","clave de preferencias");
 contains(reader,"sb.from('reader_prefs').upsert","sincronización de ajustes en el lector");
 contains(seasonCode,"export const isOff =","preferencia de ocultar festividades");
 contains(seasonCode,"export const setOff =","preferencia para activar/desactivar festividades");
