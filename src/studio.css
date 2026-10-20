@@ -118,3 +118,21 @@ body.in-studio>main{max-width:none;margin:0;padding:0}body.in-studio .s2{margin:
 .wk-trl{display:grid;border-top:1px solid #2f2a20}.wk-tri{display:flex;flex-wrap:wrap;gap:8px 14px;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid #221f18;font-size:14px}.wk-tri small{display:block;font:11px 'IBM Plex Mono',monospace;color:#a89f8a;margin-top:2px}.wk-trash>.lnk{margin:12px 16px}
 .wk-vcov{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:12px;border:1px solid #2f2a20;background:#110f0b}.wk-vcp{width:72px;aspect-ratio:2/3;background:#1c1a14 center/cover no-repeat;border:1px solid #3d3628;display:flex;align-items:center;justify-content:center;text-align:center;font:10px 'IBM Plex Mono',monospace;color:#7d7462}
 .wk-vext{display:grid;gap:10px;padding:12px;border:1px solid #2f2a20;background:#110f0b}.wk-vexf{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))}.wk-vexf .tb-inl{grid-column:1/-1;align-items:flex-start}.wk-vexf .tb-inl input{margin-top:3px}
+
+/* Fase editorial 3: pulido visual de las tarjetas existentes, sin alterar el Studio. */
+.s2-work{min-width:0;align-items:start;transition:border-color .18s,box-shadow .18s}
+.s2-work:hover,.s2-work:focus-within{border-color:var(--c,var(--gold));box-shadow:0 10px 25px rgba(0,0,0,.18)}
+.s2-work .cv{display:block;min-width:0;background-position:center;background-repeat:no-repeat;background-size:cover;overflow:hidden}
+.s2-work .cv:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.s2-work .cv span{max-height:70%;overflow:hidden;overflow-wrap:anywhere;line-height:1.3}
+.s2-work h2{overflow-wrap:anywhere}
+.s2-work h2 a:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.s2-work .tg{min-width:0}
+.s2-work .tg small{overflow-wrap:anywhere}
+@media(max-width:600px){
+ .s2-works{gap:12px}
+ .s2-work{gap:12px;padding:13px}
+ .s2-work h2{font-size:19px;line-height:1.25}
+ .s2-work .cv{max-width:100%}
+}
+@media(prefers-reduced-motion:reduce){.s2-work{transition:none}}
