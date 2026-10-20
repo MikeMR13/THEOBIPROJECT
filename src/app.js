@@ -106,12 +106,15 @@ async function contBtn(force){
   const el = $('#ob-cont'); if (!el) return;
   if (location.pathname.startsWith('/leer/') || location.pathname.startsWith('/estudio') || location.pathname.startsWith('/bibliotecario')) { el.hidden = true; return; }
   if (force || Date.now() - CB.t > 20000 || CB.u !== (user?.id || null)) {
-    CB = { t: Date.now(), v: null, u: user?.id || null }; let best = null;
-    try { const prefix = 'obi-pos-' + (user?.id ? user.id + '__' : ''); for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!k?.startsWith(prefix) || (!user && k.slice(prefix.length).includes('__'))) continue; const l = JSON.parse(localStorage.getItem(k)); if (l?.num && (!best || new Date(l.at || 0) > new Date(best.at || 0))) best = { sid: k.slice(prefix.length), num: l.num, pct: l.pct, at: l.at || 0 }; } } catch {}
-    try { if (user) { const { data } = await sb.from('reading_progress').select('series_id,chapter_num,pct,updated_at,series(slug,title)').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(1); const r = data?.[0]; if (r && (!best || new Date(r.updated_at) >= new Date(best.at || 0))) best = { sid: r.series_id, num: r.chapter_num, pct: r.pct, at: r.updated_at, slug: r.series?.slug, title: r.series?.title }; }
-      if (best && !best.slug) { const { data } = await sb.from('series').select('slug,title').eq('id', best.sid).maybeSingle(); Object.assign(best, data || {}); } } catch {}
+    const requester = user?.id || null, request = { t: Date.now(), v: null, u: requester };
+    CB = request; let best = null;
+    try { const prefix = 'obi-pos-' + (requester ? requester + '__' : ''); for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!k?.startsWith(prefix) || (!requester && k.slice(prefix.length).includes('__'))) continue; const l = JSON.parse(localStorage.getItem(k)); if (l?.num && (!best || new Date(l.at || 0) > new Date(best.at || 0))) best = { sid: k.slice(prefix.length), num: l.num, pct: l.pct, at: l.at || 0 }; } } catch {}
+    try { if (requester) { const { data } = await sb.from('reading_progress').select('series_id,chapter_num,pct,updated_at,series(slug,title)').eq('user_id', requester).order('updated_at', { ascending: false }).limit(1); const r = data?.[0]; if (r && (!best || new Date(r.updated_at) >= new Date(best.at || 0))) best = { sid: r.series_id, num: r.chapter_num, pct: r.pct, at: r.updated_at, slug: r.series?.slug, title: r.series?.title }; }
+      if (best && !best.slug && CB === request && (user?.id || null) === requester) { const { data } = await sb.from('series').select('slug,title').eq('id', best.sid).maybeSingle(); Object.assign(best, data || {}); } } catch {}
+    if (CB !== request || (user?.id || null) !== requester) return;
     CB.v = best?.slug ? best : null;
   }
+  if (CB.u !== (user?.id || null)) return;
   const b = CB.v, e = $('#ob-cont'); if (!e) return; if (!b) { e.hidden = true; return; }
   e.href = `/leer/${b.slug}/${b.num}`; e.title = `Continuar «${b.title}» · cap. ${b.num}`; e.setAttribute('aria-label', e.title);
   if (navigator.onLine && !navigator.connection?.saveData) (window.requestIdleCallback || setTimeout)(() => rd().warm(b.slug, b.num)); // «Continuar» ya listo antes del clic
