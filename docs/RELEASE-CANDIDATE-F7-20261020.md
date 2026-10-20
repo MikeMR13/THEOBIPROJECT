@@ -68,3 +68,13 @@ La prueba comprueba que existan los módulos esenciales publicados en `dist` (in
 **No se ha autorizado fusionar ni desplegar a producción**. Esta etapa solo deja rama y PR candidato en **borrador**. No eliminar todavía los PR de fases previas ni sus documentos, ya que conservan trazabilidad. No realizar escrituras de pruebas sobre Supabase productivo.
 
 **Estado de la versión:** preparada para verificación automática; pendiente de CI del último commit, Preview coincidente y QA manual autenticada. Si uno falta, mantener PR en borrador.
+
+
+## Resultado inicial del CI y bloqueo de Preview — 20/10/2026
+
+- **GitHub Actions:** [ejecución #39507081477](https://github.com/MikeMR13/THEOBIPROJECT/actions/runs/39507081477) terminó **SUCCESS** para el commit `6a54b8a0c1a4c67a32de323a953c8aabf4d15681`. La nueva prueba de artefactos de la candidata pasó. Una edición posterior de este documento requiere comprobar el CI de su nuevo commit también.
+- **Comparación previa a documentar este bloqueo:** 102 commits ahead y 0 behind frente a `main` `f0b3931bc30fa7e252795c8e039a7b3c5d9b8016`; PR #21 confirmado en borrador, sin fusión y con `mergeable=true`.
+- **Vercel:** la única Preview encontrada de esta rama estaba READY en un commit intermedio (`eff3beb9f3a384ed281b5978c301c5fd7930fbad`), **no** en el commit de la candidata validado por CI.
+- **Solicitud de Preview del SHA exacto:** el proyecto correcto `theobiproject` devolvió `402 payment_required`, código `api-deployments-free-per-day`, con reintento tras 86 400 segundos. **No se creó ninguna Preview del commit final**. No aumentar cuota, pagar ni reorientar el despliegue a otro proyecto.
+- El proyecto Vercel tiene `OBI_SUPABASE_URL` y `OBI_SUPABASE_PUBLISHABLE_KEY` destinadas a Preview. **No se verificó aquí que el endpoint de Preview sea un backend Supabase auténtico y funcional**, aunque no se identificó como el hostname de producción. Antes de pruebas autenticadas hay que comprobarlo de forma segura y sin exponer secretos.
+- **Conclusión de salida:** versión candidata preparada, puertas automáticas de CI aprobadas en el commit anterior; **bloqueo de Preview y QA manual**, por lo que **NO APTO PARA FUSIÓN NI PRODUCCIÓN todavía**.
