@@ -120,11 +120,24 @@ function patternURL(p, c){
 }
 export const palette = d => d.bg === 'propio' ? { ...d.custom, mu: mix(d.custom.fg, d.custom.bg, .38), ln: mix(d.custom.fg, d.custom.bg, .82) } : BGS[d.bg];
 export const textContrast = d => { const B = palette(d); return contrast(B.fg, B.bg); };
+// Se ajusta solo el color visual, sin modificar los datos del tema guardado.
+const legibleText = (color, bg) => {
+  if (contrast(color, bg) >= 4.5) return color;
+  const target = contrast('#0d0c0a', bg) > contrast('#ffffff', bg) ? '#0d0c0a' : '#ffffff';
+  let low = 0, high = 1;
+  for (let i = 0; i < 20; i++) {
+    const mid = (low + high) / 2;
+    if (contrast(mix(color, target, mid), bg) >= 4.5) high = mid;
+    else low = mid;
+  }
+  return mix(color, target, high);
+}
 export function vars(d){
   const B = palette(d), F = TFONTS[d.font], a = d.accent;
-  const aText = contrast(a, B.bg) >= 4.5 ? a : mix(a, B.fg, contrast(mix(a, B.fg, .4), B.bg) >= 4.5 ? .4 : .7);
-  const onA = contrast('#0d0c0a', a) >= contrast('#ffffff', a) ? '#0d0c0a' : '#ffffff';
-  return `--bg:${B.bg};--sf:${B.sf};--fg:${B.fg};--mu:${B.mu};--ln:${B.ln};--ac:${a};--act:${aText};--on:${onA};--tf:${F[1]};--tw:${F[2]};--pat:${patternURL(d.pattern, a)};--pop:${d.patternOp / 100}`;
+  const aText = legibleText(a, B.bg);
+  const fgText = legibleText(B.fg, B.bg), mutedText = legibleText(B.mu, B.bg);
+  const onA = contrast('#0d0c0a', a) >= 4.5 ? '#0d0c0a' : contrast('#ffffff', a) >= 4.5 ? '#ffffff' : '#000000';
+  return `--bg:${B.bg};--sf:${B.sf};--fg:${fgText};--mu:${mutedText};--ln:${B.ln};--ac:${a};--act:${aText};--on:${onA};--tf:${F[1]};--tw:${F[2]};--pat:${patternURL(d.pattern, a)};--pop:${d.patternOp / 100}`;
 }
 
 export async function loadTeamData(sb, slug){
@@ -195,7 +208,7 @@ const CSS = `
 .tp2-name{font-family:var(--tf);font-weight:var(--tw);font-size:clamp(30px,6cqi,60px);line-height:1.05;margin:0;text-wrap:balance}
 .tp2-motto{margin:8px 0 0;font-family:var(--tf);font-size:clamp(15px,2cqi,19px);color:var(--act);text-wrap:pretty}.tp2-meta{margin:8px 0 0;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mu)}
 .tp2-bio{margin:0;max-width:68ch;font-family:Literata,serif;font-size:17px;line-height:1.65;white-space:pre-line;text-wrap:pretty}
-.tp2-logo{flex:none;width:clamp(84px,14cqi,128px);aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:var(--sf);border:4px solid var(--bg);overflow:hidden}.tp2-logo img{width:86%;height:86%;object-fit:contain}.tp2-logo b{font-family:var(--tf);font-size:34px;color:var(--act)}
+.tp2-logo{flex:none;width:clamp(84px,14cqi,128px);aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:var(--sf);border:4px solid var(--bg);overflow:hidden}.tp2-logo img{width:100%;height:100%;padding:clamp(4px,1cqi,10px);object-fit:contain;display:block}.tp2-logo b{font-family:var(--tf);font-size:34px;color:var(--act)}
 .tp2[data-logo=circulo] .tp2-logo{border-radius:50%}
 .tp2[data-logo=hanko] .tp2-logo{border:3px double #c8321f;outline:2px solid #c8321f;outline-offset:3px;border-radius:10px;transform:rotate(-3deg);background:color-mix(in srgb,#c8321f 8%,var(--sf))}.tp2[data-logo=hanko] .tp2-logo b{color:#c8321f}
 .tp2-links{display:flex;gap:8px;flex-wrap:wrap}
