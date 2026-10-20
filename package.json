@@ -6,7 +6,8 @@
     "build": "node scripts/build.mjs",
     "check": "node scripts/build.mjs --check",
     "optimize-check": "node scripts/optimization-check.mjs",
-    "db-phase2-check": "node scripts/db-phase2-check.mjs"
+    "db-phase2-check": "node scripts/db-phase2-check.mjs",
+    "phase3-check": "node scripts/phase3-check.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",

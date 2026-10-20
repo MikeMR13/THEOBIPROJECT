@@ -272,8 +272,9 @@ export function createStudio(ctx){
     import('./thumbs.js?v=1').then(m => m.heal(sb, T.team.id, PUB)).catch(() => {});
     if (!ids.length) return { works: [], chs: [], sched: [], reps: [] };
     const now = new Date().toISOString();
+    const { readPages } = await import('/paging.js?v=1');
     const [{ data: chs }, { data: sched }, { data: reps }] = await Promise.all([
-      sb.from('chapters').select('id,num,title,status,publish_at,updated_at,series_id,vol,review_status,stage,assigned_to').in('series_id', ids).is('deleted_at', null).limit(3000),
+      readPages((from, to) => sb.from('chapters').select('id,num,title,status,publish_at,updated_at,series_id,vol,review_status,stage,assigned_to').in('series_id', ids).is('deleted_at', null).order('id').range(from, to), { size: 250 }),
       sb.from('schedule').select('id,label,at,series_id').in('series_id', ids).gte('at', now).order('at').limit(20),
       sb.from('reports').select('id,kind,quote,fix,created_at,chapter_id,chapters(num,title,series_id)').eq('status', 'open').order('created_at', { ascending: false }).limit(100)]);
     const set = new Set(ids);
@@ -392,9 +393,10 @@ export function createStudio(ctx){
     const { data: s } = await sb.from('series').select('*').eq('slug', slug).maybeSingle();
     if (!s) return go('/estudio');
     const tab = ({ datos: 'datos', avisos: 'avisos', media: 'media' })[new URLSearchParams(location.search).get('tab')] || 'caps';
+    const { readPages } = await import('/paging.js?v=1');
     const [{ data: vols }, { data: chs }, { data: cols }, { data: events }, { data: dls }, { data: buys }, { data: tch }, { data: tvol }] = await Promise.all([
       sb.from('volumes').select('*').eq('series_id', s.id).is('deleted_at', null).order('num'),
-      sb.from('chapters').select('id,num,vol,volume_id,title,status,section_type,publish_at,updated_at,stage').eq('series_id', s.id).is('deleted_at', null).order('num'),
+      readPages((from, to) => sb.from('chapters').select('id,num,vol,volume_id,title,status,section_type,publish_at,updated_at,stage').eq('series_id', s.id).is('deleted_at', null).order('num').range(from, to), { size: 250 }),
       sb.from('collaborations').select('id,status,invited:teams!collaborations_invited_team_fkey(name,slug,color)').eq('series_id', s.id),
       sb.from('publication_events').select('event,summary,created_at').eq('series_id', s.id).order('created_at', { ascending: false }).limit(10),
       sb.from('download_links').select('id,volume_id,vol').eq('series_id', s.id),
