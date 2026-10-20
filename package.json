@@ -9,7 +9,8 @@
     "db-phase2-check": "node scripts/db-phase2-check.mjs",
     "phase3-check": "node scripts/phase3-check.mjs",
     "phase4-check": "node scripts/phase4-check.mjs",
-    "studio-functional-check": "node scripts/studio-functional-smoke.mjs"
+    "studio-functional-check": "node scripts/studio-functional-smoke.mjs",
+    "studio-browser-check": "node scripts/studio-browser-e2e.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
