@@ -157,7 +157,7 @@ export function effective(design, color, sim){
   if (!k || !SEASONS[k]) return { ...d, season: null };
   const s = SEASONS[k];
   const full = d.seasons.deco !== 'min';
-  return { ...d, season: k, bg: s.bg, accent: s.ac, anim: { ...d.anim, particles: true }, part: { ...d.part, type: s.p, mode: 'accent' }, ...(full && s.pat ? { pattern: s.pat, patternOp: Math.max(8, d.pattern === 'none' ? 10 : d.patternOp) } : {}) };
+  return { ...d, season: k, bg: s.bg, accent: s.ac, anim: { ...d.anim, particles: full }, part: { ...d.part, type: s.p, mode: 'accent' }, ...(full && s.pat ? { pattern: s.pat, patternOp: Math.max(8, d.pattern === 'none' ? 10 : d.patternOp) } : {}) };
 }
 const TLS = { active: 'En traducción', paused: 'En pausa', completed: 'Completa', dropped: 'Abandonada', licensed: 'Licenciada' };
 export function render(D, design, h){
@@ -185,7 +185,7 @@ export function render(D, design, h){
   const bio = t.bio ? `<p class="tp2-bio">${esc(t.bio)}</p>` : '';
   const SEC = { announce: ann, next: nx, stats, featured: on('show_featured') ? featH : '', works: d.template === 'editorial' ? list : grid, members: mem };
   const SN = d.season && SEASONS[d.season], greet = SN && d.seasons.greet[d.season] ? `<div class="tp2-greet"><small>${esc(SN.l.toUpperCase())}</small><span>${esc(d.seasons.greet[d.season])}</span></div>` : '';
-  const ornSrc = SN && !d.seasons.noOrn.includes(d.season) ? (d.seasons.orn[d.season] ? media(d.seasons.orn[d.season]) : ornURL(SN.p, d.accent)) : '';
+  const ornSrc = SN && d.seasons.deco !== 'min' && !d.seasons.noOrn.includes(d.season) ? (d.seasons.orn[d.season] ? media(d.seasons.orn[d.season]) : ornURL(SN.p, d.accent)) : '';
   const orn = ornSrc ? `<span class="tp2-orn${d.seasons.orn[d.season] ? '' : ' def'}" style="background-image:url('${esc(ornSrc)}')"></span>` : '';
   const full = SN && d.seasons.deco !== 'min', mot = full && SN.m ? motifURL(SN.m, d.accent, SN.c2) : '';
   const corners = mot ? `<span class="tp2-cor l" style="background-image:url('${mot}')"></span><span class="tp2-cor r" style="background-image:url('${motifURL(SN.m, SN.c2, d.accent)}')"></span>` : '';
