@@ -44,7 +44,7 @@ if (!user) { profile = me = null; window.obiSetBlocks([]); drawSession(); meRead
 try { const c = JSON.parse(localStorage.getItem('obi-me') || 'null'); if (c?.id === user.id) ({ profile, me } = c); else profile = me = null; } catch {}
 drawSession();
 const uid = user.id;
-meReady = Promise.all([sb.from('profiles').select('*').eq('id', uid).maybeSingle(), sb.rpc('whoami')]).then(([p, w]) => {
+meReady = Promise.all([sb.rpc('my_profile'), sb.rpc('whoami')]).then(([p, w]) => {
   if (user?.id !== uid) return; profile = p.data; me = w.data || null;
   if (profile?.ui_prefs && Object.keys(profile.ui_prefs).length) window.obiSetUI(profile.ui_prefs);
   sb.rpc('my_blocks').then(({ data }) => { if (user?.id === uid && Array.isArray(data)) window.obiSetBlocks(data); });
