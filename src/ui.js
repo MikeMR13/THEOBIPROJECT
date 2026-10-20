@@ -430,8 +430,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         <div class="ob-car" id="ob-car">${shelf.map(x => cc(x, (x.chapters?.[0]?.count || 0) + ' cap. · ' + (TL[x.translation_status] || TL.active)[0])).join('')}${list.length > shelf.length ? `<a class="ob-cc all" href="/catalogo"><span class="cv">Ver las ${list.length} →</span></a>` : ''}</div></section>` : ''}</div>`;
     // Insertar el aviso de temporada sin volver a pintar el Home completo.
     // El nodo está vinculado a esta navegación: nunca actualizar una vista vieja.
+    const festSlot = app.querySelector('#ob-fest-slot');
     festival.then(fest => {
-      const slot = app.querySelector('#ob-fest-slot');
+      const slot = festSlot;
       if (!slot || !slot.isConnected || location.pathname !== '/') return;
       if (!fest) return slot.remove();
       slot.outerHTML = `<a class="ob-fest" href="/calendario" style="--fc:${esc(fest.ac)}"><b>${esc(fest.l)}</b><span>El sitio se viste de temporada.</span><em>Ver en el calendario →</em></a>`;
