@@ -68,7 +68,7 @@ export function createReader(ctx){
   function ensureFonts(vol){
     if (!vol || fontsDone.has(vol.id) || !(vol.epub_fonts || []).length) return;
     fontsDone.add(vol.id);
-    const css = vol.epub_fonts.map(f => `@font-face{font-family:"obi-${vol.num}-${f.family.replace(/"/g, '')}";src:url("${f.url}");font-style:${f.style === 'oblique' ? 'oblique' : f.style || 'normal'};font-weight:${f.weight || 'normal'};font-display:swap}`).join('');
+    const css = vol.epub_fonts.map(f => `@font-face{font-family:"obi-${vol.num}-${f.family.replace(/["']/g, '')}";src:url("${f.url}");font-style:${f.style === 'oblique' ? 'oblique' : f.style || 'normal'};font-weight:${f.weight || 'normal'};font-display:swap}`).join('');
     const st = document.createElement('style'); st.dataset.vol = vol.id; st.textContent = css; document.head.appendChild(st);
   }
   // rol de cada fuente: el que guardó el importador (use) o, en volúmenes viejos, una pista por el nombre
@@ -78,7 +78,8 @@ export function createReader(ctx){
     if (!fs.some(f => f.use)) { head = fl.find(f => HEAD_RE.test(f)); body = fl.length === 1 && !head ? fl[0] : fl.find(f => f !== head && !HEAD_RE.test(f) && fl.length <= 2); }
     return { body, head }; }
   function fontVars(vol, p){
-    const nm = fam => `"obi-${vol.num}-${fam.replace(/"/g, '')}"`, fb = "Literata,'Shippori Mincho B1',serif";
+    // comillas simples: este valor va dentro de style="…" y una comilla doble rompía el atributo (la fuente del EPUB no se aplicaba)
+    const nm = fam => `'obi-${vol.num}-${fam.replace(/["']/g, '')}'`, fb = "Literata,'Shippori Mincho B1',serif";
     const v = familiesOf(vol).map((fam, i) => `--f${i}:${p.font === 'original' ? nm(fam) + ',' : ''}inherit`);
     if (p.font === 'original') { const r = fontRoles(vol); if (r.body) v.push(`--fb:${nm(r.body)},${fb}`); if (r.head) v.push(`--fh:${nm(r.head)},${fb}`); }
     return v.join(';');
