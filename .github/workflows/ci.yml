@@ -26,5 +26,7 @@ jobs:
         run: npm run visual-browser-check
       - name: Fase 6.1 QA Inicio y Catálogo (Chromium)
         run: node scripts/phase6-public-check.mjs
+      - name: Fase 6.2 temporadas y preferencias (funciones reales)
+        run: node scripts/phase6-seasons-preferences-check.mjs
       - name: Validar compilación Preview aislada
         run: VERCEL_ENV=preview OBI_SUPABASE_URL=https://obi-qa-backend.invalid OBI_SUPABASE_PUBLISHABLE_KEY=sb_publishable_qa_mock_not_connected npm run build && npm run preview-isolation-check
