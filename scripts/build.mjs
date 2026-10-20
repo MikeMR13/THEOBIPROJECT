@@ -3,7 +3,7 @@ import { cpSync, mkdirSync, rmSync, writeFileSync, readFileSync, readdirSync, st
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 // No dirigir despliegues de prueba a la base de producción por valores implícitos.
-const url = (process.env.OBI_SUPABASE_URL || '').trim().replace(/\\/+$/, '');
+const url = (process.env.OBI_SUPABASE_URL || '').trim().replace(/\/+$/, '');
 const key = (process.env.OBI_SUPABASE_PUBLISHABLE_KEY || '').trim();
 if (!url || !key) throw new Error('Configura OBI_SUPABASE_URL y OBI_SUPABASE_PUBLISHABLE_KEY en este entorno');
 let endpoint; try { endpoint = new URL(url); } catch { throw new Error('OBI_SUPABASE_URL debe ser una URL válida'); }
