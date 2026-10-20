@@ -120,6 +120,20 @@ try {
   await owner.studio.importer();
   ok(!!app.querySelector('#wiz'),'No se muestra el asistente de importación');
   checks++;
+  const filePicker=app.querySelector('#file');
+  ok(!!filePicker,'No se muestra el selector de EPUB/DOCX/PDF');
+  const tooLarge=new File(['x'],'grande.epub',{type:'application/epub+zip'});
+  Object.defineProperty(tooLarge,'size',{value:80*1024*1024+1});
+  filePicker.onchange({target:{files:[tooLarge]}});
+  await until(()=>app.querySelector('#status')?.textContent.includes('supera 80 MB'),
+    'rechazo del archivo sobredimensionado');
+  ok(!owner.inserted.some(x=>x.table==='import_jobs'),'Un archivo inválido inició importación');
+  checks++;
+  filePicker.onchange({target:{files:[new File(['prueba'],'incompatible.txt',{type:'text/plain'})]}});
+  await until(()=>app.querySelector('#status')?.textContent.includes('Formato no admitido'),
+    'rechazo del formato no permitido');
+  ok(!owner.inserted.some(x=>x.table==='import_jobs'),'El formato no admitido inició importación');
+  checks++;
   await owner.studio.editor('00000000-0000-4000-8000-000000000009');
   ok(owner.redirects.includes('/estudio'),'Editor no respeta capítulo no accesible');
   checks++;
