@@ -15,7 +15,7 @@
 
 | Archivo | Corrección | Justificación | Validaciones pendientes |
 | --- | --- | --- | --- |
-| `src/ui.js` (Home) | La consulta a calendario de temporadas arranca en paralelo, pero no bloquea el primer render del inicio. El aviso se inserta en su posición original una vez disponible. | La temporada no es necesaria para mostrar libros. | Con y sin temporada activa; cambio rápido de ruta; estabilidad visual/CLS en móvil. |
+| `src/ui.js` (Home) | La consulta a calendario de temporadas arranca en paralelo, pero no bloquea el primer render del inicio. El aviso se inserta en su posición original una vez disponible y queda ligado al elemento de la navegación original, evitando escribir en un Home posterior. | La temporada no es necesaria para mostrar libros. | Con y sin temporada activa; cambio rápido de ruta; estabilidad visual/CLS en móvil. |
 | `src/ui.js` (Catálogo) | Supabase se consulta con `.order('id').range(from,to)` en lotes de 250 y `readPages()`, conservando la lista completa para filtros/ordenamientos existentes. | Evita el corte silencioso de 1000 obras. No promete menos bytes totales para catálogos grandes. | Catálogo +1000 obras, orden por lectura/actualización, etiquetas, +18, cambio de usuario. |
 | `src/ui.js` (Catálogo) | Renderiza solamente 24 obras por página con navegación accesible Anterior/Siguiente, reinicia página al cambiar filtros/vista, conserva números globales. | Menor DOM y trabajo de renderizado en bibliotecas grandes. | Filtros, búsqueda, teclado, páginas límite, apertura de ficha rápida. |
 | `src/studio.js` (Panel de equipo) | Reemplaza `.limit(3000)` por lotes de 250 ordenados por ID. No se descartan capítulos por el máximo de PostgREST. | El panel necesitaba todos los capítulos para sus KPI. | Equipo de gran tamaño, capítulos programados, estado editorial, permisos. |
@@ -24,6 +24,13 @@
 | `scripts/phase3-check.mjs` | Prueba paginación con 601 filas simuladas, error de red, respuesta vacía y límite de páginas; valida contratos de Home/Catálogo/Studio. | Previene regresiones sin framework de testing. | No reemplaza pruebas funcionales en navegador. |
 | `scripts/build.mjs`, `package.json`, `.github/workflows/ci.yml` | Incluyen sintaxis/CI de las fases 1, 2 y 3. | Gate automático. | CI del commit final. |
 | `docs/OPTIMIZACION-CARGA-FASE-3.md` | Este registro de cambios. | Trazabilidad para las siguientes auditorías. | Anotar Lighthouse tras staging. |
+
+## Validación ejecutada (20 de octubre de 2026)
+
+- Fase 2: [CI #39428051454](https://github.com/MikeMR13/THEOBIPROJECT/actions/runs/39428051454) **SUCCESS** en el commit de PR #3 `ad00f518f87d8dbd7980a2ac47cba12937c3bd2c`.
+- Fase 3: [CI #39429273497](https://github.com/MikeMR13/THEOBIPROJECT/actions/runs/39429273497) **SUCCESS** en el commit `90058b17fed363ee7442a7c0bcaa4efe540b0178`, que incorpora la protección contra respuestas de temporada tardías tras navegar fuera del Home.
+- Comprobaciones: `npm run check`, `npm run build`, `npm run optimize-check`, `npm run db-phase2-check`, `npm run phase3-check`. Se actualizará la validación si cambia el commit de la rama.
+- **Cobertura limitada:** pruebas sintácticas, build y contratos unitarios/estáticos. No equivale a pruebas visuales de navegador, métricas reales de Lighthouse ni validación SQL de staging.
 
 ## Pruebas automáticas
 
