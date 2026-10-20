@@ -154,7 +154,7 @@ export function createStudio(ctx){
   });
   document.addEventListener('change', e => { if (e.target.id === 'st-tz') { localStorage.setItem('obi-tz-pick', e.target.value); toast('Fechas en ' + tzName()); dispatchEvent(new PopStateEvent('popstate')); } });
   const teamPicker = () => T.teams.length > 1 ? `<select id="tpick" aria-label="Equipo activo">${T.teams.map(t => `<option value="${t.id}" ${t.id === T.team?.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>` : `<strong class="st-team">${esc(T.team?.name || '')}</strong>`;
-  const bindPicker = again => { $('#tpick')?.addEventListener('change', async e => { await pickTeam(e.target.value); T.works = null; again(); }); $('[data-quick="new"]')?.addEventListener('click', e => busy(e.currentTarget, newChapterPicker)); };
+  const bindPicker = again => { $('#tpick')?.addEventListener('change', async e => { if (await pickTeam(e.target.value)) { T.works = null; again(); } }); $('[data-quick="new"]')?.addEventListener('click', e => busy(e.currentTarget, newChapterPicker)); };
   async function newChapter(s){
     const [{ data: vols }, { data: chs }] = await Promise.all([sb.from('volumes').select('id,num').eq('series_id', s.id).is('deleted_at', null).order('num', { ascending: false }).limit(1), sb.from('chapters').select('num').eq('series_id', s.id).order('num', { ascending: false }).limit(1)]);
     const v = vols?.[0]; if (!v) { toast('Crea primero un volumen en la ficha de la obra'); return go('/estudio/obra/' + s.slug); }
@@ -208,8 +208,8 @@ export function createStudio(ctx){
       const { data: tt } = await sb.from('teams').select('settings').eq('id', team.id).maybeSingle();
       if (T.userId !== uid || getUser()?.id !== uid || T.team?.id !== team.id) return false;
       T.tz = tt?.settings?.timezone || null;
-    } catch { T.tz = null; }
-    return true;
+    } catch { if (T.userId === uid && getUser()?.id === uid && T.team?.id === team.id) T.tz = null; }
+    return T.userId === uid && getUser()?.id === uid && T.team?.id === team.id;
   }
 
   // ---------- obras ----------
