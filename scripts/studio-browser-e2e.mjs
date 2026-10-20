@@ -11,6 +11,8 @@ const root = process.cwd();
 const whitelist = new Map([
  ['/studio.js','src/studio.js'],
  ['/studio-preview-share.js','src/studio-preview-share.js'],
+ ['/studio-reader-defaults.js','src/studio-reader-defaults.js'],
+ ['/reader-team-defaults.js','src/reader-team-defaults.js'],
  ['/studio.css','src/studio.css'],
  ['/studio-editor.js','src/studio-editor.js'],
  ['/studio-importer.js','src/studio-importer.js'],
