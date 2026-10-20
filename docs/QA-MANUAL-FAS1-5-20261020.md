@@ -61,3 +61,23 @@ Estados: **PASS** solo con interacción y evidencia de navegador real; **PENDING
 ## Integridad de ramas
 
 El PR #15 conserva los cambios combinados; los PR #10–#14 siguen aislados, y esta auditoría no autoriza fusión, despliegue o cambios de base de datos.
+
+
+## Intento de Preview Vercel — 20 de octubre de 2026
+
+**Resultado: BLOQUEADO; no hay una URL funcional de la rama integrada.** Con autorización del responsable se realizaron estos intentos en el proyecto Vercel `nlobi`, siempre como Preview, con SHA explícito y sin fusión:
+
+1. `dpl_3RACNhmfpUchwBrjF9MpyV6KdD2K` · commit `41fdbffc`: **ERROR**, `npm ci` requiere `package-lock.json`, inexistente en el repositorio.
+2. `dpl_EknjU7Kmizem1gKqE56od54wAzyX` · commit `1bfbd42`: **ERROR**, `npm install` funciona pero el build no encuentra `OBI_SUPABASE_URL` y `OBI_SUPABASE_PUBLISHABLE_KEY` para Preview.
+3. Intento de crear un Preview después de configurar en `vercel.json` un backend ficticio totalmente aislado: **rechazado por Vercel**, HTTP 402 `api-deployments-free-per-day`, límite gratuito diario superado. No se creó una tercera versión funcional.
+
+**Protección obligatoria:** `scripts/build.mjs` rechaza expresamente las compilaciones `VERCEL_ENV=preview` sin variables `OBI_SUPABASE_*` y prohíbe apuntar al Supabase de producción `qfllthjpjuaztppvpsrk.supabase.co`. Las variables `NEXT_PUBLIC_SUPABASE_*` del proyecto no deben usarse para eludir esta protección. La solicitud de variables `OBI_SUPABASE_*` restringidas a rama fue rechazada por Vercel porque `nlobi` no tiene una conexión Git de proyecto registrada; no se crearon variables.
+
+Los cambios temporales de `vercel.json` para resolver la instalación y simular un backend de QA se revirtieron al contenido de `main`, a fin de no contaminar una futura fusión. El PR #15 conserva las cinco fases integradas y sus pruebas, pero **la validación manual visual sigue bloqueada**.
+
+### Para continuar sin gastos ni cambios en producción
+
+- Esperar el restablecimiento del cupo gratuito de Vercel antes de cualquier nuevo Preview; no forzar despliegues de producción ni actualizar la suscripción.
+- Preparar un backend Preview **aislado** (o prototipos estáticos de pruebas claramente identificados) y sus variables `OBI_SUPABASE_*` solo para ese entorno. No reutilizar Supabase productivo y no asumir que `NLOBI` es un entorno de pruebas.
+- Si se usa un proyecto de prueba, verificar esquema, RLS y datos de prueba; no crear cuentas ni modificar tablas productivas.
+- Tras disponer de Preview READY, ejecutar MV-01 a MV-15 con capturas reales y comprobar los roles, preferencias y temporadas. Hasta entonces no dar por aprobada la auditoría visual.
