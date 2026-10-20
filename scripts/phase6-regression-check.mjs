@@ -86,7 +86,7 @@ runtime.setUser({id:'cuentaB'});const second=runtime.run(true);
 assert(lookups.has('cuentaB'));
 lookups.get('cuentaB')({data:[{series_id:'serieB',chapter_num:3,pct:0.5,updated_at:'2026-10-20T12:00:00Z',series:{slug:'novela-b',title:'Novela B'}}]});
 await second;
-assert.equal(button.href,'/leer/novela-b/3');
+assert.equal(button.href,'/leer/novela-b/3','B result: '+JSON.stringify({button,cb:runtime.snapshot(),pending:[...lookups.keys()]}));
 lookups.get('cuentaA')({data:[{series_id:'serieA',chapter_num:8,pct:0.6,updated_at:'2026-10-20T12:30:00Z',series:{slug:'novela-a',title:'Novela A'}}]});
 await first;
 assert.equal(button.href,'/leer/novela-b/3','Una consulta de la cuenta anterior sustituyó el botón Continuar');
