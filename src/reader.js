@@ -262,7 +262,7 @@ export function createReader(ctx){
     // ajustes y posición del servidor no frenan la apertura: si tardan más de 300 ms se usa lo de este dispositivo y lo del servidor se aplica al llegar
     const quick = (p, fb) => Promise.race([p, new Promise(r => setTimeout(() => r(fb()), 300))]);
     const localPos = () => { try { return JSON.parse(localStorage.getItem(posKey(S.series.id))); } catch { return null; } };
-    let late = false; prefsP?.then(() => { if (late && $('.rd')) applyPrefs(); });
+    let late = false; prefsP?.then(() => { if (late && sameReaderAccount(getUser()?.id, prefsUid) && $('.rd')) applyPrefs(); });
     const [b, , pos] = await Promise.all([body(ch), quick(prefsP, () => (late = true, null)), quick(fetchPos(), localPos)]);
     if (!sameReaderAccount(getUser()?.id, openingUser)) return;
     if (!b) { app.innerHTML = '<h1>Sin conexión</h1><p>Este capítulo no está descargado. <a href="/descargas">Ver mis descargas</a></p>'; return; }
