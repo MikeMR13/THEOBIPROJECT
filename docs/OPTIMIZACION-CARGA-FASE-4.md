@@ -68,4 +68,4 @@ Estas verificaciones cubren sintaxis, empaquetado, resolución de imports dinám
 
 ## 7. Historial de validación
 
-El resultado del CI final debe anotarse aquí después de que GitHub Actions termine para el último commit de la rama.
+**GitHub Actions #39431407943: SUCCESS**, commit `77a043684caaaebc14f2ea425c3c66af1a9f8fd6`. Comprobaciones de sintaxis, build, Fases 1–3 y Fase 4 completadas correctamente. PR #5 abierto en borrador y fusionable; `main` conserva `7b080e24d5fc5fca4959241ab4fac828cdf113ea`. Esto no equivale a pruebas E2E de importación, permisos, edición, multimedia o Lighthouse.
