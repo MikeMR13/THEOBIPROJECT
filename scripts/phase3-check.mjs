@@ -15,6 +15,7 @@ await assert.rejects(readPages(()=>Promise.resolve({data:all.slice(0,250)}),{siz
 const ui=readFileSync('src/ui.js','utf8');
 assert(ui.includes("const festival = import('/season.js?v=4')"),'Falta carga de temporada no bloqueante');
 assert(ui.includes("festival.then(fest =>"),'La temporada debe insertarse progresivamente');
+assert(ui.includes("const festSlot = app.querySelector('#ob-fest-slot')"),'Evitar insertar la temporada en otro Home');
 assert(ui.includes("import('/paging.js?v=1')"),'Catálogo sin lectura paginada');
 assert(ui.includes("const PAGE_SIZE = 24"),'Catálogo sin límite de renderizado');
 assert(ui.includes("list.slice(pageStart, pageStart + PAGE_SIZE)"),'Catálogo dibuja todas las obras');
