@@ -1,3 +1,4 @@
+import { previewShareLink } from './studio-preview-share.js';
 // El editor y el importador cargan blocks.js al abrir sus pantallas.
 // Estudio del traductor: obras, volúmenes, publicación, editor con guardado atómico, importador EPUB/DOCX/PDF, multimedia, equipo y colaboraciones.
 document.addEventListener('click', e => { const i = e.target.closest?.('input[type=date],input[type=datetime-local]'); if (i && !i.disabled && !i.readOnly) try { i.showPicker(); } catch {} });
@@ -1262,6 +1263,7 @@ export function createStudio(ctx){
     let mine = ct || [];
     if (!D) throw new Error('No encontré la página del equipo');
     let d = TP.normalize(dr?.design && Object.keys(dr.design).length ? dr.design : D.t.design, D.t.color), token = dr?.token || null, saveT = 0, savedAt = dr?.updated_at || null, saving = false;
+    let savedDesign = dr?.design && Object.keys(dr.design).length ? JSON.stringify(TP.normalize(dr.design, D.t.color)) : null;
     const pubJSON = () => JSON.stringify(TP.normalize(D.t.design, D.t.color)), pending = () => JSON.stringify(d) !== pubJSON();
     const UI = { dev: matchMedia('(max-width:767px)').matches ? 'mobile' : 'desk', mobDeco: null, open: new Set() };
     const CLIP = [['.pf-mine', 3, 'temas'], ['.pf-themes', 4, 'temas'], ['.pf-fonts', 6, 'tipografías'], ['.pf-pats', 8, 'patrones'], ['#pf-hist', 3, 'versiones'], ['.pf-featpick', 5, 'obras']];
@@ -1320,8 +1322,8 @@ export function createStudio(ctx){
       <p class="pf-note">Atajos: Ctrl+Z deshace y Ctrl+Shift+Z rehace.</p>
       <p class="pf-note">Todo lo de esta página se guarda en el borrador hasta que pulses «Publicar cambios». Nombre, bio, logo, banner y redes se editan en <a href="/estudio/perfil">Página del equipo</a>.</p>`;
     app.querySelector('.s2-main').innerHTML = app.querySelector('.s2-head').outerHTML + `<div class="pfx">
-      <div class="pf-bar"><span class="pf-st" id="pf-st" role="status"></span><span class="pf-acts"><button class="btn ghost sm" id="pf-share">Copiar enlace de vista previa</button><button class="btn ghost sm" id="pf-discard">Descartar cambios</button><button class="btn sm" id="pf-pub">Publicar cambios</button><a class="lnk" href="/equipo/${esc(T.team.slug)}" target="_blank" rel="noopener">Ver página publicada ↗</a></span></div>
-      <p class="pf-mob">Para editar la página usa una computadora o tableta. Aquí puedes ver el borrador y compartirlo.</p>
+      <div class="pf-bar"><span class="pf-st" id="pf-st" role="status"></span><span class="pf-acts"><button class="btn ghost sm" id="pf-share" title="Compartir el borrador ya guardado, sin guardar ni publicar cambios">Copiar enlace de vista previa</button><button class="btn ghost sm" id="pf-discard">Descartar cambios</button><button class="btn sm" id="pf-pub">Publicar cambios</button><a class="lnk" href="/equipo/${esc(T.team.slug)}" target="_blank" rel="noopener">Ver página publicada ↗</a></span></div>
+      <p class="pf-mob">Para editar la página usa una computadora o tableta. Aquí puedes simular temporadas sin guardar cambios y copiar el enlace de un borrador ya guardado.</p>
       <div class="pf-grid"><aside class="pf-panel" id="pf-panel">${panel()}</aside>
         <div class="pf-pvw"><div class="pf-mobile-sim" aria-label="Simulación móvil de temporadas">
           <strong>Temas de temporada · Vista previa móvil</strong>
@@ -1340,7 +1342,7 @@ export function createStudio(ctx){
     const pv = () => { if (!pvQ) pvQ = requestAnimationFrame(pvNow); };
     const contrastNote = () => { const B = TP.BGS[d.bg], v = TP.vars(d), act = v.match(/--act:(#[0-9a-f]{6})/i)[1]; const tc = TP.textContrast(d); $('#pf-ctr').textContent = [tc < 4.5 ? `El texto casi no se lee sobre el fondo (contraste ${tc.toFixed(1)}:1; se recomienda 4.5 o más).` : '', act.toLowerCase() !== d.accent ? 'Este acento tiene poco contraste con el fondo: en los textos se usa una versión más legible.' : ''].filter(Boolean).join(' '); $('#pf-ctr').style.color = tc < 4.5 ? '#f59e7a' : ''; };
     const status = () => { const s = $('#pf-st'); if (!s) return; s.className = 'pf-st' + (pending() ? ' warn' : ''); s.textContent = saving ? 'Guardando borrador…' : pending() ? '● Borrador con cambios sin publicar' + (savedAt ? ' · guardado ' + fmtTz(savedAt, { hour: '2-digit', minute: '2-digit' }) : '') : '✓ Lo que ves es lo publicado'; $('#pf-pub').disabled = !pending(); $('#pf-discard').disabled = !pending(); };
-    const save = () => { clearTimeout(saveT); saveT = setTimeout(async () => { saving = true; status(); saveT = 0; const { data, error } = await sb.rpc('team_design_save', { p_team: T.team.id, p_design: d }); saving = false; if (error) { toast(errMsg(error)); } else savedAt = data; status(); }, 700); };
+    const save = () => { clearTimeout(saveT); saveT = setTimeout(async () => { saving = true; status(); saveT = 0; const snapshot = JSON.stringify(d); const { data, error } = await sb.rpc('team_design_save', { p_team: T.team.id, p_design: d }); saving = false; if (error) { toast(errMsg(error)); } else { savedAt = data; savedDesign = snapshot; } status(); }, 700); };
     const redraw = () => { const y = $('#pf-panel').scrollTop; $('#pf-panel').innerHTML = panel(); bindPanel(); clip(); $('#pf-panel').scrollTop = y; hist(); };
     const set = (o, full) => { d = TP.normalize({ ...d, ...o }, D.t.color); showPub = false; if (!('theme' in o) && Object.keys(o).some(k => !['order', 'hidden', 'featured', 'announce', 'motto', 'seasons', 'anim', 'part', 'intensity'].includes(k)) && !String(d.theme).startsWith('mine:')) d.theme = 'custom'; pv(); contrastNote(); status(); save(); track?.(); if (full) redraw(); };
     async function hist(){
@@ -1415,9 +1417,9 @@ export function createStudio(ctx){
     const leave = e => { if (!document.body.contains($('#pf-panel') || document.createElement('i'))) return removeEventListener('beforeunload', leave); if (saveT || saving) { flush(); e.preventDefault(); e.returnValue = ''; } };
     addEventListener('beforeunload', leave);
     document.addEventListener('click', function nav(e){ if (!$('#pf-panel')) return document.removeEventListener('click', nav, true); if (e.target.closest('a[href]')) flush(); }, true);
-    $('#pf-pub').onclick = e => busy(e.currentTarget, async () => { clearTimeout(saveT); await rpc('team_design_save', { p_team: T.team.id, p_design: d }); await rpc('team_design_publish', { p_team: T.team.id }); D.t.design = d; status(); hist(); toast('Página publicada'); });
-    $('#pf-discard').onclick = e => busy(e.currentTarget, async () => { if (!confirm('¿Descartar el borrador y volver a lo publicado?')) return; clearTimeout(saveT); d = TP.normalize(D.t.design, D.t.color); await rpc('team_design_save', { p_team: T.team.id, p_design: d }); redraw(); pv(); status(); toast('Borrador descartado'); });
-    $('#pf-share').onclick = e => busy(e.currentTarget, async () => { clearTimeout(saveT); await rpc('team_design_save', { p_team: T.team.id, p_design: d }); if (!token) token = await rpc('team_design_new_token', { p_team: T.team.id }); const link = location.origin + '/equipo/' + T.team.slug + '?vista=' + token; try { await navigator.clipboard.writeText(link); toast('Enlace copiado · cualquiera con él ve el borrador'); } catch { prompt('Copia este enlace:', link); } });
+    $('#pf-pub').onclick = e => busy(e.currentTarget, async () => { clearTimeout(saveT); await rpc('team_design_save', { p_team: T.team.id, p_design: d }); savedDesign = JSON.stringify(d); await rpc('team_design_publish', { p_team: T.team.id }); D.t.design = d; status(); hist(); toast('Página publicada'); });
+    $('#pf-discard').onclick = e => busy(e.currentTarget, async () => { if (!confirm('¿Descartar el borrador y volver a lo publicado?')) return; clearTimeout(saveT); d = TP.normalize(D.t.design, D.t.color); await rpc('team_design_save', { p_team: T.team.id, p_design: d }); savedDesign = JSON.stringify(d); redraw(); pv(); status(); toast('Borrador descartado'); });
+    $('#pf-share').onclick = e => busy(e.currentTarget, async () => { const shared = await previewShareLink({ origin: location.origin, slug: T.team.slug, token, savedDesign, currentDesign: JSON.stringify(d), queued: !!saveT, saving, generateToken: () => rpc('team_design_new_token', { p_team: T.team.id }) }); token = shared.token; try { await navigator.clipboard.writeText(shared.link); toast('Enlace copiado · cualquiera con él ve el borrador guardado'); } catch { prompt('Copia este enlace:', shared.link); } });
   }
 
   return { home, works, newWork, work, editor, importer, library: () => library(), team, board, log, profile, prefs, announcements, community, stats, downloads, glossary, isMember: async () => { const u = getUser(); if (!u) return false; const { count } = await sb.from('team_members').select('*', { count: 'exact', head: true }).eq('user_id', u.id); return count > 0; } };
