@@ -270,3 +270,17 @@ main>p,main>h1+p{max-width:75ch}
 .ui-dlb.ext{border-color:var(--gold);color:var(--gold);text-decoration:none}.ui-dlb.ext:hover{background:var(--gold);color:#0d0c0a}.ui-dlb.ext:hover small{color:#0d0c0a}
 
 .rd[data-font="original"] .rd-body{font-family:var(--fb)}.rd[data-font="original"] .rd-head h2,.rd[data-font="original"] .rd-body h3{font-family:var(--fh,var(--fb))}
+
+/* Fase visual 1: áreas táctiles amplias manteniendo el tamaño de indicadores y símbolos. */
+@media(pointer:coarse){
+.ob-bell>summary,.ob-user>summary,.s2-bell{min-width:44px;min-height:44px}
+.pf-oa button,.pf-favs .pf-x,.bb-mini,.ag-btn,.ui-chip,.rd-opt button,.lc-tabs button,.ed-btn,.rd-tools .btn,.wk-tags span button{min-width:44px;min-height:44px}
+.pf-oa button{width:44px;height:44px}
+.ui-dots button{position:relative;height:44px;background:transparent}
+.ui-dots button::before{content:'';position:absolute;left:0;right:0;top:20px;height:4px;background:#3d3628}
+.ui-dots button.on::before{background:var(--gold)}
+.ob-pager2 button[aria-current]{height:44px!important;min-height:44px;background:transparent!important}
+.ob-pager2 button[aria-current]::before{content:'';position:absolute;left:0;right:0;top:17px;height:10px;background:#5a5244}
+.ob-pager2 button[aria-current="true"]::before{background:#3d3628}
+.ob-pager2 button[aria-current] i.ob-hp{top:17px!important;bottom:auto!important;height:10px!important}
+}

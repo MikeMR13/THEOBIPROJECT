@@ -27,6 +27,11 @@ const CSS = `
 .bb-box h3{margin:0;font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:20px}
 .bb-mini{background:none;border:1px solid #3d3628;color:var(--paper);padding:5px 10px;font:inherit;font-size:12px;cursor:pointer}.bb-mini.red{color:#f59e7a;border-color:#f59e7a}
 .bb select{background:#16140f;border:2px solid var(--line);color:var(--paper);padding:9px;font:inherit}
+@media(max-width:760px){
+/* Desplazar solo el contenido del Mostrador sin ocultar columnas ni modificar las tablas. */
+.bb #bbv{max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.bb #bbv .bb-tbl{min-width:720px}
+}
 `;
 const ROLE = { bibliotecario: ['Bibliotecario', '#f2c230'], publicador: ['Publicador', '#8cc3f2'], lector: ['Lector', '#a89f8a'] };
 const TROLE = { owner: 'Propietario', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
