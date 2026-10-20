@@ -9,3 +9,16 @@ export async function previewShareLink({ origin, slug, token, savedDesign, curre
     throw new Error('No se pudo crear un enlace de vista previa válido.');
   return { token: next, link: origin.replace(/\/$/, '') + '/equipo/' + slug + '?vista=' + next };
 }
+
+/* El estado del equipo pertenece a una única identidad autenticada. */
+export function resetTeamSession(state, userId) {
+  if (state.userId === userId) return false;
+  state.userId = userId;
+  state.teams = [];
+  state.team = null;
+  state.perms = {};
+  state.works = null;
+  state.roleName = null;
+  state.tz = null;
+  return true;
+}
