@@ -92,3 +92,11 @@ Examinamos una muestra de funciones: `admin_review_queue` y `admin_review_resolv
 6. Aprobación expresa del responsable para fusionar y luego, por separado, para desplegar a producción.
 
 **Conclusión:** no se detectaron escrituras inesperadas a las bases durante la auditoría. La preservación de configuraciones queda comprobada a nivel de archivos, inventario y RLS existente. **La seguridad de datos personales impide declarar validada toda la plataforma**, aunque CI esté verde.
+
+
+## 8. Correo transaccional y estado de producción
+
+- La conexión Resend disponible en esta sesión devolvió **«No domains found»** al consultar dominios. Esto **no prueba que el envío de verificación o notificaciones de la plataforma esté roto**: podría tratarse de una conexión a otro espacio de cuenta o de un remitente administrado por otro proveedor. No se envió correo ni se cambió DNS/SPF/DKIM.
+- La comprobación real del flujo de correo requiere identificar el proveedor/configuración usados por la Edge Function `notify-email` y realizar un envío de prueba **solo** con cuentas y direcciones autorizadas en un entorno de QA.
+- Vercel confirma que el despliegue de **producción** sigue `main` con SHA `f0b3931bc30fa7e252795c8e039a7b3c5d9b8016`, distinto de la rama candidata. El PR #21 permanece en borrador, sin fusión.
+- Después de incorporar la prueba de compatibilidad de infraestructura y este informe, el CI `#39509911198` terminó **SUCCESS**, incluido `scripts/phase7-platform-compat-check.mjs`. El nuevo commit documental requerirá consultar su propia ejecución antes de dar CI por aprobado.
