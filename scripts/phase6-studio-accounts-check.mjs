@@ -45,7 +45,7 @@ assert(studio.includes('TP.render(D, previewDesign'),'Vista previa renderizada d
 assert(studio.includes("team_design_publish"),'Publicación explícita preservada');
 assert(studio.includes("team_design_restore"),'Historial de versiones preservado');
 assert(studio.includes("team_design_save"),'Guardado automático de escritorio preservado');
-assert(!studio.includes('reader_defaults'),'Editor de predeterminados del equipo no verificado: no inventar una opción de guardado');
+assert(studio.includes('mountTeamReaderDefaults'),'Editor de predeterminados ligado a Studio con permiso profile');
 
 // Prueba funcional del controlador real: dos usuarios distintos no heredan equipo ni permisos.
 globalThis.document={

@@ -1,6 +1,7 @@
 // Lector de El Obi del Lector: por capítulo o continuo, fuentes EPUB, progreso exacto, leídos, historial, sin conexión y anotaciones.
 const OFF_CACHE = 'obi-offline-v1', OFF_INDEX = 'obi-offline-index', PREF_KEY = 'obi-reader-prefs';
 import { cleanInline, renderBlock, warningsHTML, teaserHTML } from './blocks.js?v=2';
+import { readerPrefsKey, readReaderPrefs } from './reader-pref-cache.js?v=1';
 const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true };
 const COLORS = { gold: '#f2c230', rose: '#f29bb0', sky: '#8cc3f2', mint: '#9fdcb0' };
 const SEC_LABEL = { 'Capítulo': 'Cap.', 'Prólogo': 'Prólogo', 'Interludio': 'Interludio', 'Epílogo': 'Epílogo', 'Afterword': 'Epílogo del autor', 'Extra': 'Extra' };
@@ -11,17 +12,30 @@ export function createReader(ctx){
   const S = { series: null, chapters: [], vols: [], bodies: new Map(), prefs: null, remote: null, mounted: [], active: null, annots: [], saveT: 0, readMarked: new Set(), historyLogged: new Set() };
 
   // ---------- preferencias ----------
-  const loadLocal = () => { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || { global: {}, per_volume: {} }; } catch { return { global: {}, per_volume: {} }; } };
+  const loadLocal = userId => readReaderPrefs(localStorage, userId);
   async function loadPrefs(){
-    S.remote = loadLocal();
-    const user = getUser();
-    if (user) { const { data } = await sb.from('reader_prefs').select('global,per_volume').eq('user_id', user.id).maybeSingle(); if (data) S.remote = { global: data.global || {}, per_volume: data.per_volume || {} }; }
+    const uid=getUser()?.id || null;
+    S.remote=loadLocal(uid);
+    S.prefsOwner=uid;
+    if (uid) {
+      const { data, error } = await sb.from('reader_prefs').select('global,per_volume').eq('user_id', uid).maybeSingle();
+      if (!error && data && getUser()?.id === uid && S.prefsOwner === uid) {
+        S.remote={ global:data.global || {}, per_volume:data.per_volume || {} };
+        try { localStorage.setItem(readerPrefsKey(uid), JSON.stringify(S.remote)); } catch {}
+      }
+    }
   }
   const effective = volId => ({ ...DEF, ...(S.series?.teams?.reader_defaults || {}), ...S.remote.global, ...(S.remote.per_volume[volId] || {}) });
   let prefT = 0;
   function savePrefs(){
-    localStorage.setItem(PREF_KEY, JSON.stringify(S.remote));
-    clearTimeout(prefT); prefT = setTimeout(() => { const user = getUser(); if (user) sb.from('reader_prefs').upsert({ user_id: user.id, global: S.remote.global, per_volume: S.remote.per_volume, updated_at: new Date().toISOString() }); }, 800);
+    const uid=getUser()?.id || null;
+    const snapshot=JSON.parse(JSON.stringify(S.remote));
+    try { localStorage.setItem(readerPrefsKey(uid), JSON.stringify(snapshot)); } catch {}
+    clearTimeout(prefT);
+    prefT=setTimeout(() => {
+      if (uid && getUser()?.id === uid && S.prefsOwner === uid)
+        sb.from('reader_prefs').upsert({ user_id: uid, global: snapshot.global, per_volume: snapshot.per_volume, updated_at: new Date().toISOString() }).then(({error}) => { if (error) console.warn('Preferencias',error.message); }, () => {});
+    },800);
   }
 
   // ---------- datos ----------
@@ -234,6 +248,8 @@ export function createReader(ctx){
   async function open(slug, num){
     app.innerHTML = '<p class="mono">Abriendo capítulo…</p>';
     if (navigator.onLine && S.series?.slug !== slug && !cachedMeta(slug)) bodyBySlug(slug, num); // primera vez: texto en paralelo con la ficha
+    const prefsUid = getUser()?.id || null;
+    if (S.prefsOwner !== prefsUid) { clearTimeout(prefT); S.remote=null; }
     const prefsP = S.remote ? null : loadPrefs();
     if (!(await loadSeries(slug, num))) { app.innerHTML = '<h1>Serie no encontrada</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
     const ch = S.chapters.find(c => c.num === num);
@@ -358,7 +374,7 @@ export function createReader(ctx){
   }
 
   // ---------- progreso exacto, leídos e historial ----------
-  const posKey = id => 'obi-pos-' + id;
+  const posKey = (id, uid = getUser()?.id) => 'obi-pos-' + (uid ? uid + '__' : '') + id;
   function currentBlock(){
     const art = $(`[data-ch="${S.active.id}"]`); if (!art) return { block: 0, pct: 0 };
     // búsqueda binaria: ~10 mediciones en lugar de una por párrafo
@@ -404,20 +420,20 @@ export function createReader(ctx){
     if (!navigator.onLine) return Promise.resolve(false);
     return sb.from('reading_progress').upsert({ user_id: user.id, series_id: sid, chapter_num: rec.num, chapter_id: rec.chapter_id, block: rec.block, pct: rec.pct, mode: rec.mode || 'chapter', updated_at: rec.at }, { onConflict: 'user_id,series_id' })
       .then(({ error }) => { if (error) { console.warn('progreso', error.message); return false; }
-        try { const cur = JSON.parse(localStorage.getItem(posKey(sid))); if (cur?.at === rec.at) { cur.pending = false; localStorage.setItem(posKey(sid), JSON.stringify(cur)); } } catch {} return true; }, () => false);
+        try { const key = posKey(sid, user.id), cur = JSON.parse(localStorage.getItem(key)); if (cur?.at === rec.at) { cur.pending = false; localStorage.setItem(key, JSON.stringify(cur)); } } catch {} return true; }, () => false);
   }
-  const RQ = 'obi-read-q';
+  const RQ = user => 'obi-read-q:' + user.id;
   function pushRead(user, chId){
-    const queue = () => { try { const a = JSON.parse(localStorage.getItem(RQ) || '[]'); if (!a.includes(chId)) a.push(chId); localStorage.setItem(RQ, JSON.stringify(a.slice(-500))); } catch {} };
+    const queue = () => { try { const a = JSON.parse(localStorage.getItem(RQ(user)) || '[]'); if (!a.includes(chId)) a.push(chId); localStorage.setItem(RQ(user), JSON.stringify(a.slice(-500))); } catch {} };
     if (!navigator.onLine) return queue();
     sb.from('read_chapters').upsert({ user_id: user.id, chapter_id: chId }).then(({ error }) => { if (error) queue(); }, queue);
   }
   async function syncPending(){
     const user = getUser(); if (!user || !navigator.onLine) return 0; let n = 0; const keys = [];
-    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith('obi-pos-')) keys.push(k); } } catch {}
-    for (const k of keys) { let r; try { r = JSON.parse(localStorage.getItem(k)); } catch { continue; } if (r?.pending && r.chapter_id && await pushPos(user, k.slice(8), r)) n++; }
-    let q = []; try { q = JSON.parse(localStorage.getItem(RQ) || '[]'); } catch {}
-    if (q.length) { const { error } = await sb.from('read_chapters').upsert(q.map(id => ({ user_id: user.id, chapter_id: id }))); if (!error) { localStorage.removeItem(RQ); n += q.length; } }
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith('obi-pos-' + user.id + '__')) keys.push(k); } } catch {}
+    for (const k of keys) { let r; try { r = JSON.parse(localStorage.getItem(k)); } catch { continue; } if (r?.pending && r.chapter_id && await pushPos(user, k.slice(('obi-pos-' + user.id + '__').length), r)) n++; }
+    let q = []; try { q = JSON.parse(localStorage.getItem(RQ(user)) || '[]'); } catch {}
+    if (q.length) { const { error } = await sb.from('read_chapters').upsert(q.map(id => ({ user_id: user.id, chapter_id: id }))); if (!error) { localStorage.removeItem(RQ(user)); n += q.length; } }
     return n;
   }
   // gana la posición más reciente entre la del servidor y la de este dispositivo
@@ -512,7 +528,7 @@ export function createReader(ctx){
     rd.dataset.font = p.font;
     if (k === 'awake') { if (p.awake === false) wl?.release(); else wake(); }
     // cambiar de fuente solo actualiza variables CSS, sin redibujar el texto
-    if (k === 'font') document.querySelectorAll('.rd-ch').forEach(a => { const c = S.chapters.find(x => x.id === a.dataset.ch), v = c && volOf(c); a.style.cssText = v ? fontVars(v, effective(c.volume_id)) : ''; });
+    if (k === 'font' || k == null) document.querySelectorAll('.rd-ch').forEach(a => { const c = S.chapters.find(x => x.id === a.dataset.ch), v = c && volOf(c); a.style.cssText = v ? fontVars(v, effective(c.volume_id)) : ''; });
     if (k === 'illus' || k === 'cw') {
       const { block: blk } = currentBlock();
       $('#rd-flow').innerHTML = S.mounted.map(c => chapterHTML(c, S.bodies.get(c.id), effective(c.volume_id))).join(''); markTerms($('#rd-flow'));

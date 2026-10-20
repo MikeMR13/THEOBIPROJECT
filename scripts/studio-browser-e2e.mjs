@@ -11,7 +11,10 @@ const root = process.cwd();
 const whitelist = new Map([
  ['/studio.js','src/studio.js'],
  ['/studio-preview-share.js','src/studio-preview-share.js'],
+ ['/studio-reader-defaults.js','src/studio-reader-defaults.js'],
+ ['/reader-team-defaults.js','src/reader-team-defaults.js'],
  ['/studio.css','src/studio.css'],
+ ['/reader-a11y.css','src/reader-a11y.css'],
  ['/studio-editor.js','src/studio-editor.js'],
  ['/studio-importer.js','src/studio-importer.js'],
  ['/studio-media.js','src/studio-media.js'],
@@ -19,7 +22,7 @@ const whitelist = new Map([
  ['/__qa__/fixture.mjs','scripts/fixtures/studio-browser-fixture.mjs'],
  ['/__qa__/parent.js','scripts/fixtures/studio-browser-parent.js']
 ]);
-const html = '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Studio QA — datos ficticios</title></head><body><p id="qa-result" data-qa-status="running">QA_BROWSER_RUNNING</p><main id="app"></main><script type="module" src="/__qa__/fixture.mjs"></script></body></html>';
+const html = '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Studio QA — datos ficticios</title><link rel="stylesheet" href="/reader-a11y.css"></head><body><p id="qa-result" data-qa-status="running">QA_BROWSER_RUNNING</p><main id="app"></main><script type="module" src="/__qa__/fixture.mjs"></script></body></html>';
 const compact = '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Studio QA — 390px</title></head><body><p id="qa-result" data-qa-status="running">QA_BROWSER_RUNNING</p><iframe title="Estudio con viewport móvil" id="qa-frame" width="390" height="844" style="border:0" src="/"></iframe><script src="/__qa__/parent.js"></script></body></html>';
 const server = createServer((req,res)=>{
   const u = new URL(req.url || '/', 'http://127.0.0.1');
