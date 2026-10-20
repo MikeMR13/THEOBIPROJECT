@@ -40,6 +40,12 @@ const CSS = `
   .bb-pv{width:100%;max-width:100%;height:480px}
   .bb-save{padding-bottom:calc(12px + env(safe-area-inset-bottom));flex-wrap:wrap}
 }
+@media(max-width:760px){
+/* Desplazar solo el contenido del Mostrador sin ocultar columnas ni modificar las tablas. */
+.bb #bbv{max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.bb #bbv .bb-tbl{min-width:720px}
+}
+
 `;
 const ROLE = { bibliotecario: ['Bibliotecario', '#f2c230'], publicador: ['Publicador', '#8cc3f2'], lector: ['Lector', '#a89f8a'] };
 const TROLE = { owner: 'Propietario', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
