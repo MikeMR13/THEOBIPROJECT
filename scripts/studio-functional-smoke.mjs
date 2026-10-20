@@ -80,6 +80,7 @@ await field('nw-go').onclick({currentTarget:{disabled:false,textContent:'Crear o
 assert.equal(happy.inserted.length,1,'La creación debe alcanzar PostgREST; si falta slugify falla silenciosamente');
 assert.equal(happy.inserted[0].table,'series');
 assert.equal(happy.inserted[0].values.slug,'cronicas-del-dragon');
+assert.equal(happy.inserted[0].values.work_type,'Novela ligera','El tipo editorial no debe guardarse como un solo carácter');
 assert.equal(happy.inserted[0].values.published,false);
 assert.match(happy.app.innerHTML,/Volumen 1/);
 field('nw-vt').oninput({target:{value:'Volumen inicial'}});
