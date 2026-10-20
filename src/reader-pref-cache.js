@@ -10,3 +10,18 @@ export function readReaderPrefs(store, userId) {
       : emptyReaderPrefs();
   } catch { return emptyReaderPrefs(); }
 }
+
+
+export const sameReaderAccount = (a,b) => (a || null) === (b || null);
+export const readingProgressPrefix = userId => 'obi-pos-' + (userId ? userId + '__' : '');
+export const readingProgressKey = (seriesId,userId) => readingProgressPrefix(userId) + seriesId;
+export function readerProgressKeys(store, userId) {
+  const prefix=readingProgressPrefix(userId), keys=[];
+  try {
+    for(let i=0;i<store.length;i++){
+      const k=store.key(i);
+      if(k?.startsWith(prefix) && (userId || !k.slice(prefix.length).includes('__'))) keys.push(k);
+    }
+  } catch {}
+  return keys;
+}
