@@ -1,0 +1,56 @@
+/* Fase visual 5 — lectura accesible, sin alterar configuraciones ni contenido. */
+/* Enlace de acceso directo: oculto visualmente salvo al recibir el foco. */
+.ob-skip{
+  position:fixed;inset:8px auto auto 8px;z-index:200;
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:44px;max-width:calc(100vw - 16px);padding:10px 14px;
+  color:#0d0c0a;background:#f2c230;border:2px solid #0d0c0a;
+  font:700 14px 'IBM Plex Sans',system-ui,sans-serif;text-decoration:none;
+  box-shadow:0 6px 22px rgba(0,0,0,.6);
+  transform:translateY(calc(-100% - 20px));opacity:0;pointer-events:none;
+}
+.ob-skip:focus-visible{
+  transform:none;opacity:1;pointer-events:auto;
+  outline:3px solid #fff;outline-offset:2px;
+}
+#app:focus{outline:none}
+/* El foco de teclado es perceptible en el lector y en los controles literarios. */
+.rd :is(a,button,input,select,textarea,summary,[role="button"]):focus-visible{
+  outline:3px solid var(--gold,#f2c230);outline-offset:3px;
+}
+.rd-more>summary{min-height:44px;display:flex;align-items:center}
+.rd-more>summary:focus-visible{position:relative;z-index:7}
+.rd :is(.rd-back,.rd-tools .btn,.rd-more-m .btn){min-height:44px}
+.rd .rd-panel :is(input,select,button){max-width:100%}
+.rd :is(.rd-ch,.rd-head){scroll-margin-top:calc(var(--top-h,62px) + var(--rd-h,58px) + 16px)}
+.rd-body img,.rd-body figure img{
+  max-width:100%;height:auto;object-fit:contain;
+}
+.rd-body figure{max-width:100%;margin-inline:auto}
+.rd-body :is(pre,code){overflow-wrap:anywhere}
+.rd-body pre{max-width:100%;overflow-x:auto;white-space:pre-wrap}
+.rd-body a{text-decoration-thickness:1px;text-underline-offset:.15em}
+.rd-body a:focus-visible{text-decoration-thickness:2px}
+@media(max-width:700px){
+  .rd-panel{max-width:100%}
+  .rd-more-m{max-width:min(320px,calc(100vw - 32px))}
+  .rd :is(.rd-back,.rd-tools .btn,.rd-more>summary){min-height:44px}
+  .rd-body :is(p,blockquote){overflow-wrap:break-word}
+}
+@media(prefers-contrast:more){
+  .rd :is(a,button,input,select,textarea,summary):focus-visible{outline-width:4px;outline-offset:3px}
+  .rd-prog i{background:#f2c230}
+}
+/* No eliminar la cinta, el carrusel ni animaciones existentes.
+   Solo quienes soliciten reducir movimiento reciben una presentación estática. */
+@media(prefers-reduced-motion:reduce){
+  .ob-track{animation:none!important;transform:none!important;will-change:auto!important}
+  .ob-page,.ob-seal,.ob-anim>*,.ob-shelf>.ob-spine,
+  .ob-hero .ob-cov,.ob-hero .ob-txt,
+  .ui-fc,.ui-rl,.ui-book{
+    animation:none!important;transition:none!important;transform:none!important;
+  }
+  .ob-car,.ui-fich,.rd,.rd-ch{scroll-behavior:auto!important}
+  .ob-cc .cv,.ui-card .ui-book,.rd-bar,.rd-prog i{transition:none!important}
+  .ob-skip{transition:none!important}
+}

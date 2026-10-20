@@ -1,0 +1,28 @@
+// Fase visual 2: contratos de navegación y previsualización no editable.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const read = p => readFileSync(p, 'utf8');
+const st = read('src/studio.js'), css = read('src/studio.css');
+const profile = read('src/profile.js'), admin = read('src/admin.js'), ui = read('src/ui.js');
+const groups = st.slice(st.indexOf('const NAV_GROUPS'), st.indexOf('const studioNav'));
+const routes = ['/estudio','/estudio/obras','/estudio/importar','/estudio/multimedia','/estudio/glosario','/estudio/flujo','/estudio/anuncios','/estudio/comunidad','/estudio/estadisticas','/estudio/descargas','/estudio/perfil','/estudio/preferencias','/estudio/equipo','/estudio/bitacora'];
+for (const route of routes) assert(groups.includes("'"+route+"'"), 'Falta una ruta existente: '+route);
+assert(groups.includes('PUBLICACIONES Y CONTENIDO') && groups.includes('DIFUSIÓN Y SEGUIMIENTO') && groups.includes('IDENTIDAD Y GESTIÓN'));
+assert(st.includes('paths.map(h => NAV.find'), 'Las rutas se reutilizan desde NAV');
+assert(st.includes('filter(n => n && (!n[3] || can(n[3])))'), 'Mantener restricciones por permisos');
+assert(st.includes('id="s2-mobile-toggle"') && st.includes('aria-controls="s2-nav"'), 'Menú accesible');
+assert(st.includes("if (e.key === 'Escape' && document.querySelector('.s2-side.nav-open'))"), 'Escape cierra menú');
+assert(css.includes('.s2-side.nav-open .s2-nav{display:grid'), 'Panel móvil ocultable');
+assert(css.includes('.s2-side .s2-team{display:flex'), 'Selector único de equipo conservado en móvil');
+assert(st.includes('<select id="tpick" aria-label="Equipo activo">'), 'Selector de equipo accesible');
+assert(css.includes('.wk-tabs{max-width:100%;overflow-x:auto'), 'Pestañas de obra desplazables');
+assert(css.includes('.wk-flt .ed-chips{max-width:100%;flex-wrap:nowrap'), 'Filtros compactos');
+assert(st.includes('id="pf-msim"') && st.includes('data-mdeco="full"') && st.includes('data-mdeco="min"'), 'Simulador de temporadas móvil');
+assert(st.includes('previewDesign = matchMedia') && st.includes('UI.mobDeco ? { ...previewBase'), 'Decoración solo temporal en vista previa');
+assert(st.includes('TP.render(D, previewDesign') && st.includes('TP.effective(previewDesign'), 'Vista previa usa renderizador real de equipos');
+assert(css.includes('.pf-panel,#pf-pub,#pf-discard,.pf-pvbar .pf-seg{display:none}'), 'Edición y publicación oculta en móvil');
+assert(css.includes('.pf-mobile-sim{display:grid'), 'Controles de simulación visibles en teléfono');
+assert(profile.includes('aria-label="Secciones de preferencias"') && profile.includes('scroll-snap-type:x proximity'), 'Preferencias responsivas');
+assert(ui.includes("a.setAttribute('aria-current', 'page')"), 'Navegación pública con estado accesible');
+assert(admin.includes('.bb-tabs{flex-wrap:nowrap') && admin.includes('.bb-sea-g{grid-template-columns:minmax(0,1fr)}'), 'Mostrador y temporadas móvil');
+console.log('Fase visual 2: 14 rutas, permisos, navegación, temporadas y accesibilidad OK');

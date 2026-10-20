@@ -29,7 +29,7 @@ try { if (!localStorage.getItem('obi-season-mig1')) { localStorage.removeItem('o
 export const isOff = () => { try { return localStorage.getItem('obi-season') === 'off'; } catch { return false; } };
 export const setOff = v => { try { localStorage.setItem('obi-season-mig1', '1'); v ? localStorage.setItem('obi-season', 'off') : localStorage.removeItem('obi-season'); } catch {} dispatchEvent(new Event('obi-season')); };
 const sim = () => { const q = new URLSearchParams(location.search).get('temporada'); return q && SEASONS[q] ? q : null; };
-export function platformKey(date = new Date()){ return sim() || activeSeason({ auto: config().auto || [], hemi: hemiOf(Intl.DateTimeFormat().resolvedOptions().timeZone) }, date); }
+export function platformKey(date = new Date()){ const preview = sim(); return preview || (isOff() ? null : activeSeason({ auto: config().auto || [], hemi: hemiOf(Intl.DateTimeFormat().resolvedOptions().timeZone) }, date)); }
 export function clear(){ stops.splice(0).forEach(f => { try { f(); } catch {} }); }
 const mk = (cls, parent, html = '') => { const e = document.createElement(cls.startsWith('<') ? 'div' : 'span'); e.className = cls; if (html) e.innerHTML = html; parent?.appendChild(e); stops.push(() => e.remove()); return e; };
 const css = () => { if (document.getElementById('obi-sea-css')) return; const s = document.createElement('style'); s.id = 'obi-sea-css'; s.textContent = CSS; document.head.appendChild(s); };

@@ -1,3 +1,4 @@
+import { readerPrefsKey, readReaderPrefs } from './reader-pref-cache.js?v=1';
 // Perfil público de lector (carnet) y página /preferencias. Se carga solo al visitar esas rutas.
 const ICON = {
   discord: ['Discord', 'M7 7c3-1.5 7-1.5 10 0l2 9c-2 2-4 2.5-5 2.5l-1-2h-2l-1 2C9 18.5 7 18 5 16z M9.5 12.5h.01 M14.5 12.5h.01', 'https://discord.gg/…'],
@@ -113,7 +114,8 @@ const CSS = `
 .pf-res i{width:28px;height:38px;flex:none;background:var(--c) center/cover}
 .pf-save{position:sticky;bottom:0;display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:14px 0 0;border-top:1px solid var(--line);background:#14120e}
 .pf-save .mono{margin-right:auto}
-@media(max-width:700px){.pf-nav{max-width:none;flex-basis:100%;border-right:0;border-bottom:1px solid var(--line);display:flex;overflow-x:auto;padding:0}.pf-nav a{border-left:0;border-bottom:3px solid transparent;white-space:nowrap}.pf-nav a.on{border-bottom-color:var(--gold)}}
+@media(max-width:700px){.pf-nav{max-width:none;flex-basis:100%;border-right:0;border-bottom:1px solid var(--line);display:flex;overflow-x:auto;padding:0}.pf-nav a{border-left:0;border-bottom:3px solid transparent;white-space:nowrap}.pf-nav a.on{border-bottom-color:var(--gold)}.pf-nav{scrollbar-width:thin;scroll-padding-inline:12px;scroll-snap-type:x proximity;overscroll-behavior-x:contain}.pf-nav a{scroll-snap-align:start;min-height:44px;display:flex;align-items:center}}
+@media(max-width:700px){.pf{position:relative}.pf:has(.pf-nav)::before{content:"Desliza para ver más secciones →";position:absolute;right:8px;top:-17px;font:10px "IBM Plex Mono",monospace;color:var(--mute);pointer-events:none}}
 `;
 const css = () => { if (document.getElementById('lc-css')) return; const s = document.createElement('style'); s.id = 'lc-css'; s.textContent = CSS; document.head.appendChild(s); };
 
@@ -187,7 +189,7 @@ export async function preferences(C){
   app.innerHTML = '<p class="mono">Cargando preferencias…</p>';
   const { data: P, error } = await sb.from('profiles').select('username,avatar_url,bio,banner_url,seal_kanji,accent,links,favorites,profile_sections,public_activity,adult_ok,profile_visibility,discoverable,show_since,hide_reading,hidden_series,delete_requested_at,notify,username_changed_at,ui_prefs').eq('id', user.id).single();
   if (error) { app.innerHTML = `<h1>Preferencias</h1><p class="mono">No se pudieron cargar: ${esc(error.message)}</p>`; return; }
-  const shell = body => `<h1>Preferencias</h1><div class="pf"><nav class="pf-nav">${TABS.map(([k, l]) => `<a href="/preferencias${k === 'perfil' ? '' : '?s=' + k}" class="${k === tab ? 'on' : ''}">${l}</a>`).join('')}</nav><div class="pf-body">${body}</div></div>`;
+  const shell = body => `<h1>Preferencias</h1><div class="pf"><nav class="pf-nav" aria-label="Secciones de preferencias">${TABS.map(([k, l]) => `<a href="/preferencias${k === 'perfil' ? '' : '?s=' + k}" class="${k === tab ? 'on' : ''}" ${k === tab ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav><div class="pf-body">${body}</div></div>`;
   const tg = (id, on, label) => `<button type="button" class="pf-tg" id="${id}" aria-pressed="${!!on}" aria-label="${esc(label)}"><i></i></button>`;
   const flip = b => b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
   const UI = { motion: 'system', hour: 'auto', hide: [], ...(window.__obiUI || {}), ...(P.ui_prefs || {}) };
@@ -198,13 +200,13 @@ export async function preferences(C){
 
   if (tab === 'lectura') {
     const DEF = { theme: 'oscuro', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', illus: true, continuous: 'off', cw: 'show', autonext: true, autosecs: 5 };
-    let R = { global: {}, per_volume: {} }; try { R = { global: {}, per_volume: {}, ...JSON.parse(localStorage.getItem('obi-reader-prefs') || '{}') }; } catch {}
+    let R = readReaderPrefs(localStorage, user.id);
     const { data: rp } = await sb.from('reader_prefs').select('global,per_volume').eq('user_id', user.id).maybeSingle(); if (rp) R = { global: rp.global || {}, per_volume: rp.per_volume || {} };
     const vids = Object.keys(R.per_volume || {});
     const { data: vols } = vids.length ? await sb.from('volumes').select('id,num,series:series_id(title,theme)').in('id', vids) : { data: [] };
     let G = { ...DEF, ...R.global }, pt;
-    const persist = () => { localStorage.setItem('obi-reader-prefs', JSON.stringify(R)); clearTimeout(pt); pt = setTimeout(async () => { const { error } = await sb.from('reader_prefs').upsert({ user_id: user.id, global: R.global, per_volume: R.per_volume, updated_at: new Date().toISOString() }); if (error) toast(error.message); }, 400); };
-    const set = (k, v) => { G[k] = v; R.global = { ...G }; persist(); draw(); };
+    const persist = () => { localStorage.setItem(readerPrefsKey(user.id), JSON.stringify(R)); clearTimeout(pt); pt = setTimeout(async () => { const { error } = await sb.from('reader_prefs').upsert({ user_id: user.id, global: R.global, per_volume: R.per_volume, updated_at: new Date().toISOString() }); if (error) toast(error.message); }, 400); };
+    const set = (k, v) => { G[k] = v; R.global = { ...R.global, [k]: v }; persist(); draw(); };
     const seg = (k, l, o) => `<div style="display:grid;gap:8px"><span style="font-size:13px;font-weight:600;color:#e3dccb">${l}</span><div class="lc-tabs" style="justify-self:start">${o.map(([v, t]) => `<button type="button" data-k="${k}" data-v="${v}" class="${String(G[k]) === v ? 'on' : ''}" aria-pressed="${String(G[k]) === v}" style="--ac:var(--gold)">${t}</button>`).join('')}</div></div>`;
     const TH = { claro: ['#f6f1e5', '#1e1b15', '#e3dccb'], sepia: ['#efe2c6', '#3b2f1e', '#d8c7a2'], oscuro: ['#16140f', '#e9e1cd', '#2a2519'] };
     const FF = { original: 'Literata, serif', Literata: 'Literata, serif', serif: "Georgia, 'Times New Roman', serif", sans: "'IBM Plex Sans', sans-serif" };

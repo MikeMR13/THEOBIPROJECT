@@ -2,6 +2,7 @@
 import { createClient } from '/supabase.js?v=1';
 import { createReader } from '/reader.js?v=18';
 import { createUI } from '/ui.js?v=45';
+import { sameReaderAccount, readingProgressPrefix, readerProgressKeys } from '/reader-pref-cache.js?v=1';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
 export const sb = createClient(url, key, { auth: { persistSession: true } });
@@ -105,13 +106,17 @@ async function installApp(){
 async function contBtn(force){
   const el = $('#ob-cont'); if (!el) return;
   if (location.pathname.startsWith('/leer/') || location.pathname.startsWith('/estudio') || location.pathname.startsWith('/bibliotecario')) { el.hidden = true; return; }
+  if (CB.u !== (user?.id || null)) el.hidden = true;
   if (force || Date.now() - CB.t > 20000 || CB.u !== (user?.id || null)) {
-    CB = { t: Date.now(), v: null, u: user?.id || null }; let best = null;
-    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!k?.startsWith('obi-pos-')) continue; const l = JSON.parse(localStorage.getItem(k)); if (l?.num && (!best || new Date(l.at || 0) > new Date(best.at || 0))) best = { sid: k.slice(8), num: l.num, pct: l.pct, at: l.at || 0 }; } } catch {}
-    try { if (user) { const { data } = await sb.from('reading_progress').select('series_id,chapter_num,pct,updated_at,series(slug,title)').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(1); const r = data?.[0]; if (r && (!best || new Date(r.updated_at) >= new Date(best.at || 0))) best = { sid: r.series_id, num: r.chapter_num, pct: r.pct, at: r.updated_at, slug: r.series?.slug, title: r.series?.title }; }
-      if (best && !best.slug) { const { data } = await sb.from('series').select('slug,title').eq('id', best.sid).maybeSingle(); Object.assign(best, data || {}); } } catch {}
+    const requester = user?.id || null, request = { t: Date.now(), v: null, u: requester };
+    CB = request; let best = null;
+    try { const prefix=readingProgressPrefix(requester); for (const k of readerProgressKeys(localStorage, requester)) { const l = JSON.parse(localStorage.getItem(k)); if (l?.num && (!best || new Date(l.at || 0) > new Date(best.at || 0))) best = { sid: k.slice(prefix.length), num: l.num, pct: l.pct, at: l.at || 0 }; } } catch {}
+    try { if (requester) { const { data } = await sb.from('reading_progress').select('series_id,chapter_num,pct,updated_at,series(slug,title)').eq('user_id', requester).order('updated_at', { ascending: false }).limit(1); const r = data?.[0]; if (r && (!best || new Date(r.updated_at) >= new Date(best.at || 0))) best = { sid: r.series_id, num: r.chapter_num, pct: r.pct, at: r.updated_at, slug: r.series?.slug, title: r.series?.title }; }
+      if (best && !best.slug && CB === request && sameReaderAccount(user?.id, requester)) { const { data } = await sb.from('series').select('slug,title').eq('id', best.sid).maybeSingle(); Object.assign(best, data || {}); } } catch {}
+    if (CB !== request || (user?.id || null) !== requester) return;
     CB.v = best?.slug ? best : null;
   }
+  if (CB.u !== (user?.id || null)) return;
   const b = CB.v, e = $('#ob-cont'); if (!e) return; if (!b) { e.hidden = true; return; }
   e.href = `/leer/${b.slug}/${b.num}`; e.title = `Continuar «${b.title}» · cap. ${b.num}`; e.setAttribute('aria-label', e.title);
   if (navigator.onLine && !navigator.connection?.saveData) (window.requestIdleCallback || setTimeout)(() => rd().warm(b.slug, b.num)); // «Continuar» ya listo antes del clic
@@ -156,8 +161,12 @@ function netBanner(){
 addEventListener('offline', netBanner);
 addEventListener('online', () => { netBanner(); if (user) rd().syncPending().then(n => { if (n) toast('Tu progreso sin conexión ya se guardó en tu cuenta'); }); });
 if (!navigator.onLine) netBanner();
+let seasonApplySeq = 0;
 async function afterRender(){
-  const S = await seasons(); await S.load(sb); const p = location.pathname; let m;
+  const seq = ++seasonApplySeq, route = location.pathname + location.search;
+  const S = await seasons(); await S.load(sb);
+  if (seq !== seasonApplySeq || route !== location.pathname + location.search) return;
+  const p = location.pathname; let m;
   try {
     if (p === '/') return S.apply('home');
     if (p === '/catalogo') return S.apply('catalog');
