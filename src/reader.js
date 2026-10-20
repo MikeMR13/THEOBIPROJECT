@@ -14,12 +14,13 @@ export function createReader(ctx){
   // ---------- preferencias ----------
   const loadLocal = userId => readReaderPrefs(localStorage, userId);
   async function loadPrefs(){
-    const uid=getUser()?.id || null;
+    const uid=getUser()?.id || null, request=(S.prefsRequest || 0)+1, version=S.prefsVersion || 0;
+    S.prefsRequest=request;
     S.remote=loadLocal(uid);
     S.prefsOwner=uid;
     if (uid) {
       const { data, error } = await sb.from('reader_prefs').select('global,per_volume').eq('user_id', uid).maybeSingle();
-      if (!error && data && getUser()?.id === uid && S.prefsOwner === uid) {
+      if (!error && data && getUser()?.id === uid && S.prefsOwner === uid && S.prefsRequest === request && (S.prefsVersion || 0) === version) {
         S.remote={ global:data.global || {}, per_volume:data.per_volume || {} };
         try { localStorage.setItem(readerPrefsKey(uid), JSON.stringify(S.remote)); } catch {}
       }
@@ -28,6 +29,7 @@ export function createReader(ctx){
   const effective = volId => ({ ...DEF, ...(S.series?.teams?.reader_defaults || {}), ...S.remote.global, ...(S.remote.per_volume[volId] || {}) });
   let prefT = 0;
   function savePrefs(){
+    S.prefsVersion=(S.prefsVersion || 0)+1;
     const uid=getUser()?.id || null;
     const snapshot=JSON.parse(JSON.stringify(S.remote));
     try { localStorage.setItem(readerPrefsKey(uid), JSON.stringify(snapshot)); } catch {}
@@ -246,12 +248,14 @@ export function createReader(ctx){
     if (ch) { if (S.bodies.has(ch.id) || await cacheGet(ch)) return; const d = await bodyBySlug(slug, num); if (d?.body && d.id === ch.id) cachePut(ch, d.body); return; }
     bodyBySlug(slug, num); fetchMeta(slug).catch(() => {}); }
   async function open(slug, num){
+    const openingUser = getUser()?.id || null;
     app.innerHTML = '<p class="mono">Abriendo capítulo…</p>';
     if (navigator.onLine && S.series?.slug !== slug && !cachedMeta(slug)) bodyBySlug(slug, num); // primera vez: texto en paralelo con la ficha
     const prefsUid = getUser()?.id || null;
     if (S.prefsOwner !== prefsUid) { clearTimeout(prefT); S.remote=null; }
     const prefsP = S.remote ? null : loadPrefs();
-    if (!(await loadSeries(slug, num))) { app.innerHTML = '<h1>Serie no encontrada</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
+    if (!(await loadSeries(slug, num))) { if ((getUser()?.id || null) !== openingUser) return; app.innerHTML = '<h1>Serie no encontrada</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
+    if ((getUser()?.id || null) !== openingUser) return;
     const ch = S.chapters.find(c => c.num === num);
     if (!ch) { const { data: L } = await sb.rpc('lock_info', { p_slug: slug, p_num: num }).then(x => x, () => ({ data: null })); if (L) { const P = await import('/patreon.js?v=1'); app.innerHTML = P.lockHTML(L, esc, slug); app.querySelector('#lk-link')?.addEventListener('click', () => P.start(sb, url, 'link', null, toast)); return; } app.innerHTML = '<h1>Capítulo no disponible</h1><p>Puede que aún no se publique. <a href="/serie/' + esc(slug) + '">Volver a la obra</a></p>'; return; }
     const annP = fetchAnnots([ch.id]);
@@ -260,9 +264,10 @@ export function createReader(ctx){
     const localPos = () => { try { return JSON.parse(localStorage.getItem(posKey(S.series.id))); } catch { return null; } };
     let late = false; prefsP?.then(() => { if (late && $('.rd')) applyPrefs(); });
     const [b, , pos] = await Promise.all([body(ch), quick(prefsP, () => (late = true, null)), quick(fetchPos(), localPos)]);
+    if ((getUser()?.id || null) !== openingUser) return;
     if (!b) { app.innerHTML = '<h1>Sin conexión</h1><p>Este capítulo no está descargado. <a href="/descargas">Ver mis descargas</a></p>'; return; }
     const p = effective(ch.volume_id);
-    S.mounted = [ch]; S.active = ch; S.annots = []; S.lastY = null; trackView(ch);
+    S.mounted = [ch]; S.active = ch; S.activeOwner = openingUser; S.annots = []; S.lastY = null; trackView(ch);
     const more = `<button class="btn ghost" data-act="coms">Comentarios</button><button class="btn ghost" data-act="notes">Anotaciones</button><button class="btn ghost" data-act="offline">${isVolOffline(ch) ? '✓ Descargado' : 'Descargar volumen'}</button>`;
     app.innerHTML = `<div class="rd" data-theme="${p.theme}" data-width="${p.width}" data-lh="${p.lh}" data-align="${p.align}" data-para="${p.para}" data-font="${p.font}" style="--rs:${p.size}px">
       <nav class="rd-bar">
@@ -406,7 +411,8 @@ export function createReader(ctx){
     if (left) left.textContent = pct > .98 ? 'Fin del capítulo' : min <= 1 ? 'Menos de 1 min' : `≈ ${min} min restantes`;
   }
   async function saveProgress(){
-    const ch = S.active; if (!ch || !S.series || !$(`[data-ch="${ch.id}"]`)) return; // ya no está en pantalla: no pisar el progreso con «párrafo 0»
+    const ch = S.active;
+    if (!ch || !S.series || S.activeOwner !== (getUser()?.id || null) || !$(`[data-ch="${ch.id}"]`)) return; // ya no está en pantalla: no pisar el progreso con «párrafo 0»
     clearTimeout(S.saveT);
     const { block: blk, pct } = currentBlock(), p = effective(ch.volume_id), at = new Date().toISOString(), user = getUser();
     const rec = { chapter_id: ch.id, num: ch.num, block: blk, pct, at, mode: p.continuous === 'off' ? 'chapter' : 'continuous', pending: !!user };
@@ -431,9 +437,9 @@ export function createReader(ctx){
   async function syncPending(){
     const user = getUser(); if (!user || !navigator.onLine) return 0; let n = 0; const keys = [];
     try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith('obi-pos-' + user.id + '__')) keys.push(k); } } catch {}
-    for (const k of keys) { let r; try { r = JSON.parse(localStorage.getItem(k)); } catch { continue; } if (r?.pending && r.chapter_id && await pushPos(user, k.slice(('obi-pos-' + user.id + '__').length), r)) n++; }
+    for (const k of keys) { if (getUser()?.id !== user.id) return n; let r; try { r = JSON.parse(localStorage.getItem(k)); } catch { continue; } if (r?.pending && r.chapter_id && await pushPos(user, k.slice(('obi-pos-' + user.id + '__').length), r)) n++; }
     let q = []; try { q = JSON.parse(localStorage.getItem(RQ(user)) || '[]'); } catch {}
-    if (q.length) { const { error } = await sb.from('read_chapters').upsert(q.map(id => ({ user_id: user.id, chapter_id: id }))); if (!error) { localStorage.removeItem(RQ(user)); n += q.length; } }
+    if (q.length && getUser()?.id === user.id) { const { error } = await sb.from('read_chapters').upsert(q.map(id => ({ user_id: user.id, chapter_id: id }))); if (!error) { localStorage.removeItem(RQ(user)); n += q.length; } }
     return n;
   }
   // gana la posición más reciente entre la del servidor y la de este dispositivo
