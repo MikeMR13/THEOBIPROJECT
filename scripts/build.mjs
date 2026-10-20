@@ -3,13 +3,20 @@ import { cpSync, mkdirSync, rmSync, writeFileSync, readFileSync, readdirSync, st
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 const url = process.env.OBI_SUPABASE_URL || 'https://qfllthjpjuaztppvpsrk.supabase.co', key = process.env.OBI_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_IiHzG1Jn2je075uuYVHTAg_dBVAAUf5';
+const isPreview = process.env.VERCEL_ENV === 'preview';
+if (isPreview) {
+  if (!process.env.OBI_SUPABASE_URL || !process.env.OBI_SUPABASE_PUBLISHABLE_KEY)
+    throw new Error('Preview bloqueado: falta una configuración de backend explícitamente aislada');
+  if (new URL(url).hostname === 'qfllthjpjuaztppvpsrk.supabase.co')
+    throw new Error('Preview bloqueado: no puede utilizar el proyecto Supabase de producción');
+}
 const turnstile = process.env.OBI_TURNSTILE_SITE_KEY || ''; // clave PÚBLICA de Cloudflare Turnstile (la secreta va solo en Supabase)
 if (/service_role/.test(key)) throw new Error('No uses service_role en el frontend');
 const jsIn = d => readdirSync(d).filter(f => f.endsWith('.js')).map(f => d + '/' + f);
 
 // --check: sintaxis de todos los archivos (CI).
 if (process.argv.includes('--check')) {
-  const files = [...jsIn('src'), 'public/sw.js', 'scripts/build.mjs', 'scripts/optimization-check.mjs', 'scripts/db-phase2-check.mjs', 'scripts/phase3-check.mjs', 'scripts/phase4-check.mjs', 'scripts/studio-functional-smoke.mjs', 'scripts/studio-browser-e2e.mjs', 'scripts/fixtures/studio-browser-fixture.mjs', 'scripts/fixtures/studio-browser-parent.js'];
+  const files = [...jsIn('src'), 'public/sw.js', 'scripts/build.mjs', 'scripts/optimization-check.mjs', 'scripts/db-phase2-check.mjs', 'scripts/phase3-check.mjs', 'scripts/phase4-check.mjs', 'scripts/studio-functional-smoke.mjs', 'scripts/studio-browser-e2e.mjs', 'scripts/fixtures/studio-browser-fixture.mjs', 'scripts/fixtures/studio-browser-parent.js', 'scripts/preview-isolation-check.mjs'];
   for (const f of files) execFileSync(process.execPath, ['--check', f], { stdio: 'inherit' });
   console.log('sintaxis ok · ' + files.length + ' archivos'); process.exit(0);
 }
@@ -17,6 +24,12 @@ if (process.argv.includes('--check')) {
 let esbuild = null; try { esbuild = await import('esbuild'); } catch { console.warn('⚠ esbuild no está instalado: se publica sin minificar'); }
 rmSync('dist', { recursive: true, force: true }); mkdirSync('dist');
 cpSync('src', 'dist', { recursive: true }); cpSync('public', 'dist', { recursive: true });
+// Los builds Preview no deben preconectar a la BD productiva por una etiqueta HTML.
+if (isPreview) {
+  const indexPath = 'dist/index.html';
+  const html = readFileSync(indexPath, 'utf8').replace(/<link\s+rel="preconnect"\s+href="https:\/\/qfllthjpjuaztppvpsrk\.supabase\.co"[^>]*>\s*/g, '');
+  writeFileSync(indexPath, html);
+}
 writeFileSync('dist/config.js', 'window.OBI_CONFIG=' + JSON.stringify({ url, key, turnstile, build: new Date().toISOString() }) + ';');
 
 // 0. supabase-js empaquetado en un solo archivo propio (evita ~20 descargas encadenadas desde esm.sh). Si falla, se queda el puente a esm.sh.

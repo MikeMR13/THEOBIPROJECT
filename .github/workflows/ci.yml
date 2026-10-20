@@ -10,3 +10,5 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run check && npm run build && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check
       - run: npm run studio-browser-check
+      - name: Validar compilación Preview aislada
+        run: VERCEL_ENV=preview OBI_SUPABASE_URL=https://obi-qa-backend.invalid OBI_SUPABASE_PUBLISHABLE_KEY=sb_publishable_qa_mock_not_connected npm run build && npm run preview-isolation-check

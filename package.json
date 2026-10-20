@@ -10,7 +10,8 @@
     "phase3-check": "node scripts/phase3-check.mjs",
     "phase4-check": "node scripts/phase4-check.mjs",
     "studio-functional-check": "node scripts/studio-functional-smoke.mjs",
-    "studio-browser-check": "node scripts/studio-browser-e2e.mjs"
+    "studio-browser-check": "node scripts/studio-browser-e2e.mjs",
+    "preview-isolation-check": "node scripts/preview-isolation-check.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
