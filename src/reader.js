@@ -506,7 +506,7 @@ export function createReader(ctx){
   }
   function offlineList(){
     const items = Object.entries(offIndex()).sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
-    if (!items.length) return '<p class="mono">No tienes volúmenes descargados. Ábrelos desde el lector con «Descargar volumen» (en el celular, dentro del menú ⋯).</p>';
+    if (!items.length) return '<p class="mono">No tienes volúmenes descargados. Ábrelos desde el lector con «Descargar volumen» (en el celular, dentro del menú ⋯).</p>' + ((navigator.standalone === true || matchMedia('(display-mode: standalone)').matches) && /iphone|ipad|ipod|macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 0 ? '<p class="mono" style="margin-top:8px">En iPhone y iPad la app instalada guarda sus descargas aparte de Safari: lo que bajaste en el navegador no aparece aquí. Descárgalo de nuevo desde la app.</p>' : '');
     return `<div class="off-list">${items.map(([k, it]) => { let pos = null; try { pos = JSON.parse(localStorage.getItem(posKey(k.split(':')[0]))); } catch {}
       const here = pos && it.nums.includes(pos.num) ? pos.num : null, n = it.nums.length;
       return `<div class="off-it"><span><b>${esc(it.title)}</b><small>Volumen ${it.vol} · ${n} ${n === 1 ? 'capítulo' : 'capítulos'} · descargado ${new Date(it.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</small></span><a class="btn" href="/leer/${esc(it.slug)}/${here || it.nums[0]}">${here ? 'Continuar · cap. ' + here : 'Empezar a leer'}</a><button class="btn ghost" data-off="${esc(k)}">Borrar</button></div>`; }).join('')}</div><p class="mono" id="off-space"></p>`;
