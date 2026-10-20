@@ -67,7 +67,14 @@ Las pruebas estáticas no reemplazan las de integración. En staging (sin utiliz
 5. Comparar tiempos y número de llamadas a `series_last` al abrir Catálogo repetidamente, tanto con visitante anónimo como autenticado.
 6. Probar tema visual, inicio y catálogo, portada de volumen, EPUB/fuentes, modos de lector y acceso Patreon.
 
-## 6. Integración y despliegue
+## 6. Resultado de GitHub Actions
+
+- [CI #39427889605](https://github.com/MikeMR13/THEOBIPROJECT/actions/runs/39427889605): **SUCCESS**, commit inicial de la fase 2 `9e6f31d53eb500ccb9b12c668c47e413b270e5a9`.
+- Ejecuta sintaxis JS (`npm run check`), compilación (`npm run build`), contratos de Fase 1 (`npm run optimize-check`) y contratos SQL/catálogo de Fase 2 (`npm run db-phase2-check`).
+- Confirmado que `PR #3` está abierto en borrador y dirigido a la rama de Fase 1. **No** se ha fusionado.
+- Estas verificaciones **no** prueban un trigger aplicado en PostgreSQL ni disponibilidad de una base aislada; las pruebas SQL funcionales quedan pendientes.
+
+## 7. Integración y despliegue
 
 - Mantener este PR en borrador y **separado del PR #1 y del PR #2**; apuntarlo a la rama Fase 1 para revisar solo los cambios propios de esta fase.
 - CI debe aprobar el commit final. No se ha medido un nuevo Lighthouse; no atribuir una mejora medida de LCP hasta ejecutarlo.
