@@ -15,15 +15,17 @@ const whitelist = new Map([
  ['/studio-importer.js','src/studio-importer.js'],
  ['/studio-media.js','src/studio-media.js'],
  ['/blocks.js','src/blocks.js'],
- ['/__qa__/fixture.mjs','scripts/fixtures/studio-browser-fixture.mjs']
+ ['/__qa__/fixture.mjs','scripts/fixtures/studio-browser-fixture.mjs'],
+ ['/__qa__/parent.js','scripts/fixtures/studio-browser-parent.js']
 ]);
 const html = '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Studio QA — datos ficticios</title></head><body><p id="qa-result" data-qa-status="running">QA_BROWSER_RUNNING</p><main id="app"></main><script type="module" src="/__qa__/fixture.mjs"></script></body></html>';
+const compact = '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Studio QA — 390px</title></head><body><p id="qa-result" data-qa-status="running">QA_BROWSER_RUNNING</p><iframe title="Estudio con viewport móvil" id="qa-frame" width="390" height="844" style="border:0" src="/"></iframe><script src="/__qa__/parent.js"></script></body></html>';
 const server = createServer((req,res)=>{
   const u = new URL(req.url || '/', 'http://127.0.0.1');
   res.setHeader('Cache-Control','no-store');
-  res.setHeader('Content-Security-Policy',"default-src 'self'; connect-src 'none'; img-src 'self' data:; font-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; form-action 'none'; frame-src 'none'");
+  res.setHeader('Content-Security-Policy',"default-src 'self'; connect-src 'none'; img-src 'self' data:; font-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; form-action 'none'; frame-src 'self'");
   if (u.pathname === '/') {
-    res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'}); res.end(html);return;
+    res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'}); res.end(u.searchParams.get('compact')==='1'?compact:html);return;
   }
   const file=whitelist.get(u.pathname);
   if (!file) {res.writeHead(404);res.end('Not found');return;}
@@ -45,8 +47,8 @@ async function runBrowser(binary,port,viewport){
     '--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage',
     '--disable-background-networking','--disable-component-update',
     '--no-first-run','--no-default-browser-check','--disable-extensions',
-    '--no-proxy-server','--incognito','--window-size='+viewport,
-    '--virtual-time-budget=12000','--dump-dom','http://127.0.0.1:'+port+'/'
+    '--no-proxy-server','--incognito','--window-size='+(viewport==='mobile390'?'900,960':viewport),
+    '--virtual-time-budget=12000','--dump-dom','http://127.0.0.1:'+port+'/'+(viewport==='mobile390'?'?compact=1':'')
   ];
   const proc=spawn(binary,args,{stdio:['ignore','pipe','pipe']});
   let stdout='',stderr='';
@@ -67,7 +69,7 @@ try{
   const bin=chromeBinary();
   await new Promise((done,fail)=>{server.once('error',fail);server.listen(0,'127.0.0.1',done);});
   const port=server.address().port;
-  for(const v of ['1280,900','390,844']) await runBrowser(bin,port,v);
+  for(const v of ['1280,900','mobile390']) await runBrowser(bin,port,v);
   console.log('Navegador real: flujos Studio, permisos, carga diferida y CSS OK; sin red externa');
 }finally{
   await new Promise(done=>server.close(done));
