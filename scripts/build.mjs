@@ -15,7 +15,7 @@ const jsIn = d => readdirSync(d).filter(f => f.endsWith('.js')).map(f => d + '/'
 
 // --check: sintaxis de todos los archivos (CI).
 if (process.argv.includes('--check')) {
-  const files = [...jsIn('src'), 'public/sw.js', 'scripts/build.mjs'];
+  const files = [...jsIn('src'), 'public/sw.js', 'scripts/build.mjs', 'scripts/stability-check.mjs', 'workers/notify/src/index.js', 'workers/patreon/src/index.js'];
   for (const f of files) execFileSync(process.execPath, ['--check', f], { stdio: 'inherit' });
   console.log('sintaxis ok · ' + files.length + ' archivos'); process.exit(0);
 }
