@@ -374,7 +374,7 @@ export function createReader(ctx){
   }
 
   // ---------- progreso exacto, leídos e historial ----------
-  const posKey = id => 'obi-pos-' + id;
+  const posKey = (id, uid = getUser()?.id) => 'obi-pos-' + (uid ? uid + '__' : '') + id;
   function currentBlock(){
     const art = $(`[data-ch="${S.active.id}"]`); if (!art) return { block: 0, pct: 0 };
     // búsqueda binaria: ~10 mediciones en lugar de una por párrafo
@@ -420,20 +420,20 @@ export function createReader(ctx){
     if (!navigator.onLine) return Promise.resolve(false);
     return sb.from('reading_progress').upsert({ user_id: user.id, series_id: sid, chapter_num: rec.num, chapter_id: rec.chapter_id, block: rec.block, pct: rec.pct, mode: rec.mode || 'chapter', updated_at: rec.at }, { onConflict: 'user_id,series_id' })
       .then(({ error }) => { if (error) { console.warn('progreso', error.message); return false; }
-        try { const cur = JSON.parse(localStorage.getItem(posKey(sid))); if (cur?.at === rec.at) { cur.pending = false; localStorage.setItem(posKey(sid), JSON.stringify(cur)); } } catch {} return true; }, () => false);
+        try { const key = posKey(sid, user.id), cur = JSON.parse(localStorage.getItem(key)); if (cur?.at === rec.at) { cur.pending = false; localStorage.setItem(key, JSON.stringify(cur)); } } catch {} return true; }, () => false);
   }
-  const RQ = 'obi-read-q';
+  const RQ = user => 'obi-read-q:' + user.id;
   function pushRead(user, chId){
-    const queue = () => { try { const a = JSON.parse(localStorage.getItem(RQ) || '[]'); if (!a.includes(chId)) a.push(chId); localStorage.setItem(RQ, JSON.stringify(a.slice(-500))); } catch {} };
+    const queue = () => { try { const a = JSON.parse(localStorage.getItem(RQ(user)) || '[]'); if (!a.includes(chId)) a.push(chId); localStorage.setItem(RQ(user), JSON.stringify(a.slice(-500))); } catch {} };
     if (!navigator.onLine) return queue();
     sb.from('read_chapters').upsert({ user_id: user.id, chapter_id: chId }).then(({ error }) => { if (error) queue(); }, queue);
   }
   async function syncPending(){
     const user = getUser(); if (!user || !navigator.onLine) return 0; let n = 0; const keys = [];
-    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith('obi-pos-')) keys.push(k); } } catch {}
-    for (const k of keys) { let r; try { r = JSON.parse(localStorage.getItem(k)); } catch { continue; } if (r?.pending && r.chapter_id && await pushPos(user, k.slice(8), r)) n++; }
-    let q = []; try { q = JSON.parse(localStorage.getItem(RQ) || '[]'); } catch {}
-    if (q.length) { const { error } = await sb.from('read_chapters').upsert(q.map(id => ({ user_id: user.id, chapter_id: id }))); if (!error) { localStorage.removeItem(RQ); n += q.length; } }
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith('obi-pos-' + user.id + '__')) keys.push(k); } } catch {}
+    for (const k of keys) { let r; try { r = JSON.parse(localStorage.getItem(k)); } catch { continue; } if (r?.pending && r.chapter_id && await pushPos(user, k.slice(('obi-pos-' + user.id + '__').length), r)) n++; }
+    let q = []; try { q = JSON.parse(localStorage.getItem(RQ(user)) || '[]'); } catch {}
+    if (q.length) { const { error } = await sb.from('read_chapters').upsert(q.map(id => ({ user_id: user.id, chapter_id: id }))); if (!error) { localStorage.removeItem(RQ(user)); n += q.length; } }
     return n;
   }
   // gana la posición más reciente entre la del servidor y la de este dispositivo
