@@ -14,7 +14,8 @@
     "preview-isolation-check": "node scripts/preview-isolation-check.mjs",
     "verify": "node scripts/stability-check.mjs",
     "integration-check": "node scripts/integration-check.mjs",
-    "infra-audit-check": "node scripts/infra-audit-check.mjs"
+    "infra-audit-check": "node scripts/infra-audit-check.mjs",
+    "migration-drift-check": "node scripts/migration-drift-check.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
