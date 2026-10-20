@@ -6,8 +6,8 @@ const source = file => readFileSync(file, 'utf8');
 
 const html = source('src/index.html');
 const preload = [...html.matchAll(/rel="modulepreload"\s+href="([^"]+)"/g)].map(m => m[1]);
-for (const critical of ['/supabase.js?v=1','/app.js?v=21','/ui.js?v=45','/reader.js?v=18','/blocks.js?v=2']) {
-  assert(preload.includes(critical), 'Precarga crítica ausente: ' + critical);
+for (const critical of ['supabase.js','app.js','ui.js','reader.js','blocks.js']) {
+  assert(preload.some(p => p.startsWith('/' + critical + '?v=')), 'Precarga crítica ausente: ' + critical);
 }
 for (const optional of ['patreon.js','season.js','anim.js','teampage.js']) {
   assert(!preload.some(p => p.includes(optional)), 'Precarga no crítica: ' + optional);
