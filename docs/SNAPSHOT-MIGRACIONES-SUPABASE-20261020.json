@@ -1,0 +1,161 @@
+{
+  "observed_at": "2026-10-20",
+  "remote": [
+    {
+      "version": "20261014032358",
+      "name": "obi_core_schema"
+    },
+    {
+      "version": "20261014032414",
+      "name": "move_helpers_private"
+    },
+    {
+      "version": "20261014032552",
+      "name": "patreon_helpers_and_seed"
+    },
+    {
+      "version": "20261014033825",
+      "name": "studio_tools"
+    },
+    {
+      "version": "20261014034734",
+      "name": "editorial_states"
+    },
+    {
+      "version": "20261014041104",
+      "name": "volumes_publication_center"
+    },
+    {
+      "version": "20261014043329",
+      "name": "estudio_editorial_v11"
+    },
+    {
+      "version": "20261014045429",
+      "name": "volume_details"
+    },
+    {
+      "version": "20261014151549",
+      "name": "avatars_bucket"
+    },
+    {
+      "version": "20261014153650",
+      "name": "stage1_reader_studio_base"
+    },
+    {
+      "version": "20261014153925",
+      "name": "harden_stage1"
+    },
+    {
+      "version": "20261014155700",
+      "name": "stage3_studio_permissions"
+    },
+    {
+      "version": "20261014201621",
+      "name": "app_assets_bucket"
+    },
+    {
+      "version": "20261015014602",
+      "name": "platform_roles_bibliotecario"
+    },
+    {
+      "version": "20261015182906",
+      "name": "translator_requests_flow"
+    },
+    {
+      "version": "20261015204817",
+      "name": "editor_escritura"
+    },
+    {
+      "version": "20261015211437",
+      "name": "equipo_roles_tablero_bitacora"
+    },
+    {
+      "version": "20261015212230",
+      "name": "fix_can_edit_team_scope"
+    },
+    {
+      "version": "20261015212414",
+      "name": "lectores_comunidad_estadisticas_descargas"
+    },
+    {
+      "version": "20261015213318",
+      "name": "extras_compra_zona_horaria"
+    },
+    {
+      "version": "20261016021051",
+      "name": "fix_publish_volume_overload"
+    },
+    {
+      "version": "20261016021307",
+      "name": "fix_chapters_read_team_on_insert"
+    },
+    {
+      "version": "20261016043831",
+      "name": "team_views_daily"
+    },
+    {
+      "version": "20261016152606",
+      "name": "team_page_design"
+    },
+    {
+      "version": "20261016153336",
+      "name": "team_custom_themes"
+    },
+    {
+      "version": "20261016154520",
+      "name": "team_follows"
+    },
+    {
+      "version": "20261016181852",
+      "name": "season_calendar"
+    },
+    {
+      "version": "20261016184041",
+      "name": "team_announce_set"
+    },
+    {
+      "version": "20261016231249",
+      "name": "platform_seasons"
+    },
+    {
+      "version": "20261016233100",
+      "name": "season_calendar_day"
+    },
+    {
+      "version": "20261016235338",
+      "name": "schedule_sync"
+    },
+    {
+      "version": "20261017225707",
+      "name": "privacidad_lector"
+    }
+  ],
+  "local": [
+    "20261015_glossary_terms.sql",
+    "20261016_editor_escritura.sql",
+    "20261017_equipo_roles_tablero_bitacora.sql",
+    "20261018_lectores_comunidad_estadisticas_descargas.sql",
+    "20261019_extras_compra_zona_horaria.sql",
+    "20261020_fix_chapters_read_team.sql",
+    "20261020_fix_publish_volume.sql",
+    "20261021_team_custom_themes.sql",
+    "20261021_team_follows.sql",
+    "20261021_team_page_design.sql",
+    "20261022_season_calendar.sql",
+    "20261023_platform_seasons.sql",
+    "20261023_team_announce_set.sql",
+    "20261024_ranking.sql",
+    "20261024_schedule_sync.sql",
+    "20261025_lectores_avisos_estadisticas.sql",
+    "20261026_inicio.sql",
+    "20261027_resenas.sql",
+    "20261028_moderacion_avisos_estudio.sql",
+    "20261029_rendimiento_inicio.sql",
+    "20261030_perfil_lector.sql",
+    "20261031_privacidad.sql",
+    "20261101_avisos_cuenta.sql",
+    "20261102_contenido_accesibilidad_bloqueos.sql",
+    "20261103_bloqueo_perfil_zona_horaria.sql",
+    "20261104_google_auth.sql"
+  ]
+}
