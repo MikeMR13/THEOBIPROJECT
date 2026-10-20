@@ -225,7 +225,7 @@ export function createStudio(ctx){
     if (!(await ensure())) return;
     const TAB = '/estudio/obras';
     if (!can('create')) { app.innerHTML = shell('Nueva obra', can('import') ? '<p>Tu rol solo permite importar. <a href="/estudio/importar">Importar un archivo →</a></p>' : '<p>Tu rol no permite crear obras.</p>', TAB); bindPicker(newWork); return; }
-    const N = { title: '', original: '', author: '', illustrator: '', work_type: WTYPES[0]?.[0] ?? WTYPES[0], synopsis: '', vtitle: '' }; let made = null;
+    const N = { title: '', original: '', author: '', illustrator: '', work_type: Array.isArray(WTYPES[0]) ? WTYPES[0][0] : WTYPES[0], synopsis: '', vtitle: '' }; let made = null;
     const steps = n => `<ol class="st-steps" style="margin:0 0 22px">${['Obra', 'Primer volumen', 'Primer capítulo'].map((l, i) => `<li style="${i === n ? 'color:var(--gold);font-weight:700' : ''}">${l}</li>`).join('')}</ol>`;
     const box = (h, inner) => `<section class="wk-box" style="max-width:760px;display:grid;gap:12px"><h2>${h}</h2>${inner}</section>`;
     const step1 = () => { app.innerHTML = shell('Nueva obra', `${steps(0)}
