@@ -28,6 +28,9 @@
 | Modo accesible | Movimiento reducido solo si se solicita; animaciones normales intactas | Chromium en ambas variantes |
 | Novedades | Ninguna fecha «96/1996» mostrada en Inicio | suite de fase 4 |
 
+### Límite detectado en los valores predeterminados de equipo
+El lector consulta `teams.reader_defaults` y aplica los valores del equipo antes de los ajustes globales y por volumen. Sin embargo, en los archivos actuales de Studio, Preferencias y perfil de equipo revisados **no se encontró una interfaz para editar esos valores predeterminados**. Se verifica la lectura y la prioridad de la configuración existente, **no** la gestión de ese campo desde una pantalla del equipo. Esta ausencia queda pendiente de confirmación funcional separada y no se añade un editor nuevo dentro de la integración temporal.
+
 ### Ajuste detectado al verificar preferencias
 El renderizador previo de `src/teampage.js` seguía incluyendo un adorno y partículas en el modo «Solo colores». Se corrigió **solo en esta rama temporal**, de forma que la opción funciona según la intención confirmada: paleta de la temporada sin decoración adicional. El modo completo mantiene su funcionamiento y no se modifican los registros guardados.
 
