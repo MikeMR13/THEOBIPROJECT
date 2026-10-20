@@ -1156,7 +1156,7 @@ export function createStudio(ctx){
   const sha256 = async buf => [...new Uint8Array(await crypto.subtle.digest('SHA-256', buf))].map(x => x.toString(16).padStart(2, '0')).join('');
   // EPUB/DOCX → bloques: conserva el orden exacto de texto e ilustraciones, separadores, alineación, cursivas/negritas por CSS y fuentes incrustadas (data-epub-family).
   const BLOCK_TAGS = /^(p|div|h[1-6]|blockquote|ul|ol|li|section|article|aside|header|footer|figure|figcaption|table|thead|tbody|tfoot|tr|td|th|hr|pre|dl|dt|dd|main|nav|center|body)$/;
-  const SEP_TEXT = /^[\s*＊※◇◆○●◎☆★♦♢◈❖✦✧✶✱·•・~〜～=＝#＃§\u3000]+$/u;
+  const SEP_TEXT = /^[\s*＊※◇◆◊⋄○●◎☆★♦♢◈❖✦✧✶✱·•・~〜～=＝#＃§\-–—_\u3000]+$/u;
   const SEP_CLASS = /(^|[\s_-])(sep|separator|scene[\w-]*|ornament|asterism|divider|dinkus|space-?break|section-?break|break)(\s|$|[_-])/i;
   const TITLE_CLASS = /(^|\s)([\w-]*title[\w-]*|[\w-]*heading[\w-]*|titulo[\w-]*|h[1-6])(\s|$)/i;
   const htmlToBlocks = (root, imgMap, css) => {
@@ -1174,14 +1174,14 @@ export function createStudio(ctx){
         if (w.length && c.firstChild && !/^(img|image|br|hr)$/.test(tg)) wrapKids(c, w);
         next = { f: f ?? base.f, b: base.b || bo, i: base.i || it }; }
       deco(c, next); } };
-    const sep = () => { if (out[out.length - 1]?.type !== 'separator') out.push({ type: 'separator' }); };
+    const sep = mark => { if (out[out.length - 1]?.type !== 'separator') out.push(mark && mark !== '※' ? { type: 'separator', text: mark } : { type: 'separator' }); };
     const addImg = img => { if (!img) return; const src = img.getAttribute('src') || img.getAttribute('xlink:href') || img.getAttributeNS?.('http://www.w3.org/1999/xlink', 'href') || img.getAttribute('href'); const key = imgMap?.resolve(src); if (!key) return;
       if (SEP_CLASS.test(img.getAttribute('class') || '') || SEP_CLASS.test(img.parentNode?.getAttribute?.('class') || '')) return sep();
       out.push({ type: 'image', url: key, alt: img.getAttribute('alt') || '', caption: '' }); };
     const emit = (type, el, nodes, chain = []) => {
       let html, text; if (nodes) { const box = el.ownerDocument.createElement('div'); let at = box; for (const w of chain) at = at.appendChild(w.cloneNode(false)); nodes.forEach(n => at.appendChild(n.cloneNode(true))); html = box.innerHTML; text = box.textContent; } else { html = el.innerHTML; text = el.textContent; }
       text = text.replace(/\s+/g, ' ').trim(); if (!text) return;
-      if (type !== 'heading' && text.length <= 24 && SEP_TEXT.test(text)) return sep();
+      if (text.length <= 24 && SEP_TEXT.test(text)) return sep(text);
       if (type === 'paragraph' && text.length <= 120 && TITLE_CLASS.test(el.getAttribute?.('class') || '')) type = 'heading';
       html = html.replace(/\s+xmlns(:\w+)?="[^"]*"/g, '').replace(/\s*class="[^"]*"/g, '').trim(); const f = css?.fam(el); if (f != null) html = `<span data-epub-family="${f}">${html}</span>`;
       const o = { type, html, text }, al = css?.align(el); if (al) o.align = al; out.push(o); };

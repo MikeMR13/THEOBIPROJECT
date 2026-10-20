@@ -38,7 +38,7 @@ export function renderBlock(b, i, o = {}){
   if (t === 'paragraph' || t === 'p') return `<p data-b="${i}"${AL(b)}>${rich(b)}</p>`;
   if (t === 'heading' || t === 'h') return `<h3 data-b="${i}"${AL(b)}>${rich(b)}</h3>`;
   if (t === 'quote') return `<blockquote data-b="${i}"${AL(b)}>${rich(b)}</blockquote>`;
-  if (t === 'separator' || t === 'sep') return `<div class="sep" data-b="${i}" aria-hidden="true">※</div>`;
+  if (t === 'separator' || t === 'sep') return `<div class="sep" data-b="${i}" aria-hidden="true">${escHtml(b.text || '※')}</div>`;
   if (t === 'note') return `<aside class="tn" data-b="${i}"><span class="mono">Nota del traductor</span>${rich(b)}</aside>`;
   if (t === 'ruby') return `<p data-b="${i}"><ruby>${escHtml(b.text || '')}<rt>${escHtml(b.reading || '')}</rt></ruby></p>`;
   if (t === 'image' || t === 'img') { if (o.illus === false) return `<p class="mono" data-b="${i}">[Ilustración oculta]</p>`; const src = b.url || b.src; return src ? `<figure data-b="${i}"><img src="${escHtml(media(src))}" alt="${escHtml(b.alt || b.text || '')}" loading="lazy" decoding="async"${b.w && b.h ? ` width="${+b.w}" height="${+b.h}"` : ''}>${b.caption ? `<figcaption>${escHtml(b.caption)}</figcaption>` : ''}</figure>` : ''; }
@@ -63,7 +63,7 @@ export function blocksToEditor(blocks, media = x => x){
     if (t === 'heading' || t === 'h') return `<h3${AL(b)}>${inner}</h3>`;
     if (t === 'quote') return `<blockquote${AL(b)}>${inner}</blockquote>`;
     if (t === 'note') return `<aside class="tn">${inner}</aside>`;
-    if (t === 'separator' || t === 'sep') return '<div class="sep" contenteditable="false">※</div>';
+    if (t === 'separator' || t === 'sep') return `<div class="sep" contenteditable="false">${escHtml(b.text || '※')}</div>`;
     if (t === 'ruby') return `<p><ruby>${escHtml(b.text || '')}<rt>${escHtml(b.reading || '')}</rt></ruby></p>`;
     if (t === 'image' || t === 'img') return figureHTML(b.url || b.src, b.alt, b.caption, media);
     return `<p${AL(b)}>${inner}</p>`;
@@ -82,13 +82,16 @@ export function editorToBlocks(root){
     flush(); if (el.nodeType !== 1) continue;
     const tg = el.tagName;
     if (tg === 'FIGURE') { if (el.dataset.url) out.push({ type: 'image', url: el.dataset.url, alt: el.dataset.alt || '', caption: el.dataset.caption || '' }); continue; }
-    if (el.classList.contains('sep') || tg === 'HR') { out.push({ type: 'separator' }); continue; }
+    if (el.classList.contains('sep') || tg === 'HR') { const m = el.textContent.trim(); out.push(m && m !== '※' ? { type: 'separator', text: m } : { type: 'separator' }); continue; }
+    // una línea que solo tiene ◇ / *** / ※ (escrita o pegada) también es separador, conservando el símbolo
+    { const m = el.textContent.replace(/\s+/g, ' ').trim(); if (m && m.length <= 24 && SEP_MARK.test(m) && !el.querySelector('img,figure')) { out.push({ type: 'separator', text: m }); continue; } }
     if (/^(UL|OL|SECTION)$/.test(tg)) { out.push(...editorToBlocks(el)); continue; }
     add(/^H[1-6]$/.test(tg) ? 'heading' : tg === 'BLOCKQUOTE' ? 'quote' : tg === 'ASIDE' ? 'note' : 'paragraph', el);
   }
   flush();
   return out;
 }
+export const SEP_MARK = /^[\s*＊※◇◆◊⋄○●◎☆★♦♢◈❖✦✧✶✱·•・~〜～=＝#＃§\-–—_\u3000]+$/u;
 // ¿este nodo del editor produce un bloque? (para ubicar el párrafo N de un comentario)
 export const makesBlock = el => el.nodeType === 1 && (el.tagName === 'FIGURE' ? !!el.dataset.url : el.classList.contains('sep') || el.tagName === 'HR' || !!el.textContent.trim());
 
