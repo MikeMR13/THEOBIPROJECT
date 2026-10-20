@@ -1,0 +1,60 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { READER_TEAM_OPTIONS, cleanReaderTeamDefaults, readerTeamDefaultIsValid } from '../src/reader-team-defaults.js';
+import { readerPrefsKey, readReaderPrefs } from '../src/reader-pref-cache.js';
+
+const samples={theme:'sepia',font:'original',size:22,width:'estrecho',lh:'comodo',align:'justificada',
+  para:'sangria',continuous:'volume',illus:true,cw:'icon',autonext:false,awake:true,autosecs:12,
+  admin:true,volume_id:'other',__proto_field:'no'};
+assert.deepEqual(cleanReaderTeamDefaults(samples),Object.fromEntries(Object.entries(samples).filter(([k])=>!['admin','volume_id','__proto_field'].includes(k))));
+assert.deepEqual(cleanReaderTeamDefaults({font:'invalid',size:200,continuous:'other',illus:'true',autosecs:-1}),{});
+assert.equal(readerTeamDefaultIsValid('size',21),true);
+assert.equal(readerTeamDefaultIsValid('size',31),false);
+assert.equal(readerTeamDefaultIsValid('illus',false),true);
+assert.equal(readerTeamDefaultIsValid('illus','false'),false);
+assert.equal(Object.keys(READER_TEAM_OPTIONS).length>=9,true);
+
+const data=new Map();
+const storage={getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,String(v))};
+storage.setItem(readerPrefsKey('lector-A'),JSON.stringify({global:{font:'Literata'},per_volume:{vol1:{size:26}}}));
+storage.setItem(readerPrefsKey('lector-B'),JSON.stringify({global:{theme:'negro'},per_volume:{}}));
+storage.setItem(readerPrefsKey(null),JSON.stringify({global:{size:15},per_volume:{}}));
+assert.deepEqual(readReaderPrefs(storage,'lector-A').per_volume.vol1,{size:26});
+assert.equal(readReaderPrefs(storage,'lector-A').global.font,'Literata');
+assert.equal(readReaderPrefs(storage,'lector-B').global.font,undefined);
+assert.equal(readReaderPrefs(storage,'lector-B').global.theme,'negro');
+assert.equal(readReaderPrefs(storage,'lector-C').global.size,undefined,'Otro usuario no hereda ajustes ajenos');
+assert.equal(readReaderPrefs(storage,null).global.size,15,'Las preferencias anónimas permanecen separadas');
+storage.setItem(readerPrefsKey('lector-C'),'{INVALID');
+assert.deepEqual(readReaderPrefs(storage,'lector-C'),{global:{},per_volume:{}});
+
+const src=p=>readFileSync(p,'utf8');
+const studio=src('src/studio.js'),reader=src('src/reader.js'),profile=src('src/profile.js');
+const defaultsUI=src('src/studio-reader-defaults.js');
+const blocks=src('src/blocks.js');
+const importer=src('src/studio-importer.js');
+const contains=(file,marker,reason)=>assert(file.includes(marker),'Regresión: '+reason);
+contains(studio,'mountTeamReaderDefaults','Studio permite editar predeterminados');
+contains(studio,"can('profile')",'El permiso de perfil sigue vigente');
+contains(defaultsUI,"sb.from('teams').update({reader_defaults:next}).eq('id',uid).select('reader_defaults').single()",'Guardado solamente de reader_defaults y confirmación por RLS');
+contains(defaultsUI,'if(!live()||busy)return','No escribe durante cambio de cuenta/equipo');
+assert(!defaultsUI.includes('service_role'),'No exponer roles de servicio');
+contains(reader,"const effective = volId => ({ ...DEF, ...(S.series?.teams?.reader_defaults || {}), ...S.remote.global, ...(S.remote.per_volume[volId] || {}) });",'Prioridad equipo → lector global → volumen');
+contains(reader,"readerPrefsKey(uid)",'Caché por cuenta');
+contains(reader,"getUser()?.id === uid && S.prefsOwner === uid",'Guardado diferido no invade otra cuenta');
+contains(profile,"R.global = { ...R.global, [k]: v }",'Ajuste global disperso no reemplaza otros valores del equipo');
+contains(profile,"readReaderPrefs(localStorage, user.id)",'Preferencias de perfil aisladas');
+contains(reader,"if (k === 'font' || k == null)",'Reaplicación de fuentes EPUB después de sincronizar preferencias');
+contains(reader,"teams(name,slug,status,avatar_path,settings,reader_defaults)",'Consulta de configuración del equipo');
+contains(reader,"epub_fonts",'Fuentes EPUB por volumen');
+contains(reader,"fontVars(vol, p)",'Fuentes originales del capítulo');
+contains(reader,"sb.from('reading_progress').upsert",'Posición de lectura');
+contains(reader,"sb.from('read_chapters').upsert",'Marcado leído');
+contains(reader,"p.continuous === 'off' ? 'chapter' : 'continuous'",'Modo continuo en progreso');
+contains(reader,"S.remote.per_volume[vid]",'Preferencias específicas del volumen');
+contains(blocks,"'B','STRONG','I','EM'",'Negritas y cursivas permitidas');
+contains(blocks,"'RUBY','RT','RP'",'Ruby/furigana permitido');
+contains(blocks,"data-epub-family",'Familia de fuente EPUB preservada');
+contains(blocks,"if (o.illus === false)",'Ilustración opcional');
+contains(importer,"epub_fonts: fonts",'Fuentes incrustadas se guardan con el volumen');
+console.log('Fase 6.4: valores de equipo, seguridad RLS, preferencias aisladas, EPUB y progreso OK.');
