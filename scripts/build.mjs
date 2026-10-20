@@ -9,7 +9,7 @@ const jsIn = d => readdirSync(d).filter(f => f.endsWith('.js')).map(f => d + '/'
 
 // --check: sintaxis de todos los archivos (CI).
 if (process.argv.includes('--check')) {
-  const files = [...jsIn('src'), 'public/sw.js', 'scripts/build.mjs', 'scripts/optimization-check.mjs', 'scripts/db-phase2-check.mjs', 'scripts/phase3-check.mjs'];
+  const files = [...jsIn('src'), 'public/sw.js', 'scripts/build.mjs', 'scripts/optimization-check.mjs', 'scripts/db-phase2-check.mjs', 'scripts/phase3-check.mjs', 'scripts/phase4-check.mjs'];
   for (const f of files) execFileSync(process.execPath, ['--check', f], { stdio: 'inherit' });
   console.log('sintaxis ok · ' + files.length + ' archivos'); process.exit(0);
 }
@@ -59,7 +59,7 @@ if (missing.length) throw new Error('index.html apunta a archivos inexistentes: 
 // 3. Service worker con la versión de la compilación y la lista exacta del arranque (sin studio.js ni admin.js).
 const BOOT = ['styles.css', 'config.js', 'boot.js', 'supabase.js', 'app.js', 'ui.js', 'reader.js', 'blocks.js'].filter(f => H[f]);
 const SHELL = ['/', '/manifest.webmanifest', '/icon.svg', ...BOOT.map(f => `/${f}?v=${H[f]}`)];
-const LAZY = Object.keys(H).filter(f => f.endsWith('.js') && !BOOT.includes(f) && !/^(studio|admin|sw)\.js$/.test(f)).map(f => `/${f}?v=${H[f]}`);
+const LAZY = Object.keys(H).filter(f => f.endsWith('.js') && !BOOT.includes(f) && !/^(studio|studio-editor|studio-importer|admin|sw)\.js$/.test(f)).map(f => `/${f}?v=${H[f]}`);
 const V = 'obi-' + hash(SHELL.join('|')).slice(0, 8);
 const sw = readFileSync('dist/sw.js', 'utf8').replace(/\/\*@shell\*\/[\s\S]*?\/\*@end\*\//, `const V=${JSON.stringify(V)},SHELL=${JSON.stringify([...SHELL, '/icon-192.png', '/apple-touch-icon.png'])},LAZY=${JSON.stringify(LAZY)};`);
 if (!sw.includes(V)) throw new Error('sw.js: no se encontró el marcador /*@shell*/');
