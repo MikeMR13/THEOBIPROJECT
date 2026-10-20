@@ -3,7 +3,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync,readdirSync } from 'node:fs';
 const read = p => readFileSync(p,'utf8');
-const sql = read('supabase/migrations/20261114_profiles_private_owner.sql');
+const prepare = read('supabase/migrations/20261114_profiles_private_owner.sql');
+const enforce = read('supabase/release-gates/SEG01_LOCK_PROFILES.sql');
+const sql = prepare + '\n' + enforce;
 const required = [
   'create or replace function public.my_profile()',
   'returns jsonb','security definer',"set search_path = ''",
@@ -27,8 +29,14 @@ for (const forbidden of [
   /drop\s+policy/i,
   /alter\s+table\s+public\.profiles\s+drop/i,
   /revoke\s+(?:all|update|insert)\s+on\s+table\s+public\.profiles/i
-])assert(!forbidden.test(sql),'La migración altera las vinculaciones o privilegios previos: '+forbidden);
+])assert(!forbidden.test(sql),'La corrección altera vínculos o privilegios previos: '+forbidden);
 
+assert(prepare.includes('commit;'),'La fase aditiva debe ser transaccional');
+assert(!prepare.includes('revoke select on table public.profiles'),'La fase aditiva jamás retira SELECT');
+assert(!prepare.includes('grant select (id, username, avatar_url)'),'El endurecimiento debe ser un paso posterior');
+assert(enforce.includes('not has_function_privilege'),'El endurecimiento exige RPC preparadas');
+assert(enforce.includes('revoke select on table public.profiles'),'Falta endurecimiento de acceso');
+assert(!enforce.includes('create or replace function'),'No redefinir RPC durante el corte restrictivo');
 const app=read('src/app.js'), profile=read('src/profile.js'),ui=read('src/ui.js'),patreon=read('src/patreon.js');
 const expected=[
   [app,"sb.rpc('my_profile')",'carga de sesión'],
