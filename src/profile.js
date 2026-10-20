@@ -113,7 +113,8 @@ const CSS = `
 .pf-res i{width:28px;height:38px;flex:none;background:var(--c) center/cover}
 .pf-save{position:sticky;bottom:0;display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:14px 0 0;border-top:1px solid var(--line);background:#14120e}
 .pf-save .mono{margin-right:auto}
-@media(max-width:700px){.pf-nav{max-width:none;flex-basis:100%;border-right:0;border-bottom:1px solid var(--line);display:flex;overflow-x:auto;padding:0}.pf-nav a{border-left:0;border-bottom:3px solid transparent;white-space:nowrap}.pf-nav a.on{border-bottom-color:var(--gold)}}
+@media(max-width:700px){.pf-nav{max-width:none;flex-basis:100%;border-right:0;border-bottom:1px solid var(--line);display:flex;overflow-x:auto;padding:0}.pf-nav a{border-left:0;border-bottom:3px solid transparent;white-space:nowrap}.pf-nav a.on{border-bottom-color:var(--gold)}.pf-nav{scrollbar-width:thin;scroll-padding-inline:12px;scroll-snap-type:x proximity;overscroll-behavior-x:contain}.pf-nav a{scroll-snap-align:start;min-height:44px;display:flex;align-items:center}}
+@media(max-width:700px){.pf{position:relative}.pf:has(.pf-nav)::before{content:"Desliza para ver más secciones →";position:absolute;right:8px;top:-17px;font:10px "IBM Plex Mono",monospace;color:var(--mute);pointer-events:none}}
 `;
 const css = () => { if (document.getElementById('lc-css')) return; const s = document.createElement('style'); s.id = 'lc-css'; s.textContent = CSS; document.head.appendChild(s); };
 
@@ -187,7 +188,7 @@ export async function preferences(C){
   app.innerHTML = '<p class="mono">Cargando preferencias…</p>';
   const { data: P, error } = await sb.from('profiles').select('username,avatar_url,bio,banner_url,seal_kanji,accent,links,favorites,profile_sections,public_activity,adult_ok,profile_visibility,discoverable,show_since,hide_reading,hidden_series,delete_requested_at,notify,username_changed_at,ui_prefs').eq('id', user.id).single();
   if (error) { app.innerHTML = `<h1>Preferencias</h1><p class="mono">No se pudieron cargar: ${esc(error.message)}</p>`; return; }
-  const shell = body => `<h1>Preferencias</h1><div class="pf"><nav class="pf-nav">${TABS.map(([k, l]) => `<a href="/preferencias${k === 'perfil' ? '' : '?s=' + k}" class="${k === tab ? 'on' : ''}">${l}</a>`).join('')}</nav><div class="pf-body">${body}</div></div>`;
+  const shell = body => `<h1>Preferencias</h1><div class="pf"><nav class="pf-nav" aria-label="Secciones de preferencias">${TABS.map(([k, l]) => `<a href="/preferencias${k === 'perfil' ? '' : '?s=' + k}" class="${k === tab ? 'on' : ''}" ${k === tab ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav><div class="pf-body">${body}</div></div>`;
   const tg = (id, on, label) => `<button type="button" class="pf-tg" id="${id}" aria-pressed="${!!on}" aria-label="${esc(label)}"><i></i></button>`;
   const flip = b => b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
   const UI = { motion: 'system', hour: 'auto', hide: [], ...(window.__obiUI || {}), ...(P.ui_prefs || {}) };
