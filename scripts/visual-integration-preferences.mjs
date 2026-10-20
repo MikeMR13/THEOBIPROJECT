@@ -8,6 +8,7 @@ import { activeSeason, SEASONS } from '../src/anim.js';
 const source=p=>readFileSync(p,'utf8');
 const studio=source('src/studio.js'), studioCSS=source('src/studio.css'), admin=source('src/admin.js');
 const profile=source('src/profile.js'), reader=source('src/reader.js'), seasonCode=source('src/season.js');
+const appCode=source('src/app.js');
 const ui=source('src/ui.js'), index=source('src/index.html');
 const contains=(s,m,label)=>assert(s.includes(m),'No se conservó: '+label);
 
@@ -74,6 +75,16 @@ contains(studioCSS,'.pf-panel,#pf-pub,#pf-discard,.pf-pvbar .pf-seg{display:none
 contains(admin,'.bb-sea-g{grid-template-columns:minmax(0,1fr)}','controles de temporadas en Bibliotecario');
 contains(admin,'.bb #bbv .bb-tbl{min-width:720px}','tablas del Bibliotecario conservadas');
 
+contains(appCode,"window.obiSetUI = P =>","aplicación inmediata de preferencias de interfaz");
+contains(appCode,"localStorage.setItem('obi-ui', JSON.stringify(P || {}))","persistencia local de la interfaz");
+contains(appCode,"profile?.ui_prefs && Object.keys(profile.ui_prefs).length","rehidratación de ajustes del perfil al iniciar sesión");
+contains(appCode,"H.classList.toggle('a11y-still', P?.motion === 'reduce')","respeto de movimiento reducido configurado en preferencias");
+contains(appCode,"H.classList.toggle('a11y-hc', !!P?.contrast)","contraste definido por el lector");
+contains(appCode,"H.classList.toggle('a11y-ul', !!P?.underline)","subrayado definido por el lector");
+contains(appCode,"H.classList.toggle('a11y-fc', !!P?.focus)","foco reforzado del lector");
+contains(appCode,"window.obiTZ = () => window.__obiUI?.tz","zona horaria personalizada");
+contains(appCode,"const U = window.__obiUI || {}, h = U.hour","preferencia de horario 12/24 horas");
+contains(studio,"reader_defaults","predeterminados de lectura configurables por equipos");
 contains(profile,"sb.from('profiles').update(upd)","persistencia de preferencias de interfaz");
 contains(profile,'window.obiSetUI?.({ ...UI })','sincronización de preferencias de interfaz');
 contains(profile,"Object.assign(UI, prev)","reversión ante fallo de guardado");
