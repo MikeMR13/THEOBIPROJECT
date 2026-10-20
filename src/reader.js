@@ -1,7 +1,7 @@
 // Lector de El Obi del Lector: por capítulo o continuo, fuentes EPUB, progreso exacto, leídos, historial, sin conexión y anotaciones.
 const OFF_CACHE = 'obi-offline-v1', OFF_INDEX = 'obi-offline-index', PREF_KEY = 'obi-reader-prefs';
 import { cleanInline, renderBlock, warningsHTML, teaserHTML } from './blocks.js?v=2';
-import { readerPrefsKey, readReaderPrefs } from './reader-pref-cache.js?v=1';
+import { readerPrefsKey, readReaderPrefs, sameReaderAccount, readingProgressKey, readingProgressPrefix, readerProgressKeys } from './reader-pref-cache.js?v=1';
 const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true };
 const COLORS = { gold: '#f2c230', rose: '#f29bb0', sky: '#8cc3f2', mint: '#9fdcb0' };
 const SEC_LABEL = { 'Capítulo': 'Cap.', 'Prólogo': 'Prólogo', 'Interludio': 'Interludio', 'Epílogo': 'Epílogo', 'Afterword': 'Epílogo del autor', 'Extra': 'Extra' };
@@ -20,7 +20,7 @@ export function createReader(ctx){
     S.prefsOwner=uid;
     if (uid) {
       const { data, error } = await sb.from('reader_prefs').select('global,per_volume').eq('user_id', uid).maybeSingle();
-      if (!error && data && getUser()?.id === uid && S.prefsOwner === uid && S.prefsRequest === request && (S.prefsVersion || 0) === version) {
+      if (!error && data && sameReaderAccount(getUser()?.id, uid) && sameReaderAccount(S.prefsOwner, uid) && S.prefsRequest === request && (S.prefsVersion || 0) === version) {
         S.remote={ global:data.global || {}, per_volume:data.per_volume || {} };
         try { localStorage.setItem(readerPrefsKey(uid), JSON.stringify(S.remote)); } catch {}
       }
@@ -35,7 +35,7 @@ export function createReader(ctx){
     try { localStorage.setItem(readerPrefsKey(uid), JSON.stringify(snapshot)); } catch {}
     clearTimeout(prefT);
     prefT=setTimeout(() => {
-      if (uid && getUser()?.id === uid && S.prefsOwner === uid)
+      if (uid && sameReaderAccount(getUser()?.id, uid) && sameReaderAccount(S.prefsOwner, uid))
         sb.from('reader_prefs').upsert({ user_id: uid, global: snapshot.global, per_volume: snapshot.per_volume, updated_at: new Date().toISOString() }).then(({error}) => { if (error) console.warn('Preferencias',error.message); }, () => {});
     },800);
   }
@@ -255,7 +255,7 @@ export function createReader(ctx){
     if (S.prefsOwner !== prefsUid) { clearTimeout(prefT); S.remote=null; }
     const prefsP = S.remote ? null : loadPrefs();
     if (!(await loadSeries(slug, num))) { if ((getUser()?.id || null) !== openingUser) return; app.innerHTML = '<h1>Serie no encontrada</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
-    if ((getUser()?.id || null) !== openingUser) return;
+    if (!sameReaderAccount(getUser()?.id, openingUser)) return;
     const ch = S.chapters.find(c => c.num === num);
     if (!ch) { const { data: L } = await sb.rpc('lock_info', { p_slug: slug, p_num: num }).then(x => x, () => ({ data: null })); if (L) { const P = await import('/patreon.js?v=1'); app.innerHTML = P.lockHTML(L, esc, slug); app.querySelector('#lk-link')?.addEventListener('click', () => P.start(sb, url, 'link', null, toast)); return; } app.innerHTML = '<h1>Capítulo no disponible</h1><p>Puede que aún no se publique. <a href="/serie/' + esc(slug) + '">Volver a la obra</a></p>'; return; }
     const annP = fetchAnnots([ch.id]);
@@ -264,7 +264,7 @@ export function createReader(ctx){
     const localPos = () => { try { return JSON.parse(localStorage.getItem(posKey(S.series.id))); } catch { return null; } };
     let late = false; prefsP?.then(() => { if (late && $('.rd')) applyPrefs(); });
     const [b, , pos] = await Promise.all([body(ch), quick(prefsP, () => (late = true, null)), quick(fetchPos(), localPos)]);
-    if ((getUser()?.id || null) !== openingUser) return;
+    if (!sameReaderAccount(getUser()?.id, openingUser)) return;
     if (!b) { app.innerHTML = '<h1>Sin conexión</h1><p>Este capítulo no está descargado. <a href="/descargas">Ver mis descargas</a></p>'; return; }
     const p = effective(ch.volume_id);
     S.mounted = [ch]; S.active = ch; S.activeOwner = openingUser; S.annots = []; S.lastY = null; trackView(ch);
@@ -379,7 +379,7 @@ export function createReader(ctx){
   }
 
   // ---------- progreso exacto, leídos e historial ----------
-  const posKey = (id, uid = getUser()?.id) => 'obi-pos-' + (uid ? uid + '__' : '') + id;
+  const posKey = (id, uid = getUser()?.id) => readingProgressKey(id, uid);
   function currentBlock(){
     const art = $(`[data-ch="${S.active.id}"]`); if (!art) return { block: 0, pct: 0 };
     // búsqueda binaria: ~10 mediciones en lugar de una por párrafo
@@ -412,7 +412,7 @@ export function createReader(ctx){
   }
   async function saveProgress(){
     const ch = S.active;
-    if (!ch || !S.series || S.activeOwner !== (getUser()?.id || null) || !$(`[data-ch="${ch.id}"]`)) return; // ya no está en pantalla: no pisar el progreso con «párrafo 0»
+    if (!ch || !S.series || !sameReaderAccount(S.activeOwner, getUser()?.id) || !$(`[data-ch="${ch.id}"]`)) return; // ya no está en pantalla: no pisar el progreso con «párrafo 0»
     clearTimeout(S.saveT);
     const { block: blk, pct } = currentBlock(), p = effective(ch.volume_id), at = new Date().toISOString(), user = getUser();
     const rec = { chapter_id: ch.id, num: ch.num, block: blk, pct, at, mode: p.continuous === 'off' ? 'chapter' : 'continuous', pending: !!user };
@@ -436,8 +436,8 @@ export function createReader(ctx){
   }
   async function syncPending(){
     const user = getUser(); if (!user || !navigator.onLine) return 0; let n = 0; const keys = [];
-    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith('obi-pos-' + user.id + '__')) keys.push(k); } } catch {}
-    for (const k of keys) { if (getUser()?.id !== user.id) return n; let r; try { r = JSON.parse(localStorage.getItem(k)); } catch { continue; } if (r?.pending && r.chapter_id && await pushPos(user, k.slice(('obi-pos-' + user.id + '__').length), r)) n++; }
+    keys.push(...readerProgressKeys(localStorage,user.id));
+    for (const k of keys) { if (getUser()?.id !== user.id) return n; let r; try { r = JSON.parse(localStorage.getItem(k)); } catch { continue; } if (r?.pending && r.chapter_id && await pushPos(user, k.slice(readingProgressPrefix(user.id).length), r)) n++; }
     let q = []; try { q = JSON.parse(localStorage.getItem(RQ(user)) || '[]'); } catch {}
     if (q.length && getUser()?.id === user.id) { const { error } = await sb.from('read_chapters').upsert(q.map(id => ({ user_id: user.id, chapter_id: id }))); if (!error) { localStorage.removeItem(RQ(user)); n += q.length; } }
     return n;
