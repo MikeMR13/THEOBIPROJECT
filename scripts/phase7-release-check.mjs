@@ -22,11 +22,10 @@ assert(!vercel.installCommand,'No incluir modificaciones de instalación de otro
 
 const config=read('dist/config.js').trim();
 assert(config.startsWith('window.OBI_CONFIG='));
-const settings=JSON.parse(config.slice('window.OBI_CONFIG='.length).replace(/;\s*$/,''));
-const host=new URL(settings.url).hostname;
-assert(host!=='qfllthjpjuaztppvpsrk.supabase.co','Una Preview no puede utilizar la base productiva');
-assert.equal(settings.url,'https://obi-qa-backend.invalid','El test debe usar únicamente el backend ficticio');
-assert(/^sb_publishable_/.test(settings.key),'No se permite una clave de servidor en el frontend');
+// esbuild compacta las claves de objetos a identificadores; el resultado ya no es JSON.
+assert(!config.includes('qfllthjpjuaztppvpsrk.supabase.co'),'Una Preview no puede utilizar la base productiva');
+assert(config.includes('https://obi-qa-backend.invalid'),'El test debe usar únicamente el backend ficticio');
+assert(config.includes('sb_publishable_qa_mock_not_connected'),'No se encontró la llave pública ficticia prevista');
 assert(!/service_role|sb_secret_/i.test(config),'Credencial privada detectada');
 const index=read('dist/index.html'),sw=read('dist/sw.js');
 assert(index.includes('href="#app"'),'Falta salto al contenido principal');
