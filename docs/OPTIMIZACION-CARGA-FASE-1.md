@@ -48,6 +48,13 @@ npm run optimize-check
 
 El build de este PR sigue siendo el de su rama base, por lo que la seguridad de variables de entorno y la reparación TOML/SQL del **PR #1** se mantienen en ese PR y no se duplican aquí.
 
+## Verificación de GitHub Actions (20 de octubre de 2026 UTC)
+
+- PR de optimización: [#2](https://github.com/MikeMR13/THEOBIPROJECT/pull/2), **borrador**, base main.
+- Compilación y comprobaciones iniciales: [CI #39376798879](https://github.com/MikeMR13/THEOBIPROJECT/actions/runs/39376798879) — **SUCCESS** para el commit `c365285bfa258588c681ee5d49ac1296ff3f1942` antes de ajustar la tolerancia a sellos de recursos.
+- Esta fase incluye una comprobación estática `optimize-check`. El éxito de CI garantiza que pasan sintaxis, empaquetado y contratos estáticos, **no** que haya mejorado LCP en usuarios reales.
+- Métricas de Lighthouse, pruebas funcionales de PWA en navegador y ejecución de consultas de diagnóstico SQL en staging: **pendientes**.
+
 ## Pendientes obligatorios antes de fusionar
 
 1. **Backend / datos**. Investigar `built_at = '-infinity'` con cron/funciones, ejecutar `EXPLAIN (ANALYZE, BUFFERS)` sobre `series_last` sin escritura, y comparar planes `anon` y `authenticated` en entorno de prueba. Respaldar y reconciliar migraciones. No modificar RLS ni crear los 70 índices por lotes.
