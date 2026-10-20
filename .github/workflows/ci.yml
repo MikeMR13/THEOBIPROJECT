@@ -38,3 +38,5 @@ jobs:
         run: VERCEL_ENV=preview OBI_SUPABASE_URL=https://obi-qa-backend.invalid OBI_SUPABASE_PUBLISHABLE_KEY=sb_publishable_qa_mock_not_connected npm run build && npm run preview-isolation-check
       - name: Fase 7 comprobar artefactos de candidato y backend aislado
         run: node scripts/phase7-release-check.mjs
+      - name: Fase 7 validar configuración y módulos previos de la plataforma
+        run: node scripts/phase7-platform-compat-check.mjs
