@@ -142,6 +142,41 @@ try {
     ok(lateResources.some(u=>u.includes(name)),name+' no se cargó bajo demanda');
   }
   checks++;
+  // Fase 6.4: EPUB enriquecido real y edición de defaults en DOM local.
+  const { renderBlock } = await import('/blocks.js');
+  const epub = document.createElement('article');
+  epub.className = 'rd-body';
+  epub.innerHTML = renderBlock({ type:'paragraph', html:'<strong>Negrita</strong> <em>Cursiva</em> <ruby>漢字<rt>かんじ</rt></ruby> <span data-epub-family="0">Fuente original</span>' },0)
+    + renderBlock({ type:'image', url:'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22/%3E', alt:'Ilustración', w:1600,h:900 },1,{ illus:true });
+  app.append(epub);
+  ok(!!epub.querySelector('strong') && !!epub.querySelector('em'),'EPUB perdió negritas o cursivas');
+  ok(epub.querySelector('ruby rt')?.textContent==='かんじ','Se perdió el furigana EPUB');
+  ok(epub.querySelector('span[style*="--f0"]'),'Se perdió la fuente de fragmento EPUB');
+  ok(!!epub.querySelector('img[loading="lazy"]'),'Se perdió la ilustración EPUB');
+  ok(renderBlock({type:'image',url:'/imagen.svg'},2,{illus:false}).includes('Ilustración oculta'),'No se respeta ocultar ilustraciones');
+  checks++;
+  const { mountTeamReaderDefaults } = await import('/studio-reader-defaults.js');
+  const place = document.createElement('div');place.className='s2-main';app.append(place);
+  const writes=[];
+  const mockDefaults = {from(table) {
+    ok(table==='teams','Editor consultó otra tabla');
+    return {select(){return this},eq(){return this},maybeSingle:async()=>({data:{reader_defaults:{theme:'sepia',size:22,font:'original'}}}),
+      update(data){writes.push(data);this.patch=data;return this},single:async()=>({data:{reader_defaults:this.patch.reader_defaults}})};
+  }};
+  await mountTeamReaderDefaults({app,sb:mockDefaults,teamId:'t-qa',allowed:()=>true,notify:()=>{},esc:s=>String(s)});
+  ok(!!app.querySelector('#s2-reader-def'),'No aparece el editor de predeterminados del equipo');
+  const font=app.querySelector('[data-rd-key="font"]');
+  ok(font.value==='original','No se cargó la preferencia previa');
+  font.value='serif';font.dispatchEvent(new Event('change',{bubbles:true}));
+  app.querySelector('#s2-rd-save').click();
+  await until(()=>writes.length===1,'guardar predeterminados');
+  ok(writes[0].reader_defaults.font==='serif' && writes[0].reader_defaults.theme==='sepia','Se perdió la configuración anterior');
+  ok(Object.keys(writes[0]).join(',')==='reader_defaults','El editor sobrescribió columnas ajenas');
+  app.querySelector('#s2-rd-reset').click();
+  app.querySelector('#s2-rd-save').click();
+  await until(()=>writes.length===2,'restaurar predeterminados');
+  ok(Object.keys(writes[1].reader_defaults).length===0,'No se limpió el formato predeterminado');
+  checks++;
   ok(!failures.length,'Errores del navegador: '+failures.join(' | '));
   const width=document.documentElement.scrollWidth;
   const viewport=document.documentElement.clientWidth;
