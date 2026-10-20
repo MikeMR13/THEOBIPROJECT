@@ -1,9 +1,8 @@
 # Valores de Auth para El Obi del Lector (aplícalos en el panel o con `supabase config push`)
 [auth]
-site_url = "https://theobiproject-cronica.vercel.app"
-additional_redirect_urls = ["https://theobiproject-cronica.vercel.app/**", "http://localhost:3000/**"]
+site_url = "https://theobiproject.vercel.app"
+additional_redirect_urls = ["https://theobiproject.vercel.app/**", "https://theobiproject-cronica.vercel.app/**", "http://localhost:3000/**"]
 
-[auth]
 minimum_password_length = 8
 password_requirements = "lower_upper_letters_digits"
 

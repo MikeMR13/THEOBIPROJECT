@@ -64,7 +64,7 @@ create or replace function public.my_team_permissions(t uuid) returns jsonb lang
   select jsonb_object_agg(a, private.team_can(t, a)) || jsonb_build_object('owner', private.team_role_of(t) = 'owner') from unnest(private.perm_keys()) a
 $$;
 -- can_edit_team sigue significando «editar contenido»; el perfil y las solicitudes usan sus propios permisos
-create or replace function private.can_edit_team(t uuid) returns boolean language sql stable security definer set search_path = '' as $ select private.team_can(t, 'edit') $;
+create or replace function private.can_edit_team(t uuid) returns boolean language sql stable security definer set search_path = '' as $$ select private.team_can(t, 'edit') $$;
 drop policy if exists "teams edit" on public.teams;
 create policy "teams edit" on public.teams for update using (private.team_can(id, 'profile'))
   with check (private.team_can(id, 'profile') and ((official_verified = (select t.official_verified from public.teams t where t.id = teams.id)) or private.is_admin()));
