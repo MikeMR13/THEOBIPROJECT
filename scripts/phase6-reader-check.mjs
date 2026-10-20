@@ -29,7 +29,7 @@ storage.setItem(readerPrefsKey('lector-C'),'{INVALID');
 assert.deepEqual(readReaderPrefs(storage,'lector-C'),{global:{},per_volume:{}});
 
 const src=p=>readFileSync(p,'utf8');
-const studio=src('src/studio.js'),reader=src('src/reader.js'),profile=src('src/profile.js');
+const studio=src('src/studio.js'),reader=src('src/reader.js'),profile=src('src/profile.js'),app=src('src/app.js');
 const defaultsUI=src('src/studio-reader-defaults.js');
 const blocks=src('src/blocks.js');
 const importer=src('src/studio-importer.js');
@@ -49,6 +49,10 @@ contains(reader,"teams(name,slug,status,avatar_path,settings,reader_defaults)",'
 contains(reader,"epub_fonts",'Fuentes EPUB por volumen');
 contains(reader,"fontVars(vol, p)",'Fuentes originales del capítulo');
 contains(reader,"sb.from('reading_progress').upsert",'Posición de lectura');
+contains(reader,"const posKey = (id, uid = getUser()?.id)",'Clave de progreso por cuenta');
+contains(reader,"const RQ = user => 'obi-read-q:' + user.id",'Cola de capítulos leídos separada por cuenta');
+contains(reader,"k?.startsWith('obi-pos-' + user.id + '__')",'Sincronización pendiente solo del usuario actual');
+contains(app,"const prefix = 'obi-pos-' + (user?.id ? user.id + '__' : '')",'Botón Continuar sin mezclar progreso entre cuentas');
 contains(reader,"sb.from('read_chapters').upsert",'Marcado leído');
 contains(reader,"p.continuous === 'off' ? 'chapter' : 'continuous'",'Modo continuo en progreso');
 contains(reader,"S.remote.per_volume[vid]",'Preferencias específicas del volumen');
