@@ -136,7 +136,7 @@ export function vars(d){
   const B = palette(d), F = TFONTS[d.font], a = d.accent;
   const aText = legibleText(a, B.bg);
   const fgText = legibleText(B.fg, B.bg), mutedText = legibleText(B.mu, B.bg);
-  const onA = contrast('#0d0c0a', a) >= contrast('#ffffff', a) ? '#0d0c0a' : '#ffffff';
+  const onA = contrast('#0d0c0a', a) >= 4.5 ? '#0d0c0a' : contrast('#ffffff', a) >= 4.5 ? '#ffffff' : '#000000';
   return `--bg:${B.bg};--sf:${B.sf};--fg:${fgText};--mu:${mutedText};--ln:${B.ln};--ac:${a};--act:${aText};--on:${onA};--tf:${F[1]};--tw:${F[2]};--pat:${patternURL(d.pattern, a)};--pop:${d.patternOp / 100}`;
 }
 
