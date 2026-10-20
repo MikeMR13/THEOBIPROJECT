@@ -34,7 +34,7 @@ jobs:
         run: node scripts/phase6-reader-check.mjs
       - name: Fase 6.5 regresión cruzada y sesiones concurrentes
         run: node scripts/phase6-regression-check.mjs
-      - name: Fase 6.4 Lector EPUB, preferencias y defaults de equipo
-        run: node scripts/phase6-reader-check.mjs
       - name: Validar compilación Preview aislada
         run: VERCEL_ENV=preview OBI_SUPABASE_URL=https://obi-qa-backend.invalid OBI_SUPABASE_PUBLISHABLE_KEY=sb_publishable_qa_mock_not_connected npm run build && npm run preview-isolation-check
+      - name: Fase 7 comprobar artefactos de candidato y backend aislado
+        run: node scripts/phase7-release-check.mjs
