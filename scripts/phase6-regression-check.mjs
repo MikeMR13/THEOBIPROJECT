@@ -66,7 +66,7 @@ const button={
   querySelector(k){return k==='b'?this.bold:this.small},
   bold:{textContent:''},small:{textContent:''}
 };
-const runtime=vm.runInNewContext('let user=null, CB={t:0,v:null,u:null};\n'+app.slice(contA,contB)+
+// La prueba de guardar progreso dejó un capítulo nuevo de B sin metadatos de obra;\n// aislar ese registro para probar el orden de respuestas del servidor.\nlocalStorage.removeItem(readingProgressKey('serie4','cuentaB'));\nconst runtime=vm.runInNewContext('let user=null, CB={t:0,v:null,u:null};\n'+app.slice(contA,contB)+
   '\n({run:contBtn,setUser(value){user=value},snapshot(){return CB}})',{
     $:sel=>sel==='#ob-cont'?button:null,
     location:{pathname:'/'},Date,JSON,Math,localStorage,
