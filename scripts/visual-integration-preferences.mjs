@@ -84,7 +84,7 @@ contains(appCode,"H.classList.toggle('a11y-ul', !!P?.underline)","subrayado defi
 contains(appCode,"H.classList.toggle('a11y-fc', !!P?.focus)","foco reforzado del lector");
 contains(appCode,"window.obiTZ = () => window.__obiUI?.tz","zona horaria personalizada");
 contains(appCode,"const U = window.__obiUI || {}, h = U.hour","preferencia de horario 12/24 horas");
-contains(studio,"reader_defaults","predeterminados de lectura configurables por equipos");
+contains(reader,"teams(name,slug,status,avatar_path,settings,reader_defaults)","lectura de predeterminados del equipo desde la ficha");
 contains(profile,"sb.from('profiles').update(upd)","persistencia de preferencias de interfaz");
 contains(profile,'window.obiSetUI?.({ ...UI })','sincronización de preferencias de interfaz');
 contains(profile,"Object.assign(UI, prev)","reversión ante fallo de guardado");
