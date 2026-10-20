@@ -211,8 +211,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const tab = document.createElement('nav'); tab.className = 'ob-tab'; tab.setAttribute('aria-label', 'Navegación');
     tab.innerHTML = [['/', '家', 'Inicio'], ['/catalogo', '目', 'Catálogo'], ['/biblioteca', '書', 'Biblioteca'], ['/buscar', '探', 'Buscar'], ['/perfil', '人', 'Perfil']].map(([h, k, l]) => `<a href="${h}"><span aria-hidden="true">${k}</span>${l}</a>`).join('');
     document.body.appendChild(tab);
-    const mark = () => { const p = location.pathname; top.querySelectorAll('.ob-nav a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === p || (a.textContent === 'Catálogo' && p.startsWith('/serie'))));
-      tab.querySelectorAll('a').forEach(a => { const h = a.getAttribute('href'); a.classList.toggle('on', h === '/' ? p === '/' : p.startsWith(h) || (h === '/catalogo' && p.startsWith('/serie')) || (h === '/perfil' && p.startsWith('/lector/'))); });
+    const mark = () => { const p = location.pathname; top.querySelectorAll('.ob-nav a').forEach(a => { const current = a.getAttribute('href') === p || (a.textContent === 'Catálogo' && p.startsWith('/serie')); a.classList.toggle('on', current); if (current) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+      tab.querySelectorAll('a').forEach(a => { const h = a.getAttribute('href'), current = h === '/' ? p === '/' : p.startsWith(h) || (h === '/catalogo' && p.startsWith('/serie')) || (h === '/perfil' && p.startsWith('/lector/')); a.classList.toggle('on', current); if (current) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
       document.body.classList.toggle('no-tab', /^\/(leer|estudio)\b/.test(p)); };
     addEventListener('popstate', mark); document.addEventListener('click', () => setTimeout(mark, 0)); mark();
   }
