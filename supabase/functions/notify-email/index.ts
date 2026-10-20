@@ -1,12 +1,12 @@
 // Supabase Edge Function «notify-email»: envía los avisos por correo (al momento / resumen diario / semanal) vía Resend.
-// Secretos: RESEND_API_KEY (ya existe para el SMTP), EMAIL_FROM, SITE_URL, CRON_SECRET (opcional).
+// Secretos: RESEND_API_KEY (ya existe para el SMTP), EMAIL_FROM, SITE_URL, CRON_SECRET (obligatorio).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
 const KEY = Deno.env.get('RESEND_API_KEY')!;
 const FROM = Deno.env.get('EMAIL_FROM') ?? 'El Obi del Lector <biblioteca@TU-DOMINIO>';
 const SITE = (Deno.env.get('SITE_URL') ?? 'https://theobiproject-cronica.vercel.app').replace(/\/$/, '');
-const SECRET = Deno.env.get('CRON_SECRET');
+const SECRET = Deno.env.get('CRON_SECRET'); // obligatorio: función expuesta sin JWT a llamadas programadas
 const LBL: Record<string, string> = { capitulo: 'Capítulos nuevos', respuesta: 'Respuestas', errata: 'Erratas', tablero: 'Estudio', moderacion: 'Tu cuenta' };
 const esc = (s: string) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const link = (h?: string) => h && /^\/(?!\/)/.test(h) ? SITE + h : SITE + '/';
@@ -32,7 +32,8 @@ function mail(u: U) {
 }
 
 Deno.serve(async req => {
-  if (SECRET && req.headers.get('x-cron-secret') !== SECRET) return new Response('no', { status: 401 });
+  if (!SECRET || req.headers.get('x-cron-secret') !== SECRET) return new Response('no', { status: 401 });
+  if (req.method !== 'POST') return new Response('method not allowed', { status: 405 });
   const { data, error } = await sb.rpc('email_batch', { p_limit: 40 });
   if (error) return Response.json({ error: error.message }, { status: 500 });
   const ok: string[] = [], fail: string[] = [];

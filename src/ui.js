@@ -356,17 +356,21 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       sb.from('platform_settings').select('featured').eq('id', 1).maybeSingle()]).then(([a, b, c, d, e, f, g]) => ({ series: a.data, latest: b.data, rkW: c.data, rkH: d.data, top10: e.data, nextRel: f.data, featured: g.data?.featured }));
     const feed = () => { const pre = window.OBI_HOME; window.OBI_HOME = null;
       return (pre || sb.rpc('home_feed').then(({ data, error }) => error ? null : data)).then(d => Array.isArray(d?.series) ? d : legacy(), legacy); };
-    const [FD, prog, pr, festKey, AN, VR, TR] = await Promise.all([
+    // home_feed y la consulta de respaldo ya incluyen series.theme. Evitamos
+    // pedir todas las obras otra vez y reutilizamos SEASONS del módulo de temporada.
+    // Festividades: son contenido complementario. No detener la primera
+    // representación mientras llegan fechas/configuración desde Supabase.
+    const festival = import('/season.js?v=4').then(S => S.load(sb).then(() => {
+      const k = S.platformKey(), fs = k && S.SEASONS[k];
+      return fs && fs.g !== 'est' ? fs : null;
+    })).catch(() => null);
+    const [FD, prog, pr, VR] = await Promise.all([
       feed(), progressMap(),
       u ? sb.from('profiles').select('adult_ok').eq('id', u.id).maybeSingle() : { data: null },
-      import('/season.js?v=4').then(S => S.load(sb).then(() => S.platformKey())).catch(() => null),
-      import('/anim.js?v=8').catch(() => null),
-      // portada del último volumen publicado y aviso del equipo: se piden aparte porque home_feed no los trae
-      sb.from('volumes').select('series_id,num,cover_path,status').is('deleted_at', null).not('cover_path', 'is', null).then(r => r, () => ({ data: [] })),
-      sb.from('series').select('id,theme').eq('published', true).then(r => r, () => ({ data: [] }))]);
+      // La portada del volumen publicado más reciente puede diferir de la ficha.
+      sb.from('volumes').select('series_id,num,cover_path,status').is('deleted_at', null).not('cover_path', 'is', null).then(r => r, () => ({ data: [] }))]);
     { const vc = {}; (VR?.data || []).filter(v => !v.status || v.status === 'published').forEach(v => { if (!vc[v.series_id] || v.num > vc[v.series_id].num) vc[v.series_id] = v; });
-      const th = Object.fromEntries((TR?.data || []).map(x => [x.id, x.theme]));
-      (FD?.series || []).forEach(s => { if (th[s.id] !== undefined) s.theme = th[s.id]; const v = vc[s.id]; if (v && v.cover_path !== s.cover_path) { s.cover_path = v.cover_path; s.cover_thumb_path = null; } }); }
+      (FD?.series || []).forEach(s => { const v = vc[s.id]; if (v && v.cover_path !== s.cover_path) { s.cover_path = v.cover_path; s.cover_thumb_path = null; } }); }
     const { series, latest, rkW, rkH, top10 } = FD, ps = { featured: FD.featured }, nextRel = (FD.nextRel || []).filter(e => new Date(e.at) > Date.now());
     if (location.pathname !== '/') return;
     const adultOk = !!pr?.data?.adult_ok;
@@ -386,7 +390,6 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const rk = rkUse.rows.slice(0, 6);
     const nx = (nextRel || []).filter(e => e.series && (!e.series_id || byId[e.series_id])).slice(0, 3);
     const until = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
-    const fs = festKey && AN?.SEASONS?.[festKey]; const fest = fs && fs.g !== 'est' ? fs : null;
     const shelf = list.slice(0, 24);
     const gc = new Map(); list.forEach(x => (x.genres || []).forEach(g => gc.set(g, (gc.get(g) || 0) + 1)));
     const genres = [...gc].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es')).slice(0, 6);
@@ -403,7 +406,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     app.innerHTML = `<div class="ob-page">
       <div class="ob-mast"><b>翻訳図書館</b><span>Biblioteca de novelas ligeras · Español latino</span></div>
       ${grp.length ? `<div class="ob-tick" aria-label="Novedades"><div class="ob-track">${[0, 1].map(k => `<span${k ? ' aria-hidden="true"' : ''}>${[...grp, ...grp].slice(0, Math.max(6, grp.length)).map((g, i) => `<a href="/leer/${byId[g.id].slug}/${g.chs[0].num}"${k ? ' tabindex="-1"' : ''} style="color:inherit;text-decoration:none">${utagOn(byId[g.id].theme?.update_tag) ? `<b style="color:${byId[g.id].theme.update_tag.season ? 'var(--sea,' + esc(byId[g.id].theme.update_tag.color || '#f2c230') + ')' : esc(byId[g.id].theme.update_tag.color || 'inherit')}">${esc(byId[g.id].theme.update_tag.text.trim().slice(0, 24).toUpperCase())}</b> · ` : i === 0 ? 'NUEVO · ' : '★ '}${esc(byId[g.id].title)} · ${caps(g.chs)}</a>`).join('')}</span>`).join('')}</div></div>` : ''}
-      ${fest ? `<a class="ob-fest" href="/calendario" style="--fc:${esc(fest.ac)}"><b>${esc(fest.l)}</b><span>El sitio se viste de temporada.</span><em>Ver en el calendario →</em></a>` : ''}
+      <div id="ob-fest-slot"></div>
       ${feat.length ? '<section class="ob-hero" id="hero"></section>' : ''}<div id="ob-open-today"></div>
       ${u ? '' : `<div class="ob-hi" style="display:grid;gap:18px"><p style="flex:none"><strong>Bienvenido a El Obi del Lector.</strong> Novelas ligeras traducidas al español por grupos de fans.</p>
         <ol style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px"><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">探</span><span><b style="display:block;font-size:15px">Descubre</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Busca por género o mira lo más leído de la semana.</span></span></li><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">追</span><span><b style="display:block;font-size:15px">Sigue una obra</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Te avisamos de cada capítulo y volumen nuevo.</span></span></li><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">続</span><span><b style="display:block;font-size:15px">Lee sin perderte</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Tu progreso se guarda en todos tus dispositivos.</span></span></li></ol>
@@ -425,6 +428,15 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       <div id="ob-s-ann"></div><div id="ob-s-rev"></div>
       ${shelf.length ? `<section class="ob-sec">${head('書架', 'Series', `<span class="r2"><a class="r" href="/catalogo">Ver todas →</a>${arrows('ob-car')}</span>`)}
         <div class="ob-car" id="ob-car">${shelf.map(x => cc(x, (x.chapters?.[0]?.count || 0) + ' cap. · ' + (TL[x.translation_status] || TL.active)[0])).join('')}${list.length > shelf.length ? `<a class="ob-cc all" href="/catalogo"><span class="cv">Ver las ${list.length} →</span></a>` : ''}</div></section>` : ''}</div>`;
+    // Insertar el aviso de temporada sin volver a pintar el Home completo.
+    // El nodo está vinculado a esta navegación: nunca actualizar una vista vieja.
+    const festSlot = app.querySelector('#ob-fest-slot');
+    festival.then(fest => {
+      const slot = festSlot;
+      if (!slot || !slot.isConnected || location.pathname !== '/') return;
+      if (!fest) return slot.remove();
+      slot.outerHTML = `<a class="ob-fest" href="/calendario" style="--fc:${esc(fest.ac)}"><b>${esc(fest.l)}</b><span>El sitio se viste de temporada.</span><em>Ver en el calendario →</em></a>`;
+    });
     const bindCars = root => root.querySelectorAll('[data-cs]').forEach(bt => { const c = document.getElementById(bt.dataset.cs); if (!c) return; bt.onclick = () => c.scrollBy({ left: +bt.dataset.d * c.clientWidth * .85, behavior: 'smooth' });
       const upd = () => { const [l, r] = root.querySelectorAll(`[data-cs="${bt.dataset.cs}"]`); if (l) l.disabled = c.scrollLeft < 4; if (r) r.disabled = c.scrollLeft + c.clientWidth >= c.scrollWidth - 4; }; c.addEventListener('scroll', upd, { passive: true }); upd(); });
     bindCars(app);
@@ -495,14 +507,30 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       <span class="side">${st ? `<span class="ui-seal ${st[1]}">${esc(st[0])}</span>` : '<span></span>'}<span class="jp">第${KN(i + 1)}号</span></span></a>`;
 
   // ---------- Catálogo ----------
-  
+  // La vista series_last usa RLS. Reutilizamos la misma respuesta durante una
+  // navegación breve sin compartir datos entre usuarios ni almacenar capítulos.
+  let recentCache = null;
+  const catalogRecent = () => {
+    const who = getUser()?.id || 'anon', now = Date.now();
+    if (recentCache?.who === who && now - recentCache.at < 20000) return recentCache.promise;
+    const fallback = () => sb.from('chapters').select('num,publish_at,series_id').eq('status', 'published').is('deleted_at', null).order('publish_at', { ascending: false }).limit(500);
+    const promise = sb.from('series_last').select('series_id,num,publish_at').then(r => r.error ? fallback() : r, fallback);
+    recentCache = { who, at: now, promise };
+    promise.then(r => { if (r?.error && recentCache?.promise === promise) recentCache = null; },
+      () => { if (recentCache?.promise === promise) recentCache = null; });
+    return promise;
+  };
+
   async function catalog(){
     app.innerHTML = '<p class="mono">Cargando el catálogo…</p>';
     const u = getUser(), F = readF();
-    const lastQ = () => sb.from('chapters').select('num,publish_at,series_id').eq('status', 'published').is('deleted_at', null).order('publish_at', { ascending: false }).limit(500);
+    // Página por rangos en PostgREST: se conservan TODOS los resultados para
+    // filtros/ordenamientos globales y se evita el límite de 1000 filas.
+    const listAll = import('/paging.js?v=1').then(({ readPages }) =>
+      readPages((from, to) => sb.from('series').select(SERIES).order('id').range(from, to), { size: 250 }));
     const [{ data }, { data: latest }, prog, folR, { data: rkw }, { data: rkh }] = await Promise.all([
-      sb.from('series').select(SERIES),
-      sb.from('series_last').select('series_id,num,publish_at').then(r => r.error ? lastQ() : r, lastQ),
+      listAll,
+      catalogRecent(),
       progressMap(),
       u ? sb.from('follows').select('series_id').eq('user_id', u.id) : { data: [] },
       sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'semana'), sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'historico')]);
@@ -539,6 +567,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
           <div class="r"><span class="ui-chips" role="group" aria-label="Vista"><button class="ui-chip" data-view="fichero">Fichero</button><button class="ui-chip" data-view="portadas">Portadas</button></span><span class="cnt" id="cat-count"></span><button class="ui-lnk" id="cat-clear" hidden>Limpiar filtros</button></div></div>
       </div>
       <div id="cat-grid"></div>
+      <nav id="cat-pages" aria-label="Paginación del catálogo" style="display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;margin:22px 0"></nav>
       <div class="ui-qv" hidden></div>`;
     const pass = f => { const q = norm(f.q.trim()); return s => { const g = s.genres || [];
       return (!q || norm([s.title, s.short, s.original, s.author, ...(Array.isArray(s.tags) ? s.tags : [])].join(' ')).includes(q))
@@ -556,16 +585,30 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       ...(!F.adult ? [['ocultar +18', f => { f.adult = true; }]] : []),
       ...(F.top ? [['solo Top 10', f => { f.top = false; }]] : [])];
     const clone = () => ({ ...F, gin: [...F.gin], gout: [...F.gout] });
+    const PAGE_SIZE = 24;
+    let currentPage = 1, lastFilterKey = '';
     const draw = () => {
+      const filterKey = JSON.stringify({ F, view });
+      if (filterKey !== lastFilterKey) { currentPage = 1; lastFilterKey = filterKey; }
       const list = all.filter(pass(F)).sort((SORT[F.sort] || SORT.popular)[1]), act = actives();
+      const pageTotal = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+      currentPage = Math.min(currentPage, pageTotal);
+      const pageStart = (currentPage - 1) * PAGE_SIZE;
       const grid = $('#cat-grid'); grid.className = view === 'fichero' ? 'ui-fich' : 'ui-grid ob-anim';
       document.querySelectorAll('[data-view]').forEach(b => { b.classList.toggle('on', b.dataset.view === view); b.setAttribute('aria-pressed', b.dataset.view === view); });
-      if (list.length) grid.innerHTML = list.map((s, i) => view === 'fichero' ? ficha(s, status(s), last[s.id], i, prog[s.id]) : card(s, status(s), last[s.id], prog[s.id])).join('');
+      if (list.length) grid.innerHTML = list.slice(pageStart, pageStart + PAGE_SIZE).map((s, i) => view === 'fichero' ? ficha(s, status(s), last[s.id], pageStart + i, prog[s.id]) : card(s, status(s), last[s.id], prog[s.id])).join('');
       else {
         const tips = act.map(([label, undo], i) => { const f = clone(); undo(f); return { i, label, n: all.filter(pass(f)).length }; }).filter(t => t.n).sort((x, y) => y.n - x.n).slice(0, 4);
         $('#cat-grid').innerHTML = `<div class="ui-empty"><p><strong>Ninguna obra coincide con estos filtros.</strong></p>${tips.length ? `<div class="ui-chips">${tips.map(t => `<button class="ui-chip" data-undo="${t.i}">Quitar ${esc(t.label)} · ${t.n} ${t.n === 1 ? 'obra' : 'obras'}</button>`).join('')}</div>` : '<p class="mono">Prueba con otra búsqueda.</p>'}<button class="ui-chip" data-undo="all" style="justify-self:start">Limpiar todos los filtros</button></div>`;
         $('#cat-grid').querySelectorAll('[data-undo]').forEach(btn => btn.onclick = () => { if (btn.dataset.undo === 'all') return $('#cat-clear').click(); act[+btn.dataset.undo][1](F); if (!F.q) $('#cat-q').value = ''; $('#cat-adult').checked = !F.adult; draw(); });
       }
+      const nav = $('#cat-pages');
+      nav.innerHTML = pageTotal > 1 ? `<button type="button" class="ui-chip" data-page="prev" ${currentPage === 1 ? 'disabled' : ''}>← Anterior</button><span class="mono" aria-live="polite">Página ${currentPage} de ${pageTotal}</span><button type="button" class="ui-chip" data-page="next" ${currentPage === pageTotal ? 'disabled' : ''}>Siguiente →</button>` : '';
+      nav.querySelectorAll('[data-page]').forEach(b => b.onclick = () => {
+        currentPage += b.dataset.page === 'prev' ? -1 : 1;
+        draw();
+        document.getElementById('cat-grid')?.scrollIntoView({ block: 'start', behavior: 'auto' });
+      });
       $('#cat-count').textContent = `${list.length} de ${all.length} obras`;
       document.querySelectorAll('[data-f]').forEach(b => b.classList.toggle('on', F[b.dataset.f] === b.dataset.v));
       document.querySelectorAll('[data-sort]').forEach(b => b.classList.toggle('on', F.sort === b.dataset.sort));

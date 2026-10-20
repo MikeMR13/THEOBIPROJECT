@@ -70,7 +70,7 @@ end $$;
 grant execute on function public.series_feedback(uuid) to authenticated;
 
 -- La lista de reseñas incluye el id del autor (para poder reportarla).
-create or replace function public.series_reviews_list(p_series uuid, p_limit int default 20) returns jsonb language sql stable security definer set search_path = '' as $
+create or replace function public.series_reviews_list(p_series uuid, p_limit int default 20) returns jsonb language sql stable security definer set search_path = '' as $$
   select coalesce(jsonb_agg(x order by x.mine desc, x.at desc), '[]'::jsonb) from (
     select r.user_id = auth.uid() mine, r.user_id uid, p.username, p.avatar_url, r.body, r.updated_at at, r.created_at, sr.score
     from public.series_reviews r left join public.profiles p on p.id = r.user_id
@@ -78,7 +78,7 @@ create or replace function public.series_reviews_list(p_series uuid, p_limit int
     where r.series_id = p_series
     order by (r.user_id = auth.uid()) desc, r.updated_at desc
     limit least(greatest(coalesce(p_limit, 20), 1), 50)) x;
-$;
+$$;
 grant execute on function public.series_reviews_list(uuid, int) to anon, authenticated;
 
 notify pgrst, 'reload schema';

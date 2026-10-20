@@ -89,9 +89,17 @@ export function createReader(ctx){
     return b;
   }
   // texto del siguiente capítulo + sus 2 primeras ilustraciones (salvo modo ahorro de datos)
-  const prefetchNext = ch => { const n = nextOf(ch); if (!n || S.bodies.has(n.id)) return;
-    (window.requestIdleCallback || setTimeout)(() => body(n).then(b => { if (!b || navigator.connection?.saveData || effective(n.volume_id).illus === false) return;
-      b.filter(x => x.url || x.src).slice(0, 2).forEach(x => { const i = new Image(); i.decoding = 'async'; i.src = media(x.url || x.src); }); })); };
+  // No descargar por anticipado el capítulo en conexiones lentas, ahorro de datos
+  // o pestañas ocultas. La navegación normal sigue cargando el capítulo al abrirlo.
+  const canPrefetch = () => !document.hidden && !navigator.connection?.saveData &&
+    !/(^|-)2g$/i.test(navigator.connection?.effectiveType || '');
+  const prefetchNext = ch => { const n = nextOf(ch); if (!n || S.bodies.has(n.id) || !canPrefetch()) return;
+    (window.requestIdleCallback || (fn => setTimeout(fn, 250)))(() => {
+      if (!canPrefetch()) return;
+      body(n).then(b => { if (!Array.isArray(b) || !canPrefetch() || effective(n.volume_id).illus === false) return;
+        b.filter(x => x.url || x.src).slice(0, 2).forEach(x => { const i = new Image(); i.decoding = 'async'; i.src = media(x.url || x.src); }); }).catch(() => {});
+    });
+  };
   const nextOf = ch => S.chapters[S.chapters.indexOf(ch) + 1];
   const prevOf = ch => S.chapters[S.chapters.indexOf(ch) - 1];
   const volOf = ch => S.vols.find(v => v.id === ch.volume_id) || S.vols.find(v => v.num === ch.vol);

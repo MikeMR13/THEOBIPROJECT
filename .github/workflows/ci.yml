@@ -3,9 +3,18 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Configuración ficticia de CI; jamás usa la base de producción.
+      OBI_SUPABASE_URL: https://ci-example.supabase.co
+      OBI_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_only_not_a_real_key
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm install --no-audit --no-fund
-      - run: npm run check && npm run build
+      - name: Validar TOML de Supabase
+        run: python3 -c "import tomllib; tomllib.load(open('supabase/config.toml','rb'))"
+      - run: npm run check && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run integration-check
+      - run: npm run studio-browser-check
+      - name: Validar compilación Preview aislada
+        run: VERCEL_ENV=preview OBI_SUPABASE_URL=https://obi-qa-backend.invalid OBI_SUPABASE_PUBLISHABLE_KEY=sb_publishable_qa_mock_not_connected npm run build && npm run preview-isolation-check

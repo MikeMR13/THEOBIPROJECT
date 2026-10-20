@@ -2,14 +2,27 @@
 import { cpSync, mkdirSync, rmSync, writeFileSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-const url = process.env.OBI_SUPABASE_URL || 'https://qfllthjpjuaztppvpsrk.supabase.co', key = process.env.OBI_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_IiHzG1Jn2je075uuYVHTAg_dBVAAUf5';
+// Sin credenciales implícitas: jamás compilar una Preview/productivo con claves de otra configuración.
+const url = (process.env.OBI_SUPABASE_URL || '').trim().replace(/\/+$/, '');
+const key = (process.env.OBI_SUPABASE_PUBLISHABLE_KEY || '').trim();
+if (!url || !key) throw new Error('Configura OBI_SUPABASE_URL y OBI_SUPABASE_PUBLISHABLE_KEY en este entorno');
+let endpoint; try { endpoint = new URL(url); } catch { throw new Error('OBI_SUPABASE_URL debe ser una URL válida'); }
+if (endpoint.protocol !== 'https:' && !(endpoint.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(endpoint.hostname))) throw new Error('Supabase requiere HTTPS fuera de localhost');
+if (/^sb_secret_|service_role/i.test(key)) throw new Error('No uses llaves secretas o service_role en el navegador');
+const isPreview = process.env.VERCEL_ENV === 'preview';
+if (isPreview) {
+  if (!process.env.OBI_SUPABASE_URL || !process.env.OBI_SUPABASE_PUBLISHABLE_KEY)
+    throw new Error('Preview bloqueado: falta una configuración de backend explícitamente aislada');
+  if (new URL(url).hostname === 'qfllthjpjuaztppvpsrk.supabase.co')
+    throw new Error('Preview bloqueado: no puede utilizar el proyecto Supabase de producción');
+}
 const turnstile = process.env.OBI_TURNSTILE_SITE_KEY || ''; // clave PÚBLICA de Cloudflare Turnstile (la secreta va solo en Supabase)
 if (/service_role/.test(key)) throw new Error('No uses service_role en el frontend');
 const jsIn = d => readdirSync(d).filter(f => f.endsWith('.js')).map(f => d + '/' + f);
 
 // --check: sintaxis de todos los archivos (CI).
 if (process.argv.includes('--check')) {
-  const files = [...jsIn('src'), 'public/sw.js', 'scripts/build.mjs'];
+  const files = [...jsIn('src'), 'public/sw.js', 'scripts/build.mjs', 'scripts/optimization-check.mjs', 'scripts/db-phase2-check.mjs', 'scripts/phase3-check.mjs', 'scripts/phase4-check.mjs', 'scripts/studio-functional-smoke.mjs', 'scripts/studio-browser-e2e.mjs', 'scripts/fixtures/studio-browser-fixture.mjs', 'scripts/fixtures/studio-browser-parent.js', 'scripts/preview-isolation-check.mjs', 'scripts/stability-check.mjs', 'scripts/integration-check.mjs', 'workers/notify/src/index.js', 'workers/patreon/src/index.js'];
   for (const f of files) execFileSync(process.execPath, ['--check', f], { stdio: 'inherit' });
   console.log('sintaxis ok · ' + files.length + ' archivos'); process.exit(0);
 }
@@ -17,6 +30,12 @@ if (process.argv.includes('--check')) {
 let esbuild = null; try { esbuild = await import('esbuild'); } catch { console.warn('⚠ esbuild no está instalado: se publica sin minificar'); }
 rmSync('dist', { recursive: true, force: true }); mkdirSync('dist');
 cpSync('src', 'dist', { recursive: true }); cpSync('public', 'dist', { recursive: true });
+// Los builds Preview no deben preconectar a la BD productiva por una etiqueta HTML.
+if (isPreview) {
+  const indexPath = 'dist/index.html';
+  const html = readFileSync(indexPath, 'utf8').replace(/<link\s+rel="preconnect"\s+href="https:\/\/qfllthjpjuaztppvpsrk\.supabase\.co"[^>]*>\s*/g, '');
+  writeFileSync(indexPath, html);
+}
 writeFileSync('dist/config.js', 'window.OBI_CONFIG=' + JSON.stringify({ url, key, turnstile, build: new Date().toISOString() }) + ';');
 
 // 0. supabase-js empaquetado en un solo archivo propio (evita ~20 descargas encadenadas desde esm.sh). Si falla, se queda el puente a esm.sh.
@@ -57,9 +76,9 @@ const missing = [...text['index.html'].matchAll(REF)].filter(m => !H[m[2]]).map(
 if (missing.length) throw new Error('index.html apunta a archivos inexistentes: ' + missing.join(', '));
 
 // 3. Service worker con la versión de la compilación y la lista exacta del arranque (sin studio.js ni admin.js).
-const BOOT = ['styles.css', 'config.js', 'boot.js', 'supabase.js', 'app.js', 'ui.js', 'reader.js', 'blocks.js', 'season.js', 'anim.js', 'teampage.js'].filter(f => H[f]);
+const BOOT = ['styles.css', 'config.js', 'boot.js', 'supabase.js', 'app.js', 'ui.js', 'reader.js', 'blocks.js'].filter(f => H[f]);
 const SHELL = ['/', '/manifest.webmanifest', '/icon.svg', ...BOOT.map(f => `/${f}?v=${H[f]}`)];
-const LAZY = Object.keys(H).filter(f => f.endsWith('.js') && !BOOT.includes(f) && !/^(studio|admin|sw)\.js$/.test(f)).map(f => `/${f}?v=${H[f]}`);
+const LAZY = Object.keys(H).filter(f => f.endsWith('.js') && !BOOT.includes(f) && !/^(studio|studio-editor|studio-importer|studio-media|admin|sw)\.js$/.test(f)).map(f => `/${f}?v=${H[f]}`);
 const V = 'obi-' + hash(SHELL.join('|')).slice(0, 8);
 const sw = readFileSync('dist/sw.js', 'utf8').replace(/\/\*@shell\*\/[\s\S]*?\/\*@end\*\//, `const V=${JSON.stringify(V)},SHELL=${JSON.stringify([...SHELL, '/icon-192.png', '/apple-touch-icon.png'])},LAZY=${JSON.stringify(LAZY)};`);
 if (!sw.includes(V)) throw new Error('sw.js: no se encontró el marcador /*@shell*/');

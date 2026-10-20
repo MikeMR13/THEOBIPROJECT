@@ -84,15 +84,26 @@ export function particles(host, o){
   const mk = (top) => ({ t: o.type, x: Math.random() * W, y: top ? -20 : Math.random() * H, s: (4 + Math.random() * 6) * (o.type === 'faroles' ? 1.6 : 1), r: Math.random() * 6, vr: (Math.random() - .5) * .03, a: .45 + Math.random() * .45, ph: Math.random() * 6, v: (Math.random() * 3) | 0, c2: o.type === 'confeti' ? CONF[(Math.random() * 5) | 0] : null, k: .6 + Math.random() * .8 });
   const size = () => { const r = host.getBoundingClientRect(); W = r.width; H = o.where === 'page' ? innerHeight : r.height; cv.width = W * dpr; cv.height = H * dpr; x.setTransform(dpr, 0, 0, dpr, 0, 0); const n = Math.round(n0 * (mob ? .5 : 1) * Math.min(1.6, W / 1100 + .4)); while (P.length < n) P.push(mk()); P.length = n; };
   const [mx, my, sw] = MOV[o.type] || [0, .8, .6];
-  const step = t => { raf = requestAnimationFrame(step); if (!vis || (mob && t - last < 33)) return; const dt = Math.min(3, (t - last) / 16.7 || 1); last = t; x.clearRect(0, 0, W, H);
-    for (const p of P) { p.ph += .03 * dt; p.x += (mx + Math.sin(p.ph) * sw) * sp * p.k * dt; p.y += my * sp * p.k * dt; p.r += p.vr * dt;
-      if (o.type === 'luciernagas' || o.type === 'estrellas' || o.type === 'polvo') p.a = .25 + Math.abs(Math.sin(p.ph * .7)) * .7;
-      if (p.y > H + 30) Object.assign(p, mk(true)); if (p.y < -30) Object.assign(p, mk(), { y: H + 20 }); if (p.x > W + 30) p.x = -20; if (p.x < -30) p.x = W + 20;
-      drawP(x, p, o.color); } };
+  // Sin bucle activo fuera de pantalla: al regresar se reactiva una sola RAF.
+  let disposed = false;
+  const pause = () => { if (raf) cancelAnimationFrame(raf); raf = 0; };
+  const resume = () => { if (!disposed && vis && !document.hidden && !raf) { last = 0; raf = requestAnimationFrame(step); } };
+  const step = t => { raf = 0; if (disposed || !vis || document.hidden) return;
+    if (!(mob && t - last < 33)) {
+      const dt = Math.min(3, (t - last) / 16.7 || 1); last = t; x.clearRect(0, 0, W, H);
+      for (const p of P) { p.ph += .03 * dt; p.x += (mx + Math.sin(p.ph) * sw) * sp * p.k * dt; p.y += my * sp * p.k * dt; p.r += p.vr * dt;
+        if (o.type === 'luciernagas' || o.type === 'estrellas' || o.type === 'polvo') p.a = .25 + Math.abs(Math.sin(p.ph * .7)) * .7;
+        if (p.y > H + 30) Object.assign(p, mk(true)); if (p.y < -30) Object.assign(p, mk(), { y: H + 20 }); if (p.x > W + 30) p.x = -20; if (p.x < -30) p.x = W + 20;
+        drawP(x, p, o.color); }
+    }
+    raf = requestAnimationFrame(step);
+  };
   const ro = new ResizeObserver(size); ro.observe(host); size();
-  const io = new IntersectionObserver(([e]) => { vis = e.isIntersecting; }); io.observe(host);
-  raf = requestAnimationFrame(step);
-  return () => { cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); cv.remove(); };
+  const io = new IntersectionObserver(([e]) => { vis = e.isIntersecting; vis ? resume() : pause(); }); io.observe(host);
+  const onVisibility = () => document.hidden ? pause() : resume();
+  document.addEventListener('visibilitychange', onVisibility);
+  resume();
+  return () => { disposed = true; pause(); document.removeEventListener('visibilitychange', onVisibility); ro.disconnect(); io.disconnect(); cv.remove(); };
 }
 
 // Motivos de temporada (íconos dibujados en canvas): esquinas del banner, títulos y tarjetas.

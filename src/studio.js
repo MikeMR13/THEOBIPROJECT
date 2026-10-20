@@ -1,4 +1,4 @@
-import { blocksToEditor, editorToBlocks, pasteToEditor, renderBlock, warningsHTML, teaserHTML, figureHTML, makesBlock, FONTS, CW } from './blocks.js?v=2';
+// El editor y el importador cargan blocks.js al abrir sus pantallas.
 // Estudio del traductor: obras, volúmenes, publicación, editor con guardado atómico, importador EPUB/DOCX/PDF, multimedia, equipo y colaboraciones.
 document.addEventListener('click', e => { const i = e.target.closest?.('input[type=date],input[type=datetime-local]'); if (i && !i.disabled && !i.readOnly) try { i.showPicker(); } catch {} });
 const LIMITS = { file: 80 * 1024 * 1024, entries: 15000, unzipped: 300 * 1024 * 1024, image: 8 * 1024 * 1024 };
@@ -9,127 +9,7 @@ const SEC = ['Capítulo','Prólogo','Interludio','Epílogo','Afterword','Extra']
 const GT = ['Personaje','Lugar','Organización','Honorífico','Cargo o título','Magia','Hechizo','Habilidad','Objeto','Arma','Criatura','Raza o especie','Comida','Bebida','Festival','Moneda','Unidad de medida','Referencia cultural','Modismo','Onomatopeya','Tabú','Otro'];
 const BT = [['paragraph','Párrafo'],['heading','Título'],['quote','Cita'],['note','Nota del traductor'],['image','Ilustración'],['separator','Separador'],['ruby','Furigana']];
 
-const STCSS = `
-body.in-studio .ob-tools .ob-search,body.in-studio .ob-tools .ob-bell{display:none!important}
-.an{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:18px;align-items:start}.an-box{display:grid;gap:12px;padding:18px;background:#14120d;border:1px solid #2f2a20}.an-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}.an-h h2{margin:0;font-size:20px}.an-box>.mono{margin:0;font-size:12px}.an-box a{color:var(--gold)}
-.an-f{display:grid;gap:12px}.an-f label{display:grid;gap:6px;font-size:13px;font-weight:600}.an-f input,.an-f textarea{font-size:14px;width:100%}.an-f textarea{font-family:inherit;line-height:1.5}.an-lh{display:flex;justify-content:space-between}.an-2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:10px}.an-a{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.an-a .btn:disabled{opacity:.4}.an-pv{border:1px dashed #3d3628;min-height:120px}
-@media(max-width:560px){.an-2{grid-template-columns:1fr}}
-.pfx{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;container-type:inline-size}.pf-bar{position:sticky;top:var(--hdr,64px);z-index:6;display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:10px 14px;background:#14120d;border:1px solid #2f2a20}.pf-st{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#a9d18e}.pf-st.warn{color:#f2c230}.pf-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.pf-acts .btn:disabled{opacity:.4;cursor:default}
-.pf-grid{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:16px;align-items:start}
-.pf-panel{position:sticky;top:calc(var(--hdr,64px) + 64px);max-height:calc(100vh - var(--hdr,64px) - 84px);overflow:auto;display:grid;gap:0;background:#14120d;border:1px solid #2f2a20}
-.pf-g{display:grid;gap:10px;padding:16px;border-bottom:1px solid #2f2a20}.pf-g h3{margin:0;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#a89f8a;font-family:'IBM Plex Mono',monospace;font-weight:600}.pf-note{margin:0;font-size:12px;line-height:1.5;color:#a89f8a}.pf-note a{color:var(--gold)}.pfx>.pf-note,.pf-panel>.pf-note{padding:14px 16px}
-.pf-themes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.pf-th{display:grid;gap:3px;padding:10px;text-align:left;border:2px solid transparent;cursor:pointer;font:inherit;position:relative}.pf-th b{font-size:16px;font-weight:600}.pf-th small{font-size:11px}.pf-th.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}.pf-th .pf-sw{position:absolute;top:10px;right:10px}
-.pf-ord{list-style:none;margin:0;padding:0;display:grid;gap:4px}.pf-ord li{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px 8px;background:#0f0e0b;border:1px solid #2f2a20;font-size:13px;cursor:grab}.pf-ord li.off b{color:#7d7563;text-decoration:line-through}.pf-ord li.drag{opacity:.4}.pf-ord li.over{border-color:var(--gold);box-shadow:0 -2px 0 var(--gold)}.pf-grip{color:#7d7563;letter-spacing:-2px}.pf-oa{display:flex;gap:2px}.pf-oa button{width:28px;height:28px;background:none;border:1px solid #2f2a20;color:#cfc6b0;cursor:pointer;font-size:13px}.pf-oa button:disabled{opacity:.3;cursor:default}.pf-oa button:hover:not(:disabled){border-color:var(--gold);color:var(--gold)}
-.pf-2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:8px}.pf-lbl textarea{font-size:14px;font-family:inherit}
-.pf-featpick{display:grid;grid-template-columns:minmax(0,1fr);gap:4px}.pf-featpick .pf-fw{display:grid!important;grid-template-columns:18px minmax(0,1fr) 22px!important;gap:10px!important;align-items:center;margin:0;padding:9px 10px;background:#0f0e0b;border:1px solid #2f2a20;font-size:13px!important;font-weight:600!important;color:var(--paper);cursor:pointer;min-height:40px}.pf-featpick .pf-fw:hover{border-color:#5a5240}.pf-featpick .pf-fw input{width:16px!important;height:16px!important;min-height:0!important;margin:0!important;padding:0!important;accent-color:var(--gold)}.pf-featpick .pf-fw span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pf-featpick .pf-fw:not(.on) em{visibility:hidden}.pf-fw.on{border-color:var(--gold)}.pf-fw em{font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:11px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;background:var(--gold);color:#0d0c0a}
-.pf-tg{display:grid;gap:4px}.pf-sw2{display:flex!important;gap:8px!important;align-items:center;font-size:13px!important;font-weight:500!important;color:var(--paper);cursor:pointer}.pf-sw2 input{width:16px!important;height:16px!important;margin:0!important;accent-color:var(--gold)}.pf-sw2 .pf-sw{width:10px;height:10px;vertical-align:-1px}
-.pf-cust select{width:100%;font-size:13px;padding:7px}.pf-seas{display:grid;gap:6px}.pf-sg{background:#0f0e0b;border:1px solid #2f2a20}.pf-sg>summary{display:flex;justify-content:space-between;gap:8px;padding:9px 10px;cursor:pointer;font-size:13px;font-weight:600;list-style:none}.pf-sg>summary::-webkit-details-marker{display:none}.pf-sg>summary::before{content:'▸';color:var(--gold);margin-right:6px}.pf-sg[open]>summary::before{content:'▾'}.pf-sg>summary .mono{font-size:11px;font-weight:400;margin-left:auto}
-.pf-se{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center;padding:7px 10px;border-top:1px solid #221f18}.pf-se>.pf-cust{grid-column:1/-1}.pf-se .lnk{font-size:12px}.pf-simsel{font-size:12px;padding:5px;max-width:200px}
-.pf-io{display:flex;gap:16px;flex-wrap:wrap;font-size:12px}
-.pf-more{grid-column:1/-1;justify-self:start;padding:6px 0;background:none;border:none;color:var(--gold);font:inherit;font-size:12px;font-weight:600;cursor:pointer}.pf-more:hover{text-decoration:underline}[hidden]{display:none!important}
-.pf-mine{display:grid;gap:8px}.pf-mt{display:grid;gap:4px}.pf-mt .pf-th{width:100%}.pf-ma{display:flex;gap:10px;flex-wrap:wrap;font-size:12px}.pf-save{display:flex;gap:6px}.pf-save input{flex:1;min-width:0;font-size:13px;padding:7px}.pf-cust{display:grid;gap:8px;padding:10px;background:#0f0e0b;border:1px solid #2f2a20}.pf-hx{width:92px;font-family:'IBM Plex Mono',monospace;font-size:13px;padding:7px}
-.pf-sw{display:inline-block;width:14px;height:14px;border-radius:50%;flex:none;border:1px solid rgba(255,255,255,.25)}
-input[type=date],input[type=datetime-local]{color-scheme:dark;cursor:pointer;min-height:38px}input[type=date]::-webkit-calendar-picker-indicator,input[type=datetime-local]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:1;filter:invert(.8) sepia(1) saturate(4) hue-rotate(5deg)}
-.pf-tpls{display:grid;gap:6px}.pf-tpl{display:grid;grid-template-columns:44px minmax(0,1fr);grid-template-rows:auto auto;column-gap:12px;align-items:center;padding:8px 10px;background:#0f0e0b;border:1px solid #2f2a20;color:var(--paper);text-align:left;cursor:pointer;font:inherit}.pf-tpl b{font-size:14px}.pf-tpl small{grid-column:2;font-size:12px;color:#a89f8a}.pf-tpl.on{border-color:var(--gold);background:#1c1a14}
-.pf-ic{grid-row:1/3;width:44px;height:32px;border:1px solid #3d3628;background:#1c1a14;position:relative}.pf-ic::before,.pf-ic::after{content:'';position:absolute;background:#5a5240}.pf-ic-revista::before{inset:0 0 50% 0}.pf-ic-revista::after{left:4px;bottom:4px;width:60%;height:4px;background:var(--gold)}.pf-ic-clasica::before{inset:0 0 65% 0}.pf-ic-clasica::after{left:4px;top:7px;width:10px;height:10px;background:var(--gold)}.pf-ic-editorial::before{top:4px;right:4px;bottom:4px;width:40%}.pf-ic-editorial::after{left:4px;top:8px;width:40%;height:4px;background:var(--gold)}
-.pf-row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:13px;font-weight:600}.pf-col{display:flex;gap:8px;align-items:center}.pf-col input[type=color]{width:40px;height:34px;padding:2px;background:none;border:1px solid #3d3628;cursor:pointer}.pf-col #pf-hex{width:92px;font-family:'IBM Plex Mono',monospace;font-size:13px;padding:7px}.pf-col input[type=range]{width:150px;accent-color:var(--gold)}.pf-col output{font-family:'IBM Plex Mono',monospace;font-size:12px;width:36px}
-.pf-seg{display:inline-flex;border:1px solid #3d3628}.pf-seg button{padding:7px 11px;background:none;border:none;border-right:1px solid #3d3628;color:#cfc6b0;font:inherit;font-size:12px;font-weight:600;cursor:pointer}.pf-seg button:last-child{border-right:none}.pf-seg button.on{background:var(--gold);color:#0d0c0a}
-.pf-fonts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.pf-f{display:grid;gap:2px;padding:10px;background:#0f0e0b;border:1px solid #2f2a20;color:var(--paper);text-align:left;cursor:pointer;font:inherit;min-width:0}.pf-f b{font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pf-f small{font-size:11px;color:#a89f8a}.pf-f.on{border-color:var(--gold);background:#1c1a14}
-.pf-pats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.pf-pt{display:grid;gap:4px;padding:4px;background:#0f0e0b;border:1px solid #2f2a20;color:#a89f8a;cursor:pointer;font:inherit}.pf-pt span{display:block;height:40px;background:var(--bg) var(--pat)}.pf-pt small{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pf-pt.on{border-color:var(--gold);color:var(--paper)}
-.pf-lbl{display:grid;gap:6px;font-size:12px;color:#a89f8a}.pf-lbl input{font-size:14px}.pf-lh{display:flex;justify-content:space-between}
-.pf-h{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 0;border-top:1px solid #221f18;font-size:13px}.pf-h small{display:block;font-size:11px;color:#a89f8a}
-.pf-pvw{display:grid;gap:8px;min-width:0}.pf-pvbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 10px}.pf-pvbar>.mono{white-space:nowrap}.pf-pvbar .ed-btn{white-space:nowrap}.pf-frame{border:1px solid #2f2a20;max-height:calc(100vh - 140px);overflow:auto;background:#0d0c0a}.pf-frame.mobile{box-sizing:border-box;width:390px;max-width:100%;margin:0 auto;border-width:10px;border-color:#24211a;border-radius:24px}
-.pf-mob{display:none;margin:0;padding:12px 14px;background:#1f1a10;border:1px solid #d9922b;font-size:13px}
-@container (max-width:920px){.pf-grid{grid-template-columns:minmax(0,1fr)}.pf-panel{position:static;max-height:none}}
-@media(max-width:767px){.pf-mob{display:block}.pf-panel,#pf-pub,#pf-discard,.pf-pvbar .pf-seg{display:none}.pf-grid{grid-template-columns:1fr}.pf-frame{max-height:none}}
-.s2-dr .pg{grid-column:1/-1;height:4px;background:#2f2a20;margin-top:6px}.s2-dr .pg i{display:block;height:100%;background:var(--gold)}
-.s2-vb{display:flex;align-items:flex-end;gap:5px;height:140px;padding-top:10px}.s2-vb span{flex:1;min-width:3px}.s2-vl{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89f8a;margin-top:6px}
-.wk{display:grid;gap:18px}.wk-top{display:flex;gap:10px 14px;flex-wrap:wrap;align-items:center;padding:14px 16px;background:#14120d;border:1px solid #2f2a20}.wk-top .pl{white-space:nowrap;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:3px 8px;border:1px solid var(--p);color:var(--p)}.wk-top>.mono{font-size:13px}
-.wk-acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}.btn.sm{padding:8px 14px;font-size:13px}.btn.xs{padding:5px 10px;font-size:12px}.btn.gold{color:var(--gold)!important}.btn.green{background:#a9d18e;color:#0d0c0a}.btn.blue{background:#8cc3f2;color:#0d0c0a}
-.wk-tabs{display:flex;border-bottom:2px solid var(--gold)}.wk-tabs a{padding:10px 18px;color:var(--paper);text-decoration:none;font-weight:600;font-size:14px}.wk-tabs a.on{background:var(--gold);color:#0d0c0a}
-.wk-vol{background:#14120d;border:1px solid #2f2a20}.wk-vh{width:100%;display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:16px;align-items:center;padding:14px 16px;background:none;border:none;color:var(--paper);text-align:left;cursor:pointer;font:inherit}.wk-vh:hover{background:#17150f}
-.wk-vc{aspect-ratio:3/4;background:repeating-linear-gradient(135deg,#1c1a14 0 6px,#24211a 6px 12px) center/cover;border-top:3px solid var(--gold)}.wk-vt{display:grid;gap:2px}.wk-vt small{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:#a89f8a}.wk-vt b{font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:20px}.wk-vt>span{font-size:12px;color:#a89f8a}.wk-vt i{font-style:normal}.wk-va{font-family:'IBM Plex Mono',monospace;color:var(--gold)}
-.wk-vbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 16px;border-top:1px solid #2f2a20;background:#110f0b}.wk-syn{flex:1 1 220px;font-family:Literata,serif;font-style:italic;font-size:13px;color:#a89f8a;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.wk-vbar .mono{font-size:11px;text-decoration:none}.wk-sch{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.wk-sch input{width:auto;padding:6px;font-size:12px}
-.wk-ve{padding:14px 16px;border-top:1px solid #2f2a20;background:#0f0e0b}.wk-ve[hidden]{display:none}
-.wk-tw{border-top:1px solid #2f2a20;overflow-x:auto}.wk-t{min-width:640px}.wk-th,.wk-tr{display:grid;grid-template-columns:44px minmax(160px,1fr) 110px 150px auto;gap:12px;align-items:center;padding:9px 16px}.wk-th{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;color:#a89f8a;border-bottom:1px solid #2f2a20}.wk-tr{border-bottom:1px solid #221f18;font-size:14px}.wk-tr:hover{background:#1a1812}.wk-tr .mono{font-size:12px}
-.wk-tt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wk-tt em{font-style:normal;font-size:11px;font-family:'IBM Plex Mono',monospace;color:#c9a8f2}.wk-ra{display:flex;gap:6px;justify-content:flex-end;align-items:center}
-.wk-addv{min-height:84px;display:flex;gap:10px;align-items:center;justify-content:center;background:none;border:2px dashed #3d3628;color:#a89f8a;font:inherit;font-weight:600;font-size:14px;cursor:pointer}.wk-addv span{font-family:'Shippori Mincho B1',serif;font-size:26px}.wk-addv:hover{border-color:var(--gold);color:var(--gold)}
-.wk-dat{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:18px;align-items:start}.wk-col{display:grid;gap:18px;min-width:0}.wk-box{display:grid;gap:12px;padding:18px;background:#14120d;border:1px solid #2f2a20;min-width:0}.wk-box h2{margin:0;font-size:20px}.wk-box>label:not(.tb-inl),.wk-g2>label{display:grid;gap:6px;font-size:13px;font-weight:600}.wk-box input:not([type=checkbox]),.wk-box select,.wk-box textarea{width:100%;font-size:14px;padding:9px}.wk-box textarea{font-family:Literata,serif;line-height:1.6;resize:vertical}.wk-box small.mono{font-size:12px;font-weight:400}
-.wk-g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.wk-lh{display:flex;justify-content:space-between}
-.wk-tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:8px;background:#0d0c0a;border:2px solid var(--line);cursor:text}.wk-tags span{display:flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;background:#221f17;border:1px solid #3d3628;font-size:13px}.wk-tags span button{background:none;border:none;color:#a89f8a;cursor:pointer;font-size:14px;padding:0 2px}.wk-tags input{flex:1 1 140px;width:auto!important;border:none!important;background:none!important;padding:6px!important;outline:none}
-.wk-buy{padding:4px 10px;border:1px solid;font-size:12px;font-weight:600}.wk-cb{display:grid;grid-template-columns:34px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #2f2a20}.wk-ini{width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:#0d0c0a;font-weight:700;font-size:13px}.wk-inv{display:flex;gap:8px}.wk-inv input{flex:1}
-.wk-save{grid-column:1/-1;position:sticky;bottom:0;display:flex;gap:12px;justify-content:flex-end;align-items:center;padding:12px 0;background:#0d0c0a;border-top:1px solid #2f2a20}
-@media(max-width:640px){.wk-g2{grid-template-columns:1fr}.wk-acts{margin-left:0}}
-.s2-head{display:flex!important;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px}.s2-ht{display:grid;gap:4px}
-.s2-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.s2-tz{display:flex!important;align-items:center;gap:6px;padding:0 8px;height:36px;border:1px solid #3d3628;font-size:12px!important;font-weight:400!important;color:#a89f8a}.s2-tz select{background:none;border:none;color:var(--paper);font:inherit;font-size:12px;padding:0;max-width:200px;outline:none}.s2-tz select option{background:#16140f}
-.s2-bellw,.s2-srch{position:relative}.s2-bell{position:relative;width:36px;height:36px;background:none;border:1px solid #3d3628;color:var(--paper);font-family:'Shippori Mincho B1',serif;font-size:16px;cursor:pointer}.s2-bell:hover,.s2-bell[aria-expanded=true]{border-color:var(--gold);color:var(--gold)}.s2-bell em{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 4px;background:#f59e7a;color:#0d0c0a;font:600 10px/18px 'IBM Plex Mono',monospace;font-style:normal}
-.s2-srch input{width:220px;height:36px;padding:0 12px;background:#16140f;border:1px solid #2f2a20;font-size:13px}.s2-srch input:focus{border-color:var(--gold);outline:none}
-.s2-me{width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:var(--gold);color:#0d0c0a;font-weight:700;text-decoration:none}.s2-me:hover{color:#0d0c0a;outline:2px solid var(--paper)}
-.s2-pop{position:absolute;right:0;top:calc(100% + 8px);width:min(380px,86vw);max-height:70vh;overflow:auto;z-index:40;display:grid;background:#16140f;border:1px solid #3d3628;border-top:3px solid var(--gold);box-shadow:0 20px 40px rgba(0,0,0,.5)}.s2-pop[hidden]{display:none}
-.s2-poph{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #2f2a20;font-size:14px}
-.s2-nt{display:grid;grid-template-columns:8px minmax(0,1fr);gap:10px;padding:10px 12px;border-bottom:1px solid #221f18;color:var(--paper);text-decoration:none;font-size:13px;line-height:1.4}.s2-nt:hover{background:#1c1a14;color:var(--paper)}.s2-nt i{width:8px;height:8px;margin-top:6px;opacity:.35}.s2-nt.new i{opacity:1}.s2-nt.new{background:#1a1710}.s2-nt small{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89f8a;margin-top:2px}
-.s2-qh{padding:8px 12px 4px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#a89f8a}.s2-qr{display:grid;gap:2px;padding:8px 12px;color:var(--paper);text-decoration:none;font-size:13px}.s2-qr:hover,.s2-qr:focus{background:#1c1a14;color:var(--paper)}.s2-qr small{font-size:12px;color:#a89f8a}
-@media(max-width:860px){.s2-srch input{width:150px}.s2-tz select{max-width:120px}}
-body.in-studio>main{max-width:none;margin:0;padding:0}body.in-studio .s2{margin:0;min-height:100vh}body.in-studio .ed-bar,body.in-studio .st-sticky{top:0}
-.s2{display:grid;grid-template-columns:248px minmax(0,1fr);margin:-40px calc(-1 * clamp(16px,4vw,56px)) -80px;min-height:calc(100vh - 64px);background:#0d0c0a}
-.s2-side{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#2f2a20 transparent;display:flex;flex-direction:column;gap:22px;padding:22px 16px;background:#110f0b;border-right:1px solid #2f2a20}
-.s2-brand{display:flex;align-items:center;gap:10px;color:var(--paper);text-decoration:none}.s2-brand b{display:block;font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:18px;line-height:1}.s2-brand small{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#a89f8a}
-.s2-seal{width:30px;height:30px;flex:none;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);border-radius:5px;color:var(--gold);font-family:'Shippori Mincho B1',serif;font-weight:800;font-size:16px;transform:rotate(-6deg)}
-.s2-team{display:grid;gap:6px;padding:12px;background:#16140f;border:1px solid #2f2a20;border-left:4px solid var(--gold)}.s2-team small,.s2-quick small{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#a89f8a}.s2-team .st-team{font-size:14px;text-transform:uppercase}.s2-team select{width:100%;font-size:13px;padding:6px}.s2-team>span{font-size:12px;color:#a89f8a}
-.s2-bib{display:block;margin-top:4px;padding-top:8px;border-top:1px solid #2f2a20;line-height:1.4;color:#cfc6b0!important}.s2-bib b{color:var(--gold)}.s2-bib a{display:block;margin-top:6px;font-weight:700}
-.s2-nav{display:grid;gap:2px}.s2-nav a{display:flex;align-items:center;gap:12px;padding:10px;min-height:44px;color:var(--paper);text-decoration:none;font-size:14px;font-weight:600}.s2-nav a:hover{background:#1c1a14}.s2-nav a.on{background:var(--gold);color:#0d0c0a}
-.s2-nav .k{width:22px;flex:none;text-align:center;font-family:'Shippori Mincho B1',serif;font-weight:800;font-size:15px}.s2-nav em{margin-left:auto;font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:11px;opacity:.75}
-.s2-quick{display:grid;gap:8px}.s2-q{display:block;padding:10px 12px;min-height:44px;background:none;color:var(--paper);border:1px solid #3d3628;font:inherit;font-weight:600;font-size:13px;text-align:left;text-decoration:none;cursor:pointer}.s2-q:hover{border-color:var(--gold);color:var(--paper)}.s2-q.main{background:var(--gold);color:#0d0c0a;border-color:var(--gold);font-weight:700;font-size:14px}
-.s2-back{margin-top:auto;font-size:13px;color:#a89f8a}
-.s2-main{min-width:0;padding:28px clamp(20px,3vw,44px) 80px}.s2-head{display:grid;gap:4px;margin-bottom:26px}.s2-head small{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:#a89f8a}.s2-head h1{margin:0;font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:34px;line-height:1.1}
-.s2-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:28px}.s2-kpi{display:grid;gap:6px;padding:16px;background:#16140f;border-top:3px solid var(--c)}.s2-kpi small{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#a89f8a}.s2-kpi b{font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:36px;line-height:1}.s2-kpi span{font-size:12px;color:var(--c)}
-.s2-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:20px}.s2-box{display:grid;gap:4px;align-content:start;padding:18px;background:#14120d;border:1px solid #2f2a20}
-.s2-bh{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}.s2-bh h2{margin:0;font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:22px}.s2-bh a{font-weight:700;font-size:13px}.s2-none{padding:12px 0;border-top:1px solid #2f2a20;margin:0}
-.s2-up{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 0;border-top:1px solid #2f2a20}.s2-up .d{display:grid;text-align:center;padding:6px 0;background:#1c1a14;border-top:3px solid var(--c)}.s2-up .d b{font-family:'Shippori Mincho B1',serif;font-size:22px;font-weight:500;line-height:1}.s2-up small{font-family:'IBM Plex Mono',monospace;font-size:10px;color:#a89f8a}
-.s2-up .w{display:grid;gap:2px;min-width:0}.s2-up .w b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.s2-up .w small{font-family:inherit;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.s2-up .t{display:grid;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--gold)}
-.s2-dr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 14px;padding:12px 6px;margin:0 -6px;border-top:1px solid #2f2a20;color:var(--paper);text-decoration:none}.s2-dr:hover{background:#1a1812;color:var(--paper)}.s2-dr b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.s2-dr .st{font-family:'IBM Plex Mono',monospace;font-size:12px}.s2-dr small{font-size:12px;color:#a89f8a}
-.s2-er{display:grid;gap:6px;padding:12px 0;border-top:1px solid #2f2a20}.s2-er small{font-size:12px;color:#a89f8a}.s2-er q{font-family:Literata,serif;font-size:15px;color:#e3dccb}.s2-er>span{font-size:13px;color:#cfc6b0}.s2-er .a{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.s2-er .btn{padding:6px 10px;font-size:12px}.s2-er .ok{color:#a9d18e}
-.s2-bar{position:relative;display:flex;justify-content:space-between;gap:12px;padding:10px 0 14px;border-top:1px solid #2f2a20;color:var(--paper);text-decoration:none;font-size:14px}.s2-bar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.s2-bar b{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500}.s2-bar i{position:absolute;left:0;bottom:4px;height:4px;width:var(--w);background:var(--c)}
-.s2-works{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,520px),1fr));gap:18px}
-.s2-work{display:grid;grid-template-columns:150px minmax(0,1fr);gap:20px;padding:18px;background:#14120d;border:1px solid #2f2a20;border-top:4px solid var(--c)}
-.s2-work .cv{position:relative;aspect-ratio:3/4;background:repeating-linear-gradient(135deg,#1c1a14 0 10px,#24211a 10px 20px) center/cover;box-shadow:0 14px 30px rgba(0,0,0,.5)}.s2-work .cv[style*=url]{background-size:cover}.s2-work .cv span{position:absolute;left:0;right:0;bottom:16%;padding:8px 10px;background:var(--c);color:#0d0c0a;font-family:'Shippori Mincho B1',serif;font-weight:800;font-size:13px;line-height:1.2}
-.s2-work .bd{display:grid;gap:10px;align-content:start;min-width:0}.s2-work .tg{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.s2-work .tg small{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89f8a}.s2-work .pl{white-space:nowrap;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:3px 8px;border:1px solid var(--p);color:var(--p)}
-.s2-work h2{margin:0;font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:22px;line-height:1.2;text-wrap:pretty}.s2-work h2 a{color:var(--paper);text-decoration:none}.s2-work h2 a:hover{color:var(--c)}
-.s2-work p{margin:0;font-family:Literata,serif;font-size:14px;line-height:1.55;color:#cfc6b0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.s2-work .gn{display:flex;gap:5px;flex-wrap:wrap}.s2-work .gn span{font-size:11px;font-weight:600;padding:2px 8px;border:1px solid #3d3628;color:#cfc6b0}
-.s2-work dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;margin:0;padding:12px 0;border-top:1px solid #2f2a20;border-bottom:1px solid #2f2a20}.s2-work dl div{display:grid;gap:2px}.s2-work dt{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;color:#a89f8a}.s2-work dd{margin:0;font-size:13px;font-weight:700}
-.s2-work .ac{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.s2-work .ac .btn{padding:9px 14px;font-size:13px}.s2-work .lnk{font-size:13px}
-.s2-add{min-height:200px;display:grid;place-items:center;align-content:center;gap:6px;border:2px dashed #3d3628;color:#a89f8a;font-size:14px;font-weight:600;text-decoration:none}.s2-add span{font-family:'Shippori Mincho B1',serif;font-size:34px}.s2-add small{font-weight:400;font-size:12px}.s2-add:hover{border-color:var(--gold);color:var(--gold)}
-.s2-empty{display:grid;justify-items:center;gap:14px;padding:70px 24px;background:#14120d;border:1px dashed #3d3628;text-align:center}.s2-empty>span{font-family:'Shippori Mincho B1',serif;font-weight:800;font-size:56px;color:#3d3628}.s2-empty h2{margin:0;font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:28px}.s2-empty p{margin:0;max-width:52ch;color:#a89f8a;line-height:1.6}
-.s2-h2{font-family:'Shippori Mincho B1',serif;font-weight:500;margin:32px 0 12px}
-@media(max-width:860px){.s2{grid-template-columns:1fr}.s2-side{position:static;height:auto;flex-direction:row;flex-wrap:wrap;gap:12px;padding:14px 16px}.s2-brand,.s2-team,.s2-back{display:none}.s2-nav{display:flex;flex-wrap:wrap;gap:4px;width:100%}.s2-nav a{padding:8px 10px}.s2-nav em{margin-left:6px}.s2-quick{display:flex;flex-wrap:wrap;width:100%}.s2-quick small{display:none}.s2-q{flex:1 1 auto}.s2-work{grid-template-columns:96px minmax(0,1fr);gap:14px}}
-.ed-crumb{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}.ed-nav{margin-left:auto;display:flex;gap:12px;align-items:center}.ed-nav a{color:var(--paper);text-decoration:none;font-weight:600}.ed-nav a:hover{color:var(--gold)}.ed-nav .off{opacity:.35}
-.ed-pres{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;margin:0 0 10px;border:1px solid #8cc3f2;background:#101a22;font-size:14px;line-height:1.5}.ed-pres .dot{width:10px;height:10px;border-radius:50%;background:#8cc3f2;margin-top:6px;flex:none;box-shadow:0 0 0 4px rgba(140,195,242,.2)}
-.ed-origw{display:none;gap:8px;align-content:start;position:sticky;top:76px}
-.ed-split[data-view="orig"]{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.ed-split[data-view="orig"] .ed-origw{display:grid}.ed-split[data-view="orig"] .ed-pvw{display:none}.ed-split[data-view="orig"] .ed-docw{display:block}
-.ed-orig{max-height:calc(100vh - 150px);overflow:auto;padding:18px 20px;background:#110f0b;border:1px solid #2f2a20;font-size:16px;line-height:1.75;color:#d9d0ba}
-.ed-orig p{margin:0 0 10px;padding:4px 8px 4px 34px;position:relative;cursor:pointer;border-left:2px solid transparent}.ed-orig p .n{position:absolute;left:6px;top:7px;font:11px 'IBM Plex Mono',monospace;color:#7d7462}.ed-orig p:hover{background:#17140f}.ed-orig p.on{border-left-color:var(--gold);background:#1f1c15;color:var(--paper)}
-.ed-orig textarea{width:100%;min-height:60vh;background:transparent;border:0;color:inherit;font:inherit;resize:vertical;outline:none}
-@media(max-width:900px){.ed-split[data-view="orig"]{grid-template-columns:minmax(0,1fr)}.ed-origw{position:static}.ed-orig{max-height:40vh}}
-.ed.zen{position:fixed;inset:0;z-index:80;background:#0d0c0a;overflow:auto;padding:24px clamp(16px,6vw,120px) 100px;margin:0;max-width:none}
-.ed.zen>p.mono,.ed.zen #localcard,.ed.zen #pres,.ed.zen #p-set,.ed.zen #p-rev,.ed.zen #p-hist,.ed.zen #p-coms,.ed.zen #gwarn,.ed.zen .ed-pvw,.ed.zen .ed-origw,.ed.zen .ed-pub,.ed.zen #b-rev,.ed.zen #b-hist,.ed.zen .ed-bar .end{display:none!important}
-.ed.zen .ed-split{grid-template-columns:minmax(0,1fr)!important}.ed.zen .ed-docw{display:block!important}
-.ed.zen .ed-doc{background:transparent;border-color:transparent;font-size:20px;max-width:66ch;min-height:70vh}
-.ed.zen .ed-bar,.ed.zen .ed-top{opacity:.3;transition:opacity .2s}.ed.zen .ed-bar:hover,.ed.zen .ed-bar:focus-within,.ed.zen .ed-top:hover,.ed.zen .ed-top:focus-within{opacity:1}
-.ed-zenbar{display:none}.ed.zen .ed-zenbar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;position:fixed;left:0;right:0;bottom:0;padding:12px clamp(16px,6vw,120px);background:#14120d;border-top:1px solid #2f2a20;z-index:81}
-.ed-zenbar b{font-size:20px;color:var(--gold)}.ed-zenbar input{width:84px;padding:4px 6px}.ed-zenbar .zp{flex:1 1 160px;height:6px;background:#2f2a20}.ed-zenbar .zp i{display:block;height:100%;background:var(--gold)}
-#b-zen[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
-.wk-t{min-width:720px}.wk-th,.wk-tr{grid-template-columns:52px 44px minmax(160px,1fr) 110px 150px auto}
-.wk-sel{display:flex;gap:8px;align-items:center}.wk-sel input,.wk-th input{width:16px;height:16px;accent-color:var(--gold)}.wk-grip{cursor:grab;color:#7d7462;font-size:16px;line-height:1}.wk-tr[draggable="true"]:hover .wk-grip{color:var(--gold)}
-.wk-tr.sel{background:#1f1c15}.wk-tr.drag{opacity:.4}.wk-tr.drop-a{box-shadow:inset 0 2px 0 var(--gold)}.wk-tr.drop-b{box-shadow:inset 0 -2px 0 var(--gold)}.wk-vh.drop-v{outline:2px dashed var(--gold);outline-offset:-4px}
-.wk-stg{display:inline-block;margin-left:8px;padding:1px 7px;font:10px/1.6 'IBM Plex Mono',monospace;letter-spacing:.06em;color:var(--c);border:1px solid var(--c);vertical-align:2px;white-space:nowrap}
-.wk-flt{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:0 0 14px}.wk-flt input[type=search]{flex:0 1 260px;min-height:38px}.wk-flt .ed-chips{gap:6px}.wk-flt .ed-chip{white-space:nowrap}
-.wk-bulk{position:sticky;bottom:12px;z-index:30;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:16px;padding:12px 16px;background:#1f1c15;border:1px solid var(--gold);box-shadow:0 10px 30px rgba(0,0,0,.5)}.wk-bulk select{min-height:34px}.wk-bulk .btn{white-space:nowrap}
-.wk-bp{flex-basis:100%;display:grid;gap:10px;padding-top:10px;border-top:1px solid #3d3628}.wk-bp .row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}.wk-bp ol{margin:0;padding-left:20px;font:12px/1.7 'IBM Plex Mono',monospace;color:#a89f8a;columns:2 240px}
-.wk-trash{margin-top:22px;border:1px dashed #3d3628;background:#110f0b}.wk-trash>summary{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;padding:12px 16px;cursor:pointer;list-style:none}.wk-trash>summary::-webkit-details-marker{display:none}.wk-trash>summary::before{content:'▸';color:#a89f8a}.wk-trash[open]>summary::before{content:'▾'}
-.wk-trl{display:grid;border-top:1px solid #2f2a20}.wk-tri{display:flex;flex-wrap:wrap;gap:8px 14px;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid #221f18;font-size:14px}.wk-tri small{display:block;font:11px 'IBM Plex Mono',monospace;color:#a89f8a;margin-top:2px}.wk-trash>.lnk{margin:12px 16px}
-.wk-vcov{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:12px;border:1px solid #2f2a20;background:#110f0b}.wk-vcp{width:72px;aspect-ratio:2/3;background:#1c1a14 center/cover no-repeat;border:1px solid #3d3628;display:flex;align-items:center;justify-content:center;text-align:center;font:10px 'IBM Plex Mono',monospace;color:#7d7462}
-.wk-vext{display:grid;gap:10px;padding:12px;border:1px solid #2f2a20;background:#110f0b}.wk-vexf{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))}.wk-vexf .tb-inl{grid-column:1/-1;align-items:flex-start}.wk-vexf .tb-inl input{margin-top:3px}
-`;
+// La hoja de estilos de Studio se carga como recurso independiente.
 export function createStudio(ctx){
   const { sb, app, $, esc, toast, go, getUser, getMe, url } = ctx;
   const PUB = `${url}/storage/v1/object/public/obi-media/`;
@@ -161,7 +41,22 @@ export function createStudio(ctx){
   const ROLE_L = { owner: 'Propietario', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
   const NAV = [['/estudio','総','Resumen'],['/estudio/anuncios','告','Anuncios'],['/estudio/obras','作','Obras'],['/estudio/glosario','語','Glosario'],['/estudio/importar','入','Importar'],['/estudio/multimedia','画','Multimedia'],['/estudio/flujo','流','Flujo de trabajo'],['/estudio/comunidad','評','Comunidad'],['/estudio/estadisticas','統','Estadísticas'],['/estudio/descargas','落','Descargas'],['/estudio/perfil','顔','Página del equipo'],['/estudio/preferencias','彩','Preferencias'],['/estudio/equipo','班','Equipo'],['/estudio/bitacora','録','Bitácora','log']];
   const CRUMB = { '/estudio': 'RESUMEN', '/estudio/obras': 'OBRAS', '/estudio/nueva': 'NUEVA OBRA', '/estudio/glosario': 'GLOSARIO', '/estudio/importar': 'IMPORTAR', '/estudio/multimedia': 'MULTIMEDIA', '/estudio/equipo': 'EQUIPO', '/estudio/flujo': 'FLUJO DE TRABAJO', '/estudio/preferencias': 'PREFERENCIAS', '/estudio/anuncios': 'ANUNCIOS', '/estudio/perfil': 'PÁGINA DEL EQUIPO', '/estudio/bitacora': 'BITÁCORA', '/estudio/comunidad': 'COMUNIDAD', '/estudio/estadisticas': 'ESTADÍSTICAS', '/estudio/descargas': 'DESCARGAS', '/estudio/obra': 'OBRAS · FICHA' };
-  const css = () => { if (document.getElementById('st2-css')) return; const st = document.createElement('style'); st.id = 'st2-css'; st.textContent = STCSS; document.head.appendChild(st); };
+  let styleTask = null;
+  const css = () => {
+    if (styleTask) return styleTask;
+    const existing = document.getElementById('st2-css');
+    if (existing?.sheet) return (styleTask = Promise.resolve());
+    const link = existing || document.createElement('link');
+    styleTask = new Promise(resolve => {
+      link.addEventListener('load', resolve, { once: true });
+      link.addEventListener('error', resolve, { once: true });
+    });
+    if (!existing) {
+      link.id = 'st2-css'; link.rel = 'stylesheet'; link.href = '/studio.css?v=1';
+      document.head.appendChild(link);
+    }
+    return styleTask;
+  };
   const shell = (title, body, tab) => { css(); document.body.classList.add('in-studio'); const t = tab === '/estudio/obra' ? '/estudio/obras' : tab; const me = getMe?.();
     return `<div class="s2"><aside class="s2-side">
       <a class="s2-brand" href="/estudio"><span class="s2-seal">帯</span><span><b>Estudio Editorial</b><small>EL OBI DEL LECTOR</small></span></a>
@@ -242,6 +137,8 @@ export function createStudio(ctx){
 
   async function ensure(){
     const user = getUser(); if (!user) { go('/entrar'); return false; }
+    // Inicia la hoja en paralelo con permisos/datos; evita mostrar Studio sin estilos.
+    const styles = css();
     if (!T.teams.length) {
       const { data } = await sb.from('team_members').select('role,teams(id,slug,name,color)').eq('user_id', user.id);
       T.teams = (data || []).map(m => ({ ...m.teams, role: m.role }));
@@ -249,6 +146,7 @@ export function createStudio(ctx){
       await pickTeam(localStorage.getItem('obi-team') || T.teams[0].id);
     }
     if (T.works == null) { const { count } = await sb.from('series').select('id', { count: 'exact', head: true }).eq('team_id', T.team.id).is('archived_at', null); T.works = count || 0; }
+    await styles;
     return true;
   }
   async function pickTeam(id){
@@ -272,8 +170,9 @@ export function createStudio(ctx){
     import('./thumbs.js?v=1').then(m => m.heal(sb, T.team.id, PUB)).catch(() => {});
     if (!ids.length) return { works: [], chs: [], sched: [], reps: [] };
     const now = new Date().toISOString();
+    const { readPages } = await import('/paging.js?v=1');
     const [{ data: chs }, { data: sched }, { data: reps }] = await Promise.all([
-      sb.from('chapters').select('id,num,title,status,publish_at,updated_at,series_id,vol,review_status,stage,assigned_to').in('series_id', ids).is('deleted_at', null).limit(3000),
+      readPages((from, to) => sb.from('chapters').select('id,num,title,status,publish_at,updated_at,series_id,vol,review_status,stage,assigned_to').in('series_id', ids).is('deleted_at', null).order('id').range(from, to), { size: 250 }),
       sb.from('schedule').select('id,label,at,series_id').in('series_id', ids).gte('at', now).order('at').limit(20),
       sb.from('reports').select('id,kind,quote,fix,created_at,chapter_id,chapters(num,title,series_id)').eq('status', 'open').order('created_at', { ascending: false }).limit(100)]);
     const set = new Set(ids);
@@ -317,12 +216,16 @@ export function createStudio(ctx){
   }
   const emptyState = () => `<div class="s2-empty"><span>空</span><h2>Tu estudio está vacío</h2><p>Empieza importando un EPUB, DOCX o PDF: armamos la obra con su portada, índice e ilustraciones.</p>${can('create') || can('import') ? '<span style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><a class="btn" href="/estudio/nueva">＋ Crear mi primera obra</a></span>' : '<p class="mono">Pide a tu propietario permiso para crear obras.</p>'}</div>`;
 
+  // Identificador compartido con el importador: conservar su normalización
+  // original al crear obras manualmente, sin cargar el importador completo.
+  const slugify = s => (s || 'obra').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
+
   // ---------- nueva obra paso a paso ----------
   async function newWork(){
     if (!(await ensure())) return;
     const TAB = '/estudio/obras';
     if (!can('create')) { app.innerHTML = shell('Nueva obra', can('import') ? '<p>Tu rol solo permite importar. <a href="/estudio/importar">Importar un archivo →</a></p>' : '<p>Tu rol no permite crear obras.</p>', TAB); bindPicker(newWork); return; }
-    const N = { title: '', original: '', author: '', illustrator: '', work_type: WTYPES[0]?.[0] ?? WTYPES[0], synopsis: '', vtitle: '' }; let made = null;
+    const N = { title: '', original: '', author: '', illustrator: '', work_type: Array.isArray(WTYPES[0]) ? WTYPES[0][0] : WTYPES[0], synopsis: '', vtitle: '' }; let made = null;
     const steps = n => `<ol class="st-steps" style="margin:0 0 22px">${['Obra', 'Primer volumen', 'Primer capítulo'].map((l, i) => `<li style="${i === n ? 'color:var(--gold);font-weight:700' : ''}">${l}</li>`).join('')}</ol>`;
     const box = (h, inner) => `<section class="wk-box" style="max-width:760px;display:grid;gap:12px"><h2>${h}</h2>${inner}</section>`;
     const step1 = () => { app.innerHTML = shell('Nueva obra', `${steps(0)}
@@ -392,9 +295,10 @@ export function createStudio(ctx){
     const { data: s } = await sb.from('series').select('*').eq('slug', slug).maybeSingle();
     if (!s) return go('/estudio');
     const tab = ({ datos: 'datos', avisos: 'avisos', media: 'media' })[new URLSearchParams(location.search).get('tab')] || 'caps';
+    const { readPages } = await import('/paging.js?v=1');
     const [{ data: vols }, { data: chs }, { data: cols }, { data: events }, { data: dls }, { data: buys }, { data: tch }, { data: tvol }] = await Promise.all([
       sb.from('volumes').select('*').eq('series_id', s.id).is('deleted_at', null).order('num'),
-      sb.from('chapters').select('id,num,vol,volume_id,title,status,section_type,publish_at,updated_at,stage').eq('series_id', s.id).is('deleted_at', null).order('num'),
+      readPages((from, to) => sb.from('chapters').select('id,num,vol,volume_id,title,status,section_type,publish_at,updated_at,stage').eq('series_id', s.id).is('deleted_at', null).order('num').range(from, to), { size: 250 }),
       sb.from('collaborations').select('id,status,invited:teams!collaborations_invited_team_fkey(name,slug,color)').eq('series_id', s.id),
       sb.from('publication_events').select('event,summary,created_at').eq('series_id', s.id).order('created_at', { ascending: false }).limit(10),
       sb.from('download_links').select('id,volume_id,vol').eq('series_id', s.id),
@@ -809,856 +713,32 @@ export function createStudio(ctx){
     return free.length;
   }
 
-  // ---------- editor de página: vista previa del lector, revisión automática, historial, avance y marcadores ----------
-  const LINT = [['dbl','Dobles espacios','Espacios repetidos entre palabras.'],['quotes','Comillas mezcladas','Usas «» y también "": se cambian a «».'],['dash','Guion de diálogo','Diálogos que empiezan con - o –: se cambian a raya (—).'],['dots','Puntos suspensivos','«...» se cambia por «…».'],['space','Espacio antes de signo','Espacio sobrante antes de , . ; : ? ! »'],['open','Signos de apertura','Párrafos con ? o ! sin su ¿ o ¡. Revísalos a mano.'],['alt','Ilustraciones sin descripción','Texto alternativo para lectores de pantalla. Toca la imagen para añadirlo.'],['gloss','Términos del glosario','Escritos con mayúsculas distintas a las del glosario.']];
-  const REV_KIND = { manual: 'Guardado manual', auto: 'Autoguardado', restore: 'Restauración', publish: 'Publicación' };
-  const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const agoEd = d => { const m = Math.round((Date.now() - new Date(d)) / 60000); return m < 60 ? `hace ${Math.max(1, m)} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
+  // ---------- editor de capítulo, importación dinámica ----------
   async function names(ids){ ids = [...new Set(ids.filter(Boolean))]; if (!ids.length) return {}; const { data } = await sb.from('profiles').select('id,username').in('id', ids); return Object.fromEntries((data || []).map(p => [p.id, p.username])); }
+  let editorTask = null;
   async function editor(id){
-    if (!(await ensure())) return;
-    const { data: c } = await sb.from('chapters').select('*, series(slug,title,team_id)').eq('id', id).maybeSingle();
-    if (!c) return go('/estudio');
-    const KEY = 'obi-draft-' + id, now = new Date().toISOString();
-    const [{ data: gl }, { data: coms }, { data: reps0 }, { data: nx }, { data: sib }] = await Promise.all([
-      sb.from('glossary_terms').select('term,category').eq('series_id', c.series_id),
-      sb.from('comments').select('id,para,body,spoiler,created_at,user_id').eq('chapter_id', id).is('parent_id', null).order('created_at', { ascending: false }).limit(100),
-      sb.from('reports').select('id,kind,quote,fix,created_at').eq('chapter_id', id).eq('status', 'open').order('created_at', { ascending: false }),
-      sb.from('schedule').select('at').eq('series_id', c.series_id).gte('at', now).order('at').limit(1),
-      sb.from('chapters').select('id,num,title,section_type,vol').eq('series_id', c.series_id).is('deleted_at', null).order('num')]);
-    const reps = reps0 || [], who = await names((coms || []).map(x => x.user_id));
-    const terms = (gl || []).filter(g => /\p{Lu}/u.test(g.term)).sort((a, b) => b.term.length - a.term.length);
-    const nextWhen = nx?.[0]?.at ? fmtTz(nx[0].at, { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'fecha del siguiente';
-    const meta = { section_type: c.section_type || 'Capítulo', teaser: c.teaser || '', teaser_on: !!c.teaser_on, content_warnings: [...(c.content_warnings || [])] };
-    let version = c.version, dirty = false, conflict = false, edits = 0, autoT = 0, pvT = 0, saving = null, lastRange = null, viewing = null, L = { counts: {}, total: 0, gloss: [] };
-    const UI = { view: localStorage.getItem('obi-ed-view') || 'split', theme: 'oscuro', device: 'desk' };
-    const local = (() => { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } })();
-    const hasLocal = local?.at && (local.html || local.blocks);
-    const ST2 = { draft: 'Borrador', scheduled: 'Programado', published: 'Publicado' };
-    const SIB = sib || [], si = SIB.findIndex(x => x.id === id), prevC = si > 0 ? SIB[si - 1] : null, nextC = si >= 0 && si < SIB.length - 1 ? SIB[si + 1] : null;
-    const chLbl = x => (x.section_type && x.section_type !== 'Capítulo' ? x.section_type : 'Cap. ' + x.num) + (x.title ? ' — ' + x.title : '');
-    const meU = getUser(), myName = (await names([meU?.id]))[meU?.id] || 'Alguien del equipo';
-    let src = c.source_text || '', srcEdit = !src.trim(), srcT = 0, curIdx = -1, chan = null;
-    app.innerHTML = shell('Editar capítulo', `<div class="ed">
-      <p class="mono ed-crumb"><span><a href="/estudio/obra/${c.series.slug}">‹ ${esc(c.series.title)}</a> · Vol. ${c.vol} · <span id="stpill">${ST2[c.status] || c.status}</span> · versión <span id="ver">${version}</span> · <span id="count"></span></span><span class="ed-nav">${prevC ? `<a href="/estudio/editar/${prevC.id}" title="${esc(chLbl(prevC))} · Ctrl+Alt+←">← Anterior</a>` : '<span class="off">← Anterior</span>'}<span>${si + 1} / ${SIB.length}</span>${nextC ? `<a href="/estudio/editar/${nextC.id}" title="${esc(chLbl(nextC))} · Ctrl+Alt+→">Siguiente →</a>` : '<span class="off">Siguiente →</span>'}</span></p>
-      ${hasLocal ? `<div class="st-card" id="localcard"><span>Hay una copia local sin guardar del ${fmtTz(local.at)}${local.version !== version ? ` (hecha sobre la versión ${local.version}; la actual es ${version})` : ''}.</span><span><button class="btn" id="restore">Recuperar</button> <button class="btn ghost" id="discard">Descartar</button></span></div>` : ''}
-      <div id="ctx"></div><div id="pres"></div>
-      <div class="ed-top">
-        <input id="ttl" value="${esc(c.title)}" aria-label="Título del capítulo">
-        <select id="stype" aria-label="Tipo de sección">${SEC.map(s => `<option ${s === meta.section_type ? 'selected' : ''}>${s}</option>`).join('')}</select>
-        <span class="ed-state" id="state" role="status">✓ Guardado</span>
-        <button class="btn ghost" id="b-rev" aria-expanded="false" aria-controls="p-rev">✓ Revisar</button>
-        <button class="btn ghost" id="b-hist" aria-expanded="false" aria-controls="p-hist">◷ Historial</button>
-        <button class="btn ghost" id="save" title="Ctrl/Cmd+S">Guardar</button>
-        <button class="btn ghost" id="b-zen" title="Modo concentración · Ctrl+Shift+F" aria-pressed="false">⛶ Concentración</button>
-        <span class="ed-pub" id="pub"></span>
-      </div>
-      <div class="ed-box" id="p-rev" hidden></div>
-      <div class="ed-box" id="p-hist" hidden></div>
-      <details class="ed-box" id="p-set"><summary>Ajustes del capítulo · avance y marcadores de contenido <span class="mono" id="setsum"></span></summary>
-        <div class="ed-set">
-          <div style="display:grid;gap:8px;align-content:start"><label style="display:grid;gap:6px;font-size:13px;font-weight:600">Avance del próximo capítulo<textarea id="teaser" rows="4" maxlength="1000" placeholder="Unas líneas para dejar con ganas…">${esc(meta.teaser)}</textarea></label>
-            <label style="display:flex;gap:10px;align-items:center;font-size:13px;font-weight:400"><input type="checkbox" id="teaser_on" ${meta.teaser_on ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--gold)"> Mostrarlo al terminar este capítulo, con la fecha del siguiente</label></div>
-          <div style="display:grid;gap:8px;align-content:start"><span style="font-size:13px;font-weight:600">Marcadores de contenido</span>
-            <div class="ed-chips" id="cw">${CW.map(w => `<button type="button" class="ed-chip ${meta.content_warnings.includes(w) ? 'on' : ''}" aria-pressed="${meta.content_warnings.includes(w)}" data-cw="${esc(w)}">${esc(w)}</button>`).join('')}</div>
-            <span style="font-size:12px;color:#a89f8a;line-height:1.45">Aparecen como aviso plegable al inicio del capítulo. Cada lector decide en sus ajustes si los ve plegados, solo como icono o nunca.</span></div>
-        </div></details>
-      <div class="ed-bar" role="toolbar" aria-label="Formato">
-        <select id="blk" aria-label="Tipo de bloque"><option value="P">Párrafo</option><option value="H3">Título</option><option value="BLOCKQUOTE">Cita</option><option value="ASIDE">Nota del traductor</option></select>
-        <select id="ff" aria-label="Tipografía del fragmento"><option value="">Tipografía del cuerpo</option>${FONTS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}<option value="-">Quitar tipografía</option></select>
-        <span class="div"></span>
-        <button class="ed-btn" data-cmd="bold" title="Negrita (Ctrl+B)"><b>B</b></button><button class="ed-btn" data-cmd="italic" title="Cursiva (Ctrl+I)"><i>I</i></button><button class="ed-btn" data-cmd="underline" title="Subrayado (Ctrl+U)"><u>U</u></button><button class="ed-btn" data-cmd="strikeThrough" title="Tachado"><s>S</s></button>
-        <button class="ed-btn" data-act="ruby" title="Furigana sobre la selección">ルビ</button><button class="ed-btn" data-act="sep" title="Separador de escena">※</button><button class="ed-btn" data-act="img" title="Insertar ilustración">▣ Imagen</button><input type="file" id="imgf" accept="image/*" hidden>
-        <button class="ed-btn" data-cmd="undo" title="Deshacer (Ctrl+Z)">↶</button><button class="ed-btn" data-cmd="redo" title="Rehacer">↷</button>
-        <span class="end"><button class="ed-btn" data-act="find" aria-expanded="false">Buscar y reemplazar</button><button class="ed-btn" data-act="coms" aria-expanded="false">Lectores · ${(coms || []).length + reps.length}</button><span class="div"></span>
-          <button class="ed-btn" data-view="orig" title="Texto original junto al editor">Original</button><button class="ed-btn" data-view="edit">Editor</button><button class="ed-btn" data-view="split">Ambos</button><button class="ed-btn" data-view="preview">Vista previa</button></span>
-      </div>
-      <div id="ask"></div>
-      <div class="ed-find" id="p-find" hidden><input type="text" id="fq" placeholder="Buscar" aria-label="Buscar"><input type="text" id="rq" placeholder="Reemplazar por" aria-label="Reemplazar por"><label class="mono" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="fcase" style="width:auto"> Mayúsculas exactas</label><button class="btn ghost" id="fnext">Siguiente</button><button class="btn" id="frep">Reemplazar todo</button><span class="mono" id="finfo"></span></div>
-      <div class="ed-box" id="p-coms" hidden></div>
-      <div id="gwarn"></div>
-      <div class="ed-split" id="split" data-view="${UI.view}">
-        <div class="ed-origw" id="origw"><div class="ed-pvbar"><span class="mono">ORIGINAL</span><span class="mono" id="orig-n"></span><span class="div"></span><button class="ed-btn" id="orig-edit">Editar</button><button class="ed-btn on" id="orig-sync" aria-pressed="true" title="Desplazar el original al párrafo en el que escribes">Sincronizar</button></div><div class="ed-orig" id="orig"></div></div>
-        <div class="ed-docw"><div class="ed-doc" id="doc" contenteditable="true" spellcheck="true" lang="es" role="textbox" aria-multiline="true" aria-label="Texto del capítulo"></div></div>
-        <div class="ed-pvw"><div class="ed-pvbar"><span class="mono">VISTA DEL LECTOR</span>${[['oscuro','Oscuro'],['sepia','Sepia'],['claro','Claro']].map(([k, l]) => `<button class="ed-btn" data-theme="${k}">${l}</button>`).join('')}<span class="div"></span><button class="ed-btn" data-device="desk">Escritorio</button><button class="ed-btn" data-device="mobile">Móvil</button></div><div class="ed-pv" id="pv"></div></div>
-      </div><div class="ed-zenbar" id="zenbar" role="status"></div></div>`, '/estudio/obra');
-    bindPicker(home);
-    const doc = $('#doc'), pv = $('#pv'), root = $('.ed');
-    try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch {}
-    const load = blocks => { doc.innerHTML = blocksToEditor(blocks, media); };
-    load(c.body);
-    const blocksEls = () => [...doc.childNodes].filter(makesBlock);
-    const title = () => $('#ttl').value.trim() || 'Sin título';
-    const setState = (cls, msg) => { const s = $('#state'); if (!s) return; s.className = 'ed-state ' + cls; s.textContent = msg; };
-    const topOf = n => { while (n && n.parentNode !== doc) n = n.parentNode; return n; };
-    const cur = () => topOf(lastRange?.startContainer) || doc.lastElementChild;
-    const textNodes = () => { const w = document.createTreeWalker(doc, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest('rt,figure,.sep') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT }); const a = []; let n; while ((n = w.nextNode())) a.push(n); return a; };
-    const views = () => { $('#split').dataset.view = UI.view; root.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === UI.view)); root.querySelectorAll('[data-theme]').forEach(b => b.classList.toggle('on', b.dataset.theme === UI.theme)); root.querySelectorAll('[data-device]').forEach(b => b.classList.toggle('on', b.dataset.device === UI.device)); pv.classList.toggle('mobile', UI.device === 'mobile'); };
-
-    // vista previa con el mismo render del lector
-    function preview(){
-      const blocks = viewing ? viewing.body : editorToBlocks(doc), tt = viewing ? viewing.title : title();
-      const label = meta.section_type === 'Capítulo' ? 'Cap. ' + c.num : meta.section_type;
-      pv.innerHTML = `<div class="rd" data-theme="${UI.theme}" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="--rs:${UI.device === 'mobile' ? 17 : 19}px"><article class="rd-ch"><header class="rd-head"><span class="mono">Volumen ${c.vol} · ${esc(label)}</span><h2>${esc(tt)}</h2></header>${warningsHTML(meta.content_warnings, 'show')}<div class="rd-body">${blocks.map((b, i) => renderBlock(b, i, { media })).join('') || '<p class="mono">Capítulo vacío.</p>'}</div>${meta.teaser_on && meta.teaser.trim() ? teaserHTML(meta.teaser, nextWhen) : ''}</article></div>`;
-      const words = blocks.reduce((a, b) => a + (b.text || '').split(/\s+/).filter(Boolean).length, 0);
-      $('#count').textContent = `${words.toLocaleString('es-MX')} palabras · ${Math.max(1, Math.round(words / 230))} min de lectura · ${blocks.filter(b => b.type === 'image').length} imágenes`;
-      const on2 = $('#orig-n'); if (on2) { const P2 = origParas(); on2.textContent = P2.length ? `${P2.length} párr. · traducción ${blocksEls().length}` : ''; }
-      $('#setsum').textContent = (meta.teaser_on && meta.teaser.trim() ? 'avance ✓' : 'sin avance') + ' · ' + (meta.content_warnings.length ? meta.content_warnings.length + ' marcador(es)' : 'sin marcadores');
-    }
-
-    // revisión automática
-    function lint(){
-      if (!document.body.contains(doc)) return L;
-      const tx = doc.textContent.replace(/\u00a0/g, ' '), r = {}, cnt = (re, s = tx) => (s.match(re) || []).length;
-      const paras = [...doc.children].filter(e => /^(P|BLOCKQUOTE|ASIDE)$/.test(e.tagName)).map(e => e.textContent);
-      r.dbl = cnt(/ {2,}/g); r.quotes = tx.includes('«') ? Math.ceil(cnt(/["“”]/g) / 2) : 0; r.dash = paras.filter(p => /^\s*[-–]\s?\S/.test(p)).length + cnt(/[?!.,…]\s[-–](?=\p{L})/gu);
-      r.dots = cnt(/\.{3}/g); r.space = cnt(/ +[,.;:?!»)]/g);
-      r.open = paras.filter(p => cnt(/\?/g, p) > cnt(/¿/g, p) || cnt(/!/g, p) > cnt(/¡/g, p)).length;
-      r.alt = [...doc.querySelectorAll('figure')].filter(f => !f.dataset.alt).length;
-      const gloss = [];
-      for (const g of terms) { const m = tx.match(new RegExp('(?<![\\p{L}\\p{N}])' + reEsc(g.term) + '(?![\\p{L}\\p{N}])', 'giu')) || []; const bad = m.filter(x => x !== g.term); if (bad.length) gloss.push({ term: g.term, cat: g.category, n: bad.length, as: bad[0] }); }
-      r.gloss = gloss.reduce((a, g) => a + g.n, 0);
-      L = { counts: r, total: Object.values(r).reduce((a, b) => a + b, 0), gloss };
-      const b = $('#b-rev'); b.textContent = L.total ? '✓ Revisar · ' + L.total : '✓ Sin avisos'; b.style.borderColor = L.total ? '#d9922b' : '#a9d18e';
-      $('#gwarn').innerHTML = gloss.length ? `<div class="ed-gloss"><span class="mono" style="color:#d9922b">GLOSARIO</span><span>«${esc(gloss[0].as)}» aparece ${gloss[0].n === 1 ? '1 vez' : gloss[0].n + ' veces'} así; en el glosario es <b>${esc(gloss[0].term)}</b> (${esc(gloss[0].cat)})${gloss.length > 1 ? ` · y ${gloss.length - 1} término(s) más` : ''}.</span><button class="btn ghost" data-fix="gloss">Corregir todo</button><a class="btn ghost" href="/estudio/glosario">Ver glosario</a></div>` : '';
-      if (!$('#p-rev').hidden) drawRev();
-      return L;
-    }
-    function drawRev(){
-      $('#p-rev').innerHTML = `<div class="ed-bh" style="cursor:default"><b>Revisión automática</b><span style="display:flex;gap:8px;align-items:center"><span class="mono" style="color:${L.total ? '#d9922b' : '#a9d18e'}">${L.total ? L.total + ' avisos' : 'Todo en orden'}</span>${L.total ? '<button class="btn ghost" data-fix="all">Corregir todo</button>' : ''}</span></div>
-        ${LINT.map(([k, l, h]) => { const n = L.counts[k] || 0, auto = !['open', 'alt'].includes(k); return `<div class="ed-lint ${n ? '' : 'ok'}"><span class="i" aria-hidden="true">${n ? '●' : '✓'}</span><span><b>${l}</b><small>${h}</small></span>${n && auto ? `<button class="btn ghost" data-fix="${k}">Corregir ${n}</button>` : `<span class="mono">${n || ''}</span>`}</div>`; }).join('')}
-        <p class="ed-note">Se ejecuta sola al guardar, programar y publicar. Puedes publicar con avisos; el equipo verá cuántos quedaron.</p>`;
-    }
-    function fix(k){
-      if (k === 'all') { LINT.forEach(([x]) => fix(x)); return; }
-      const nodes = textNodes(), rep = (re, to) => nodes.forEach(n => { const v = n.data.replace(re, to); if (v !== n.data) n.data = v; });
-      if (k === 'dbl') rep(/[ \u00a0]{2,}/g, ' ');
-      if (k === 'quotes') rep(/["“]([^"“”]*)["”]/g, '«$1»');
-      if (k === 'dots') rep(/\.{3}/g, '…');
-      if (k === 'space') rep(/[ \u00a0]+([,.;:?!»)])/g, '$1');
-      if (k === 'dash') [...doc.children].forEach(el => { const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode()) && !n.data.trim()); if (n) n.data = n.data.replace(/^(\s*)[-–]\s?/, '$1—'); }); rep(/([?!.,…]\s)[-–](?=\p{L})/gu, '$1—');
-      if (k === 'gloss') for (const g of terms) rep(new RegExp('(?<![\\p{L}\\p{N}])' + reEsc(g.term) + '(?![\\p{L}\\p{N}])', 'giu'), g.term);
-      changed();
-    }
-
-    // guardado: autoguardado a los 5 s sin crear versión (salvo cada 10 min); el manual crea versión
-    async function doSave(manual, kind, note){
-      if (conflict) return false;
-      while (saving) await saving;
-      const mine = edits, blocks = editorToBlocks(doc); lint();
-      setState('busy', 'Guardando…');
-      saving = (async () => sb.rpc('save_chapter', { p_id: id, p_expected: version, p_title: title(), p_body: blocks, p_note: note || null, p_snapshot: !!manual, p_meta: { ...meta, lint: L.counts, lint_count: L.total }, p_kind: kind || null }))();
-      const { data, error } = await saving; saving = null;
-      if (error) {
-        if (/version_conflict/.test(error.message)) { conflict = true; clearTimeout(autoT); setState('warn', 'Conflicto de versión'); $('#ctx').innerHTML = '<div class="ed-ctx"><span>Otro integrante guardó una versión más nueva. Tus cambios siguen aquí y en tu copia local; recarga para recuperarlos sobre la versión actual.</span><button class="btn" id="reload">Recargar</button></div>'; $('#reload').onclick = () => editor(id); }
-        else { setState('warn', 'No se pudo guardar · se reintentará'); clearTimeout(autoT); autoT = setTimeout(() => doSave(false), 15000); }
-        return false;
-      }
-      version = data; if ($('#ver')) $('#ver').textContent = version;
-      try { chan?.send({ type: 'broadcast', event: 'saved', payload: { version, name: myName, by: meU?.id } }); } catch {}
-      if (edits === mine) { dirty = false; localStorage.removeItem(KEY); setState('', manual ? '✓ Guardado · versión creada' : '✓ Guardado automáticamente'); } else setState('busy', 'Cambios sin guardar');
-      if ($('#p-hist') && !$('#p-hist').hidden) drawHist();
-      return true;
-    }
-    function changed(){
-      edits++; dirty = true; if (!doc.firstElementChild && !doc.textContent.trim()) doc.innerHTML = '<p><br></p>';
-      if (!conflict) setState('busy', 'Cambios sin guardar');
-      localStorage.setItem(KEY, JSON.stringify({ html: doc.innerHTML, title: $('#ttl').value, meta, version, at: Date.now() }));
-      clearTimeout(pvT); pvT = setTimeout(() => { lint(); preview(); drawZen(); }, 250);
-      clearTimeout(autoT); autoT = setTimeout(() => doSave(false), 5000);
-    }
-
-    // publicar / programar (se permite con avisos)
-    function drawPub(){
-      const at = c.publish_at ? fmtTz(c.publish_at, { dateStyle: 'medium', timeStyle: 'short' }) : '';
-      $('#stpill').textContent = (ST2[c.status] || c.status) + (c.status === 'scheduled' && at ? ' · ' + at : '');
-      $('#pub').innerHTML = c.status === 'published' ? '' : c.status === 'scheduled' ? (can('publish') ? '<button class="btn ghost" id="unsch">Cancelar programación</button>' : '')
-        : (can('schedule') ? '<input type="datetime-local" id="pubat" aria-label="Fecha de publicación">' + tzHint() + '<button class="btn ghost" id="sch">Programar</button>' : '') + (can('publish') ? '<button class="btn" id="pubnow">Publicar ahora</button>' : '');
-      const act = (btn, status, when) => busy(btn, async () => {
-        lint(); if (L.total && !confirm(`La revisión automática dejó ${L.total} aviso(s). ¿${status === 'published' ? 'Publicar' : 'Programar'} de todos modos?`)) return;
-        if (!(await doSave(true, 'publish', status === 'published' ? 'Publicado' : 'Programado para ' + fmtTz(when)))) throw new Error('No se pudo guardar antes de publicar');
-        const { error } = await sb.from('chapters').update({ status, publish_at: when }).eq('id', id);
-        if (error) throw new Error(/approval_required/.test(error.message) ? 'El equipo exige una revisión aprobada antes de publicar.' : /forbidden/.test(error.message) ? 'No tienes permiso para esta acción.' : error.message);
-        Object.assign(c, { status, publish_at: when }); drawPub(); toast(status === 'published' ? 'Capítulo publicado' + (L.total ? ' · ' + L.total + ' aviso(s)' : '') : 'Capítulo programado');
-      });
-      $('#pubnow')?.addEventListener('click', e => act(e.currentTarget, 'published', new Date().toISOString()));
-      $('#sch')?.addEventListener('click', e => { const v = $('#pubat').value; if (!v || new Date(fromLocal(v)) <= new Date()) return toast('Elige una fecha futura'); act(e.currentTarget, 'scheduled', new Date(fromLocal(v)).toISOString()); });
-      $('#unsch')?.addEventListener('click', e => busy(e.currentTarget, async () => { const { error } = await sb.from('chapters').update({ status: 'draft' }).eq('id', id); if (error) throw error; c.status = 'draft'; drawPub(); toast('Programación cancelada'); }));
-    }
-
-    // historial
-    async function drawHist(){
-      const box = $('#p-hist'); box.innerHTML = '<p class="ed-note">Cargando historial…</p>';
-      const { data } = await sb.from('chapter_revisions').select('id,created_at,kind,version,title,lint_count,created_by,note').eq('chapter_id', id).order('created_at', { ascending: false }).limit(60);
-      const nm = await names((data || []).map(r => r.created_by));
-      box.innerHTML = `<div class="ed-bh" style="cursor:default"><b>Historial de versiones</b><span class="mono">${(data || []).length} versiones · autoguardado cada 10 min</span></div><div class="ed-side">${(data || []).map(r => `<div class="ed-row"><span><b>${r.version ? 'v' + r.version + ' · ' : ''}${REV_KIND[r.kind] || r.kind}</b> · ${esc(nm[r.created_by] || 'alguien')}<br><small>${fmtTz(r.created_at, { dateStyle: 'medium', timeStyle: 'short' })}${r.note ? ' · ' + esc(r.note) : ''}${r.lint_count ? ' · ' + r.lint_count + ' aviso(s)' : ''}</small></span><span class="a"><button class="btn ghost" data-hv="${r.id}">Ver</button><button class="btn ghost" data-hr="${r.id}">Restaurar</button></span></div>`).join('') || '<p class="ed-note">Aún no hay versiones. Se crea una cada vez que pulsas Guardar.</p>'}</div>`;
-    }
-    const getRev = async rid => { const { data, error } = await sb.from('chapter_revisions').select('id,version,title,body,created_at').eq('id', rid).single(); if (error) throw error; return data; };
-    const restore = async r => { load(r.body); $('#ttl').value = r.title || $('#ttl').value; viewing = null; $('#ctx').innerHTML = ''; changed(); await doSave(true, 'restore', 'Restaurada desde la versión ' + (r.version || '')); toast('Versión restaurada'); };
-
-    // lectores: erratas y comentarios
-    function drawComs(){
-      $('#p-coms').innerHTML = `<div class="ed-bh" style="cursor:default"><b>Erratas abiertas · ${reps.length}</b><span class="mono">reportadas por lectores</span></div><div class="ed-side">${reps.map(r => `<div class="ed-row"><span><q>${esc(r.quote || '')}</q>${r.fix ? ' → <b>' + esc(r.fix) + '</b>' : ''}<br><small>${r.kind ? esc(r.kind) + ' · ' : ''}${agoEd(r.created_at)}</small></span><span class="a"><button class="btn ghost" data-go="${esc(r.quote || '')}">Buscar</button>${r.fix ? `<button class="btn ghost" data-apply="${r.id}">Aplicar</button>` : ''}<button class="btn ghost" data-dismiss="${r.id}">Descartar</button></span></div>`).join('') || '<p class="ed-note">Sin erratas abiertas.</p>'}</div>
-        <div class="ed-bh" style="cursor:default"><b>Comentarios de lectores · ${(coms || []).length}</b><span class="mono">los más recientes</span></div><div class="ed-side">${(coms || []).map(m => `<div class="ed-row"><span>${m.spoiler ? '<small>SPOILER · </small>' : ''}${esc(m.body)}<br><small>${esc(who[m.user_id] || 'Lector')} · ${agoEd(m.created_at)}${m.para != null ? ' · párrafo ' + (m.para + 1) : ''}</small></span>${m.para != null ? `<button class="btn ghost" data-para="${m.para}">Ir</button>` : '<span></span>'}</div>`).join('') || '<p class="ed-note">Aún no hay comentarios en este capítulo.</p>'}</div>`;
-    }
-    const findText = q => { if (!q) return false; doc.focus(); const s = getSelection(); s.removeAllRanges(); const r = document.createRange(); r.setStart(doc, 0); r.collapse(true); s.addRange(r); return window.find ? window.find(q, false, false, false) : false; };
-    const flashBlock = el => { if (!el) return; if (UI.view === 'preview') { UI.view = 'split'; views(); } window.scrollTo({ top: el.getBoundingClientRect().top + scrollY - 160, behavior: 'smooth' }); el.classList.add('hl'); setTimeout(() => el.classList.remove('hl'), 1800); };
-
-    // cuadro breve de datos (furigana, ilustración)
-    function ask(fields, onOk, extra = ''){
-      const box = $('#ask'), close = () => { box.innerHTML = ''; };
-      box.innerHTML = `<div class="ed-ask">${fields.map((f, i) => `<label for="ask${i}">${esc(f.label)}</label><input type="text" id="ask${i}" value="${esc(f.value || '')}" placeholder="${esc(f.ph || '')}">`).join('')}<button class="btn" id="askok">Aplicar</button>${extra}<button class="btn ghost" id="askno">Cancelar</button></div>`;
-      $('#ask0').focus();
-      $('#askok').onclick = () => { onOk(fields.map((_, i) => $('#ask' + i).value)); close(); };
-      $('#askno').onclick = close;
-      box.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('#askok').click(); } if (e.key === 'Escape') close(); };
-    }
-    const keepSel = () => { if (!lastRange) return false; const s = getSelection(); s.removeAllRanges(); s.addRange(lastRange); return true; };
-    function setBlock(tag){
-      if (!lastRange) return; const a = topOf(lastRange.startContainer), b = topOf(lastRange.endContainer); if (!a) return;
-      const list = []; for (let n = a; n; n = n.nextElementSibling) { list.push(n); if (n === b) break; }
-      list.filter(n => n.tagName !== 'FIGURE' && !n.classList.contains('sep')).forEach(n => { const e = document.createElement(tag); if (tag === 'ASIDE') e.className = 'tn'; e.append(...n.childNodes); n.replaceWith(e); });
-      changed();
-    }
-    function setFont(ff){
-      if (!lastRange || lastRange.collapsed) return toast('Selecciona el texto al que quieres cambiar la tipografía');
-      if (topOf(lastRange.startContainer) !== topOf(lastRange.endContainer)) return toast('Aplica la tipografía dentro de un solo párrafo');
-      const frag = lastRange.extractContents(); frag.querySelectorAll('[data-ff]').forEach(s => s.replaceWith(...s.childNodes));
-      if (ff && ff !== '-') { const sp = document.createElement('span'); sp.dataset.ff = ff; sp.append(frag); lastRange.insertNode(sp); } else lastRange.insertNode(frag);
-      changed();
-    }
-    const after = html => { const ref = cur(), tp = document.createElement('template'); tp.innerHTML = html; const nodes = [...tp.content.childNodes]; if (ref) ref.after(...nodes); else doc.append(...nodes); const last = nodes[nodes.length - 1]; if (!last.nextElementSibling) last.after(Object.assign(document.createElement('p'), { innerHTML: '<br>' })); changed(); };
-
-    // texto original al lado, párrafo a párrafo
-    function origParas(){ return src.split(/\r?\n/).map(x => x.trim()).filter(Boolean); }
-    async function saveSrc(){ const { error } = await sb.from('chapters').update({ source_text: src }).eq('id', id); if (error) toast('No se pudo guardar el original: ' + errMsg(error)); }
-    function syncOrig(){ const box = $('#orig'); if (!box || srcEdit || UI.view !== 'orig') return; box.querySelectorAll('p.on').forEach(p => p.classList.remove('on')); const p = box.querySelector(`[data-op="${curIdx}"]`); if (!p) return; p.classList.add('on'); if (UI.sync !== false) box.scrollTo({ top: p.offsetTop - box.clientHeight / 3, behavior: 'smooth' }); }
-    function drawOrig(){
-      const box = $('#orig'); if (!box) return; const P = origParas();
-      $('#orig-n').textContent = P.length ? `${P.length} párr. · traducción ${blocksEls().length}` : '';
-      const eb = $('#orig-edit'); eb.textContent = srcEdit ? 'Listo' : 'Editar'; eb.hidden = srcEdit && !P.length;
-      box.innerHTML = srcEdit ? `<textarea id="orig-ta" aria-label="Texto original" placeholder="Pega aquí el texto original (japonés, inglés…). Cada línea es un párrafo y se empareja con el párrafo del mismo número en tu traducción. Se guarda solo y los lectores no lo ven.">${esc(src)}</textarea>`
-        : P.map((t, i) => `<p data-op="${i}"><span class="n">${i + 1}</span>${esc(t)}</p>`).join('');
-      const ta = $('#orig-ta'); if (ta) ta.oninput = () => { src = ta.value; clearTimeout(srcT); srcT = setTimeout(saveSrc, 1200); };
-      syncOrig();
-    }
-    $('#orig-edit').onclick = () => { if (srcEdit) { clearTimeout(srcT); saveSrc(); srcEdit = !origParas().length; } else srcEdit = true; drawOrig(); if (srcEdit) $('#orig-ta')?.focus(); };
-    $('#orig-sync').onclick = e => { UI.sync = UI.sync === false; e.currentTarget.classList.toggle('on', UI.sync); e.currentTarget.setAttribute('aria-pressed', UI.sync); if (UI.sync) syncOrig(); };
-    $('#orig').addEventListener('click', e => { const p = e.target.closest('[data-op]'); if (!p) return; const el = blocksEls()[+p.dataset.op]; if (!el) return toast('Tu traducción todavía no tiene ese párrafo'); curIdx = +p.dataset.op; syncOrig(); flashBlock(el); const r = document.createRange(); r.selectNodeContents(el); r.collapse(true); const sl = getSelection(); sl.removeAllRanges(); sl.addRange(r); doc.focus({ preventScroll: true }); });
-
-    // quién más está editando (presencia en tiempo real) y aviso cuando otro guarda
-    try {
-      chan = sb.channel('obi-edit-' + id, { config: { presence: { key: meU?.id || 'anon' } } });
-      const drawPres = () => { const box = $('#pres'); if (!box) return; const o = [...new Set(Object.entries(chan.presenceState()).filter(([k]) => k !== meU?.id).map(([, v]) => v[0]?.name || 'Alguien'))];
-        box.innerHTML = o.length ? `<div class="ed-pres" role="status"><span class="dot" aria-hidden="true"></span><span><b>${o.map(esc).join(', ')}</b> ${o.length === 1 ? 'también está' : 'también están'} editando este capítulo. Si ambos guardan, el segundo recibirá un aviso de conflicto: pónganse de acuerdo antes de seguir.</span></div>` : ''; };
-      chan.on('presence', { event: 'sync' }, drawPres)
-        .on('broadcast', { event: 'saved' }, ({ payload: pl }) => { if (!pl || pl.by === meU?.id || !(pl.version > version) || !$('#ctx')) return;
-          $('#ctx').innerHTML = `<div class="ed-ctx"><span><b>${esc(pl.name || 'Alguien')}</b> guardó la versión ${pl.version}.${dirty ? ' Tienes cambios sin guardar: si guardas ahora habrá conflicto. Siguen a salvo en tu copia local.' : ''}</span><button class="btn" id="reload2">Cargar la versión nueva</button></div>`;
-          $('#reload2').onclick = () => { if (!dirty || confirm('Tus cambios sin guardar quedarán en tu copia local para recuperarlos. ¿Cargar la versión nueva?')) editor(id); }; })
-        .subscribe(stt => { if (stt === 'SUBSCRIBED') chan.track({ name: myName, at: Date.now() }); });
-    } catch {}
-
-    // modo concentración con meta de palabras del día
-    const GOALK = 'obi-ed-goal', DAYK = 'obi-ed-day', today = () => new Date().toLocaleDateString('en-CA');
-    const wc = () => (doc.innerText || '').split(/\s+/).filter(Boolean).length;
-    const dayData = () => { let d = null; try { d = JSON.parse(localStorage.getItem(DAYK) || 'null'); } catch {} if (!d || d.date !== today()) d = { date: today(), base: {}, done: {} }; if (d.base[id] == null) { d.base[id] = wc(); try { localStorage.setItem(DAYK, JSON.stringify(d)); } catch {} } return d; };
-    const todayWords = () => { const d = dayData(); d.done[id] = Math.max(0, wc() - d.base[id]); try { localStorage.setItem(DAYK, JSON.stringify(d)); } catch {} return Object.values(d.done).reduce((a, b) => a + b, 0); };
-    function drawZen(){
-      const z = $('#zenbar'); if (!z || !root.classList.contains('zen')) return;
-      const g = Math.max(50, +localStorage.getItem(GOALK) || 1000), nW = todayWords(), pct = Math.min(100, Math.round(nW / g * 100));
-      z.innerHTML = `<span class="mono">HOY</span><b>${nW.toLocaleString('es-MX')}</b><span class="mono">de <input id="zgoal" type="number" min="50" step="50" value="${g}" aria-label="Meta de palabras del día"> palabras</span><span class="zp" aria-hidden="true"><i style="width:${pct}%"></i></span><span class="mono">${pct >= 100 ? '¡Meta cumplida!' : pct + ' %'}</span><span class="mono">${esc($('#state')?.textContent || '')}</span><button class="btn ghost sm" id="zexit">Salir · Esc</button>`;
-      $('#zgoal').onchange = e => { localStorage.setItem(GOALK, Math.max(50, +e.target.value || 1000)); drawZen(); };
-      $('#zexit').onclick = () => zen(false);
-    }
-    function zen(onZ){
-      root.classList.toggle('zen', onZ); $('#b-zen').setAttribute('aria-pressed', onZ); document.body.style.overflow = onZ ? 'hidden' : '';
-      if (onZ) { if (UI.view === 'preview') { UI.view = 'edit'; views(); } if (root.requestFullscreen && !document.fullscreenElement) root.requestFullscreen().catch(() => {}); drawZen(); doc.focus(); }
-      else if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
-    }
-    const fsc = () => { if (document.body.contains(root) && !document.fullscreenElement && root.classList.contains('zen')) zen(false); };
-    document.addEventListener('fullscreenchange', fsc);
-    $('#b-zen').onclick = () => zen(!root.classList.contains('zen'));
-    dayData();
-
-    // eventos
-    doc.addEventListener('input', changed);
-    function onSel(){ if (!document.body.contains(doc)) return document.removeEventListener('selectionchange', onSel); const s = getSelection(); if (s.rangeCount && doc.contains(s.anchorNode)) { lastRange = s.getRangeAt(0).cloneRange(); const tb = topOf(s.anchorNode), tg = tb?.tagName, bi = blocksEls().indexOf(tb); if (bi >= 0 && bi !== curIdx) { curIdx = bi; syncOrig(); } $('#blk').value = /^H[1-6]$/.test(tg) ? 'H3' : ['BLOCKQUOTE', 'ASIDE'].includes(tg) ? tg : 'P'; } }
-    document.addEventListener('selectionchange', onSel);
-    doc.addEventListener('paste', e => {
-      e.preventDefault(); const html = e.clipboardData.getData('text/html'), plain = e.clipboardData.getData('text/plain'), out = pasteToEditor(html, plain);
-      const n = out ? (out.match(/<(p|h3|blockquote|div)[\s>]/g) || []).length : 0;
-      if (n > 1) document.execCommand('insertHTML', false, out);
-      else if (n === 1) { const tp = document.createElement('template'); tp.innerHTML = out; document.execCommand('insertHTML', false, tp.content.firstElementChild.innerHTML); }
-      else document.execCommand('insertText', false, plain);
-    });
-    doc.addEventListener('drop', e => { if (e.dataTransfer?.files?.length) { e.preventDefault(); toast('Usa «▣ Imagen» para insertar ilustraciones'); } });
-    doc.addEventListener('click', e => {
-      const f = e.target.closest('figure'); if (!f) return; doc.querySelectorAll('.on').forEach(x => x.classList.remove('on')); f.classList.add('on');
-      ask([{ label: 'Descripción', value: f.dataset.alt, ph: 'Qué se ve en la ilustración' }, { label: 'Pie', value: f.dataset.caption, ph: 'Opcional' }], ([alt, cap]) => { const t = document.createElement('template'); t.innerHTML = figureHTML(f.dataset.url, alt.trim(), cap.trim(), media); f.replaceWith(t.content.firstElementChild); changed(); }, '<button class="btn ghost danger" id="figdel">Quitar ilustración</button>');
-      $('#figdel').onclick = () => { f.remove(); $('#ask').innerHTML = ''; changed(); };
-    });
-    $('#ttl').addEventListener('input', changed);
-    $('#stype').onchange = e => { meta.section_type = e.target.value; changed(); };
-    $('#teaser').oninput = e => { meta.teaser = e.target.value; changed(); };
-    $('#teaser_on').onchange = e => { meta.teaser_on = e.target.checked; changed(); };
-    $('#cw').onclick = e => { const b = e.target.closest('[data-cw]'); if (!b) return; const w = b.dataset.cw, on = !meta.content_warnings.includes(w); meta.content_warnings = on ? [...meta.content_warnings, w] : meta.content_warnings.filter(x => x !== w); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); changed(); };
-    $('#blk').onchange = e => { keepSel(); setBlock(e.target.value); doc.focus(); };
-    $('#ff').onchange = e => { setFont(e.target.value); e.target.value = ''; doc.focus(); };
-    const toggleP = (pid, btn, draw) => { const p2 = $(pid), open = p2.hidden; p2.hidden = !open; btn?.setAttribute('aria-expanded', open); btn?.classList.toggle('on', open); if (open) draw?.(); return open; };
-    $('#b-rev').onclick = e => toggleP('#p-rev', e.currentTarget, () => { lint(); drawRev(); });
-    $('#b-hist').onclick = e => toggleP('#p-hist', e.currentTarget, drawHist);
-    $('#save').onclick = e => busy(e.currentTarget, async () => { if (await doSave(true)) toast('Versión guardada en el historial'); });
-    $('#imgf').onchange = async e => {
-      const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (f.size > LIMITS.image) return toast('La imagen pesa más de 8 MB');
-      setState('busy', 'Subiendo imagen…'); const path = `${T.team.id}/obras/${c.series.slug}/vol-${c.vol}/${Date.now()}-${f.name.replace(/[^\w.-]/g, '_')}`;
-      const { error } = await sb.storage.from('obi-media').upload(path, f, { contentType: f.type }); if (error) { setState('warn', 'No se pudo subir'); return toast(error.message); }
-      after(figureHTML(PUB + path, '', '', media)); toast('Ilustración insertada · tócala para añadir descripción');
-    };
-    root.addEventListener('mousedown', e => { if (e.target.closest('.ed-bar [data-cmd], .ed-bar [data-act="ruby"], .ed-bar [data-act="sep"]')) e.preventDefault(); });
-    root.addEventListener('click', e => {
-      const el = e.target.closest('[data-cmd],[data-act],[data-view],[data-theme],[data-device],[data-fix],[data-hv],[data-hr],[data-go],[data-apply],[data-dismiss],[data-para]'); if (!el || el.closest('#doc')) return;
-      const d = el.dataset;
-      if (d.cmd) { keepSel(); document.execCommand(d.cmd); changed(); }
-      else if (d.act === 'ruby') { if (!lastRange || lastRange.collapsed) return toast('Selecciona el texto base'); const base = lastRange.toString(), r = lastRange.cloneRange(); ask([{ label: `Lectura de «${base}»`, ph: 'p. ej. かみ' }], ([rd]) => { if (!rd.trim()) return; const rb = document.createElement('ruby'), rt = document.createElement('rt'); rt.textContent = rd.trim(); rb.append(base, rt); r.deleteContents(); r.insertNode(rb); const s = getSelection(); s.removeAllRanges(); const after2 = document.createRange(); after2.setStartAfter(rb); s.addRange(after2); changed(); }); }
-      else if (d.act === 'sep') after('<div class="sep" contenteditable="false">※</div>');
-      else if (d.act === 'img') $('#imgf').click();
-      else if (d.act === 'find') { if (toggleP('#p-find', el)) $('#fq').focus(); }
-      else if (d.act === 'coms') toggleP('#p-coms', el, drawComs);
-      else if (d.view) { UI.view = d.view; localStorage.setItem('obi-ed-view', d.view); views(); if (d.view === 'orig') drawOrig(); }
-      else if (d.theme) { UI.theme = d.theme; views(); preview(); }
-      else if (d.device) { UI.device = d.device; views(); preview(); }
-      else if (d.fix) { fix(d.fix); toast('Revisión aplicada'); }
-      else if (d.hv) busy(el, async () => { viewing = await getRev(d.hv); if (UI.view === 'edit') { UI.view = 'split'; views(); } preview(); $('#ctx').innerHTML = `<div class="ed-ctx"><span>La vista previa muestra la versión ${viewing.version || ''} del ${fmtTz(viewing.created_at, { dateStyle: 'medium', timeStyle: 'short' })}. El editor sigue con el texto actual.</span><button class="btn" id="vrest">Restaurar esta versión</button><button class="btn ghost" id="vback">Volver al texto actual</button></div>`; $('#vrest').onclick = () => busy($('#vrest'), () => restore(viewing)); $('#vback').onclick = () => { viewing = null; $('#ctx').innerHTML = ''; preview(); }; });
-      else if (d.hr) busy(el, async () => { if (!confirm('¿Reemplazar el texto actual por esta versión? El texto actual queda guardado en el historial.')) return; if (dirty) await doSave(true); await restore(await getRev(d.hr)); });
-      else if (d.go != null) { if (!findText(d.go)) toast('No encontré ese fragmento; quizá ya se corrigió'); }
-      else if (d.apply) busy(el, async () => { const r = reps.find(x => String(x.id) === d.apply); const n = textNodes().find(x => x.data.includes(r.quote)); if (!n) return toast('No encontré el fragmento en el texto'); n.data = n.data.replace(r.quote, r.fix); changed(); const { error } = await sb.from('reports').update({ status: 'fixed' }).eq('id', r.id); if (error) throw error; reps.splice(reps.indexOf(r), 1); drawComs(); toast('Corrección aplicada · errata cerrada'); });
-      else if (d.dismiss) busy(el, async () => { const { error } = await sb.from('reports').update({ status: 'dismissed' }).eq('id', d.dismiss); if (error) throw error; reps.splice(reps.findIndex(x => String(x.id) === d.dismiss), 1); drawComs(); });
-      else if (d.para != null) flashBlock([...doc.childNodes].filter(makesBlock)[+d.para]);
-    });
-    const countFind = () => { const q = $('#fq').value; if (!q) { $('#finfo').textContent = ''; return; } const n = (doc.textContent.match(new RegExp(reEsc(q), $('#fcase').checked ? 'g' : 'gi')) || []).length; $('#finfo').textContent = n === 1 ? '1 coincidencia' : n + ' coincidencias'; };
-    $('#fq').oninput = countFind; $('#fcase').onchange = countFind;
-    $('#fnext').onclick = () => { const q = $('#fq').value; if (q && !(window.find && window.find(q, $('#fcase').checked, false, true))) toast('Sin más coincidencias'); };
-    $('#frep').onclick = () => { const q = $('#fq').value; if (!q) return; const re = new RegExp(reEsc(q), $('#fcase').checked ? 'g' : 'gi'), to = $('#rq').value; let n = 0; textNodes().forEach(x => { const v = x.data.replace(re, () => (n++, to)); if (v !== x.data) x.data = v; }); if (n) changed(); $('#finfo').textContent = n + ' reemplazo(s)'; };
-    $('#restore')?.addEventListener('click', () => { const tmp = document.createElement('div'); tmp.innerHTML = local.html || ''; load(local.blocks || editorToBlocks(tmp)); $('#ttl').value = local.title || $('#ttl').value; if (local.meta) { Object.assign(meta, local.meta); $('#stype').value = meta.section_type; $('#teaser').value = meta.teaser; $('#teaser_on').checked = meta.teaser_on; root.querySelectorAll('[data-cw]').forEach(b => b.classList.toggle('on', meta.content_warnings.includes(b.dataset.cw))); } $('#localcard').remove(); changed(); });
-    $('#discard')?.addEventListener('click', () => { localStorage.removeItem(KEY); $('#localcard').remove(); });
-    const alive = () => document.body.contains(root);
-    const key = e => { if (!alive()) return cleanup(); const k = (e.key || '').toLowerCase(), m = e.ctrlKey || e.metaKey;
-      if (m && !e.shiftKey && !e.altKey && k === 's') { e.preventDefault(); $('#save').click(); }
-      else if (m && e.shiftKey && k === 'f') { e.preventDefault(); zen(!root.classList.contains('zen')); }
-      else if (k === 'escape' && root.classList.contains('zen') && !document.fullscreenElement) zen(false);
-      else if (m && e.altKey && (k === 'arrowleft' || k === 'arrowright')) { const t = k === 'arrowleft' ? prevC : nextC; if (t) { e.preventDefault(); zen(false); if (dirty) doSave(false); go('/estudio/editar/' + t.id); } } };
-    const leave = e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } };
-    const nav = e => { if (!alive()) return cleanup(); if (e.target.closest('a[href]')) { if (root.classList.contains('zen')) zen(false); if (dirty) doSave(false); } };
-    const vis = () => { if (!alive()) return cleanup(); if (document.hidden && dirty) doSave(false); };
-    const cleanup = () => { removeEventListener('keydown', key); removeEventListener('beforeunload', leave); document.removeEventListener('click', nav, true); document.removeEventListener('visibilitychange', vis); document.removeEventListener('fullscreenchange', fsc); clearTimeout(autoT); if (srcT) { clearTimeout(srcT); saveSrc(); srcT = 0; } try { if (chan) sb.removeChannel(chan); } catch {} chan = null; document.body.style.overflow = ''; };
-    addEventListener('keydown', key); addEventListener('beforeunload', leave); document.addEventListener('click', nav, true); document.addEventListener('visibilitychange', vis);
-    views(); drawPub(); lint(); preview(); drawOrig();
+    if (!editorTask) editorTask = import('./studio-editor.js?v=1')
+      .then(m => m.createEditor({ sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, names, home, errMsg, rpc, LIMITS, SEC }))
+      .catch(e => { editorTask = null; throw e; });
+    return (await editorTask)(id);
   }
 
-  // ---------- importador ----------
-  const sha256 = async buf => [...new Uint8Array(await crypto.subtle.digest('SHA-256', buf))].map(x => x.toString(16).padStart(2, '0')).join('');
-  // EPUB/DOCX → bloques: conserva el orden exacto de texto e ilustraciones, separadores, alineación, cursivas/negritas por CSS y fuentes incrustadas (data-epub-family).
-  const BLOCK_TAGS = /^(p|div|h[1-6]|blockquote|ul|ol|li|section|article|aside|header|footer|figure|figcaption|table|thead|tbody|tfoot|tr|td|th|hr|pre|dl|dt|dd|main|nav|center|body)$/;
-  const SEP_TEXT = /^[\s*＊※◇◆◊⋄○●◎☆★♦♢◈❖✦✧✶✱·•・~〜～=＝#＃§\-–—_\u3000]+$/u;
-  const SEP_CLASS = /(^|[\s_-])(sep|separator|scene[\w-]*|ornament|asterism|divider|dinkus|space-?break|section-?break|break)(\s|$|[_-])/i;
-  const TITLE_CLASS = /(^|\s)([\w-]*title[\w-]*|[\w-]*heading[\w-]*|titulo[\w-]*|h[1-6])(\s|$)/i;
-  const htmlToBlocks = (root, imgMap, css) => {
-    const out = [], tagOf = e => (e.localName || '').toLowerCase();
-    const isBlock = e => e.nodeType === 1 && BLOCK_TAGS.test(tagOf(e));
-    const hasBlock = e => [...e.children].some(c => isBlock(c) || (tagOf(c) !== 'svg' && hasBlock(c)));
-    const imgsIn = e => /^(img|image)$/.test(tagOf(e)) ? [e] : tagOf(e) === 'svg' ? [...e.querySelectorAll('image')].slice(0, 1) : [...e.querySelectorAll('img,image')];
-    const wrapKids = (e, wraps) => { const d = e.ownerDocument; let outer = null, inner = null; for (const [t, f] of wraps) { const n = d.createElement(t); if (f != null) n.setAttribute('data-epub-family', f); inner ? inner.appendChild(n) : (outer = n); inner = n; } while (e.firstChild) inner.appendChild(e.firstChild); e.appendChild(outer); };
-    const deco = (e, ctx) => { for (const c of [...e.children]) { const tg = tagOf(c); if (tg === 'svg') continue;
-      const blk = isBlock(c), base = blk ? { f: css.fam(c), b: /^h[1-6]$/.test(tg), i: false } : ctx; let next = base;
-      if (!blk || !hasBlock(c)) { const f = css.fam(c), bo = css.bold(c), it = css.italic(c), w = [];
-        if (!blk && f != null && f !== base.f) w.push(['span', f]);
-        if (bo && !base.b && !/^(b|strong|h[1-6])$/.test(tg)) w.push(['b']);
-        if (it && !base.i && !/^(i|em)$/.test(tg)) w.push(['i']);
-        if (w.length && c.firstChild && !/^(img|image|br|hr)$/.test(tg)) wrapKids(c, w);
-        next = { f: f ?? base.f, b: base.b || bo, i: base.i || it }; }
-      deco(c, next); } };
-    const sep = mark => { if (out[out.length - 1]?.type !== 'separator') out.push(mark && mark !== '※' ? { type: 'separator', text: mark } : { type: 'separator' }); };
-    const addImg = img => { if (!img) return; const src = img.getAttribute('src') || img.getAttribute('xlink:href') || img.getAttributeNS?.('http://www.w3.org/1999/xlink', 'href') || img.getAttribute('href'); const key = imgMap?.resolve(src); if (!key) return;
-      if (SEP_CLASS.test(img.getAttribute('class') || '') || SEP_CLASS.test(img.parentNode?.getAttribute?.('class') || '')) return sep();
-      out.push({ type: 'image', url: key, alt: img.getAttribute('alt') || '', caption: '' }); };
-    const emit = (type, el, nodes, chain = []) => {
-      let html, text; if (nodes) { const box = el.ownerDocument.createElement('div'); let at = box; for (const w of chain) at = at.appendChild(w.cloneNode(false)); nodes.forEach(n => at.appendChild(n.cloneNode(true))); html = box.innerHTML; text = box.textContent; } else { html = el.innerHTML; text = el.textContent; }
-      text = text.replace(/\s+/g, ' ').trim(); if (!text) return;
-      if (text.length <= 24 && SEP_TEXT.test(text)) return sep(text);
-      if (type === 'paragraph' && text.length <= 120 && TITLE_CLASS.test(el.getAttribute?.('class') || '')) type = 'heading';
-      html = html.replace(/\s+xmlns(:\w+)?="[^"]*"/g, '').replace(/\s*class="[^"]*"/g, '').trim(); const f = css?.fam(el); if (f != null) html = `<span data-epub-family="${f}">${html}</span>`;
-      const o = { type, html, text }, al = css?.align(el); if (al) o.align = al; out.push(o); };
-    const mixed = (type, el, chain, top = el) => { if (!imgsIn(el).length) return chain ? emit(type, top, [...el.childNodes], chain) : emit(type, el); let buf = [];
-      const flush = () => { if (buf.length) emit(type, top, buf, chain || []); buf = []; };
-      for (const c of [...el.childNodes]) { if (c.nodeType === 1 && (/^(img|image|svg)$/.test(tagOf(c)) || imgsIn(c).length)) { flush(); /^(img|image|svg)$/.test(tagOf(c)) || !c.textContent.trim() ? imgsIn(c).forEach(addImg) : mixed(type, c, [...(chain || []), c], top); } else buf.push(c); }
-      flush(); };
-    const block = (c, qt) => {
-      const tg = tagOf(c), cls = c.getAttribute('class') || '', tx = c.textContent.replace(/\s+/g, ' ').trim();
-      if (tg === 'hr') return sep();
-      if (SEP_CLASS.test(cls) && !/page/i.test(cls) && tx.length <= 24 && !imgsIn(c).length) return sep();
-      if (/^h[1-6]$/.test(tg)) return hasBlock(c) ? walk(c, 'heading') : mixed('heading', c);
-      if (tg === 'blockquote') return hasBlock(c) ? walk(c, 'quote') : mixed('quote', c);
-      if (tg === 'figcaption') { const last = out[out.length - 1]; if (last?.type === 'image' && tx && !last.caption) { last.caption = tx.slice(0, 300); return; } return mixed('paragraph', c); }
-      if (hasBlock(c)) return walk(c, qt);
-      if (!tx && !imgsIn(c).length) return;
-      mixed(qt || 'paragraph', c); };
-    const walk = (node, qt) => { let buf = [];
-      const flush = () => { if (buf.some(n => n.textContent.trim())) emit(qt || 'paragraph', node, buf); buf = []; };
-      for (const c of [...node.childNodes]) {
-        if (c.nodeType === 3) { buf.push(c); continue; } if (c.nodeType !== 1) continue;
-        const tg = tagOf(c); if (/^(script|style|head|title|meta|link)$/.test(tg)) continue;
-        if (/^(img|image|svg)$/.test(tg)) { flush(); imgsIn(c).forEach(addImg); continue; }
-        if (!isBlock(c) && !hasBlock(c)) { if (tg === 'br') { flush(); continue; } if (imgsIn(c).length) { flush(); mixed(qt || 'paragraph', c); continue; } buf.push(c); continue; }
-        flush(); block(c, qt); }
-      flush(); };
-    if (css) deco(root, { f: null, b: false, i: false });
-    walk(root);
-    while (out.length && out[out.length - 1].type === 'separator') out.pop();
-    return out;
-  };
-  // estilos efectivos de una página del EPUB (hojas enlazadas + <style> + style=""), por especificidad
-  function epubStyler(doc, sheets, famIdx){
-    let css = sheets.join('\n'); for (const s of doc.getElementsByTagName('style')) css += '\n' + s.textContent;
-    css = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@font-face\s*{[^}]*}/gi, '').replace(/@(import|charset|namespace)[^;]*;/gi, '');
-    const parse = d => { const o = {}; for (const m of d.matchAll(/([\w-]+)\s*:\s*([^;]+)/g)) { const k = m[1].toLowerCase(), v = m[2].replace(/!important/i, '').trim(); if (/^(font-family|font-weight|font-style|text-align|font)$/.test(k)) o[k] = v; } return o; };
-    const spec = q => (q.match(/#[\w-]+/g) || []).length * 100 + (q.match(/\.[\w-]+|\[[^\]]+\]|:[\w-]+/g) || []).length * 10 + (q.replace(/[#.][\w-]+|\[[^\]]+\]|:[\w-]+(\([^)]*\))?/g, ' ').match(/[a-z][\w-]*/gi) || []).length;
-    const rules = []; let n = 0;
-    for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) { const sel = m[1].trim(); if (!sel || sel.startsWith('@')) continue; const d = parse(m[2]); if (!Object.keys(d).length) continue;
-      for (const s of sel.split(',')) { const q = s.replace(/::?(before|after|first-letter|first-line|selection|marker|hover|focus|active|visited|link)\b/gi, '').trim(); if (q) rules.push([spec(q), n++, q, d]); } }
-    rules.sort((x, y) => x[0] - y[0] || x[1] - y[1]);
-    const P = new Map(); for (const [, , q, d] of rules) { let els; try { els = doc.querySelectorAll(q); } catch { continue; } els.forEach(e => P.set(e, Object.assign(P.get(e) || {}, d))); }
-    const own = e => { const st = e.getAttribute?.('style'); const o = P.get(e); return st ? { ...(o || {}), ...parse(st) } : o; };
-    const famFromFont = v => (v.match(/[\d.]+(px|pt|em|rem|%|ex|ch)?(\s*\/\s*[\w.%]+)?\s+(.+)$/) || [])[3] || null;
-    const tagOf2 = x => (x.localName || '').toLowerCase();
-    const memo = new Map(), up = e => e.parentNode && e.parentNode.nodeType === 1 ? e.parentNode : null;
-    const fam = e => { if (!e) return null; if (memo.has(e)) return memo.get(e); const o = own(e); const v = o?.['font-family'] || (o?.font && famFromFont(o.font)); let r;
-      if (v) { r = null; for (const name of v.split(',').map(x => x.trim().replace(/^["']|["']$/g, '').toLowerCase())) if (famIdx.has(name)) { r = famIdx.get(name); break; } }
-      else r = fam(up(e)); memo.set(e, r); return r; };
-    const flag = (e, prop, yes, no, tags) => { for (let x = e; x; x = up(x)) { const o = own(x), v = o?.[prop] || ''; if (yes.test(v)) return true; if (no.test(v)) return false; if (o?.font && yes.test(o.font)) return true; if (tags.test(tagOf2(x))) return true; } return false; };
-    return { fam,
-      italic: e => flag(e, 'font-style', /italic|oblique/i, /normal/i, /^(i|em|cite|var)$/),
-      bold: e => flag(e, 'font-weight', /bold|bolder|[6-9]00/i, /normal|lighter|[1-5]00/i, /^(b|strong|th)$/),
-      align: e => { for (let x = e; x; x = up(x)) { const v = (own(x)?.['text-align'] || '').toLowerCase(); if (/center/.test(v)) return 'center'; if (/right|end/.test(v)) return 'right'; if (/left|start|justify/.test(v)) return null; if (tagOf2(x) === 'center') return 'center'; } return null; } };
-  }
-  const headFont = bs => { const f = (bs || []).find(b => (b.type || b.t) === 'heading')?.html?.match(/data-epub-family="(\d+)"/)?.[1]; return f ? `style="font-family:var(--f${f})"` : ''; };
-  async function deobfuscate(zip, opf, bytes, path, get = p => zip.file(p)){
-    const enc = get('META-INF/encryption.xml'); if (!enc) return bytes;
-    const x = new DOMParser().parseFromString(await enc.async('string'), 'application/xml');
-    const node = [...x.getElementsByTagNameNS('*', 'EncryptedData')].find(d => { const u = decodeURIComponent(d.getElementsByTagNameNS('*', 'CipherReference')[0]?.getAttribute('URI') || '').replace(/^\/+/, ''); return u.toLowerCase() === path.toLowerCase() || path.toLowerCase().endsWith('/' + u.toLowerCase()); });
-    if (!node) return bytes;
-    const alg = node.getElementsByTagNameNS('*', 'EncryptionMethod')[0]?.getAttribute('Algorithm') || '';
-    const uid = opf.uid.replace(/[\u0020\u0009\u000d\u000a]/g, '');
-    const b = new Uint8Array(bytes);
-    if (alg.includes('idpf.org/2008/embedding')) { const key = new Uint8Array(await crypto.subtle.digest('SHA-1', new TextEncoder().encode(uid))); for (let i = 0; i < Math.min(1040, b.length); i++) b[i] ^= key[i % key.length]; }
-    else if (alg.includes('ns.adobe.com/pdf/enc#RC')) { const hex = uid.replace(/^urn:uuid:/i, '').replace(/-/g, ''); const key = new Uint8Array(16); for (let i = 0; i < 16; i++) key[i] = parseInt(hex.substr(i * 2, 2), 16); for (let i = 0; i < Math.min(1024, b.length); i++) b[i] ^= key[i % 16]; }
-    return b;
-  }
-  const EXT_T = { xhtml: 'application/xhtml+xml', html: 'application/xhtml+xml', htm: 'application/xhtml+xml', css: 'text/css', ncx: 'application/x-dtbncx+xml', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', avif: 'image/avif', ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2' };
-  const extOf = p => (p.split('?')[0].split('.').pop() || '').toLowerCase();
-  // XHTML estricto primero; si falla (entidades HTML como &nbsp;, etiquetas sin cerrar de Kindle), se lee como HTML.
-  const parseMarkup = str => { str = str.replace(/^\uFEFF/, '').trimStart(); const d = new DOMParser().parseFromString(str, 'application/xhtml+xml'); return d.getElementsByTagName('parsererror').length || !d.body ? new DOMParser().parseFromString(str, 'text/html') : d; };
-  const parseXml = str => { str = str.replace(/^\uFEFF/, '').trimStart(); const d = new DOMParser().parseFromString(str, 'application/xml'); if (d.getElementsByTagName('parsererror').length) throw new Error('El índice interno del EPUB (OPF/NCX) está dañado'); return d; };
-  async function parseEpub(file){
-    const { default: JSZip } = await import('https://esm.sh/jszip@3.10.1');
-    let zip; try { zip = await JSZip.loadAsync(file); } catch { throw new Error('El archivo no es un EPUB válido (no se puede abrir como ZIP). Si viene de Kindle Create, exporta como EPUB, no como KPF.'); }
-    const files = Object.values(zip.files); if (files.length > LIMITS.entries) throw new Error('El EPUB tiene demasiados archivos');
-    const total = files.reduce((a, f) => a + (f._data?.uncompressedSize || 0), 0); if (total > LIMITS.unzipped) throw new Error('El EPUB descomprimido supera 300 MB');
-    // rutas sin distinguir mayúsculas ni barras invertidas (EPUB armados en Windows / Kindle)
-    const ci = new Map(files.filter(f => !f.dir).map(f => [f.name.replace(/\\/g, '/').toLowerCase(), f]));
-    const get = p => p && (zip.file(p) || ci.get(p.replace(/\\/g, '/').toLowerCase()) || null);
-    const text = async p => { const f = get(p); return f ? f.async('string') : null; };
-    if (get('META-INF/rights.xml')) throw new Error('Este EPUB tiene DRM (Adobe). Usa el archivo original sin protección.');
-    const encXml = await text('META-INF/encryption.xml');
-    if (encXml) { const ex = parseXml(encXml); const locked = [...ex.getElementsByTagNameNS('*', 'EncryptedData')].filter(d => !/idpf\.org\/2008\/embedding|ns\.adobe\.com\/pdf\/enc#RC/.test(d.getElementsByTagNameNS('*', 'EncryptionMethod')[0]?.getAttribute('Algorithm') || '')); if (locked.length) throw new Error('Este EPUB tiene DRM: el texto está cifrado. Usa el archivo original sin protección.'); }
-    let opfPath = null; const contXml = await text('META-INF/container.xml');
-    if (contXml) { try { const c = parseXml(contXml); opfPath = [...c.getElementsByTagNameNS('*', 'rootfile')].find(r => /oebps-package/.test(r.getAttribute('media-type') || 'oebps-package'))?.getAttribute('full-path'); } catch {} }
-    if (!opfPath || !get(opfPath)) opfPath = [...ci.values()].find(f => /\.opf$/i.test(f.name))?.name;
-    if (!opfPath) throw new Error('No encontré el índice del libro (archivo .opf). El EPUB está incompleto.');
-    opfPath = get(opfPath).name.replace(/\\/g, '/');
-    const X = parseXml(await get(opfPath).async('string'));
-    const uidId = X.documentElement.getAttribute('unique-identifier'), uid = [...X.getElementsByTagNameNS('*', 'identifier')].find(e => e.getAttribute('id') === uidId)?.textContent || X.getElementsByTagNameNS('*', 'identifier')[0]?.textContent || '';
-    const res = (from, href) => { try { const u = new URL(href.replace(/\\/g, '/'), 'http://x/' + from); const p = decodeURIComponent(u.pathname.slice(1)); return get(p)?.name || p; } catch { return href; } };
-    const items = Object.fromEntries([...X.getElementsByTagNameNS('*', 'item')].filter(i => i.getAttribute('href')).map(i => { const href = res(opfPath, i.getAttribute('href')); let type = (i.getAttribute('media-type') || '').toLowerCase().trim(); if (!type || type === 'image/jpg' || type === 'application/octet-stream' || type === 'text/plain') type = EXT_T[extOf(href)] || type; return [i.getAttribute('id'), { id: i.getAttribute('id'), href, type, props: i.getAttribute('properties') || '' }]; }));
-    const isHtml = it => /html/.test(it.type) || /^(x?html?)$/.test(extOf(it.href));
-    const title = X.getElementsByTagNameNS('*', 'title')[0]?.textContent.trim() || file.name.replace(/\.epub$/i, '');
-    const images = new Map(), fonts = [];
-    for (const it of Object.values(items)) {
-      if (/^image\//.test(it.type)) { const raw = await get(it.href)?.async('blob'); images.set(it.href, { blob: raw && new Blob([raw], { type: it.type }), type: it.type, name: it.href.split('/').pop() }); }
-      if (/font|opentype|woff|truetype|sfnt/.test(it.type) || /\.(ttf|otf|woff2?)$/i.test(it.href)) { const raw = await get(it.href)?.async('uint8array'); if (raw) fonts.push({ href: it.href, bytes: await deobfuscate(zip, { uid }, raw, it.href, get), name: it.href.split('/').pop() }); }
-    }
-    // imágenes referidas en el texto pero no declaradas en el manifiesto (frecuente en exportaciones de Kindle)
-    const loose = p => { if (images.has(p)) return true; const f = get(p); if (!f || !EXT_T[extOf(p)]?.startsWith('image/')) return false; images.set(p, { lazy: f, type: EXT_T[extOf(p)], name: p.split('/').pop() }); return true; };
-    const fam = {}; for (const it of Object.values(items).filter(i => i.type === 'text/css')) { const css = await text(it.href) || ''; for (const m of css.matchAll(/@font-face\s*{([^}]*)}/g)) { const f = /font-family\s*:\s*["']?([^;"']+)/.exec(m[1])?.[1]?.trim(), src = /url\(\s*["']?([^)"']+)/.exec(m[1])?.[1], st = /font-style\s*:\s*(\w+)/.exec(m[1])?.[1] || 'normal', wt = /font-weight\s*:\s*(\w+)/.exec(m[1])?.[1] || 'normal'; if (f && src) fam[res(it.href, src)] = { family: f, style: st, weight: wt }; } }
-    fonts.forEach(f => Object.assign(f, fam[f.href] || { family: f.name.replace(/\.\w+$/, ''), style: 'normal', weight: 'normal' }));
-    // índice: nav de EPUB 3 (solo el «toc», no landmarks/page-list) y, si no da títulos, toc.ncx de EPUB 2 (Sigil, Kindle)
-    const tocTitles = {}; const nav = Object.values(items).find(i => /\bnav\b/.test(i.props));
-    if (nav) { const d = parseMarkup(await text(nav.href) || ''); const navs = [...d.getElementsByTagName('nav')]; const toc = navs.find(n => /toc/.test(n.getAttribute('epub:type') || n.getAttributeNS('http://www.idpf.org/2007/ops', 'type') || n.getAttribute('role') || '')) || navs[0]; toc?.querySelectorAll('a[href]').forEach(a => { const t = a.textContent.replace(/\s+/g, ' ').trim(); if (t) tocTitles[res(nav.href, a.getAttribute('href')).split('#')[0]] ||= t; }); }
-    if (!Object.keys(tocTitles).length) { const ncxId = X.getElementsByTagNameNS('*', 'spine')[0]?.getAttribute('toc'); const ncx = items[ncxId] || Object.values(items).find(i => i.type === 'application/x-dtbncx+xml' || extOf(i.href) === 'ncx'); if (ncx) { try { const d = parseXml(await text(ncx.href) || ''); [...d.getElementsByTagNameNS('*', 'navPoint')].forEach(n => { const s = n.getElementsByTagNameNS('*', 'content')[0]?.getAttribute('src'), t = n.getElementsByTagNameNS('*', 'text')[0]?.textContent.replace(/\s+/g, ' ').trim(); if (s && t) tocTitles[res(ncx.href, s).split('#')[0]] ||= t; }); } catch {} } }
-    const famIdx = new Map([...new Set(fonts.map(f => f.family))].map((f, i) => [f.toLowerCase(), i]));
-    const sheetCache = new Map(), sheet = async p => { if (!sheetCache.has(p)) sheetCache.set(p, (await text(p)) || ''); return sheetCache.get(p); };
-    const chapters = [], spine = [...X.getElementsByTagNameNS('*', 'itemref')].map(r => items[r.getAttribute('idref')]).filter(it => it && isHtml(it));
-    if (!spine.length) throw new Error('El EPUB no declara el orden de lectura (spine) o no tiene páginas de texto');
-    for (const it of spine) {
-      const raw = await text(it.href); if (raw == null) continue;
-      const doc = parseMarkup(raw);
-      const links = [...doc.querySelectorAll('link')].filter(l => /stylesheet/i.test(l.getAttribute('rel') || '') || /css/i.test(l.getAttribute('type') || '')).map(l => l.getAttribute('href')).filter(Boolean);
-      const css = epubStyler(doc, await Promise.all(links.map(h => sheet(res(it.href, h)))), famIdx);
-      const blocks = htmlToBlocks(doc.body || doc.documentElement, { resolve: s => { if (!s || /^(https?:|data:)/i.test(s)) return null; const p = res(it.href, s); return loose(p) ? 'img:' + p : null; } }, css);
-      if (!blocks.length) continue;
-      // ¿abre capítulo? solo si el índice lo nombra o trae su propio título. Las ilustraciones sueltas siguen generando su sección (como antes).
-      const own = tocTitles[it.href] || blocks.find(b => b.type === 'heading')?.text, onlyImg = blocks.every(b => b.type === 'image' || b.type === 'separator');
-      const prev = chapters[chapters.length - 1];
-      if (!own && !onlyImg && prev && !prev.onlyImg) {
-        // continuación: el corte de archivo era un cambio de escena → separador (sin duplicar)
-        const hasSep = prev.blocks[prev.blocks.length - 1]?.type === 'separator' || blocks[0].type === 'separator';
-        const brk = !hasSep && /page-break-before|break-before/i.test(raw) ? [{ type: 'separator' }] : [];
-        prev.blocks.push(...brk, ...blocks); continue;
-      }
-      while (blocks[0]?.type === 'separator') blocks.shift();
-      if (!blocks.length) continue;
-      const t = own || doc.title?.trim() || `Sección ${chapters.length + 1}`;
-      chapters.push({ onlyImg, title: t.slice(0, 200), type: /pr[oó]log/i.test(t) ? 'Prólogo' : /ep[ií]log/i.test(t) ? 'Epílogo' : /afterword|palabras del autor/i.test(t) ? 'Afterword' : /interlud/i.test(t) ? 'Interludio' : 'Capítulo', blocks });
-    }
-    for (const c of chapters) { delete c.onlyImg; while (c.blocks[c.blocks.length - 1]?.type === 'separator') c.blocks.pop(); }
-    const tally = { body: new Map(), heading: new Map() };
-    for (const c of chapters) for (const b of c.blocks) { const f = b.html?.match(/^<span data-epub-family="(\d+)">/)?.[1]; if (f == null) continue; const m = tally[b.type === 'heading' ? 'heading' : 'body']; m.set(+f, (m.get(+f) || 0) + (b.text || '').length); }
-    const top1 = m => [...m].sort((x, y) => y[1] - x[1])[0]?.[0], famL = [...famIdx.keys()], roleB = top1(tally.body), roleH = top1(tally.heading);
-    fonts.forEach(f => { const i = famL.indexOf(f.family.toLowerCase()), u = []; if (i === roleB) u.push('body'); if (i === roleH) u.push('heading'); if (u.length) f.use = u; });
-    for (const [k, v] of images) if (v.lazy) images.set(k, { blob: new Blob([await v.lazy.async('blob')], { type: v.type }), type: v.type, name: v.name });
-    const md = n => [...X.getElementsByTagNameNS('*', n)].map(e => e.textContent.trim()).filter(Boolean);
-    const metas = [...X.getElementsByTagNameNS('*', 'meta')];
-    const metaN = n => metas.find(m => m.getAttribute('name') === n)?.getAttribute('content');
-    const metaP = pr => metas.find(m => m.getAttribute('property') === pr)?.textContent.trim();
-    const desc = md('description')[0], synopsis = desc ? (new DOMParser().parseFromString(desc, 'text/html').body.textContent || '').trim().slice(0, 3000) : '';
-    const idx = +(metaN('calibre:series_index') || metaP('group-position') || (title.match(/(?:vol(?:umen|ume)?\.?|tomo)\s*(\d+)/i) || [])[1] || 0) || null;
-    const OPF = 'http://www.idpf.org/2007/opf', people = [...X.getElementsByTagNameNS('*', 'creator'), ...X.getElementsByTagNameNS('*', 'contributor')];
-    const roleOf = e => e.getAttributeNS(OPF, 'role') || e.getAttribute('opf:role') || (e.id && metas.find(m => m.getAttribute('refines') === '#' + e.id && m.getAttribute('property') === 'role')?.textContent.trim()) || '';
-    const ill = people.find(e => /^ill/i.test(roleOf(e)))?.textContent.trim() || '', aut = people.find(e => /^aut/i.test(roleOf(e)))?.textContent.trim();
-    const date = (md('date')[0] || '').match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '';
-    const meta = { illustrator: ill, date, author: aut || md('creator')[0] || '', publisher: md('publisher')[0] || '', synopsis, index: idx ? Math.round(idx) : null, series: metaN('calibre:series') || metaP('belongs-to-collection') || '' };
-    // portada: EPUB 3 (cover-image) → <meta name="cover"> por id o ruta (EPUB 2, Sigil, Kindle) → <guide type="cover"> → nombre de archivo
-    const mc = metaN('cover'), byIdCI = id => id && Object.values(items).find(i => i.id?.toLowerCase() === id.toLowerCase());
-    let coverItem = Object.values(items).find(i => /cover-image/.test(i.props)) || byIdCI(mc) || (mc && items[Object.keys(items).find(k => items[k].href.endsWith(mc))]);
-    let coverHref = coverItem && /^image\//.test(coverItem.type) ? coverItem.href : null;
-    if (!coverHref) { const g = [...X.getElementsByTagNameNS('*', 'reference')].find(r => /cover/i.test(r.getAttribute('type') || '')); const gh = g && res(opfPath, g.getAttribute('href')).split('#')[0];
-      const page = gh ? Object.values(items).find(i => i.href === gh) : (coverItem && isHtml(coverItem) ? coverItem : null);
-      if (page) { const d = parseMarkup(await text(page.href) || ''); const im = d.querySelector('img') || d.getElementsByTagName('image')[0]; const s = im && (im.getAttribute('src') || im.getAttribute('xlink:href') || im.getAttributeNS('http://www.w3.org/1999/xlink', 'href') || im.getAttribute('href')); if (s) coverHref = res(page.href, s); } }
-    if (!coverHref) coverHref = [...images.keys()].find(k => /cover|portada/i.test(k)) || null;
-    return { title, chapters, images, fonts, famList: [...famIdx.keys()], meta, cover: coverHref && images.has(coverHref) ? 'img:' + coverHref : null };
-  }
-  async function parseDocx(file){
-    const { default: mammoth } = await import('https://esm.sh/mammoth@1.8.0/mammoth.browser.js');
-    const images = new Map(); let n = 0;
-    const { value } = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() }, { convertImage: mammoth.images.imgElement(async img => { const k = 'docx-' + (++n) + '.' + (img.contentType.split('/')[1] || 'png'); images.set(k, { blob: new Blob([await img.read()], { type: img.contentType }), type: img.contentType, name: k }); return { src: k }; }) });
-    const doc = new DOMParser().parseFromString(`<body>${value}</body>`, 'text/html');
-    const blocks = htmlToBlocks(doc.body, { resolve: s => images.has(s) ? 'img:' + s : null });
-    return { title: file.name.replace(/\.docx$/i, ''), chapters: splitByHeadings(blocks), images, fonts: [], cover: null };
-  }
-  async function parsePdf(file){
-    const pdfjs = await import('https://esm.sh/pdfjs-dist@4.4.168');
-    globalThis.pdfjsWorker = await import('https://esm.sh/pdfjs-dist@4.4.168/build/pdf.worker.mjs');
-    const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer(), isEvalSupported: false }).promise;
-    const lines = [];
-    for (let p = 1; p <= pdf.numPages; p++) {
-      const tc = await (await pdf.getPage(p)).getTextContent(); const rows = new Map();
-      tc.items.forEach(i => { if (!i.str.trim()) return; const y = Math.round(i.transform[5]); const r = rows.get(y) || { y, size: 0, text: '' }; r.text += (r.text && !r.text.endsWith(' ') ? ' ' : '') + i.str; r.size = Math.max(r.size, Math.abs(i.transform[0])); rows.set(y, r); });
-      lines.push(...[...rows.values()].sort((a, b) => b.y - a.y));
-    }
-    const med = lines.map(l => l.size).sort((a, b) => a - b)[lines.length >> 1] || 10, blocks = []; let cur = '';
-    const stopWatch = setInterval(() => { if (!$('#pf-panel')) { UI.stop?.(); clearInterval(stopWatch); } }, 1500);
-    const flush = () => { if (cur.trim()) blocks.push({ type: 'paragraph', text: cur.trim() }); cur = ''; };
-    lines.forEach(l => { if (l.size > med * 1.3 && l.text.length < 120) { flush(); blocks.push({ type: 'heading', text: l.text.trim() }); } else { cur += (cur ? ' ' : '') + l.text; if (/[.!?»”]$/.test(l.text.trim())) flush(); } }); flush();
-    return { title: file.name.replace(/\.pdf$/i, ''), chapters: splitByHeadings(blocks), images: new Map(), fonts: [], cover: null };
-  }
-  function splitByHeadings(blocks){
-    const out = []; let cur = null;
-    blocks.forEach(b => { if (b.type === 'heading' && (!cur || cur.blocks.length > 2)) { cur = { title: b.text.slice(0, 200), type: 'Capítulo', blocks: [b] }; out.push(cur); } else { if (!cur) { cur = { title: 'Sección 1', type: 'Capítulo', blocks: [] }; out.push(cur); } cur.blocks.push(b); } });
-    return out;
-  }
-
-  // ---------- importador en 3 pasos: archivo → revisar → destino ----------
-  const SKIP_RE = /^(copyright|derechos|cr[eé]ditos|colof[oó]n|[ií]ndice|contenidos?|contents|table of contents|tabla de contenidos?|newsletter|bolet[ií]n|sign up|title page|portadilla|cover|portada|about the (author|translator|illustrator)|acerca del autor|sobre el autor)\b/i;
-  const words = bs => bs.reduce((a, b) => a + (b.text || '').split(/\s+/).filter(Boolean).length, 0);
-  const slugify = s => (s || 'obra').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
-  function suggestSkips(P){
-    P.chapters.forEach((c, i) => {
-      const w = words(c.blocks), imgs = c.blocks.filter(b => b.type === 'image').length; c.skip = false; c.why = '';
-      if (SKIP_RE.test((c.title || '').trim())) { c.skip = true; c.why = 'página editorial'; }
-      else if (i === 0 && imgs && w < 15) { c.skip = true; c.why = 'página de portada'; }
-      else if (!imgs && w < 25) { c.skip = true; c.why = 'casi vacía'; }
-    });
-  }
-
+  // ---------- EPUB/DOCX/PDF, importación dinámica ----------
+  let importerTask = null;
   async function importer(){
-    if (!(await ensure())) return;
-    const TAB = '/estudio/importar';
-    if (!can('import')) { app.innerHTML = shell('Importar', '<p>Tu rol no permite importar archivos.</p>', TAB); bindPicker(importer); return; }
-    const { data: works } = await sb.from('series').select('id,slug,title,cover_path,volumes(id,num,title,cover_path,deleted_at)').eq('team_id', T.team.id).is('archived_at', null).order('title');
-    let P = null, file = null, fp = null, step = 1, sel = 0, splitting = false, dupAt = null, V = {};
-    const D = { work: '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', newTitle: '', newAuthor: '' };
-    app.innerHTML = shell('Importar contenido', '<ol class="imp-steps" id="steps"></ol><div id="wiz"></div><p id="status" class="mono" role="status"></p>', TAB);
-    bindPicker(importer);
-    const W = () => $('#wiz'), st = m => { const s = $('#status'); if (s) s.textContent = m || ''; };
-    const src = k => k && k.startsWith('img:') ? P.urls.get(k.slice(4)) || '' : k;
-    const work = () => (works || []).find(w => w.id === D.work);
-    const liveVols = w => (w?.volumes || []).filter(v => !v.deleted_at);
-    const nextVol = w => Math.max(0, ...liveVols(w).map(v => v.num)) + 1;
-    const imgKeys = () => [...P.images.keys()].filter(k => P.images.get(k).blob && /^image\//.test(P.images.get(k).type));
-    const usedImgs = () => { const s = new Set(P.chapters.filter(c => !c.skip).flatMap(c => c.blocks.filter(b => b.type === 'image' && b.url?.startsWith('img:')).map(b => b.url.slice(4)))); if (D.cover) s.add(D.cover.slice(4)); return s; };
-    const render = () => { $('#steps').innerHTML = ['Archivo', 'Revisar', 'Destino'].map((l, i) => `<li class="${step === i + 1 ? 'on' : step > i + 1 ? 'done' : ''}"><span>${step > i + 1 ? '✓' : i + 1}</span>${l}</li>`).join(''); [null, s1, s2, s3][step](); };
-
-    function s1(){
-      W().innerHTML = `<label class="imp-drop" id="drop"><b>Arrastra aquí un EPUB, DOCX o PDF</b><span class="mono">o toca para elegirlo · máx. 80 MB</span><input type="file" id="file" accept=".epub,.docx,.pdf" hidden></label>
-        <p class="mono">Del EPUB se leen capítulos, ilustraciones, fuentes, portada y datos del libro: autor, editorial, sinopsis y número de volumen.</p>`;
-      const dz = $('#drop');
-      $('#file').onchange = e => e.target.files[0] && load(e.target.files[0]);
-      dz.ondragover = e => { e.preventDefault(); dz.classList.add('on'); }; dz.ondragleave = () => dz.classList.remove('on');
-      dz.ondrop = e => { e.preventDefault(); dz.classList.remove('on'); const f = e.dataTransfer.files[0]; if (f) load(f); };
-    }
-    async function load(f){
-      file = f;
-      try {
-        if (f.size > LIMITS.file) throw new Error('El archivo supera 80 MB');
-        st('Calculando huella…'); fp = await sha256(await f.arrayBuffer());
-        const { data: dup } = await sb.from('import_jobs').select('created_at').eq('team_id', T.team.id).eq('fingerprint', fp).eq('status', 'done').limit(1); dupAt = dup?.[0]?.created_at || null;
-        st('Analizando ' + f.name + '…');
-        if (/\.(kpf|mobi|azw3?|kfx)$/i.test(f.name)) throw new Error('Ese es un formato de Kindle. En Kindle Create usa «Archivo › Exportar» y elige EPUB; en Calibre conviértelo a EPUB.');
-        P = /\.epub$/i.test(f.name) ? await parseEpub(f) : /\.docx$/i.test(f.name) ? await parseDocx(f) : /\.pdf$/i.test(f.name) ? await parsePdf(f) : (() => { throw new Error('Formato no admitido'); })();
-        if (!P.chapters.length) throw new Error('No encontré texto en el archivo');
-        P.meta ||= {}; document.getElementById('imp-fonts')?.remove(); P.fontVars = '';
-        if (P.fonts?.length) { const fl = [...new Set(P.fonts.map(f => f.family))], stl = document.createElement('style'); stl.id = 'imp-fonts';
-          stl.textContent = P.fonts.map(f => `@font-face{font-family:"imp-${fl.indexOf(f.family)}";src:url("${URL.createObjectURL(new Blob([f.bytes]))}");font-style:${/italic|oblique/i.test(f.style) ? 'italic' : 'normal'};font-weight:${/^\d+$|bold|normal/.test(f.weight) ? f.weight : 'normal'}}`).join('');
-          document.head.appendChild(stl); P.fontVars = fl.map((_, i) => `--f${i}:'imp-${i}',inherit`).join(';') + ';'; const rb = P.fonts.find(f => f.use?.includes('body')), rh = P.fonts.find(f => f.use?.includes('heading')); if (rb) P.fontVars += `--fb:'imp-${fl.indexOf(rb.family)}',Literata,serif;`; if (rh) P.fontVars += `--fh:'imp-${fl.indexOf(rh.family)}',Literata,serif;`; }
-        P.urls = new Map([...P.images].map(([k, v]) => [k, v.blob ? URL.createObjectURL(v.blob) : '']));
-        suggestSkips(P);
-        const key = (P.meta.series || P.title).toLowerCase();
-        const guess = (works || []).find(w => w.title && key.includes(w.title.toLowerCase().slice(0, 18)));
-        D.work = guess?.id || ''; D.newTitle = P.meta.series || P.title.replace(/\s*[,:\-–]?\s*(vol(umen|ume)?\.?|tomo)\s*\d+.*$/i, '').trim() || P.title; D.newAuthor = P.meta.author || '';
-        D.vnum = P.meta.index || nextVol(guess); D.cover = P.cover || null; D.workCover = !guess || !guess.cover_path; D.mode = 'replace';
-        V = { title: '', subtitle: '', synopsis: P.meta.synopsis || '', synopsis_spoiler: false, publisher: P.meta.publisher || '', imprint: '', illustrator: P.meta.illustrator || '', jp_release: P.meta.date || '', planned_chapters: '', is_final: false, translator_notes: '' };
-        sel = Math.max(0, P.chapters.findIndex(c => !c.skip)); splitting = false;
-        st(''); step = 2; render();
-      } catch (er) { st('No se pudo leer: ' + er.message); }
-    }
-
-    function fichaHTML(nInc){
-      const w = work(), ex = liveVols(w).find(v => v.num === D.vnum), f = (k, l, attrs = '') => `<label>${l}<input data-v="${k}" value="${esc(V[k] ?? '')}" ${attrs}></label>`;
-      return `<details class="imp-box imp-ficha" ${ex ? '' : 'open'}><summary><b>Ficha del volumen</b><span class="mono">Destino previsto: ${esc(w?.title || D.newTitle || P.title)} · Vol. ${D.vnum} · ${ex ? 'ya existe: estos datos solo completan sus campos vacíos' : 'nuevo: se creará con esta ficha'}</span></summary>
-        <div class="imp-fg">
-          ${f('title', 'Título del volumen', 'maxlength="200" placeholder="Volumen ' + D.vnum + '"')}${f('subtitle', 'Subtítulo', 'maxlength="200"')}
-          <label class="wide">Sinopsis<textarea data-v="synopsis" rows="4" maxlength="3000">${esc(V.synopsis)}</textarea></label>
-          <label class="tb-inl wide"><input type="checkbox" data-v="synopsis_spoiler" ${V.synopsis_spoiler ? 'checked' : ''}> La sinopsis contiene spoilers del volumen anterior</label>
-          ${f('jp_release', 'Salida en Japón', 'type="date"')}
-          ${f('publisher', 'Editorial', 'maxlength="120"')}${f('imprint', 'Sello', 'maxlength="120" placeholder="p. ej. MF Bunko J"')}
-          ${f('illustrator', 'Ilustración', 'maxlength="120"')}${f('planned_chapters', 'Capítulos previstos', 'type="number" min="0" max="999" placeholder="' + nInc + '"')}
-          <label class="wide">Notas del traductor<textarea data-v="translator_notes" rows="2" maxlength="2000" placeholder="Se muestran en la ficha del volumen">${esc(V.translator_notes)}</textarea></label>
-          <label class="tb-inl wide"><input type="checkbox" data-v="is_final" ${V.is_final ? 'checked' : ''}> Es el último volumen de la obra (al publicarlo, la traducción queda como completa)</label>
-        </div><p class="mono">Puedes cambiar la obra y el número de volumen en el paso siguiente. Los datos marcados del EPUB ya vienen llenos.</p></details>`;
-    }
-    function bindFicha(){ W().querySelectorAll('[data-v]').forEach(i => i[i.type === 'checkbox' ? 'onchange' : 'oninput'] = () => { V[i.dataset.v] = i.type === 'checkbox' ? i.checked : i.value; }); }
-    const fichaRow = () => {
-      const o = {}; for (const k of ['title', 'subtitle', 'synopsis', 'publisher', 'imprint', 'illustrator', 'translator_notes']) { const v = String(V[k] || '').trim(); if (v) o[k] = v; }
-      if (V.jp_release) o.jp_release = V.jp_release; if (V.planned_chapters !== '' && V.planned_chapters != null) o.planned_chapters = Math.max(0, +V.planned_chapters || 0);
-      if (V.synopsis_spoiler) o.synopsis_spoiler = true; if (V.is_final) o.is_final = true; return o;
-    };
-    function s2(){
-      const ch = P.chapters, inc = ch.filter(c => !c.skip), m = P.meta, cur = ch[sel];
-      W().innerHTML = `<div class="imp-sum"><span><b>${esc(P.title)}</b><small class="mono">${esc(file.name)} · ${inc.length} de ${ch.length} secciones · ${P.images.size} imágenes · ${P.fonts.length} fuentes</small></span>
-          ${[['Autor', m.author], ['Editorial', m.publisher], ['Volumen', m.index]].filter(x => x[1]).map(([k, v]) => `<span><small class="mono">${k}</small>${esc(String(v))}</span>`).join('')}</div>
-        ${fichaHTML(inc.length)}
-        ${dupAt ? `<p class="imp-warn">Ya importaste este mismo archivo el ${fmtTz(dupAt, { dateStyle: 'long' })}. Puedes continuar; en el destino elige «Reemplazar» si quieres sustituirlo.</p>` : ''}
-        <div class="imp-grid">
-          <div class="imp-list"><div class="imp-lh"><b>Secciones</b><span class="mono">Desmarca las que no quieras importar</span></div>
-            <ol>${ch.map((c, i) => { const ni = c.blocks.filter(b => b.type === 'image').length; return `<li class="${i === sel ? 'on' : ''}${c.skip ? ' off' : ''}" data-sel="${i}">
-              <input type="checkbox" data-inc="${i}" ${c.skip ? '' : 'checked'} aria-label="Importar ${esc(c.title)}">
-              <span class="imp-t"><input data-t="${i}" value="${esc(c.title)}" aria-label="Título de la sección ${i + 1}"><small class="mono">${i + 1} · ${words(c.blocks).toLocaleString('es-MX')} palabras${ni ? ' · ' + ni + ' img.' : ''}${c.skip && c.why ? ' · <b>' + c.why + '</b>' : ''}</small></span>
-              <select data-k="${i}" aria-label="Tipo">${SEC.map(s => `<option ${s === c.type ? 'selected' : ''}>${s}</option>`).join('')}</select>
-              <span class="imp-a"><button class="ed-btn" data-mv="${i}" data-d="-1" title="Subir" ${i ? '' : 'disabled'}>↑</button><button class="ed-btn" data-mv="${i}" data-d="1" title="Bajar" ${i < ch.length - 1 ? '' : 'disabled'}>↓</button><button class="ed-btn" data-merge="${i}" title="Unir con la siguiente" ${i < ch.length - 1 ? '' : 'disabled'}>Unir ↓</button></span></li>`; }).join('')}</ol></div>
-          <div class="imp-pvw"><div class="imp-lh"><b>Vista previa · ${sel + 1} de ${ch.length}</b><button class="ed-btn ${splitting ? 'on' : ''}" id="split">${splitting ? 'Toca el párrafo donde empieza la nueva sección · Cancelar' : 'Dividir esta sección…'}</button></div>
-            <div class="imp-pv${splitting ? ' splitting' : ''}" id="pv"><div class="rd" data-theme="oscuro" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="${P.fontVars || ''}--rs:17px"><article class="rd-ch"><header class="rd-head"><span class="mono">${esc(cur.type)}</span><h2 ${headFont(cur.blocks)}>${esc(cur.title)}</h2></header><div class="rd-body">${cur.blocks.map((b, i) => renderBlock(b, i, { media: src })).join('')}</div></article></div></div></div>
-        </div>
-        <div class="imp-nav"><button class="btn ghost" id="back">‹ Elegir otro archivo</button><button class="btn" id="next" ${inc.length ? '' : 'disabled'}>Continuar al destino ›</button></div>`;
-      bindFicha();
-      const L = W().querySelector('.imp-list');
-      L.querySelectorAll('[data-t]').forEach(i => i.oninput = () => { ch[+i.dataset.t].title = i.value; if (+i.dataset.t === sel) $('#pv h2').textContent = i.value; });
-      L.querySelectorAll('[data-k]').forEach(s => s.onchange = () => { ch[+s.dataset.k].type = s.value; if (+s.dataset.k === sel) $('#pv .rd-head .mono').textContent = s.value; });
-      L.querySelectorAll('[data-inc]').forEach(c => c.onchange = () => { ch[+c.dataset.inc].skip = !c.checked; s2(); });
-      L.onclick = e => {
-        const b = e.target.closest('[data-mv],[data-merge]');
-        if (b) { const i = +(b.dataset.mv ?? b.dataset.merge);
-          if (b.dataset.mv != null) { const j = i + +b.dataset.d; [ch[i], ch[j]] = [ch[j], ch[i]]; sel = j; }
-          else { ch[i].blocks.push(...ch[i + 1].blocks); ch[i].skip = ch[i].skip && ch[i + 1].skip; ch.splice(i + 1, 1); sel = i; }
-          splitting = false; return s2(); }
-        const li = e.target.closest('[data-sel]'); if (li && !e.target.closest('input,select,button')) { sel = +li.dataset.sel; splitting = false; s2(); }
-      };
-      $('#split').onclick = () => { splitting = !splitting; s2(); };
-      $('#pv').onclick = e => {
-        if (!splitting) return; const b = e.target.closest('[data-b]'); if (!b) return; const at = +b.dataset.b;
-        if (at < 1) return toast('Elige un párrafo después del primero');
-        const rest = cur.blocks.splice(at);
-        ch.splice(sel + 1, 0, { title: (rest.find(x => x.type === 'heading')?.text || cur.title + ' (cont.)').slice(0, 200), type: cur.type, blocks: rest, skip: false });
-        splitting = false; sel++; s2(); toast('Sección dividida');
-      };
-      $('#back').onclick = () => { P.urls.forEach(u => u && URL.revokeObjectURL(u)); P = null; step = 1; st(''); render(); };
-      $('#next').onclick = () => { step = 3; render(); };
-    }
-
-    function s3(){
-      const w = work(), ex = liveVols(w).find(v => v.num === D.vnum), gone = !ex && (w?.volumes || []).find(v => v.deleted_at && v.num === D.vnum), keys = imgKeys(), used = usedImgs(), inc = P.chapters.filter(c => !c.skip);
-      const folder = `obras › ${w?.slug || slugify(D.newTitle || P.title)} › vol-${D.vnum}`;
-      W().innerHTML = `<div class="imp-dest">
-        <section class="imp-box"><h3>Obra y volumen</h3>
-          <label>Obra<select id="dw"><option value="">+ Nueva obra</option>${(works || []).map(x => `<option value="${x.id}" ${x.id === D.work ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select></label>
-          ${w ? '' : `<label>Título de la obra<input id="dt" value="${esc(D.newTitle)}" maxlength="200"></label><label>Autor<input id="da" value="${esc(D.newAuthor)}" maxlength="120"></label>`}
-          <label>Número de volumen<input id="dv" type="number" min="1" max="999" value="${D.vnum}"></label>
-          ${ex ? `<div class="imp-warn"><span>El Volumen ${D.vnum} ya existe<span id="exc"></span>.</span>
-            <label class="tb-inl"><input type="radio" name="dm" value="replace" ${D.mode === 'replace' ? 'checked' : ''}> Reemplazar el volumen: capítulos, ficha y portada nuevos (los capítulos anteriores van a la papelera)</label>
-            <label class="tb-inl"><input type="radio" name="dm" value="append" ${D.mode === 'append' ? 'checked' : ''}> Agregar estas secciones después de las existentes (la ficha solo completa campos vacíos)</label></div>`
-            : gone ? `<p class="imp-warn">Hay un Volumen ${D.vnum} en la papelera. Se recupera y se llena con este archivo; sus capítulos viejos siguen en la papelera.</p>` : `<p class="mono">Se creará el Volumen ${D.vnum}${w ? ' en ' + esc(w.title) : ''}${Object.keys(fichaRow()).length ? ', con la ficha del paso anterior' : ''}.</p>`}
-        </section>
-        <section class="imp-box"><h3>Portada del volumen</h3>
-          <p class="mono">${keys.length ? 'Toca la imagen que será la portada.' + (P.cover ? ' Marcamos la que el EPUB declara como portada.' : '') : 'El archivo no trae imágenes.'}</p>
-          <div class="imp-covs" role="radiogroup" aria-label="Portada del volumen">
-            <button type="button" class="imp-c none${D.cover ? '' : ' on'}" data-cov="" role="radio" aria-checked="${!D.cover}">Sin portada</button>
-            ${keys.map(k => `<button type="button" class="imp-c${D.cover === 'img:' + k ? ' on' : ''}" data-cov="img:${esc(k)}" role="radio" aria-checked="${D.cover === 'img:' + k}" title="${esc(k.split('/').pop())}"><img src="${esc(P.urls.get(k))}" alt="${esc(k.split('/').pop())}" loading="lazy">${P.cover === 'img:' + k ? '<em>Del EPUB</em>' : ''}</button>`).join('')}
-          </div>
-          ${ex?.cover_path && D.cover ? '<p class="mono">El volumen ya tiene portada: esta la reemplaza.</p>' : ''}
-          <label class="tb-inl"><input type="checkbox" id="dwc" ${D.workCover && D.cover ? 'checked' : ''} ${D.cover ? '' : 'disabled'}> Usarla también como portada de la obra${w?.cover_path ? ' (reemplaza la actual)' : ''}</label>
-        </section>
-        <section class="imp-box"><h3>Imágenes en Multimedia</h3>
-          <p class="mono">Carpeta: <b>Multimedia › ${esc(folder)}</b></p>
-          <label class="tb-inl"><input type="radio" name="di" value="all" ${D.allImgs ? 'checked' : ''}> Todas las imágenes del archivo (${keys.length})</label>
-          <label class="tb-inl"><input type="radio" name="di" value="used" ${D.allImgs ? '' : 'checked'}> Solo las del texto y la portada (${used.size})</label>
-          ${P.fonts.length ? `<p class="mono">Las ${P.fonts.length} fuentes del EPUB van a la subcarpeta «fuentes» y el lector las usa en este volumen.</p>` : ''}
-        </section>
-        <section class="imp-box"><h3>Publicación</h3>
-          <label class="tb-inl"><input type="radio" name="dp" value="draft" ${D.pub === 'draft' ? 'checked' : ''}> Guardar como borrador</label>
-          ${can('publish') ? `<label class="tb-inl"><input type="radio" name="dp" value="now" ${D.pub === 'now' ? 'checked' : ''}> Publicar el volumen ahora</label>` : ''}
-          ${can('schedule') ? `<label class="tb-inl"><input type="radio" name="dp" value="at" ${D.pub === 'at' ? 'checked' : ''}> Programar <input type="datetime-local" id="dat" value="${esc(D.at)}" aria-label="Fecha de publicación">${tzHint()}</label>` : ''}
-        </section></div>
-        <div class="imp-nav"><button class="btn ghost" id="back">‹ Revisar secciones</button><button class="btn" id="go">Importar ${inc.length} ${inc.length === 1 ? 'sección' : 'secciones'}</button></div>`;
-      if (ex) sb.from('chapters').select('id', { count: 'exact', head: true }).eq('volume_id', ex.id).is('deleted_at', null).then(({ count }) => { const e = $('#exc'); if (e && count != null) e.textContent = ' con ' + count + (count === 1 ? ' capítulo' : ' capítulos'); });
-      $('#dw').onchange = e => { D.work = e.target.value; const nw = work(); D.vnum = P.meta.index || nextVol(nw); D.workCover = !nw || !nw.cover_path; s3(); };
-      $('#dt')?.addEventListener('input', e => { D.newTitle = e.target.value; }); $('#dt')?.addEventListener('change', s3);
-      $('#da')?.addEventListener('input', e => { D.newAuthor = e.target.value; });
-      $('#dv').onchange = e => { D.vnum = Math.max(1, Math.min(999, Math.round(+e.target.value) || 1)); s3(); };
-      W().querySelectorAll('[name=dm]').forEach(r => r.onchange = () => { D.mode = r.value; });
-      W().querySelectorAll('[name=di]').forEach(r => r.onchange = () => { D.allImgs = r.value === 'all'; });
-      W().querySelectorAll('[name=dp]').forEach(r => r.onchange = () => { D.pub = r.value; });
-      $('#dat')?.addEventListener('input', e => { D.at = e.target.value; D.pub = 'at'; W().querySelector('[name=dp][value=at]').checked = true; });
-      $('#dwc').onchange = e => { D.workCover = e.target.checked; };
-      W().querySelectorAll('[data-cov]').forEach(b => b.onclick = () => { D.cover = b.dataset.cov || null; s3(); });
-      $('#back').onclick = () => { step = 2; render(); };
-      $('#go').onclick = e => busy(e.currentTarget, commit);
-    }
-
-    const imgType = n => ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', avif: 'image/avif' })[(n.split('.').pop() || '').toLowerCase()] || 'application/octet-stream';
-    async function commit(){
-      const uploaded = [], inserted = [], inc = P.chapters.filter(c => !c.skip);
-      let job = null, createdSeries = null, createdVol = null, restoredVol = null, oldIds = [], oldGone = false, volBefore = null, seriesCoverBefore;
-      if (D.pub === 'at' && (!D.at || new Date(fromLocal(D.at)) <= new Date())) throw new Error('Elige una fecha futura para programar');
-      const ficha = fichaRow();
-      let w = work(), vol = liveVols(w).find(v => v.num === D.vnum);
-      if (vol && D.mode === 'replace' && !confirm(`Se reemplazará el Volumen ${D.vnum}: capítulos, ficha y portada. Los capítulos anteriores van a la papelera. ¿Continuar?`)) return;
-      try {
-        ({ data: job } = await sb.from('import_jobs').insert({ team_id: T.team.id, created_by: getUser().id, filename: file.name, file_type: file.name.split('.').pop().toLowerCase(), mode: vol ? D.mode : 'append', status: 'running', fingerprint: fp }).select().single());
-        if (!w) {
-          st('Creando la obra…'); const title = (D.newTitle || P.title).trim().slice(0, 200); let slug = slugify(title);
-          const { data: taken } = await sb.from('series').select('id').eq('slug', slug).limit(1); if (taken?.length) slug += '-' + Date.now().toString(36).slice(-4);
-          const r = await sb.from('series').insert({ team_id: T.team.id, slug, title, short: title.slice(0, 26), author: D.newAuthor.trim() || null, publisher: P.meta.publisher || null, synopsis: P.meta.synopsis || null, published: false }).select().single();
-          if (r.error) throw r.error; w = createdSeries = { ...r.data, volumes: [] };
-        }
-        // Multimedia › obras › {obra} › vol-N
-        const dir = `${T.team.id}/obras/${w.slug}/vol-${D.vnum}/`;
-        const { data: have } = await sb.storage.from('obi-media').list(dir.slice(0, -1), { limit: 1000 });
-        const takenNames = new Set((have || []).map(x => x.name));
-        const fname = n => { const b = n.replace(/[^\w.-]/g, '_'); let x = b, i = 2; while (takenNames.has(x)) x = b.replace(/(\.\w+)?$/, m => '-' + (i++) + m); takenNames.add(x); return x; };
-        const up = async (sub, name, blob, type) => { const p = dir + sub + fname(name); const { error } = await sb.storage.from('obi-media').upload(p, blob, { contentType: type }); if (error) throw error; uploaded.push(p); return p; };
-        const keys = D.allImgs ? imgKeys() : [...usedImgs()].filter(k => P.images.get(k)?.blob);
-        const map = {}; let n = 0;
-        for (const key of keys) { const im = P.images.get(key); st(`Subiendo imágenes a Multimedia ${++n}/${keys.length}…`); if (im.blob.size > LIMITS.image) { toast(`${im.name} supera 8 MB y se omitió`); continue; } map['img:' + key] = await up('', im.name, im.blob, im.type || imgType(im.name)); }
-        const fonts = []; for (const f of P.fonts) { st('Subiendo fuentes…'); const p = await up('fuentes/', f.name, new Blob([f.bytes]), /woff2/.test(f.name) ? 'font/woff2' : /woff/.test(f.name) ? 'font/woff' : /otf/.test(f.name) ? 'font/otf' : 'font/ttf'); fonts.push({ url: PUB + p, family: f.family, style: f.style, weight: f.weight, ...(f.use ? { use: f.use } : {}) }); }
-        const cov = D.cover ? map[D.cover] || null : null;
-        st('Guardando el volumen…');
-        if (!vol) {
-          const { data: gone } = await sb.from('volumes').select('*').eq('series_id', w.id).eq('num', D.vnum).not('deleted_at', 'is', null).limit(1);
-          if (gone?.length) { const r = await sb.from('volumes').update({ deleted_at: null }).eq('id', gone[0].id).select().single(); if (r.error) throw r.error; vol = r.data; restoredVol = vol.id; }
-        }
-        if (!vol) {
-          const r = await sb.from('volumes').insert({ ...ficha, series_id: w.id, num: D.vnum, status: 'draft', epub_fonts: fonts, cover_path: cov }).select().single();
-          if (r.error) throw r.error; vol = createdVol = r.data;
-        }
-        const { data: existing, error: exErr } = await sb.from('chapters').select('id,num,vol,volume_id,deleted_at').eq('series_id', w.id); if (exErr) throw exErr;
-        if (D.mode === 'replace' && !createdVol) oldIds = (existing || []).filter(c => !c.deleted_at && (c.volume_id === vol.id || c.vol === D.vnum)).map(c => c.id);
-        let num = Math.max(0, ...(existing || []).map(c => +c.num || 0));
-        const rows = inc.map((c, i) => ({ series_id: w.id, volume_id: vol.id, vol: D.vnum, num: ++num, sort_order: i, title: (c.title || 'Sin título').slice(0, 300), section_type: c.type, status: 'draft',
-          body: c.blocks.map(b => b.type === 'image' ? { ...b, url: map[b.url] ? PUB + map[b.url] : b.url } : b).filter(b => b.type !== 'image' || /^https?:/.test(b.url)) }));
-        for (let i = 0; i < rows.length; i += 10) { st(`Guardando capítulos ${Math.min(i + 10, rows.length)}/${rows.length}…`); const r = await sb.from('chapters').insert(rows.slice(i, i + 10)).select('id'); if (r.error) throw r.error; inserted.push(...r.data.map(x => x.id)); }
-        if (oldIds.length) { const r = await sb.from('chapters').update({ deleted_at: new Date().toISOString() }).in('id', oldIds); if (r.error) throw r.error; oldGone = true; }
-        if (!createdVol) {
-          const { data: vr } = await sb.from('volumes').select('*').eq('id', vol.id).single();
-          const patch = {}; if (fonts.length) patch.epub_fonts = fonts; if (cov) patch.cover_path = cov;
-          const over = D.mode === 'replace' || !!restoredVol; for (const [k, v] of Object.entries(ficha)) if ((over || vr?.[k] == null || vr[k] === '' || vr[k] === false) && v !== false) patch[k] = v;
-          if (Object.keys(patch).length) { volBefore = Object.fromEntries(Object.keys(patch).map(k => [k, vr?.[k] ?? null])); const r = await sb.from('volumes').update(patch).eq('id', vol.id); if (r.error) throw r.error; }
-        }
-        if (cov && D.workCover) { seriesCoverBefore = w.cover_path || null; const r = await sb.from('series').update({ cover_path: cov }).eq('id', w.id); if (r.error) throw r.error; }
-        if (D.pub !== 'draft') { st(D.pub === 'now' ? 'Publicando…' : 'Programando…'); const r = await sb.rpc('publish_volume', D.pub === 'now' ? { p_volume: vol.id } : { p_volume: vol.id, p_at: fromLocal(D.at) }); if (r.error) throw r.error; }
-        await sb.from('import_jobs').update({ status: 'done', media_paths: uploaded, result: { series: w.id, volume: vol.id, chapters: inserted.length, cover: cov } }).eq('id', job.id);
-        P.urls.forEach(u => u && URL.revokeObjectURL(u));
-        toast(`Importadas ${inserted.length} secciones${D.pub === 'now' ? ' y publicadas' : D.pub === 'at' ? ' · programadas para ' + fmtTz(fromLocal(D.at)) : ' como borrador'} · ${Object.keys(map).length} imágenes en Multimedia`);
-        go('/estudio/obra/' + w.slug);
-      } catch (er) {
-        if (inserted.length) await sb.from('chapters').delete().in('id', inserted);
-        if (oldGone) await sb.from('chapters').update({ deleted_at: null }).in('id', oldIds);
-        if (volBefore && vol) await sb.from('volumes').update(volBefore).eq('id', vol.id);
-        if (seriesCoverBefore !== undefined && !createdSeries) await sb.from('series').update({ cover_path: seriesCoverBefore }).eq('id', w.id);
-        if (createdVol) await sb.from('volumes').delete().eq('id', createdVol.id);
-        if (restoredVol) await sb.from('volumes').update({ deleted_at: new Date().toISOString() }).eq('id', restoredVol);
-        if (createdSeries) await sb.from('series').delete().eq('id', createdSeries.id);
-        if (uploaded.length) await sb.storage.from('obi-media').remove(uploaded);
-        if (job) await sb.from('import_jobs').update({ status: 'failed', result: { error: er.message } }).eq('id', job.id);
-        console.error('Importación fallida', er);
-        const why = [er.message, er.details, er.hint, er.code && 'código ' + er.code].filter(Boolean).join(' · ');
-        st(''); throw new Error('Se deshizo la importación: ' + why);
-      }
-    }
-    render();
+    if (!importerTask) importerTask = import('./studio-importer.js?v=1')
+      .then(m => m.createImporter({ sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, LIMITS, SEC }))
+      .catch(e => { importerTask = null; throw e; });
+    return (await importerTask)();
   }
 
-  // ---------- multimedia ----------
+  // ---------- multimedia (módulo diferido) ----------
+  let libraryTask = null;
   async function library(folder = '', page = 0){
-    if (!(await ensure())) return;
-    const root = T.team.id + '/' + folder;
-    const { data, error } = await sb.storage.from('obi-media').list(root.replace(/\/$/, ''), { limit: 41, offset: page * 40, sortBy: { column: 'name', order: 'asc' } });
-    const list = (data || []).slice(0, 40), dirs = list.filter(x => !x.id), files = list.filter(x => x.id);
-    const crumbs = folder.split('/').filter(Boolean), vf = folder.match(/^obras\/([\w-]+)\/vol-(\d+)\/$/), canCov = vf && can('edit');
-    app.innerHTML = shell('Multimedia', `
-      <p class="mono"><a href="#" data-dir="">${esc(T.team.name)}</a>${crumbs.map((c, i) => ` / <a href="#" data-dir="${esc(crumbs.slice(0, i + 1).join('/') + '/')}">${esc(c)}</a>`).join('')}</p>
-      ${error ? `<p>${esc(error.message)}</p>` : ''}
-      <div class="st-row">${can('edit') ? '<label class="btn ghost">Subir imágenes<input type="file" id="upl" accept="image/*" multiple hidden></label>' : ''}<button class="btn ghost" id="selall">Seleccionar página</button>${can('delete') ? '<button class="btn ghost danger" id="delsel">Borrar seleccionadas</button>' : ''}<span class="mono" id="sel">0 seleccionadas</span></div>
-      <div class="st-media">${dirs.map(d => `<a href="#" class="st-dir" data-dir="${esc(folder + d.name + '/')}">📁 ${esc(d.name)}</a>`).join('')}${files.map(f => { const p = root + f.name; return `<label class="st-file"><input type="checkbox" data-p="${esc(p)}">${/\.(png|jpe?g|webp|gif|avif)$/i.test(f.name) ? `<img src="${esc(media(p))}" alt="" loading="lazy">` : '<span class="mono">fuente</span>'}<span class="mono">${esc(f.name)} · ${Math.round((f.metadata?.size || 0) / 1024)} KB</span><button class="lnk" data-copy="${esc(media(p))}">Copiar URL</button>${canCov && /\.(png|jpe?g|webp|gif|avif)$/i.test(f.name) ? `<button class="lnk" data-cover="${esc(p)}">Usar como portada del Vol. ${vf[2]}</button>` : ''}</label>`; }).join('') || (dirs.length ? '' : '<p class="mono">Carpeta vacía.</p>')}</div>
-      <p class="st-row">${page > 0 ? '<button class="btn ghost" id="prev">‹ Anterior</button>' : ''}${(data || []).length > 40 ? '<button class="btn ghost" id="next">Siguiente ›</button>' : ''}</p>`, '/estudio/multimedia');
-    bindPicker(() => library());
-    app.querySelectorAll('[data-dir]').forEach(a => a.onclick = e => { e.preventDefault(); library(a.dataset.dir, 0); });
-    app.querySelectorAll('[data-cover]').forEach(b => b.onclick = e => { e.preventDefault(); busy(b, async () => {
-      const { data: s } = await sb.from('series').select('id,cover_path').eq('team_id', T.team.id).eq('slug', vf[1]).maybeSingle(); if (!s) throw new Error('No encontré la obra de esta carpeta');
-      const { data: v } = await sb.from('volumes').select('id').eq('series_id', s.id).eq('num', +vf[2]).is('deleted_at', null).maybeSingle(); if (!v) throw new Error('Esa obra no tiene Volumen ' + vf[2]);
-      const { error } = await sb.from('volumes').update({ cover_path: b.dataset.cover }).eq('id', v.id); if (error) throw new Error(errMsg(error));
-      if (!s.cover_path && confirm('La obra aún no tiene portada. ¿Usar también esta?')) await sb.from('series').update({ cover_path: b.dataset.cover }).eq('id', s.id);
-      toast('Portada del Volumen ' + vf[2] + ' actualizada'); }); });
-    app.querySelectorAll('[data-copy]').forEach(b => b.onclick = e => { e.preventDefault(); navigator.clipboard?.writeText(b.dataset.copy); toast('URL copiada'); });
-    const boxes = () => [...app.querySelectorAll('[data-p]')], count = () => $('#sel').textContent = boxes().filter(b => b.checked).length + ' seleccionadas';
-    app.querySelectorAll('[data-p]').forEach(b => b.onchange = count);
-    $('#selall').onclick = () => { const all = boxes().every(b => b.checked); boxes().forEach(b => b.checked = !all); count(); };
-    $('#prev')?.addEventListener('click', () => library(folder, page - 1)); $('#next')?.addEventListener('click', () => library(folder, page + 1));
-    $('#upl')?.addEventListener('change', e => busy(null, async () => { for (const f of e.target.files) { if (f.size > LIMITS.image) { toast(f.name + ' supera 8 MB'); continue; } const { error } = await sb.storage.from('obi-media').upload(root + Date.now() + '-' + f.name.replace(/[^\w.-]/g, '_'), f, { contentType: f.type }); if (error) toast(error.message); } library(folder, page); }));
-    $('#delsel')?.addEventListener('click', e => busy(e.target, async () => {
-      const paths = boxes().filter(b => b.checked).map(b => b.dataset.p); if (!paths.length) throw new Error('Selecciona archivos');
-      const { data: used } = await sb.rpc('media_in_use', { p_team: T.team.id, p_paths: paths });
-      const free = paths.filter(p => !(used || []).includes(p));
-      if (free.length) { const { error } = await sb.storage.from('obi-media').remove(free); if (error) throw error; }
-      toast(`${free.length} borradas${used?.length ? ` · ${used.length} protegidas porque están en uso` : ''}`); library(folder, page);
-    }));
+    if (!libraryTask) libraryTask = import('./studio-media.js?v=1')
+      .then(m => m.createLibrary({ sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, errMsg, LIMITS }))
+      .catch(e => { libraryTask = null; throw e; });
+    return (await libraryTask)(folder, page);
   }
 
   // ---------- glosario ----------
