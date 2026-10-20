@@ -156,8 +156,12 @@ function netBanner(){
 addEventListener('offline', netBanner);
 addEventListener('online', () => { netBanner(); if (user) rd().syncPending().then(n => { if (n) toast('Tu progreso sin conexión ya se guardó en tu cuenta'); }); });
 if (!navigator.onLine) netBanner();
+let seasonApplySeq = 0;
 async function afterRender(){
-  const S = await seasons(); await S.load(sb); const p = location.pathname; let m;
+  const seq = ++seasonApplySeq, route = location.pathname + location.search;
+  const S = await seasons(); await S.load(sb);
+  if (seq !== seasonApplySeq || route !== location.pathname + location.search) return;
+  const p = location.pathname; let m;
   try {
     if (p === '/') return S.apply('home');
     if (p === '/catalogo') return S.apply('catalog');

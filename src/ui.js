@@ -1049,14 +1049,15 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     TP.ensureFonts([TP.normalize(design, D.t.color).font]);
     document.title = D.t.name + ' · El Obi del Lector';
     let md = document.querySelector('meta[name=description]'); if (!md) { md = document.createElement('meta'); md.name = 'description'; document.head.appendChild(md); } md.content = (TP.normalize(design).motto || D.t.bio || 'Grupo traductor en El Obi del Lector').slice(0, 160);
+    const publicSeasonOff = (() => { try { return localStorage.getItem('obi-season') === 'off'; } catch { return false; } })();
     const top = (canEdit ? '<div class="tp2-top"><a class="tp2-edit" href="/estudio/preferencias">⚙ Personalizar</a></div>' : '') + (draft ? '<div class="tp2-draft"><b>Vista previa del borrador</b><span>Así se verá la página cuando el equipo publique los cambios.</span></div>' : '');
-    app.innerHTML = `<div class="tp2-page">${TP.render(D, design, { esc, media, top })}</div>`;
+    app.innerHTML = `<div class="tp2-page">${TP.render(D, design, { esc, media, top, sim: publicSeasonOff ? '' : undefined })}</div>`;
     const root = app.querySelector('.tp2'); TP.bind(root); if (!draft) teamRank(root, D.t.id);
     // Sello de aniversario: solo ese día (fecha del equipo o, si no hay, la de creación).
     sb.from('teams').select('anniversary,anniversary_msg,created_at').eq('id', D.t.id).maybeSingle().then(({ data: a }) => { if (!a || !document.body.contains(root)) return; const b = a.anniversary || (a.created_at ? new Date(a.created_at).toLocaleDateString('en-CA', { timeZone: window.obiTZ() }) : ''); const k = new Date().toLocaleDateString('en-CA', { timeZone: window.obiTZ() }); if (!b || b.slice(5) !== k.slice(5)) return; const y = +k.slice(0, 4) - +b.slice(0, 4); if (y < 1) return;
       const el = document.createElement('div'); el.setAttribute('role', 'note'); el.style.cssText = 'display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;padding:12px 16px;background:#16140f;border-bottom:2px solid #efe6d2;color:#f3ecd9;text-align:left';
       el.innerHTML = `<span aria-hidden="true" style="display:grid;place-items:center;width:44px;height:44px;border:2px solid #c8402e;color:#c8402e;font-size:24px;transform:rotate(-6deg);font-family:serif">祝</span><span style="display:grid;gap:2px"><b style="font-size:17px">${esc((a.anniversary_msg || '').trim() || y + (y === 1 ? ' año de ' : ' años de ') + D.t.name)}</b><small class="mono">Hoy ${esc(D.t.name)} cumple ${y} ${y === 1 ? 'año' : 'años'} en el Obi</small></span>`; root.prepend(el); }, () => {});
-    team.stop?.(); team.stop = AN.animate(root, TP.effective(design, D.t.color));
+    team.stop?.(); team.stop = AN.animate(root, TP.effective(design, D.t.color, publicSeasonOff ? '' : undefined));
     const off = () => { if (!document.body.contains(root)) { team.stop?.(); team.stop = null; removeEventListener('popstate', off); } }; addEventListener('popstate', off); document.addEventListener('click', function cl(e){ if (e.target.closest('a[href^="/"]')) { setTimeout(() => { if (!document.body.contains(root)) { team.stop?.(); team.stop = null; document.removeEventListener('click', cl, true); } }, 50); } }, true);
     let following = false, n = 0;
     const [{ data: cnt }, fr] = await Promise.all([sb.rpc('team_followers', { p_team: D.t.id }), u2 ? sb.from('team_follows').select('team_id').eq('team_id', D.t.id).eq('user_id', u2.id) : { data: [] }]);
