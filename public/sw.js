@@ -1,6 +1,8 @@
 /*@shell*/const V='obi-dev',SHELL=['/','/manifest.webmanifest','/icon.svg'],LAZY=[];/*@end*/
 // La línea de arriba la reescribe scripts/build.mjs con la versión y la lista exacta de archivos (sin studio.js ni admin.js).
 const IMG = 'obi-img', IMG_MAX = 400;
+// Una sola revalidación de cada portada durante la vida del service worker.
+const refreshedImages = new Set();
 let puts = 0;
 // Instalación tolerante: si un archivo falla (p. ej. Cloudflare responde con un desafío 403) no se cancela todo.
 // Lo que no se pudo bajar se toma de la versión anterior, así la app instalada nunca se queda sin arranque.
@@ -27,11 +29,20 @@ async function nav(e, req, u){
 }
 // Portadas: la guardada al instante y se actualiza en segundo plano. Se piden en modo CORS para no guardar respuestas opacas.
 function image(e, req){
-  return caches.open(IMG).then(c => c.match(req.url).then(hit => {
-    const net = fetch(req.url, { mode: 'cors', credentials: 'omit' }).catch(() => fetch(req)).then(r => { if (r.ok) { c.put(req.url, r.clone()); trim(c); } return r; });
-    if (hit) { e.waitUntil(net.catch(() => {})); return hit; }
-    return net.catch(() => caches.match(req.url).then(r => r || Response.error()));
-  }));
+  return caches.open(IMG).then(async c => {
+    const hit = await c.match(req.url);
+    const download = () => fetch(req.url, { mode: 'cors', credentials: 'omit' }).catch(() => fetch(req))
+      .then(r => { if (r.ok) { c.put(req.url, r.clone()); trim(c); } return r; });
+    if (hit) {
+      if (!refreshedImages.has(req.url)) {
+        if (refreshedImages.size >= IMG_MAX) refreshedImages.clear();
+        refreshedImages.add(req.url);
+        e.waitUntil(download().catch(() => {}));
+      }
+      return hit;
+    }
+    return download().catch(() => caches.match(req.url).then(r => r || Response.error()));
+  });
 }
 self.addEventListener('fetch', e => {
   const req = e.request, u = new URL(req.url); if (req.method !== 'GET') return;
@@ -45,7 +56,9 @@ self.addEventListener('fetch', e => {
   }
   if (u.hostname === 'esm.sh' || u.hostname === 'fonts.gstatic.com' || u.hostname === 'fonts.googleapis.com') { e.respondWith(caches.open(V + '-lib').then(c => c.match(req).then(hit => hit || fetch(req).then(r => { if (r.ok) c.put(req, r.clone()); return r; })))); return; }
   if (u.pathname.includes('/storage/v1/object/public/')) { if (req.destination === 'image') { e.respondWith(image(e, req)); return; } e.respondWith(fetch(req).catch(() => caches.match(req.url))); return; }
-  if (u.pathname.includes('/rest/v1/chapters')) { e.respondWith(fetch(req).then(r => { const cp = r.clone(); caches.open(V + '-ch').then(c => c.put(req, cp)); return r; }).catch(() => caches.match(req))); }
+  // El lector gestiona su propia caché offline por capítulo. No almacenar respuestas
+  // de PostgREST autenticadas en una caché global compartida entre sesiones.
+  if (u.pathname.includes('/rest/v1/chapters')) return;
 });
 // Notificaciones push (avisos del sitio, recordatorios y aniversarios).
 self.addEventListener('push', e => { let d = {}; try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data ? e.data.text() : '' }; }

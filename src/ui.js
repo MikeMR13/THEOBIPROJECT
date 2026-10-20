@@ -356,17 +356,19 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       sb.from('platform_settings').select('featured').eq('id', 1).maybeSingle()]).then(([a, b, c, d, e, f, g]) => ({ series: a.data, latest: b.data, rkW: c.data, rkH: d.data, top10: e.data, nextRel: f.data, featured: g.data?.featured }));
     const feed = () => { const pre = window.OBI_HOME; window.OBI_HOME = null;
       return (pre || sb.rpc('home_feed').then(({ data, error }) => error ? null : data)).then(d => Array.isArray(d?.series) ? d : legacy(), legacy); };
-    const [FD, prog, pr, festKey, AN, VR, TR] = await Promise.all([
+    // home_feed y la consulta de respaldo ya incluyen series.theme. Evitamos
+    // pedir todas las obras otra vez y reutilizamos SEASONS del módulo de temporada.
+    const [FD, prog, pr, fest, VR] = await Promise.all([
       feed(), progressMap(),
       u ? sb.from('profiles').select('adult_ok').eq('id', u.id).maybeSingle() : { data: null },
-      import('/season.js?v=4').then(S => S.load(sb).then(() => S.platformKey())).catch(() => null),
-      import('/anim.js?v=8').catch(() => null),
-      // portada del último volumen publicado y aviso del equipo: se piden aparte porque home_feed no los trae
-      sb.from('volumes').select('series_id,num,cover_path,status').is('deleted_at', null).not('cover_path', 'is', null).then(r => r, () => ({ data: [] })),
-      sb.from('series').select('id,theme').eq('published', true).then(r => r, () => ({ data: [] }))]);
+      import('/season.js?v=4').then(S => S.load(sb).then(() => {
+        const k = S.platformKey(), fs = k && S.SEASONS[k];
+        return fs && fs.g !== 'est' ? fs : null;
+      })).catch(() => null),
+      // La portada del volumen publicado más reciente puede diferir de la ficha.
+      sb.from('volumes').select('series_id,num,cover_path,status').is('deleted_at', null).not('cover_path', 'is', null).then(r => r, () => ({ data: [] }))]);
     { const vc = {}; (VR?.data || []).filter(v => !v.status || v.status === 'published').forEach(v => { if (!vc[v.series_id] || v.num > vc[v.series_id].num) vc[v.series_id] = v; });
-      const th = Object.fromEntries((TR?.data || []).map(x => [x.id, x.theme]));
-      (FD?.series || []).forEach(s => { if (th[s.id] !== undefined) s.theme = th[s.id]; const v = vc[s.id]; if (v && v.cover_path !== s.cover_path) { s.cover_path = v.cover_path; s.cover_thumb_path = null; } }); }
+      (FD?.series || []).forEach(s => { const v = vc[s.id]; if (v && v.cover_path !== s.cover_path) { s.cover_path = v.cover_path; s.cover_thumb_path = null; } }); }
     const { series, latest, rkW, rkH, top10 } = FD, ps = { featured: FD.featured }, nextRel = (FD.nextRel || []).filter(e => new Date(e.at) > Date.now());
     if (location.pathname !== '/') return;
     const adultOk = !!pr?.data?.adult_ok;
@@ -386,7 +388,6 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const rk = rkUse.rows.slice(0, 6);
     const nx = (nextRel || []).filter(e => e.series && (!e.series_id || byId[e.series_id])).slice(0, 3);
     const until = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
-    const fs = festKey && AN?.SEASONS?.[festKey]; const fest = fs && fs.g !== 'est' ? fs : null;
     const shelf = list.slice(0, 24);
     const gc = new Map(); list.forEach(x => (x.genres || []).forEach(g => gc.set(g, (gc.get(g) || 0) + 1)));
     const genres = [...gc].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es')).slice(0, 6);
