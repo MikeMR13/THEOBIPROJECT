@@ -23,12 +23,14 @@
 <link id="gf" media="print" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,500&family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono&display=swap" rel="stylesheet">
 <link id="gf2" media="print" fetchpriority="low" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;800&family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css?v=23">
+<link rel="stylesheet" href="/reader-a11y.css?v=1">
 <script src="/boot.js?v=1" defer></script>
 </head><body>
+<a class="ob-skip" href="#app">Saltar al contenido principal</a>
 <header class="top"><a href="/" class="brand"><span class="seal">帯</span>El Obi del Lector</a>
 <nav><a href="/">Inicio</a><a href="/catalogo">Catálogo</a><a href="/calendario">Calendario</a><a href="/biblioteca">Mi biblioteca</a><a href="/apoyar" class="gold">援 Apoyar</a></nav>
 <div id="session"></div></header>
-<main id="app" aria-live="polite"></main>
+<main id="app" tabindex="-1" aria-live="polite"></main>
 <footer class="foot"><span>© El Obi del Lector</span><a href="/privacidad">Política de privacidad</a><a href="/condiciones-servicio">Condiciones del servicio</a></footer>
 <div id="toast" role="status"></div>
 <script src="/config.js?v=1"></script>
