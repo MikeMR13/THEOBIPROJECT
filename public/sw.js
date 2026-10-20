@@ -9,7 +9,7 @@ self.addEventListener('install', e => e.waitUntil(caches.open(V).then(async c =>
 self.addEventListener('activate', e => e.waitUntil((async () => {
   const c = await caches.open(V), ok = !!(await c.match('/'));
   // solo se borran las versiones viejas si la nueva tiene su página de arranque
-  if (ok) { const ks = await caches.keys(); await Promise.all(ks.filter(k => k !== V && k !== V + '-ch' && k !== V + '-lib' && k !== IMG && !k.startsWith('obi-offline')).map(k => caches.delete(k))); }
+  if (ok) { const ks = await caches.keys(); await Promise.all(ks.filter(k => k !== V && k !== V + '-ch' && k !== V + '-lib' && k !== IMG && k !== 'obi-bodies' && !k.startsWith('obi-offline')).map(k => caches.delete(k))); }
   await self.clients.claim();
   // el resto de módulos (calendario, perfil, captcha…) se guardan después, sin frenar el arranque
   LAZY.forEach(u => c.match(u).then(h => h || grab(c, u)));
