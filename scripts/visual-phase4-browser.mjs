@@ -11,12 +11,14 @@ const extract=name=>{
  assert(begin>=0 && end>begin,'CSS no disponible: '+name);
  return ui.slice(begin+open.length,end);
 };
-const css=readFileSync('src/styles.css','utf8')+'\n'+extract('CSS')+'\n'+extract('HOME_CSS')+'\n'+readFileSync('src/studio.css','utf8');
+const css2 = ui.match(/const CSS2 = ("(?:\\.|[^"\\])*");/);
+assert(css2, 'No se encontró CSS2 de navegación y cinta');
+const css=readFileSync('src/styles.css','utf8')+'\n'+extract('CSS')+'\n'+JSON.parse(css2[1])+'\n'+extract('HOME_CSS')+'\n'+readFileSync('src/studio.css','utf8');
 function sample(){
  const cover='<div class="ui-book" style="background:#343f53"><div class="ui-obi slim"><small>Equipo traductor</small></div></div>';
  const card='<a class="ui-card" href="#">'+cover+'<h3>Novela de ejemplo con título suficientemente largo para evaluar ancho</h3><span class="meta">En traducción · 5 capítulos</span></a>';
  const article='<article class="s2-work" style="--c:#f2c230"><a class="cv" href="#"><span>Portada de respaldo</span></a><div class="bd"><h2>Un título literario extenso para móvil</h2></div></article>';
- const check='window.addEventListener("load",()=>{const names=[".ui-card",".ui-vol",".ob-ann",".s2-work",".ui-sh"];const width=document.documentElement.clientWidth;const fail=[];for(const n of names){for(const el of document.querySelectorAll(n)){const r=el.getBoundingClientRect();if(r.left< -3||r.right>width+3)fail.push(n+" desbordado a "+width)}}if(getComputedStyle(document.querySelector(".ob-track")).animationName==="none")fail.push("Cinta sin animación");const p=document.getElementById("case-result");p.dataset.qaStatus=fail.length?"fail":"pass";p.textContent=fail.join(", ")||"OK "+width;});';
+ const check='window.addEventListener("load",()=>{const names=[".ui-card",".ui-vol",".ob-ann",".s2-work",".ui-sh"];const width=document.documentElement.clientWidth;const fail=[];for(const n of names){for(const el of document.querySelectorAll(n)){if(el.closest(".ob-car"))continue;const r=el.getBoundingClientRect();if(r.left< -3||r.right>width+3)fail.push(n+" desbordado a "+width)}}if(getComputedStyle(document.querySelector(".ob-track")).animationName==="none")fail.push("Cinta sin animación");const p=document.getElementById("case-result");p.dataset.qaStatus=fail.length?"fail":"pass";p.textContent=fail.join(", ")||"OK "+width;});';
  return '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+css+'</style><style>body{margin:0;padding:10px;overflow-x:hidden}.ob-tick{margin:0}.ui-grid,.ob-anns,.ui-sh,.ui-vol,.s2-work{margin:15px 0}</style></head><body><div class="ob-tick"><div class="ob-track"><span>★ NOVEDADES LITERARIAS · NUEVO CAPÍTULO　</span><span>★ NOVEDADES LITERARIAS · NUEVO CAPÍTULO　</span></div></div><div class="ui-grid">'+card.repeat(3)+'</div><div class="ob-car">'+card.repeat(3)+'</div><div class="ob-anns"><article class="ob-ann" style="--tc:#f2c230"><h3>Anuncios de equipos</h3><p>Una actualización editorial larga para pantallas estrechas.</p></article></div><section class="ui-sh"><div class="ui-book"></div><div><h1>Obra con un título extenso</h1></div></section><article class="ui-vol"><span class="th"></span><div><h3>Volumen uno</h3></div></article>'+article+'<p id="case-result" data-qa-status="running"></p><script>'+check+'</script></body></html>';
 }
 const widths=[320,390,768,1024,1440];
