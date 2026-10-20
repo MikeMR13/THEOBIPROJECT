@@ -39,7 +39,12 @@
     },
     {
       "source": "/(.*)\\.(js|css)",
-      "has": [{ "type": "query", "key": "v" }],
+      "has": [
+        {
+          "type": "query",
+          "key": "v"
+        }
+      ],
       "headers": [
         {
           "key": "Cache-Control",
@@ -74,5 +79,6 @@
         }
       ]
     }
-  ]
+  ],
+  "installCommand": "npm install --no-audit --no-fund"
 }
