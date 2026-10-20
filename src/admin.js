@@ -27,6 +27,19 @@ const CSS = `
 .bb-box h3{margin:0;font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:20px}
 .bb-mini{background:none;border:1px solid #3d3628;color:var(--paper);padding:5px 10px;font:inherit;font-size:12px;cursor:pointer}.bb-mini.red{color:#f59e7a;border-color:#f59e7a}
 .bb select{background:#16140f;border:2px solid var(--line);color:var(--paper);padding:9px;font:inherit}
+/* Fase 2: controles del Bibliotecario sin barras de navegación de varias filas. */
+@media(max-width:760px){
+  .bb-top h1{font-size:clamp(26px,7vw,36px)}
+  .bb-tabs{flex-wrap:nowrap;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:thin;scroll-snap-type:x proximity;scroll-padding-inline:8px}
+  .bb-tabs button{flex:none;white-space:nowrap;min-height:44px;scroll-snap-align:start}
+  .bb-sea-g{grid-template-columns:minmax(0,1fr)}
+  .bb-se{grid-template-columns:minmax(0,1fr) auto;gap:10px}
+  .bb-se input[data-greet]{grid-column:1/-1;min-height:44px}
+  .bb-se .btn{min-height:44px}
+  .bb-box{min-width:0;padding:14px}
+  .bb-pv{width:100%;max-width:100%;height:480px}
+  .bb-save{padding-bottom:calc(12px + env(safe-area-inset-bottom));flex-wrap:wrap}
+}
 `;
 const ROLE = { bibliotecario: ['Bibliotecario', '#f2c230'], publicador: ['Publicador', '#8cc3f2'], lector: ['Lector', '#a89f8a'] };
 const TROLE = { owner: 'Propietario', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
