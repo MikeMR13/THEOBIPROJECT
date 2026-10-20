@@ -25,28 +25,54 @@ export function createReader(ctx){
   }
 
   // ---------- datos ----------
-  async function loadSeries(slug){
-    if (S.series?.slug === slug) return true;
-    let s, ch, vo, offGl = null;
-    try {
-      const r1 = await sb.from('series').select('id,slug,title,team_id,teams(name,slug,status,avatar_path,settings,reader_defaults)').eq('slug', slug).maybeSingle();
-      if (r1.error) throw r1.error; s = r1.data;
-      if (s) { const [a, b] = await Promise.all([
-        sb.from('chapters').select('id,num,vol,title,section_type,volume_id,content_warnings,teaser,teaser_on').eq('series_id', s.id).is('deleted_at', null).order('num'),
-        sb.from('volumes').select('id,num,title,epub_fonts').eq('series_id', s.id).is('deleted_at', null).order('num')]);
-        if (a.error || b.error) throw a.error || b.error; ch = a.data; vo = b.data; }
-    } catch { const m = await offlineMeta(slug); if (m) { ({ series: s, chapters: ch, vols: vo } = m); offGl = m.gloss || null; } }
-    if (!s) return false;
-    Object.assign(S, { series: s, chapters: ch || [], vols: vo || [], nextAt: null, teamIds: null, bodies: new Map(), annots: [], gloss: [], glMap: new Map(), glRe: undefined, readSet: null });
+  // Ficha de la obra (serie + lista de capítulos + volúmenes). Antes eran 2 viajes encadenados (serie → capítulos);
+  // ahora los tres van juntos filtrando por el slug, y la última copia queda guardada para abrir al instante la próxima vez.
+  const META_KEY = slug => 'obi-meta-' + slug;
+  const CH_COLS = 'id,num,vol,title,section_type,volume_id,content_warnings,teaser,teaser_on';
+  function fetchMeta(slug){
+    return Promise.all([
+      sb.from('series').select('id,slug,title,team_id,teams(name,slug,status,avatar_path,settings,reader_defaults)').eq('slug', slug).maybeSingle(),
+      sb.from('chapters').select(CH_COLS + ',series!inner(slug)').eq('series.slug', slug).is('deleted_at', null).order('num'),
+      sb.from('volumes').select('id,num,title,epub_fonts,series!inner(slug)').eq('series.slug', slug).is('deleted_at', null).order('num')
+    ]).then(([a, b, c]) => { const e = a.error || b.error || c.error; if (e) throw e; if (!a.data) return null;
+      const strip = l => (l || []).map(({ series, ...x }) => x);
+      const m = { series: a.data, chapters: strip(b.data), vols: strip(c.data), at: Date.now() };
+      try { const j = JSON.stringify(m); if (j.length < 400000) localStorage.setItem(META_KEY(slug), j); } catch {}
+      return m; });
+  }
+  const cachedMeta = slug => { try { return JSON.parse(localStorage.getItem(META_KEY(slug))); } catch { return null; } };
+  function setSeries(m, offGl){
+    Object.assign(S, { series: m.series, chapters: m.chapters || [], vols: m.vols || [], nextAt: null, teamIds: null, bodies: S.series?.id === m.series.id ? S.bodies : new Map(), annots: [], gloss: [], glMap: new Map(), glRe: undefined, readSet: null });
+  }
+  async function loadSeries(slug, num){
+    if (S.series?.slug === slug && (num == null || S.chapters.some(c => c.num === num))) return true;
+    let m = null, offGl = null; const hit = navigator.onLine ? cachedMeta(slug) : null;
+    if (hit?.series && (num == null || hit.chapters.some(c => c.num === num))) {
+      // copia guardada al instante; la red la refresca por detrás (capítulos nuevos, títulos, avisos)
+      m = hit; S.metaFresh = fetchMeta(slug).then(n => { if (n && S.series?.id === n.series.id) { S.series = n.series; S.chapters = n.chapters; S.vols = n.vols; } return n; }).catch(() => null);
+    } else {
+      try { m = await fetchMeta(slug); } catch { const o = await offlineMeta(slug); if (o) { m = { series: o.series, chapters: o.chapters, vols: o.vols }; offGl = o.gloss || null; } }
+    }
+    if (!m?.series) return false;
+    setSeries(m); const s = m.series;
     // calendario y glosario no bloquean la apertura: llegan después y se aplican solos
     S.extras = Promise.all([
       sb.from('schedule').select('at').eq('series_id', s.id).gte('at', new Date().toISOString()).order('at').limit(1).then(r => r.data?.[0]?.at || null, () => null),
       sb.from('glossary_terms').select('term,category,definition').eq('series_id', s.id).then(r => r.data || [], () => [])
-    ]).then(([at, gl0]) => { if (S.series !== s) return; const gl = gl0.length ? gl0 : (offGl || []); Object.assign(S, { nextAt: at, gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined }); });
+    ]).then(([at, gl0]) => { if (S.series?.id !== s.id) return; const gl = gl0.length ? gl0 : (offGl || []); Object.assign(S, { nextAt: at, gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined }); });
     return true;
+  }
+  const early = new Map(); // slug/num → promesa del texto pedido en paralelo con la ficha
+  function bodyBySlug(slug, num){
+    const k = slug + '/' + num; if (early.has(k)) return early.get(k);
+    const p = sb.from('chapters').select('id,body,series!inner(slug)').eq('series.slug', slug).eq('num', num).is('deleted_at', null).maybeSingle()
+      .then(r => r.error ? null : r.data, () => null);
+    early.set(k, p); setTimeout(() => early.delete(k), 60000); return p;
   }
   async function body(ch){
     if (S.bodies.has(ch.id)) return S.bodies.get(ch.id);
+    const ek = (S.series?.slug || '') + '/' + ch.num;
+    if (early.has(ek)) { const d = await early.get(ek); early.delete(ek); if (d?.id === ch.id && d.body) { S.bodies.set(ch.id, d.body); return d.body; } }
     let b = null;
     try { const { data, error } = await sb.from('chapters').select('body').eq('id', ch.id).maybeSingle(); if (error) throw error; b = data?.body ?? null; }
     catch { b = await offlineBody(ch); }
@@ -184,13 +210,17 @@ export function createReader(ctx){
   });
 
   // ---------- vista ----------
+  // al pasar el cursor (o tocar) un enlace al lector: se piden ficha y texto antes del clic
+  function warm(slug, num){ if (!navigator.onLine || !slug || !num) return; if (S.series?.slug === slug && S.chapters.some(c => c.num === num && S.bodies.has(c.id))) return; bodyBySlug(slug, num); if (S.series?.slug !== slug && !cachedMeta(slug)) fetchMeta(slug).catch(() => {}); }
   async function open(slug, num){
     app.innerHTML = '<p class="mono">Abriendo capítulo…</p>';
-    if (!(await loadSeries(slug))) { app.innerHTML = '<h1>Serie no encontrada</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
+    if (navigator.onLine && !(S.series?.slug === slug && S.bodies.size && S.chapters.find(c => c.num === num && S.bodies.has(c.id)))) bodyBySlug(slug, num); // texto en paralelo
+    const prefsP = S.remote ? null : loadPrefs();
+    if (!(await loadSeries(slug, num))) { app.innerHTML = '<h1>Serie no encontrada</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
     const ch = S.chapters.find(c => c.num === num);
     if (!ch) { const { data: L } = await sb.rpc('lock_info', { p_slug: slug, p_num: num }).then(x => x, () => ({ data: null })); if (L) { const P = await import('/patreon.js?v=1'); app.innerHTML = P.lockHTML(L, esc, slug); app.querySelector('#lk-link')?.addEventListener('click', () => P.start(sb, url, 'link', null, toast)); return; } app.innerHTML = '<h1>Capítulo no disponible</h1><p>Puede que aún no se publique. <a href="/serie/' + esc(slug) + '">Volver a la obra</a></p>'; return; }
     const annP = fetchAnnots([ch.id]);
-    const [b, , pos] = await Promise.all([body(ch), S.remote ? null : loadPrefs(), fetchPos()]);
+    const [b, , pos] = await Promise.all([body(ch), prefsP, fetchPos()]);
     if (!b) { app.innerHTML = '<h1>Sin conexión</h1><p>Este capítulo no está descargado. <a href="/descargas">Ver mis descargas</a></p>'; return; }
     const p = effective(ch.volume_id);
     S.mounted = [ch]; S.active = ch; S.annots = []; S.lastY = null; trackView(ch);
@@ -648,5 +678,5 @@ export function createReader(ctx){
     return (data || []).filter(h => h.chapters?.series);
   }
 
-  return { open, annotationsPage, offlineList, bindOfflineList, continueList, historyList, syncPending };
+  return { open, warm, annotationsPage, offlineList, bindOfflineList, continueList, historyList, syncPending };
 }
