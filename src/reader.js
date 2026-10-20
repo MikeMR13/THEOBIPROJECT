@@ -1,6 +1,7 @@
 // Lector de El Obi del Lector: por capítulo o continuo, fuentes EPUB, progreso exacto, leídos, historial, sin conexión y anotaciones.
 const OFF_CACHE = 'obi-offline-v1', OFF_INDEX = 'obi-offline-index', PREF_KEY = 'obi-reader-prefs';
 import { cleanInline, renderBlock, warningsHTML, teaserHTML } from './blocks.js?v=2';
+import { readerPrefsKey, readReaderPrefs } from './reader-pref-cache.js?v=1';
 const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true };
 const COLORS = { gold: '#f2c230', rose: '#f29bb0', sky: '#8cc3f2', mint: '#9fdcb0' };
 const SEC_LABEL = { 'Capítulo': 'Cap.', 'Prólogo': 'Prólogo', 'Interludio': 'Interludio', 'Epílogo': 'Epílogo', 'Afterword': 'Epílogo del autor', 'Extra': 'Extra' };
@@ -11,17 +12,30 @@ export function createReader(ctx){
   const S = { series: null, chapters: [], vols: [], bodies: new Map(), prefs: null, remote: null, mounted: [], active: null, annots: [], saveT: 0, readMarked: new Set(), historyLogged: new Set() };
 
   // ---------- preferencias ----------
-  const loadLocal = () => { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || { global: {}, per_volume: {} }; } catch { return { global: {}, per_volume: {} }; } };
+  const loadLocal = userId => readReaderPrefs(localStorage, userId);
   async function loadPrefs(){
-    S.remote = loadLocal();
-    const user = getUser();
-    if (user) { const { data } = await sb.from('reader_prefs').select('global,per_volume').eq('user_id', user.id).maybeSingle(); if (data) S.remote = { global: data.global || {}, per_volume: data.per_volume || {} }; }
+    const uid=getUser()?.id || null;
+    S.remote=loadLocal(uid);
+    S.prefsOwner=uid;
+    if (uid) {
+      const { data, error } = await sb.from('reader_prefs').select('global,per_volume').eq('user_id', uid).maybeSingle();
+      if (!error && data && getUser()?.id === uid && S.prefsOwner === uid) {
+        S.remote={ global:data.global || {}, per_volume:data.per_volume || {} };
+        try { localStorage.setItem(readerPrefsKey(uid), JSON.stringify(S.remote)); } catch {}
+      }
+    }
   }
   const effective = volId => ({ ...DEF, ...(S.series?.teams?.reader_defaults || {}), ...S.remote.global, ...(S.remote.per_volume[volId] || {}) });
   let prefT = 0;
   function savePrefs(){
-    localStorage.setItem(PREF_KEY, JSON.stringify(S.remote));
-    clearTimeout(prefT); prefT = setTimeout(() => { const user = getUser(); if (user) sb.from('reader_prefs').upsert({ user_id: user.id, global: S.remote.global, per_volume: S.remote.per_volume, updated_at: new Date().toISOString() }); }, 800);
+    const uid=getUser()?.id || null;
+    const snapshot=JSON.parse(JSON.stringify(S.remote));
+    try { localStorage.setItem(readerPrefsKey(uid), JSON.stringify(snapshot)); } catch {}
+    clearTimeout(prefT);
+    prefT=setTimeout(() => {
+      if (uid && getUser()?.id === uid && S.prefsOwner === uid)
+        sb.from('reader_prefs').upsert({ user_id: uid, global: snapshot.global, per_volume: snapshot.per_volume, updated_at: new Date().toISOString() }).then(({error}) => { if (error) console.warn('Preferencias',error.message); }, () => {});
+    },800);
   }
 
   // ---------- datos ----------
@@ -234,6 +248,8 @@ export function createReader(ctx){
   async function open(slug, num){
     app.innerHTML = '<p class="mono">Abriendo capítulo…</p>';
     if (navigator.onLine && S.series?.slug !== slug && !cachedMeta(slug)) bodyBySlug(slug, num); // primera vez: texto en paralelo con la ficha
+    const prefsUid = getUser()?.id || null;
+    if (S.prefsOwner !== prefsUid) { clearTimeout(prefT); S.remote=null; }
     const prefsP = S.remote ? null : loadPrefs();
     if (!(await loadSeries(slug, num))) { app.innerHTML = '<h1>Serie no encontrada</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
     const ch = S.chapters.find(c => c.num === num);
@@ -512,7 +528,7 @@ export function createReader(ctx){
     rd.dataset.font = p.font;
     if (k === 'awake') { if (p.awake === false) wl?.release(); else wake(); }
     // cambiar de fuente solo actualiza variables CSS, sin redibujar el texto
-    if (k === 'font') document.querySelectorAll('.rd-ch').forEach(a => { const c = S.chapters.find(x => x.id === a.dataset.ch), v = c && volOf(c); a.style.cssText = v ? fontVars(v, effective(c.volume_id)) : ''; });
+    if (k === 'font' || k == null) document.querySelectorAll('.rd-ch').forEach(a => { const c = S.chapters.find(x => x.id === a.dataset.ch), v = c && volOf(c); a.style.cssText = v ? fontVars(v, effective(c.volume_id)) : ''; });
     if (k === 'illus' || k === 'cw') {
       const { block: blk } = currentBlock();
       $('#rd-flow').innerHTML = S.mounted.map(c => chapterHTML(c, S.bodies.get(c.id), effective(c.volume_id))).join(''); markTerms($('#rd-flow'));
