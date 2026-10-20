@@ -135,8 +135,10 @@ try {
   checks++;
   result.dataset.qaStatus='pass';
   result.textContent='QA_BROWSER_PASS '+checks+' comprobaciones; viewport='+viewport;
+  if(window.parent!==window)window.parent.postMessage({qa:'studio-browser',status:'pass',text:result.textContent},location.origin);
 } catch (e) {
   result.dataset.qaStatus='fail';
   result.textContent='QA_BROWSER_FAIL '+String(e?.stack||e)+' | errors='+failures.join(',');
+  if(window.parent!==window)window.parent.postMessage({qa:'studio-browser',status:'fail',text:result.textContent},location.origin);
   console.error(e);
 }
