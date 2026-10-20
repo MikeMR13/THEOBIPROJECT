@@ -33,7 +33,7 @@ requireSource(studio, '.s2-work .cv', 'portadas de Studio');
 requireSource(studio, '.s2-work:hover,.s2-work:focus-within', 'tarjetas de Studio');
 requireSource(teams, 'data-cover=obi', 'estilo obi configurable del equipo');
 requireSource(teams, '.tp2-logo img{width:100%;height:100%', 'logotipo del equipo contenido');
-requireSource(teams, "team_design", 'configuración de diseño de equipos');
+requireSource(teams, 'export function normalize(', 'configuración de diseño de equipos');
 requireSource(reader, '.rd-team img{display:block;max-width:min(220px,60vw);max-height:64px;width:auto;height:auto;object-fit:contain}', 'logo lector intacto y proporciones conservadas');
 
 const lum = h => [1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((a,v,i)=>a+v*[.2126,.7152,.0722][i],0);
