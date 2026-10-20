@@ -1,4 +1,4 @@
-import { previewShareLink } from './studio-preview-share.js';
+import { previewShareLink, resetTeamSession } from './studio-preview-share.js';
 // El editor y el importador cargan blocks.js al abrir sus pantallas.
 // Estudio del traductor: obras, volúmenes, publicación, editor con guardado atómico, importador EPUB/DOCX/PDF, multimedia, equipo y colaboraciones.
 document.addEventListener('click', e => { const i = e.target.closest?.('input[type=date],input[type=datetime-local]'); if (i && !i.disabled && !i.readOnly) try { i.showPicker(); } catch {} });
@@ -16,7 +16,7 @@ export function createStudio(ctx){
   const PUB = `${url}/storage/v1/object/public/obi-media/`;
   const media = p => p ? (/^(https?|data|blob):/.test(p) ? p : PUB + encodeURI(p)) : '';
   const pathOf = u => u && u.startsWith(PUB) ? decodeURI(u.slice(PUB.length)) : null;
-  const T = { teams: [], team: null, perms: {} };
+  const T = { userId: null, teams: [], team: null, perms: {}, works: null };
   const can = a => !!T.perms[a];
   // zona horaria del equipo: las fechas se muestran y se capturan en la hora del equipo
   const TZS = [['America/Mexico_City','Ciudad de México'],['America/Monterrey','Monterrey'],['America/Tijuana','Tijuana'],['America/Bogota','Bogotá'],['America/Lima','Lima'],['America/Caracas','Caracas'],['America/Santiago','Santiago de Chile'],['America/Argentina/Buenos_Aires','Buenos Aires'],['America/Montevideo','Montevideo'],['America/Guatemala','Centroamérica'],['America/Santo_Domingo','Santo Domingo'],['America/New_York','Nueva York · Miami'],['America/Los_Angeles','Los Ángeles'],['Europe/Madrid','Madrid'],['Asia/Tokyo','Tokio'],['UTC','UTC']];
@@ -170,22 +170,46 @@ export function createStudio(ctx){
   }
 
   async function ensure(){
-    const user = getUser(); if (!user) { go('/entrar'); return false; }
+    const user = getUser();
+    resetTeamSession(T, user?.id || null);
+    if (!user) { go('/entrar'); return false; }
+    const uid = user.id;
     // Inicia la hoja en paralelo con permisos/datos; evita mostrar Studio sin estilos.
     const styles = css();
     if (!T.teams.length) {
-      const { data } = await sb.from('team_members').select('role,teams(id,slug,name,color)').eq('user_id', user.id);
-      T.teams = (data || []).map(m => ({ ...m.teams, role: m.role }));
+      const { data } = await sb.from('team_members').select('role,teams(id,slug,name,color)').eq('user_id', uid);
+      if (getUser()?.id !== uid || T.userId !== uid) return false;
+      T.teams = (data || []).filter(m => m.teams?.id).map(m => ({ ...m.teams, role: m.role }));
       if (!T.teams.length) { app.innerHTML = '<h1>Estudio</h1><p>Aún no perteneces a ningún equipo de traducción.</p>'; return false; }
-      await pickTeam(localStorage.getItem('obi-team') || T.teams[0].id);
+      if (!(await pickTeam(localStorage.getItem('obi-team') || T.teams[0].id))) return false;
     }
-    if (T.works == null) { const { count } = await sb.from('series').select('id', { count: 'exact', head: true }).eq('team_id', T.team.id).is('archived_at', null); T.works = count || 0; }
+    if (getUser()?.id !== uid || T.userId !== uid || !T.team) return false;
+    if (T.works == null) {
+      const teamId = T.team.id;
+      const { count } = await sb.from('series').select('id', { count: 'exact', head: true }).eq('team_id', teamId).is('archived_at', null);
+      if (getUser()?.id !== uid || T.userId !== uid || T.team?.id !== teamId) return false;
+      T.works = count || 0;
+    }
     await styles;
-    return true;
+    return getUser()?.id === uid && T.userId === uid;
   }
   async function pickTeam(id){
-    T.team = T.teams.find(t => t.id === id) || T.teams[0]; localStorage.setItem('obi-team', T.team.id);
-    const [{ data }, { data: rr }] = await Promise.all([sb.rpc('my_team_permissions', { t: T.team.id }), sb.from('team_members').select('team_roles(name)').eq('team_id', T.team.id).eq('user_id', getUser()?.id).maybeSingle()]); T.perms = data || {}; T.roleName = rr?.team_roles?.name || null; try { const { data: tt } = await sb.from('teams').select('settings').eq('id', T.team.id).maybeSingle(); T.tz = tt?.settings?.timezone || null; } catch { T.tz = null; }
+    const uid = getUser()?.id, team = T.teams.find(t => t.id === id) || T.teams[0];
+    if (!uid || T.userId !== uid || !team) return false;
+    T.team = team; T.perms = {}; T.roleName = null; T.works = null;
+    localStorage.setItem('obi-team', team.id);
+    const [{ data }, { data: rr }] = await Promise.all([
+      sb.rpc('my_team_permissions', { t: team.id }),
+      sb.from('team_members').select('team_roles(name)').eq('team_id', team.id).eq('user_id', uid).maybeSingle()
+    ]);
+    if (T.userId !== uid || getUser()?.id !== uid || T.team?.id !== team.id) return false;
+    T.perms = data || {}; T.roleName = rr?.team_roles?.name || null;
+    try {
+      const { data: tt } = await sb.from('teams').select('settings').eq('id', team.id).maybeSingle();
+      if (T.userId !== uid || getUser()?.id !== uid || T.team?.id !== team.id) return false;
+      T.tz = tt?.settings?.timezone || null;
+    } catch { T.tz = null; }
+    return true;
   }
 
   // ---------- obras ----------
