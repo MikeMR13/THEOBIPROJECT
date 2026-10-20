@@ -97,7 +97,7 @@ export function createStudio(ctx){
     if (e.target.closest('.s2-nav a') || (document.querySelector('.s2-side.nav-open') && !e.target.closest('.s2-side'))) closeStudioNav();
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('.s2-side.nav-open')) closeStudioNav(true); });
-  addEventListener('popstate', () => closeStudioNav());
+  if (typeof window !== 'undefined') window.addEventListener('popstate', () => closeStudioNav());
   // barra superior: zona horaria, avisos, búsqueda y cuenta
   const topTools = () => { queueMicrotask(bellCount);  const u = getUser(), k = tzPick();
     const opts = [['device', 'Mi dispositivo · ' + tzLabel(devTz())], ...(T.tz ? [['team', 'Equipo · ' + tzLabel(T.tz)]] : []), ...TZS.filter(([z]) => z !== devTz() && z !== T.tz).map(([z, l]) => [z, l])];
