@@ -30,5 +30,7 @@ jobs:
         run: node scripts/phase6-seasons-preferences-check.mjs
       - name: Fase 6.3 Studio, permisos y enlaces de borrador
         run: node scripts/phase6-studio-accounts-check.mjs
+      - name: Fase 6.4 Lector EPUB, preferencias y defaults de equipo
+        run: node scripts/phase6-reader-check.mjs
       - name: Validar compilación Preview aislada
         run: VERCEL_ENV=preview OBI_SUPABASE_URL=https://obi-qa-backend.invalid OBI_SUPABASE_PUBLISHABLE_KEY=sb_publishable_qa_mock_not_connected npm run build && npm run preview-isolation-check
