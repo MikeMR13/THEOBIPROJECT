@@ -368,7 +368,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 
 /* Fase 6.1 — Mantener controles, indicadores y animaciones; ampliar el objetivo táctil solo en móvil. */
 @media(max-width:760px){
- .ob-hero{padding-bottom:max(136px,calc(110px + env(safe-area-inset-bottom)))}
+ .ob-hero{width:100%;max-width:100%;min-width:0;box-sizing:border-box;margin-inline:0!important;padding-bottom:max(136px,calc(110px + env(safe-area-inset-bottom)))}
  .ob-pager2{display:flex;flex-wrap:wrap;justify-content:center;column-gap:6px!important;row-gap:0!important;bottom:8px!important;max-width:calc(100vw - 32px)}
  .ob-pager2>button[data-j],.ob-pager2>button[data-hp]{min-width:44px;min-height:44px;flex:none}
  .ob-pager2>button[data-hp]{font-size:0!important;padding:0!important}
