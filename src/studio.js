@@ -1174,7 +1174,7 @@ export function createStudio(ctx){
         if (w.length && c.firstChild && !/^(img|image|br|hr)$/.test(tg)) wrapKids(c, w);
         next = { f: f ?? base.f, b: base.b || bo, i: base.i || it }; }
       deco(c, next); } };
-    const sep = () => { if (out.length && out[out.length - 1].type !== 'separator') out.push({ type: 'separator' }); };
+    const sep = () => { if (out[out.length - 1]?.type !== 'separator') out.push({ type: 'separator' }); };
     const addImg = img => { if (!img) return; const src = img.getAttribute('src') || img.getAttribute('xlink:href') || img.getAttributeNS?.('http://www.w3.org/1999/xlink', 'href') || img.getAttribute('href'); const key = imgMap?.resolve(src); if (!key) return;
       if (SEP_CLASS.test(img.getAttribute('class') || '') || SEP_CLASS.test(img.parentNode?.getAttribute?.('class') || '')) return sep();
       out.push({ type: 'image', url: key, alt: img.getAttribute('alt') || '', caption: '' }); };
@@ -1302,9 +1302,21 @@ export function createStudio(ctx){
       const css = epubStyler(doc, await Promise.all(links.map(h => sheet(res(it.href, h)))), famIdx);
       const blocks = htmlToBlocks(doc.body || doc.documentElement, { resolve: s => { if (!s || /^(https?:|data:)/i.test(s)) return null; const p = res(it.href, s); return loose(p) ? 'img:' + p : null; } }, css);
       if (!blocks.length) continue;
-      const t = tocTitles[it.href] || blocks.find(b => b.type === 'heading')?.text || doc.title?.trim() || `Sección ${chapters.length + 1}`;
-      chapters.push({ title: t.slice(0, 200), type: /pr[oó]log/i.test(t) ? 'Prólogo' : /ep[ií]log/i.test(t) ? 'Epílogo' : /afterword|palabras del autor/i.test(t) ? 'Afterword' : /interlud/i.test(t) ? 'Interludio' : 'Capítulo', blocks });
+      // ¿abre capítulo? solo si el índice lo nombra o trae su propio título. Las ilustraciones sueltas siguen generando su sección (como antes).
+      const own = tocTitles[it.href] || blocks.find(b => b.type === 'heading')?.text, onlyImg = blocks.every(b => b.type === 'image' || b.type === 'separator');
+      const prev = chapters[chapters.length - 1];
+      if (!own && !onlyImg && prev && !prev.onlyImg) {
+        // continuación: el corte de archivo era un cambio de escena → separador (sin duplicar)
+        const hasSep = prev.blocks[prev.blocks.length - 1]?.type === 'separator' || blocks[0].type === 'separator';
+        const brk = !hasSep && /page-break-before|break-before/i.test(raw) ? [{ type: 'separator' }] : [];
+        prev.blocks.push(...brk, ...blocks); continue;
+      }
+      while (blocks[0]?.type === 'separator') blocks.shift();
+      if (!blocks.length) continue;
+      const t = own || doc.title?.trim() || `Sección ${chapters.length + 1}`;
+      chapters.push({ onlyImg, title: t.slice(0, 200), type: /pr[oó]log/i.test(t) ? 'Prólogo' : /ep[ií]log/i.test(t) ? 'Epílogo' : /afterword|palabras del autor/i.test(t) ? 'Afterword' : /interlud/i.test(t) ? 'Interludio' : 'Capítulo', blocks });
     }
+    for (const c of chapters) { delete c.onlyImg; while (c.blocks[c.blocks.length - 1]?.type === 'separator') c.blocks.pop(); }
     const tally = { body: new Map(), heading: new Map() };
     for (const c of chapters) for (const b of c.blocks) { const f = b.html?.match(/^<span data-epub-family="(\d+)">/)?.[1]; if (f == null) continue; const m = tally[b.type === 'heading' ? 'heading' : 'body']; m.set(+f, (m.get(+f) || 0) + (b.text || '').length); }
     const top1 = m => [...m].sort((x, y) => y[1] - x[1])[0]?.[0], famL = [...famIdx.keys()], roleB = top1(tally.body), roleH = top1(tally.heading);
