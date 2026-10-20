@@ -106,6 +106,7 @@ async function installApp(){
 async function contBtn(force){
   const el = $('#ob-cont'); if (!el) return;
   if (location.pathname.startsWith('/leer/') || location.pathname.startsWith('/estudio') || location.pathname.startsWith('/bibliotecario')) { el.hidden = true; return; }
+  if (CB.u !== (user?.id || null)) el.hidden = true;
   if (force || Date.now() - CB.t > 20000 || CB.u !== (user?.id || null)) {
     const requester = user?.id || null, request = { t: Date.now(), v: null, u: requester };
     CB = request; let best = null;
