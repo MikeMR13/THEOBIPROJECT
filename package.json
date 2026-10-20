@@ -12,8 +12,9 @@
     "studio-functional-check": "node scripts/studio-functional-smoke.mjs",
     "studio-browser-check": "node scripts/studio-browser-e2e.mjs",
     "preview-isolation-check": "node scripts/preview-isolation-check.mjs",
-    "verify": "node scripts/stability-check.mjs",
-    "integration-check": "node scripts/integration-check.mjs"
+    "verify": "node scripts/stability-check.mjs && node scripts/visual-phase4-check.mjs",
+    "integration-check": "node scripts/integration-check.mjs",
+    "visual-browser-check": "node scripts/visual-phase4-browser.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
