@@ -3,9 +3,18 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Valores exclusivos del build de prueba; nunca apuntan a datos reales.
+      OBI_SUPABASE_URL: https://ci-example.supabase.co
+      OBI_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_only_not_a_real_key
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm install --no-audit --no-fund
-      - run: npm run check && npm run build
+      - name: Validar Supabase TOML
+        run: python3 -c "import tomllib; tomllib.load(open('supabase/config.toml','rb'))"
+      - name: Sintaxis y build
+        run: npm run check && npm run build
+      - name: Validaciones de estabilidad
+        run: npm run verify

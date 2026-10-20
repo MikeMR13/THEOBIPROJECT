@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "check": "node scripts/build.mjs --check"
+    "check": "node scripts/build.mjs --check",
+    "verify": "node scripts/stability-check.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",

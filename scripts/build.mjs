@@ -2,7 +2,13 @@
 import { cpSync, mkdirSync, rmSync, writeFileSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-const url = process.env.OBI_SUPABASE_URL || 'https://qfllthjpjuaztppvpsrk.supabase.co', key = process.env.OBI_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_IiHzG1Jn2je075uuYVHTAg_dBVAAUf5';
+// No dirigir despliegues de prueba a la base de producción por valores implícitos.
+const url = (process.env.OBI_SUPABASE_URL || '').trim().replace(/\\/+$/, '');
+const key = (process.env.OBI_SUPABASE_PUBLISHABLE_KEY || '').trim();
+if (!url || !key) throw new Error('Configura OBI_SUPABASE_URL y OBI_SUPABASE_PUBLISHABLE_KEY en este entorno');
+let endpoint; try { endpoint = new URL(url); } catch { throw new Error('OBI_SUPABASE_URL debe ser una URL válida'); }
+if (endpoint.protocol !== 'https:' && !(endpoint.protocol === 'http:' && ['localhost','127.0.0.1'].includes(endpoint.hostname))) throw new Error('Supabase requiere HTTPS fuera de localhost');
+if (/^sb_secret_|service_role/i.test(key)) throw new Error('No uses llaves secretas o service_role en el navegador');
 const turnstile = process.env.OBI_TURNSTILE_SITE_KEY || ''; // clave PÚBLICA de Cloudflare Turnstile (la secreta va solo en Supabase)
 if (/service_role/.test(key)) throw new Error('No uses service_role en el frontend');
 const jsIn = d => readdirSync(d).filter(f => f.endsWith('.js')).map(f => d + '/' + f);

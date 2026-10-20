@@ -22,15 +22,10 @@ export default {
       if (record?.status === 'published' && !(await env.OBI_CACHE.get('announced:' + record.id))) await announce(env, record);
       return new Response('ok');
     }
-    const m = u.pathname.match(/^\/cache\/([\w-]+)\/(\d+)$/);
-    if (m) {
-      const k = 'ch:' + m[1] + ':' + m[2]; let body = await env.OBI_CACHE.get(k);
-      if (!body) {
-        const r = await sbFetch(env, 'chapters?select=title,num,body,series!inner(slug)&status=eq.published&public_at=lte.' + new Date().toISOString() + '&series.slug=eq.' + m[1] + '&num=eq.' + m[2]);
-        body = await r.text(); if (body !== '[]') await env.OBI_CACHE.put(k, body, { expirationTtl: 3600 });
-      }
-      return new Response(body, { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': env.SITE_URL } });
-    }
+    // Seguridad: la caché anterior consultaba capítulos con service_role y exponía
+    // el cuerpo sin comprobar restricciones de serie/volumen/capítulo (Patreon).
+    // El lector consulta directamente a Supabase, donde se aplican RLS y bloqueos.
+    if (u.pathname.startsWith('/cache/')) return new Response('Not Found', { status: 404 });
     return new Response('El Obi · notify', { status: 200 });
   },
   async scheduled(_e, env){
