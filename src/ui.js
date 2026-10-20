@@ -496,14 +496,26 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       <span class="side">${st ? `<span class="ui-seal ${st[1]}">${esc(st[0])}</span>` : '<span></span>'}<span class="jp">第${KN(i + 1)}号</span></span></a>`;
 
   // ---------- Catálogo ----------
-  
+  // La vista series_last usa RLS. Reutilizamos la misma respuesta durante una
+  // navegación breve sin compartir datos entre usuarios ni almacenar capítulos.
+  let recentCache = null;
+  const catalogRecent = () => {
+    const who = getUser()?.id || 'anon', now = Date.now();
+    if (recentCache?.who === who && now - recentCache.at < 20000) return recentCache.promise;
+    const fallback = () => sb.from('chapters').select('num,publish_at,series_id').eq('status', 'published').is('deleted_at', null).order('publish_at', { ascending: false }).limit(500);
+    const promise = sb.from('series_last').select('series_id,num,publish_at').then(r => r.error ? fallback() : r, fallback);
+    recentCache = { who, at: now, promise };
+    promise.then(r => { if (r?.error && recentCache?.promise === promise) recentCache = null; },
+      () => { if (recentCache?.promise === promise) recentCache = null; });
+    return promise;
+  };
+
   async function catalog(){
     app.innerHTML = '<p class="mono">Cargando el catálogo…</p>';
     const u = getUser(), F = readF();
-    const lastQ = () => sb.from('chapters').select('num,publish_at,series_id').eq('status', 'published').is('deleted_at', null).order('publish_at', { ascending: false }).limit(500);
     const [{ data }, { data: latest }, prog, folR, { data: rkw }, { data: rkh }] = await Promise.all([
       sb.from('series').select(SERIES),
-      sb.from('series_last').select('series_id,num,publish_at').then(r => r.error ? lastQ() : r, lastQ),
+      catalogRecent(),
       progressMap(),
       u ? sb.from('follows').select('series_id').eq('user_id', u.id) : { data: [] },
       sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'semana'), sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'historico')]);
