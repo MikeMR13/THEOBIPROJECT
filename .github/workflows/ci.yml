@@ -40,3 +40,5 @@ jobs:
         run: node scripts/phase7-release-check.mjs
       - name: Fase 7 validar configuración y módulos previos de la plataforma
         run: node scripts/phase7-platform-compat-check.mjs
+      - name: SEG-01 privacidad de perfiles e identidades unificadas
+        run: node scripts/privacy-identity-compat-check.mjs
