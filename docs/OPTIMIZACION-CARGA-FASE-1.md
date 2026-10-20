@@ -28,11 +28,13 @@ datos de Supabase ni se han desplegado Edge Functions, Workers o Vercel de maner
 | `package.json` y `.github/workflows/ci.yml` | Solo sintaxis JS y build | `npm run optimize-check` verifica contratos estáticos y se ejecuta después de build en CI. | Previene ciertas regresiones, pero **no mide** rendimiento real. |
 | `scripts/optimization-check.mjs` | Inexistente | Pruebas de precargas, llamadas redundantes, animaciones, lectura, caché y shell del Worker con `node:assert`. | Sin instalar herramientas nuevas. |
 | `docs/OPTIMIZACION-CARGA-FASE-1.md` | No existía bitácora de esta fase | Este registro, línea base y lista de validaciones futuras. | Revisiones reproducibles. |
+| `docs/PROPUESTA-SQL-HOME-TRIGGER.sql` | Trigger de `series` invalida Home incluso por cada incremento de vistas | Propuesta de invalidación selectiva, sin aplicar. | Requiere pruebas de staging, respaldo y revisión del esquema antes de ejecutar. |
 
 ## Línea base observada (auditoría previa; lecturas del proyecto real)
 
 - Según el asesor de rendimiento de Supabase había **297 avisos**, incluidos 70 claves foráneas sin índice, 54 de inicialización RLS y 165 políticas permisivas superpuestas. **No equivalen a 297 fallas funcionales**.
-- `private.home_snapshot.built_at` aparecía `-infinity` pese a que `pg_cron` registraba ejecuciones exitosas cada cinco minutos. La función `public.home_feed()` toma la instantánea si es reciente y, en otro caso, ejecuta `private.build_home()`. **No se cambió esta función ni la tabla**: diagnosticar por qué no persiste la fecha antes de proponer un parche SQL.
+- `private.home_snapshot.built_at` aparecía `-infinity` entre ejecuciones de `pg_cron`. La inspección encontró el trigger `series_home_stale` ejecutado **ante cualquier UPDATE** en `public.series`, incluso cuando `public.track_view()` incrementa `series.views` al contar un lector único. Esto invalida la instantánea de Home por actividad de lectura. El cron sí regenera la fecha: una lectura inmediatamente después de la ejecución de las 05:50 UTC mostró `built_at = 2026-10-20 05:50:00+00`. Es una relación causal respaldada por el código SQL de los triggers, aunque falta medir cuántas invalidaciones ocurren por hora.
+- **Corrección SQL preparada pero no ejecutada**: `docs/PROPUESTA-SQL-HOME-TRIGGER.sql` redefine solo `series_home_stale` para invalidar por cambios editoriales e ignorar modificaciones exclusivas de `views`. El cron continúa refrescando el contador cada cinco minutos. Requiere una prueba funcional en base aislada y aprobación antes de convertirla en migración versionada.
 - Estadísticas acumuladas: `home_feed` 586 llamadas, media SQL ~18.7 ms, máximo ~1.14 s; `series_last` 489 llamadas, media SQL ~135 ms, máximo ~978 ms. **No son métricas de Lighthouse, ni latencia de red, ni mediciones comparativas de esta rama.**
 - `private.build_home()` **sí incluye** `theme` en cada registro `series`, lo que respalda la eliminación de la consulta adicional desde Home.
 
@@ -57,7 +59,7 @@ El build de este PR sigue siendo el de su rama base, por lo que la seguridad de 
 
 ## Pendientes obligatorios antes de fusionar
 
-1. **Backend / datos**. Investigar `built_at = '-infinity'` con cron/funciones, ejecutar `EXPLAIN (ANALYZE, BUFFERS)` sobre `series_last` sin escritura, y comparar planes `anon` y `authenticated` en entorno de prueba. Respaldar y reconciliar migraciones. No modificar RLS ni crear los 70 índices por lotes.
+1. **Backend / datos**. Validar en staging `docs/PROPUESTA-SQL-HOME-TRIGGER.sql`: lectura registra visitas sin invalidar instantánea por contador; publicar/retirar obras sí invalida; cron refresca las vistas periódicamente. Comparar resultados y resguardar revert. Ejecutar `EXPLAIN (ANALYZE, BUFFERS)` sobre `series_last` de forma controlada y comparar planes `anon` y `authenticated`. Respaldar y reconciliar migraciones. No modificar RLS ni crear los 70 índices por lotes.
 2. **Vercel Preview**. Configurar un backend aislado sin costo adicional solo si ya existe o usar pruebas locales; la rama `main` anterior al PR #1 tenía un valor de Supabase por defecto al compilar. No realizar pruebas de datos con una preview que apunta a producción. Es necesario validar la integración eventual con el PR #1 antes de un deploy.
 3. **Carga fría**. Medir PageSpeed/Lighthouse en móvil, Web Vitals (LCP/INP/CLS) y bytes transferidos sin caché; comparar contra la referencia previa del proyecto (móvil 72 puntos, LCP 5.6 s del 17-oct-2026; no corresponde al estado actual).
 4. **Carga caliente**. Medir requests de red tras una segunda visita a home, catálogo, equipo y lector con SW activado; confirmar cachés y que se descargan solo imágenes públicas.
@@ -69,7 +71,7 @@ El build de este PR sigue siendo el de su rama base, por lo que la seguridad de 
 
 ## Próximas fases propuestas
 
-- **Fase 2**: corregir `home_snapshot` y optimizar `series_last` tras diagnósticos y baseline de migraciones; evaluar índices realmente usados.
+- **Fase 2**: convertir la propuesta de trigger de `home_snapshot` en migración formal **tras prueba aislada** y optimizar `series_last` tras diagnósticos y baseline de migraciones; evaluar índices realmente usados.
 - **Fase 3**: reducir bloqueo del primer pintado en Home y paginar consultas de catálogo y Studio tras comparaciones de comportamiento.
 - **Fase 4**: modularizar el editor de Studio en archivos JavaScript nativos `import()` sin reemplazar la implementación de bloques.
 - **Fase 5**: pruebas E2E y mediciones Lighthouse/LCP/INP/CLS en móvil y escritorio.
