@@ -2,7 +2,7 @@
 // Géneros/etiquetas que el lector ocultó en Preferencias › Contenido.
 const hidS = s => { const H = window.__obiUI?.hide; if (!H?.length) return false; const S = new Set(H.map(x => String(x).toLowerCase())); return [...(s.genres || []), ...(Array.isArray(s.tags) ? s.tags : [])].some(g => S.has(String(g).toLowerCase())); };
 const CSS = `
-.ui-wrap{display:grid;gap:56px}
+.ui-wrap{display:grid;gap:56px}.ui-wrap>div:empty{display:none}
 .ui-h2{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 18px}.ui-h2 h2{margin:0;font-size:30px}.ui-h2 a{font-size:13px;font-weight:600}
 .ui-lbl{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
 .ui-hero{position:relative;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(200px,.7fr);gap:clamp(24px,5vw,64px);align-items:center;min-height:440px;padding:clamp(24px,4vw,48px);background:#14120d;border-top:6px solid var(--c,var(--gold));overflow:hidden}
@@ -268,12 +268,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     (chs || []).forEach(c => { if (c.num > prog[c.series_id].chapter_num && !read.has(c.id)) out[c.series_id] = (out[c.series_id] || 0) + 1; });
     return out;
   }
-  async function refreshBadge(){
-    const a = document.querySelector('.ob-nav a[href="/calendario"]'); if (!a) return;
-    const n = getUser() ? Object.values(await pendingMap()).reduce((x, y) => x + y, 0) : 0;
-    a.querySelector('.bdg')?.remove();
-    if (n) a.insertAdjacentHTML('beforeend', `<span class="bdg" title="${n} capítulos nuevos en series que sigues">${n > 99 ? '99+' : n}</span>`);
-  }
+  // el conteo ya no va en la barra superior: se muestra en cada obra como «Capítulos sin leer»
+  function refreshBadge(){ document.querySelectorAll('.ob-nav .bdg').forEach(b => b.remove()); }
   // vista rápida compartida
   let gqFrom = null;
   const gqClose = () => { const q = document.querySelector('.ui-qv.g'); if (!q || q.hidden) return; q.hidden = true; document.body.style.overflow = ''; gqFrom?.focus({ preventScroll: true }); };
@@ -754,6 +750,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       sb.from('purchase_links').select('id,volume_id,vol,store,region,fmt').eq('series_id', s.id).eq('verified', true).order('vol').order('id')]);
     (vols || []).sort((a, b) => (parseFloat(b.num) || 0) - (parseFloat(a.num) || 0));
     const buyOf = v => (buys || []).filter(b => b.volume_id === v.id || (!b.volume_id && b.vol === v.num));
+    // capítulos sin leer de ESTA obra (solo con sesión): publicados, no marcados como leídos y después de donde vas
+    const unread = u ? (() => { const rs = new Set((readR?.data || []).map(x => x.chapter_id)), at = prog?.[s.id]?.chapter_num ?? -Infinity, now = Date.now(); return (chs || []).filter(c => (!c.publish_at || new Date(c.publish_at) <= now) && !rs.has(c.id) && c.num > at).length; })() : null;
     const dlOf = v => (dls || []).filter(d => d.volume_id === v.id || (!d.volume_id && d.vol === v.num));
     const read = new Set((readR.data || []).map(r => r.chapter_id)), p = prog[s.id], following = !!(folR.data || []).length;
     const first = (chs || [])[0], allCh = chs || [], nRead = allCh.filter(c => read.has(c.id)).length;
@@ -776,6 +774,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
             ${s.original_status ? `<div><span class="ui-lbl">Obra original</span><b>${OR[s.original_status]}</b></div>` : ''}
             ${s.sequel_status ? `<div><span class="ui-lbl">Secuela</span><b>${SQ[s.sequel_status]}</b></div>` : ''}
             <div><span class="ui-lbl">Contenido</span><b>${(vols || []).length} vol. · ${(chs || []).length} cap.</b></div>
+            ${unread != null ? `<div><span class="ui-lbl">Capítulos sin leer</span><b${unread ? ' style="color:var(--gold)"' : ''}>${unread || 'Al día'}</b></div>` : ''}
           </div>
           <div class="acts" style="display:flex;gap:10px;flex-wrap:wrap">${first ? `<a class="btn" href="/leer/${s.slug}/${p?.chapter_num || first.num}">${p ? 'Seguir donde ibas · Cap. ' + p.chapter_num + (p.pct > .02 && p.pct < .95 ? ' · ' + Math.round(p.pct * 100) + '%' : '') : (first.locked ? '🔒︎ Empezar a leer · solo mecenas' : 'Empezar a leer')}</a>` : ''}${p && nextUnread && nextUnread.num !== p.chapter_num ? `<a class="btn ghost" href="/leer/${s.slug}/${nextUnread.num}">Siguiente sin leer · Cap. ${nextUnread.num}</a>` : ''}<button class="btn ghost" id="follow">${following ? '✓ Siguiendo' : 'Seguir serie'}</button><a class="btn ghost" href="/anotaciones/${esc(s.slug)}">Mis anotaciones</a></div>
         </div>
