@@ -118,3 +118,62 @@ body.in-studio>main{max-width:none;margin:0;padding:0}body.in-studio .s2{margin:
 .wk-trl{display:grid;border-top:1px solid #2f2a20}.wk-tri{display:flex;flex-wrap:wrap;gap:8px 14px;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid #221f18;font-size:14px}.wk-tri small{display:block;font:11px 'IBM Plex Mono',monospace;color:#a89f8a;margin-top:2px}.wk-trash>.lnk{margin:12px 16px}
 .wk-vcov{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:12px;border:1px solid #2f2a20;background:#110f0b}.wk-vcp{width:72px;aspect-ratio:2/3;background:#1c1a14 center/cover no-repeat;border:1px solid #3d3628;display:flex;align-items:center;justify-content:center;text-align:center;font:10px 'IBM Plex Mono',monospace;color:#7d7462}
 .wk-vext{display:grid;gap:10px;padding:12px;border:1px solid #2f2a20;background:#110f0b}.wk-vexf{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))}.wk-vexf .tb-inl{grid-column:1/-1;align-items:flex-start}.wk-vexf .tb-inl input{margin-top:3px}
+
+/* Fase visual 2: navegación agrupada sin cambios de rutas o permisos. */
+.s2-mobile-head{display:contents}
+.s2-mobile-toggle{display:none}
+.s2-nav-group{display:contents}
+.s2-nav-label{display:none}
+.pf-mobile-sim{display:none}
+
+@media(max-width:860px){
+  .s2-side{gap:10px}
+  .s2-mobile-head{display:flex;justify-content:space-between;align-items:center;width:100%;gap:12px}
+  .s2-mobile-head .s2-brand{display:flex;min-width:0;gap:10px}
+  .s2-mobile-head .s2-brand b{font-size:16px}
+  .s2-mobile-toggle{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;min-width:114px;padding:8px 12px;background:#1c1a14;color:var(--paper);border:1px solid #3d3628;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+  .s2-mobile-toggle[aria-expanded=true]{background:var(--gold);border-color:var(--gold);color:#0d0c0a}
+  /* Compatible con el PR de fase 1: mantener una sola selección de equipo. */
+  .s2-side .s2-team{display:flex;align-items:center;flex-wrap:wrap;gap:8px;width:100%;padding:10px 12px;min-width:0}
+  .s2-side .s2-team>small{flex:none}
+  .s2-side .s2-team select{flex:1 1 180px;min-width:0;max-width:420px;min-height:44px}
+  .s2-side .s2-team .st-team{flex:1 1 180px;min-width:0;overflow-wrap:anywhere}
+  .s2-side .s2-team>span{flex:1 1 100%;line-height:1.4}
+  .s2-side .s2-nav{display:none;width:100%;max-height:min(65dvh,650px);overflow-y:auto;overscroll-behavior:contain;padding:12px;background:#14120d;border:1px solid #3d3628}
+  .s2-side.nav-open .s2-nav{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+  .s2-side .s2-nav-group{display:grid;gap:2px}
+  .s2-side .s2-nav-label{display:block;padding:8px 10px 4px;color:var(--gold);font:600 10px 'IBM Plex Mono',monospace;letter-spacing:.09em}
+  .s2-nav a{min-height:44px}
+  .s2-quick{display:flex;flex-wrap:nowrap;width:100%;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;gap:8px;padding-bottom:4px}
+  .s2-quick .s2-q{flex:none;white-space:nowrap;min-height:44px}
+  .s2-main{padding:20px clamp(14px,4vw,24px) calc(80px + env(safe-area-inset-bottom))}
+  .s2-head{display:grid!important;grid-template-columns:minmax(0,1fr);align-items:stretch;gap:14px;margin-bottom:20px}
+  .s2-head h1{font-size:clamp(25px,7vw,32px);overflow-wrap:anywhere}
+  .s2-tools{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:10px;width:100%;align-items:center}
+  .s2-srch{grid-row:1;grid-column:1;min-width:0}
+  .s2-srch input{width:100%;min-height:44px}
+  .s2-bellw{grid-row:1;grid-column:2}
+  .s2-bell{width:44px;height:44px}
+  .s2-tz{grid-row:2;grid-column:1/-1;width:100%;height:44px!important;min-width:0}
+  .s2-tz select{min-height:42px;max-width:calc(100% - 32px);flex:1}
+  .s2-pop{max-width:calc(100vw - 28px)}
+  .wk-tabs{max-width:100%;overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;scrollbar-width:thin;overscroll-behavior-x:contain;scroll-padding-inline:12px}
+  .wk-tabs a{flex:none;min-height:44px;display:inline-flex;align-items:center;white-space:nowrap}
+  .wk-flt input[type=search]{flex:1 1 100%;min-width:0;min-height:44px}
+  .wk-flt .ed-chips{max-width:100%;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
+  .wk-bulk{bottom:calc(12px + env(safe-area-inset-bottom))}
+}
+@media(max-width:767px){
+  .pf-mobile-sim{display:grid;gap:10px;background:#14120d;border:1px solid #3d3628;border-top:3px solid var(--gold);padding:14px;min-width:0}
+  .pf-mobile-sim strong{font-size:15px}
+  .pf-mobile-sim select{width:100%;max-width:100%;min-height:44px;padding:8px 10px;background:#16140f;color:var(--paper);border:1px solid #3d3628;font:inherit}
+  .pf-mobile-dec{display:flex;flex-wrap:wrap;gap:8px}
+  .pf-mobile-dec button{flex:1 1 120px;min-height:44px;padding:8px 10px;border:1px solid #3d3628;background:#16140f;color:var(--paper);font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+  .pf-mobile-dec button.on{background:var(--gold);border-color:var(--gold);color:#0d0c0a}
+  .pf-pvbar{min-width:0}
+  .pf-pvbar>.mono{white-space:normal}
+  .pf-frame.mobile{width:min(390px,100%);max-width:100%;margin-inline:auto}
+}
+@media(prefers-reduced-motion:reduce){
+  .s2-nav,.s2-quick,.wk-tabs,.wk-flt .ed-chips{scroll-behavior:auto}
+}
