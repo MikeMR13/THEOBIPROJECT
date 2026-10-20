@@ -1,3 +1,4 @@
+import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=1';
 // El editor y el importador cargan blocks.js al abrir sus pantallas.
 // Estudio del traductor: obras, volúmenes, publicación, editor con guardado atómico, importador EPUB/DOCX/PDF, multimedia, equipo y colaboraciones.
 document.addEventListener('click', e => { const i = e.target.closest?.('input[type=date],input[type=datetime-local]'); if (i && !i.disabled && !i.readOnly) try { i.showPicker(); } catch {} });
@@ -15,7 +16,7 @@ export function createStudio(ctx){
   const PUB = `${url}/storage/v1/object/public/obi-media/`;
   const media = p => p ? (/^(https?|data|blob):/.test(p) ? p : PUB + encodeURI(p)) : '';
   const pathOf = u => u && u.startsWith(PUB) ? decodeURI(u.slice(PUB.length)) : null;
-  const T = { teams: [], team: null, perms: {} };
+  const T = { userId: null, teams: [], team: null, perms: {}, works: null };
   const can = a => !!T.perms[a];
   // zona horaria del equipo: las fechas se muestran y se capturan en la hora del equipo
   const TZS = [['America/Mexico_City','Ciudad de México'],['America/Monterrey','Monterrey'],['America/Tijuana','Tijuana'],['America/Bogota','Bogotá'],['America/Lima','Lima'],['America/Caracas','Caracas'],['America/Santiago','Santiago de Chile'],['America/Argentina/Buenos_Aires','Buenos Aires'],['America/Montevideo','Montevideo'],['America/Guatemala','Centroamérica'],['America/Santo_Domingo','Santo Domingo'],['America/New_York','Nueva York · Miami'],['America/Los_Angeles','Los Ángeles'],['Europe/Madrid','Madrid'],['Asia/Tokyo','Tokio'],['UTC','UTC']];
@@ -153,7 +154,7 @@ export function createStudio(ctx){
   });
   document.addEventListener('change', e => { if (e.target.id === 'st-tz') { localStorage.setItem('obi-tz-pick', e.target.value); toast('Fechas en ' + tzName()); dispatchEvent(new PopStateEvent('popstate')); } });
   const teamPicker = () => T.teams.length > 1 ? `<select id="tpick" aria-label="Equipo activo">${T.teams.map(t => `<option value="${t.id}" ${t.id === T.team?.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>` : `<strong class="st-team">${esc(T.team?.name || '')}</strong>`;
-  const bindPicker = again => { $('#tpick')?.addEventListener('change', async e => { await pickTeam(e.target.value); T.works = null; again(); }); $('[data-quick="new"]')?.addEventListener('click', e => busy(e.currentTarget, newChapterPicker)); };
+  const bindPicker = again => { $('#tpick')?.addEventListener('change', async e => { if (await pickTeam(e.target.value)) { T.works = null; again(); } }); $('[data-quick="new"]')?.addEventListener('click', e => busy(e.currentTarget, newChapterPicker)); };
   async function newChapter(s){
     const [{ data: vols }, { data: chs }] = await Promise.all([sb.from('volumes').select('id,num').eq('series_id', s.id).is('deleted_at', null).order('num', { ascending: false }).limit(1), sb.from('chapters').select('num').eq('series_id', s.id).order('num', { ascending: false }).limit(1)]);
     const v = vols?.[0]; if (!v) { toast('Crea primero un volumen en la ficha de la obra'); return go('/estudio/obra/' + s.slug); }
@@ -169,22 +170,46 @@ export function createStudio(ctx){
   }
 
   async function ensure(){
-    const user = getUser(); if (!user) { go('/entrar'); return false; }
+    const user = getUser();
+    resetTeamSession(T, user?.id || null);
+    if (!user) { go('/entrar'); return false; }
+    const uid = user.id;
     // Inicia la hoja en paralelo con permisos/datos; evita mostrar Studio sin estilos.
     const styles = css();
     if (!T.teams.length) {
-      const { data } = await sb.from('team_members').select('role,teams(id,slug,name,color)').eq('user_id', user.id);
-      T.teams = (data || []).map(m => ({ ...m.teams, role: m.role }));
+      const { data } = await sb.from('team_members').select('role,teams(id,slug,name,color)').eq('user_id', uid);
+      if (getUser()?.id !== uid || T.userId !== uid) return false;
+      T.teams = (data || []).filter(m => m.teams?.id).map(m => ({ ...m.teams, role: m.role }));
       if (!T.teams.length) { app.innerHTML = '<h1>Estudio</h1><p>Aún no perteneces a ningún equipo de traducción.</p>'; return false; }
-      await pickTeam(localStorage.getItem('obi-team') || T.teams[0].id);
+      if (!(await pickTeam(localStorage.getItem('obi-team') || T.teams[0].id))) return false;
     }
-    if (T.works == null) { const { count } = await sb.from('series').select('id', { count: 'exact', head: true }).eq('team_id', T.team.id).is('archived_at', null); T.works = count || 0; }
+    if (getUser()?.id !== uid || T.userId !== uid || !T.team) return false;
+    if (T.works == null) {
+      const teamId = T.team.id;
+      const { count } = await sb.from('series').select('id', { count: 'exact', head: true }).eq('team_id', teamId).is('archived_at', null);
+      if (getUser()?.id !== uid || T.userId !== uid || T.team?.id !== teamId) return false;
+      T.works = count || 0;
+    }
     await styles;
-    return true;
+    return getUser()?.id === uid && T.userId === uid;
   }
   async function pickTeam(id){
-    T.team = T.teams.find(t => t.id === id) || T.teams[0]; localStorage.setItem('obi-team', T.team.id);
-    const [{ data }, { data: rr }] = await Promise.all([sb.rpc('my_team_permissions', { t: T.team.id }), sb.from('team_members').select('team_roles(name)').eq('team_id', T.team.id).eq('user_id', getUser()?.id).maybeSingle()]); T.perms = data || {}; T.roleName = rr?.team_roles?.name || null; try { const { data: tt } = await sb.from('teams').select('settings').eq('id', T.team.id).maybeSingle(); T.tz = tt?.settings?.timezone || null; } catch { T.tz = null; }
+    const uid = getUser()?.id, team = T.teams.find(t => t.id === id) || T.teams[0];
+    if (!uid || T.userId !== uid || !team) return false;
+    T.team = team; T.perms = {}; T.roleName = null; T.works = null;
+    localStorage.setItem('obi-team', team.id);
+    const [{ data }, { data: rr }] = await Promise.all([
+      sb.rpc('my_team_permissions', { t: team.id }),
+      sb.from('team_members').select('team_roles(name)').eq('team_id', team.id).eq('user_id', uid).maybeSingle()
+    ]);
+    if (T.userId !== uid || getUser()?.id !== uid || T.team?.id !== team.id) return false;
+    T.perms = data || {}; T.roleName = rr?.team_roles?.name || null;
+    try {
+      const { data: tt } = await sb.from('teams').select('settings').eq('id', team.id).maybeSingle();
+      if (T.userId !== uid || getUser()?.id !== uid || T.team?.id !== team.id) return false;
+      T.tz = tt?.settings?.timezone || null;
+    } catch { if (T.userId === uid && getUser()?.id === uid && T.team?.id === team.id) T.tz = null; }
+    return T.userId === uid && getUser()?.id === uid && T.team?.id === team.id;
   }
 
   // ---------- obras ----------
@@ -1262,6 +1287,7 @@ export function createStudio(ctx){
     let mine = ct || [];
     if (!D) throw new Error('No encontré la página del equipo');
     let d = TP.normalize(dr?.design && Object.keys(dr.design).length ? dr.design : D.t.design, D.t.color), token = dr?.token || null, saveT = 0, savedAt = dr?.updated_at || null, saving = false;
+    let savedDesign = dr?.design && Object.keys(dr.design).length ? JSON.stringify(TP.normalize(dr.design, D.t.color)) : null;
     const pubJSON = () => JSON.stringify(TP.normalize(D.t.design, D.t.color)), pending = () => JSON.stringify(d) !== pubJSON();
     const UI = { dev: matchMedia('(max-width:767px)').matches ? 'mobile' : 'desk', mobDeco: null, open: new Set() };
     const CLIP = [['.pf-mine', 3, 'temas'], ['.pf-themes', 4, 'temas'], ['.pf-fonts', 6, 'tipografías'], ['.pf-pats', 8, 'patrones'], ['#pf-hist', 3, 'versiones'], ['.pf-featpick', 5, 'obras']];
@@ -1320,8 +1346,8 @@ export function createStudio(ctx){
       <p class="pf-note">Atajos: Ctrl+Z deshace y Ctrl+Shift+Z rehace.</p>
       <p class="pf-note">Todo lo de esta página se guarda en el borrador hasta que pulses «Publicar cambios». Nombre, bio, logo, banner y redes se editan en <a href="/estudio/perfil">Página del equipo</a>.</p>`;
     app.querySelector('.s2-main').innerHTML = app.querySelector('.s2-head').outerHTML + `<div class="pfx">
-      <div class="pf-bar"><span class="pf-st" id="pf-st" role="status"></span><span class="pf-acts"><button class="btn ghost sm" id="pf-share">Copiar enlace de vista previa</button><button class="btn ghost sm" id="pf-discard">Descartar cambios</button><button class="btn sm" id="pf-pub">Publicar cambios</button><a class="lnk" href="/equipo/${esc(T.team.slug)}" target="_blank" rel="noopener">Ver página publicada ↗</a></span></div>
-      <p class="pf-mob">Para editar la página usa una computadora o tableta. Aquí puedes ver el borrador y compartirlo.</p>
+      <div class="pf-bar"><span class="pf-st" id="pf-st" role="status"></span><span class="pf-acts"><button class="btn ghost sm" id="pf-share" title="Compartir el borrador ya guardado, sin guardar ni publicar cambios">Copiar enlace de vista previa</button><button class="btn ghost sm" id="pf-discard">Descartar cambios</button><button class="btn sm" id="pf-pub">Publicar cambios</button><a class="lnk" href="/equipo/${esc(T.team.slug)}" target="_blank" rel="noopener">Ver página publicada ↗</a></span></div>
+      <p class="pf-mob">Para editar la página usa una computadora o tableta. Aquí puedes simular temporadas sin guardar cambios y copiar el enlace de un borrador ya guardado.</p>
       <div class="pf-grid"><aside class="pf-panel" id="pf-panel">${panel()}</aside>
         <div class="pf-pvw"><div class="pf-mobile-sim" aria-label="Simulación móvil de temporadas">
           <strong>Temas de temporada · Vista previa móvil</strong>
@@ -1340,7 +1366,7 @@ export function createStudio(ctx){
     const pv = () => { if (!pvQ) pvQ = requestAnimationFrame(pvNow); };
     const contrastNote = () => { const B = TP.BGS[d.bg], v = TP.vars(d), act = v.match(/--act:(#[0-9a-f]{6})/i)[1]; const tc = TP.textContrast(d); $('#pf-ctr').textContent = [tc < 4.5 ? `El texto casi no se lee sobre el fondo (contraste ${tc.toFixed(1)}:1; se recomienda 4.5 o más).` : '', act.toLowerCase() !== d.accent ? 'Este acento tiene poco contraste con el fondo: en los textos se usa una versión más legible.' : ''].filter(Boolean).join(' '); $('#pf-ctr').style.color = tc < 4.5 ? '#f59e7a' : ''; };
     const status = () => { const s = $('#pf-st'); if (!s) return; s.className = 'pf-st' + (pending() ? ' warn' : ''); s.textContent = saving ? 'Guardando borrador…' : pending() ? '● Borrador con cambios sin publicar' + (savedAt ? ' · guardado ' + fmtTz(savedAt, { hour: '2-digit', minute: '2-digit' }) : '') : '✓ Lo que ves es lo publicado'; $('#pf-pub').disabled = !pending(); $('#pf-discard').disabled = !pending(); };
-    const save = () => { clearTimeout(saveT); saveT = setTimeout(async () => { saving = true; status(); saveT = 0; const { data, error } = await sb.rpc('team_design_save', { p_team: T.team.id, p_design: d }); saving = false; if (error) { toast(errMsg(error)); } else savedAt = data; status(); }, 700); };
+    const save = () => { clearTimeout(saveT); saveT = setTimeout(async () => { saving = true; status(); saveT = 0; const snapshot = JSON.stringify(d); const { data, error } = await sb.rpc('team_design_save', { p_team: T.team.id, p_design: d }); saving = false; if (error) { toast(errMsg(error)); } else { savedAt = data; savedDesign = snapshot; } status(); }, 700); };
     const redraw = () => { const y = $('#pf-panel').scrollTop; $('#pf-panel').innerHTML = panel(); bindPanel(); clip(); $('#pf-panel').scrollTop = y; hist(); };
     const set = (o, full) => { d = TP.normalize({ ...d, ...o }, D.t.color); showPub = false; if (!('theme' in o) && Object.keys(o).some(k => !['order', 'hidden', 'featured', 'announce', 'motto', 'seasons', 'anim', 'part', 'intensity'].includes(k)) && !String(d.theme).startsWith('mine:')) d.theme = 'custom'; pv(); contrastNote(); status(); save(); track?.(); if (full) redraw(); };
     async function hist(){
@@ -1415,9 +1441,9 @@ export function createStudio(ctx){
     const leave = e => { if (!document.body.contains($('#pf-panel') || document.createElement('i'))) return removeEventListener('beforeunload', leave); if (saveT || saving) { flush(); e.preventDefault(); e.returnValue = ''; } };
     addEventListener('beforeunload', leave);
     document.addEventListener('click', function nav(e){ if (!$('#pf-panel')) return document.removeEventListener('click', nav, true); if (e.target.closest('a[href]')) flush(); }, true);
-    $('#pf-pub').onclick = e => busy(e.currentTarget, async () => { clearTimeout(saveT); await rpc('team_design_save', { p_team: T.team.id, p_design: d }); await rpc('team_design_publish', { p_team: T.team.id }); D.t.design = d; status(); hist(); toast('Página publicada'); });
-    $('#pf-discard').onclick = e => busy(e.currentTarget, async () => { if (!confirm('¿Descartar el borrador y volver a lo publicado?')) return; clearTimeout(saveT); d = TP.normalize(D.t.design, D.t.color); await rpc('team_design_save', { p_team: T.team.id, p_design: d }); redraw(); pv(); status(); toast('Borrador descartado'); });
-    $('#pf-share').onclick = e => busy(e.currentTarget, async () => { clearTimeout(saveT); await rpc('team_design_save', { p_team: T.team.id, p_design: d }); if (!token) token = await rpc('team_design_new_token', { p_team: T.team.id }); const link = location.origin + '/equipo/' + T.team.slug + '?vista=' + token; try { await navigator.clipboard.writeText(link); toast('Enlace copiado · cualquiera con él ve el borrador'); } catch { prompt('Copia este enlace:', link); } });
+    $('#pf-pub').onclick = e => busy(e.currentTarget, async () => { clearTimeout(saveT); await rpc('team_design_save', { p_team: T.team.id, p_design: d }); savedDesign = JSON.stringify(d); await rpc('team_design_publish', { p_team: T.team.id }); D.t.design = d; status(); hist(); toast('Página publicada'); });
+    $('#pf-discard').onclick = e => busy(e.currentTarget, async () => { if (!confirm('¿Descartar el borrador y volver a lo publicado?')) return; clearTimeout(saveT); d = TP.normalize(D.t.design, D.t.color); await rpc('team_design_save', { p_team: T.team.id, p_design: d }); savedDesign = JSON.stringify(d); redraw(); pv(); status(); toast('Borrador descartado'); });
+    $('#pf-share').onclick = e => busy(e.currentTarget, async () => { const shared = await previewShareLink({ origin: location.origin, slug: T.team.slug, token, savedDesign, currentDesign: JSON.stringify(d), queued: !!saveT, saving, generateToken: () => rpc('team_design_new_token', { p_team: T.team.id }) }); token = shared.token; try { await navigator.clipboard.writeText(shared.link); toast('Enlace copiado · cualquiera con él ve el borrador guardado'); } catch { prompt('Copia este enlace:', shared.link); } });
   }
 
   return { home, works, newWork, work, editor, importer, library: () => library(), team, board, log, profile, prefs, announcements, community, stats, downloads, glossary, isMember: async () => { const u = getUser(); if (!u) return false; const { count } = await sb.from('team_members').select('*', { count: 'exact', head: true }).eq('user_id', u.id); return count > 0; } };
