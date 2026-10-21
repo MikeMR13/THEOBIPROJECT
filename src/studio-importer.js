@@ -1,5 +1,6 @@
 // Importador de Studio: EPUB, DOCX y PDF, bajo demanda.
 import { renderBlock } from './blocks.js?v=2';
+import { editorialForm, bindEditorialForm, saveEditorialRecord } from './editorial-announcements.js?v=1';
 import { createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
 export function createImporter(deps) {
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, LIMITS, SEC } = deps;
@@ -246,7 +247,7 @@ export function createImporter(deps) {
       sb.from('series').select('id,title,teams(name)').or('published.eq.true,team_id.eq.' + T.team.id).is('archived_at', null).order('title').limit(500)
     ]);
     let P = null, file = null, fp = null, step = 1, sel = 0, splitting = false, dupAt = null, V = {};
-    const D = { work: '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', newTitle: '', newAuthor: '' };
+    const D = { work: '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', notice: null, noticeGetter: null, newTitle: '', newAuthor: '' };
     let NW = createWorkData();
     app.innerHTML = shell('Importar contenido', '<ol class="imp-steps" id="steps"></ol><div id="wiz"></div><p id="status" class="mono" role="status"></p>', TAB);
     bindPicker(importer);
@@ -388,7 +389,7 @@ export function createImporter(deps) {
           <label class="tb-inl"><input type="radio" name="dp" value="draft" ${D.pub === 'draft' ? 'checked' : ''}> Guardar como borrador</label>
           ${can('publish') ? `<label class="tb-inl"><input type="radio" name="dp" value="now" ${D.pub === 'now' ? 'checked' : ''}> Publicar el volumen ahora</label>` : ''}
           ${can('schedule') ? `<label class="tb-inl"><input type="radio" name="dp" value="at" ${D.pub === 'at' ? 'checked' : ''}> Programar <input type="datetime-local" id="dat" value="${esc(D.at)}" aria-label="Fecha de publicación">${tzHint()}</label>` : ''}
-        </section></div>
+        </section><section class="imp-box" id="imp-ann" ${D.pub === 'draft' ? 'hidden' : ''}><h3>Último paso · anuncio editorial</h3>${editorialForm(esc, 'volume', D.notice || {})}</section></div>
         <div class="imp-nav"><button class="btn ghost" id="back">‹ Revisar secciones</button><button class="btn" id="go">Importar ${inc.length} ${inc.length === 1 ? 'sección' : 'secciones'}</button></div>`;
       if (ex) sb.from('chapters').select('id', { count: 'exact', head: true }).eq('volume_id', ex.id).is('deleted_at', null).then(({ count }) => { const e = $('#exc'); if (e && count != null) e.textContent = ' con ' + count + (count === 1 ? ' capítulo' : ' capítulos'); });
       $('#dw').onchange = e => { D.work = e.target.value; const nw = work(); D.vnum = P.meta.index || nextVol(nw); D.workCover = !nw || !nw.cover_path; s3(); };
@@ -396,7 +397,9 @@ export function createImporter(deps) {
       $('#dv').onchange = e => { D.vnum = Math.max(1, Math.min(999, Math.round(+e.target.value) || 1)); s3(); };
       W().querySelectorAll('[name=dm]').forEach(r => r.onchange = () => { D.mode = r.value; });
       W().querySelectorAll('[name=di]').forEach(r => r.onchange = () => { D.allImgs = r.value === 'all'; });
-      W().querySelectorAll('[name=dp]').forEach(r => r.onchange = () => { D.pub = r.value; });
+      D.noticeGetter = bindEditorialForm(W());
+      W().querySelector('[data-editorial-fields]')?.addEventListener('change',()=>{try{D.notice=D.noticeGetter()}catch{}});
+      W().querySelectorAll('[name=dp]').forEach(r => r.onchange = () => { D.pub = r.value; const ann=$('#imp-ann'); if(ann)ann.hidden=D.pub==='draft'; });
       $('#dat')?.addEventListener('input', e => { D.at = e.target.value; D.pub = 'at'; W().querySelector('[name=dp][value=at]').checked = true; });
       $('#dwc').onchange = e => { D.workCover = e.target.checked; };
       W().querySelectorAll('[data-cov]').forEach(b => b.onclick = () => { D.cover = b.dataset.cov || null; s3(); });
@@ -409,6 +412,9 @@ export function createImporter(deps) {
       const uploaded = [], inserted = [], inc = P.chapters.filter(c => !c.skip);
       let job = null, createdSeries = null, createdVol = null, restoredVol = null, oldIds = [], oldGone = false, volBefore = null, seriesCoverBefore;
       if (D.pub === 'at' && (!D.at || new Date(fromLocal(D.at)) <= new Date())) throw new Error('Elige una fecha futura para programar');
+      // Validar ANTES de subir archivos; la importación jamás se revierte por una falla del anuncio.
+      const notice = D.pub === 'draft' ? null : D.noticeGetter?.();
+      if (D.pub !== 'draft' && !notice) throw new Error('Completa el anuncio editorial antes de publicar');
       const ficha = fichaRow();
       let w = work(), vol = liveVols(w).find(v => v.num === D.vnum);
       const workMeta = !w ? workPayload(NW) : null;
@@ -455,7 +461,10 @@ export function createImporter(deps) {
           if (Object.keys(patch).length) { volBefore = Object.fromEntries(Object.keys(patch).map(k => [k, vr?.[k] ?? null])); const r = await sb.from('volumes').update(patch).eq('id', vol.id); if (r.error) throw r.error; }
         }
         if (cov && D.workCover) { seriesCoverBefore = w.cover_path || null; const r = await sb.from('series').update({ cover_path: cov }).eq('id', w.id); if (r.error) throw r.error; }
-        if (D.pub !== 'draft') { st(D.pub === 'now' ? 'Publicando…' : 'Programando…'); const r = await sb.rpc('publish_volume', D.pub === 'now' ? { p_volume: vol.id } : { p_volume: vol.id, p_at: fromLocal(D.at) }); if (r.error) throw r.error; }
+        if (D.pub !== 'draft') { st(D.pub === 'now' ? 'Publicando…' : 'Programando…'); const r = await sb.rpc('publish_volume', D.pub === 'now' ? { p_volume: vol.id } : { p_volume: vol.id, p_at: fromLocal(D.at) }); if (r.error) throw r.error;
+          try { await saveEditorialRecord(sb,w.id,notice,{kind:'volume',id:vol.id,startsAt:D.pub==='at' ? fromLocal(D.at) : new Date().toISOString()}); }
+          catch (e) { toast('Volumen importado y publicado, pero el anuncio no se guardó: '+(e.message||e)); }
+        }
         await sb.from('import_jobs').update({ status: 'done', media_paths: uploaded, result: { series: w.id, volume: vol.id, chapters: inserted.length, cover: cov } }).eq('id', job.id);
         P.urls.forEach(u => u && URL.revokeObjectURL(u));
         toast(`Importadas ${inserted.length} secciones${D.pub === 'now' ? ' y publicadas' : D.pub === 'at' ? ' · programadas para ' + fmtTz(fromLocal(D.at)) : ' como borrador'} · ${Object.keys(map).length} imágenes en Multimedia`);
