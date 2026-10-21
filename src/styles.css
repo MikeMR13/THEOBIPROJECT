@@ -222,6 +222,17 @@ select{background:#16140f;border:2px solid var(--line);color:var(--paper);paddin
 
 /* descargas y página del equipo (público) */
 .ui-dl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid #2f2a20}.ui-dlb{display:grid;gap:1px;padding:7px 12px;background:none;border:1px solid var(--c,var(--gold));color:var(--paper);font:inherit;font-weight:700;font-size:13px;cursor:pointer;text-decoration:none;text-align:left}.ui-dlb small{font-weight:400;font-size:11px;color:#a89f8a}.ui-dlb:hover{background:#1c1a14;color:var(--paper)}.ui-dlb.lock{border-style:dashed;color:#a89f8a}
+
+/* Ficha pública · descargas visibles al comienzo de cada volumen. */
+.ui-vol .ui-dl-featured{display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin:14px 0 12px;padding:14px;background:linear-gradient(135deg,#241c10,#18150f);border:1px solid #745b2b;border-left:4px solid var(--gold);border-radius:4px}
+.ui-vol .ui-dl-featured .ui-dl-title{flex:1 1 100%;width:100%;font-size:12px;font-weight:700;color:#f2c875;letter-spacing:.09em}
+.ui-vol .ui-dl-featured .ui-dlb{box-sizing:border-box;display:grid;flex:1 1 142px;min-width:min(100%,142px);min-height:48px;align-content:center;gap:2px;padding:10px 12px;border:1px solid #b38a36;background:#16130e;color:#f8edcd;font-weight:700}
+.ui-vol .ui-dl-featured .ui-dlb:hover,.ui-vol .ui-dl-featured .ui-dlb:focus-visible{border-color:var(--gold);background:#302510;color:#fff5cf}
+.ui-vol .ui-dl-featured .ui-dlb:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.ui-vol .ui-dl-featured .ui-dlb.lock{border-style:dashed;color:#d3c4a8}
+.ui-vol .ui-dl-featured .ui-dlb small{font-size:11px;font-weight:400;color:#c4b99e;overflow-wrap:anywhere}
+@media(max-width:480px){.ui-vol .ui-dl-featured{padding:12px;gap:8px}.ui-vol .ui-dl-featured .ui-dlb{flex-basis:100%;min-width:0}}
+
 .tp{display:grid;gap:26px}.tp-ban{height:clamp(120px,22vw,240px);margin:0 calc(-1 * clamp(16px,4vw,56px))}.tp-head{display:flex;gap:18px;align-items:flex-end;margin-top:-70px;flex-wrap:wrap}.tp-head h1{margin:0;font-size:clamp(28px,4vw,44px)}.tp-head .mono{margin:4px 0 0}
 .tp-av{width:120px;height:120px;flex:none;display:flex;align-items:center;justify-content:center;background:#16140f;border:4px solid var(--ink);color:var(--c);font-family:'Shippori Mincho B1',serif;font-weight:800;font-size:36px;overflow:hidden}.tp-av img{width:84%;height:84%;object-fit:contain}
 .tp-bio{max-width:70ch;white-space:pre-line}.tp-lk{border-color:var(--c)!important;color:var(--c)!important}
