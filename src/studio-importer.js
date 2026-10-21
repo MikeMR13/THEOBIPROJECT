@@ -1,5 +1,6 @@
 // Importador de Studio: EPUB, DOCX y PDF, bajo demanda.
 import { renderBlock } from './blocks.js?v=2';
+import { inferSectionType } from './section-types.js?v=1';
 import { editorialForm, bindEditorialForm, saveEditorialRecord } from './editorial-announcements.js?v=1';
 import { createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
 export function createImporter(deps) {
@@ -166,7 +167,7 @@ export function createImporter(deps) {
       while (blocks[0]?.type === 'separator') blocks.shift();
       if (!blocks.length) continue;
       const t = own || doc.title?.trim() || `Sección ${chapters.length + 1}`;
-      chapters.push({ onlyImg, title: t.slice(0, 200), type: /pr[oó]log/i.test(t) ? 'Prólogo' : /ep[ií]log/i.test(t) ? 'Epílogo' : /afterword|palabras del autor/i.test(t) ? 'Afterword' : /interlud/i.test(t) ? 'Interludio' : 'Capítulo', blocks });
+      chapters.push({ onlyImg, title: t.slice(0, 200), type: inferSectionType(t), blocks });
     }
     for (const c of chapters) { delete c.onlyImg; while (c.blocks[c.blocks.length - 1]?.type === 'separator') c.blocks.pop(); }
     const tally = { body: new Map(), heading: new Map() };
@@ -221,7 +222,7 @@ export function createImporter(deps) {
   }
   function splitByHeadings(blocks){
     const out = []; let cur = null;
-    blocks.forEach(b => { if (b.type === 'heading' && (!cur || cur.blocks.length > 2)) { cur = { title: b.text.slice(0, 200), type: 'Capítulo', blocks: [b] }; out.push(cur); } else { if (!cur) { cur = { title: 'Sección 1', type: 'Capítulo', blocks: [] }; out.push(cur); } cur.blocks.push(b); } });
+    blocks.forEach(b => { if (b.type === 'heading' && (!cur || cur.blocks.length > 2)) { cur = { title: b.text.slice(0, 200), type: inferSectionType(b.text), blocks: [b] }; out.push(cur); } else { if (!cur) { cur = { title: 'Sección 1', type: 'Capítulo', blocks: [] }; out.push(cur); } cur.blocks.push(b); } });
     return out;
   }
 
