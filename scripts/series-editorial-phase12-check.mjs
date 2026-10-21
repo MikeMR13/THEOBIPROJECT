@@ -18,7 +18,7 @@ const checks = [
   ['Descargas seguras', 'data-dl="${d.id}"'],
   ['Compra oficial', 'data-buy="${b.id}"'],
   ['Reseñas', 'id="rv-sec"'],
-  ['Seguimiento', "app.querySelector('#follow')"],
+  ['Seguimiento', "$('#follow').onclick"],
   ['Solo volúmenes publicados', ".eq('status', 'published').is('deleted_at', null)"]
 ];
 for (const [label, token] of checks) assert(src.includes(token), label + ': no se encuentra ' + token);
