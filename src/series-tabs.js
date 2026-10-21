@@ -26,6 +26,9 @@ export function initSeriesTabs(root, win = window) {
       panel.setAttribute('aria-hidden', String(!active));
       if (active && focus) tab.focus();
     }
+    // Notificar cuando un panel pasa a visible; los carruseles necesitan
+    // recalcular sus medidas tras dejar de estar dentro de [hidden].
+    root.dispatchEvent(new win.CustomEvent('obi-series-tab-change', { bubbles: true, detail: { id: desired } }));
     return desired;
   };
   const syncHash = () => {
