@@ -92,6 +92,29 @@ try {
   }
   checks++;
 
+  // Fase 4: una sola navegación activa; controles emergentes accesibles
+  // y cierre sin búsquedas tardías que vuelvan a desplegar resultados.
+  const navItems=[...app.querySelectorAll('.s2-nav a')];
+  ok(navItems.length===14,'El catálogo de 14 pantallas de Estudio está incompleto');
+  ok(navItems.filter(a=>a.getAttribute('aria-current')==='page').length===1,'Debe haber exactamente una sección activa');
+  ok(navItems.every(a=>a.getAttribute('href')?.startsWith('/estudio')),'Ruta inesperada en el menú');
+  checks++;
+  const bell=app.querySelector('#st-bell'),bellPanel=app.querySelector('#st-bell-list');
+  ok(bell?.getAttribute('aria-controls')===bellPanel?.id,'Avisos sin relación accesible');
+  bell.click();
+  await until(()=>bellPanel.hidden===false && bell.getAttribute('aria-expanded')==='true','abrir avisos');
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  ok(bellPanel.hidden===true && bell.getAttribute('aria-expanded')==='false','Escape no cierra avisos');
+  const search=app.querySelector('#st-q'),results=app.querySelector('#st-q-res');
+  ok(search?.getAttribute('aria-controls')===results?.id,'Buscador sin referencia de resultados');
+  search.value='Crónicas'; search.dispatchEvent(new Event('input',{bubbles:true}));
+  await until(()=>results.hidden===false && search.getAttribute('aria-expanded')==='true','abrir resultados de búsqueda');
+  document.body.click();
+  ok(results.hidden===true && search.getAttribute('aria-expanded')==='false','Buscador no cierra al tocar fuera');
+  await pause(150);
+  ok(results.hidden===true,'Resultados antiguos reaparecieron tras cerrarse');
+  checks++;
+
   ok(!!document.getElementById('st2-css')?.sheet,'Studio no cargó su CSS');
   const resources=performance.getEntriesByType('resource').map(e=>e.name);
   ok(!resources.some(u=>/studio-(?:editor|importer|media)\.js/.test(u)),
