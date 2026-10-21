@@ -113,6 +113,10 @@ try {
   ok(results.hidden===true && search.getAttribute('aria-expanded')==='false','Buscador no cierra al tocar fuera');
   await pause(150);
   ok(results.hidden===true,'Resultados antiguos reaparecieron tras cerrarse');
+  search.value='Otra obra'; search.dispatchEvent(new Event('input',{bubbles:true}));
+  document.body.click();
+  await pause(350);
+  ok(results.hidden===true && search.getAttribute('aria-expanded')==='false','Una búsqueda diferida reabrió un panel cerrado');
   checks++;
 
   ok(!!document.getElementById('st2-css')?.sheet,'Studio no cargó su CSS');
