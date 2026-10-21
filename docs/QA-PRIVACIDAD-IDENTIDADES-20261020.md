@@ -101,3 +101,10 @@ Tras la fusión de la candidata #21, este PR #22 apunta ahora a **main** en vez 
 5. Confirmar que cualquier flujo legado que use SELECT a columnas privadas fue reemplazado; `reader_public`, `whoami`, roles de equipo, invitaciones, reseñas, avisos, EPUB y progreso deben permanecer operativos.
 
 **No considerar cerrado SEG-01 hasta negar efectivamente la lectura de columnas privadas a `anon` y `authenticated` tras pruebas reales.**
+
+### Verificación posterior de la fase A
+
+- Consulta transaccional **READ ONLY** bajo rol simulado `authenticated` con UUID inexistente (sin leer filas personales): `my_profile()` devolvió NULL y `my_adult_ok()` devolvió FALSE. Transacción revertida.
+- Consulta transaccional **READ ONLY** bajo rol `anon`: ambos permisos `EXECUTE` son FALSE. Transacción revertida.
+- Las funciones conservan `SECURITY DEFINER`, propietario `postgres`, y configuración de `search_path` vacía; los permisos de edición y de `service_role` siguen disponibles.
+- GitHub Actions para SHA `9694f285`: [CI #39519315069](https://github.com/MikeMR13/THEOBIPROJECT/actions/runs/39519315069) **SUCCESS**. Las pruebas no sustituyen flujo OAuth ni RLS con usuarios reales.
