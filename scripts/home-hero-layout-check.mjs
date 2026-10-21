@@ -32,7 +32,8 @@ const checks=[
 "test(Math.abs(badge.left-custom.left)<=tol&&Math.abs(badge.left-rank.left)<=tol,'metadatos desalineados');",
 "test(title.right<=max+tol&&title.left>=-tol,'título desbordado');",
 "test(actions.bottom<=pager.top+tol,'botones y controles superpuestos');",
-"test(document.documentElement.scrollWidth<=max+tol,'scroll horizontal de página');",
+"const over=[...document.querySelectorAll('.ob-hero *')].filter(n=>n.getBoundingClientRect().right>max+tol).slice(0,3).map(n=>n.className||n.tagName).join(',');",
+"test(document.documentElement.scrollWidth<=max+tol,'scroll horizontal: contenido '+document.documentElement.scrollWidth+' viewport '+max+' ['+over+']');",
 "test(parseFloat(getComputedStyle(get('.ob-utag-hero')).fontSize)<=16,'aviso secundario desproporcionado');",
 "test(parseFloat(getComputedStyle(get('.ob-txt h1')).fontSize)<=59,'título desproporcionado');",
 "const result=get('#result');result.dataset.status=err.length?'fail':'pass';result.textContent=err.join(' | ')||'OK';"
