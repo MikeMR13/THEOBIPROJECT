@@ -457,6 +457,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 `;
   const SKEL = `<div class="ob-page ob-skel" aria-busy="true" aria-label="Cargando la biblioteca"><div class="ob-mast"><b>翻訳図書館</b><span>Biblioteca de novelas ligeras · Español latino</span></div><div class="sk sk-hero"></div><div class="sk sk-h"></div><div class="sk-row">${'<div class="sk sk-ln"></div>'.repeat(4)}</div><div class="sk sk-h"></div><div class="sk-row c">${'<div class="sk sk-cv"></div>'.repeat(6)}</div></div>`;
   async function home(){
+    clearInterval(homeRotationTimer);
     rkCss(); if (!document.getElementById('ob2-css')) { const st = document.createElement('style'); st.id = 'ob2-css'; st.textContent = HOME_CSS; document.head.appendChild(st); }
     app.innerHTML = SKEL;
     const u = getUser(), now = new Date();
@@ -560,6 +561,24 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       const upd = () => { const [l, r] = root.querySelectorAll(`[data-cs="${bt.dataset.cs}"]`); if (l) l.disabled = c.scrollLeft < 4; if (r) r.disabled = c.scrollLeft + c.clientWidth >= c.scrollWidth - 4; }; c.addEventListener('scroll', upd, { passive: true }); upd(); });
     bindCars(app);
     if (feat.length) heroSlide(feat, 0, prog, lastCh, top, newsBySeries, featReasons);
+    // El día editorial rota en Monterrey. Los lanzamientos completos nuevos
+    // rompen la rotación en la sesión abierta; no dependen de un cron nocturno.
+    let checkingNewRelease = false;
+    const currentAnnouncement = Math.max(0,...(VR?.data||[]).map(v=>Date.parse(v.announced_at||v.published_at)||0));
+    homeRotationTimer = setInterval(async () => {
+      if(location.pathname !== '/' || !app.querySelector('.ob-page')) {clearInterval(homeRotationTimer);return;}
+      if(document.hidden || checkingNewRelease)return;
+      if(homeDayKey() !== featured.day){clearInterval(homeRotationTimer);home();return;}
+      checkingNewRelease=true;
+      try {
+        const {data,error}=await sb.from('volumes').select('announced_at,published_at')
+          .eq('status','published').is('deleted_at',null)
+          .order('announced_at',{ascending:false,nullsFirst:false}).limit(1);
+        if(!error && (Date.parse(data?.[0]?.announced_at||data?.[0]?.published_at)||0)>currentAnnouncement){
+          clearInterval(homeRotationTimer);home();
+        }
+      } finally {checkingNewRelease=false;}
+    }, 60000);
     // Fase 2: secciones secundarias, sin bloquear lo anterior.
     const fill = (id, html) => { const el = document.getElementById(id); if (!el || !html) return; el.outerHTML = html; const sec = document.querySelector('[data-from="' + id + '"]'); if (sec) bindCars(sec); };
     const seen = new Set([...Object.keys(prog)]);
