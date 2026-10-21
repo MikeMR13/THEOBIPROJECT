@@ -37,3 +37,25 @@ Se preservan los elementos de la ficha ya publicados: calificación/ranking, pro
 ## Publicación
 
 Mantener el PR independiente hasta CI verde y revisión; nunca reemplazar producción con un Preview que use datos ficticios. El despliegue de producción corresponde a `main` tras integración y verificación, si se autoriza expresamente.
+
+## Fase 3 — búsqueda de capítulos y progreso (21 de octubre de 2026)
+
+- Búsqueda por número o título de capítulo, sin consultas adicionales al servidor, normalizando acentos y caracteres especiales.
+- Filtros: todos, novedades y, para cuentas iniciadas, leídos y sin leer.
+- Orden de volúmenes descendente/ascendente con preferencia local `obi-serie-vol-order`.
+- Progreso individual de lectura por volumen, con barra y fracción `N de M`, visible solo en sesión de lector.
+- Mensaje accesible de resultados, aviso sin coincidencias y botón para borrar filtros.
+- Se preserva la preferencia previa «Ocultar leídos», desactivándola al elegir explícitamente el filtro «Leídos».
+
+## Fase 4 — diseño móvil, rendimiento y accesibilidad
+
+- Portadas de volúmenes con `loading="lazy"`, `decoding="async"` y `fetchpriority="low"`; sin carga inmediata por `background-image`.
+- Controles de 44 píxeles como mínimo y `:focus-visible` para teclado.
+- Ajustes responsive para 320, 390, 768, 1024 y 1440 píxeles.
+- Respeto de `prefers-reduced-motion` y mensajes semánticos `role="status" aria-live="polite"`.
+- Módulo puro `src/series-organization.js` sin dependencias, migraciones ni nuevas llamadas al backend.
+
+### QA adicional
+
+- `node scripts/series-editorial-phase34-check.mjs`: contratos de funciones puras, filtro por novedades y estado, número/título, orden natural, progreso, portadas diferidas y Chromium en cinco resoluciones.
+- Fases 1–4 se mantienen en el PR #31, sin fusionar ni desplegar a producción hasta completar las validaciones funcionales.
