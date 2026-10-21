@@ -971,11 +971,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         const close = () => { d.remove(); removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); if (e.key === 'ArrowRight') { removeEventListener('keydown', key); lb((i + 1) % gl.length); } if (e.key === 'ArrowLeft') { removeEventListener('keydown', key); lb((i - 1 + gl.length) % gl.length); } };
         addEventListener('keydown', key); d.onclick = e => { const v = e.target.closest('[data-lb]')?.dataset.lb; if (v === 'x' || e.target === d) close(); else if (v) { removeEventListener('keydown', key); lb((i + +v + gl.length) % gl.length); } }; d.querySelector('[data-lb="x"]').focus(); };
       box.querySelectorAll('[data-gi]').forEach(bt => bt.onclick = () => lb(+bt.dataset.gi));
-      { const tr = box.querySelector('#gl-track'); if (tr) { const sync = () => box.querySelectorAll('[data-gs]').forEach(x => { const end = +x.dataset.gs > 0 ? tr.scrollLeft + tr.clientWidth >= tr.scrollWidth - 4 : tr.scrollLeft <= 4; x.disabled = end; x.style.opacity = end ? .35 : 1; }); box.querySelectorAll('[data-gs]').forEach(x => x.onclick = () => tr.scrollBy({ left: +x.dataset.gs * tr.clientWidth * .9 })); tr.addEventListener('scroll', sync, { passive: true }); addEventListener('resize', sync);
-        // Si la galería se creó mientras Ficha estaba oculta, clientWidth era 0.
-        // Volver a habilitar las flechas cuando la pestaña se muestra, sin recargar medios.
-        addEventListener('obi-series-tab-change', e => { if (e.detail?.id === 'serie-info' && box.isConnected) requestAnimationFrame(sync); });
-        sync(); } } }, () => {});
+      { const tr = box.querySelector('#gl-track'); if (tr) { const sync = () => box.querySelectorAll('[data-gs]').forEach(x => { const end = +x.dataset.gs > 0 ? tr.scrollLeft + tr.clientWidth >= tr.scrollWidth - 4 : tr.scrollLeft <= 4; x.disabled = end; x.style.opacity = end ? .35 : 1; }); box.querySelectorAll('[data-gs]').forEach(x => x.onclick = () => tr.scrollBy({ left: +x.dataset.gs * tr.clientWidth * .9 })); tr.addEventListener('scroll', sync, { passive: true }); addEventListener('resize', sync); sync(); } } }, () => {});
     $('#fx-hide')?.addEventListener('change', e => { localStorage.setItem('obi-hide-read', e.target.checked ? '1' : '0'); $('#fx-vols').classList.toggle('fx-hide', e.target.checked); });
     $('#follow').onclick = async e => {
       if (!getUser()) return go('/entrar');
