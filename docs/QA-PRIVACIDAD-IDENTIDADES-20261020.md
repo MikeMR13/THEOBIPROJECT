@@ -77,3 +77,27 @@ Si ocurre un problema tras el cierre, existe un **rollback de permisos documenta
 **Bloqueo de despliegue:** No es suficiente que los tests de Chromium con datos ficticios pasen; es obligatorio validar **RLS real** y **vinculaciones de los tres proveedores** con un backend aislado. El proyecto activo `qfllthjpjuaztppvpsrk` NO debe utilizarse para esos experimentos.
 
 No se alteran Cloudflare, dominios, Vercel productivo, SMTP, Resend, credenciales ni políticas existentes en la rama de pruebas.
+
+
+## Actualización operativa — 20/10/2026: fase A preparada en producción, SIN cierre de permisos
+
+Tras la fusión de la candidata #21, este PR #22 apunta ahora a **main** en vez de a la rama candidata. En la base productiva de **THEOBIPROJECT** se aplicó exclusivamente la migración aditiva mediante la conexión autenticada de Supabase, registrada en el historial remoto como `20261021000412_seg01_profiles_private_owner_rpc`. La fecha/versionado remoto lo asigna Supabase y **no corresponde al nombre local anterior `20261114_profiles_private_owner.sql`**: reconciliar ambos antes de activar automatizaciones de migración.
+
+### Hechos comprobados (solo consultas de catálogo/permisos; sin leer datos personales)
+
+- `public.my_profile()` y `public.my_adult_ok()` existen, tienen propietario `postgres`, `SECURITY DEFINER` y `search_path` vacío.
+- `authenticated` puede ejecutar ambas RPC; `anon` no puede ejecutar ninguna. No se cambiaron `auth.users`, `auth.identities`, roles, claves ni las 32 columnas de `profiles`.
+- Permanece el permiso `UPDATE` por columna para `authenticated` en `ui_prefs` y `notify`, así como la lectura de `service_role` sobre `patreon_user_id`.
+- **SEG-01 sigue abierto:** `anon` aún puede consultar columnas privadas (`patreon_user_id`, `notify`), porque el paso restrictivo C **NO** se ejecutó.
+- GitHub Actions del commit `49fe5cdf`: éxito (#39512884981); solo contrato estático, no prueba real de identidades.
+- Las Preview existentes usan backend ficticio `.invalid`, y no hay ramas Supabase de pruebas disponibles según el inventario conectado. **No tomar NLOBI ni otras bases existentes como QA**.
+
+### Puertas obligatorias para la segunda etapa
+
+1. Disponer de un backend de QA **independiente y funcional**, sin cobros adicionales ni usuarios/obras de producción; ninguna conexión de Preview debe usar el hostname productivo.
+2. Verificar la matriz anónimo/propietario/tercero, y los tres proveedores correo/Google/Patreon vinculados al mismo UUID real en QA, más lector y Studio. No basta con Chromium sintético.
+3. Probar una versión productiva staged del frontend nuevo contra las RPC, verificar actualización de preferencias y lectura antes de asignar el dominio; atender también pestañas antiguas y service worker antes de revocar SELECT.
+4. Solo después de esas pruebas, ejecutar el paso de cierre `SEG01_LOCK_PROFILES.sql` en ventana supervisada con validaciones inmediatas de permisos y plan de rollback. No fusionar/desplegar el frontend nuevo por su cuenta antes de asegurar la fase A (ya aplicada aquí) y pasar las pruebas.
+5. Confirmar que cualquier flujo legado que use SELECT a columnas privadas fue reemplazado; `reader_public`, `whoami`, roles de equipo, invitaciones, reseñas, avisos, EPUB y progreso deben permanecer operativos.
+
+**No considerar cerrado SEG-01 hasta negar efectivamente la lectura de columnas privadas a `anon` y `authenticated` tras pruebas reales.**
