@@ -798,3 +798,14 @@ body.in-studio .s2-main > *{min-width:0;max-width:100%}
 @media(prefers-reduced-motion:reduce){
   .s2 .tb-col,.s2 .s2-side .s2-nav,.s2 .imp-list ol,.s2 .st-tw{scroll-behavior:auto}
 }
+
+/* Ayudas contextualizadas para navegar contenido amplio sin desplazar la página. */
+.s2 .st-crumbs{display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-width:0;max-width:100%;line-height:1.6;overflow-wrap:anywhere}
+.s2 .st-crumbs a{display:inline-flex;min-height:36px;align-items:center;max-width:100%;overflow-wrap:anywhere}
+.s2 .st-crumbs a:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.s2 .st-media-actions{align-items:center}
+.s2 .st-media-actions .mono{min-width:0;overflow-wrap:anywhere}
+.s2 .s2-scroll-tip{display:none;margin:0;padding:8px 10px;background:#1f1a10;border-left:3px solid var(--gold);font-size:12px;line-height:1.5}
+@media(max-width:1100px){
+  .s2 .s2-scroll-tip{display:block}
+}
