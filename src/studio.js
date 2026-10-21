@@ -380,9 +380,11 @@ export function createStudio(ctx){
   async function works(){
     if (!(await ensure())) return;
     app.innerHTML = shell('Mis obras', '<p class="mono">Cargando obras…</p>', '/estudio/obras'); bindPicker(works);
-    const [{ works: list, chs, sched }, { data: inv }, { data: collab }] = await Promise.all([teamData(),
+    const [{ works: list, chs, sched }, { data: inv }, { data: collab }, { data: selectedFeature }] = await Promise.all([teamData(),
       sb.from('collaborations').select('id,status,series(title),inviter:teams!collaborations_inviter_team_fkey(name)').eq('invited_team', T.team.id).eq('status', 'pending'),
-      sb.from('collaborations').select('series(slug,title,teams(name))').eq('invited_team', T.team.id).eq('status', 'accepted')]);
+      sb.from('collaborations').select('series(slug,title,teams(name))').eq('invited_team', T.team.id).eq('status', 'accepted'),
+      sb.from('team_featured_series').select('series_id').eq('team_id', T.team.id).maybeSingle().then(r=>r,()=>({data:null}))]);
+    const featuredSeriesId=selectedFeature?.series_id||null;
     const pick = new URLSearchParams(location.search).has('nuevo');
     const card = w => { const c = chs.filter(x => x.series_id === w.id), pub = c.filter(x => x.status === 'published'), dr = c.filter(x => x.status === 'draft').length;
       const nx = [...c.filter(x => x.status === 'scheduled' && new Date(x.publish_at) > Date.now()).map(x => ({ at: x.publish_at, l: 'Cap. ' + x.num })), ...sched.filter(e => e.series_id === w.id).map(e => ({ at: e.at, l: e.label }))].sort((a, b) => new Date(a.at) - new Date(b.at))[0];
@@ -392,12 +394,22 @@ export function createStudio(ctx){
           <h2><a href="/estudio/obra/${w.slug}">${esc(w.title)}</a></h2>${w.synopsis ? `<p>${esc(w.synopsis)}</p>` : ''}
           ${(w.genres || []).length ? `<span class="gn">${w.genres.slice(0, 5).map(g => `<span>${esc(g)}</span>`).join('')}</span>` : ''}
           <dl><div><dt>PRÓXIMO</dt><dd style="color:${nx ? '#f2c230' : '#a89f8a'}">${nx ? esc(nx.l) + ' · ' + until(nx.at) : 'Sin programar'}</dd></div><div><dt>BORRADORES</dt><dd>${dr}</dd></div><div><dt>LECTURAS</dt><dd>${(w.views || 0).toLocaleString('es-MX')}</dd></div><div><dt>ÚLTIMO PUBLICADO</dt><dd>${last ? 'Cap. ' + last.num + ' · ' + ago(last.publish_at) : '—'}</dd></div></dl>
-          <span class="ac">${can('create') ? `<button class="btn" data-new="${w.id}">＋ Nuevo capítulo</button>` : ''}<a class="btn ghost" href="/estudio/obra/${w.slug}">Abrir ficha</a>${can('import') ? '<a class="btn ghost" href="/estudio/importar">Importar volumen</a>' : ''}<a class="lnk" href="/serie/${w.slug}">Ver en el sitio ↗</a></span></div></article>`; };
+          <span class="ac">${(can('edit')||can('publish')) && w.published ? `<button class="btn ${featuredSeriesId===w.id ? 'gold' : 'ghost'}" type="button" data-feature="${w.id}" aria-pressed="${featuredSeriesId===w.id}" title="${featuredSeriesId===w.id ? 'Quitar esta obra de la recomendación del equipo' : 'Recomendar esta obra en el carrusel de Inicio'}">${featuredSeriesId===w.id ? '★ Destacada · Quitar' : '☆ Destacar'}</button>` : ''}${can('create') ? `<button class="btn" data-new="${w.id}">＋ Nuevo capítulo</button>` : ''}<a class="btn ghost" href="/estudio/obra/${w.slug}">Abrir ficha</a>${can('import') ? '<a class="btn ghost" href="/estudio/importar">Importar volumen</a>' : ''}<a class="lnk" href="/serie/${w.slug}">Ver en el sitio ↗</a></span></div></article>`; };
     const body = `${(inv || []).map(c => `<div class="st-card"><span>${esc(c.inviter?.name || 'Un equipo')} te invita a colaborar en <strong>${esc(c.series?.title)}</strong></span><span><button class="btn" data-acc="${c.id}">Aceptar</button> <button class="btn ghost" data-rej="${c.id}">Rechazar</button></span></div>`).join('')}
       ${pick && list.length ? '<div class="st-card"><span>¿En qué obra va el nuevo capítulo? Toca «＋ Nuevo capítulo» en la obra.</span></div>' : ''}
       ${list.length ? `<div class="s2-works">${list.map(card).join('')}${can('create') || can('import') ? '<a class="s2-add" href="/estudio/nueva"><span>＋</span>Nueva obra<small>Desde cero con el editor o importando un EPUB, DOCX o PDF</small></a>' : ''}</div>` : emptyState()}
       ${(collab || []).length ? `<h2 class="s2-h2">Colaboraciones</h2><div class="s2-box">${collab.map(c => `<p><a href="/serie/${c.series.slug}">${esc(c.series.title)}</a> <span class="mono">de ${esc(c.series.teams?.name)}</span></p>`).join('')}</div>` : ''}`;
     app.innerHTML = shell('Mis obras', body, '/estudio/obras'); bindPicker(works);
+    // Se reemplaza atómicamente la elección anterior. El servidor valida equipo,
+    // obra publicada y permisos; nunca basta con esconder botones en el cliente.
+    app.querySelectorAll('[data-feature]').forEach(btn=>btn.onclick=()=>busy(btn,async()=>{
+      const teamId=T.team.id, seriesId=btn.dataset.feature, next=featuredSeriesId===seriesId?null:seriesId;
+      const {error}=await sb.rpc('team_feature_set',{p_team_id:teamId,p_series_id:next});
+      if(error)throw error;
+      if(T.team?.id!==teamId)return;
+      toast(next?'Obra destacada para la rotación de equipos':'Recomendación retirada');
+      works();
+    }));
     app.querySelectorAll('[data-new]').forEach(b => b.onclick = () => busy(b, () => newChapter(list.find(w => w.id === b.dataset.new))));
     app.querySelectorAll('[data-acc],[data-rej]').forEach(b => b.onclick = () => busy(b, async () => { const { error } = await sb.from('collaborations').update({ status: b.dataset.acc ? 'accepted' : 'rejected' }).eq('id', b.dataset.acc || b.dataset.rej); if (error) throw error; toast('Respuesta enviada'); works(); }));
   }
