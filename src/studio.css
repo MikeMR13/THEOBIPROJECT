@@ -838,3 +838,22 @@ body.in-studio .s2-main > *{min-width:0;max-width:100%}
     scroll-behavior:auto;
   }
 }
+
+/* Estudio → Mis obras · Recomendación del carrusel separada de la gestión editorial.
+   El acento procede de --c (obra/equipo); nunca se altera un tema de temporada. */
+.s2 .s2-work .s2-work-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:auto;min-width:0}
+.s2 .s2-work .s2-work-primary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-width:0}
+.s2 .s2-work .s2-work-primary .btn{display:inline-flex;align-items:center;justify-content:center;min-width:0;min-height:42px;max-width:100%;padding:9px 11px;text-align:center;white-space:normal;overflow-wrap:break-word;line-height:1.3;font-size:13px}
+.s2 .s2-work .s2-work-recommend{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:11px 12px;min-width:0;background:#191710;border:1px solid #3d3628}
+.s2 .s2-work .s2-work-recommend-info{display:grid;gap:3px;min-width:0;flex:1 1 125px}
+.s2 .s2-work .s2-work-recommend-info b{font-size:12px;line-height:1.35;font-weight:700;color:var(--paper)}
+.s2 .s2-work .s2-work-recommend-info small{font:11px/1.4 'IBM Plex Mono',monospace;color:var(--mute)}
+.s2 .s2-work .s2-feature-toggle{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:0 1 auto;min-width:0;max-width:100%;min-height:40px;padding:8px 12px;font:700 12px/1.35 'IBM Plex Sans',sans-serif;white-space:normal;text-align:center;color:var(--paper)!important;background:#222019;border:2px solid #5a5240;overflow-wrap:break-word}
+.s2 .s2-work .s2-feature-toggle[aria-pressed="true"]{background:color-mix(in srgb,var(--c,var(--gold)) 17%,#17150f);border-color:var(--c,var(--gold));color:var(--paper)!important;box-shadow:inset 3px 0 var(--c,var(--gold))}
+.s2 .s2-work .s2-feature-toggle:is(:hover,:focus-visible){border-color:var(--c,var(--gold));background:#2c281f;color:var(--paper)!important}
+.s2 .s2-work .s2-feature-toggle span{color:inherit}
+.s2 .s2-work .s2-work-secondary{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 14px;min-width:0}
+.s2 .s2-work .s2-work-secondary .btn{display:inline-flex;align-items:center;justify-content:center;flex:0 1 auto;max-width:100%;min-height:38px;padding:7px 12px;white-space:normal;text-align:center;font-size:12px;line-height:1.4}
+.s2 .s2-work .s2-work-secondary .lnk{display:inline-flex;align-items:center;min-height:38px;max-width:100%;font-size:12px;overflow-wrap:anywhere}
+@media(max-width:600px){.s2 .s2-work .s2-work-primary{grid-template-columns:minmax(0,1fr)}.s2 .s2-work .s2-work-recommend{padding:10px}.s2 .s2-work .s2-work-secondary{align-items:flex-start;gap:6px}}
+@media(prefers-reduced-motion:reduce){.s2 .s2-work .s2-feature-toggle{transition:none}}
