@@ -67,7 +67,7 @@ function fixture(){
      document.dispatchEvent(new Event('visibilitychange'));
      check(synth.cancelled===c,'Ocultar pantalla no cancela lectura TTS');
      synth.last.onend();
-     check(app.querySelector('.tts-status').textContent.includes('3 s'),'Espera comienza después del audio');
+     check(document.querySelector('.tts-status').textContent.includes('3 s'),'Espera comienza después del audio');
      await delay(1200);
      check(navCount===0,'No navegar antes de los segundos configurados');
      await delay(2200);
@@ -84,7 +84,7 @@ function fixture(){
      app.querySelector('[data-tts]').click();
      await delay(60);
      check(synth.last.text===oldText,'Retomar desde el mismo fragmento');
-     app.querySelector('[data-t="close"]').click();
+     document.querySelector('[data-t="close"]').click();
      check(!window.__obiTTS.isActive(),'Cerrar libera paginado visual');
      // Modo continuo: transición inmediata sin contador ni cambio de motor de voz.
      activeMode='all';allowAuto=false;navCount=0;
