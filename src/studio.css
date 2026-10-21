@@ -195,3 +195,41 @@ body.in-studio>main{max-width:none;margin:0;padding:0}body.in-studio .s2{margin:
  .s2-work .cv{max-width:100%}
 }
 @media(prefers-reduced-motion:reduce){.s2-work{transition:none}}
+
+
+/* Ficha editorial compartida: Nueva obra, Importar nueva obra y Datos de obra. */
+.wf-creator{width:100%;min-width:0}
+.wf-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:18px;margin:16px 0}
+.wf-section{min-width:0;align-content:start}
+.wf-field{display:grid;gap:6px;min-width:0;font-size:13px;font-weight:600}
+.wf-field :is(input,select,textarea){width:100%;min-width:0;max-width:100%;font:inherit;font-size:14px}
+.wf-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0}
+.wf-help{font-size:12px;line-height:1.5;margin:0}
+.wf-genres{max-height:240px;overflow-y:auto;overscroll-behavior:contain;align-content:flex-start;padding:8px;background:#0d0c0a;border:1px solid #3d3628}
+.wf-genres .ed-chip{min-height:34px}
+.wf-genres [hidden]{display:none!important}
+.wf-adult{display:flex!important;align-items:flex-start;gap:8px;line-height:1.5}
+.wf-adult input{width:18px!important;height:18px;flex:none}
+.wf-rel-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(125px,170px) auto;gap:8px;align-items:center;min-width:0}
+.wf-rel-controls :is(select,button){min-width:0;max-width:100%;min-height:40px}
+.wf-rel-item{display:grid;grid-template-columns:minmax(0,1fr) 160px auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #2f2a20;min-width:0}
+.wf-rel-item>span{min-width:0;overflow-wrap:anywhere;font-size:13px}
+.wf-rel-item :is(select,button){min-width:0;max-width:100%}
+.wf-create-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;max-width:1100px}
+.wf-create-choices .wk-box{display:grid;gap:8px;border-top:3px solid #3d3628}
+.wf-createbox{max-width:900px}
+.wf-create-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px}
+.imp-dest>.imp-new-series{grid-column:1/-1}
+.imp-new-series #imp-new-work{min-width:0}
+.imp-new-series #imp-new-work>h3{margin:0}
+.imp-new-series .wf-form{margin-bottom:0}
+@media(max-width:1100px){
+  .wf-form{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:640px){
+  .wf-two,.wf-create-choices{grid-template-columns:minmax(0,1fr)}
+  .wf-rel-controls,.wf-rel-item{grid-template-columns:minmax(0,1fr)}
+  .wf-create-actions>*{flex:1 1 100%;text-align:center}
+  .wf-form{gap:12px}
+  .wf-section{padding:14px}
+}
