@@ -366,7 +366,7 @@ export function createStudio(ctx){
 
 
   const GENRES = WORK_GENRES;
-  const WTYPES = ['Novela ligera','Novela web','Obra original'], DEMOS = WORK_DEMOGRAPHICS.filter(x => x[0]).map(x => x[0]);
+  const WTYPES = ['Novela ligera','Novela web','Obra original'];
   const OSL = [['publishing','En publicación'],['completed','Completada'],['paused','En pausa'],['cancelled','Cancelada']];
   const VST = { draft: ['Borrador', '#f2c230'], scheduled: ['Programado', '#8cc3f2'], published: ['Publicado', '#a9d18e'], hidden: ['Oculto', '#f59e7a'] };
   async function work(slug){
@@ -422,7 +422,7 @@ export function createStudio(ctx){
     const datos = () => `<div class="wk-dat">
       <section class="wk-box"><h2>Ficha</h2>${inp('title', 'Título en español', 'maxlength="200"')}${inp('short', 'Título corto (cinta y lomo)', 'maxlength="26"')}${inp('original', 'Título original', 'maxlength="300"')}${inp('title_romaji', 'Lectura / rōmaji del título', 'maxlength="300"')}${inp('publisher', 'Editorial', 'maxlength="120"')}
         <div class="wk-g2">${inp('author', 'Autor', 'maxlength="120"')}${inp('illustrator', 'Ilustración', 'maxlength="120"')}
-          <label>Tipo${sel('work_type', WTYPES)}</label><label>Demografía${sel('demographic', [['', 'Sin asignar'], ...DEMOS])}<small class="mono" id="wk-dem-desc">${esc((WORK_DEMOGRAPHICS.find(x => x[0] === D.demographic) || WORK_DEMOGRAPHICS[0])[2])}</small></label>
+          <label>Tipo${sel('work_type', WTYPES)}</label><label>Demografía${sel('demographic', WORK_DEMOGRAPHICS.map(([k,l]) => [k,l]))}<small class="mono" id="wk-dem-desc">${esc((WORK_DEMOGRAPHICS.find(x => x[0] === D.demographic) || WORK_DEMOGRAPHICS[0])[2])}</small></label>
           <label>Traducción${sel('translation_status', Object.entries(TLS).map(([k, v]) => [k, v[0]]))}</label><label>Obra original${sel('original_status', [['', 'Sin asignar'], ...OSL])}</label></div>
         <label><span class="wk-lh">Sinopsis<span class="mono" id="syncount">${D.synopsis.length} / 1500</span></span><textarea data-d="synopsis" rows="7" maxlength="1500">${esc(D.synopsis)}</textarea><small class="mono">La primera frase se usa como gancho en el carrusel de Inicio.</small></label>
         <label class="tb-inl"><input type="checkbox" data-d="adult" ${D.adult ? 'checked' : ''}> Contenido +18 (pide confirmación al lector)</label></section>
