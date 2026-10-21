@@ -17,6 +17,8 @@ jobs:
       - run: npm run check && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run studio-fields-check && npm run integration-check
       - name: "Inicio editorial: espaciado de etiquetas, ranking y títulos en 5 tamaños"
         run: npm run home-hero-layout-check
+      - name: "Inicio mixto: rotación diaria, equipos y novela completa inmediata"
+        run: npm run home-featured-check
       - name: "Publicaciones editoriales: volúmenes antes que capítulos"
         run: npm run home-volume-check
       - name: Contratos de accesibilidad y conservación editorial
