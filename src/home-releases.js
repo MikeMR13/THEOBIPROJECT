@@ -28,7 +28,8 @@ export function homeReleaseOverview(latest = [], volumes = [], visibleSeries = [
     const chs = chapters.get(s.id) || [];
     const c = chs[0], v = lastVolume.get(s.id);
     const tc = c ? atMs(c.publish_at) : -1, tv = v ? atMs(v.published_at) : -1;
-    if (v && tv + 60000 >= tc) {
+    // Algunos importadores asignan publish_at a sus capítulos minutos después de publicar el volumen.
+    if (v && tv + 30 * 60000 >= tc) {
       entries.push({ id: s.id, kind: 'volume', volume: v, chs: [], at: v.published_at, time: tv });
     } else if (c) {
       // No mezclar capítulos de publicaciones históricas en un mismo anuncio.
