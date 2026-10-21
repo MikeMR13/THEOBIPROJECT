@@ -24,5 +24,7 @@ jobs:
       - run: npm run studio-browser-check
       - name: QA visual responsive (5 anchuras, datos ficticios)
         run: npm run visual-browser-check
+      - name: Estudio Fase 1 — geometría en seis anchuras
+        run: npm run studio-visual-phase1-check
       - name: Validar compilación Preview aislada
         run: VERCEL_ENV=preview OBI_SUPABASE_URL=https://obi-qa-backend.invalid OBI_SUPABASE_PUBLISHABLE_KEY=sb_publishable_qa_mock_not_connected npm run build && npm run preview-isolation-check
