@@ -295,3 +295,64 @@ main>p,main>h1+p{max-width:75ch}
 .ob-pager2 button[aria-current="true"]::before{background:#3d3628}
 .ob-pager2 button[aria-current] i.ob-hp{top:17px!important;bottom:auto!important;height:10px!important}
 }
+
+
+/* Ficha pública de obras · fases editoriales 1–2: solo /serie/:slug. */
+.ui-series-hero{min-height:320px}
+.ui-series-hero h1{text-wrap:balance}
+.ui-series-hero .ui-facts{gap:10px 18px;margin:20px 0}
+.ui-series-hero .ui-facts>div{padding:10px 12px;border-left:2px solid #4c3c21;background:rgba(12,10,8,.3)}
+.ui-series-actions{align-items:center}
+.ui-series-actions .ui-jump{border-color:#a98b40}
+.ui-series-nav{position:relative;display:flex;flex-wrap:nowrap;align-items:center;gap:4px;margin:-32px 0 -14px;padding:0 0 8px;border-bottom:1px solid #4a3b25;overflow-x:auto;scrollbar-width:thin;scroll-padding-inline:12px}
+.ui-series-nav a{display:inline-flex;flex:none;align-items:center;justify-content:center;min-height:44px;padding:10px 15px;color:#d5c7a4;text-decoration:none;font-size:13px;font-weight:600;border-bottom:2px solid transparent}
+.ui-series-nav a:hover,.ui-series-nav a:focus-visible{color:var(--paper);border-bottom-color:var(--gold)}
+.ui-series-synopsis,.ui-series-library,#rv-sec{scroll-margin-top:96px}
+#serie-info{scroll-margin-top:70px}
+.ui-series-library .ui-h2{align-items:center;margin-bottom:12px}
+.ui-series-shelfbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px 16px;margin-bottom:16px;color:#a89f8a}
+.ui-series-views{display:inline-flex;flex-wrap:nowrap;border:1px solid #594a30;background:#100f0b;padding:3px;gap:3px}
+.ui-series-views button{min-height:44px;min-width:94px;padding:9px 14px;border:1px solid transparent;background:none;color:#d2c6ac;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.ui-series-views button[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:#0d0c0a}
+.ui-series-views button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.ui-vols.is-galeria{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,290px),1fr));gap:20px;align-items:start}
+.ui-vols .ui-vol-book{position:relative;min-width:0;transition:box-shadow .18s,border-color .18s}
+.ui-vols .ui-vol-book:hover{border-color:#9f823c;box-shadow:0 12px 34px rgba(0,0,0,.25)}
+.ui-vols .ui-v-cover{position:relative;display:block;aspect-ratio:2/3;border:1px solid #55462d;background-color:#292119;background-position:center;background-size:cover;box-shadow:10px 13px 20px rgba(0,0,0,.38);overflow:hidden;flex:none}
+.ui-vols .ui-v-cover .ui-v-spine{position:absolute;top:0;bottom:0;left:0;width:8px;background:linear-gradient(90deg,rgba(0,0,0,.48),rgba(255,255,255,.08),rgba(0,0,0,.12));pointer-events:none}
+.ui-vols .ui-v-cover.no-cover{display:grid;place-items:center;background:linear-gradient(140deg,#3a2d1b,#16130d 75%);border-top:5px solid var(--gold)}
+.ui-vols .ui-v-placeholder{display:grid;justify-items:center;gap:14px;color:var(--gold);font:600 40px/1 'Shippori Mincho B1',serif}
+.ui-vols .ui-v-placeholder small{color:#e2cf9e;font:600 11px 'IBM Plex Mono',monospace;letter-spacing:.14em}
+.ui-vols .ui-v-content{min-width:0;display:grid;gap:13px;align-content:start}
+.ui-vols .ui-v-heading{display:grid;gap:6px;min-width:0}
+.ui-vols .ui-v-heading h3{font-size:clamp(19px,2.5vw,24px);line-height:1.25;overflow-wrap:anywhere}
+.ui-vols .ui-v-syn{margin:0;color:#cec3ac;font-size:13px;line-height:1.55;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden;white-space:pre-line}
+.ui-vols .ui-v-actions{display:flex;flex-wrap:wrap;gap:8px}
+.ui-vols .ui-v-actions .btn{display:inline-flex;align-items:center;min-height:44px;font-size:13px}
+.ui-vols .ui-v-index{min-width:0;margin:0;border-top:1px solid #433827;border-bottom:1px solid #433827}
+.ui-vols .ui-v-index>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:48px;padding:9px 0;list-style:none;cursor:pointer;font-size:13px;font-weight:700;color:var(--paper)}
+.ui-vols .ui-v-index>summary::-webkit-details-marker{display:none}
+.ui-vols .ui-v-index>summary span{color:#ccbd9a;font-size:11px;white-space:nowrap}
+.ui-vols .ui-v-index>summary:hover,.ui-vols .ui-v-index>summary:focus-visible{color:var(--gold)}
+.ui-vols .ui-v-index>summary:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.ui-vols .ui-v-index[open]>summary{border-bottom:1px solid #403525}
+.ui-vols .ui-v-index[open]>summary [aria-hidden="true"]{display:inline-block;transform:rotate(180deg)}
+.ui-vols .ui-v-index .ui-chl{margin:8px 0 14px;grid-template-columns:1fr;gap:3px}
+.ui-vols .ui-v-index .ui-chl a{min-height:42px;align-items:center}
+.ui-vols .ui-v-index .ui-chl .fx-tag{white-space:nowrap}
+.ui-vols .ui-vol-book .ui-dl{margin:4px 0 0;min-width:0}
+.ui-vols .ui-vol-book .ui-dl-featured{margin:2px 0;padding:12px;gap:8px}
+.ui-vols .ui-vol-book .ui-dl-featured .ui-dlb{flex:1 1 105px;min-width:min(100%,105px)}
+.ui-vols .ui-vol-book .ui-dl-featured .ui-dl-title{font-size:11px}
+.ui-vols.is-galeria .ui-vol-book{display:grid;grid-template-columns:1fr!important;gap:0;padding:0}
+.ui-vols.is-galeria .ui-v-cover{width:min(65%,190px);margin:22px auto 12px;min-height:0}
+.ui-vols.is-galeria .ui-v-content{padding:12px 18px 20px}
+.ui-vols.is-lista{display:grid;grid-template-columns:1fr;gap:14px}
+.ui-vols.is-lista .ui-vol-book{display:grid;grid-template-columns:110px minmax(0,1fr)!important;gap:20px;padding:18px}
+.ui-vols.is-lista .ui-v-cover{width:110px;margin:0}
+.ui-vols.is-lista .ui-v-content{gap:12px}
+.ui-vols.is-lista .ui-v-syn{-webkit-line-clamp:2}
+.ui-vols.is-lista .ui-v-index .ui-chl{grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:2px 16px}
+@media(max-width:700px){.ui-series-nav{margin:-30px 0 -18px}.ui-vols.is-galeria{grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr))}}
+@media(max-width:480px){.ui-series-nav{margin:-30px 0 -20px}.ui-series-nav a{padding:9px 12px}.ui-series-views{width:100%}.ui-series-views button{flex:1}.ui-vols.is-galeria{grid-template-columns:1fr}.ui-vols.is-lista .ui-vol-book{grid-template-columns:80px minmax(0,1fr)!important;gap:12px;padding:12px}.ui-vols.is-lista .ui-v-cover{width:80px}.ui-vols .ui-v-heading h3{font-size:19px}.ui-vols.is-lista .ui-v-content{gap:8px}.ui-vols.is-lista .ui-vol-book .ui-dl-featured{padding:9px}.ui-vols.is-lista .ui-vol-book .ui-dl-featured .ui-dlb{flex:1 1 100%;min-width:0}}
+@media(prefers-reduced-motion:reduce){.ui-vols .ui-vol-book{transition:none}}
