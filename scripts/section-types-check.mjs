@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { SECTION_TYPES, SECTION_LABELS, inferSectionType } from '../src/section-types.js';
+import { chapterMatches } from '../src/series-organization.js';
 
 const legacy = ['Capítulo','Prólogo','Interludio','Epílogo','Afterword','Extra'];
 const added = ['Créditos','Ilustraciones','Episodio corto','Avance'];
@@ -29,6 +30,13 @@ assert(files['src/studio-editor.js'].includes('SEC.map('),'El selector editorial
 assert(files['src/studio-importer.js'].includes('SEC.map('),'Importador no ofrece estos tipos en revisión');
 assert(files['src/studio-importer.js'].includes('type: inferSectionType(t)'),'EPUB no clasifica los tipos');
 assert(files['src/studio-importer.js'].includes('type: inferSectionType(b.text)'),'PDF no clasifica los tipos');
+assert(files['src/studio-importer.js'].includes("const special = ['Créditos', 'Ilustraciones', 'Episodio corto', 'Avance']"),'Importador sigue descartando créditos o ilustraciones detectados');
+assert(chapterMatches({num:9,title:'Láminas',type:'Ilustraciones'},'ilustraciones'),'Buscar no encuentra categorías de sección');
+assert(chapterMatches({num:10,title:'Nota final',type:'Créditos'},'creditos'),'Buscar no encuentra créditos');
+assert(!chapterMatches({num:11,title:'Capítulo normal',type:'Capítulo'},'episodio corto'),'Búsqueda tiene falsos positivos');
+const series=readFileSync('src/ui.js','utf8');
+assert(series.includes('data-chapter-type='),'Ficha no expone tipo para búsqueda');
+assert(series.includes('class="ui-ch-type"'),'Ficha pública no muestra los nuevos tipos');
 assert(files['src/reader.js'].includes('const SEC_LABEL = SECTION_LABELS;'),'Lector no usa las nuevas etiquetas');
 assert(files['src/reader.js'].includes("ch.section_type === 'Capítulo' || !ch.section_type ? ' ' + ch.num : ''"),'El lector debe mantener numeración solo en Capítulo');
 assert(files['scripts/studio-browser-e2e.mjs'].includes("['/section-types.js','src/section-types.js']"),'La prueba de navegador no sirve el módulo');
