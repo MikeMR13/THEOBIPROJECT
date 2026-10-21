@@ -18,7 +18,7 @@
   const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
   let voices = [], segments = [], index = 0, playing = false;
   let current = null, generation = 0, panel = null, reader = null;
-  let turnTimer = 0, turnDeadline = 0, pendingPath = '';
+  let turnTimer = 0, turnDeadline = 0, turnTick = null, pendingPath = '';
   const CURSOR_KEY = 'obi-tts-cursor-v1';
   // La barra abierta inhibe el paginado visual para que no interrumpa la narración.
   window.__obiTTS = { isActive: () => !!pendingPath || !!(panel && !panel.hidden) };
@@ -166,7 +166,7 @@
         s.block === b.block && s.partIndex === b.partIndex && s.text === b.text);
     } catch { return -1; }
   }
-  function clearTurn() { clearTimeout(turnTimer); turnTimer = 0; turnDeadline = 0; }
+  function clearTurn() { clearTimeout(turnTimer); turnTimer = 0; turnDeadline = 0; turnTick = null; }
   function finishedChapter() {
     const info = infoFor();
     if (!info?.next || (!info.canContinue && !info.autonext)) return stop(true);
@@ -189,6 +189,7 @@
       setStatus(`Siguiente capítulo en ${left} s`);
       turnTimer = setTimeout(tick, Math.min(1000, Math.max(10, turnDeadline - Date.now())));
     };
+    turnTick = tick;
     tick();
   }
   function cancelSpeech() {
@@ -385,9 +386,8 @@
     if (document.visibilityState === 'hidden' && !turnTimer) saveCursor();
     if (document.visibilityState === 'visible' && turnTimer && Date.now() >= turnDeadline) {
       // Al despertar la pestaña, el reloj absoluto mantiene la espera real.
-      clearTimeout(turnTimer); turnTimer = setTimeout(() => {
-        if (playing) finishedChapter();
-      }, 0);
+      clearTimeout(turnTimer);
+      turnTimer = setTimeout(() => { if (playing) turnTick?.(); }, 0);
     }
   });
   window.addEventListener('pagehide', () => stop());
