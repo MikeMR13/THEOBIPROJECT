@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { spawn, execFileSync } from 'node:child_process';
 const source=readFileSync('src/ui.js','utf8');
 const tick=String.fromCharCode(96);
-const getCss=()=>{const a=source.indexOf('const CSS = '+tick),b=source.indexOf(tick+';',a+14);assert(a>=0&&b>a,'CSS público ausente');return source.slice(a+14,b)};
+const getCss=()=>{const a=source.indexOf('const CSS = '+tick),b=source.indexOf(tick+';',a+14);assert(a>=0&&b>a,'CSS público ausente');return source.slice(a+('const CSS = '+tick).length,b)};
 const css=readFileSync('src/styles.css','utf8')+'\n'+getCss();
 const start=source.indexOf('class="ui-dl ui-dl-featured"'),list=source.indexOf('<ul class="ui-chl">',start);
 assert(start>=0&&list>start,'Descargas no están antes del índice de capítulos');
