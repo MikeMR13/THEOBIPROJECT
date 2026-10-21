@@ -8,10 +8,12 @@ const fieldMap=new Map();
 const field=id=>{
   if(!fieldMap.has(id))fieldMap.set(id,{
     id,tagName:id==='nw-work_type'?'SELECT':'INPUT',value:'',textContent:'',
-    focus(){},addEventListener(){},removeEventListener(){}
+    dataset:id==='nw-title'?{w:'title'}:{},
+    focus(){},addEventListener(type,fn){this['on'+type]=fn},removeEventListener(){}
   });
   return fieldMap.get(id);
 };
+const mockFields={querySelectorAll(sel){return sel==='[data-w]'?[field('nw-title')]:[]},querySelector(){return null}};
 globalThis.document={
   addEventListener(type){events.push(type);},
   getElementById(id){return id==='st2-css'?{sheet:{}}:null;},
@@ -52,7 +54,7 @@ function fixture({perms={create:true,import:true,edit:true,publish:true}}={}){
       const state={field:'',insert:null};
       const q={
         select(name){state.field=name;return q},
-        eq(){return q},is(){return q},limit(){return q},order(){return q},not(){return q},gte(){return q},
+        eq(){return q},is(){return q},limit(){return q},order(){return q},or(){return q},not(){return q},gte(){return q},
         insert(v){state.insert=v;inserted.push({table,values:v});return q},
         single(){return Promise.resolve(state.insert?{data:table==='series'?{id:'series-1',slug:state.insert.slug,title:state.insert.title}:table==='volumes'?{id:'volume-1',num:1}:{id:'chapter-1'}}:valueFor(table,state.field))},
         maybeSingle(){return Promise.resolve(valueFor(table,state.field))},
@@ -62,7 +64,7 @@ function fixture({perms={create:true,import:true,edit:true,publish:true}}={}){
     }
   };
   const ctx={
-    sb,app,$:s=>s.startsWith('#nw-')?field(s.slice(1)):null,
+    sb,app,$:s=>s==='#nw-fields'?mockFields:s.startsWith('#nw-')?field(s.slice(1)):null,
     esc:s=>String(s??''),toast:s=>notices.push(s),go:s=>redirects.push(s),
     getUser:()=>({id:'user-1'}),getMe:()=>({platform_role:'member'}),
     url:'https://example.supabase.co'
@@ -75,7 +77,7 @@ const happy=fixture();
 await happy.studio.newWork();
 assert.match(happy.app.innerHTML,/Datos de la obra/);
 const title=field('nw-title');
-title.oninput({target:{value:'Crónicas del Dragón'}}); 
+title.value='Crónicas del Dragón'; title.oninput(); 
 await field('nw-go').onclick({currentTarget:{disabled:false,textContent:'Crear obra y continuar',dataset:{}}});
 assert.equal(happy.inserted.length,1,'La creación debe alcanzar PostgREST; si falta slugify falla silenciosamente');
 assert.equal(happy.inserted[0].table,'series');

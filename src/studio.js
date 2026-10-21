@@ -1,5 +1,6 @@
 import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=1';
 import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
+import { WORK_GENRES, WORK_DEMOGRAPHICS, createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
 // El editor y el importador cargan blocks.js al abrir sus pantallas.
 // Estudio del traductor: obras, volúmenes, publicación, editor con guardado atómico, importador EPUB/DOCX/PDF, multimedia, equipo y colaboraciones.
 document.addEventListener('click', e => { const i = e.target.closest?.('input[type=date],input[type=datetime-local]'); if (i && !i.disabled && !i.readOnly) try { i.showPicker(); } catch {} });
@@ -106,8 +107,8 @@ export function createStudio(ctx){
     if (!opts.some(o => o[0] === k)) opts.push([k, tzLabel(k)]);
     return `<div class="s2-tools">
       <label class="s2-tz" title="Zona con la que se muestran y programan las fechas"><span aria-hidden="true">◷</span><select id="st-tz" aria-label="Zona horaria">${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
-      <div class="s2-bellw"><button type="button" class="s2-bell" id="st-bell" aria-label="Avisos" aria-expanded="false"><span aria-hidden="true">鈴</span><em id="st-bell-n" hidden></em></button><div class="s2-pop" id="st-bell-list" hidden></div></div>
-      <div class="s2-srch"><input id="st-q" type="search" placeholder="Buscar en el Estudio…" autocomplete="off" aria-label="Buscar en el Estudio"><div class="s2-pop" id="st-q-res" hidden></div></div>
+      <div class="s2-bellw"><button type="button" class="s2-bell" id="st-bell" aria-label="Avisos" aria-controls="st-bell-list" aria-expanded="false"><span aria-hidden="true">鈴</span><em id="st-bell-n" hidden></em></button><div class="s2-pop" id="st-bell-list" hidden></div></div>
+      <div class="s2-srch"><input id="st-q" type="search" placeholder="Buscar en el Estudio…" autocomplete="off" aria-label="Buscar en el Estudio" aria-controls="st-q-res" aria-expanded="false"><div class="s2-pop" id="st-q-res" hidden></div></div>
     </div>`; };
   // el mismo menú de cuenta que en el sitio (foto, Mi perfil, Preferencias, Salir…), copiado del encabezado público
   const mountMe = () => { const slot = document.getElementById('st-me'), src = document.querySelector('#session .ob-user'); if (!slot || !src || slot.dataset.ok) return; slot.dataset.ok = '1';
@@ -127,8 +128,8 @@ export function createStudio(ctx){
   let qT = 0, qSeq = 0;
   async function search(q){
     const res = document.getElementById('st-q-res'), my = ++qSeq; if (!res) return;
-    if (q.length < 2) { res.hidden = true; return; }
-    res.hidden = false; res.innerHTML = '<p class="mono" style="padding:12px;margin:0">Buscando…</p>';
+    if (q.length < 2) { res.hidden = true; document.getElementById('st-q')?.setAttribute('aria-expanded','false'); return; }
+    res.hidden = false; document.getElementById('st-q')?.setAttribute('aria-expanded','true'); res.innerHTML = '<p class="mono" style="padding:12px;margin:0">Buscando…</p>';
     const like = '%' + q.replace(/[%_\\]/g, m => '\\' + m) + '%';
     const [s, c, g] = await Promise.all([
       sb.from('series').select('slug,title').eq('team_id', T.team.id).is('archived_at', null).ilike('title', like).limit(5),
@@ -141,7 +142,12 @@ export function createStudio(ctx){
       + grp('GLOSARIO', (g.data || []).map(x => `<a class="s2-qr" href="/estudio/glosario/${esc(x.series?.slug || '')}"><b>${esc(x.term)}</b><small>${esc(x.category)} · ${esc(x.series?.title || '')}</small></a>`));
     res.innerHTML = html || `<p class="mono" style="padding:12px;margin:0">Nada con «${esc(q)}».</p>`;
   }
-  const closePops = except => document.querySelectorAll('.s2-pop').forEach(p => { if (p !== except) { p.hidden = true; } }), bellBtn = () => document.getElementById('st-bell');
+  const closePops = except => document.querySelectorAll('.s2-pop').forEach(p => {
+    if (p === except) return;
+    if (p.id === 'st-q-res') { clearTimeout(qT); ++qSeq; document.getElementById('st-q')?.setAttribute('aria-expanded','false'); }
+    if (p.id === 'st-bell-list') document.getElementById('st-bell')?.setAttribute('aria-expanded','false');
+    p.hidden = true;
+  }), bellBtn = () => document.getElementById('st-bell');
   document.addEventListener('click', e => {
     if (!document.body.classList.contains('in-studio')) return;
     if (e.target.closest('#st-bell')) { const box = document.getElementById('st-bell-list'); closePops(box); if (box.hidden) bellOpen(); else { box.hidden = true; bellBtn()?.setAttribute('aria-expanded', 'false'); } return; }
@@ -151,6 +157,11 @@ export function createStudio(ctx){
   document.addEventListener('input', e => { if (e.target.id === 'st-q') { clearTimeout(qT); const v = e.target.value.trim(); qT = setTimeout(() => search(v), 250); } });
   document.addEventListener('keydown', e => {
     if (e.target.id === 'st-q') { if (e.key === 'Escape') { e.target.value = ''; closePops(); } if (e.key === 'Enter') { const a = document.querySelector('#st-q-res a'); if (a) { e.preventDefault(); closePops(); go(a.getAttribute('href')); } } }
+    if (e.key === 'Escape' && document.body.classList.contains('in-studio')) {
+      const bell = document.getElementById('st-bell-list'), results = document.getElementById('st-q-res');
+      const open = (bell && !bell.hidden) || (results && !results.hidden);
+      if (open) { e.preventDefault(); const hadBell = bell && !bell.hidden; closePops(); if (hadBell) bellBtn()?.focus(); }
+    }
     if (e.key === '/' && document.body.classList.contains('in-studio') && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) && !document.activeElement?.isContentEditable) { const q = document.getElementById('st-q'); if (q) { e.preventDefault(); q.focus(); } }
   });
   document.addEventListener('change', e => { if (e.target.id === 'st-tz') { localStorage.setItem('obi-tz-pick', e.target.value); toast('Fechas en ' + tzName()); dispatchEvent(new PopStateEvent('popstate')); } });
@@ -279,42 +290,87 @@ export function createStudio(ctx){
   // original al crear obras manualmente, sin cargar el importador completo.
   const slugify = s => (s || 'obra').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
 
-  // ---------- nueva obra paso a paso ----------
+  // ---------- nueva obra: misma ficha que el importador, sin publicar automáticamente ----------
   async function newWork(){
     if (!(await ensure())) return;
     const TAB = '/estudio/obras';
     if (!can('create')) { app.innerHTML = shell('Nueva obra', can('import') ? '<p>Tu rol solo permite importar. <a href="/estudio/importar">Importar un archivo →</a></p>' : '<p>Tu rol no permite crear obras.</p>', TAB); bindPicker(newWork); return; }
-    const N = { title: '', original: '', author: '', illustrator: '', work_type: Array.isArray(WTYPES[0]) ? WTYPES[0][0] : WTYPES[0], synopsis: '', vtitle: '' }; let made = null;
-    const steps = n => `<ol class="st-steps" style="margin:0 0 22px">${['Obra', 'Primer volumen', 'Primer capítulo'].map((l, i) => `<li style="${i === n ? 'color:var(--gold);font-weight:700' : ''}">${l}</li>`).join('')}</ol>`;
-    const box = (h, inner) => `<section class="wk-box" style="max-width:760px;display:grid;gap:12px"><h2>${h}</h2>${inner}</section>`;
-    const step1 = () => { app.innerHTML = shell('Nueva obra', `${steps(0)}
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px;max-width:980px;margin:0 0 22px">
-        <div class="wk-box" style="border-top:4px solid var(--gold);display:grid;gap:6px"><b>Desde cero</b><span class="mono" style="font-size:12px;line-height:1.5">Llenas los datos de la obra, creamos el Volumen 1 y escribes el primer capítulo en el editor.</span></div>
-        ${can('import') ? '<a class="wk-box" href="/estudio/importar" style="display:grid;gap:6px;text-decoration:none;color:var(--paper)"><b>Importar un archivo →</b><span class="mono" style="font-size:12px;line-height:1.5">EPUB, DOCX o PDF: armamos la obra, el volumen, los capítulos, la portada y las ilustraciones.</span></a>' : ''}</div>
-      ${box('Datos de la obra', `<label>Título en español *<input id="nw-title" maxlength="200" value="${esc(N.title)}" placeholder="Por ejemplo: La bruja del faro"></label>
-        <label>Título original<input id="nw-original" maxlength="200" value="${esc(N.original)}"></label>
-        <div class="wk-g2"><label>Autor<input id="nw-author" maxlength="120" value="${esc(N.author)}"></label><label>Ilustración<input id="nw-illustrator" maxlength="120" value="${esc(N.illustrator)}"></label></div>
-        <label>Tipo<select id="nw-work_type">${WTYPES.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}" ${String(N.work_type) === String(v) ? 'selected' : ''}>${esc(l)}</option>`; }).join('')}</select></label>
-        <label>Sinopsis<textarea id="nw-synopsis" rows="4" maxlength="3000">${esc(N.synopsis)}</textarea></label>
-        <span class="mono" style="font-size:12px">La obra se crea privada. Géneros, etiquetas, portada y el resto de la ficha se completan después en «Datos de la obra».</span>
-        <span style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" id="nw-go">Crear obra y continuar →</button><a class="btn ghost" href="/estudio/obras">Cancelar</a></span>`)}`, TAB); bindPicker(newWork);
-      ['title', 'original', 'author', 'illustrator', 'work_type', 'synopsis'].forEach(k => { const el = $('#nw-' + k); el[el.tagName === 'SELECT' ? 'onchange' : 'oninput'] = e => { N[k] = e.target.value; }; });
-      $('#nw-title').focus();
+    const N = createWorkData(), relatedQuery = await sb.from('series')
+      .select('id,title,teams(name)').or('published.eq.true,team_id.eq.' + T.team.id)
+      .is('archived_at', null).order('title').limit(500);
+    const related = relatedQuery.data || [];
+    let made = null, cover = null, vtitle = '';
+    const steps = n => '<ol class="st-steps" style="margin:0 0 22px">' +
+      ['Obra', 'Primer volumen', 'Primer capítulo'].map((l,i) =>
+        '<li' + (i === n ? ' style="color:var(--gold);font-weight:700"' : '') + '>' + l + '</li>').join('') + '</ol>';
+    const box = (h,inner) => '<section class="wk-box wf-createbox"><h2>' + h + '</h2>' + inner + '</section>';
+    const step1 = () => {
+      const choices = '<div class="wf-create-choices"><div class="wk-box" style="border-top:4px solid var(--gold)">' +
+        '<b>Desde cero</b><small class="mono">Completa la ficha editorial y continúa con el primer volumen.</small></div>' +
+        (can('import') ? '<a class="wk-box" href="/estudio/importar" style="text-decoration:none;color:var(--paper)"><b>Importar un archivo →</b><small class="mono">EPUB, DOCX o PDF con la misma ficha editorial completa.</small></a>' : '') +
+        '</div>';
+      app.innerHTML = shell('Nueva obra', steps(0) + choices +
+        '<h2 class="s2-h2">Datos de la obra</h2><div class="wf-creator" id="nw-fields">' + renderWorkFields(N,esc,related) + '</div>' +
+        box('Portada de la obra (opcional)', '<label>JPG, PNG o WebP · máximo 8 MB<input type="file" id="nw-cover" accept="image/png,image/jpeg,image/webp"></label><small class="mono">Si no tienes portada, puedes agregarla después o usar la del volumen importado.</small>') +
+        '<div class="wf-create-actions"><button class="btn" id="nw-go">Guardar obra privada y continuar →</button><a class="btn ghost" href="/estudio/obras">Cancelar</a></div>', TAB);
+      bindPicker(newWork);
+      bindWorkFields($('#nw-fields'), N, esc, related, msg => { if (msg) toast(msg); });
+      $('#nw-cover').onchange = e => {
+        const v = e.target.files?.[0] || null;
+        if (v && (!/^image\/(jpeg|png|webp)$/.test(v.type) || v.size > LIMITS.image)) {
+          e.target.value = ''; cover = null; toast('Usa JPG, PNG o WebP de máximo 8 MB'); return;
+        }
+        cover = v;
+      };
       $('#nw-go').onclick = e => busy(e.currentTarget, async () => {
-        const title = N.title.trim(); if (!title) { $('#nw-title').focus(); throw new Error('Escribe el título de la obra'); }
-        let slug = slugify(title); const { data: taken } = await sb.from('series').select('id').eq('slug', slug).limit(1); if (taken?.length) slug += '-' + Date.now().toString(36).slice(-4);
-        const r = await sb.from('series').insert({ team_id: T.team.id, slug, title, short: title.slice(0, 26), original: N.original.trim() || null, author: N.author.trim() || null, illustrator: N.illustrator.trim() || null, work_type: N.work_type || null, synopsis: N.synopsis.trim() || null, published: false }).select().single();
-        if (r.error) throw new Error(errMsg(r.error)); made = { s: r.data }; T.works = null; toast('Obra creada'); step2(); }); };
-    const step2 = () => { app.innerHTML = shell('Nueva obra', `${steps(1)}${box('Volumen 1 de «' + esc(made.s.title) + '»', `
-        <label>Título del volumen (opcional)<input id="nw-vt" maxlength="200" value="${esc(N.vtitle)}" placeholder="Volumen 1"></label>
-        <span style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" id="nw-v">Crear volumen y escribir el capítulo 1 →</button>${can('import') ? '<a class="btn ghost" href="/estudio/importar">⇪ Importar este volumen desde un archivo</a>' : ''}</span>
-        <span class="mono" style="font-size:12px">Al importar, elige «${esc(made.s.title)}» como obra y Volumen 1.</span>
-        <a class="lnk" href="/estudio/obra/${made.s.slug}">Omitir por ahora e ir a la obra</a>`)}`, TAB); bindPicker(newWork);
-      $('#nw-vt').oninput = e => { N.vtitle = e.target.value; };
+        const data = workPayload(N), slugBase = slugify(data.title);
+        let slug = slugBase;
+        const { data: taken, error: probeErr } = await sb.from('series').select('id').eq('slug',slug).limit(1);
+        if (probeErr) throw new Error(errMsg(probeErr));
+        if (taken?.length) slug += '-' + Date.now().toString(36).slice(-4);
+        const { data: created, error } = await sb.from('series')
+          .insert({ ...data, team_id: T.team.id, slug, published: false }).select().single();
+        if (error) throw new Error(errMsg(error));
+        made = { s: created }; T.works = null;
+        if (cover) {
+          const ext = { 'image/jpeg':'jpg', 'image/png':'png', 'image/webp':'webp' }[cover.type];
+          const path = T.team.id + '/obras/' + slug + '/portada-' + Date.now() + '.' + ext;
+          const u = await sb.storage.from('obi-media').upload(path,cover,{contentType:cover.type,cacheControl:'31536000'});
+          if (!u.error) {
+            const p = await sb.from('series').update({ cover_path:path }).eq('id',created.id);
+            if (p.error) toast('Obra creada, pero no se pudo asignar la portada');
+          } else toast('Obra creada, pero no se pudo subir la portada: podrás añadirla después');
+        }
+        toast('Obra privada creada con su ficha editorial'); step2();
+      });
+      $('#nw-fields [data-w="title"]')?.focus();
+    };
+    const step2 = () => {
+      app.innerHTML = shell('Nueva obra', steps(1) +
+        box('Volumen 1 de «' + esc(made.s.title) + '»',
+          '<label>Título del volumen (opcional)<input id="nw-vt" maxlength="200" placeholder="Volumen 1" value="' + esc(vtitle) + '"></label>' +
+          '<span class="wf-create-actions"><button class="btn" id="nw-v">Crear volumen y escribir el capítulo 1 →</button>' +
+          (can('import') ? '<a class="btn ghost" href="/estudio/importar">⇪ Importar este volumen desde un archivo</a>' : '') + '</span>' +
+          '<span class="mono" style="font-size:12px">Al importar, elige «' + esc(made.s.title) + '» como obra y Volumen 1.</span>' +
+          '<a class="lnk" href="/estudio/obra/' + esc(made.s.slug) + '">Dejar sin volumen y editar la obra después</a>'), TAB);
+      bindPicker(newWork);
+      $('#nw-vt').oninput = e => { vtitle = e.target.value; };
       $('#nw-v').onclick = e => busy(e.currentTarget, async () => {
-        if (!made.v) { const vt = N.vtitle.trim(); const r = await sb.from('volumes').insert({ series_id: made.s.id, num: 1, status: 'draft', ...(vt ? { title: vt } : {}) }).select('id,num').single(); if (r.error) throw new Error(errMsg(r.error)); made.v = r.data; }
-        const c = await sb.from('chapters').insert({ series_id: made.s.id, volume_id: made.v.id, vol: 1, num: 1, title: 'Capítulo 1', body: [], status: 'draft', section_type: 'Capítulo' }).select('id').single(); if (c.error) throw new Error(errMsg(c.error));
-        toast('Volumen 1 y capítulo 1 listos · ya puedes escribir'); go('/estudio/editar/' + c.data.id); }); };
+        if (!made.v) {
+          const vt = vtitle.trim();
+          const r = await sb.from('volumes').insert({
+            series_id: made.s.id, num: 1, status: 'draft', ...(vt ? { title: vt } : {})
+          }).select('id,num').single();
+          if (r.error) throw new Error(errMsg(r.error)); made.v = r.data;
+        }
+        const c = await sb.from('chapters').insert({
+          series_id: made.s.id, volume_id: made.v.id, vol: 1, num: 1,
+          title: 'Capítulo 1', body: [], status: 'draft', section_type: 'Capítulo'
+        }).select('id').single();
+        if (c.error) throw new Error(errMsg(c.error));
+        toast('Primer volumen y capítulo preparados'); go('/estudio/editar/' + c.data.id);
+      });
+    };
     step1();
   }
 
@@ -345,8 +401,8 @@ export function createStudio(ctx){
   }
 
 
-  const GENRES = ['Acción','Artes marciales','Aventura','Ciencia ficción','Comedia','Cyberpunk','Deportes','Distopía','Drama','Ecchi','Escolar','Fantasía','Fantasía oscura','Gastronomía','Gender bender','Harem','Harem inverso','Histórico','Horror','Isekai','Juegos','LitRPG','Magia','Mecha','Militar','Misterio','Mitología','Música','Nobleza','Policiaco','Post-apocalíptico','Psicológico','Realidad virtual','Recuentos de la vida','Reencarnación','Romance','Romance de oficina','Sobrenatural','Superpoderes','Supervivencia','Suspenso','Terror','Thriller','Tragedia','Vampiros','Villana','Wuxia','Xianxia','Yaoi','Yuri'];
-  const WTYPES = ['Novela ligera','Novela web','Obra original'], DEMOS = ['Shōnen','Shōjo','Seinen','Josei'];
+  const GENRES = WORK_GENRES;
+  const WTYPES = ['Novela ligera','Novela web','Obra original'];
   const OSL = [['publishing','En publicación'],['completed','Completada'],['paused','En pausa'],['cancelled','Cancelada']];
   const VST = { draft: ['Borrador', '#f2c230'], scheduled: ['Programado', '#8cc3f2'], published: ['Publicado', '#a9d18e'], hidden: ['Oculto', '#f59e7a'] };
   async function work(slug){
@@ -393,21 +449,21 @@ export function createStudio(ctx){
           ${can('publish') && v.status === 'hidden' ? `<button class="btn ghost sm" data-show="${v.id}">Mostrar</button>` : ''}
           ${can('delete') ? `<button class="lnk danger" data-delvol="${v.id}">Borrar volumen</button>` : ''}</div>
           <div class="wk-ve" id="ve-${v.id}" hidden></div>
-          <div class="wk-tw"><div class="wk-t"><div class="wk-th"><span>${canSel && LL.length ? `<input type="checkbox" data-allv="${v.id}" aria-label="Seleccionar los capítulos del volumen ${v.num}" ${LL.every(c => SEL.has(c.id)) ? 'checked' : ''}>` : ''}</span><span>N.º</span><span>TÍTULO</span><span>ESTADO</span><span>FECHA</span><span></span></div>
-          ${LL.map(c => { const cs = VST[c.status] || VST.draft, sk = stg(c); return `<div class="wk-tr${SEL.has(c.id) ? ' sel' : ''}" data-row="${c.id}" data-vol="${v.id}" ${canDrag ? 'draggable="true"' : ''}><span class="wk-sel">${canDrag ? '<span class="wk-grip" title="Arrastra para reordenar o llévalo a otro volumen" aria-hidden="true">⠿</span>' : ''}${canSel ? `<input type="checkbox" data-pick="${c.id}" ${SEL.has(c.id) ? 'checked' : ''} aria-label="Seleccionar ${esc(c.title)}">` : ''}</span><span class="mono">${c.num}</span><span class="wk-tt">${c.section_type && c.section_type !== 'Capítulo' ? `<em>${esc(c.section_type)}</em> ` : ''}${esc(c.title)}${sk ? `<span class="wk-stg" style="--c:${STG[sk][2]}">${STG[sk][0]}</span>` : ''}</span><span class="mono" style="color:${cs[1]}">● ${cs[0]}</span><span class="mono">${c.status === 'draft' ? 'edit. ' + fmtD(c.updated_at) : fmtD(c.publish_at)}</span>
+          <div class="wk-tw"><div class="wk-t"><div class="wk-th"><span>${canSel && LL.length ? `<input type="checkbox" data-allv="${v.id}" aria-label="Seleccionar los capítulos del volumen ${v.num}" ${LL.every(c => SEL.has(c.id)) ? 'checked' : ''}>` : ''}</span><span>N.º</span><span>TÍTULO</span><span>ESTADO</span><span>FECHA</span><span>ACCIONES</span></div>
+          ${LL.map(c => { const cs = VST[c.status] || VST.draft, sk = stg(c); return `<div class="wk-tr${SEL.has(c.id) ? ' sel' : ''}" data-row="${c.id}" data-vol="${v.id}" ${canDrag ? 'draggable="true"' : ''}><span class="wk-sel">${canDrag ? '<span class="wk-grip" title="Arrastra para reordenar o llévalo a otro volumen" aria-hidden="true">⠿</span>' : ''}${canSel ? `<input type="checkbox" data-pick="${c.id}" ${SEL.has(c.id) ? 'checked' : ''} aria-label="Seleccionar ${esc(c.title)}">` : ''}</span><span class="mono">${c.num}</span><span class="wk-tt" title="${esc(c.title)}">${c.section_type && c.section_type !== 'Capítulo' ? `<em>${esc(c.section_type)}</em> ` : ''}${esc(c.title)}${sk ? `<span class="wk-stg" style="--c:${STG[sk][2]}">${STG[sk][0]}</span>` : ''}</span><span class="mono" style="color:${cs[1]}">● ${cs[0]}</span><span class="mono">${c.status === 'draft' ? 'edit. ' + fmtD(c.updated_at) : fmtD(c.publish_at)}</span>
             <span class="wk-ra">${can('edit') ? `<a class="btn ghost xs" href="/estudio/editar/${c.id}">Editar</a>` : ''}${can('publish') && c.status === 'draft' && v.status === 'published' ? `<button class="btn ghost xs gold" data-cpub="${c.id}">Publicar</button>` : ''}${can('delete') ? `<button class="lnk danger" data-delch="${c.id}" aria-label="Enviar ${esc(c.title)} a la papelera">Borrar</button>` : ''}</span></div>`; }).join('') || (L.length ? '<p class="tb-empty">Ningún capítulo de este volumen coincide con el filtro.</p>' : '<p class="tb-empty">Este volumen aún no tiene capítulos.</p>')}</div></div>` : ''}</section>`; };
-    const D = { title: s.title || '', short: s.short || '', original: s.original || '', author: s.author || '', illustrator: s.illustrator || '', work_type: s.work_type || 'Novela ligera', demographic: s.demographic || '', translation_status: s.translation_status || 'active', original_status: s.original_status || '', synopsis: s.synopsis || '', adult: !!s.adult, genres: [...(s.genres || [])], tags: [...(s.tags || [])] };
+    const D = { title: s.title || '', short: s.short || '', original: s.original || '', title_romaji: s.title_romaji || '', publisher: s.publisher || '', author: s.author || '', illustrator: s.illustrator || '', work_type: s.work_type || 'Novela ligera', demographic: s.demographic || '', translation_status: s.translation_status || 'active', original_status: s.original_status || '', synopsis: s.synopsis || '', adult: !!s.adult, genres: [...(s.genres || [])], tags: [...(s.tags || [])] };
     const sel = (k, opts) => `<select data-d="${k}">${opts.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}" ${String(D[k]) === v ? 'selected' : ''}>${esc(l)}</option>`; }).join('')}</select>`;
     const inp = (k, l, a = '') => `<label>${l}<input data-d="${k}" value="${esc(D[k])}" ${a}></label>`;
     const datos = () => `<div class="wk-dat">
-      <section class="wk-box"><h2>Ficha</h2>${inp('title', 'Título en español', 'maxlength="200"')}${inp('short', 'Título corto (cinta y lomo)', 'maxlength="26"')}${inp('original', 'Título original', 'maxlength="300"')}
+      <section class="wk-box"><h2>Ficha</h2>${inp('title', 'Título en español', 'maxlength="200"')}${inp('short', 'Título corto (cinta y lomo)', 'maxlength="26"')}${inp('original', 'Título original', 'maxlength="300"')}${inp('title_romaji', 'Lectura / rōmaji del título', 'maxlength="300"')}${inp('publisher', 'Editorial', 'maxlength="120"')}
         <div class="wk-g2">${inp('author', 'Autor', 'maxlength="120"')}${inp('illustrator', 'Ilustración', 'maxlength="120"')}
-          <label>Tipo${sel('work_type', WTYPES)}</label><label>Demografía${sel('demographic', [['', 'Sin asignar'], ...DEMOS])}</label>
+          <label>Tipo${sel('work_type', WTYPES)}</label><label>Demografía${sel('demographic', WORK_DEMOGRAPHICS.map(([k,l]) => [k,l]))}<small class="mono" id="wk-dem-desc">${esc((WORK_DEMOGRAPHICS.find(x => x[0] === D.demographic) || WORK_DEMOGRAPHICS[0])[2])}</small></label>
           <label>Traducción${sel('translation_status', Object.entries(TLS).map(([k, v]) => [k, v[0]]))}</label><label>Obra original${sel('original_status', [['', 'Sin asignar'], ...OSL])}</label></div>
         <label><span class="wk-lh">Sinopsis<span class="mono" id="syncount">${D.synopsis.length} / 1500</span></span><textarea data-d="synopsis" rows="7" maxlength="1500">${esc(D.synopsis)}</textarea><small class="mono">La primera frase se usa como gancho en el carrusel de Inicio.</small></label>
         <label class="tb-inl"><input type="checkbox" data-d="adult" ${D.adult ? 'checked' : ''}> Contenido +18 (pide confirmación al lector)</label></section>
       <div class="wk-col">
-        <section class="wk-box"><h2>Géneros</h2><div class="ed-chips" id="wk-gen">${[...new Set([...GENRES, ...D.genres])].map(g => `<button type="button" class="ed-chip ${D.genres.includes(g) ? 'on' : ''}" aria-pressed="${D.genres.includes(g)}" data-gen="${esc(g)}">${esc(g)}</button>`).join('')}</div><small class="mono">Hasta 4. Se usan en los filtros del Catálogo.</small></section>
+        <section class="wk-box"><h2>Géneros</h2><label>Buscar género<input type="search" id="wk-gen-search" placeholder="Filtrar géneros…"></label><div class="ed-chips" id="wk-gen">${[...new Set([...GENRES, ...D.genres])].map(g => `<button type="button" class="ed-chip ${D.genres.includes(g) ? 'on' : ''}" aria-pressed="${D.genres.includes(g)}" data-gen="${esc(g)}">${esc(g)}</button>`).join('')}</div><small class="mono">Hasta 4. Se usan en los filtros del Catálogo.</small></section>
         <section class="wk-box"><h2>Etiquetas</h2><div class="wk-tags" id="wk-tags">${D.tags.map((t, i) => `<span>#${esc(t)}<button type="button" data-untag="${i}" aria-label="Quitar ${esc(t)}">×</button></span>`).join('')}<input id="wk-tag" maxlength="30" placeholder="Escribe y pulsa Enter" aria-label="Nueva etiqueta"></div><small class="mono">Detalles para quien busca algo concreto: sirvienta, nobleza, comedia romántica…</small></section>
         <section class="wk-box" style="border-top:4px solid #a9d18e"><h2>Compra oficial</h2><small class="mono">Enlaces para apoyar al autor. Se proponen por volumen y el Bibliotecario los verifica.</small>
           <div class="ed-chips">${(buys || []).map(b => `<span class="wk-buy" style="border-color:${b.verified ? '#a9d18e' : '#3d3628'};color:${b.verified ? '#a9d18e' : '#a89f8a'}">${b.verified ? '✓' : '◷'} ${esc(b.store)}${b.region ? ' · ' + esc(b.region) : ''}</span>`).join('') || '<span class="mono">Aún sin enlaces.</span>'}</div>
@@ -434,7 +490,7 @@ export function createStudio(ctx){
       ${TCx.map(c => `<div class="wk-tri"><span><b>${c.section_type && c.section_type !== 'Capítulo' ? esc(c.section_type) : 'Cap. ' + c.num} — ${esc(c.title)}</b><small>Vol. ${c.vol}${c.status === 'published' ? ' · estaba publicado' : ''} · quedan ${left(c.deleted_at)} días</small></span>${can('delete') ? `<span class="wk-ra"><button class="btn ghost xs" data-trc="${c.id}">Restaurar</button><button class="lnk danger" data-purc="${c.id}">Borrar definitivamente</button></span>` : ''}</div>`).join('')}
       </div>${can('delete') ? '<button type="button" class="lnk danger" id="wk-empty">Vaciar papelera</button>' : ''}</details>` : '';
     app.innerHTML = shell(esc(s.title), `<div class="wk">
-      <div class="wk-top"><span class="pl" style="--p:${st[1]}">${st[0]}</span><span class="mono">${V.length} ${V.length === 1 ? 'volumen' : 'volúmenes'} · ${n('published')} publicados · ${n('scheduled')} programados · ${n('draft')} borradores</span>
+      <div class="wk-top"><div class="wk-summary"><span class="pl" style="--p:${st[1]}">${st[0]}</span><span class="mono">${V.length} ${V.length === 1 ? 'volumen' : 'volúmenes'} · ${n('published')} publicados · ${n('scheduled')} programados · ${n('draft')} borradores</span></div>
         <span class="wk-acts">${can('create') ? '<button class="btn sm" id="wk-new">＋ Nuevo capítulo</button>' : ''}${can('import') ? '<a class="btn ghost sm" href="/estudio/importar">Importar volumen</a>' : ''}<a class="btn ghost sm" href="?tab=datos" data-tab="datos">Editar datos</a><a class="lnk" href="/serie/${esc(s.slug)}">Ver en el sitio ↗</a></span></div>
       <div class="wk-tabs" role="tablist">${[['caps', 'Volúmenes y capítulos'], ['datos', 'Datos de la obra'], ['avisos', 'Avisos'], ['media', 'Anime y galería']].map(([k, l]) => `<a role="tab" aria-selected="${tab === k}" class="${tab === k ? 'on' : ''}" href="${k === 'caps' ? location.pathname : '?tab=' + k}" data-tab="${k}">${l}</a>`).join('')}</div>
       ${tab === 'caps' ? `${filterBar()}${V.map(volHTML).join('') || '<p class="tb-empty">Esta obra aún no tiene volúmenes.</p>'}${can('create') ? '<button class="wk-addv" id="addvol"><span>＋</span>Nuevo volumen</button>' : ''}${trashHTML()}<div id="wk-bulkw"></div>` : tab === 'avisos' ? avisos() : tab === 'media' ? '<div id="wk-media"><p class="mono">Cargando…</p></div>' : datos()}</div>`, '/estudio/obra');
@@ -741,14 +797,15 @@ export function createStudio(ctx){
         sb.from('series').select('id,title,relations,teams(name)').filter('relations', 'cs', JSON.stringify([{ id: s.id }])).then(({ data }) => { const l = (data || []).filter(x => x.id !== s.id && !RL.some(r => r.id === x.id)); if (!l.length) return; const INV = { precuela: 'Secuela', secuela: 'Precuela', adaptacion: 'Obra original' }, KL = Object.fromEntries(KINDS);
           $('#wk-rel-b')?.insertAdjacentHTML('afterend', `<div style="display:grid;gap:6px;margin-top:12px"><span class="mono" style="font-size:11px">Enlazada desde otras obras · se muestran solas en la ficha pública</span>${l.map(x => { const k = (x.relations || []).find(r => r?.id === s.id)?.kind; return `<div style="display:flex;justify-content:space-between;gap:8px;padding:8px;border:1px dashed #2f2a20"><span><b>${esc(x.title)}</b><br><small class="mono">${esc(x.teams?.name || '')}</small></span><span class="mono" style="font-size:12px">${esc(INV[k] || KL[k] || 'Relacionada')}</span></div>`; }).join('')}</div>`); }); }
       let dirty = false; const mark = () => { dirty = true; const d = $('#wk-dirty'); if (d) d.textContent = 'Cambios sin guardar'; };
-      app.querySelectorAll('[data-d]').forEach(i => i[i.type === 'checkbox' || i.tagName === 'SELECT' ? 'onchange' : 'oninput'] = () => { D[i.dataset.d] = i.type === 'checkbox' ? i.checked : i.value; if (i.dataset.d === 'synopsis') $('#syncount').textContent = i.value.length + ' / 1500'; mark(); });
+      app.querySelectorAll('[data-d]').forEach(i => i[i.type === 'checkbox' || i.tagName === 'SELECT' ? 'onchange' : 'oninput'] = () => { D[i.dataset.d] = i.type === 'checkbox' ? i.checked : i.value; if (i.dataset.d === 'synopsis') $('#syncount').textContent = i.value.length + ' / 1500'; if (i.dataset.d === 'demographic') $('#wk-dem-desc').textContent = (WORK_DEMOGRAPHICS.find(x => x[0] === i.value) || WORK_DEMOGRAPHICS[0])[2]; mark(); });
+      $('#wk-gen-search').oninput = e => { const q = e.target.value.toLocaleLowerCase('es'); $('#wk-gen').querySelectorAll('[data-gen]').forEach(b => b.hidden = !!q && !b.dataset.gen.toLocaleLowerCase('es').includes(q) && !b.classList.contains('on')); };
       $('#wk-gen').onclick = e => { const b = e.target.closest('[data-gen]'); if (!b) return; const g = b.dataset.gen, has = D.genres.includes(g); if (!has && D.genres.length >= 4) return toast('Máximo 4 géneros'); D.genres = has ? D.genres.filter(x => x !== g) : [...D.genres, g]; b.classList.toggle('on', !has); b.setAttribute('aria-pressed', !has); mark(); };
       const drawTags = () => { const box = $('#wk-tags'), inpT = $('#wk-tag'); box.querySelectorAll('span').forEach(x => x.remove()); inpT.insertAdjacentHTML('beforebegin', D.tags.map((t, i) => `<span>#${esc(t)}<button type="button" data-untag="${i}" aria-label="Quitar ${esc(t)}">×</button></span>`).join('')); };
       $('#wk-tags').onclick = e => { const b = e.target.closest('[data-untag]'); if (b) { D.tags.splice(+b.dataset.untag, 1); drawTags(); mark(); } else $('#wk-tag').focus(); };
       $('#wk-tag').onkeydown = e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); const v = e.target.value.trim().replace(/^#/, '').toLowerCase(); if (v && !D.tags.includes(v)) { if (D.tags.length >= 20) return toast('Máximo 20 etiquetas'); D.tags.push(v); drawTags(); mark(); } e.target.value = ''; } };
       on('#wk-savebtn', async () => {
         if (!D.title.trim()) throw new Error('El título no puede quedar vacío');
-        const patch = { title: D.title.trim(), short: D.short.trim() || D.title.trim().slice(0, 26), original: D.original.trim() || null, author: D.author.trim() || null, illustrator: D.illustrator.trim() || null, work_type: D.work_type, demographic: D.demographic || null, translation_status: D.translation_status, original_status: D.original_status || null, synopsis: D.synopsis.trim() || null, adult: D.adult, genres: D.genres, tags: D.tags };
+        const patch = { title: D.title.trim(), short: D.short.trim() || D.title.trim().slice(0, 26), original: D.original.trim() || null, title_romaji: D.title_romaji.trim() || null, publisher: D.publisher.trim() || null, author: D.author.trim() || null, illustrator: D.illustrator.trim() || null, work_type: D.work_type, demographic: D.demographic || null, translation_status: D.translation_status, original_status: D.original_status || null, synopsis: D.synopsis.trim() || null, adult: D.adult, genres: D.genres, tags: D.tags };
         const { error } = await sb.from('series').update(patch).eq('id', s.id); if (error) throw new Error(errMsg(error)); dirty = false; toast('Datos de la obra guardados'); again(); });
       const leave = e => { if (dirty && document.body.contains($('#wk-savebtn'))) { e.preventDefault(); e.returnValue = ''; } else removeEventListener('beforeunload', leave); }; addEventListener('beforeunload', leave);
     }
@@ -813,15 +870,15 @@ export function createStudio(ctx){
     let terms = data || [], editing = null;
     const ed = can('edit'), opt = v => GT.map(t => `<option ${t === v ? 'selected' : ''}>${t}</option>`).join('');
     app.innerHTML = shell('Glosario', `
-      <div class="st-row"><select id="glser">${works.map(w => `<option value="${w.slug}" ${w.id === s.id ? 'selected' : ''}>${esc(w.title)}</option>`).join('')}</select><span class="mono" id="glcount"></span></div>
+      <div class="st-row"><select id="glser" aria-label="Obra del glosario">${works.map(w => `<option value="${w.slug}" ${w.id === s.id ? 'selected' : ''}>${esc(w.title)}</option>`).join('')}</select><span class="mono" id="glcount"></span></div>
       <p class="mono">Los términos se marcan solos en el lector. Al tocarlos, el lector ve la definición sin salir del capítulo.</p>
       ${ed ? `<div class="st-card gl-form">
-        <div class="st-row"><input id="glterm" maxlength="60" placeholder="Término tal como aparece en el texto"><select id="glcat">${opt('Personaje')}</select></div>
-        <textarea id="gldef" maxlength="600" rows="3" placeholder="Definición que verá el lector"></textarea>
+        <div class="st-row"><input id="glterm" aria-label="Término" maxlength="60" placeholder="Término tal como aparece en el texto"><select id="glcat" aria-label="Categoría del término">${opt('Personaje')}</select></div>
+        <textarea id="gldef" aria-label="Definición del término" maxlength="600" rows="3" placeholder="Definición que verá el lector"></textarea>
         <div class="st-row"><button class="btn" id="glsave">Añadir término</button><button class="btn ghost" id="glcancel" hidden>Cancelar</button></div>
-        <details><summary class="mono">Añadir varios a la vez</summary><p class="mono">Uno por línea: término | tipo | definición</p><textarea id="glbulk" rows="5" placeholder="umeboshi | Comida | Ciruela encurtida en sal, muy ácida."></textarea><button class="btn ghost" id="glbulkbtn">Añadir lista</button></details>
+        <details><summary class="mono">Añadir varios a la vez</summary><p class="mono">Uno por línea: término | tipo | definición</p><textarea id="glbulk" aria-label="Lista de términos para importar" rows="5" placeholder="umeboshi | Comida | Ciruela encurtida en sal, muy ácida."></textarea><button class="btn ghost" id="glbulkbtn">Añadir lista</button></details>
       </div>` : '<p class="mono">Tu rol solo puede ver el glosario.</p>'}
-      <div class="st-row"><input id="glq" placeholder="Buscar término o definición"><select id="glf"><option value="">Todos los tipos</option>${GT.map(t => `<option>${t}</option>`).join('')}</select></div>
+      <div class="st-row"><input id="glq" aria-label="Buscar término o definición" placeholder="Buscar término o definición"><select id="glf" aria-label="Filtrar por tipo de término"><option value="">Todos los tipos</option>${GT.map(t => `<option>${t}</option>`).join('')}</select></div>
       <div id="gllist"></div>`, TAB);
     bindPicker(() => glossary());
     $('#glser').onchange = e => go(TAB + '/' + e.target.value);
@@ -963,7 +1020,7 @@ export function createStudio(ctx){
       <div class="tb-f"><label class="tb-inl">Obra<select id="fw"><option value="">Todas</option>${(works || []).map(w => `<option value="${w.id}" ${F.work === w.id ? 'selected' : ''}>${esc(w.short || w.title)}</option>`).join('')}</select></label>
         <label class="tb-inl"><input type="checkbox" id="fm" ${F.mine ? 'checked' : ''}> Solo lo asignado a mí</label>
         <span class="mono" style="margin-left:auto">${mv ? 'Mueve las tarjetas con ← → o arrastrándolas. Quien queda asignado recibe un aviso.' : 'Tu rol puede ver el tablero, pero no mover tarjetas.'}</span></div>
-      <div class="tb-cols">${COLS.map(([k, l, c]) => { const cs = list.filter(x => colOf(x) === k); return `<section class="tb-col" data-col="${k}" style="border-top-color:${c}"><h2><span>${l}</span><span class="mono">${cs.length}</span></h2>${cs.map(card).join('') || `<p class="tb-empty">${k === 'programado' ? 'Nada programado.' : 'Sin capítulos aquí.'}</p>`}</section>`; }).join('')}</div>
+      <p class="mono s2-scroll-tip">Desliza horizontalmente para recorrer las etapas del tablero. También puedes mover tarjetas con las flechas.</p><div class="tb-cols" role="region" aria-label="Etapas del flujo editorial" tabindex="0">${COLS.map(([k, l, c]) => { const cs = list.filter(x => colOf(x) === k); return `<section class="tb-col" data-col="${k}" style="border-top-color:${c}"><h2><span>${l}</span><span class="mono">${cs.length}</span></h2>${cs.map(card).join('') || `<p class="tb-empty">${k === 'programado' ? 'Nada programado.' : 'Sin capítulos aquí.'}</p>`}</section>`; }).join('')}</div>
       ${!(chs || []).length ? '<p class="mono">Los capítulos en borrador o programados aparecen aquí. Los publicados salen del tablero.</p>' : ''}</div>`;
     const cOf = id => chs.find(c => c.id === id);
     $('#fw').onchange = e => { F.work = e.target.value; board(); };
@@ -1186,7 +1243,7 @@ export function createStudio(ctx){
       <section class="s2-box"><div class="s2-bh"><h2>Vistas por día</h2><span class="mono">${dayL(daily[0]?.day)} – ${dayL(daily[daily.length - 1]?.day)}</span></div>
         <div class="st-bars" role="img" aria-label="Vistas por día en los últimos ${F.days} días">${daily.map(x => `<span title="${dayL(x.day)}: ${fmt(x.n)} vistas" style="height:${Math.max(2, Math.round(+x.n / maxD * 100))}%;background:${+x.n ? c : '#2f2a20'}"></span>`).join('')}</div>
         ${hasData ? '' : '<p class="mono" style="margin:8px 0 0">Las vistas por capítulo se cuentan desde hoy: una por lector, capítulo y día.</p>'}</section>
-      <div class="st-tw"><table class="st-t"><thead><tr>${col('order', 'Capítulo')}${col('views', 'Vistas')}${col('views_total', 'Total')}${col('finished', 'Terminaron')}<th scope="col">Retención</th>${col('here', 'Se quedaron aquí')}${col('comments', 'Coment.')}${col('reactions', 'Reacc.')}${col('reports', 'Erratas')}</tr></thead>
+      <div class="st-tw" role="region" aria-label="Estadísticas de capítulos" tabindex="0"><table class="st-t"><thead><tr>${col('order', 'Capítulo')}${col('views', 'Vistas')}${col('views_total', 'Total')}${col('finished', 'Terminaron')}<th scope="col">Retención</th>${col('here', 'Se quedaron aquí')}${col('comments', 'Coment.')}${col('reactions', 'Reacc.')}${col('reports', 'Erratas')}</tr></thead>
         <tbody>${sorted.map(x => { const r = Math.min(100, Math.round(+x.finished / base * 100)); return `<tr><th scope="row"><a href="/estudio/editar/${x.id}">${esc(x.section_type && x.section_type !== 'Capítulo' ? x.section_type : chLbl(x.num, x.title))}</a><small>Vol. ${x.vol}${x.publish_at ? ' · ' + fmtTz(x.publish_at, { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</small></th>
           <td>${fmt(x.views)}</td><td>${fmt(x.views_total)}</td><td>${fmt(x.finished)}</td><td><span class="st-ret" title="${r} % de quienes terminaron el primero"><i style="width:${r}%;background:${c}"></i></span><small>${r} %</small></td><td>${+x.here ? fmt(x.here) : '—'}</td><td>${fmt(x.comments)}</td><td>${fmt(x.reactions)}</td><td style="color:${+x.reports ? '#f59e7a' : ''}">${+x.reports ? fmt(x.reports) : '—'}</td></tr>`; }).join('') || '<tr><td colspan="9" class="tb-empty">Sin capítulos publicados.</td></tr>'}</tbody></table></div>
       <p class="mono">«Terminaron» y «Se quedaron aquí» solo cuentan lectores con cuenta. Retención: terminaron este capítulo / terminaron el primero. «Se quedaron aquí» son quienes lo empezaron y no han seguido: un número alto puede indicar un capítulo difícil.</p></div>`;

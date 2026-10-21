@@ -14,7 +14,7 @@ jobs:
       - run: npm install --no-audit --no-fund
       - name: Validar TOML de Supabase
         run: python3 -c "import tomllib; tomllib.load(open('supabase/config.toml','rb'))"
-      - run: npm run check && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run integration-check
+      - run: npm run check && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run studio-fields-check && npm run integration-check
       - name: Contratos de accesibilidad y conservación editorial
         run: node scripts/visual-phase5-check.mjs
       - name: Validación de temporadas, temas y preferencias combinadas
@@ -34,6 +34,12 @@ jobs:
         run: node scripts/phase6-reader-check.mjs
       - name: Fase 6.5 regresión cruzada y sesiones concurrentes
         run: node scripts/phase6-regression-check.mjs
+      - name: Estudio Fase 1 — geometría en seis anchuras
+        run: npm run studio-visual-phase1-check
+      - name: Estudio Fase 2 — formularios, tarjetas, tablas y filtros
+        run: npm run studio-visual-phase2-check
+      - name: Estudio Fase 3 — navegación y módulos complementarios
+        run: npm run studio-visual-phase3-check
       - name: Validar compilación Preview aislada
         run: VERCEL_ENV=preview OBI_SUPABASE_URL=https://obi-qa-backend.invalid OBI_SUPABASE_PUBLISHABLE_KEY=sb_publishable_qa_mock_not_connected npm run build && npm run preview-isolation-check
       - name: Fase 7 comprobar artefactos de candidato y backend aislado

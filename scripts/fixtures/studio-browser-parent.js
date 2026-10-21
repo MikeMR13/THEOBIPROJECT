@@ -4,5 +4,5 @@ addEventListener('message',event=>{
   if(event.data?.qa!=='studio-browser')return;
   const el=document.getElementById('qa-result');
   el.dataset.qaStatus=event.data.status;
-  el.textContent=event.data.text+' (iframe móvil 390px)';
+  el.textContent=event.data.text+' (iframe responsive '+document.getElementById('qa-frame').width+'px)';
 });
