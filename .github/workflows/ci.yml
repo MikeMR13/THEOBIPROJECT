@@ -25,6 +25,8 @@ jobs:
         run: node scripts/visual-phase5-check.mjs
       - name: Validación de temporadas, temas y preferencias combinadas
         run: node scripts/visual-integration-preferences.mjs
+      - name: TTS — paginado por voz, espera, segundo plano y restauración (Chromium)
+        run: node scripts/tts-continuity-check.mjs
       - name: Chromium accesible (normal y movimiento reducido)
         run: node scripts/visual-phase5-browser.mjs
       - run: npm run studio-browser-check
