@@ -257,7 +257,7 @@ export function createReader(ctx){
   }
   function ttsNextChapter(chapterId, chapterNum){
     const inf = ttsInfo(chapterId);
-    if (!inf?.next || inf.next.num !== chapterNum || location.pathname !== `/leer/${inf.slug}/${inf.num}`) return false;
+    if (!inf?.next || inf.next.num !== chapterNum || !location.pathname.startsWith(`/leer/${inf.slug}/`) || !S.mounted.some(c => String(c.id) === String(chapterId))) return false;
     go(`/leer/${inf.slug}/${chapterNum}`); return true;
   }
   window.__obiReaderTTS = { info: ttsInfo, nextChapter: ttsNextChapter };
