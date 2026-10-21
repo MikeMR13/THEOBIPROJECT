@@ -242,6 +242,27 @@ export function createReader(ctx){
     if (e.key === 'z' || e.key === 'Z') zen();
   });
 
+  // ---------- puente de TTS ----------
+  // Preferencias efectivas (equipo/global/volumen) y navegación segura: el TTS no necesita leer la base de datos.
+  function ttsInfo(chapterId){
+    if (!S.series || !S.remote || !$('.rd')) return null;
+    const ch = S.chapters.find(c => String(c.id) === String(chapterId));
+    if (!ch) return null;
+    const p = effective(ch.volume_id), next = nextOf(ch);
+    return { id: ch.id, num: ch.num, slug: S.series.slug, user: getUser()?.id || 'guest',
+      seconds: Math.min(30, Math.max(3, Number(p.autosecs) || 5)),
+      continuous: p.continuous, autonext: p.autonext !== false,
+      canContinue: !!next && p.continuous !== 'off' && (p.continuous === 'all' || next.vol === ch.vol),
+      next: next ? { id: next.id, num: next.num, vol: next.vol } : null };
+  }
+  function ttsNextChapter(chapterId, chapterNum){
+    const inf = ttsInfo(chapterId);
+    if (!inf?.next || inf.next.num !== chapterNum || location.pathname !== `/leer/${inf.slug}/${inf.num}`) return false;
+    go(`/leer/${inf.slug}/${chapterNum}`); return true;
+  }
+  window.__obiReaderTTS = { info: ttsInfo, nextChapter: ttsNextChapter };
+  addEventListener('obi-tts-state', () => { if (S.active && $('.rd')) footer(); });
+
   // ---------- vista ----------
   // al pasar el cursor (o tocar) un enlace al lector: se piden ficha y texto antes del clic
   async function warm(slug, num){ if (!navigator.onLine || !slug || !num) return;
@@ -317,7 +338,7 @@ export function createReader(ctx){
   function footer(){
     const ch = S.active, pv = prevOf(ch), nx = nextOf(ch), p = effective(ch.volume_id);
     const cont = p.continuous !== 'off' && nx && (p.continuous === 'all' || nx.vol === ch.vol);
-    const auto = !cont && nx && p.autonext !== false && autoStop !== ch.id;
+    const auto = !cont && nx && p.autonext !== false && autoStop !== ch.id && !window.__obiTTS?.isActive?.();
     const nextInfo = S.nextAt ? `<p class="rd-nexts"><span class="mono">Próximo capítulo</span><b>${new Date(S.nextAt).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</b><small>${untilTxt(S.nextAt)} · te avisaremos si sigues la serie</small></p>` : '';
     clearInterval(autoT); autoIo?.disconnect();
     $('.rd-foot').innerHTML = cont ? '<p class="mono" style="text-align:center">Sigue bajando para continuar…</p>'
@@ -506,28 +527,30 @@ export function createReader(ctx){
       ${opt('illus', { label: 'Ilustraciones', o: [['true','Mostrar'],['false','Ocultar']] })}
       ${opt('cw', { label: 'Avisos de contenido', o: [['show','Mostrar plegable'],['icon','Solo icono'],['hide','No mostrar']] })}
       ${opt('continuous', { label: 'Lectura', o: [['off','Por capítulo'],['volume','Continua dentro del volumen'],['all','Continua entre volúmenes']] })}
-      ${p.continuous === 'off' ? opt('autonext', { label: 'Al terminar un capítulo', o: [['true',`Pasar solo al siguiente (${Math.min(30, Math.max(3, +p.autosecs || 5))} s)`],['false','Quedarme al final']] }) : ''}
+      ${p.continuous === 'off' ? opt('autonext', { label: 'Al terminar un capítulo', o: [['true',`Pasar solo al siguiente (${Math.min(30, Math.max(3, +p.autosecs || 5))} s)`],['false','Quedarme al final']] }) + (p.autonext !== false ? `<div class="rd-opt"><label for="rd-autosecs" class="mono">Espera entre capítulos · <b data-autosecs-l>${Math.min(30, Math.max(3, +p.autosecs || 5))} s</b></label><input type="range" id="rd-autosecs" min="3" max="30" step="1" value="${Math.min(30, Math.max(3, +p.autosecs || 5))}" data-k="autosecs" aria-label="Segundos antes del siguiente capítulo"></div>` : '') : ''}
       ${'wakeLock' in navigator ? opt('awake', { label: 'Pantalla', o: [['true','Mantener encendida al leer'],['false','Apagado normal']] }) : ''}
       <label class="rd-scope"><input type="checkbox" ${localStorage.getItem('obi-season') === 'off' ? '' : 'checked'} data-season> Mostrar temas de temporada en la plataforma</label>
       <label class="rd-scope"><input type="checkbox" ${scoped ? 'checked' : ''} data-scope> Guardar estos ajustes solo para el Volumen ${ch.vol}</label>` });
     if (!pn) return;
     pn.onclick = e => { const b = e.target.closest('button[data-k]'); if (b) setPref(b.dataset.k, b.dataset.v === 'true' ? true : b.dataset.v === 'false' ? false : b.dataset.v); };
     pn.querySelector('[data-k="size"]').oninput = e => setPref('size', +e.target.value, true);
+    pn.querySelector('[data-k="autosecs"]')?.addEventListener('input', e => setPref('autosecs', Math.min(30, Math.max(3, +e.target.value)), true));
     pn.querySelector('[data-season]').onchange = e => { e.target.checked ? localStorage.removeItem('obi-season') : (localStorage.setItem('obi-season-mig1', '1'), localStorage.setItem('obi-season', 'off')); dispatchEvent(new Event('obi-season')); };
     pn.querySelector('[data-scope]').onchange = e => { if (e.target.checked) S.remote.per_volume[vid] = { ...S.remote.global }; else delete S.remote.per_volume[vid]; savePrefs(); applyPrefs(); };
   }
   function setPref(k, v, live){
     const vid = S.active.volume_id, tgt = S.remote.per_volume[vid] || S.remote.global;
-    tgt[k] = v; savePrefs(); applyPrefs(k); if (k === 'autonext' || k === 'continuous') footer();
+    tgt[k] = v; savePrefs(); applyPrefs(k); if (k === 'autonext' || k === 'continuous' || k === 'autosecs') footer();
     refreshPrefs(k);
   }
   // el panel Aa queda abierto: solo se actualiza la opción tocada
   function refreshPrefs(k){
     const pn = panel(); if (pn.hidden || pn.dataset.kind !== 'prefs') return;
-    if (k === 'continuous') { const st = pn.scrollTop; pn.hidden = true; prefsPanel(); panel().scrollTop = st; return; }
+    if (k === 'continuous' || k === 'autonext') { const st = pn.scrollTop; pn.hidden = true; prefsPanel(); panel().scrollTop = st; return; }
     const p = effective(S.active.volume_id);
     pn.querySelectorAll(`button[data-k="${k}"]`).forEach(b => b.classList.toggle('on', String(p[k]) === b.dataset.v));
     if (k === 'size') pn.querySelector('[data-size-l]').textContent = p.size + 'px';
+    if (k === 'autosecs') pn.querySelector('[data-autosecs-l]').textContent = Math.min(30, Math.max(3, +p.autosecs || 5)) + ' s';
   }
   async function applyPrefs(k){
     const p = effective(S.active.volume_id), rd = $('.rd');
