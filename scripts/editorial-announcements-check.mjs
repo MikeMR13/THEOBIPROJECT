@@ -50,7 +50,7 @@ for(const token of ['askEditorialAnnouncement','saveEditorialRecord','Capítulo 
 for(const token of ['Último paso · anuncio editorial','D.noticeGetter?.()','saveEditorialRecord','publish_volume']) assert(importer.includes(token),'Importador sin '+token);
 assert(importer.indexOf("await saveEditorialRecord(sb,w.id")>importer.indexOf("const r = await sb.rpc('publish_volume'"),'Aviso debe guardarse después de publicar');
 assert(publicUi.includes('chooseActiveEditorial(s?.theme)'), 'Vista pública usa aviso global en vez de publicación');
-assert(publicUi.includes("currentNotice(s)?.kind === 'volume' ? 'VOLUMEN PUBLICADO'"),'Portada sigue anunciando capítulos por error');
+assert(publicUi.includes("v ? (fresh ? '¡NUEVO VOLUMEN! · VOL. '") && publicUi.includes("newsBySeries[s.id]"),'Portada debe anunciar el volumen completo confirmado sin desglosarlo en capítulos');
 assert(css.includes('.ea-modal')&&css.includes('@media(max-width:420px)'),'Falta interfaz responsive');
 assert(editorialForm(s=>s,'volume').includes('data-ea="mode"'),'Formulario inválido');
 
