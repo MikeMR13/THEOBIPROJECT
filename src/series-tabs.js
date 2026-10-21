@@ -8,7 +8,8 @@ export function initSeriesTabs(root, win = window) {
   if (!tabs.length || [...panels.values()].some(x => !x)) return null;
 
   const paneForHash = hash => {
-    const raw = decodeURIComponent(String(hash || '').replace(/^#/, ''));
+    let raw = '';
+    try { raw = decodeURIComponent(String(hash || '').replace(/^#/, '')); } catch { return null; }
     if (panels.has(raw)) return raw;
     if (/^descarga-vol-[\w.-]+$/.test(raw)) return 'serie-descargas';
     if (raw === 'serie-portada') return 'serie-info';
@@ -33,10 +34,12 @@ export function initSeriesTabs(root, win = window) {
     activate(pane);
     // Cuando la SPA inyecta los paneles después de resolver datos, el navegador
     // podría haber intentado saltar a un destino que aún no existía.
-    const hash = decodeURIComponent(win.location.hash.slice(1));
-    if (!root.querySelector('#' + hash)) return;
+    let hash = '';
+    try { hash = decodeURIComponent(win.location.hash.slice(1)); } catch { return; }
+    const destination = win.document.getElementById(hash);
+    if (!destination || !root.contains(destination)) return;
     win.requestAnimationFrame(() => {
-      if (paneForHash(win.location.hash) === pane) root.querySelector('#' + hash)?.scrollIntoView({ block: 'start' });
+      if (paneForHash(win.location.hash) === pane) destination.scrollIntoView({ block: 'start' });
     });
   };
   const click = event => {
