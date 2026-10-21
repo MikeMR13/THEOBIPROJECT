@@ -209,7 +209,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   const tickerNotice = s => { const t=currentNotice(s); if(!t)return ''; const c=/^#[\da-f]{6}$/i.test(t.color||'')?t.color:'#f2c230';return '<b style="color:'+esc(t.season?'var(--sea,'+c+')':c)+'">'+esc(t.text.trim().slice(0,40).toUpperCase())+'</b> · '; };
   // en la portada destacada el aviso va grande, en su propia línea, antes de «Nuevo · Cap.»
   const heroTag = s => { const t = currentNotice(s); if (!t) return ''; const c0 = /^#[\da-f]{6}$/i.test(t.color || '') ? t.color : '#f2c230', c = t.season ? `var(--sea,${c0})` : c0, ink = t.season ? '#0d0c0a' : UTAG_INK(c0), solid = t.style !== 'outline';
-    return `<span class="ob-utag-hero" style="display:inline-block;margin:4px 0 12px;padding:9px 18px;font:700 clamp(15px,1.6vw,20px)/1.2 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;${solid ? `background:${c};color:${ink};border:2px solid ${c}` : `background:rgba(13,12,10,.6);color:${c};border:2px solid ${c}`}">${esc(t.text.trim().slice(0, 40))}</span><br>`; };
+    return `<span class="ob-utag-hero" style="${solid ? `background:${c};color:${ink};border:2px solid ${c}` : `background:rgba(13,12,10,.6);color:${c};border:2px solid ${c}`}">${esc(t.text.trim().slice(0, 40))}</span>`; };
   const color = s => s?.theme?.color || s?.teams?.color || '#f2c230';
   const ago = d => publicationAge(d);
   const ageTag = (d, prefix = ' · ') => { const label = ago(d); return label ? prefix + label : ''; };
@@ -417,6 +417,40 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 .ob-urow .ob-u-kind{font:700 12px/1.5 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.11em;color:var(--gold)}
 .ob-urow.is-volume time{align-self:start}
 .ob-hero .ob-badge-vol{display:inline-block;background:var(--gold);color:#0d0c0a;font-weight:800;font-size:clamp(14px,1.5vw,18px);letter-spacing:.07em;padding:8px 13px;margin-bottom:8px}
+/* Inicio — jerarquía de lanzamientos: volumen, aviso opcional y ranking. */
+.ob-hero{padding-bottom:clamp(90px,8vw,112px)}
+.ob-hero .ob-txt{min-width:0;max-width:860px;padding-inline-end:clamp(0px,2vw,24px)}
+.ob-hero .ob-txt .ob-kick{display:block;margin:0 0 14px;font-size:clamp(13px,1.15vw,16px);line-height:1.5}
+.ob-hero .ob-hero-flags{display:flex;flex-direction:column;align-items:flex-start;gap:12px;max-width:100%;margin:0;min-width:0}
+.ob-hero .ob-hero-flags .ob-badge{display:inline-flex;align-items:center;max-width:100%;min-width:0;box-sizing:border-box;margin:0;padding:8px 13px;font-size:clamp(12px,1.1vw,16px);line-height:1.3;letter-spacing:.055em;white-space:normal;overflow-wrap:anywhere}
+.ob-hero .ob-hero-flags .ob-badge-vol{font-weight:800;background:var(--gold);color:#0d0c0a}
+.ob-hero .ob-hero-flags .ob-utag-hero{display:inline-flex;align-items:center;align-self:flex-start;max-width:100%;min-width:0;box-sizing:border-box;padding:6px 11px;font:700 clamp(12px,1vw,15px)/1.35 'IBM Plex Mono',monospace;letter-spacing:.04em;text-transform:uppercase;white-space:normal;overflow-wrap:anywhere}
+.ob-hero .ob-hero-rank{display:flex;align-items:center;min-width:0;margin:14px 0 0}
+.ob-hero .ob-hero-rank .rk-bdg{margin:0;min-height:30px;font-size:12px}
+.ob-hero .ob-hero-flags+h1,.ob-hero .ob-hero-rank+h1{margin-top:clamp(18px,2.2vw,28px)}
+.ob-hero .ob-txt h1{max-width:100%;font-size:clamp(30px,4.1vw,58px);line-height:1.11;text-wrap:balance;overflow-wrap:break-word}
+.ob-hero .ob-txt h1[data-len=l]{font-size:clamp(28px,3.65vw,49px)}
+.ob-hero .ob-txt h1[data-len=xl]{font-size:clamp(26px,3.1vw,42px)}
+.ob-hero .ob-txt .ob-tag{margin:12px 0 0;line-height:1.4}
+.ob-hero .ob-txt .ob-syn{margin:14px 0 0;max-width:64ch;-webkit-line-clamp:4}
+.ob-hero .ob-txt .ob-acts{margin-top:20px}
+@media(max-width:760px){.ob-hero{padding-bottom:max(136px,calc(110px + env(safe-area-inset-bottom)))}}
+@media(max-width:820px){
+ .ob-hero{width:100%;max-width:100%;min-width:0;box-sizing:border-box;margin-inline:0!important}
+ .ob-hero .ob-txt{max-width:100%;padding-inline-end:0}
+ .ob-hero .ob-txt h1{font-size:clamp(30px,6vw,46px)}
+ .ob-hero .ob-txt h1[data-len=l]{font-size:clamp(28px,5.4vw,40px)}
+ .ob-hero .ob-txt h1[data-len=xl]{font-size:clamp(26px,4.7vw,36px)}
+}
+@media(max-width:480px){
+ .ob-hero .ob-hero-flags{gap:10px}
+ .ob-hero .ob-hero-flags .ob-badge{letter-spacing:.02em}
+ .ob-hero .ob-txt h1{font-size:clamp(29px,8vw,36px);line-height:1.15}
+ .ob-hero .ob-txt h1[data-len=l]{font-size:clamp(27px,7vw,33px)}
+ .ob-hero .ob-txt h1[data-len=xl]{font-size:clamp(25px,6.5vw,30px)}
+ .ob-hero .ob-txt .ob-syn{-webkit-line-clamp:3}
+ .ob-hero .ob-txt .ob-acts{gap:10px}
+}
 @media(max-width:600px){.ob-urow.is-volume,.ob-urow.is-volume:has(.ob-ucover){grid-template-columns:54px minmax(0,1fr);gap:12px;padding:14px}.ob-urow.is-volume .ob-ucover{width:54px;height:76px}.ob-urow.is-volume time{grid-column:2}.ob-urow.is-volume:not(:has(.ob-ucover)){grid-template-columns:minmax(0,1fr)}.ob-urow.is-volume:not(:has(.ob-ucover)) time{grid-column:1}}
 @media(prefers-reduced-motion:reduce){.ob-urow.is-volume{transition:none}}
 `;
@@ -571,8 +605,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     let tag = lines.length > 1 && lines[0].length <= 140 ? lines[0] : sents.length > 1 && sents[0].length <= 110 ? sents[0] : '';
     el.innerHTML = `<span class="ob-vk" aria-hidden="true">新刊案内</span>
       <div class="ob-cov"><div class="f" style="${art ? `background-image:url('${esc(matchMedia('(max-width: 700px)').matches && !v ? thumb(s) : media(art))}')` : ''}"></div></div>
-      <div class="ob-txt"><span class="ob-kick">${v ? '第' + KN(v.num) + '巻 · 新刊' : '第' + KN(lc?.num || 1) + '章' + (fresh ? ' · 新刊' : '')}</span><br>${v ? '' : heroTag(s)}<span class="ob-badge${v ? ' ob-badge-vol' : ''}">${v ? (fresh ? '¡NUEVO VOLUMEN! · VOL. ' : 'VOLUMEN DISPONIBLE · VOL. ') + v.num : currentNotice(s)?.kind === 'chapter' ? 'CAPÍTULO PUBLICADO' : fresh ? 'NUEVO · CAP. ' + (lc?.num || 1) : 'CAP. ' + (lc?.num || 1) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${v ? heroTag(s) : ''}${top[s.id] ? `<a class="rk-bdg" href="/ranking" style="margin:0 0 0 10px;vertical-align:middle"><b>#${top[s.id]}</b>Top de la semana</a>` : ''}
-        <h1 data-len="${s.title.length > 70 ? 'xl' : s.title.length > 40 ? 'l' : ''}"><a class="ob-h1a" href="/serie/${s.slug}">${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}</a></h1>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn" style="white-space:pre-line">${esc(s.synopsis ? (synT.slice(tag.length).replace(/^\s+/, '').replace(/\n{3,}/g, '\n\n') || synT) : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), (s.chapters?.[0]?.count || 0) + ' capítulos en español'].filter(Boolean).join(' · ') + '.')}</p>
+      <div class="ob-txt"><span class="ob-kick">${v ? '第' + KN(v.num) + '巻 · 新刊' : '第' + KN(lc?.num || 1) + '章' + (fresh ? ' · 新刊' : '')}</span><div class="ob-hero-flags"><span class="ob-badge${v ? ' ob-badge-vol' : ''}">${v ? (fresh ? '¡NUEVO VOLUMEN! · VOL. ' : 'VOLUMEN DISPONIBLE · VOL. ') + v.num : currentNotice(s)?.kind === 'chapter' ? 'CAPÍTULO PUBLICADO' : fresh ? 'NUEVO · CAP. ' + (lc?.num || 1) : 'CAP. ' + (lc?.num || 1) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${heroTag(s)}</div>${top[s.id] ? `<div class="ob-hero-rank"><a class="rk-bdg" href="/ranking"><b>#${top[s.id]}</b>Top de la semana</a></div>` : ''}
+        <h1 data-len="${(s.title.length + (v ? 12 + String(v.num).length : 0)) > 70 ? 'xl' : (s.title.length + (v ? 12 + String(v.num).length : 0)) > 40 ? 'l' : ''}"><a class="ob-h1a" href="/serie/${s.slug}">${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}</a></h1>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn" style="white-space:pre-line">${esc(s.synopsis ? (synT.slice(tag.length).replace(/^\s+/, '').replace(/\n{3,}/g, '\n\n') || synT) : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), (s.chapters?.[0]?.count || 0) + ' capítulos en español'].filter(Boolean).join(' · ') + '.')}</p>
         <div class="ob-acts"><a class="a1" href="${v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + n}">${v ? 'Ver volumen ' + v.num : p ? 'Continuar capítulo ' + n : 'Leer capítulo ' + (lc?.num || 1)}</a>${v && (p || lc) ? `<a class="a2" href="/leer/${s.slug}/${n}">${p ? 'Continuar lectura' : 'Empezar a leer'}</a>` : `<a class="a2" href="/serie/${s.slug}">Ver la serie</a>`}</div></div>
       ${feat.length > 1 ? `<div class="ob-pager2" style="position:absolute;left:clamp(16px,4vw,56px);right:clamp(16px,4vw,56px);bottom:14px;z-index:2;display:flex;align-items:center;gap:10px"><button data-j="${(i - 1 + feat.length) % feat.length}" aria-label="Anterior" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">‹</button><span style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">${feat.map((f, j) => `<button data-j="${j}" aria-label="${esc(f.title)}" aria-current="${j === i}" style="height:10px;flex:${j === i ? '0 1 160px' : '0 0 10px'};min-width:10px;padding:0;border:none;cursor:pointer;position:relative;overflow:hidden;background:${j === i ? '#3d3628' : '#5a5244'}">${j === i ? `<i class="ob-hp" style="position:absolute;inset:0;background:var(--gold);transform-origin:left;transform:scaleX(${heroPaused ? 1 : 0});${heroPaused || matchMedia('(prefers-reduced-motion: reduce)').matches ? '' : 'animation:obHp 8s linear forwards'}"></i>` : ''}</button>`).join('')}</span><button data-hp aria-label="${heroPaused ? 'Reanudar' : 'Pausar'}" style="height:40px;padding:0 12px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">${heroPaused ? '▶ Reanudar' : 'Ⅱ Pausar'}</button><button data-j="${(i + 1) % feat.length}" aria-label="Siguiente" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">›</button></div>` : ''}`;
     el.querySelectorAll('[data-j]').forEach(b => b.onclick = () => heroSlide(feat, +b.dataset.j, prog, lastCh, top, newsBySeries));
