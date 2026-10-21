@@ -5,7 +5,7 @@ En Home, un volumen publicado desde Studio se presenta como una **única novedad
 
 ## Implementación (HTML, CSS y JavaScript nativo)
 - `src/home-releases.js`: selecciona el último evento visible de cada obra. Reconoce el lanzamiento completo con `volumes.status='published'`, `volumes.published_at` y `volumes.announced_at` (esta última marca se escribe desde `private.run_publications()` al anunciar el volumen). Si después se publica otro capítulo, este pasa a ser la novedad más reciente.
-- Se permite una tolerancia de 60 segundos para que los capítulos publicados en la misma transacción no sustituyan accidentalmente el anuncio del volumen. Nunca se atribuye el tipo «volumen completo» a un capítulo sin esa marca.
+- Se permite una tolerancia editorial de 30 minutos para que los capítulos publicados en la misma transacción no sustituyan accidentalmente el anuncio del volumen. Nunca se atribuye el tipo «volumen completo» a un capítulo sin esa marca.
 - La consulta de volúmenes que Home **ya hacía** se reutiliza para recoger los metadatos de publicación; no se añade una llamada de red. Se filtran volúmenes publicados y se conservan portadas/fechas.
 - `src/ui.js`: franja de novedades, bloque «Nuevos volúmenes y capítulos» y portada destacada muestran el tipo editorial correspondiente. La noticia de volumen presenta título de obra, número, subtítulo opcional, portada y acceso a su ficha. Las publicaciones individuales siguen enlazando al lector.
 - Se utiliza la identidad cromática actual (negro, amarillo, tonos papel) y se conservan las reglas responsive, la accesibilidad y la reducción de movimiento.
