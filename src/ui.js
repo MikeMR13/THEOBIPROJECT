@@ -418,9 +418,10 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 .ob-urow.is-volume time{align-self:start}
 .ob-hero .ob-badge-vol{display:inline-block;background:var(--gold);color:#0d0c0a;font-weight:800;font-size:clamp(14px,1.5vw,18px);letter-spacing:.07em;padding:8px 13px;margin-bottom:8px}
 /* Inicio — jerarquía de lanzamientos: volumen, aviso opcional y ranking. */
+.ob-hero{padding-bottom:clamp(90px,8vw,112px)}
 .ob-hero .ob-txt{min-width:0;max-width:860px;padding-inline-end:clamp(0px,2vw,24px)}
 .ob-hero .ob-txt .ob-kick{display:block;margin:0 0 14px;font-size:clamp(13px,1.15vw,16px);line-height:1.5}
-.ob-hero .ob-hero-flags{display:flex;flex-direction:column;align-items:flex-start;gap:12px;max-width:100%;margin:0 0 0;min-width:0}
+.ob-hero .ob-hero-flags{display:flex;flex-direction:column;align-items:flex-start;gap:12px;max-width:100%;margin:0;min-width:0}
 .ob-hero .ob-hero-flags .ob-badge{display:inline-flex;align-items:center;max-width:100%;min-width:0;box-sizing:border-box;margin:0;padding:8px 13px;font-size:clamp(12px,1.1vw,16px);line-height:1.3;letter-spacing:.055em;white-space:normal;overflow-wrap:anywhere}
 .ob-hero .ob-hero-flags .ob-badge-vol{font-weight:800;background:var(--gold);color:#0d0c0a}
 .ob-hero .ob-hero-flags .ob-utag-hero{display:inline-flex;align-items:center;align-self:flex-start;max-width:100%;min-width:0;box-sizing:border-box;padding:6px 11px;font:700 clamp(12px,1vw,15px)/1.35 'IBM Plex Mono',monospace;letter-spacing:.04em;text-transform:uppercase;white-space:normal;overflow-wrap:anywhere}
