@@ -187,7 +187,7 @@ export async function preferences(C){
   const TABS = [['perfil', 'Perfil público'], ['privacidad', 'Privacidad'], ['lectura', 'Lectura'], ['avisos', 'Avisos'], ['adulto', 'Contenido'], ['pantalla', 'Accesibilidad'], ['bloqueos', 'Bloqueos'], ['cuenta', 'Cuenta']];
   const tab = TABS.some(t => t[0] === new URLSearchParams(location.search).get('s')) ? new URLSearchParams(location.search).get('s') : 'perfil';
   app.innerHTML = '<p class="mono">Cargando preferencias…</p>';
-  const { data: P, error } = await sb.from('profiles').select('username,avatar_url,bio,banner_url,seal_kanji,accent,links,favorites,profile_sections,public_activity,adult_ok,profile_visibility,discoverable,show_since,hide_reading,hidden_series,delete_requested_at,notify,username_changed_at,ui_prefs').eq('id', user.id).single();
+  const { data: P, error } = await sb.rpc('my_profile');
   if (error) { app.innerHTML = `<h1>Preferencias</h1><p class="mono">No se pudieron cargar: ${esc(error.message)}</p>`; return; }
   const shell = body => `<h1>Preferencias</h1><div class="pf"><nav class="pf-nav" aria-label="Secciones de preferencias">${TABS.map(([k, l]) => `<a href="/preferencias${k === 'perfil' ? '' : '?s=' + k}" class="${k === tab ? 'on' : ''}" ${k === tab ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav><div class="pf-body">${body}</div></div>`;
   const tg = (id, on, label) => `<button type="button" class="pf-tg" id="${id}" aria-pressed="${!!on}" aria-label="${esc(label)}"><i></i></button>`;

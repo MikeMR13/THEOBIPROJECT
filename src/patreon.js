@@ -54,7 +54,7 @@ export async function accountBox(el, { sb, url, esc, toast }) {
   if (!el) return;
   returnNotice(toast);
   const { data: { user } } = await sb.auth.getUser(); if (!user) return;
-  const { data: P, error } = await sb.from('profiles').select('patreon_user_id,patron_wall').eq('id', user.id).single();
+  const { data: P, error } = await sb.rpc('my_profile');
   if (error) { el.innerHTML = `<p class="mono">${/patron_wall/.test(error.message) ? 'Falta ejecutar el SQL 20261113_patreon.sql' : esc(error.message)}</p>`; return; }
   if (!P.patreon_user_id) { el.innerHTML = `<div style="display:grid;gap:10px;justify-items:start"><span class="mono" style="font-size:13px;line-height:1.5">Al vincularla, tus apoyos a los equipos desbloquean lo que es para mecenas y recibes tus sellos. Después también podrás entrar con Patreon.</span>${btn('pt-link', PT + ' Vincular Patreon')}</div>`; el.querySelector('#pt-link').onclick = () => start(sb, url, 'link', null, toast); return; }
   const [{ data: G }, { data: pub }] = await Promise.all([sb.from('patreon_pledges').select('owner,cents,status,updated_at').eq('patreon_user_id', P.patreon_user_id), sb.from('patreon_public').select('owner,name,url')]);

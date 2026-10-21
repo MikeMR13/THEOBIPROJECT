@@ -244,8 +244,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   let SIDX = null;
   const searchIndex = () => SIDX ||= (async () => { const u = getUser();
     const [{ data: ss }, { data: ts }, pr] = await Promise.all([sb.from('series').select('id,slug,title,short,original,author,illustrator,genres,tags,adult,cover_path,translation_status,theme,teams(name,slug,color),chapters(count)').eq('published', true),
-      sb.from('teams').select('slug,name,avatar_path,status'), u ? sb.from('profiles').select('adult_ok').eq('id', u.id).maybeSingle() : { data: null }]);
-    const ok = !!pr?.data?.adult_ok; return { series: (ss || []).filter(x => x.translation_status !== 'withdrawn' && (!x.adult || ok)), teams: (ts || []).filter(t => !t.status || /^(active|activo)$/i.test(t.status)) }; })().catch(e => { SIDX = null; throw e; });
+      sb.from('teams').select('slug,name,avatar_path,status'), u ? sb.rpc('my_adult_ok') : { data: null }]);
+    const ok = pr?.data === true; return { series: (ss || []).filter(x => x.translation_status !== 'withdrawn' && (!x.adult || ok)), teams: (ts || []).filter(t => !t.status || /^(active|activo)$/i.test(t.status)) }; })().catch(e => { SIDX = null; throw e; });
   async function searchData(q, lim){
     const I0 = await searchIndex(), I = { ...I0, series: I0.series.filter(x => !hidS(x)) }, n = norm(q), has = t => norm(t).includes(n), byId = Object.fromEntries(I.series.map(x => [x.id, x]));
     const works = I.series.filter(x => has([x.title, x.short, x.original].join(' '))).slice(0, lim);
@@ -427,14 +427,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     })).catch(() => null);
     const [FD, prog, pr, VR] = await Promise.all([
       feed(), progressMap(),
-      u ? sb.from('profiles').select('adult_ok').eq('id', u.id).maybeSingle() : { data: null },
+      u ? sb.rpc('my_adult_ok') : { data: null },
       // La portada del volumen publicado más reciente puede diferir de la ficha.
       sb.from('volumes').select('series_id,num,cover_path,status').is('deleted_at', null).not('cover_path', 'is', null).then(r => r, () => ({ data: [] }))]);
     { const vc = {}; (VR?.data || []).filter(v => !v.status || v.status === 'published').forEach(v => { if (!vc[v.series_id] || v.num > vc[v.series_id].num) vc[v.series_id] = v; });
       (FD?.series || []).forEach(s => { const v = vc[s.id]; if (v && v.cover_path !== s.cover_path) { s.cover_path = v.cover_path; s.cover_thumb_path = null; } }); }
     const { series, latest, rkW, rkH, top10 } = FD, ps = { featured: FD.featured }, nextRel = (FD.nextRel || []).filter(e => new Date(e.at) > Date.now());
     if (location.pathname !== '/') return;
-    const adultOk = !!pr?.data?.adult_ok;
+    const adultOk = pr?.data === true;
     const list = (series || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) && (!s.adult || adultOk) && !hidS(s)), byId = Object.fromEntries(list.map(s => [s.id, s]));
     const lastCh = {}; (latest || []).forEach(c => { lastCh[c.series_id] ||= c; });
     const picks = (Array.isArray(ps?.featured) ? ps.featured : []).map(id => byId[id]).filter(Boolean);
