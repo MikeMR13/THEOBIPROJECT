@@ -63,7 +63,7 @@ export function createStudio(ctx){
       link.addEventListener('error', resolve, { once: true });
     });
     if (!existing) {
-      link.id = 'st2-css'; link.rel = 'stylesheet'; link.href = '/studio.css?v=2';
+      link.id = 'st2-css'; link.rel = 'stylesheet'; link.href = '/studio.css?v=1';
       document.head.appendChild(link);
     }
     return styleTask;
@@ -806,7 +806,7 @@ export function createStudio(ctx){
   // ---------- EPUB/DOCX/PDF, importación dinámica ----------
   let importerTask = null;
   async function importer(){
-    if (!importerTask) importerTask = import('./studio-importer.js?v=2')
+    if (!importerTask) importerTask = import('./studio-importer.js?v=1')
       .then(m => m.createImporter({ sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, LIMITS, SEC }))
       .catch(e => { importerTask = null; throw e; });
     return (await importerTask)();
