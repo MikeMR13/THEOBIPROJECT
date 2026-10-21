@@ -434,6 +434,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 .ob-hero .ob-txt .ob-tag{margin:12px 0 0;line-height:1.4}
 .ob-hero .ob-txt .ob-syn{margin:14px 0 0;max-width:64ch;-webkit-line-clamp:4}
 .ob-hero .ob-txt .ob-acts{margin-top:20px}
+@media(max-width:760px){.ob-hero{padding-bottom:max(136px,calc(110px + env(safe-area-inset-bottom)))}}
 @media(max-width:820px){
  .ob-hero .ob-txt{max-width:100%;padding-inline-end:0}
  .ob-hero .ob-txt h1{font-size:clamp(30px,6vw,46px)}
