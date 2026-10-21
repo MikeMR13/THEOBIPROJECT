@@ -17,7 +17,8 @@
     "visual-browser-check": "node scripts/visual-phase4-browser.mjs",
     "studio-fields-check": "node scripts/studio-work-fields-check.mjs",
     "studio-visual-phase1-check": "node scripts/studio-visual-phase1-browser.mjs",
-    "studio-visual-phase2-check": "node scripts/studio-visual-phase2-browser.mjs"
+    "studio-visual-phase2-check": "node scripts/studio-visual-phase2-browser.mjs",
+    "studio-visual-phase3-check": "node scripts/studio-visual-phase3-browser.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",

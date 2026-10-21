@@ -78,6 +78,20 @@ try {
   await owner.studio.newWork();
   checks++;
   ok(!!app.querySelector('#nw-title'),'Nueva obra no se renderiza');
+  // El menú compacto conserva el estado accesible, puede cerrarse con Escape
+  // y permite volver al sitio sin abandonar las pantallas de Estudio.
+  const navBtn=app.querySelector('#s2-mobile-toggle'), sidebar=app.querySelector('.s2-side');
+  ok(!!navBtn && !!sidebar && !!app.querySelector('.s2-nav a'),'Faltan controles de navegación de Estudio');
+  if(window.innerWidth<=860){
+    ok(navBtn.getAttribute('aria-expanded')==='false','El menú móvil debe empezar cerrado');
+    navBtn.click();
+    ok(sidebar.classList.contains('nav-open') && navBtn.getAttribute('aria-expanded')==='true','El menú móvil no abre');
+    ok(getComputedStyle(app.querySelector('.s2-back')).display!=='none','Volver al sitio no es accesible en móvil');
+    document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+    ok(!sidebar.classList.contains('nav-open') && navBtn.getAttribute('aria-expanded')==='false','Escape no cierra el menú');
+  }
+  checks++;
+
   ok(!!document.getElementById('st2-css')?.sheet,'Studio no cargó su CSS');
   const resources=performance.getEntriesByType('resource').map(e=>e.name);
   ok(!resources.some(u=>/studio-(?:editor|importer|media)\.js/.test(u)),

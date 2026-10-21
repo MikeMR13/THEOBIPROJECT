@@ -834,15 +834,15 @@ export function createStudio(ctx){
     let terms = data || [], editing = null;
     const ed = can('edit'), opt = v => GT.map(t => `<option ${t === v ? 'selected' : ''}>${t}</option>`).join('');
     app.innerHTML = shell('Glosario', `
-      <div class="st-row"><select id="glser">${works.map(w => `<option value="${w.slug}" ${w.id === s.id ? 'selected' : ''}>${esc(w.title)}</option>`).join('')}</select><span class="mono" id="glcount"></span></div>
+      <div class="st-row"><select id="glser" aria-label="Obra del glosario">${works.map(w => `<option value="${w.slug}" ${w.id === s.id ? 'selected' : ''}>${esc(w.title)}</option>`).join('')}</select><span class="mono" id="glcount"></span></div>
       <p class="mono">Los términos se marcan solos en el lector. Al tocarlos, el lector ve la definición sin salir del capítulo.</p>
       ${ed ? `<div class="st-card gl-form">
-        <div class="st-row"><input id="glterm" maxlength="60" placeholder="Término tal como aparece en el texto"><select id="glcat">${opt('Personaje')}</select></div>
-        <textarea id="gldef" maxlength="600" rows="3" placeholder="Definición que verá el lector"></textarea>
+        <div class="st-row"><input id="glterm" aria-label="Término" maxlength="60" placeholder="Término tal como aparece en el texto"><select id="glcat" aria-label="Categoría del término">${opt('Personaje')}</select></div>
+        <textarea id="gldef" aria-label="Definición del término" maxlength="600" rows="3" placeholder="Definición que verá el lector"></textarea>
         <div class="st-row"><button class="btn" id="glsave">Añadir término</button><button class="btn ghost" id="glcancel" hidden>Cancelar</button></div>
-        <details><summary class="mono">Añadir varios a la vez</summary><p class="mono">Uno por línea: término | tipo | definición</p><textarea id="glbulk" rows="5" placeholder="umeboshi | Comida | Ciruela encurtida en sal, muy ácida."></textarea><button class="btn ghost" id="glbulkbtn">Añadir lista</button></details>
+        <details><summary class="mono">Añadir varios a la vez</summary><p class="mono">Uno por línea: término | tipo | definición</p><textarea id="glbulk" aria-label="Lista de términos para importar" rows="5" placeholder="umeboshi | Comida | Ciruela encurtida en sal, muy ácida."></textarea><button class="btn ghost" id="glbulkbtn">Añadir lista</button></details>
       </div>` : '<p class="mono">Tu rol solo puede ver el glosario.</p>'}
-      <div class="st-row"><input id="glq" placeholder="Buscar término o definición"><select id="glf"><option value="">Todos los tipos</option>${GT.map(t => `<option>${t}</option>`).join('')}</select></div>
+      <div class="st-row"><input id="glq" aria-label="Buscar término o definición" placeholder="Buscar término o definición"><select id="glf" aria-label="Filtrar por tipo de término"><option value="">Todos los tipos</option>${GT.map(t => `<option>${t}</option>`).join('')}</select></div>
       <div id="gllist"></div>`, TAB);
     bindPicker(() => glossary());
     $('#glser').onchange = e => go(TAB + '/' + e.target.value);
@@ -984,7 +984,7 @@ export function createStudio(ctx){
       <div class="tb-f"><label class="tb-inl">Obra<select id="fw"><option value="">Todas</option>${(works || []).map(w => `<option value="${w.id}" ${F.work === w.id ? 'selected' : ''}>${esc(w.short || w.title)}</option>`).join('')}</select></label>
         <label class="tb-inl"><input type="checkbox" id="fm" ${F.mine ? 'checked' : ''}> Solo lo asignado a mí</label>
         <span class="mono" style="margin-left:auto">${mv ? 'Mueve las tarjetas con ← → o arrastrándolas. Quien queda asignado recibe un aviso.' : 'Tu rol puede ver el tablero, pero no mover tarjetas.'}</span></div>
-      <div class="tb-cols">${COLS.map(([k, l, c]) => { const cs = list.filter(x => colOf(x) === k); return `<section class="tb-col" data-col="${k}" style="border-top-color:${c}"><h2><span>${l}</span><span class="mono">${cs.length}</span></h2>${cs.map(card).join('') || `<p class="tb-empty">${k === 'programado' ? 'Nada programado.' : 'Sin capítulos aquí.'}</p>`}</section>`; }).join('')}</div>
+      <p class="mono s2-scroll-tip">Desliza horizontalmente para recorrer las etapas del tablero. También puedes mover tarjetas con las flechas.</p><div class="tb-cols" role="region" aria-label="Etapas del flujo editorial" tabindex="0">${COLS.map(([k, l, c]) => { const cs = list.filter(x => colOf(x) === k); return `<section class="tb-col" data-col="${k}" style="border-top-color:${c}"><h2><span>${l}</span><span class="mono">${cs.length}</span></h2>${cs.map(card).join('') || `<p class="tb-empty">${k === 'programado' ? 'Nada programado.' : 'Sin capítulos aquí.'}</p>`}</section>`; }).join('')}</div>
       ${!(chs || []).length ? '<p class="mono">Los capítulos en borrador o programados aparecen aquí. Los publicados salen del tablero.</p>' : ''}</div>`;
     const cOf = id => chs.find(c => c.id === id);
     $('#fw').onchange = e => { F.work = e.target.value; board(); };
@@ -1207,7 +1207,7 @@ export function createStudio(ctx){
       <section class="s2-box"><div class="s2-bh"><h2>Vistas por día</h2><span class="mono">${dayL(daily[0]?.day)} – ${dayL(daily[daily.length - 1]?.day)}</span></div>
         <div class="st-bars" role="img" aria-label="Vistas por día en los últimos ${F.days} días">${daily.map(x => `<span title="${dayL(x.day)}: ${fmt(x.n)} vistas" style="height:${Math.max(2, Math.round(+x.n / maxD * 100))}%;background:${+x.n ? c : '#2f2a20'}"></span>`).join('')}</div>
         ${hasData ? '' : '<p class="mono" style="margin:8px 0 0">Las vistas por capítulo se cuentan desde hoy: una por lector, capítulo y día.</p>'}</section>
-      <div class="st-tw"><table class="st-t"><thead><tr>${col('order', 'Capítulo')}${col('views', 'Vistas')}${col('views_total', 'Total')}${col('finished', 'Terminaron')}<th scope="col">Retención</th>${col('here', 'Se quedaron aquí')}${col('comments', 'Coment.')}${col('reactions', 'Reacc.')}${col('reports', 'Erratas')}</tr></thead>
+      <div class="st-tw" role="region" aria-label="Estadísticas de capítulos" tabindex="0"><table class="st-t"><thead><tr>${col('order', 'Capítulo')}${col('views', 'Vistas')}${col('views_total', 'Total')}${col('finished', 'Terminaron')}<th scope="col">Retención</th>${col('here', 'Se quedaron aquí')}${col('comments', 'Coment.')}${col('reactions', 'Reacc.')}${col('reports', 'Erratas')}</tr></thead>
         <tbody>${sorted.map(x => { const r = Math.min(100, Math.round(+x.finished / base * 100)); return `<tr><th scope="row"><a href="/estudio/editar/${x.id}">${esc(x.section_type && x.section_type !== 'Capítulo' ? x.section_type : chLbl(x.num, x.title))}</a><small>Vol. ${x.vol}${x.publish_at ? ' · ' + fmtTz(x.publish_at, { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</small></th>
           <td>${fmt(x.views)}</td><td>${fmt(x.views_total)}</td><td>${fmt(x.finished)}</td><td><span class="st-ret" title="${r} % de quienes terminaron el primero"><i style="width:${r}%;background:${c}"></i></span><small>${r} %</small></td><td>${+x.here ? fmt(x.here) : '—'}</td><td>${fmt(x.comments)}</td><td>${fmt(x.reactions)}</td><td style="color:${+x.reports ? '#f59e7a' : ''}">${+x.reports ? fmt(x.reports) : '—'}</td></tr>`; }).join('') || '<tr><td colspan="9" class="tb-empty">Sin capítulos publicados.</td></tr>'}</tbody></table></div>
       <p class="mono">«Terminaron» y «Se quedaron aquí» solo cuentan lectores con cuenta. Retención: terminaron este capítulo / terminaron el primero. «Se quedaron aquí» son quienes lo empezaron y no han seguido: un número alto puede indicar un capítulo difícil.</p></div>`;
