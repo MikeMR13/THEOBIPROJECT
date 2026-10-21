@@ -1,6 +1,7 @@
 // Vistas públicas con la identidad visual de El Obi del Lector: Inicio, Catálogo y Ficha de serie.
 import { publicationDate, publicationAge, publicationDay } from './publication-dates.js?v=1';
 import { homeReleaseOverview } from './home-releases.js?v=1';
+import { homeFeaturedSelection, homeDayKey } from './home-featured.js?v=1';
 import { initSeriesOrganization, volumeProgress } from './series-organization.js?v=1';
 import { initSeriesTabs } from './series-tabs.js?v=1';
 import { chooseActiveEditorial } from './editorial-announcements.js?v=1';
@@ -339,7 +340,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   }
 
   // ---------- Inicio ----------
-  let heroT;
+  let heroT, homeRotationTimer;
   const HOME_CSS = `
 .ob-fest{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:22px 0 0;padding:12px 16px;border:1px solid var(--fc);border-left:4px solid var(--fc);background:color-mix(in srgb,var(--fc) 9%,#16140f);color:var(--paper);text-decoration:none}
 .ob-fest:hover{color:var(--paper);background:color-mix(in srgb,var(--fc) 15%,#16140f)}.ob-fest b{font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:18px}.ob-fest span{font-size:13px;color:var(--mute)}.ob-fest em{margin-left:auto;font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--fc)}
@@ -478,11 +479,13 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       const k = S.platformKey(), fs = k && S.SEASONS[k];
       return fs && fs.g !== 'est' ? fs : null;
     })).catch(() => null);
-    const [FD, prog, pr, VR] = await Promise.all([
+    const [FD, prog, pr, VR, TR, TF] = await Promise.all([
       feed(), progressMap(),
       u ? sb.rpc('my_adult_ok') : { data: null },
       // La portada del volumen publicado más reciente puede diferir de la ficha.
-      sb.from('volumes').select('id,series_id,num,title,cover_path,status,published_at,announced_at').is('deleted_at', null).eq('status', 'published').then(r => r, () => ({ data: [] }))]);
+      sb.from('volumes').select('id,series_id,num,title,cover_path,status,published_at,announced_at,is_final').is('deleted_at', null).eq('status', 'published').then(r => r, () => ({ data: [] })),
+      sb.from('rankings').select('series_id,list,period,score,pos').eq('list','tendencia').in('period',['hoy','semana']).order('pos').limit(30).then(r => r, () => ({ data: [] })),
+      sb.from('team_featured_series').select('team_id,series_id').limit(100).then(r => r, () => ({ data: [] }))]);
     { const vc = {}; (VR?.data || []).filter(v => v.cover_path && v.status === 'published').forEach(v => { if (!vc[v.series_id] || v.num > vc[v.series_id].num) vc[v.series_id] = v; });
       (FD?.series || []).forEach(s => { const v = vc[s.id]; if (v && v.cover_path !== s.cover_path) { s.cover_path = v.cover_path; s.cover_thumb_path = null; } }); }
     const { series, latest, rkW, rkH, top10 } = FD, ps = { featured: FD.featured }, nextRel = (FD.nextRel || []).filter(e => new Date(e.at) > Date.now());
@@ -493,10 +496,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     // Las publicaciones completas se anuncian como volumen, no como capítulos sueltos.
     const news = homeReleaseOverview(latest || [], VR?.data || [], list);
     const newsBySeries = news.bySeries;
-    const picks = (Array.isArray(ps?.featured) ? ps.featured : []).map(id => byId[id]).filter(Boolean);
-    const byNew = [...list].filter(x => newsBySeries[x.id]).sort((a, b) => newsBySeries[b.id].time - newsBySeries[a.id].time);
-    const fresh = byNew.filter(x => { const d = publicationDate(newsBySeries[x.id]?.at); return d && Date.now() - d.getTime() < 7 * 864e5 && !picks.includes(x); }).slice(0, 3);
-    const feat = picks.length ? [...fresh, ...picks].slice(0, 6) : byNew.slice(0, 5);
+    const featured = homeFeaturedSelection({ series:list, news, weekly:rkW||[], historic:rkH||[], trends:TR?.data||[], editorial:Array.isArray(ps.featured)?ps.featured:[], teams:TF?.data||[], now });
+    const feat = featured.entries.map(x => byId[x.id]);
+    const featReasons = featured.bySeries;
     const cont = Object.values(prog).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).filter(p => byId[p.series_id]).slice(0, 6);
     const grp = news.entries.slice(0, 6);
     const dayK = d => publicationDay(d);
@@ -557,7 +559,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const bindCars = root => root.querySelectorAll('[data-cs]').forEach(bt => { const c = document.getElementById(bt.dataset.cs); if (!c) return; bt.onclick = () => c.scrollBy({ left: +bt.dataset.d * c.clientWidth * .85, behavior: 'smooth' });
       const upd = () => { const [l, r] = root.querySelectorAll(`[data-cs="${bt.dataset.cs}"]`); if (l) l.disabled = c.scrollLeft < 4; if (r) r.disabled = c.scrollLeft + c.clientWidth >= c.scrollWidth - 4; }; c.addEventListener('scroll', upd, { passive: true }); upd(); });
     bindCars(app);
-    if (feat.length) heroSlide(feat, 0, prog, lastCh, top, newsBySeries);
+    if (feat.length) heroSlide(feat, 0, prog, lastCh, top, newsBySeries, featReasons);
     // Fase 2: secciones secundarias, sin bloquear lo anterior.
     const fill = (id, html) => { const el = document.getElementById(id); if (!el || !html) return; el.outerHTML = html; const sec = document.querySelector('[data-from="' + id + '"]'); if (sec) bindCars(sec); };
     const seen = new Set([...Object.keys(prog)]);
@@ -597,21 +599,21 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     });
   }
   let heroPaused = false;
-  function heroSlide(feat, i, prog, lastCh, top = {}, newsBySeries = {}){
+  function heroSlide(feat, i, prog, lastCh, top = {}, newsBySeries = {}, featReasons = {}){
     clearTimeout(heroT); const el = $('#hero'); if (!el) return;
-    const s = feat[i], p = prog[s.id], lc = lastCh[s.id], n = p?.chapter_num || lc?.num || 1; const pub = newsBySeries[s.id], v = pub?.kind === 'volume' ? pub.volume : null, art = v?.cover_path || s.cover_path; const freshDate = publicationDate(pub?.at || lc?.publish_at), fresh = !!freshDate && Date.now() - freshDate.getTime() < 7 * 864e5;
+    const s = feat[i], reason = featReasons[s.id], p = prog[s.id], lc = lastCh[s.id], n = p?.chapter_num || lc?.num || 1; const pub = newsBySeries[s.id], v = pub?.kind === 'volume' ? pub.volume : null, art = v?.cover_path || s.cover_path; const freshDate = publicationDate(pub?.at || lc?.publish_at), fresh = !!freshDate && Date.now() - freshDate.getTime() < 7 * 864e5;
     // frase de gancho: la primera oración completa (acepta comillas de cierre); si es larga o no hay más texto, no se separa
     const synT = (s.synopsis || '').replace(/\r/g, '').trim(), lines = synT.split(/\n+/), sents = lines[0].split(/(?<=[.!?…]["”»'’)]*)\s+/);
     let tag = lines.length > 1 && lines[0].length <= 140 ? lines[0] : sents.length > 1 && sents[0].length <= 110 ? sents[0] : '';
     el.innerHTML = `<span class="ob-vk" aria-hidden="true">新刊案内</span>
       <div class="ob-cov"><div class="f" style="${art ? `background-image:url('${esc(matchMedia('(max-width: 700px)').matches && !v ? thumb(s) : media(art))}')` : ''}"></div></div>
-      <div class="ob-txt"><span class="ob-kick">${v ? '第' + KN(v.num) + '巻 · 新刊' : '第' + KN(lc?.num || 1) + '章' + (fresh ? ' · 新刊' : '')}</span><div class="ob-hero-flags"><span class="ob-badge${v ? ' ob-badge-vol' : ''}">${v ? (fresh ? '¡NUEVO VOLUMEN! · VOL. ' : 'VOLUMEN DISPONIBLE · VOL. ') + v.num : currentNotice(s)?.kind === 'chapter' ? 'CAPÍTULO PUBLICADO' : fresh ? 'NUEVO · CAP. ' + (lc?.num || 1) : 'CAP. ' + (lc?.num || 1) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${heroTag(s)}</div>${top[s.id] ? `<div class="ob-hero-rank"><a class="rk-bdg" href="/ranking"><b>#${top[s.id]}</b>Top de la semana</a></div>` : ''}
+      <div class="ob-txt"><span class="ob-kick">${v ? '第' + KN(v.num) + '巻 · 新刊' : '第' + KN(lc?.num || 1) + '章' + (fresh ? ' · 新刊' : '')}</span><div class="ob-hero-flags"><span class="ob-badge${v ? ' ob-badge-vol' : ''}">${reason?.kind !== 'release' ? esc(reason?.label || 'Destacado') : reason?.urgent ? '¡NOVELA COMPLETA! · VOL. ' + v.num : v ? (fresh ? '¡NUEVO VOLUMEN! · VOL. ' : 'VOLUMEN DISPONIBLE · VOL. ') + v.num : currentNotice(s)?.kind === 'chapter' ? 'CAPÍTULO PUBLICADO' : fresh ? 'NUEVO · CAP. ' + (lc?.num || 1) : 'CAP. ' + (lc?.num || 1) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${heroTag(s)}</div>${top[s.id] ? `<div class="ob-hero-rank"><a class="rk-bdg" href="/ranking"><b>#${top[s.id]}</b>Top de la semana</a></div>` : ''}
         <h1 data-len="${(s.title.length + (v ? 12 + String(v.num).length : 0)) > 70 ? 'xl' : (s.title.length + (v ? 12 + String(v.num).length : 0)) > 40 ? 'l' : ''}"><a class="ob-h1a" href="/serie/${s.slug}">${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}</a></h1>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn" style="white-space:pre-line">${esc(s.synopsis ? (synT.slice(tag.length).replace(/^\s+/, '').replace(/\n{3,}/g, '\n\n') || synT) : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), (s.chapters?.[0]?.count || 0) + ' capítulos en español'].filter(Boolean).join(' · ') + '.')}</p>
         <div class="ob-acts"><a class="a1" href="${v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + n}">${v ? 'Ver volumen ' + v.num : p ? 'Continuar capítulo ' + n : 'Leer capítulo ' + (lc?.num || 1)}</a>${v && (p || lc) ? `<a class="a2" href="/leer/${s.slug}/${n}">${p ? 'Continuar lectura' : 'Empezar a leer'}</a>` : `<a class="a2" href="/serie/${s.slug}">Ver la serie</a>`}</div></div>
       ${feat.length > 1 ? `<div class="ob-pager2" style="position:absolute;left:clamp(16px,4vw,56px);right:clamp(16px,4vw,56px);bottom:14px;z-index:2;display:flex;align-items:center;gap:10px"><button data-j="${(i - 1 + feat.length) % feat.length}" aria-label="Anterior" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">‹</button><span style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">${feat.map((f, j) => `<button data-j="${j}" aria-label="${esc(f.title)}" aria-current="${j === i}" style="height:10px;flex:${j === i ? '0 1 160px' : '0 0 10px'};min-width:10px;padding:0;border:none;cursor:pointer;position:relative;overflow:hidden;background:${j === i ? '#3d3628' : '#5a5244'}">${j === i ? `<i class="ob-hp" style="position:absolute;inset:0;background:var(--gold);transform-origin:left;transform:scaleX(${heroPaused ? 1 : 0});${heroPaused || matchMedia('(prefers-reduced-motion: reduce)').matches ? '' : 'animation:obHp 8s linear forwards'}"></i>` : ''}</button>`).join('')}</span><button data-hp aria-label="${heroPaused ? 'Reanudar' : 'Pausar'}" style="height:40px;padding:0 12px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">${heroPaused ? '▶ Reanudar' : 'Ⅱ Pausar'}</button><button data-j="${(i + 1) % feat.length}" aria-label="Siguiente" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">›</button></div>` : ''}`;
-    el.querySelectorAll('[data-j]').forEach(b => b.onclick = () => heroSlide(feat, +b.dataset.j, prog, lastCh, top, newsBySeries));
-    el.querySelector('[data-hp]')?.addEventListener('click', () => { heroPaused = !heroPaused; heroSlide(feat, i, prog, lastCh, top, newsBySeries); });
-    if (feat.length > 1 && !heroPaused && !matchMedia('(prefers-reduced-motion: reduce)').matches) heroT = setTimeout(() => { if (document.body.contains(el)) heroSlide(feat, el.matches(':hover') ? i : (i + 1) % feat.length, prog, lastCh, top, newsBySeries); }, 8000);
+    el.querySelectorAll('[data-j]').forEach(b => b.onclick = () => heroSlide(feat, +b.dataset.j, prog, lastCh, top, newsBySeries, featReasons));
+    el.querySelector('[data-hp]')?.addEventListener('click', () => { heroPaused = !heroPaused; heroSlide(feat, i, prog, lastCh, top, newsBySeries, featReasons); });
+    if (feat.length > 1 && !heroPaused && !matchMedia('(prefers-reduced-motion: reduce)').matches) heroT = setTimeout(() => { if (document.body.contains(el)) heroSlide(feat, el.matches(':hover') ? i : (i + 1) % feat.length, prog, lastCh, top, newsBySeries, featReasons); }, 8000);
   }
   const card = (s, st, lc, p) => `<a class="ui-card" href="/serie/${s.slug}" data-id="${s.id}">${st ? `<span class="ui-st ${st[1]}">${esc(st[0])}</span>` : ''}${book(s, null, true)}${progBar(s, p)}<h3>${esc(s.title)}</h3><span class="meta">${pill(s.translation_status)}<span>${s.chapters?.[0]?.count ?? 0} cap.</span>${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</span>${lc ? `<span class="last">Último: cap. ${lc.num}${ageTag(lc.publish_at)}</span>` : ''}</a>`;
 
