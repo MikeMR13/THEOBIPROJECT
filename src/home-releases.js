@@ -36,6 +36,6 @@ export function homeReleaseOverview(latest = [], volumes = [], visibleSeries = [
       entries.push({ id: s.id, kind: 'chapter', chs: batch, at: c.publish_at, time: tc });
     }
   }
-  entries.sort((a, b) => b.time - a.time || (a.kind === 'volume' ? -1 : 1) || a.id.localeCompare(b.id));
+  entries.sort((a, b) => b.time - a.time || Number(b.kind === 'volume') - Number(a.kind === 'volume') || String(a.id).localeCompare(String(b.id)));
   return { entries, bySeries: Object.fromEntries(entries.map(e => [e.id, e])) };
 }
