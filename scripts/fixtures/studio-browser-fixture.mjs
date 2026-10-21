@@ -39,7 +39,7 @@ function factory({create=true,importRole=true,edit=true,publish=true,deleteRole=
         _select:'',_insert:null,_type:'',_count:false,
         select(columns,opts){this._select=columns;this._count=!!opts?.head;return this;},
         eq(){return this;},is(){return this;},order(){return this;},not(){return this;},
-        gte(){return this;},limit(){return this;},in(){return this;},
+        gte(){return this;},or(){return this;},limit(){return this;},in(){return this;},
         insert(row){this._insert=row;calls.push('insert:'+table);inserted.push({table,row});return this;},
         one(){
           if(this._insert){
