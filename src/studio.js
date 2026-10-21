@@ -274,7 +274,7 @@ export function createStudio(ctx){
         (can('import') ? '<a class="wk-box" href="/estudio/importar" style="text-decoration:none;color:var(--paper)"><b>Importar un archivo →</b><small class="mono">EPUB, DOCX o PDF con la misma ficha editorial completa.</small></a>' : '') +
         '</div>';
       app.innerHTML = shell('Nueva obra', steps(0) + choices +
-        '<div class="wf-creator" id="nw-fields">' + renderWorkFields(N,esc,related) + '</div>' +
+        '<h2 class="s2-h2">Datos de la obra</h2><div class="wf-creator" id="nw-fields">' + renderWorkFields(N,esc,related) + '</div>' +
         box('Portada de la obra (opcional)', '<label>JPG, PNG o WebP · máximo 8 MB<input type="file" id="nw-cover" accept="image/png,image/jpeg,image/webp"></label><small class="mono">Si no tienes portada, puedes agregarla después o usar la del volumen importado.</small>') +
         '<div class="wf-create-actions"><button class="btn" id="nw-go">Guardar obra privada y continuar →</button><a class="btn ghost" href="/estudio/obras">Cancelar</a></div>', TAB);
       bindPicker(newWork);
