@@ -26,9 +26,13 @@ export function initSeriesTabs(root, win = window) {
       panel.setAttribute('aria-hidden', String(!active));
       if (active && focus) tab.focus();
     }
-    // Notificar cuando un panel pasa a visible; los carruseles necesitan
-    // recalcular sus medidas tras dejar de estar dentro de [hidden].
-    root.dispatchEvent(new win.CustomEvent('obi-series-tab-change', { bubbles: true, detail: { id: desired } }));
+    // La galería conserva su evento 'scroll' para actualizar las flechas.
+    // Después de mostrar Ficha, recalcular dimensiones en el siguiente frame:
+    // si el contenido multimedia se cargó con el panel oculto, su ancho era cero.
+    if (desired === 'serie-info') win.requestAnimationFrame(() => {
+      const track = panels.get('serie-info')?.querySelector('#gl-track');
+      if (track?.isConnected) track.dispatchEvent(new win.Event('scroll'));
+    });
     return desired;
   };
   const syncHash = () => {
