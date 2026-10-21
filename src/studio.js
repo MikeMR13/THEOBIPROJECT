@@ -142,7 +142,7 @@ export function createStudio(ctx){
   }
   const closePops = except => document.querySelectorAll('.s2-pop').forEach(p => {
     if (p === except) return;
-    if (p.id === 'st-q-res') { ++qSeq; document.getElementById('st-q')?.setAttribute('aria-expanded','false'); }
+    if (p.id === 'st-q-res') { clearTimeout(qT); ++qSeq; document.getElementById('st-q')?.setAttribute('aria-expanded','false'); }
     if (p.id === 'st-bell-list') document.getElementById('st-bell')?.setAttribute('aria-expanded','false');
     p.hidden = true;
   }), bellBtn = () => document.getElementById('st-bell');
