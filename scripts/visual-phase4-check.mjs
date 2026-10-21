@@ -19,7 +19,7 @@ assert.equal(publicationDate('2026-10-20T18:33:00Z',now)?.getUTCFullYear(),2026,
 assert.equal(publicationDate('2026-10-20T18:40:00Z',now),null,'No presentar un lanzamiento futuro como publicación antigua');
 const markers=[
   'const ago = d => publicationAge(d)', 'const dayK = d => publicationDay(d)',
-  'const fresh = byNew.filter(x => { const d = publicationDate',
+  'const featured = homeFeaturedSelection(',
   'const freshDate = publicationDate(pub?.at || lc?.publish_at)',
   'publicationDate(g.at) ? `<time datetime=',
   'homeReleaseOverview(latest || [], VR?.data || [], list)','obTicker','ob-track','ob-tick','heroSlide(feat','bindCars(app)',
