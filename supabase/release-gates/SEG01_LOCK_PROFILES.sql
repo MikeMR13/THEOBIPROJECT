@@ -7,6 +7,9 @@
 -- Prohibido aplicarlo mientras la UI antigua siga consultando perfiles privados.
 
 begin;
+-- No esperar indefinidamente por bloqueo del catálogo: abortar sin cambios si hay tráfico concurrente.
+set local lock_timeout = '4s';
+set local statement_timeout = '20s';
 
 -- Preflight: la interfaz depende de estas funciones y el servicio de Patreon
 -- depende de mantener SELECT de service_role a sus vínculos.
@@ -17,6 +20,9 @@ begin
      or not has_function_privilege('authenticated','public.my_profile()','EXECUTE')
      or not has_function_privilege('authenticated','public.my_adult_ok()','EXECUTE')
      or not has_column_privilege('service_role','public.profiles','patreon_user_id','SELECT')
+     or not has_column_privilege('authenticated','public.profiles','ui_prefs','UPDATE')
+     or not has_column_privilege('authenticated','public.profiles','notify','UPDATE')
+     or not has_column_privilege('authenticated','public.profiles','adult_ok','UPDATE')
   then raise exception 'SEG01 prerequisites not satisfied'; end if;
 end
 $$;
@@ -37,6 +43,9 @@ begin
   if not has_column_privilege('anon','public.profiles','username','SELECT')
      or not has_column_privilege('authenticated','public.profiles','avatar_url','SELECT')
      or not has_column_privilege('service_role','public.profiles','patreon_user_id','SELECT')
+     or not has_column_privilege('authenticated','public.profiles','ui_prefs','UPDATE')
+     or not has_column_privilege('authenticated','public.profiles','notify','UPDATE')
+     or not has_column_privilege('authenticated','public.profiles','adult_ok','UPDATE')
   then raise exception 'SEG01 core identity or server grants broken'; end if;
 end
 $$;
