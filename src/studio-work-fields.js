@@ -75,7 +75,7 @@ export function workPayload(data) {
 }
 
 export function renderWorkFields(data, esc, related = []) {
-  const input = (key,label,max=200) => '<label class="wf-field">' + label + '<input data-w="' + key + '" maxlength="' + max + '" value="' + esc(data[key] || '') + '"></label>';
+  const input = (key,label,max=200) => '<label class="wf-field">' + label + '<input data-w="' + key + '"' + (key === 'title' ? ' id="nw-title"' : '') + ' maxlength="' + max + '" value="' + esc(data[key] || '') + '"></label>';
   const select = (key,label,options) => '<label class="wf-field">' + label +
     '<select data-w="' + key + '">' + options.map(([v,l]) =>
       '<option value="' + esc(v) + '"' + (data[key] === v ? ' selected' : '') + '>' + esc(l) + '</option>').join('') + '</select></label>';
