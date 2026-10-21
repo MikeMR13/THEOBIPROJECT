@@ -6,6 +6,10 @@ import { createServer } from 'node:http';
 import { spawn, execFileSync } from 'node:child_process';
 
 const css=readFileSync('src/styles.css','utf8')+'\n'+readFileSync('src/studio.css','utf8');
+const source=readFileSync('src/studio.js','utf8');
+for(const k of ['s2-work-primary','s2-work-recommend','s2-work-secondary','s2-feature-toggle','data-feature','team_feature_set'])assert(source.includes(k),'Falta función: '+k);
+assert(!source.includes("'gold' : 'ghost'"),'No debe usarse la clase gold para el botón activo');
+assert(css.includes('.s2 .s2-work .s2-feature-toggle[aria-pressed="true"]'),'Falta estilo de contraste');
 const widths=[320,390,768,1024,1440,1690];
 const title='¿Heroína? ¿Santa? ¡No, soy una sirvienta todoterreno con orgullo!';
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -46,8 +50,10 @@ const extras = '<div class="wk-flt"><input type="search" id="wk-q" placeholder="
   '<div class="bd"><span class="tg"><small>2 vol. · 57 cap.</small></span><h2><a href="#">'+esc(title)+'</a></h2>'+
   '<p>Descripción editorial de una obra larga para comprobar tarjetas y bordes.</p>'+
   '<dl><div><dt>PRÓXIMO</dt><dd>Volumen 3</dd></div><div><dt>BORRADORES</dt><dd>2</dd></div></dl>'+
-  '<span class="ac"><button class="btn">Nuevo capítulo</button><a class="btn ghost" href="#">Abrir ficha</a>'+
-  '<a class="btn ghost" href="#">Importar volumen</a></span></div></article></div>';
+  '<div class="s2-work-actions"><div class="s2-work-primary"><button class="btn">Nuevo capítulo</button><a class="btn ghost" href="#">Abrir ficha</a></div>'+
+  '<div class="s2-work-recommend"><span class="s2-work-recommend-info"><b>Recomendación del equipo</b><small>Una obra a la vez en Inicio</small></span>'+
+  '<button class="btn s2-feature-toggle" type="button" aria-pressed="true" aria-label="Quitar recomendación"><span aria-hidden="true">★</span><span>Destacada · Quitar</span></button></div>'+
+  '<div class="s2-work-secondary"><a class="btn ghost" href="#">Importar volumen</a><a class="lnk" href="#">Ver en el sitio ↗</a></div></div></div></article></div>';
 const fixture='<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+css+'</style></head><body class="in-studio"><main><div class="s2">'+
   '<aside class="s2-side"><div class="s2-mobile-head"><a class="s2-brand" href="#">Estudio Editorial</a>'+
   '<button class="s2-mobile-toggle">Secciones</button></div><div class="s2-team"><b>OX-MR TRADUCCIONES</b></div>'+
@@ -77,7 +83,13 @@ const fixture='<html lang="es"><head><meta charset="utf-8"><meta name="viewport"
   'if(w<768&&tb.scrollWidth<=tb.clientWidth)err.push("tabla móvil sin scroll interno");'+
   'const filter=r(document.querySelector(".wk-flt"));if(filter.right>w+2)err.push("filtros fuera del viewport");'+
   'const card=r(document.querySelector(".s2-work"));if(card.left< -2||card.right>w+2)err.push("tarjeta fuera del viewport");'+
-  'for(const b of document.querySelectorAll(".s2-work .ac > *")){const x=r(b);if(x.left<card.left-2||x.right>card.right+2)err.push("acción de tarjeta fuera");}'+
+  'for(const b of document.querySelectorAll(".s2-work-actions button,.s2-work-actions a")){const x=r(b);if(x.left<card.left-2||x.right>card.right+2)err.push("acción fuera: "+b.textContent);}'+
+  'const p1=r(document.querySelector(".s2-work-primary")),p2=r(document.querySelector(".s2-work-recommend")),p3=r(document.querySelector(".s2-work-secondary"));'+
+  'if(p2.top<p1.bottom-2||p3.top<p2.bottom-2)err.push("acciones superpuestas");'+
+  'const feature=document.querySelector(".s2-feature-toggle"),style=getComputedStyle(feature);'+
+  'if(feature.textContent.trim().length<8||feature.getAttribute("aria-pressed")!=="true")err.push("Destacar no identificable");'+
+  'if(style.color===style.backgroundColor||style.color==="rgb(0, 0, 0)")err.push("Destacar ilegible");'+
+  'if(feature.scrollWidth>feature.clientWidth+2)err.push("texto Destacar recortado");'+
   'const p=document.getElementById("case-result");p.dataset.qaStatus=err.length?"fail":"pass";p.textContent=err.join(" | ")||"Estudio bien alineado a "+w+"px";});</script></body></html>';
 const parent='<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><p id="qa-root" data-qa-status="running">Esperando</p>'+
   widths.map(w=>'<iframe title="Viewport '+w+'" width="'+w+'" height="1050" src="/fixture"></iframe>').join('')+
