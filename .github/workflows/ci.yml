@@ -26,6 +26,10 @@ jobs:
         run: npm run visual-browser-check
       - name: Fase 6.1 QA Inicio y Catálogo (Chromium)
         run: node scripts/phase6-public-check.mjs
+      - name: Ficha pública Fases 1–2 — galería, lista y descargas en 5 tamaños
+        run: node scripts/series-editorial-phase12-check.mjs
+      - name: Ficha pública Fases 3–4 — búsqueda, filtros y accesibilidad móvil
+        run: node scripts/series-editorial-phase34-check.mjs
       - name: Fase 6.2 temporadas y preferencias (funciones reales)
         run: node scripts/phase6-seasons-preferences-check.mjs
       - name: Fase 6.3 Studio, permisos y enlaces de borrador
