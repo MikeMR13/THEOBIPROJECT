@@ -1,5 +1,6 @@
 // Editor de Studio. Se carga únicamente al abrir un capítulo.
 import { blocksToEditor, editorToBlocks, pasteToEditor, renderBlock, warningsHTML, teaserHTML, figureHTML, makesBlock, FONTS, CW } from './blocks.js?v=2';
+import { askEditorialAnnouncement, saveEditorialRecord } from './editorial-announcements.js?v=1';
 export function createEditor(deps) {
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, names, home, errMsg, rpc, LIMITS, SEC } = deps;
   // ---------- editor de página: vista previa del lector, revisión automática, historial, avance y marcadores ----------
@@ -168,10 +169,15 @@ export function createEditor(deps) {
         : (can('schedule') ? '<input type="datetime-local" id="pubat" aria-label="Fecha de publicación">' + tzHint() + '<button class="btn ghost" id="sch">Programar</button>' : '') + (can('publish') ? '<button class="btn" id="pubnow">Publicar ahora</button>' : '');
       const act = (btn, status, when) => busy(btn, async () => {
         lint(); if (L.total && !confirm(`La revisión automática dejó ${L.total} aviso(s). ¿${status === 'published' ? 'Publicar' : 'Programar'} de todos modos?`)) return;
+        const selection=await askEditorialAnnouncement({esc,kind:'chapter',title:title()});
+        if(!selection)return;
         if (!(await doSave(true, 'publish', status === 'published' ? 'Publicado' : 'Programado para ' + fmtTz(when)))) throw new Error('No se pudo guardar antes de publicar');
         const { error } = await sb.from('chapters').update({ status, publish_at: when }).eq('id', id);
         if (error) throw new Error(/approval_required/.test(error.message) ? 'El equipo exige una revisión aprobada antes de publicar.' : /forbidden/.test(error.message) ? 'No tienes permiso para esta acción.' : error.message);
-        Object.assign(c, { status, publish_at: when }); drawPub(); toast(status === 'published' ? 'Capítulo publicado' + (L.total ? ' · ' + L.total + ' aviso(s)' : '') : 'Capítulo programado');
+        Object.assign(c, { status, publish_at: when });
+        try{await saveEditorialRecord(sb,c.series_id,selection,{kind:'chapter',id,startsAt:when});}
+        catch(e){toast('Capítulo guardado, pero falló el anuncio editorial: '+(e.message||e));}
+        drawPub(); toast(status === 'published' ? 'Capítulo publicado' + (L.total ? ' · ' + L.total + ' aviso(s)' : '') : 'Capítulo programado');
       });
       $('#pubnow')?.addEventListener('click', e => act(e.currentTarget, 'published', new Date().toISOString()));
       $('#sch')?.addEventListener('click', e => { const v = $('#pubat').value; if (!v || new Date(fromLocal(v)) <= new Date()) return toast('Elige una fecha futura'); act(e.currentTarget, 'scheduled', new Date(fromLocal(v)).toISOString()); });
