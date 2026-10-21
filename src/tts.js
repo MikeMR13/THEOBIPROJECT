@@ -18,6 +18,11 @@
   const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
   let voices = [], segments = [], index = 0, playing = false;
   let current = null, generation = 0, panel = null, reader = null;
+  let turnTimer = 0, turnDeadline = 0, pendingPath = '';
+  const CURSOR_KEY = 'obi-tts-cursor-v1';
+  // La barra abierta inhibe el paginado visual para que no interrumpa la narración.
+  window.__obiTTS = { isActive: () => !!pendingPath || !!(panel && !panel.hidden) };
+  const announce = () => window.dispatchEvent(new Event('obi-tts-state'));
 
   const style = document.createElement('style');
   style.id = 'obi-tts-style';
@@ -80,7 +85,7 @@
         clone.querySelectorAll('sup,rt,rp,.fn,script,style,[aria-hidden="true"]').forEach(n => n.remove());
         const text = clone.textContent.trim();
         if (!text || /^[\s*·•◇◆~—–\-=#]+$/.test(text)) return;
-        splitText(text).forEach((part, partIndex) => result.push({ el, text: part, partIndex }));
+        splitText(text).forEach((part, partIndex) => result.push({ el, text: part, partIndex, block: el.getAttribute('data-b') || 'header' }));
       });
     });
     return result;
@@ -130,24 +135,88 @@
       ms.metadata = null;
     } catch {}
   }
+  // Guardar una referencia por usuario y obra, al inicio de cada fragmento.
+  // Así la pestaña puede morir sin esperar a un evento de cierre fiable.
+  function infoFor(entry = current) {
+    return entry ? window.__obiReaderTTS?.info?.(entry.el.closest('.rd-ch')?.dataset.ch) : null;
+  }
+  function bookmarkKey(info) { return `${CURSOR_KEY}:${info.user}:${info.slug}`; }
+  function saveCursor(entry = current) {
+    const info = infoFor(entry);
+    if (!info || !entry) return;
+    try { localStorage.setItem(bookmarkKey(info), JSON.stringify({
+      chapterId: String(info.id), block: entry.block, partIndex: entry.partIndex,
+      text: entry.text, at: Date.now()
+    })); } catch {}
+  }
+  function forgetCursor(entry = current) {
+    const info = infoFor(entry);
+    if (!info) return;
+    try { localStorage.removeItem(bookmarkKey(info)); } catch {}
+  }
+  function savedIndex() {
+    if (!segments.length) return -1;
+    const info = infoFor(segments[0]);
+    if (!info) return -1;
+    try {
+      const b = JSON.parse(localStorage.getItem(bookmarkKey(info)) || 'null');
+      if (!b || Date.now() - b.at > 30 * 86400000) return -1;
+      return segments.findIndex(s =>
+        String(s.el.closest('.rd-ch')?.dataset.ch) === String(b.chapterId) &&
+        s.block === b.block && s.partIndex === b.partIndex && s.text === b.text);
+    } catch { return -1; }
+  }
+  function clearTurn() { clearTimeout(turnTimer); turnTimer = 0; turnDeadline = 0; }
+  function finishedChapter() {
+    const info = infoFor();
+    if (!info?.next || (!info.canContinue && !info.autonext)) return stop(true);
+    const changeChapter = () => {
+      clearTurn();
+      if (!playing || !reader?.isConnected) return;
+      pendingPath = `/leer/${info.slug}/${info.next.num}`;
+      try {
+        if (!window.__obiReaderTTS?.nextChapter?.(info.id, info.next.num)) {
+          pendingPath = ''; stop();
+        }
+      } catch { pendingPath = ''; stop(); }
+    };
+    if (info.canContinue) { changeChapter(); return; }
+    turnDeadline = Date.now() + info.seconds * 1000;
+    const tick = () => {
+      if (!playing || !reader?.isConnected) { clearTurn(); return; }
+      const left = Math.max(0, Math.ceil((turnDeadline - Date.now()) / 1000));
+      if (!left) { changeChapter(); return; }
+      setStatus(`Siguiente capítulo en ${left} s`);
+      turnTimer = setTimeout(tick, Math.min(1000, Math.max(10, turnDeadline - Date.now())));
+    };
+    tick();
+  }
   function cancelSpeech() {
     generation++;
     try { speech.cancel(); } catch {}
   }
   function pause() {
+    if (!turnTimer) saveCursor();
+    clearTurn();
     playing = false;
     cancelSpeech();
     setStatus();
     updateMediaSession();
   }
-  function stop() {
+  function stop(completed = false) {
+    if (completed) forgetCursor();
+    else if (!turnTimer) saveCursor();
+    clearTurn();
+    pendingPath = '';
     playing = false;
     cancelSpeech();
     current = null; index = 0; segments = [];
     highlight(null);
     clearMediaSession();
+    const wasOpen = panel && !panel.hidden;
     if (panel) panel.hidden = true;
     setStatus();
+    if (wasOpen) announce();
   }
   function next() {
     // Reconstruir al finalizar la última parte: lectura continua puede haber añadido capítulos.
@@ -166,6 +235,7 @@
     if (restart) cancelSpeech();
     const id = ++generation;
     current = entry;
+    saveCursor(entry);
     highlight(entry.el);
     setStatus();
     updateMediaSession();
@@ -176,7 +246,7 @@
     utterance.rate = state.rate;
     utterance.onend = () => {
       if (generation !== id || !playing) return;
-      if (next() < 0) stop(); else speak();
+      if (next() < 0) finishedChapter(); else speak();
     };
     utterance.onerror = e => {
       if (generation !== id || !playing) return;
@@ -187,15 +257,20 @@
     try { speech.speak(utterance); }
     catch { playing = false; cancelSpeech(); setStatus('La voz no está disponible en este navegador.'); clearMediaSession(); }
   }
-  function start(fromVisible = true) {
+  function start(fromVisible = true, useBookmark = false) {
+    clearTurn();
     segments = collect();
-    if (!segments.length) { setStatus('No hay texto disponible para leer.'); return; }
-    if (fromVisible || index >= segments.length) index = visibleIndex();
+    if (!segments.length) { playing = false; setStatus('No hay texto disponible para leer.'); return; }
+    const previous = useBookmark ? savedIndex() : -1;
+    if (previous >= 0) index = previous;
+    else if (fromVisible || index >= segments.length) index = visibleIndex();
     playing = true;
     speak(true);
+    if (previous >= 0) setStatus('Retomando donde dejaste la voz');
   }
   function resume() {
     if (!reader?.isConnected || !panel || panel.hidden) return;
+    clearTurn();
     // El DOM pudo cambiar mientras estaba en pausa (navegación/lectura continua).
     const old = segments[index];
     segments = collect();
@@ -213,8 +288,8 @@
     if (!segments.length) return stop();
     const at = segments.findIndex(s => s.el === old?.el && s.partIndex === old?.partIndex);
     index = Math.max(0, Math.min(segments.length - 1, (at >= 0 ? at : visibleIndex()) + amount));
-    if (playing) speak(true);
-    else { highlight(segments[index].el); setStatus(); }
+    if (playing) { clearTurn(); speak(true); }
+    else { highlight(segments[index].el); saveCursor(segments[index]); setStatus(); }
   }
   function fillVoices() {
     const sel = panel?.querySelector('select');
@@ -258,7 +333,8 @@
       });
     }
     panel.hidden = false;
-    start();
+    announce();
+    start(true, true);
   }
   function addButton(container) {
     if (!container || container.querySelector('[data-tts]')) return;
@@ -278,13 +354,42 @@
   }
   function hook() {
     const now = document.querySelector('#app .rd');
-    if (now !== reader) { stop(); reader = now; }
-    if (!reader) return;
+    if (now !== reader) {
+      if (pendingPath && location.pathname === pendingPath) {
+        // El SPA reemplaza el DOM entre capítulos; no interpretar ese cambio como cierre.
+        cancelSpeech(); highlight(null);
+        current = null; segments = []; index = 0; reader = now;
+      } else {
+        stop(); reader = now;
+      }
+    }
+    if (!reader) {
+      if (pendingPath && location.pathname !== pendingPath) stop();
+      return;
+    }
     addButton(reader.querySelector('.rd-wide'));
     addButton(reader.querySelector('.rd-more-m'));
+    if (pendingPath) {
+      if (location.pathname !== pendingPath) return stop();
+      pendingPath = '';
+      segments = collect(); index = 0;
+      if (panel) panel.hidden = false;
+      if (segments.length) { playing = true; speak(true); }
+      else stop();
+    }
   }
   const app = document.getElementById('app');
   if (app) new MutationObserver(hook).observe(app, { childList: true, subtree: true });
-  window.addEventListener('pagehide', stop);
+  // Ocultar la página no cancela la voz: el navegador decide si permite TTS en segundo plano.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && !turnTimer) saveCursor();
+    if (document.visibilityState === 'visible' && turnTimer && Date.now() >= turnDeadline) {
+      // Al despertar la pestaña, el reloj absoluto mantiene la espera real.
+      clearTimeout(turnTimer); turnTimer = setTimeout(() => {
+        if (playing) finishedChapter();
+      }, 0);
+    }
+  });
+  window.addEventListener('pagehide', () => stop());
   hook();
 })();
