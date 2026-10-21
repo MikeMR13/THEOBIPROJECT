@@ -105,8 +105,8 @@ export function createStudio(ctx){
     if (!opts.some(o => o[0] === k)) opts.push([k, tzLabel(k)]);
     return `<div class="s2-tools">
       <label class="s2-tz" title="Zona con la que se muestran y programan las fechas"><span aria-hidden="true">◷</span><select id="st-tz" aria-label="Zona horaria">${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
-      <div class="s2-bellw"><button type="button" class="s2-bell" id="st-bell" aria-label="Avisos" aria-expanded="false"><span aria-hidden="true">鈴</span><em id="st-bell-n" hidden></em></button><div class="s2-pop" id="st-bell-list" hidden></div></div>
-      <div class="s2-srch"><input id="st-q" type="search" placeholder="Buscar en el Estudio…" autocomplete="off" aria-label="Buscar en el Estudio"><div class="s2-pop" id="st-q-res" hidden></div></div>
+      <div class="s2-bellw"><button type="button" class="s2-bell" id="st-bell" aria-label="Avisos" aria-controls="st-bell-list" aria-expanded="false"><span aria-hidden="true">鈴</span><em id="st-bell-n" hidden></em></button><div class="s2-pop" id="st-bell-list" hidden></div></div>
+      <div class="s2-srch"><input id="st-q" type="search" placeholder="Buscar en el Estudio…" autocomplete="off" aria-label="Buscar en el Estudio" aria-controls="st-q-res" aria-expanded="false"><div class="s2-pop" id="st-q-res" hidden></div></div>
     </div>`; };
   // el mismo menú de cuenta que en el sitio (foto, Mi perfil, Preferencias, Salir…), copiado del encabezado público
   const mountMe = () => { const slot = document.getElementById('st-me'), src = document.querySelector('#session .ob-user'); if (!slot || !src || slot.dataset.ok) return; slot.dataset.ok = '1';
@@ -126,8 +126,8 @@ export function createStudio(ctx){
   let qT = 0, qSeq = 0;
   async function search(q){
     const res = document.getElementById('st-q-res'), my = ++qSeq; if (!res) return;
-    if (q.length < 2) { res.hidden = true; return; }
-    res.hidden = false; res.innerHTML = '<p class="mono" style="padding:12px;margin:0">Buscando…</p>';
+    if (q.length < 2) { res.hidden = true; document.getElementById('st-q')?.setAttribute('aria-expanded','false'); return; }
+    res.hidden = false; document.getElementById('st-q')?.setAttribute('aria-expanded','true'); res.innerHTML = '<p class="mono" style="padding:12px;margin:0">Buscando…</p>';
     const like = '%' + q.replace(/[%_\\]/g, m => '\\' + m) + '%';
     const [s, c, g] = await Promise.all([
       sb.from('series').select('slug,title').eq('team_id', T.team.id).is('archived_at', null).ilike('title', like).limit(5),
@@ -140,7 +140,12 @@ export function createStudio(ctx){
       + grp('GLOSARIO', (g.data || []).map(x => `<a class="s2-qr" href="/estudio/glosario/${esc(x.series?.slug || '')}"><b>${esc(x.term)}</b><small>${esc(x.category)} · ${esc(x.series?.title || '')}</small></a>`));
     res.innerHTML = html || `<p class="mono" style="padding:12px;margin:0">Nada con «${esc(q)}».</p>`;
   }
-  const closePops = except => document.querySelectorAll('.s2-pop').forEach(p => { if (p !== except) { p.hidden = true; } }), bellBtn = () => document.getElementById('st-bell');
+  const closePops = except => document.querySelectorAll('.s2-pop').forEach(p => {
+    if (p === except) return;
+    if (p.id === 'st-q-res') { ++qSeq; document.getElementById('st-q')?.setAttribute('aria-expanded','false'); }
+    if (p.id === 'st-bell-list') document.getElementById('st-bell')?.setAttribute('aria-expanded','false');
+    p.hidden = true;
+  }), bellBtn = () => document.getElementById('st-bell');
   document.addEventListener('click', e => {
     if (!document.body.classList.contains('in-studio')) return;
     if (e.target.closest('#st-bell')) { const box = document.getElementById('st-bell-list'); closePops(box); if (box.hidden) bellOpen(); else { box.hidden = true; bellBtn()?.setAttribute('aria-expanded', 'false'); } return; }
@@ -150,6 +155,11 @@ export function createStudio(ctx){
   document.addEventListener('input', e => { if (e.target.id === 'st-q') { clearTimeout(qT); const v = e.target.value.trim(); qT = setTimeout(() => search(v), 250); } });
   document.addEventListener('keydown', e => {
     if (e.target.id === 'st-q') { if (e.key === 'Escape') { e.target.value = ''; closePops(); } if (e.key === 'Enter') { const a = document.querySelector('#st-q-res a'); if (a) { e.preventDefault(); closePops(); go(a.getAttribute('href')); } } }
+    if (e.key === 'Escape' && document.body.classList.contains('in-studio')) {
+      const bell = document.getElementById('st-bell-list'), results = document.getElementById('st-q-res');
+      const open = (bell && !bell.hidden) || (results && !results.hidden);
+      if (open) { e.preventDefault(); const hadBell = bell && !bell.hidden; closePops(); if (hadBell) bellBtn()?.focus(); }
+    }
     if (e.key === '/' && document.body.classList.contains('in-studio') && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) && !document.activeElement?.isContentEditable) { const q = document.getElementById('st-q'); if (q) { e.preventDefault(); q.focus(); } }
   });
   document.addEventListener('change', e => { if (e.target.id === 'st-tz') { localStorage.setItem('obi-tz-pick', e.target.value); toast('Fechas en ' + tzName()); dispatchEvent(new PopStateEvent('popstate')); } });
