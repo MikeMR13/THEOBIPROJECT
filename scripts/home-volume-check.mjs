@@ -38,4 +38,9 @@ const d1 = '2026-10-20T12:00:00Z', d2 = '2026-10-21T10:00:00Z', d3 = '2026-10-21
   assert.equal(out.entries[0].id, 'a', 'los volúmenes se ordenan por lanzamiento');
   assert.equal(out.entries[1].kind, 'volume', 'más de un volumen puede anunciarse');
 }
+{
+  const at = '2026-10-18T18:45:58Z', after = '2026-10-18T19:02:34Z';
+  const out = homeReleaseOverview([ch('a', 29, after), ch('a', 30, after)], [vol('a', 17, at)], series, NOW);
+  assert.equal(out.bySeries.a.kind, 'volume', 'el registro tardío de capítulos no debe ocultar el volumen completo');
+}
 console.log('home-volume-check: OK');
