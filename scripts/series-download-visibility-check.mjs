@@ -1,4 +1,4 @@
-// Chromium QA independiente de la ficha pública: acciones de descarga antes de los capítulos.
+// Chromium QA: conserva botones EPUB/PDF y valida su nueva pestaña.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -7,8 +7,9 @@ const source=readFileSync('src/ui.js','utf8');
 const tick=String.fromCharCode(96);
 const getCss=()=>{const a=source.indexOf('const CSS = '+tick),b=source.indexOf(tick+';',a+14);assert(a>=0&&b>a,'CSS público ausente');return source.slice(a+('const CSS = '+tick).length,b)};
 const css=readFileSync('src/styles.css','utf8')+'\n'+getCss();
-const start=source.indexOf('class="ui-dl ui-dl-featured"'),list=source.indexOf('<ul class="ui-chl">',start);
-assert(start>=0&&list>start,'Descargas no están antes del índice de capítulos');
+const start=source.indexOf('id="serie-descargas"'),group=source.indexOf('class="ui-dl ui-dl-featured"',start);
+assert(start>=0&&group>start,'Falta el panel independiente de descargas');
+assert(source.includes('role="tabpanel" aria-labelledby="serie-tab-descargas"'),'Panel inaccesible');
 assert(source.includes('d.locked || vLk')&&source.includes('data-dl="${d.id}"'),'No cambiar permisos ni RPC de descargas');
 const sizes=[320,390,768,1024,1440];
 const chapters=Array.from({length:18},(_,i)=>'<li><a href="#">Capítulo '+(i+1)+' · Un día en la biblioteca</a></li>').join('');
