@@ -59,3 +59,10 @@ Mantener el PR independiente hasta CI verde y revisión; nunca reemplazar produc
 
 - `node scripts/series-editorial-phase34-check.mjs`: contratos de funciones puras, filtro por novedades y estado, número/título, orden natural, progreso, portadas diferidas y Chromium en cinco resoluciones.
 - Fases 1–4 se mantienen en el PR #31, sin fusionar ni desplegar a producción hasta completar las validaciones funcionales.
+
+## Integración y validación de producción
+
+- PR #31 fusionado mediante squash en `main` el 21/10/2026, commit `ba0b3a844549c1000d0299bf4ef3d3d3885b139e`.
+- CI previo del PR #31: `39607346528` aprobado, con comprobaciones de las cuatro fases en cinco resoluciones.
+- Antes de publicar: ejecutar CI de `main` tras esta bitácora y comprobar que producción resuelva exactamente el nuevo SHA de `main`.
+- Sin migraciones a Supabase ni nuevas dependencias. La prueba manual autenticada (descarga, progreso y reseñas) sigue recomendada.
