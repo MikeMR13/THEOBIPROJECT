@@ -20,7 +20,8 @@
     "studio-visual-phase2-check": "node scripts/studio-visual-phase2-browser.mjs",
     "studio-visual-phase3-check": "node scripts/studio-visual-phase3-browser.mjs",
     "studio-visual-phase4-check": "node scripts/studio-visual-phase4-check.mjs",
-    "home-volume-check": "node scripts/home-volume-check.mjs"
+    "home-volume-check": "node scripts/home-volume-check.mjs",
+    "home-hero-layout-check": "node scripts/home-hero-layout-check.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
