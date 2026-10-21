@@ -5,24 +5,28 @@ import {spawn,execFileSync} from 'node:child_process';
 const src=readFileSync('src/ui.js','utf8'),css=readFileSync('src/styles.css','utf8');
 for(const marker of ['role="tablist" aria-label="Secciones de la obra"','id="serie-tab-descargas"','id="serie-descargas" class="ui-series-panel ui-series-downloads"','href="#serie-descargas"','role="tabpanel" aria-labelledby="serie-tab-descargas"', 'initSeriesTabs(app)', "sb.rpc('download_open'",'d.locked || vLk','No pudimos consultar los enlaces de descarga','Aún no hay enlaces de descarga para este volumen.'])assert(src.includes(marker),'Ausente: '+marker);
 assert(src.includes('data-dl="') && src.includes('dlError ?'),'Se perdió la seguridad o control de errores');
+for(const token of ["data-yt=", "youtube-nocookie.com/embed/", "data-gi=", "id=\"gl-track\"", "data-gs=", "data-lb=", "href=\"/equipo/", "v.external_url", "data-buy=", "purchase_open", "id=\"rel-sec\"", "id=\"media-sec\""]) assert(src.includes(token),'Regresión en enlaces, videos o galería: '+token);
+const tabModule=readFileSync('src/series-tabs.js','utf8');assert(tabModule.includes("track.dispatchEvent(new win.Event('scroll'))"),'La galería no recalcula sus flechas al volver a Ficha');
 for(const marker of ['.ui-series-panel[hidden]','.ui-series-downloads .ui-dl-featured','grid-template-columns:repeat(3,minmax(0,1fr))','grid-template-columns:repeat(2,minmax(0,1fr))'])assert(css.includes(marker),'Ausente CSS: '+marker);
 const tick=String.fromCharCode(96),start=src.indexOf('const CSS = '+tick),end=src.indexOf(tick+';',start+14),styles=css+'\n'+src.slice(start+('const CSS = '+tick).length,end);
 const labels=['Ficha','Sinopsis','Volúmenes','Descargas','Reseñas'], ids=['serie-info','serie-sinopsis','serie-vols','serie-descargas','rv-sec'],names=['info','sinopsis','vols','descargas','reviews'];
 const nav='<nav class="ui-series-nav" role="tablist" aria-label="Secciones de la obra">'+labels.map((l,i)=>'<a role="tab" id="serie-tab-'+names[i]+'" href="#'+ids[i]+'" aria-controls="'+ids[i]+'" aria-selected="'+(i===0)+'" tabindex="'+(i===0?0:-1)+'">'+l+'</a>').join('')+'</nav>';
 const dl='<article id="descarga-vol-1" class="ui-dl-volume"><div class="ui-dl-volume-head"><h3>Volumen 1</h3><span class="ui-dl-count">2 formatos</span></div><div class="ui-dl ui-dl-featured" role="group" aria-label="Descargas del volumen 1"><span class="ui-lbl ui-dl-title">↓ Descargar Volumen 1</span><button class="ui-dlb ui-dlb-dl">↓ EPUB<small>Prueba</small></button><button class="ui-dlb ui-dlb-dl">↓ PDF<small>Prueba</small></button></div></article>';
-const contents=['<h2>Ficha editorial</h2><p>Ficha</p>','<h2>Sinopsis</h2><p>Sinopsis</p>','<h2>Volúmenes</h2><a class="ui-v-download-jump" href="#serie-descargas">↓ Ver descargas</a>', '<h2>Descargas</h2><div class="ui-dl-library">'+dl+'</div>','<h2>Reseñas</h2><p>Prueba'];
+const contents=['<h2>Ficha editorial</h2><p>Ficha</p><a class="external-media" href="https://example.invalid/anime" target="_blank" rel="noopener">Anime externo</a><button type="button" data-yt="abcdefghijk">Video</button><div class="gl-wrap"><div id="gl-track" style="width:100%;overflow-x:auto"><div style="width:1000px;height:70px">Galería de prueba</div></div></div>','<h2>Sinopsis</h2><p>Sinopsis</p>','<h2>Volúmenes</h2><a class="ui-v-download-jump" href="#serie-descargas">↓ Ver descargas</a>', '<h2>Descargas</h2><div class="ui-dl-library">'+dl+'</div>','<h2>Reseñas</h2><p>Prueba'];
 const panes=ids.map((id,i)=>'<section id="'+id+'" class="ui-series-panel '+(i===3?'ui-series-downloads':'')+'" role="tabpanel" aria-labelledby="serie-tab-'+names[i]+'" '+(i?'hidden':'')+'>'+contents[i]+'</section>').join('');
 const inline=[
 "import {initSeriesTabs} from '/series-tabs.js';",
 "const root=document.querySelector('#app'),tab=[...root.querySelectorAll('[role=tab]')],panels=[...root.querySelectorAll('[role=tabpanel]')],bad=[],ck=(ok,m)=>{if(!ok)bad.push(m)};",
 "const x=initSeriesTabs(root),current=()=>tab.filter(y=>y.getAttribute('aria-selected')==='true');",
+"const track=root.querySelector('#gl-track');let gallerySyncs=0;track.addEventListener('scroll',()=>gallerySyncs++);",
 "const visible=()=>panels.filter(y=>!y.hidden);",
 "ck(tab.length===5&&panels.length===5,'cinco pestañas');ck(current().length===1&&current()[0]===tab[0],'Ficha inicial');",
 "const size=w=>{ck(document.documentElement.scrollWidth<=innerWidth+2,w+' desborde '+document.documentElement.scrollWidth+'/'+innerWidth);for(const t of tab){const r=t.getBoundingClientRect();ck(r.height>=44&&r.width>=70,w+' pestaña pequeña');ck(r.left>=-2&&r.right<=innerWidth+2,w+' pestaña recortada')}};",
 "size('Ficha');tab[3].click();ck(current()[0]===tab[3]&&visible().length===1,'Descargas sin tab');",
 "for(const b of document.querySelectorAll('.ui-dlb-dl')){const r=b.getBoundingClientRect();ck(r.height>=44&&r.width>=90,'botón '+r.width+'x'+r.height)}size('Descargas');",
 "tab[2].click();ck(current()[0]===tab[2],'Volúmenes');root.querySelector('.ui-v-download-jump').click();ck(current()[0]===tab[3],'Enlace desde volumen');",
-"tab[3].dispatchEvent(new KeyboardEvent('keydown',{key:'Home',bubbles:true}));ck(current()[0]===tab[0],'Home');",
+"const beforeReturn=gallerySyncs;tab[3].dispatchEvent(new KeyboardEvent('keydown',{key:'Home',bubbles:true}));ck(current()[0]===tab[0],'Home');",
+"await new Promise(resolve=>requestAnimationFrame(resolve));ck(gallerySyncs>beforeReturn,'Galería sin recalcular al volver a Ficha');ck(track.clientWidth>0,'Galería oculta en Ficha');ck(!!root.querySelector('a.external-media[href^=\"https:\"]')&&!!root.querySelector('[data-yt]'),'Enlaces o video perdidos');",
 "tab[0].dispatchEvent(new KeyboardEvent('keydown',{key:'End',bubbles:true}));ck(current()[0]===tab[4],'End');",
 "history.replaceState({},'','#descarga-vol-1');dispatchEvent(new Event('hashchange'));ck(current()[0]===tab[3],'Deep link');",
 "const q=document.querySelector('#result');q.dataset.qa=bad.length?'fail':'pass';q.textContent=bad.join(' | ')||'PASS '+innerWidth;"
