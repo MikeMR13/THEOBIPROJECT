@@ -15,6 +15,8 @@ jobs:
       - name: Validar TOML de Supabase
         run: python3 -c "import tomllib; tomllib.load(open('supabase/config.toml','rb'))"
       - run: npm run check && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run integration-check
+      - name: "Publicaciones editoriales: volúmenes antes que capítulos"
+        run: npm run home-volume-check
       - name: Contratos de accesibilidad y conservación editorial
         run: node scripts/visual-phase5-check.mjs
       - name: Validación de temporadas, temas y preferencias combinadas
