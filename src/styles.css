@@ -430,3 +430,24 @@ main>p,main>h1+p{max-width:75ch}
  .ui-series-page .ui-dl-volume-head>div{min-width:0}
 }
 @media(prefers-reduced-motion:reduce){.ui-series-page .ui-series-nav a,.ui-series-page .ui-series-downloads .ui-dlb{transition:none!important;animation:none!important}}
+
+
+/* Avisos editoriales por publicación: selector compartido por Studio e importador. */
+.ea-form{display:grid;gap:12px;min-width:0;margin:12px 0 0;padding:15px;border:1px solid #65512b;background:#15120c;color:var(--paper)}
+.ea-form legend{padding:0 7px;font-family:'Shippori Mincho B1',serif;font-weight:700;color:var(--gold);font-size:18px}
+.ea-form label{display:grid;gap:7px;min-width:0;font-size:13px;font-weight:600}
+.ea-form label input:not([type=color]),.ea-form select{box-sizing:border-box;width:100%;min-width:0;min-height:44px;padding:9px 10px;border:1px solid #695634;background:#0f0d09;color:var(--paper);font-size:14px;font-family:inherit}
+.ea-form label input[type=color]{box-sizing:border-box;width:80px;height:44px;padding:3px;border:1px solid #695634;background:#0f0d09}
+.ea-form [data-ea-settings]{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr));align-items:end;gap:12px}
+.ea-form [hidden],.ea-overlay [hidden],#imp-ann[hidden]{display:none!important}
+.ea-help{margin:0;color:#c7bc9f;font-size:12px;line-height:1.6}
+.ea-warning{padding:9px;border:1px solid #f59e7a;color:#f59e7a}
+.ea-overlay{position:fixed;inset:0;z-index:150;display:grid;place-items:center;overflow-y:auto;background:rgba(0,0,0,.85);padding:12px}
+.ea-modal{box-sizing:border-box;display:grid;gap:12px;min-width:0;width:min(100%,590px);max-height:min(92vh,900px);overflow-y:auto;padding:clamp(16px,4vw,28px);background:#1a160f;border:1px solid #b08b37;box-shadow:0 15px 65px rgba(0,0,0,.6)}
+.ea-modal h2{margin:0;font-size:clamp(20px,3vw,26px)}
+.ea-modal>p{margin:0;font-size:14px}
+.ea-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px}
+.ea-actions button{min-height:44px;padding:10px 16px;border:1px solid #b08b37;color:#f6e5bf;background:#201a0f;font:700 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.ea-actions button[data-ea-accept]{background:var(--gold);color:#141008}
+.ea-modal button:focus-visible,.ea-form input:focus-visible,.ea-form select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+@media(max-width:420px){.ea-modal{padding:14px}.ea-actions button{flex:1 1 100%}.ea-form [data-ea-settings]{grid-template-columns:1fr}}

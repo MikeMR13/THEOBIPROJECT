@@ -1,5 +1,6 @@
 import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=1';
 import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
+import { askEditorialAnnouncement, saveEditorialRecord, chooseActiveEditorial } from './editorial-announcements.js?v=1';
 import { WORK_GENRES, WORK_DEMOGRAPHICS, createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
 // El editor y el importador cargan blocks.js al abrir sus pantallas.
 // Estudio del traductor: obras, volúmenes, publicación, editor con guardado atómico, importador EPUB/DOCX/PDF, multimedia, equipo y colaboraciones.
@@ -477,7 +478,7 @@ export function createStudio(ctx){
       </div>
       ${can('edit') ? '<div class="wk-save"><span class="mono" id="wk-dirty"></span><button class="btn" id="wk-savebtn">Guardar datos</button></div>' : ''}</div>`;
     const avisos = () => `<div class="wk-dat"><section class="wk-box" id="wk-utag"><h2>Aviso en actualizaciones</h2><small class="mono">Texto resaltado junto al título de la obra en Inicio › Últimas actualizaciones y en Lanzamientos. Úsalo para anunciar un volumen nuevo, un nivel nuevo, un capítulo extra o lo que el equipo quiera.</small><div id="wk-utag-b"></div></section>
-      <div class="wk-col"><section class="wk-box"><h2>Vista previa</h2><div id="wk-utag-pv"></div></section></div></div>`;
+      <div class="wk-col"><section class="wk-box"><h2>Vista previa</h2><div id="wk-utag-pv"></div></section><section class="wk-box"><h2>Último anuncio de publicación</h2><div id="wk-release-info"></div></section></div></div>`;
     const chip = (k, val, l) => `<button type="button" class="ed-chip ${F[k] === val ? 'on' : ''}" aria-pressed="${F[k] === val}" data-f${k}="${val}">${l}</button>`;
     const filterBar = () => C.length ? `<div class="wk-flt"><input type="search" id="wk-q" value="${esc(F.q)}" placeholder="Buscar capítulo por número o título" aria-label="Buscar capítulo">
       <span class="ed-chips" role="group" aria-label="Estado">${chip('st', '', 'Todos')}${chip('st', 'draft', 'Borradores · ' + n('draft'))}${chip('st', 'scheduled', 'Programados · ' + n('scheduled'))}${chip('st', 'published', 'Publicados · ' + n('published'))}</span>
@@ -501,14 +502,47 @@ export function createStudio(ctx){
     app.querySelectorAll('[data-tog]').forEach(b => b.onclick = () => { const id = b.dataset.tog; open.has(id) ? open.delete(id) : open.add(id); again(); });
     on('#wk-new', async () => { const v = V[V.length - 1]; if (!v) throw new Error('Crea primero un volumen'); const num = Math.max(0, ...allNums) + 1; const { data, error } = await sb.from('chapters').insert({ series_id: s.id, volume_id: v.id, vol: v.num, num, title: 'Capítulo ' + num, body: [], status: 'draft', section_type: 'Capítulo' }).select('id').single(); if (error) throw error; go('/estudio/editar/' + data.id); });
     on('#addvol', async () => { const nn = Math.max(0, ...V.map(v => v.num), ...TV.map(v => v.num)) + 1; const { data, error } = await sb.from('volumes').insert({ series_id: s.id, num: nn, status: 'draft' }).select('id').single(); if (error) throw error; open.add(data.id); again(); });
-    on('[data-pub]', async b => { const vx = V.find(x => x.id === b.dataset.pub); if (vx?.external_only && vx.external_url && !listOf(vx).length) { const { error } = await sb.from('volumes').update({ status: 'published', published_at: new Date().toISOString() }).eq('id', vx.id); if (error) throw new Error(errMsg(error)); toast('Volumen publicado · enlaza al sitio del traductor'); return again(); }
-      const { error } = await sb.rpc('publish_volume', { p_volume: b.dataset.pub }); if (error) throw new Error(errMsg(error)); toast('Volumen publicado · se envió un solo aviso a los seguidores'); again(); });
-    on('[data-sch]', async b => { const at = app.querySelector(`[data-at="${b.dataset.sch}"]`).value; if (!at) throw new Error('Elige fecha y hora'); const d = new Date(fromLocal(at)); if (d <= new Date()) throw new Error('La fecha debe ser futura'); const { error } = await sb.rpc('publish_volume', { p_volume: b.dataset.sch, p_at: d.toISOString() }); if (error) throw new Error(errMsg(error)); toast('Programado para ' + fmtTz(d)); again(); });
+    // La selección editorial se hace ANTES de publicar; el registro solo se escribe
+    // DESPUÉS de la publicación efectiva. No modifica los avisos a seguidores.
+    const recordNotice = async (selection,kind,id,at) => {
+      try { await saveEditorialRecord(sb,s.id,selection,{kind,id,startsAt:at}); }
+      catch (e) { toast('Contenido publicado, pero el anuncio no se guardó: '+errMsg(e)); }
+    };
+    on('[data-pub]', async b => {
+      const vx=V.find(x=>x.id===b.dataset.pub);
+      if(!vx)return;
+      const selection=await askEditorialAnnouncement({esc,kind:'volume',title:'Volumen '+vx.num});
+      if(!selection)return;
+      const at=new Date().toISOString();
+      if(vx.external_only && vx.external_url && !listOf(vx).length){
+        const {error}=await sb.from('volumes').update({status:'published',published_at:at}).eq('id',vx.id);
+        if(error)throw new Error(errMsg(error));
+        await recordNotice(selection,'volume',vx.id,at);
+        toast('Volumen publicado · enlaza al sitio del traductor');return again();
+      }
+      const {error}=await sb.rpc('publish_volume',{p_volume:vx.id});
+      if(error)throw new Error(errMsg(error));
+      await recordNotice(selection,'volume',vx.id,at);
+      toast('Volumen publicado · aviso a seguidores conforme a sus preferencias');again();
+    });
+    on('[data-sch]', async b => {
+      const vx=V.find(x=>x.id===b.dataset.sch);
+      const at=app.querySelector('[data-at="'+b.dataset.sch+'"]').value;
+      if(!at)throw new Error('Elige fecha y hora');
+      const d=new Date(fromLocal(at));
+      if(d<=new Date())throw new Error('La fecha debe ser futura');
+      const selection=await askEditorialAnnouncement({esc,kind:'volume',title:'Volumen '+(vx?.num||'')+' · programado'});
+      if(!selection)return;
+      const {error}=await sb.rpc('publish_volume',{p_volume:b.dataset.sch,p_at:d.toISOString()});
+      if(error)throw new Error(errMsg(error));
+      await recordNotice(selection,'volume',b.dataset.sch,d.toISOString());
+      toast('Programado para '+fmtTz(d));again();
+    });
     on('[data-unsch]', async b => { await sb.from('chapters').update({ status: 'draft' }).eq('volume_id', b.dataset.unsch).eq('status', 'scheduled'); const { error } = await sb.from('volumes').update({ status: 'draft' }).eq('id', b.dataset.unsch); if (error) throw error; again(); });
     on('[data-hide]', async b => { const { error } = await sb.from('volumes').update({ status: 'hidden' }).eq('id', b.dataset.hide); if (error) throw error; again(); });
     on('[data-show]', async b => { const { error } = await sb.from('volumes').update({ status: 'published' }).eq('id', b.dataset.show); if (error) throw error; again(); });
     on('[data-addch]', async b => { const num = Math.max(0, ...allNums) + 1; const { data, error } = await sb.from('chapters').insert({ series_id: s.id, volume_id: b.dataset.addch, vol: +b.dataset.n, num, title: 'Capítulo ' + num, body: [], status: 'draft', section_type: 'Capítulo' }).select('id').single(); if (error) throw error; go('/estudio/editar/' + data.id); });
-    on('[data-cpub]', async b => { const { error } = await sb.from('chapters').update({ status: 'published', publish_at: new Date().toISOString() }).eq('id', b.dataset.cpub); if (error) throw new Error(/approval_required/.test(error.message) ? 'El equipo exige una revisión aprobada antes de publicar.' : errMsg(error)); toast('Capítulo publicado'); again(); });
+    on('[data-cpub]', async b => { const ch=C.find(x=>x.id===b.dataset.cpub); const selection=await askEditorialAnnouncement({esc,kind:'chapter',title:ch?.title||'Capítulo'}); if(!selection)return; const at=new Date().toISOString(); const { error } = await sb.from('chapters').update({ status: 'published', publish_at: at }).eq('id', b.dataset.cpub); if (error) throw new Error(/approval_required/.test(error.message) ? 'El equipo exige una revisión aprobada antes de publicar.' : errMsg(error)); await recordNotice(selection,'chapter',b.dataset.cpub,at); toast('Capítulo publicado'); again(); });
     on('[data-delch]', async b => { if (!confirm('¿Enviar este capítulo a la papelera? Podrás restaurarlo durante 30 días.')) return; const { error } = await sb.rpc('trash_chapters', { p_ids: [b.dataset.delch] }); if (error) throw new Error(errMsg(error)); SEL.delete(b.dataset.delch); toast('Capítulo en la papelera'); again(); });
     on('[data-delvol]', async b => { if (!confirm('¿Enviar el volumen y todos sus capítulos a la papelera? Podrás restaurarlo durante 30 días.')) return; const { error } = await sb.rpc('trash_volume', { p_id: b.dataset.delvol }); if (error) throw new Error(errMsg(error)); toast('Volumen en la papelera'); again(); });
     // ---- filtros
@@ -710,6 +744,10 @@ export function createStudio(ctx){
       const leaveM = e => { if (mDirty && document.body.contains($('#m-save'))) { e.preventDefault(); e.returnValue = ''; } else removeEventListener('beforeunload', leaveM); }; addEventListener('beforeunload', leaveM);
     }
     if (tab === 'avisos') {
+      const latestRelease=(Array.isArray(s.theme?.editorial_releases)?s.theme.editorial_releases:[]).slice().sort((a,b)=>new Date(b.starts_at)-new Date(a.starts_at))[0];
+      const releaseInfo=$('#wk-release-info');
+      if(releaseInfo) releaseInfo.innerHTML=latestRelease ? '<p class="mono">'+esc(latestRelease.text||'Sin anuncio destacado')+' · '+esc(latestRelease.kind==='volume'?'Volumen':'Capítulo')+' · '+esc(latestRelease.days?latestRelease.days+' días':'Sin etiqueta')+'</p><small class="mono">Hasta '+esc(latestRelease.expires_at?fmtTz(latestRelease.expires_at):'sin etiqueta')+'</small>'+(can('edit')?'<button type="button" class="btn ghost sm" id="wk-release-edit">Editar anuncio</button>':'') : '<p class="mono">Las nuevas publicaciones aparecerán aquí.</p>';
+      $('#wk-release-edit')?.addEventListener('click',async()=>{ if(!latestRelease)return; const x=await askEditorialAnnouncement({esc,kind:latestRelease.kind,title:'Aviso de la última publicación',initial:latestRelease}); if(!x)return; try{await saveEditorialRecord(sb,s.id,x,{kind:latestRelease.kind,id:latestRelease.id,startsAt:latestRelease.starts_at});toast('Anuncio editorial actualizado');again();}catch(e){toast(errMsg(e))} });
       // ---- aviso en actualizaciones (se guarda aparte, en series.theme.update_tag)
       let utDirty = false; const UT = Object.assign({ on: false, text: '', color: wcolor(s), style: 'solid', until: '', season: false }, s.theme?.update_tag || {});
       const UT_PRE = ['Nuevo volumen', 'Nuevo nivel', 'Capítulo extra', 'Volumen completo', 'Final', 'De regreso'], UT_COL = ['#f2c230', '#d9922b', '#f59e7a', '#c9a8f2', '#8cc3f2', '#a9d18e', wcolor(s)];
@@ -722,7 +760,7 @@ export function createStudio(ctx){
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="mono" style="font-size:12px">Color</span>${[...new Set(UT_COL)].map(c => `<button type="button" data-utc="${c}" aria-label="Color ${c}" aria-pressed="${UT.color === c}" style="width:26px;height:26px;background:${c};border:2px solid ${UT.color === c ? '#f3ecd9' : 'transparent'};outline:1px solid #3d3628;cursor:pointer" ${ed}></button>`).join('')}<input type="color" id="ut-c" value="${esc(UT.color)}" aria-label="Otro color" style="width:34px;height:28px;padding:0;border:1px solid #3d3628;background:none" ${ed}></div>
           <div style="display:flex;gap:14px;flex-wrap:wrap"><label class="tb-inl"><input type="radio" name="ut-s" value="solid" ${UT.style !== 'outline' ? 'checked' : ''} ${ed}> Sólido</label><label class="tb-inl"><input type="radio" name="ut-s" value="outline" ${UT.style === 'outline' ? 'checked' : ''} ${ed}> Contorno</label></div>
           <label class="tb-inl"><input type="checkbox" id="ut-sea" ${UT.season ? 'checked' : ''} ${ed}> Adaptar el color al tema de temporada<small class="mono" style="display:block">Mientras haya una temporada activa (Otoño, Navidad…) el aviso toma su color; fuera de temporada usa el color elegido.</small></label>
-          <label>Mostrar hasta<input type="date" id="ut-u" value="${esc(UT.until || '')}" style="width:auto" ${ed}><small class="mono">Vacío = hasta que lo quites. Después de esa fecha se oculta solo.</small></label>
+          <label>Mostrar hasta<input type="date" id="ut-u" value="${esc(UT.until || '')}" style="width:auto" ${ed}><small class="mono">Obligatorio: selecciona una fecha futura para ocultarlo automáticamente.</small></label>
           ${can('edit') ? '<span style="display:flex;gap:8px;align-items:center"><button type="button" class="btn sm" id="ut-save">Guardar aviso</button><span class="mono" id="ut-st"></span></span>' : ''}</div>`;
         const pvb = $('#wk-utag-pv'); if (pvb) { const ttl = esc(s.title), cov = s.cover_path ? `background:url('${esc(media(s.cover_path))}') center/cover` : 'background:#2f2a20';
           pvb.innerHTML = `<div style="display:grid;gap:14px"><div><span class="mono" style="font-size:11px">INICIO · ÚLTIMAS ACTUALIZACIONES</span>
@@ -742,6 +780,7 @@ export function createStudio(ctx){
         $('#ut-sea')?.addEventListener('change', e => { UT.season = e.target.checked; drawUT(); dirtyUT(); });
         $('#ut-save')?.addEventListener('click', e => busy(e.currentTarget, async () => {
           if (UT.on && !UT.text.trim()) throw new Error('Escribe el texto del aviso');
+          if (UT.on && (!UT.until || new Date(UT.until+'T23:59:59') <= new Date())) throw new Error('Indica una fecha futura de caducidad para este aviso');
           const { data: cur, error: e1 } = await sb.from('series').select('theme').eq('id', s.id).single(); if (e1) throw new Error(errMsg(e1));
           const theme = { ...(cur?.theme || {}), update_tag: { on: !!UT.on, text: UT.text.trim().slice(0, 24), color: UT.color, style: UT.style === 'outline' ? 'outline' : 'solid', until: UT.until || null, season: !!UT.season } };
           const { data: upd, error } = await sb.from('series').update({ theme }).eq('id', s.id).select('id,theme'); if (error) throw new Error(errMsg(error));
