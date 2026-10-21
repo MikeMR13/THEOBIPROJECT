@@ -233,9 +233,12 @@ export function createImporter(deps) {
   function suggestSkips(P){
     P.chapters.forEach((c, i) => {
       const w = words(c.blocks), imgs = c.blocks.filter(b => b.type === 'image').length; c.skip = false; c.why = '';
-      if (SKIP_RE.test((c.title || '').trim())) { c.skip = true; c.why = 'página editorial'; }
-      else if (i === 0 && imgs && w < 15) { c.skip = true; c.why = 'página de portada'; }
-      else if (!imgs && w < 25) { c.skip = true; c.why = 'casi vacía'; }
+      // Las categorías editoriales explícitas no deben omitirse por ser breves o tener solo imágenes.
+      // El equipo puede desmarcarlas manualmente al revisar la importación.
+      const special = ['Créditos', 'Ilustraciones', 'Episodio corto', 'Avance'].includes(c.type);
+      if (!special && SKIP_RE.test((c.title || '').trim())) { c.skip = true; c.why = 'página editorial'; }
+      else if (!special && i === 0 && imgs && w < 15) { c.skip = true; c.why = 'página de portada'; }
+      else if (!special && !imgs && w < 25) { c.skip = true; c.why = 'casi vacía'; }
     });
   }
 
