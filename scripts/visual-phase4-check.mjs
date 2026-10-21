@@ -20,9 +20,9 @@ assert.equal(publicationDate('2026-10-20T18:40:00Z',now),null,'No presentar un l
 const markers=[
   'const ago = d => publicationAge(d)', 'const dayK = d => publicationDay(d)',
   'const fresh = byNew.filter(x => { const d = publicationDate',
-  'const freshDate = publicationDate(lc?.publish_at)',
-  'publicationDate(c.publish_at) ? `<time datetime=',
-  'obTicker','ob-track','ob-tick','heroSlide(feat','bindCars(app)',
+  'const freshDate = publicationDate(pub?.at || lc?.publish_at)',
+  'publicationDate(g.at) ? `<time datetime=',
+  'homeReleaseOverview(latest || [], VR?.data || [], list)','obTicker','ob-track','ob-tick','heroSlide(feat','bindCars(app)',
   "fill('ob-s-ann'", 'ob-anns', 'ob-hero', 'ob-car', 'ob-s-rev',
   'ui-grid','ui-fich','ui-sh','ui-vol','ui-chl'
 ];
