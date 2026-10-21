@@ -39,7 +39,7 @@ function factory({create=true,importRole=true,edit=true,publish=true,deleteRole=
         _select:'',_insert:null,_type:'',_count:false,
         select(columns,opts){this._select=columns;this._count=!!opts?.head;return this;},
         eq(){return this;},is(){return this;},order(){return this;},not(){return this;},
-        gte(){return this;},limit(){return this;},in(){return this;},
+        gte(){return this;},or(){return this;},ilike(){return this;},limit(){return this;},in(){return this;},
         insert(row){this._insert=row;calls.push('insert:'+table);inserted.push({table,row});return this;},
         one(){
           if(this._insert){
@@ -78,6 +78,47 @@ try {
   await owner.studio.newWork();
   checks++;
   ok(!!app.querySelector('#nw-title'),'Nueva obra no se renderiza');
+  // El menú compacto conserva el estado accesible, puede cerrarse con Escape
+  // y permite volver al sitio sin abandonar las pantallas de Estudio.
+  const navBtn=app.querySelector('#s2-mobile-toggle'), sidebar=app.querySelector('.s2-side');
+  ok(!!navBtn && !!sidebar && !!app.querySelector('.s2-nav a'),'Faltan controles de navegación de Estudio');
+  if(window.innerWidth<=860){
+    ok(navBtn.getAttribute('aria-expanded')==='false','El menú móvil debe empezar cerrado');
+    navBtn.click();
+    ok(sidebar.classList.contains('nav-open') && navBtn.getAttribute('aria-expanded')==='true','El menú móvil no abre');
+    ok(getComputedStyle(app.querySelector('.s2-back')).display!=='none','Volver al sitio no es accesible en móvil');
+    document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+    ok(!sidebar.classList.contains('nav-open') && navBtn.getAttribute('aria-expanded')==='false','Escape no cierra el menú');
+  }
+  checks++;
+
+  // Fase 4: una sola navegación activa; controles emergentes accesibles
+  // y cierre sin búsquedas tardías que vuelvan a desplegar resultados.
+  const navItems=[...app.querySelectorAll('.s2-nav a')];
+  ok(navItems.length===13 && !navItems.some(a=>a.getAttribute('href')==='/estudio/bitacora'),'Los permisos del mock deben ocultar la Bitácora sin permiso log');
+  ok(navItems.filter(a=>a.getAttribute('aria-current')==='page').length===1,'Debe haber exactamente una sección activa');
+  ok(navItems.every(a=>a.getAttribute('href')?.startsWith('/estudio')),'Ruta inesperada en el menú');
+  checks++;
+  const bell=app.querySelector('#st-bell'),bellPanel=app.querySelector('#st-bell-list');
+  ok(bell?.getAttribute('aria-controls')===bellPanel?.id,'Avisos sin relación accesible');
+  bell.click();
+  await until(()=>bellPanel.hidden===false && bell.getAttribute('aria-expanded')==='true','abrir avisos');
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  ok(bellPanel.hidden===true && bell.getAttribute('aria-expanded')==='false','Escape no cierra avisos');
+  const search=app.querySelector('#st-q'),results=app.querySelector('#st-q-res');
+  ok(search?.getAttribute('aria-controls')===results?.id,'Buscador sin referencia de resultados');
+  search.value='Crónicas'; search.dispatchEvent(new Event('input',{bubbles:true}));
+  await until(()=>results.hidden===false && search.getAttribute('aria-expanded')==='true','abrir resultados de búsqueda');
+  document.body.click();
+  ok(results.hidden===true && search.getAttribute('aria-expanded')==='false','Buscador no cierra al tocar fuera');
+  await pause(150);
+  ok(results.hidden===true,'Resultados antiguos reaparecieron tras cerrarse');
+  search.value='Otra obra'; search.dispatchEvent(new Event('input',{bubbles:true}));
+  document.body.click();
+  await pause(350);
+  ok(results.hidden===true && search.getAttribute('aria-expanded')==='false','Una búsqueda diferida reabrió un panel cerrado');
+  checks++;
+
   ok(!!document.getElementById('st2-css')?.sheet,'Studio no cargó su CSS');
   const resources=performance.getEntriesByType('resource').map(e=>e.name);
   ok(!resources.some(u=>/studio-(?:editor|importer|media)\.js/.test(u)),
