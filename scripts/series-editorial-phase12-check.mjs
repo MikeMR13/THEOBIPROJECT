@@ -8,7 +8,7 @@ const checks = [
   ['Galería y lista', 'data-series-view="galeria"'],
   ['Selector de lista', 'data-series-view="lista"'],
   ['Persistencia de preferencia', "localStorage.setItem('obi-serie-vol-view', view)"],
-  ['Navegación editorial', 'class="ui-series-nav"'],
+  ['Navegación editorial', 'class="ui-series-nav" role="tablist"'],
   ['Ficha con editorial', 's.publisher ?'],
   ['Portada individual', 'class="th ui-v-cover'],
   ['Índice plegable', '<details class="ui-v-index">'],
@@ -23,7 +23,8 @@ const checks = [
 ];
 for (const [label, token] of checks) assert(src.includes(token), label + ': no se encuentra ' + token);
 const start = src.indexOf("const dlOf = v =>"), render = src.slice(start, src.indexOf("app.querySelectorAll('[data-buy]')", start));
-assert(render.indexOf('ui-dl-featured') < render.indexOf('<details class="ui-v-index">'), 'Descargas tienen que quedar fuera y antes del índice plegable');
+assert(render.indexOf('ui-dl-featured') > render.indexOf('id="serie-descargas"'), 'Descargas fuera de su nueva sección');
+assert(render.includes('href="#serie-descargas"'), 'No hay acceso a descargas desde libros');
 assert(render.includes('d.locked || vLk'), 'Se perdieron restricciones a descargas');
 assert(render.includes("read.has(c.id)"), 'Se perdió la marca de capítulos leídos');
 assert(css.includes('.ui-vols.is-galeria') && css.includes('.ui-vols.is-lista'), 'Falta CSS de ambos modos');
