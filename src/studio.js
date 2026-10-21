@@ -394,7 +394,20 @@ export function createStudio(ctx){
           <h2><a href="/estudio/obra/${w.slug}">${esc(w.title)}</a></h2>${w.synopsis ? `<p>${esc(w.synopsis)}</p>` : ''}
           ${(w.genres || []).length ? `<span class="gn">${w.genres.slice(0, 5).map(g => `<span>${esc(g)}</span>`).join('')}</span>` : ''}
           <dl><div><dt>PRÓXIMO</dt><dd style="color:${nx ? '#f2c230' : '#a89f8a'}">${nx ? esc(nx.l) + ' · ' + until(nx.at) : 'Sin programar'}</dd></div><div><dt>BORRADORES</dt><dd>${dr}</dd></div><div><dt>LECTURAS</dt><dd>${(w.views || 0).toLocaleString('es-MX')}</dd></div><div><dt>ÚLTIMO PUBLICADO</dt><dd>${last ? 'Cap. ' + last.num + ' · ' + ago(last.publish_at) : '—'}</dd></div></dl>
-          <span class="ac">${(can('edit')||can('publish')) && w.published ? `<button class="btn ${featuredSeriesId===w.id ? 'gold' : 'ghost'}" type="button" data-feature="${w.id}" aria-pressed="${featuredSeriesId===w.id}" title="${featuredSeriesId===w.id ? 'Quitar esta obra de la recomendación del equipo' : 'Recomendar esta obra en el carrusel de Inicio'}">${featuredSeriesId===w.id ? '★ Destacada · Quitar' : '☆ Destacar'}</button>` : ''}${can('create') ? `<button class="btn" data-new="${w.id}">＋ Nuevo capítulo</button>` : ''}<a class="btn ghost" href="/estudio/obra/${w.slug}">Abrir ficha</a>${can('import') ? '<a class="btn ghost" href="/estudio/importar">Importar volumen</a>' : ''}<a class="lnk" href="/serie/${w.slug}">Ver en el sitio ↗</a></span></div></article>`; };
+          <div class="s2-work-actions">
+            <div class="s2-work-primary">
+              ${can('create') ? `<button class="btn" data-new="${w.id}">＋ Nuevo capítulo</button>` : ''}
+              <a class="btn ghost" href="/estudio/obra/${w.slug}">Abrir ficha</a>
+            </div>
+            ${(can('edit')||can('publish')) && w.published ? `<div class="s2-work-recommend">
+              <span class="s2-work-recommend-info"><b>Recomendación del equipo</b><small>Una obra a la vez en Inicio</small></span>
+              <button class="btn s2-feature-toggle" type="button" data-feature="${w.id}" aria-pressed="${featuredSeriesId===w.id}" aria-label="${featuredSeriesId===w.id ? 'Quitar recomendación de la obra del carrusel de Inicio' : 'Destacar esta obra en el carrusel de Inicio'}" title="${featuredSeriesId===w.id ? 'Quitar esta obra de la recomendación del equipo' : 'Recomendar esta obra en el carrusel de Inicio'}"><span aria-hidden="true">${featuredSeriesId===w.id ? '★' : '☆'}</span><span>${featuredSeriesId===w.id ? 'Destacada · Quitar' : 'Destacar'}</span></button>
+            </div>` : ''}
+            <div class="s2-work-secondary">
+              ${can('import') ? '<a class="btn ghost" href="/estudio/importar">Importar volumen</a>' : ''}
+              <a class="lnk" href="/serie/${w.slug}">Ver en el sitio ↗</a>
+            </div>
+          </div></div></article>`; };
     const body = `${(inv || []).map(c => `<div class="st-card"><span>${esc(c.inviter?.name || 'Un equipo')} te invita a colaborar en <strong>${esc(c.series?.title)}</strong></span><span><button class="btn" data-acc="${c.id}">Aceptar</button> <button class="btn ghost" data-rej="${c.id}">Rechazar</button></span></div>`).join('')}
       ${pick && list.length ? '<div class="st-card"><span>¿En qué obra va el nuevo capítulo? Toca «＋ Nuevo capítulo» en la obra.</span></div>' : ''}
       ${list.length ? `<div class="s2-works">${list.map(card).join('')}${can('create') || can('import') ? '<a class="s2-add" href="/estudio/nueva"><span>＋</span>Nueva obra<small>Desde cero con el editor o importando un EPUB, DOCX o PDF</small></a>' : ''}</div>` : emptyState()}
