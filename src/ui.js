@@ -922,7 +922,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         }).join('') || '<p class="mono">Aún no hay volúmenes publicados.</p>'}
       </div><p id="ui-series-empty" class="ui-series-empty" role="status" hidden>No encontramos capítulos con estos filtros. Prueba otra búsqueda.</p></section>
       <section id="serie-descargas" class="ui-series-panel ui-series-downloads" role="tabpanel" aria-labelledby="serie-tab-descargas" tabindex="0" hidden>
-        <div class="ui-h2"><h2>Descargas</h2><span class="mono">${(dls || []).length} enlaces registrados</span></div>
+        <div class="ui-h2"><h2>Descargas</h2><span class="mono">${dlError ? 'Enlaces no disponibles' : (vols || []).reduce((n, v) => n + dlOf(v).length, 0) + ' enlaces disponibles'}</span></div>
         <p class="ui-dl-intro">Selecciona el volumen y el formato que deseas descargar. Los enlaces disponibles pertenecen al equipo traductor de esta obra.</p>
         ${dlError ? '<p class="ui-dl-empty" role="alert">No pudimos consultar los enlaces de descarga. Intenta recargar la página.</p>' : (vols || []).length ? `<div class="ui-dl-library">${(vols || []).map(v => {
           const list = (chs || []).filter(c => c.volume_id === v.id || (!c.volume_id && c.vol === v.num));
