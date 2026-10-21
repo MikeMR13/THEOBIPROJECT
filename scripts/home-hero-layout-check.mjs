@@ -1,0 +1,60 @@
+// QA responsive del carrusel real: cinco tamaños con volumen, aviso y ranking.
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createServer} from 'node:http';
+import {spawn,execFileSync} from 'node:child_process';
+
+const ui=readFileSync('src/ui.js','utf8');
+const cssMatch=ui.match(/const CSS2 = ("(?:\\.|[^"\\])*");/);
+assert(cssMatch,'No se encontró la hoja de estilos del Inicio');
+const css2=JSON.parse(cssMatch[1]);
+const mark='const HOME_CSS = ',pos=ui.indexOf(mark),quote=String.fromCharCode(96);
+assert(pos>=0,'No se encontró HOME_CSS');
+const cssStart=pos+mark.length;
+assert.equal(ui[cssStart],quote);
+const cssEnd=ui.indexOf(quote+';',cssStart+1);
+assert(cssEnd>cssStart);
+const homeCss=ui.slice(cssStart+1,cssEnd);
+assert(ui.includes('<div class="ob-hero-flags">') && ui.includes('<div class="ob-hero-rank">'),'El carrusel debe separar avisos y ranking');
+assert(ui.includes('ob-hero-flags .ob-utag-hero') && ui.includes('ob-txt h1[data-len=xl]'),'Faltan reglas responsive de etiquetas o títulos');
+
+const viewport=[320,390,768,1024,1440];
+const checks=[
+"const get=s=>document.querySelector(s),rect=s=>get(s).getBoundingClientRect(),err=[];",
+"const test=(pass,text)=>{if(!pass)err.push(text)};",
+"const badge=rect('.ob-badge-vol'), custom=rect('.ob-utag-hero'),rank=rect('.ob-hero-rank'),title=rect('.ob-txt h1'),actions=rect('.ob-acts'),pager=rect('.ob-pager2');",
+"const max=document.documentElement.clientWidth, tol=3;",
+"test(badge.height>20&&custom.height>15,'etiquetas sin altura');",
+"test(custom.top-badge.bottom>=8,'etiquetas pegadas/solapadas');",
+"test(rank.top-custom.bottom>=9,'ranking demasiado junto al aviso');",
+"test(title.top-rank.bottom>=14,'ranking demasiado junto al título');",
+"test(badge.right<=max+tol&&custom.right<=max+tol&&rank.right<=max+tol,'avisos fuera del viewport');",
+"test(Math.abs(badge.left-custom.left)<=tol&&Math.abs(badge.left-rank.left)<=tol,'metadatos desalineados');",
+"test(title.right<=max+tol&&title.left>=-tol,'título desbordado');",
+"test(actions.bottom<=pager.top+tol,'botones y controles superpuestos');",
+"test(document.documentElement.scrollWidth<=max+tol,'scroll horizontal de página');",
+"test(parseFloat(getComputedStyle(get('.ob-utag-hero')).fontSize)<=16,'aviso secundario desproporcionado');",
+"test(parseFloat(getComputedStyle(get('.ob-txt h1')).fontSize)<=59,'título desproporcionado');",
+"const result=get('#result');result.dataset.status=err.length?'fail':'pass';result.textContent=err.join(' | ')||'OK';"
+].join('\n');
+const baseStyle=':root{--paper:#f3ecd9;--gold:#c25b28;--line:#3d3628;--mute:#ae9d81;--wrap:1160px}*{animation:none!important;transition:none!important}body{margin:0;min-width:0;background:#0d0c0a;color:var(--paper);font-family:Arial,sans-serif}';
+const page='<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+css2+'\n'+homeCss+'\n'+baseStyle+'</style></head><body><main class="ob-page"><section class="ob-hero"><span class="ob-vk" aria-hidden="true">新刊案内</span><div class="ob-cov"><div class="f"></div></div><div class="ob-txt"><span class="ob-kick">第二巻 · 新刊</span><div class="ob-hero-flags"><span class="ob-badge ob-badge-vol">¡NUEVO VOLUMEN! · VOL. 2</span><span class="ob-utag-hero" style="background:rgba(13,12,10,.6);color:#c25b28;border:2px solid #c25b28">¡NUEVO SECRETO! EDICIÓN ESPECIAL</span></div><div class="ob-hero-rank"><a class="rk-bdg" href="/ranking"><b>#2</b>Top de la semana</a></div><h1 data-len="xl"><a class="ob-h1a" href="/serie/secretos">Los secretos de la bruja del silencio y el misterio de una noche eterna — Volumen 2</a></h1><p class="ob-syn">Una sinopsis suficientemente larga para comprobar la distribución del texto en dispositivos pequeños y en pantallas de escritorio de diferentes anchuras.</p><div class="ob-acts"><a class="a1" href="/serie/secretos">Ver volumen 2</a><a class="a2" href="/leer/secretos/1">Empezar a leer</a></div></div><div class="ob-pager2" style="position:absolute;left:clamp(16px,4vw,56px);right:clamp(16px,4vw,56px);bottom:14px;z-index:2;display:flex;align-items:center;gap:10px"><button data-j="0" style="width:40px;height:40px">‹</button><span style="display:flex;flex:1;gap:6px"><button data-j="0" style="height:10px;min-width:10px"></button></span><button data-hp aria-label="Pausar" style="height:40px">Ⅱ Pausar</button><button data-j="1" style="width:40px;height:40px">›</button></div></section></main><p id="result" data-status="running"></p><script>'+checks+'</script></body></html>';
+const parent='<!doctype html><html><body><p id="qa" data-status="running">RUNNING</p>'+viewport.map(w=>'<iframe title="QA '+w+'" width="'+w+'" height="800" src="/case" style="border:0"></iframe>').join('')+'<script>let count=0,errors=[];document.querySelectorAll("iframe").forEach(f=>f.addEventListener("load",()=>{const q=f.contentDocument.querySelector("#result");if(q?.dataset.status!=="pass")errors.push(f.width+": "+(q?.textContent||"sin resultado"));if(++count===5){const qa=document.querySelector("#qa");qa.dataset.status=errors.length?"fail":"pass";qa.textContent=errors.join(" | ")||"Carrusel: 320, 390, 768, 1024 y 1440 px OK";}}));</script></body></html>';
+const server=createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');res.setHeader('Content-Security-Policy',"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; frame-src 'self'");res.end(req.url==='/case'?page:parent)});
+const bin=process.env.QA_CHROME||['chromium','google-chrome','google-chrome-stable','chromium-browser'].map(x=>{try{return execFileSync('which',[x],{encoding:'utf8'}).trim()}catch{return''}}).find(Boolean);
+assert(bin,'Chromium no disponible');
+try {
+ await new Promise((ok,no)=>{server.once('error',no);server.listen(0,'127.0.0.1',ok)});
+ const child=spawn(bin,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking','--window-size=1680,1000','--virtual-time-budget=12000','--dump-dom','http://127.0.0.1:'+server.address().port],{stdio:['ignore','pipe','pipe']});
+ let out='',err='';
+ child.stdout.on('data',b=>out+=String(b).slice(0,200000));
+ child.stderr.on('data',b=>err+=String(b).slice(0,8000));
+ const code=await new Promise((ok,no)=>{const timeout=setTimeout(()=>{child.kill('SIGKILL');no(Error('Chromium timeout'))},75000);child.once('error',e=>{clearTimeout(timeout);no(e)});child.once('close',c=>{clearTimeout(timeout);ok(c)})});
+ assert.equal(code,0,err.slice(-500));
+ const result=out.match(/<p id="qa" data-status="(pass|fail)">([\s\S]*?)<\/p>/);
+ assert(result,'Sin resultados de Chromium');
+ assert.equal(result[1],'pass',result[2]);
+ console.log(result[2]);
+} finally {
+ await new Promise(ok=>server.close(ok));
+}
