@@ -451,3 +451,7 @@ main>p,main>h1+p{max-width:75ch}
 .ea-actions button[data-ea-accept]{background:var(--gold);color:#141008}
 .ea-modal button:focus-visible,.ea-form input:focus-visible,.ea-form select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 @media(max-width:420px){.ea-modal{padding:14px}.ea-actions button{flex:1 1 100%}.ea-form [data-ea-settings]{grid-template-columns:1fr}}
+
+
+/* Etiquetas discretas para prólogos, créditos, ilustraciones y otras secciones. */
+.ui-series-page .ui-ch-type{display:inline-block;margin-right:6px;padding:1px 6px;border:1px solid #765f32;border-radius:3px;color:#e4c983;background:#241e13;font:600 10px/1.6 'IBM Plex Mono',monospace;letter-spacing:.02em;vertical-align:middle;white-space:normal;overflow-wrap:anywhere}

@@ -6,7 +6,7 @@ export const normalizeSeriesText = value => String(value ?? '').normalize('NFD')
 
 export const chapterMatches = (chapter, query = '', filter = 'all') => {
   const term = normalizeSeriesText(query);
-  const haystack = normalizeSeriesText(`${chapter.num} ${chapter.title} capítulo ${chapter.num}`);
+  const haystack = normalizeSeriesText(`${chapter.num} ${chapter.title} ${chapter.type || ''} capítulo ${chapter.num}`);
   if (term && !haystack.includes(term)) return false;
   if (filter === 'read') return !!chapter.read;
   if (filter === 'unread') return !chapter.read;
@@ -59,6 +59,7 @@ export function initSeriesOrganization(root, storage = localStorage) {
         const accepted = chapterMatches({
           num: li.dataset.chapterNum,
           title: li.dataset.chapterTitle,
+          type: li.dataset.chapterType,
           read: li.dataset.chapterRead === 'true',
           newly: li.dataset.chapterNew === 'true'
         }, query, filter);

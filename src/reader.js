@@ -2,9 +2,10 @@
 const OFF_CACHE = 'obi-offline-v1', OFF_INDEX = 'obi-offline-index', PREF_KEY = 'obi-reader-prefs';
 import { cleanInline, renderBlock, warningsHTML, teaserHTML } from './blocks.js?v=2';
 import { readerPrefsKey, readReaderPrefs, sameReaderAccount, readingProgressKey, readingProgressPrefix, readerProgressKeys } from './reader-pref-cache.js?v=1';
+import { SECTION_LABELS } from './section-types.js?v=1';
 const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true };
 const COLORS = { gold: '#f2c230', rose: '#f29bb0', sky: '#8cc3f2', mint: '#9fdcb0' };
-const SEC_LABEL = { 'Capítulo': 'Cap.', 'Prólogo': 'Prólogo', 'Interludio': 'Interludio', 'Epílogo': 'Epílogo', 'Afterword': 'Epílogo del autor', 'Extra': 'Extra' };
+const SEC_LABEL = SECTION_LABELS;
 
 export function createReader(ctx){
   const { sb, app, $, esc, toast, go, getUser, url } = ctx;
