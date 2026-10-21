@@ -1,5 +1,6 @@
 // Importador de Studio: EPUB, DOCX y PDF, bajo demanda.
 import { renderBlock } from './blocks.js?v=2';
+import { createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
 export function createImporter(deps) {
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, LIMITS, SEC } = deps;
   // ---------- importador ----------
@@ -240,9 +241,13 @@ export function createImporter(deps) {
     if (!(await ensure())) return;
     const TAB = '/estudio/importar';
     if (!can('import')) { app.innerHTML = shell('Importar', '<p>Tu rol no permite importar archivos.</p>', TAB); bindPicker(importer); return; }
-    const { data: works } = await sb.from('series').select('id,slug,title,cover_path,volumes(id,num,title,cover_path,deleted_at)').eq('team_id', T.team.id).is('archived_at', null).order('title');
+    const [{ data: works }, { data: related }] = await Promise.all([
+      sb.from('series').select('id,slug,title,cover_path,volumes(id,num,title,cover_path,deleted_at)').eq('team_id', T.team.id).is('archived_at', null).order('title'),
+      sb.from('series').select('id,title,teams(name)').or('published.eq.true,team_id.eq.' + T.team.id).is('archived_at', null).order('title').limit(500)
+    ]);
     let P = null, file = null, fp = null, step = 1, sel = 0, splitting = false, dupAt = null, V = {};
     const D = { work: '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', newTitle: '', newAuthor: '' };
+    let NW = createWorkData();
     app.innerHTML = shell('Importar contenido', '<ol class="imp-steps" id="steps"></ol><div id="wiz"></div><p id="status" class="mono" role="status"></p>', TAB);
     bindPicker(importer);
     const W = () => $('#wiz'), st = m => { const s = $('#status'); if (s) s.textContent = m || ''; };
@@ -281,6 +286,7 @@ export function createImporter(deps) {
         const key = (P.meta.series || P.title).toLowerCase();
         const guess = (works || []).find(w => w.title && key.includes(w.title.toLowerCase().slice(0, 18)));
         D.work = guess?.id || ''; D.newTitle = P.meta.series || P.title.replace(/\s*[,:\-–]?\s*(vol(umen|ume)?\.?|tomo)\s*\d+.*$/i, '').trim() || P.title; D.newAuthor = P.meta.author || '';
+        NW = createWorkData({ title: D.newTitle, author: D.newAuthor, illustrator: P.meta.illustrator || '', publisher: P.meta.publisher || '', synopsis: (P.meta.synopsis || '').slice(0, 1500) });
         D.vnum = P.meta.index || nextVol(guess); D.cover = P.cover || null; D.workCover = !guess || !guess.cover_path; D.mode = 'replace';
         V = { title: '', subtitle: '', synopsis: P.meta.synopsis || '', synopsis_spoiler: false, publisher: P.meta.publisher || '', imprint: '', illustrator: P.meta.illustrator || '', jp_release: P.meta.date || '', planned_chapters: '', is_final: false, translator_notes: '' };
         sel = Math.max(0, P.chapters.findIndex(c => !c.skip)); splitting = false;
@@ -352,11 +358,11 @@ export function createImporter(deps) {
 
     function s3(){
       const w = work(), ex = liveVols(w).find(v => v.num === D.vnum), gone = !ex && (w?.volumes || []).find(v => v.deleted_at && v.num === D.vnum), keys = imgKeys(), used = usedImgs(), inc = P.chapters.filter(c => !c.skip);
-      const folder = `obras › ${w?.slug || slugify(D.newTitle || P.title)} › vol-${D.vnum}`;
+      const folder = `obras › ${w?.slug || slugify(NW.title || D.newTitle || P.title)} › vol-${D.vnum}`;
       W().innerHTML = `<div class="imp-dest">
         <section class="imp-box"><h3>Obra y volumen</h3>
           <label>Obra<select id="dw"><option value="">+ Nueva obra</option>${(works || []).map(x => `<option value="${x.id}" ${x.id === D.work ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select></label>
-          ${w ? '' : `<label>Título de la obra<input id="dt" value="${esc(D.newTitle)}" maxlength="200"></label><label>Autor<input id="da" value="${esc(D.newAuthor)}" maxlength="120"></label>`}
+          ${w ? '' : `<div id="imp-new-work"><h3>Datos completos de la nueva obra</h3><p class="mono">Se rellenan los metadatos detectados; revisa los valores antes de importar.</p>${renderWorkFields(NW, esc, (related || []).filter(x => x.id !== D.work))}</div>`}
           <label>Número de volumen<input id="dv" type="number" min="1" max="999" value="${D.vnum}"></label>
           ${ex ? `<div class="imp-warn"><span>El Volumen ${D.vnum} ya existe<span id="exc"></span>.</span>
             <label class="tb-inl"><input type="radio" name="dm" value="replace" ${D.mode === 'replace' ? 'checked' : ''}> Reemplazar el volumen: capítulos, ficha y portada nuevos (los capítulos anteriores van a la papelera)</label>
@@ -386,8 +392,7 @@ export function createImporter(deps) {
         <div class="imp-nav"><button class="btn ghost" id="back">‹ Revisar secciones</button><button class="btn" id="go">Importar ${inc.length} ${inc.length === 1 ? 'sección' : 'secciones'}</button></div>`;
       if (ex) sb.from('chapters').select('id', { count: 'exact', head: true }).eq('volume_id', ex.id).is('deleted_at', null).then(({ count }) => { const e = $('#exc'); if (e && count != null) e.textContent = ' con ' + count + (count === 1 ? ' capítulo' : ' capítulos'); });
       $('#dw').onchange = e => { D.work = e.target.value; const nw = work(); D.vnum = P.meta.index || nextVol(nw); D.workCover = !nw || !nw.cover_path; s3(); };
-      $('#dt')?.addEventListener('input', e => { D.newTitle = e.target.value; }); $('#dt')?.addEventListener('change', s3);
-      $('#da')?.addEventListener('input', e => { D.newAuthor = e.target.value; });
+      if (!w) bindWorkFields($('#imp-new-work'), NW, esc, related || [], msg => { if (msg) toast(msg); });
       $('#dv').onchange = e => { D.vnum = Math.max(1, Math.min(999, Math.round(+e.target.value) || 1)); s3(); };
       W().querySelectorAll('[name=dm]').forEach(r => r.onchange = () => { D.mode = r.value; });
       W().querySelectorAll('[name=di]').forEach(r => r.onchange = () => { D.allImgs = r.value === 'all'; });
@@ -406,13 +411,14 @@ export function createImporter(deps) {
       if (D.pub === 'at' && (!D.at || new Date(fromLocal(D.at)) <= new Date())) throw new Error('Elige una fecha futura para programar');
       const ficha = fichaRow();
       let w = work(), vol = liveVols(w).find(v => v.num === D.vnum);
+      const workMeta = !w ? workPayload(NW) : null;
       if (vol && D.mode === 'replace' && !confirm(`Se reemplazará el Volumen ${D.vnum}: capítulos, ficha y portada. Los capítulos anteriores van a la papelera. ¿Continuar?`)) return;
       try {
         ({ data: job } = await sb.from('import_jobs').insert({ team_id: T.team.id, created_by: getUser().id, filename: file.name, file_type: file.name.split('.').pop().toLowerCase(), mode: vol ? D.mode : 'append', status: 'running', fingerprint: fp }).select().single());
         if (!w) {
-          st('Creando la obra…'); const title = (D.newTitle || P.title).trim().slice(0, 200); let slug = slugify(title);
+          st('Creando la obra…'); const title = workMeta.title; let slug = slugify(title);
           const { data: taken } = await sb.from('series').select('id').eq('slug', slug).limit(1); if (taken?.length) slug += '-' + Date.now().toString(36).slice(-4);
-          const r = await sb.from('series').insert({ team_id: T.team.id, slug, title, short: title.slice(0, 26), author: D.newAuthor.trim() || null, publisher: P.meta.publisher || null, synopsis: P.meta.synopsis || null, published: false }).select().single();
+          const r = await sb.from('series').insert({ ...workMeta, team_id: T.team.id, slug, published: false }).select().single();
           if (r.error) throw r.error; w = createdSeries = { ...r.data, volumes: [] };
         }
         // Multimedia › obras › {obra} › vol-N
