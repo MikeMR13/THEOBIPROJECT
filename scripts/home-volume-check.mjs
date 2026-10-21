@@ -32,4 +32,10 @@ const d1 = '2026-10-20T12:00:00Z', d2 = '2026-10-21T10:00:00Z', d3 = '2026-10-21
   const out = homeReleaseOverview([ch('a', 7, d2), ch('a', 6, d1)], [], series, NOW);
   assert.deepEqual(out.bySeries.a.chs.map(c => c.num), [7], 'capítulos de distintos días no se agrupan');
 }
+
+{
+  const out = homeReleaseOverview([ch('a', 7, d3), ch('b', 1, d2)], [vol('a', 3, d3), vol('b', 2, d2)], series, NOW);
+  assert.equal(out.entries[0].id, 'a', 'los volúmenes se ordenan por lanzamiento');
+  assert.equal(out.entries[1].kind, 'volume', 'más de un volumen puede anunciarse');
+}
 console.log('home-volume-check: OK');
