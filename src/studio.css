@@ -122,8 +122,7 @@ body.in-studio>main{max-width:none;margin:0;padding:0}body.in-studio .s2{margin:
 /* Fase visual 2: navegación agrupada sin cambios de rutas o permisos. */
 .s2-mobile-head{display:contents}
 .s2-mobile-toggle{display:none}
-.s2-nav-group{display:contents}
-.s2-nav-label{display:none}
+/* Los grupos y sus etiquetas se presentan en Estudio; su geometría se define en Fase 3. */
 .pf-mobile-sim{display:none}
 
 @media(max-width:860px){
@@ -142,7 +141,6 @@ body.in-studio>main{max-width:none;margin:0;padding:0}body.in-studio .s2{margin:
   .s2-side .s2-nav{display:none;width:100%;max-height:min(65dvh,650px);overflow-y:auto;overscroll-behavior:contain;padding:12px;background:#14120d;border:1px solid #3d3628}
   .s2-side.nav-open .s2-nav{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
   .s2-side .s2-nav-group{display:grid;gap:2px}
-  .s2-side .s2-nav-label{display:block;padding:8px 10px 4px;color:var(--gold);font:600 10px 'IBM Plex Mono',monospace;letter-spacing:.09em}
   .s2-nav a{min-height:44px}
   .s2-quick{display:flex;flex-wrap:nowrap;width:100%;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;gap:8px;padding-bottom:4px}
   .s2-quick .s2-q{flex:none;white-space:nowrap;min-height:44px}
@@ -808,4 +806,21 @@ body.in-studio .s2-main > *{min-width:0;max-width:100%}
 .s2 .s2-scroll-tip{display:none;margin:0;padding:8px 10px;background:#1f1a10;border-left:3px solid var(--gold);font-size:12px;line-height:1.5}
 @media(max-width:1100px){
   .s2 .s2-scroll-tip{display:block}
+}
+
+
+/* Fase 4 · Unificación segura de superficies desplazables de Estudio. */
+.s2 :is(.wk-tabs,.wk-tw,.st-tw,.tb-cols,.imp-pv,.imp-list ol,.s2-nav,.s2-quick,.wf-genres,#wk-gen){
+  scrollbar-color:#655437 transparent;
+  scrollbar-width:thin;
+  overscroll-behavior:contain;
+}
+.s2 :is(.wk-tabs,.wk-tw,.st-tw,.tb-cols,.imp-pv,.imp-list ol):focus-visible{
+  outline:2px solid var(--gold);
+  outline-offset:2px;
+}
+@media(prefers-reduced-motion:reduce){
+  .s2 :is(.wk-tabs,.wk-tw,.st-tw,.tb-cols,.imp-pv,.imp-list ol,.s2-nav,.s2-quick){
+    scroll-behavior:auto;
+  }
 }
