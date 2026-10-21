@@ -77,7 +77,7 @@ const happy=fixture();
 await happy.studio.newWork();
 assert.match(happy.app.innerHTML,/Datos de la obra/);
 const title=field('nw-title');
-title.oninput({target:{value:'Crónicas del Dragón'}}); 
+title.value='Crónicas del Dragón'; title.oninput(); 
 await field('nw-go').onclick({currentTarget:{disabled:false,textContent:'Crear obra y continuar',dataset:{}}});
 assert.equal(happy.inserted.length,1,'La creación debe alcanzar PostgREST; si falta slugify falla silenciosamente');
 assert.equal(happy.inserted[0].table,'series');
