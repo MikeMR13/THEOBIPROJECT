@@ -275,6 +275,46 @@ const CSS = `
  .pf-live-card .lc-public-card .lc-in{padding:0 14px 18px}
 }
 
+/* Fase 2 — identidad literaria, estanterías visibles y reseñas. */
+.lc-public .lc-about{border:1px solid #544733;border-left:3px solid var(--ac);background:#1a1712;padding:clamp(18px,2.6vw,26px);gap:13px}
+.lc-public .lc-about-heading{display:flex;gap:11px;align-items:center}
+.lc-public .lc-about-mark{font:800 27px 'Shippori Mincho B1',serif;color:var(--ac)}
+.lc-public .lc-about p{margin:0;max-width:75ch;font:15px/1.8 Literata,serif;color:#e9dfcf;white-space:pre-line;overflow-wrap:anywhere}
+.lc-public .lc-about .lc-empty{font:13px/1.7 'IBM Plex Sans',sans-serif;color:var(--mute)}
+.lc-public .lc-about .lc-empty a{color:var(--ac)}
+.lc-public .lc-reading-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.lc-public .lc-reading-count{font:11px 'IBM Plex Mono',monospace;color:var(--mute)}
+.lc-public .lc-reading-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}
+.lc-public .lc-reading-item{display:grid;grid-template-columns:90px minmax(0,1fr);gap:14px;align-items:start;min-width:0;border:1px solid #544733;background:#1b1813;padding:13px}
+.lc-public .lc-reading-cover{display:block;min-width:0;align-self:start}
+.lc-public .lc-reading-cover .lc-cv{width:100%;padding:6px;box-sizing:border-box;overflow-wrap:anywhere;font-size:11px}
+.lc-public .lc-reading-copy{display:grid;align-content:start;gap:11px;min-width:0}
+.lc-public .lc-reading-copy a{font:700 14px/1.5 'IBM Plex Sans',sans-serif;color:var(--paper);text-decoration:none;overflow-wrap:anywhere}
+.lc-public .lc-reading-copy a:hover{color:var(--ac)}
+.lc-public .lc-reading-state{display:inline-flex;align-items:center;width:fit-content;border:1px solid #70603b;background:#272114;color:var(--ac);font:600 11px 'IBM Plex Sans',sans-serif;padding:5px 10px}
+.lc-public .lc-shelf-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.lc-public .lc-shelf-tile{border:1px solid #50442f;border-top:2px solid var(--ac);background:#1b1812;padding:15px;display:grid;align-content:start;gap:9px;min-width:0}
+.lc-public .lc-shelf-tile b{font:800 clamp(24px,3vw,36px)/1 'Shippori Mincho B1',serif;color:var(--ac);font-variant-numeric:tabular-nums}
+.lc-public .lc-shelf-tile span{color:var(--paper);font:600 13px/1.4 'IBM Plex Sans',sans-serif}
+.lc-public .lc-shelf-nav{display:grid;gap:13px}
+.lc-public .lc-shelf-nav .lc-tabs{width:fit-content;max-width:100%}
+.lc-public .lc-rv{grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))}
+.lc-public .lc-rv article{grid-template-columns:78px minmax(0,1fr);gap:14px;border:1px solid #554733;background:#1b1812;padding:16px;min-width:0}
+.lc-public .lc-rv .lc-review-cover{min-width:0}
+.lc-public .lc-rv .lc-review-cover .lc-cv{box-sizing:border-box;min-width:0;width:100%;padding:5px;font-size:9px;overflow-wrap:anywhere}
+.lc-public .lc-rv .lc-review-main{display:grid;align-content:start;gap:9px;min-width:0}
+.lc-public .lc-rv .lc-review-main .t{font:700 15px/1.4 'IBM Plex Sans',sans-serif;overflow-wrap:anywhere}
+.lc-public .lc-rv .lc-review-rating{color:var(--ac);letter-spacing:.08em;font-size:16px}
+.lc-public .lc-rv .lc-review-meta{color:var(--mute)}
+.lc-public .lc-rv .lc-review-spoiler{border:1px solid #7d6040;padding:10px 12px;background:#282015}
+.lc-public .lc-rv .lc-review-spoiler summary{cursor:pointer;font:600 13px 'IBM Plex Sans',sans-serif;color:var(--ac);min-height:28px}
+.lc-public .lc-rv .lc-review-spoiler p{margin-top:9px}
+.pf-live-card .lc-about{padding:12px;gap:8px}
+.pf-live-card .lc-about h2{font-size:15px}
+.pf-live-card .lc-about p{font-size:12px;line-height:1.65}
+@media(max-width:760px){.lc-public .lc-shelf-summary{gap:9px}.lc-public .lc-shelf-tile{padding:12px 10px}.lc-public .lc-reading-grid{grid-template-columns:1fr}}
+@media(max-width:480px){.lc-public .lc-reading-item{grid-template-columns:76px minmax(0,1fr);gap:11px;padding:11px}.lc-public .lc-shelf-summary{gap:7px}.lc-public .lc-shelf-tile{padding:10px 8px;gap:6px}.lc-public .lc-shelf-tile b{font-size:25px}.lc-public .lc-shelf-tile span{font-size:11px;overflow-wrap:anywhere}.lc-public .lc-rv article{grid-template-columns:65px minmax(0,1fr);padding:12px;gap:12px}}
+
 .pf-preview{border:1px solid #6b5a39;background:#1c1913;padding:14px;display:grid;gap:12px;min-width:0}
 .pf-preview h3{margin:0;font-size:16px}
 .pf-preview-guide{display:grid;gap:8px;font:13px/1.5 'IBM Plex Sans',sans-serif;color:#e3dccb}
@@ -788,7 +828,9 @@ export async function preferences(C){
         : "<div class='lc-bg' style='opacity:.35'></div>";
     const avatar = P.avatar_url ? "<img src='" + esc(P.avatar_url) + "' alt=''>" : esc((P.username || '?')[0].toUpperCase());
     const stamp = sealMarkup(D.kanji, esc);
-    const bio = D.bio ? "<p>" + esc(D.bio) + "</p>" : "<p class='pf-live-placeholder'>Tu biografía aparecerá aquí.</p>";
+    const bio = "<section class='lc-sec lc-about'><h2>Sobre mí</h2>" +
+      (D.bio ? "<p>" + esc(D.bio) + "</p>" : "<p class='pf-live-placeholder'>Tu biografía aparecerá aquí.</p>") +
+      "</section>";
     const links = enabled.length ? "<div class='lc-ln'>" + enabled.map(l =>
       "<span class='pf-live-link'>" + svg(l.k, 14) + esc(ICON[l.k][0]) + "</span>").join('') + "</div>" : "";
     const covers = favs.length ? "<section class='lc-sec'><h2>Favoritas</h2><div class='pf-live-fav-list'>" +
@@ -797,7 +839,7 @@ export async function preferences(C){
     return "<div class='lc lc-public' style='--ac:" + esc(D.accent) + "'><section class='lc-card lc-public-card'><div class='lc-cover-stage " + (D.banner ? "is-user-banner" : "is-collage") + "'>" + bg +
       "<div class='lc-sh'></div></div><div class='lc-in'><span class='lc-av' aria-hidden='true'>" + avatar +
       "</span><div class='lc-tx'><span class='k'>CARNET DE LECTOR · 読者証</span><div class='lc-name-row'><h1>" + esc(P.username || 'Lector') +
-      "</h1>" + stamp + "</div>" + bio + links + "</div></div></section>" + covers + "</div>";
+      "</h1>" + stamp + "</div>" + links + "</div></div></section>" + bio + covers + "</div>";
   };
   let sealQuery = '', sealCategory = 'Todas', sealCustom = !!D.kanji && !SEAL_LOOKUP.has(D.kanji);
   const normalizeSeal = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
