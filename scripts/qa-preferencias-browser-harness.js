@@ -109,6 +109,12 @@ try{
 
  const oldUser=user.id;
  user={id:'qa-B-'+suffix,email:'qa-B@example.invalid'};
+ // El estado visual residual de A no puede pasar a Preferencias de B.
+ window.__obiUI={contrast:true,underline:true,motion:'reduce'};
+ await open('/preferencias?s=pantalla');
+ check(app.querySelector('#a-contrast')?.getAttribute('aria-pressed')==='false','B heredó contraste de A');
+ check(app.querySelector('#a-underline')?.getAttribute('aria-pressed')==='false','B heredó subrayado de A');
+ check(app.querySelector('input[name=mo][value=system]')?.checked===true,'B heredó movimiento reducido de A');
  await open('/preferencias?s=lectura');
  check(!readers.has(user.id),'Cuenta B heredó lectura de A');
  check(!localStorage.getItem(readerPrefsKey(user.id)),'Cuenta B tiene caché de A');
