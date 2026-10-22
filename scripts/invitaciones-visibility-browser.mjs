@@ -42,12 +42,23 @@ try {
   check(shown('inv-team-wrap')&&shown('inv-role-wrap'),'Error: campos de equipo existente ocultos');
   check(!shown('inv-new-name-wrap')&&!shown('inv-new-slug-wrap'),'Campos nuevo equipo visibles en invitación existente');
   check(!shown('inv-owner-role'),'Texto de Propietario aparece en invitación existente');
+  check(shown('inv-target-wrap')&&shown('inv-email-wrap'),'Debe verse modo por correo');
+  form.elements.target.value='open';
+  form.elements.target.dispatchEvent(new Event('change',{bubbles:true}));
+  check(!shown('inv-email-wrap')&&shown('inv-open-warning'),'Enlace libre debe ocultar correo y mostrar advertencia');
+  check(!form.elements.email.required,'Correo oculto no puede ser obligatorio');
+  check(form.elements.role.value!=='admin','Enlace libre no debe elegir administrador');
+  check([...form.elements.role.options].find(o=>o.value==='admin').disabled,'Administrador debe estar inhabilitado');
+  form.elements.target.value='email';
+  form.elements.target.dispatchEvent(new Event('change',{bubbles:true}));
+  check(shown('inv-email-wrap')&&!shown('inv-open-warning')&&form.elements.email.required,'Modo correo no se restauró');
   check(!form.elements.newName.required&&!form.elements.newSlug.required,'Requerimientos ocultos bloquean el formulario');
   check(![...form.elements.role.options].some(x=>x.value==='owner'),
     'No debe poder asignarse propietario de un equipo existente por invitación');
 
   form.elements.kind.value='create_team';form.elements.kind.dispatchEvent(new Event('change',{bubbles:true}));
   check(!shown('inv-team-wrap')&&shown('inv-new-name-wrap'),'Error al volver a crear equipo');
+  check(!shown('inv-target-wrap')&&shown('inv-email-wrap')&&form.elements.email.required,'Crear propietario exige correo');
   check(form.elements.newName.required&&form.elements.newSlug.required,'Nuevo equipo requiere nombre y slug');
   result.dataset.qaStatus='pass';result.textContent='OK: ocultamiento correcto en ambos modos';
 } catch (error) {
