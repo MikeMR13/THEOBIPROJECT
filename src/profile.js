@@ -32,6 +32,16 @@ const SECS = [['favs', 'Favoritas', true], ['seals', 'Sellos', true], ['shelves'
 const SHELF = [['reading', 'Leyendo'], ['done', 'Terminadas'], ['plan', 'Pendientes']];
 const KANJI = /^[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]$/;
 
+// Apodos editoriales, no traducciones literales del kanji.
+const SEAL_CATALOG = [["読","El Lector","Leer","Descubre universos enteros entre las páginas.","Lectura"],["書","El Escriba","Escribir","Encuentra poder en las palabras y las historias.","Lectura"],["本","El Bibliófilo","Libro","Siempre encuentra un hogar entre los libros.","Lectura"],["文","El Literato","Literatura","Aprecia la belleza de cada palabra.","Lectura"],["詩","El Poeta","Poesía","Descubre emociones donde otros solo ven palabras.","Lectura"],["語","El Narrador","Relato","Cada historia merece una voz.","Lectura"],["章","El Cronista","Capítulo","Atesora cada capítulo de sus aventuras.","Lectura"],["魔","El Mago","Magia","Encuentra lo extraordinario en cada historia.","Fantasía"],["夢","El Soñador","Sueño","Vive aventuras que solo la imaginación permite.","Fantasía"],["龍","El Dragón","Dragón","Su espíritu es tan indomable como una leyenda.","Fantasía"],["星","El Astral","Estrella","Encuentra su camino siguiendo las estrellas.","Fantasía"],["月","El Lunar","Luna","Prefiere las historias bajo la luz de la luna.","Fantasía"],["光","El Luminoso","Luz","Incluso en la oscuridad encuentra esperanza.","Fantasía"],["闇","El Nocturno","Oscuridad","Se aventura donde las historias se vuelven misteriosas.","Fantasía"],["炎","El Ígneo","Llama","Lee con una pasión que nunca se apaga.","Fantasía"],["氷","El Glacial","Hielo","Mantiene la calma aun frente a las mayores amenazas.","Fantasía"],["雷","El Relámpago","Trueno","Su entusiasmo aparece con la fuerza de una tormenta.","Fantasía"],["探","El Explorador","Buscar","Siempre está en busca de nuevos mundos.","Aventura"],["旅","El Viajero","Viaje","Recorre mil destinos a través de la lectura.","Aventura"],["武","El Guerrero","Artes marciales","No teme enfrentarse a grandes desafíos.","Aventura"],["守","El Guardián","Proteger","Atesora las historias que merecen conservarse.","Aventura"],["剣","El Espadachín","Espada","En cada aventura encuentra una batalla digna de contar.","Aventura"],["風","El Errante","Viento","Sigue el viento hacia historias desconocidas.","Aventura"],["海","El Navegante","Mar","Ningún horizonte es demasiado lejano.","Aventura"],["森","El Silvestre","Bosque","Encuentra maravillas en los rincones ocultos del mundo.","Aventura"],["知","El Sabio","Conocer","Cada lectura es una oportunidad para aprender.","Personalidad"],["心","El Sensible","Corazón","Vive cada historia con el corazón.","Personalidad"],["勇","El Valiente","Valentía","No teme comenzar una nueva aventura.","Personalidad"],["静","El Sereno","Calma","Encuentra paz en el silencio de las páginas.","Personalidad"],["絆","El Compañero","Vínculo","Cree en los lazos que unen a los personajes.","Personalidad"],["和","El Armonioso","Armonía","Busca equilibrio entre mundos y emociones.","Personalidad"],["影","La Sombra","Sombra","Observa los misterios desde las sombras.","Personalidad"]];
+const SEAL_LOOKUP = new Map(SEAL_CATALOG.map(([kanji,name,meaning,description,category]) => [kanji,{name,meaning,description,category}]));
+const sealMarkup = (kanji, esc) => {
+  if (!kanji) return '';
+  const seal = SEAL_LOOKUP.get(kanji);
+  if (!seal) return `<span class="lc-kj" title="Sello personalizado" aria-label="Sello personalizado: ${esc(kanji)}">${esc(kanji)}</span>`;
+  return `<div class="lc-seal-pop"><details><summary class="lc-kj" aria-label="${esc(seal.name)}. Ver descripción del sello">${esc(kanji)}</summary><div class="lc-seal-info"><strong>${esc(seal.name)}</strong><span>${esc(seal.description)}</span><small>Kanji: ${esc(seal.meaning)}</small></div></details><span class="lc-seal-name">${esc(seal.name)}</span></div>`;
+};
+
 const CSS = `
 .lc{display:grid;gap:44px}
 .lc-card{position:relative;overflow:hidden;border:1px solid var(--line);min-height:340px;display:grid;align-items:end}
@@ -142,6 +152,72 @@ const CSS = `
 }
 @media(max-width:390px){.pf-body{padding:14px}.pf-row{gap:8px}.pf-sl{grid-template-columns:minmax(0,1fr)}}
 
+
+/* Editor del carnet: vista previa local y adaptable, sin guardado implícito. */
+.pf-editor-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(270px,340px);gap:clamp(18px,2.5vw,32px);align-items:start;min-width:0}
+.pf-editor-fields{display:grid;gap:28px;min-width:0}
+.pf-editor-preview{position:sticky;top:84px;display:grid;gap:10px;min-width:0}
+.pf-editor-preview-head{display:grid;gap:6px}
+.pf-editor-preview-head h3{font:800 20px 'Shippori Mincho B1',serif;margin:0}
+.pf-live-card{min-width:0}
+.pf-live-card .lc{gap:16px}
+.pf-live-card .lc-card{min-height:290px}
+.pf-live-card .lc-in{padding:18px;gap:12px;align-items:start}
+.pf-live-card .lc-av{width:68px;height:68px;font-size:28px}
+.pf-live-card .lc-tx{flex:1 1 100%;gap:7px}
+.pf-live-card .lc-tx h1{font-size:clamp(22px,2vw,30px);line-height:1.15}
+.pf-live-card .lc-tx .k{font-size:9px}
+.pf-live-card .lc-tx p{font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.pf-live-card .lc-kj{top:12px;right:12px;width:40px;height:40px;font-size:22px}
+.pf-live-card .lc-ln{gap:6px}
+.pf-live-link{display:inline-flex;gap:5px;align-items:center;max-width:100%;border:1px solid #5a503b;border-radius:999px;background:rgba(13,12,10,.7);color:var(--paper);padding:5px 8px;font:11px 'IBM Plex Mono',monospace}
+.pf-live-link svg{flex:none}
+.pf-live-placeholder{color:#b7ad98!important;font-style:italic}
+.pf-live-fav-list{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.pf-live-fav-list .lc-cv{padding:0;min-width:0;box-shadow:none}
+.pf-live-fav-list .lc-cv:not([style*="url"]){font-size:9px;padding:4px;overflow:hidden;overflow-wrap:anywhere}
+.pf-live-card .lc-sec{gap:8px}
+.pf-live-card .lc-sec h2{font:700 15px 'Shippori Mincho B1',serif}
+.pf-editor-preview-note{font-size:12px}
+@media(max-width:1180px){.pf-editor-layout{grid-template-columns:minmax(0,1fr)}.pf-editor-preview{position:static;max-width:470px}}
+@media(max-width:760px){.pf-editor-preview{max-width:none}.pf-live-card .lc-card{min-height:270px}.pf-live-fav-list{gap:8px}}
+
+
+/* Sellos temáticos y apodos seleccionables */
+.lc-seal-pop{position:absolute;top:18px;right:18px;z-index:3;display:grid;justify-items:end;gap:6px}
+.lc-seal-pop .lc-kj{position:static;cursor:pointer;list-style:none;user-select:none}
+.lc-seal-pop details{display:grid;justify-items:end}
+.lc-seal-pop summary::-webkit-details-marker{display:none}
+.lc-seal-pop summary::marker{content:''}
+.lc-seal-pop .lc-kj:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.lc-seal-name{padding:4px 8px;background:rgba(13,12,10,.8);color:var(--paper);font:600 11px 'IBM Plex Sans',sans-serif;text-align:right}
+.lc-seal-info{position:absolute;top:59px;right:0;width:min(230px,calc(100vw - 64px));box-sizing:border-box;background:#17130e;border:1px solid #866946;box-shadow:0 8px 32px rgba(0,0,0,.65);padding:12px;display:grid;gap:7px;color:var(--paper);font:13px/1.45 'IBM Plex Sans',sans-serif;text-align:left}
+.lc-seal-pop details:not([open]) .lc-seal-info{display:none}
+.lc-seal-info strong{font:800 17px 'Shippori Mincho B1',serif}
+.lc-seal-info small{color:var(--mute)}
+.pf-live-card .lc-seal-pop{top:12px;right:12px}
+.pf-seal-panel{display:grid;gap:12px;min-width:0;grid-column:1/-1}
+.pf-seal-controls{display:flex;gap:10px;flex-wrap:wrap}
+.pf-seal-controls input,.pf-seal-controls select{background:#0d0c0a;border:1px solid var(--line);color:var(--paper);font:14px 'IBM Plex Sans',sans-serif;min-height:44px;padding:9px 10px;min-width:0}
+.pf-seal-controls input{flex:1 1 190px}
+.pf-seal-controls select{flex:1 1 145px}
+.pf-seal-catalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,130px),1fr));gap:9px;max-height:380px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:2px}
+.pf-seal-choice{min-width:0;min-height:94px;cursor:pointer;border:1px solid #544731;background:#1b1812;color:var(--paper);padding:9px 7px;display:grid;justify-items:center;align-content:center;gap:5px;text-align:center}
+.pf-seal-choice:hover{border-color:var(--gold)}
+.pf-seal-choice[aria-pressed="true"]{border:2px solid var(--gold);background:#272115}
+.pf-seal-choice .kanji{font:800 29px 'Shippori Mincho B1',serif;color:#e2604b}
+.pf-seal-choice .name{font:700 12px 'IBM Plex Sans',sans-serif;overflow-wrap:anywhere}
+.pf-seal-choice .meaning{font:11px 'IBM Plex Sans',sans-serif;color:var(--mute)}
+.pf-seal-selected{border-left:3px solid var(--gold);background:#221e16;padding:11px 13px;display:grid;gap:5px;font-size:13px;line-height:1.5}
+.pf-seal-selected strong{font:800 16px 'Shippori Mincho B1',serif}
+.pf-seal-selected small{color:var(--mute)}
+.pf-seal-actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.pf-seal-actions button{min-height:44px}
+.pf-seal-custom{display:grid;gap:8px;align-items:start;justify-items:start;padding:12px;border:1px solid var(--line);background:#1b1812}
+.pf-seal-custom[hidden]{display:none}
+.pf-seal-custom label{display:grid;gap:6px}
+@media(max-width:640px){.lc-seal-pop{right:12px;top:12px}.pf-seal-catalog{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 .pf-preview{border:1px solid #6b5a39;background:#1c1913;padding:14px;display:grid;gap:12px;min-width:0}
 .pf-preview h3{margin:0;font-size:16px}
 .pf-preview-guide{display:grid;gap:8px;font:13px/1.5 'IBM Plex Sans',sans-serif;color:#e3dccb}
@@ -196,7 +272,7 @@ export async function publicProfile(C, name, opt = {}){
   const mine = opt.owner && !(r.public_activity && r.stats) && own.data ? `<section class="lc-sec"><div class="lc-hd"><h2>Mis estadísticas</h2><span class="mono" style="font-size:11px">SOLO TÚ VES ESTO · <a href="/preferencias?s=privacidad">HACERLAS PÚBLICAS</a></span></div>${statsHTML(own.data) || '<p class="lc-empty">Aún no hay lecturas registradas.</p>'}</section>` : '';
   const empty = opt.owner && !r.bio && !r.kanji && !favs.length && !r.links?.length ? `<p class="lc-empty" style="border:1px dashed var(--line);padding:14px 16px">Tu carnet está vacío. <a href="/preferencias">Añade bio, kanji, favoritas y enlaces</a>.</p>` : '';
   app.innerHTML = `<div class="lc" style="--ac:${esc(ac)}">${bar}${act}
-    <section class="lc-card">${bg}<div class="lc-sh"></div>${r.kanji ? `<span class="lc-kj" title="Sello de ${esc(r.username)}">${esc(r.kanji)}</span>` : ''}
+    <section class="lc-card">${bg}<div class="lc-sh"></div>${sealMarkup(r.kanji, esc)}
       <div class="lc-in">
         <span class="lc-av">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase())}</span>
         <div class="lc-tx"><span class="k">CARNET DE LECTOR · 読者証${r.since ? ' · DESDE ' + new Date(r.since).toLocaleDateString('es-MX', { month: 'short', year: 'numeric' }).toUpperCase() : ''}</span>
@@ -627,6 +703,7 @@ export async function preferences(C){
     try { localStorage.setItem(draftKey, JSON.stringify({ version: 1, data: D })); }
     catch { toast('No se pudo conservar el borrador en este dispositivo'); }
     const s = app.querySelector('#pf-st'); if (s) s.textContent = 'Borrador sin guardar';
+    const live = app.querySelector('#pf-live-card'); if (live) live.innerHTML = liveHTML();
   };
   const favHTML = () => D.favs.map((s, i) => `<article class="pf-fav">
     <span class="lc-cv pf-fav-cover" aria-hidden="true" style="--c:${esc(s.theme?.color || '#2a2519')};${s.cover_thumb_path || s.cover_path ? `background-image:url('${esc(MED(s.cover_thumb_path || s.cover_path))}')` : ''}">${esc(s.title)}</span>
@@ -638,13 +715,65 @@ export async function preferences(C){
     <input data-lu="${i}" value="${esc(l.url || '')}" placeholder="${ICON[l.k][2]}" inputmode="url" aria-label="Enlace de ${ICON[l.k][0]}">
     <button type="button" class="pf-tg" data-lo="${i}" aria-pressed="${l.on}" aria-label="Mostrar en el perfil"><i></i></button>
     <button type="button" class="pf-x" data-lx="${i}" aria-label="Quitar enlace">×</button></div>`;
+
+  // Vista previa de cliente: refleja solo los datos del borrador.
+  const liveHTML = () => {
+    const favs = D.favs.slice(0, 5);
+    const enabled = D.links.filter(l => l.on && ICON[l.k] && typeof l.url === 'string' && l.url.trim());
+    const cover = s => "--c:" + esc(s.theme?.color || '#2a2519') + ";" +
+      (s.cover_thumb_path || s.cover_path ? "background-image:url(&quot;" + esc(MED(s.cover_thumb_path || s.cover_path)) + "&quot;)" : "");
+    const bg = D.banner
+      ? "<div class='lc-bg' style='background-image:url(&quot;" + esc(D.banner) + "&quot;)'></div>"
+      : favs.length
+        ? "<div class='lc-bg' style='--n:" + favs.length + "'>" +
+          favs.map(s => "<span style='background-color:" + esc(s.theme?.color || '#2a2519') + ";" +
+            (s.cover_thumb_path || s.cover_path ? "background-image:url(&quot;" + esc(MED(s.cover_thumb_path || s.cover_path)) + "&quot;)" : "") + "'></span>").join('') + "</div>"
+        : "<div class='lc-bg' style='opacity:.35'></div>";
+    const avatar = P.avatar_url ? "<img src='" + esc(P.avatar_url) + "' alt=''>" : esc((P.username || '?')[0].toUpperCase());
+    const stamp = sealMarkup(D.kanji, esc);
+    const bio = D.bio ? "<p>" + esc(D.bio) + "</p>" : "<p class='pf-live-placeholder'>Tu biografía aparecerá aquí.</p>";
+    const links = enabled.length ? "<div class='lc-ln'>" + enabled.map(l =>
+      "<span class='pf-live-link'>" + svg(l.k, 14) + esc(ICON[l.k][0]) + "</span>").join('') + "</div>" : "";
+    const covers = favs.length ? "<section class='lc-sec'><h2>Favoritas</h2><div class='pf-live-fav-list'>" +
+      favs.map(s => "<span class='lc-cv' role='img' aria-label='" + esc(s.title) + "' style='" + cover(s) + "'>" + esc(s.title) + "</span>").join('') +
+      "</div></section>" : "";
+    return "<div class='lc' style='--ac:" + esc(D.accent) + "'><section class='lc-card'>" + bg +
+      "<div class='lc-sh'></div>" + stamp + "<div class='lc-in'><span class='lc-av' aria-hidden='true'>" + avatar +
+      "</span><div class='lc-tx'><span class='k'>CARNET DE LECTOR · 読者証</span><h1>" + esc(P.username || 'Lector') +
+      "</h1>" + bio + links + "</div></div></section>" + covers + "</div>";
+  };
+  let sealQuery = '', sealCategory = 'Todas', sealCustom = !!D.kanji && !SEAL_LOOKUP.has(D.kanji);
+  const normalizeSeal = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const sealChoices = () => SEAL_CATALOG.filter(([k,n,m,d,c]) =>
+    (sealCategory === 'Todas' || c === sealCategory) &&
+    normalizeSeal([k,n,m,d].join(' ')).includes(normalizeSeal(sealQuery.trim()))
+  ).map(([k,n,m]) => `<button type="button" class="pf-seal-choice" data-seal-pick="${esc(k)}" aria-pressed="${D.kanji === k}"><span class="kanji">${esc(k)}</span><span class="name">${esc(n)}</span><span class="meaning">${esc(m)}</span></button>`).join('') ||
+    '<p class="pf-note">No encontramos sellos con esa búsqueda.</p>';
+  const sealSelected = () => {
+    const x = SEAL_LOOKUP.get(D.kanji);
+    return x
+      ? `<strong>${esc(x.name)} · ${esc(D.kanji)}</strong><span>${esc(x.description)}</span><small>Significado del kanji: ${esc(x.meaning)}. El apodo es una interpretación editorial.</small>`
+      : D.kanji
+        ? `<strong>Sello personalizado · ${esc(D.kanji)}</strong><span>Tu kanji personalizado aparecerá en el carnet sin apodo predeterminado.</span>`
+        : '<span>Elige un sello para descubrir su apodo y descripción, o escribe tu propio kanji.</span>';
+  };
   const draw = () => {
-    app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Perfil público</h2><p class="pf-note">Así te ven los demás en <a href="/perfil">/lector/${esc(P.username)}</a>.</p></div>
+    app.innerHTML = shell(`<div class="pf-editor-layout"><div class="pf-editor-fields"><div style="display:grid;gap:6px"><h2>Perfil público</h2><p class="pf-note">Así te ven los demás en <a href="/perfil">/lector/${esc(P.username)}</a>.</p></div>
       <div class="pf-grid">
         <div class="pf-f">Foto<span class="pf-up"><span class="lc-av" style="--ac:${esc(D.accent)};width:60px;height:60px;font-size:26px">${P.avatar_url ? `<img src="${esc(P.avatar_url)}" alt="">` : esc((P.username || '?')[0].toUpperCase())}</span><label class="btn ghost sm">Cambiar foto<input type="file" id="fav" accept="image/jpeg,image/png,image/webp"></label></span></div>
         <div class="pf-f">Portada del carnet<span class="pf-up"><span class="pf-ban" style="${D.banner ? `background-image:url('${esc(D.banner)}')` : ''}"></span><label class="btn ghost sm">${D.banner ? 'Cambiar' : 'Subir'}<input type="file" id="fban" accept="image/jpeg,image/png,image/webp"></label>${D.banner ? '<button type="button" class="btn ghost sm" id="noban">Quitar</button>' : ''}</span><small class="pf-note" style="font-size:12px">Sin portada se usa un collage de tus favoritas.</small></div>
         <label class="pf-f" style="grid-column:1/-1">Bio<textarea id="bio" rows="3" maxlength="280">${esc(D.bio)}</textarea></label>
-        <label class="pf-f">Kanji del sello<input id="kj" class="pf-kj" maxlength="1" value="${esc(D.kanji)}" placeholder="月" aria-describedby="kjh"><small id="kjh" class="pf-note" style="font-size:12px">Un solo kanji. Déjalo vacío para no mostrar sello.</small></label>
+        <section class="pf-seal-panel" aria-label="Catálogo de sellos de lector">
+          <div style="display:grid;gap:4px"><h3>Tu sello de lector</h3><p class="pf-note">Elige entre 32 sellos temáticos. Cada apodo es creativo; el significado del kanji se muestra por separado.</p></div>
+          <div class="pf-seal-controls"><input type="search" id="seal-query" value="${esc(sealQuery)}" placeholder="Buscar apodo, kanji o significado…" aria-label="Buscar sello">
+            <select id="seal-category" aria-label="Filtrar sellos por categoría">${['Todas','Lectura','Fantasía','Aventura','Personalidad'].map(c => `<option value="${c}" ${c === sealCategory ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+          <div class="pf-seal-catalog" id="seal-results">${sealChoices()}</div>
+          <div class="pf-seal-selected" id="seal-selected" role="status" aria-live="polite">${sealSelected()}</div>
+          <div class="pf-seal-actions"><button type="button" class="btn ghost sm" id="seal-custom-toggle" aria-expanded="${sealCustom}" aria-controls="seal-custom-field">Usar mi propio kanji</button>
+            <button type="button" class="btn ghost sm" id="seal-clear">Sin sello</button></div>
+          <div class="pf-seal-custom" id="seal-custom-field" ${sealCustom ? '' : 'hidden'}><label>Kanji personalizado<input id="kj" class="pf-kj" maxlength="1" value="${esc(D.kanji)}" placeholder="月" aria-describedby="kjh" ${sealCustom ? '' : 'disabled'}></label>
+          <small class="pf-note" id="kjh">Un solo kanji. Déjalo vacío para no mostrar sello.</small></div>
+        </section>
         <div class="pf-f">Color de acento<div class="pf-sw">${SWATCH.map(c => `<button type="button" data-ac="${c}" class="${c === D.accent ? 'on' : ''}" style="--swatch:${c}" aria-label="Color ${c}" aria-pressed="${c === D.accent}"></button>`).join('')}</div></div>
       </div>
       <div style="display:grid;gap:10px"><h3>Favoritas <small class="pf-note">(${D.favs.length}/5)</small></h3><div class="pf-favs">${favHTML()}</div>
@@ -652,10 +781,39 @@ export async function preferences(C){
       <div style="display:grid;gap:10px"><h3>Enlaces</h3>${D.links.map(linkRow).join('')}
         ${D.links.length < 12 ? '<button type="button" class="btn ghost sm" id="addl" style="justify-self:start">+ Añadir enlace</button>' : ''}</div>
       <p class="pf-note">Qué secciones se muestran y quién ve tu carnet se elige en <a href="/preferencias?s=privacidad">Privacidad</a>.</p>
-      <div class="pf-save"><span class="mono" id="pf-st" role="status" aria-live="polite">${dirty ? (recovered ? 'Borrador recuperado: revisa y guarda' : 'Borrador sin guardar') : ''}</span><a class="btn ghost" href="/perfil">Ver mi perfil</a><button class="btn" id="save">Guardar cambios</button></div>`);
+      <div class="pf-save"><span class="mono" id="pf-st" role="status" aria-live="polite">${dirty ? (recovered ? 'Borrador recuperado: revisa y guarda' : 'Borrador sin guardar') : ''}</span><a class="btn ghost" href="/perfil">Ver mi perfil</a><button class="btn" id="save">Guardar cambios</button></div></div>
+      <aside class="pf-editor-preview" aria-label="Vista previa del carnet">
+        <div class="pf-editor-preview-head"><h3>Vista previa del carnet</h3><p class="pf-note pf-editor-preview-note">Se actualiza mientras editas. Es una simulación, no un perfil publicado.</p></div>
+        <div id="pf-live-card" class="pf-live-card">${liveHTML()}</div>
+        <p class="pf-note pf-editor-preview-note">Los cambios del carnet se publican al guardar. La foto de perfil se guarda al subirla.</p>
+      </aside></div>`);
     const $ = s => app.querySelector(s), $$ = s => app.querySelectorAll(s);
     $('#bio').oninput = e => { D.bio = e.target.value; mark(); };
-    $('#kj').oninput = e => { D.kanji = e.target.value.trim(); mark(); };
+    const updateSealPanel = () => {
+      const choices = $('#seal-results'); if (choices) choices.innerHTML = sealChoices();
+      const info = $('#seal-selected'); if (info) info.innerHTML = sealSelected();
+      app.querySelectorAll('[data-seal-pick]').forEach(b => b.onclick = () => {
+        D.kanji = b.dataset.sealPick; sealCustom = false; mark(); draw();
+        app.querySelector('[data-seal-pick="' + D.kanji + '"]')?.focus({ preventScroll: true });
+      });
+    };
+    $('#seal-query').oninput = e => { sealQuery = e.target.value; updateSealPanel(); };
+    $('#seal-category').onchange = e => { sealCategory = e.target.value; updateSealPanel(); };
+    $('#seal-custom-toggle').onclick = () => {
+      sealCustom = !sealCustom;
+      if (sealCustom && SEAL_LOOKUP.has(D.kanji)) { D.kanji = ''; mark(); }
+      draw();
+      (sealCustom ? $('#kj') : $('#seal-custom-toggle'))?.focus({ preventScroll: true });
+    };
+    $('#seal-clear').onclick = () => {
+      if (D.kanji) { D.kanji = ''; mark(); }
+      sealCustom = false; draw(); $('#seal-clear')?.focus({ preventScroll: true });
+    };
+    $('#kj').oninput = e => {
+      D.kanji = e.target.value.trim(); mark();
+      const info = $('#seal-selected'); if (info) info.innerHTML = sealSelected();
+    };
+    updateSealPanel();
     $$('[data-ac]').forEach(b => b.onclick = () => { D.accent = b.dataset.ac; mark(); draw(); });
     $$('[data-rf]').forEach(b => b.onclick = () => { D.favs.splice(+b.dataset.rf, 1); mark(); draw(); });
     $$('[data-lk]').forEach(s => s.onchange = () => { D.links[+s.dataset.lk].k = s.value; mark(); draw(); });

@@ -37,9 +37,37 @@ for(const part of [
   '@media(max-width:760px){', '.pf-nav{display:none}',
   '.pf-mobile-nav{display:grid;', '.pf-mobile-nav select{width:100%;min-height:48px;',
   '.pf-tg{flex:none;width:48px;height:44px;', '.pf-sw button{width:44px;height:44px;',
-  '.pf-favs .pf-x{position:absolute;', 'min-width:44px;min-height:44px;',
+  '.pf-fav-remove{display:flex;', 'min-height:44px;',
   '.lc-tabs button{border:0;cursor:pointer;padding:10px 14px;',
   '.pf :is(a,button,input,select,textarea):focus-visible', '.pf-up label:focus-within'
 ])assert(css.includes(part),'Falta tratamiento táctil o responsive: '+part);
 assert(src.includes('aria-pressed="${c === D.accent}"'),'El color activo se anuncia');
+for(const part of ['const liveHTML = () =>', 'id="pf-live-card"', 'live.innerHTML = liveHTML()', 'class="pf-editor-preview"', 'D.favs.slice(0, 5)'])
+  assert(src.includes(part),'Falta actualización del carnet en tiempo real: '+part);
+// Sellos: preservar 32 kanjis distintos y su significado frente al apodo editorial.
+const catalogMatch = src.match(/const SEAL_CATALOG = (\[[^\n]+\]);/);
+assert(catalogMatch, 'Falta catálogo de sellos');
+const catalog = vm.runInNewContext(catalogMatch[1]);
+assert.equal(catalog.length,32,'El catálogo debe incluir 32 sellos');
+assert.equal(new Set(catalog.map(x => x[0])).size,32,'Cada kanji debe ser único');
+assert.equal(catalog.filter(x => x[4]==='Lectura').length,7);
+assert.equal(catalog.filter(x => x[4]==='Fantasía').length,10);
+assert.equal(catalog.filter(x => x[4]==='Aventura').length,8);
+assert.equal(catalog.filter(x => x[4]==='Personalidad').length,7);
+assert(catalog.some(([k,n,m])=>k==='魔' && n==='El Mago' && m==='Magia'));
+assert(catalog.some(([k,n,m])=>k==='読' && n==='El Lector' && m==='Leer'));
+for (const item of catalog) {
+  assert.equal(item.length,5);
+  assert(item.every(x=>typeof x==='string'&&x.length>0),'Ficha incompleta');
+}
+for (const required of [
+ 'const sealMarkup = (kanji, esc) =>', 'sealMarkup(r.kanji, esc)',
+ 'sealMarkup(D.kanji, esc)', 'data-seal-pick',
+ 'id="seal-query"', 'id="seal-category"', "normalizeSeal(sealQuery.trim())",
+ 'id="seal-custom-field"', 'id="kj"', "seal_kanji: D.kanji || null",
+ 'id="seal-clear"', 'max-height:380px', 'aria-pressed="${D.kanji === k}"',
+ 'details><summary class="lc-kj"'
+]) assert(src.includes(required),'Falta componente de sellos: '+required);
+console.log('Sellos: 32 kanjis, apodos, búsqueda, categorías, personalización y descripción — OK');
+
 console.log('Preferencias fase 2: rutas, grupos, selector móvil, foco y objetivos táctiles — OK');
