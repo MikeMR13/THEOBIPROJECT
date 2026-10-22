@@ -23,6 +23,10 @@ BEGIN
   THEN RAISE EXCEPTION 'FAIL: integrantes públicos de equipos'; END IF;
   IF (SELECT count(*) FROM public.comment_public_authors('ffffffff-ffff-4fff-8fff-ffffffffffff')) <> 1
   THEN RAISE EXCEPTION 'FAIL: autores públicos de comentarios'; END IF;
+  x := public.reader_public('qa_alfa');
+  IF x IS NULL OR x->>'username' IS DISTINCT FROM 'qa_alfa'
+      OR x ? 'private'
+  THEN RAISE EXCEPTION 'FAIL: carnet público completo dejó de funcionar'; END IF;
   x := public.reader_public('qa_beta');
   IF x->>'private' IS DISTINCT FROM 'auth'
   THEN RAISE EXCEPTION 'FAIL: perfil solo con cuenta visible al visitante'; END IF;
@@ -71,6 +75,10 @@ BEGIN
     'cccccccc-cccc-4ccc-8ccc-cccccccccccc'::uuid
   ]);
   IF n <> 3 THEN RAISE EXCEPTION 'FAIL: nombres de equipo/comentarista (%).',n; END IF;
+  SELECT count(*) INTO n FROM public.studio_profile_names(ARRAY[
+    '99999999-9999-4999-8999-999999999999'::uuid
+  ]);
+  IF n <> 0 THEN RAISE EXCEPTION 'FAIL: Estudio enumeró un usuario externo no relacionado'; END IF;
   x := public.reader_stats('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
   IF x IS NOT NULL THEN RAISE EXCEPTION 'FAIL: B consulta estadísticas privadas de C'; END IF;
   x := public.reader_public('qa_gamma');
