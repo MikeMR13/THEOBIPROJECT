@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 const additive=readFileSync('supabase/migrations/20261022055000_secure_reader_profiles.sql','utf8');
 const gate=readFileSync('supabase/release-gates/SEG02_FINAL_LOCK_PROFILES.sql','utf8');
 const sql=additive+'\n'+gate;
+assert.match(additive,/GRANT UPDATE \(patron_wall\) ON TABLE public\.profiles TO authenticated;/i,'muro Patreon exige permiso de dueño en fase A');
 // A: toda RPC necesaria debe existir ANTES de desplegar el frontend.
 // C: jamás quitar SELECT público en migración automática (rompería clientes viejos).
 assert.doesNotMatch(additive,/REVOKE ALL PRIVILEGES ON TABLE public\.profiles/i,'fase A no debe bloquear frontend antiguo');
@@ -22,7 +23,7 @@ const adminPage=readFileSync('src/admin.js','utf8');
 const readerPage=readFileSync('src/reader.js','utf8');
 function requireSQL(pattern,description){assert.match(sql,pattern,description)}
 requireSQL(/REVOKE ALL PRIVILEGES ON TABLE public\.profiles FROM anon, authenticated;/i,'retirar SELECT, INSERT, DELETE y MAINTAIN');
-requireSQL(/GRANT UPDATE \(username, avatar_url, discord_id, telegram_id, adult_ok,[\s\S]*?hidden_series, notify, ui_prefs\)/i,'retener solo edición autorizada');
+requireSQL(/GRANT UPDATE \(username, avatar_url, discord_id, telegram_id, adult_ok,[\s\S]*?hidden_series, notify, ui_prefs, patron_wall\)/i,'retener solo edición autorizada');
 requireSQL(/GRANT SELECT \(id\) ON TABLE public\.profiles TO authenticated;/i,'UPDATE conserva lectura mínima id');
 requireSQL(/DROP POLICY IF EXISTS "profiles read" ON public\.profiles;/i,'eliminar RLS público permisivo');
 requireSQL(/CREATE POLICY "profiles self read" ON public\.profiles[\s\S]*?FOR SELECT TO authenticated[\s\S]*?USING \(id = \(SELECT auth\.uid\(\)\)\)/i,'RLS propietario');
