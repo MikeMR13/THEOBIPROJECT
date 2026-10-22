@@ -479,7 +479,7 @@ export async function preferences(C){
   // La navegación dentro del SPA no dispara beforeunload. Mantener un borrador
   // local por usuario evita perder bio, enlaces y favoritas si cambia la ruta.
   const draftKey = 'obi-profile-draft:user:' + user.id;
-  let dirty = false, recovered = false;
+  let dirty = false, recovered = false, editVersion = 0, saveInFlight = false;
   try {
     const saved = JSON.parse(localStorage.getItem(draftKey) || 'null');
     if (saved?.version === 1 && saved.data && typeof saved.data === 'object') {
@@ -494,7 +494,7 @@ export async function preferences(C){
     }
   } catch {}
   const mark = () => {
-    dirty = true; recovered = false;
+    editVersion++; dirty = true; recovered = false;
     try { localStorage.setItem(draftKey, JSON.stringify({ version: 1, data: D })); }
     catch { toast('No se pudo conservar el borrador en este dispositivo'); }
     const s = app.querySelector('#pf-st'); if (s) s.textContent = 'Borrador sin guardar';
@@ -544,13 +544,24 @@ export async function preferences(C){
         D.banner = sb.storage.from('avatars').getPublicUrl(path).data.publicUrl; mark(); draw(); } catch (er) { toast(er.message); } };
     $('#noban')?.addEventListener('click', () => { D.banner = null; mark(); draw(); });
     $('#save').onclick = async e => { const b = e.currentTarget;
+      if (saveInFlight) return;
       if (D.kanji && !KANJI.test(D.kanji)) return toast('El sello debe ser un solo kanji');
       const links = []; for (const l of D.links) { if (!l.url) continue; let u = l.url; if (!/^https?:\/\//i.test(u)) u = 'https://' + u.replace(/^\/+/, ''); u = u.replace(/^http:/i, 'https:');
         if (!/^https:\/\/[^\s<>"]{3,200}$/.test(u)) return toast(`Revisa el enlace de ${ICON[l.k][0]}`); links.push({ k: l.k, url: u, on: !!l.on }); }
+      saveInFlight = true; const submittedVersion = editVersion;
       b.disabled = true; b.textContent = 'Guardando…';
-      const { error } = await sb.from('profiles').update({ bio: D.bio.trim() || null, seal_kanji: D.kanji || null, accent: D.accent, banner_url: D.banner, links, favorites: D.favs.map(f => f.id) }).eq('id', user.id);
-      b.disabled = false; b.textContent = 'Guardar cambios';
+      let error;
+      try {
+        const response = await sb.from('profiles').update({ bio: D.bio.trim() || null, seal_kanji: D.kanji || null, accent: D.accent, banner_url: D.banner, links, favorites: D.favs.map(f => f.id) }).eq('id', user.id);
+        error = response.error;
+      } catch (cause) { error = cause; }
+      saveInFlight = false; b.disabled = false; b.textContent = 'Guardar cambios';
       if (error) return toast(/links/.test(error.message) ? 'Revisa los enlaces' : /seal_kanji/.test(error.message) ? 'El sello debe ser un solo kanji' : error.message);
+      // Una edición hecha durante la petición no se puede marcar como guardada.
+      if (editVersion !== submittedVersion) {
+        toast('Se guardaron los cambios anteriores; quedan cambios nuevos sin guardar');
+        draw(); return;
+      }
       D.links = links; dirty = false; recovered = false;
       try { localStorage.removeItem(draftKey); } catch {}
       toast('Perfil guardado'); reload?.(); draw(); };
@@ -558,9 +569,13 @@ export async function preferences(C){
   draw();
   const leave = e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } };
   const navigate = e => {
-    if (!dirty) return;
     const a = e.target.closest?.('a[href^="/"]');
     if (!a || a.target || a.getAttribute('href') === location.pathname + location.search) return;
+    if (!dirty) {
+      removeEventListener('beforeunload', leave);
+      document.removeEventListener('click', navigate, true);
+      return;
+    }
     if (!confirm('Tienes cambios sin guardar en tu perfil. El borrador se conservará para volver después. ¿Salir?')) {
       e.preventDefault(); e.stopImmediatePropagation();
     } else {
