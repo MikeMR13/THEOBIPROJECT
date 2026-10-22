@@ -78,6 +78,9 @@ for(const needle of ["homeFeaturedSelection(","homeDayKey()","select('announced_
 for(const needle of ['primary key references public.teams','enable row level security','private.team_can','on conflict(team_id)','grant execute on function public.team_feature_set'])assert(sql.includes(needle),'Falta garantía de seguridad: '+needle);
 for(const needle of ["interval '7 days'","updated_at > now()","cron.schedule","obi-team-featured-expire"])
  assert(expirySql.includes(needle),'Falta garantía de expiración: '+needle);
+const scopedPolicy=readFileSync('supabase/migrations/20261117_team_featured_read_scope.sql','utf8');
+assert(scopedPolicy.includes('s.team_id = public.team_featured_series.team_id'),
+  'La política RLS debe comparar el equipo propietario real y evitar condiciones ambiguas');
 assert(ui.includes("teamHighlights()")&&ui.includes("teamSignature(")&&ui.includes("readPages("),
  'Falta lectura sin límite y refresco de pestaña abierta');
 assert(studio.includes("featuredExpiresAt")&&studio.includes("7 días"),
