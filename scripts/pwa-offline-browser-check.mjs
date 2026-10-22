@@ -133,7 +133,7 @@ try{
  await navigate('/leer/obra-local/2');
  await waitFor(()=>evalJs("Boolean(document.querySelector('.rd-body')?.textContent.includes('SEGUNDO CAPÍTULO OFFLINE QA'))"),4000);
  const secondMs=Math.round(performance.now()-secondStart);
- const after=await evalJs(`({offline:!navigator.onLine,username:document.querySelector('.ob-user')?.textContent || '',remote:performance.getEntriesByType('resource').filter(r=>/obi-qa-backend\\.invalid/i.test(r.name)).length})`);
+ const after=await evalJs(`({offline:!navigator.onLine,username:document.querySelector('.ob-user')?.textContent || '',remote:performance.getEntriesByType('resource').filter(r=>/\\/rest\\/v1\\//i.test(r.name)).length})`);
  console.log('CHROMIUM PWA segundo capítulo='+secondMs+'ms; sin conexión='+after.offline+'; backend solicitudes='+after.remote);
  assert(after.offline,'Cambiar de capítulo no debe activar la red');
  assert.equal(after.remote,0,'Ninguna consulta a Supabase tras entrar en modo avión');
