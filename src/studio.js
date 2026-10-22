@@ -383,8 +383,9 @@ export function createStudio(ctx){
     const [{ works: list, chs, sched }, { data: inv }, { data: collab }, { data: selectedFeature }] = await Promise.all([teamData(),
       sb.from('collaborations').select('id,status,series(title),inviter:teams!collaborations_inviter_team_fkey(name)').eq('invited_team', T.team.id).eq('status', 'pending'),
       sb.from('collaborations').select('series(slug,title,teams(name))').eq('invited_team', T.team.id).eq('status', 'accepted'),
-      sb.from('team_featured_series').select('series_id').eq('team_id', T.team.id).maybeSingle().then(r=>r,()=>({data:null}))]);
+      sb.from('team_featured_series').select('series_id,updated_at').eq('team_id', T.team.id).maybeSingle().then(r=>r,()=>({data:null}))]);
     const featuredSeriesId=selectedFeature?.series_id||null;
+    const featuredExpiresAt=selectedFeature?.updated_at ? new Date(new Date(selectedFeature.updated_at).getTime()+7*864e5) : null;
     const pick = new URLSearchParams(location.search).has('nuevo');
     const card = w => { const c = chs.filter(x => x.series_id === w.id), pub = c.filter(x => x.status === 'published'), dr = c.filter(x => x.status === 'draft').length;
       const nx = [...c.filter(x => x.status === 'scheduled' && new Date(x.publish_at) > Date.now()).map(x => ({ at: x.publish_at, l: 'Cap. ' + x.num })), ...sched.filter(e => e.series_id === w.id).map(e => ({ at: e.at, l: e.label }))].sort((a, b) => new Date(a.at) - new Date(b.at))[0];
@@ -400,8 +401,8 @@ export function createStudio(ctx){
               <a class="btn ghost" href="/estudio/obra/${w.slug}">Abrir ficha</a>
             </div>
             ${(can('edit')||can('publish')) && w.published ? `<div class="s2-work-recommend">
-              <span class="s2-work-recommend-info"><b>Recomendación del equipo</b><small>Una obra a la vez en Inicio</small></span>
-              <button class="btn s2-feature-toggle" type="button" data-feature="${w.id}" aria-pressed="${featuredSeriesId===w.id}" aria-label="${featuredSeriesId===w.id ? 'Quitar recomendación de la obra del carrusel de Inicio' : 'Destacar esta obra en el carrusel de Inicio'}" title="${featuredSeriesId===w.id ? 'Quitar esta obra de la recomendación del equipo' : 'Recomendar esta obra en el carrusel de Inicio'}"><span aria-hidden="true">${featuredSeriesId===w.id ? '★' : '☆'}</span><span>${featuredSeriesId===w.id ? 'Destacada · Quitar' : 'Destacar'}</span></button>
+              <span class="s2-work-recommend-info"><b>Recomendación del equipo</b><small>${featuredSeriesId===w.id && featuredExpiresAt ? 'Visible hasta ' + esc(fmtTz(featuredExpiresAt, {dateStyle:'medium',timeStyle:'short'})) : '7 días en Inicio · una por equipo'}</small></span>
+              <button class="btn s2-feature-toggle" type="button" data-feature="${w.id}" aria-pressed="${featuredSeriesId===w.id}" aria-label="${featuredSeriesId===w.id ? 'Quitar recomendación de la obra del carrusel de Inicio' : 'Destacar esta obra en el carrusel de Inicio'}" title="${featuredSeriesId===w.id ? 'Quitar esta obra de la recomendación del equipo' : 'Destacar esta obra durante 7 días en el carrusel de Inicio'}"><span aria-hidden="true">${featuredSeriesId===w.id ? '★' : '☆'}</span><span>${featuredSeriesId===w.id ? 'Destacada · Quitar' : 'Destacar'}</span></button>
             </div>` : ''}
             <div class="s2-work-secondary">
               ${can('import') ? '<a class="btn ghost" href="/estudio/importar">Importar volumen</a>' : ''}
@@ -420,7 +421,7 @@ export function createStudio(ctx){
       const {error}=await sb.rpc('team_feature_set',{p_team_id:teamId,p_series_id:next});
       if(error)throw error;
       if(T.team?.id!==teamId)return;
-      toast(next?'Obra destacada para la rotación de equipos':'Recomendación retirada');
+      toast(next?'Obra destacada durante 7 días':'Recomendación retirada');
       works();
     }));
     app.querySelectorAll('[data-new]').forEach(b => b.onclick = () => busy(b, () => newChapter(list.find(w => w.id === b.dataset.new))));
