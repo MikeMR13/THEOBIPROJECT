@@ -56,6 +56,13 @@ BEGIN
     OR has_function_privilege('anon','public.admin_review_queue()','EXECUTE')
   THEN RAISE EXCEPTION 'SEG-02: funciones sensibles siguen siendo anónimas'; END IF;
 
+  IF NOT has_function_privilege('anon','public.team_public_members(uuid)','EXECUTE')
+     OR NOT has_function_privilege('authenticated','public.team_public_members(uuid)','EXECUTE')
+     OR NOT has_function_privilege('anon','public.comment_public_authors(uuid)','EXECUTE')
+  THEN RAISE EXCEPTION 'SEG-02: faltan RPC públicas compatibles con equipos y comentarios'; END IF;
+  IF NOT has_function_privilege('authenticated','public.studio_profile_names(uuid[])','EXECUTE')
+  THEN RAISE EXCEPTION 'SEG-02: administración y Estudio sin acceso a nombres'; END IF;
+
   IF NOT has_function_privilege('anon','public.reader_public(text)','EXECUTE')
     OR NOT has_function_privilege('anon','public.search_readers(text)','EXECUTE')
   THEN RAISE EXCEPTION 'SEG-02: se rompió interfaz pública de carnet o buscador'; END IF;
