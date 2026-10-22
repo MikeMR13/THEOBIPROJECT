@@ -102,7 +102,7 @@ AS $obi_members$
   WHERE m.team_id = p_team
     AND coalesce((t.settings->>'show_members')::boolean, true)
   ORDER BY m.role::text, p.username
-  LIMIT 300
+  LIMIT 1000
 $obi_members$;
 REVOKE ALL ON FUNCTION public.team_public_members(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.team_public_members(uuid) TO anon, authenticated;
