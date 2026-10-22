@@ -33,9 +33,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
       - name: Instalar dependencias del proyecto
-        run: npm ci --ignore-scripts
+        run: npm install --no-package-lock --ignore-scripts --no-audit --no-fund
       - uses: supabase/setup-cli@v1
         with:
           version: latest
