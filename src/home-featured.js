@@ -1,6 +1,6 @@
 // Curaduría diaria del carrusel: variedad, cupos por origen y excepciones editoriales.
 export const HERO_CATEGORIES = Object.freeze(['release','popular','historic','editorial','discover','trending','team']);
-const MAX_CANDIDATES = 3;
+const MAX_CANDIDATES = 3; // Solo categorías editoriales; equipos sin límite
 const MS_DAY = 86400000;
 const isValidDate = v => Number.isFinite(Date.parse(v || ''));
 export const homeDayKey = (now = new Date()) => new Intl.DateTimeFormat('en-CA', {
@@ -38,23 +38,49 @@ export function homeFeaturedSelection({series=[], news={entries:[],bySeries:{}},
   pool.discover=firstUnique([...series].sort((a,b)=>(+a.views||0)-(+b.views||0)||String(a.id).localeCompare(String(b.id))).map(s=>({id:s.id,kind:'discover',label:'Joya por descubrir'})));
   const hot=sortScore(trends.filter(r=>r.list==='tendencia' && (r.period==='hoy'||r.period==='semana')));
   pool.trending=firstUnique(hot.filter(r=>existing(r.series_id)).map(r=>({id:r.series_id,kind:'trending',label:'En tendencia'})));
-  const teamCandidates=teams.filter(t=>t.team_id && existing(t.series_id) && existing(t.series_id).team_id===t.team_id)
-    .sort((a,b)=>String(a.team_id).localeCompare(String(b.team_id)));
-  pool.team=teamCandidates.map(t=>({id:t.series_id,kind:'team',label:'Recomendado por '+(existing(t.series_id)?.teams?.name||'su equipo'),teamId:t.team_id}));
-  const chosen=[],used=new Set(),limit=Math.max(0,Math.min(8,max));
+  // Cada equipo conserva una sola recomendación durante 7 días exactos.
+  // El grupo de equipos NO tiene límite de 3 candidatos ni de 1 diapositiva diaria.
+  // Se valida la expiración aquí y también en RLS/cron para las sesiones abiertas.
+  const nowMs=+new Date(now);
+  const seenTeams=new Set(), seenTeamBooks=new Set();
+  const teamCandidates=teams.filter(t=>{
+    const time=Date.parse(t?.updated_at||'');
+    const book=existing(t?.series_id);
+    if(!t?.team_id||!book||book.team_id!==t.team_id||!Number.isFinite(time)||time>nowMs||nowMs-time>=7*MS_DAY
+      ||seenTeams.has(t.team_id)||seenTeamBooks.has(t.series_id))return false;
+    seenTeams.add(t.team_id); seenTeamBooks.add(t.series_id); return true;
+  }).sort((a,b)=>String(a.team_id).localeCompare(String(b.team_id)));
+  pool.team=rotate(teamCandidates.map(t=>({id:t.series_id,kind:'team',
+    label:'Recomendado por '+(existing(t.series_id)?.teams?.name||'su equipo'),
+    teamId:t.team_id,expiresAt:new Date(Date.parse(t.updated_at)+7*MS_DAY).toISOString()})),today,'team');
+  // Espacios editoriales habituales + TODOS los equipos activos. Si hay más equipos,
+  // el carrusel crece en lugar de ocultar recomendaciones.
+  const chosen=[],used=new Set();
+  const limit=Math.max(0,Math.trunc(Number.isFinite(max)?max:8),7+pool.team.length);
   const add=x=>{if(!x||used.has(x.id)||chosen.length>=limit)return false;chosen.push(x);used.add(x.id);return true;};
-  // Se reservan dos plazas a lanzamientos y una a cada sección restante.
   const releases=pool.release || [];
+  // Publicación completa: conserva entrada inmediata en primera posición.
   if(urgent[0])add(urgent[0]);
+  const reservedTeams=new Set(pool.team.map(x=>x.id));
   const rotatedNews=rotate(releases.filter(x=>!used.has(x.id)),today,'release');
-  for(const x of rotatedNews){if(chosen.filter(y=>y.kind==='release').length>=2)break;add(x);}
-  const categories=['popular','historic','editorial','discover','trending','team'];
-  for(const category of categories) {
-    const list=rotate(pool[category],today,category);
-    for(const x of list) if(add(x))break;
+  for(const x of rotatedNews){
+    if(chosen.filter(y=>y.kind==='release').length>=2)break;
+    if(!reservedTeams.has(x.id))add(x);
   }
-  // Si una categoría no tiene candidato distinto, no duplicamos novelas ni mostramos huecos.
-  // Primera opción de relleno: últimas publicaciones todavía no seleccionadas.
-  for(const x of [...releases,...categories.flatMap(k=>rotate(pool[k],today,k))])add(x);
+  // Si todas las novedades restantes coinciden con equipos recomendados, la
+  // recomendación del equipo prevalece, excepto el lanzamiento completo urgente.
+  for(const category of ['popular','historic','editorial','discover','trending']){
+    for(const x of rotate(pool[category],today,category)){
+      if(!reservedTeams.has(x.id)&&add(x))break;
+    }
+  }
+  // Una recomendación por cada equipo participante, sin desplazar a ningún otro.
+  for(const x of pool.team)add(x);
+  // Completar huecos editoriales sin repetir novelas y sin quitar a los equipos.
+  for(const x of [...releases,...['popular','historic','editorial','discover','trending']
+    .flatMap(k=>rotate(pool[k],today,k))]){
+    if(x.kind==='release'&&chosen.filter(y=>y.kind==='release').length>=2)continue;
+    add(x);
+  }
   return {day:today,entries:chosen,bySeries:Object.fromEntries(chosen.map(x=>[x.id,x])),pool};
 }
