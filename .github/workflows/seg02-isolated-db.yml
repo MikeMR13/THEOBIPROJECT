@@ -1,0 +1,69 @@
+name: SEG-02 · PostgreSQL QA aislado (sin Supabase alojado)
+
+on:
+  push:
+    branches:
+      - test/preferencias-fase4-qa-integral-20261021
+    paths:
+      - '.github/workflows/seg02-isolated-db.yml'
+      - 'supabase/migrations/20261022055000_secure_reader_profiles.sql'
+      - 'supabase/release-gates/SEG02_FINAL_LOCK_PROFILES.sql'
+      - 'supabase/tests/seg02_additive_compat.sql'
+      - 'supabase/tests/seg02_profile_privacy.sql'
+      - 'supabase/tests/seg02_rls_integration.sql'
+      - 'supabase/tests/fixtures/seg02_postgres_fixture.sql'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seg02-db-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgres-security:
+    name: Migración real y permisos A/B (datos sintéticos)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      db:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: obi_seg02
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: local_qa_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d obi_seg02"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ejecutar SQL de compatibilidad y seguridad en PostgreSQL efímero
+        env:
+          PGPASSWORD: local_qa_only
+        run: |
+          set -euo pipefail
+          psql_qa() {
+            docker run --rm --network host \
+              -e PGPASSWORD="$PGPASSWORD" \
+              -v "$PWD:/work:ro" -w /work \
+              postgres:17-alpine \
+              psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d obi_seg02 -f "$1"
+          }
+          echo '1/4 · Reproducir estructura mínima y roles Auth (sin datos reales)'
+          psql_qa supabase/tests/fixtures/seg02_postgres_fixture.sql
+          echo '2/6 · Instalar solo funciones y seguridad aditiva (fase A)'
+          psql_qa supabase/migrations/20261022055000_secure_reader_profiles.sql
+          echo '3/6 · Verificar que la interfaz antigua sigue compatible'
+          psql_qa supabase/tests/seg02_additive_compat.sql
+          echo '4/6 · Aplicar cierre ACL/RLS supervisado (fase C) solo en QA'
+          psql_qa supabase/release-gates/SEG02_FINAL_LOCK_PROFILES.sql
+          echo '5/6 · Comprobar ACL, políticas y contratos RPC'
+          psql_qa supabase/tests/seg02_profile_privacy.sql
+          echo '6/6 · Probar dos cuentas ficticias, anon, bloqueo y comentarios'
+          psql_qa supabase/tests/seg02_rls_integration.sql
+          echo 'SEG-02: VALIDACIÓN POSTGRESQL COMPLETADA'

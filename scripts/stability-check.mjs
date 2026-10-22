@@ -6,7 +6,9 @@ import assert from 'node:assert/strict';
 const read = path => readFileSync(path, 'utf8');
 const config = read('supabase/config.toml');
 assert.equal((config.match(/^\[auth\]$/gm) || []).length, 1, 'Configura [auth] una sola vez');
-assert.match(config, /site_url\s*=\s*"https:\/\/theobiproject\.vercel\.app"/);
+assert.match(config, /site_url\s*=\s*"https:\/\/elobidellector\.com"/);
+assert.match(config, /"https:\/\/elobidellector\.com\/\*\*"/,'Callback OAuth del dominio canónico');
+assert.doesNotMatch(config,/"https:\/\/\*\.vercel\.app/,'No admitir redirecciones OAuth a proyectos ajenos');
 const sqls = readdirSync('supabase/migrations').filter(f => f.endsWith('.sql'));
 assert(sqls.length >= 20, 'Faltan archivos SQL');
 for (const f of sqls) {

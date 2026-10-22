@@ -896,7 +896,14 @@ export function createStudio(ctx){
   }
 
   // ---------- editor de capítulo, importación dinámica ----------
-  async function names(ids){ ids = [...new Set(ids.filter(Boolean))]; if (!ids.length) return {}; const { data } = await sb.from('profiles').select('id,username').in('id', ids); return Object.fromEntries((data || []).map(p => [p.id, p.username])); }
+  async function names(ids){
+    ids = [...new Set(ids.filter(Boolean))];
+    if (!ids.length) return {};
+    // No consultar profiles directamente: solo nombres de colegas cuyo equipo comparte sesión.
+    const { data, error } = await sb.rpc('studio_profile_names', { p_ids: ids.slice(0, 100) });
+    if (error) throw new Error(errMsg(error));
+    return Object.fromEntries((data || []).map(p => [p.id, p.username]));
+  }
   let editorTask = null;
   async function editor(id){
     if (!editorTask) editorTask = import('./studio-editor.js?v=1')

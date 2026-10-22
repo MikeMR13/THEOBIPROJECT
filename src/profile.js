@@ -1,4 +1,5 @@
-import { readerPrefsKey, readReaderPrefs } from './reader-pref-cache.js?v=1';
+import { readReaderPrefs, readPendingReaderPrefs, stageReaderPrefs, acknowledgeReaderPrefs, sameReaderAccount } from './reader-pref-cache.js?v=1';
+import { readingPreviewDescription, privacyPreviewModel, notificationPreviewSummary } from './preferences-preview.js?v=1';
 // Perfil público de lector (carnet) y página /preferencias. Se carga solo al visitar esas rutas.
 const ICON = {
   discord: ['Discord', 'M7 7c3-1.5 7-1.5 10 0l2 9c-2 2-4 2.5-5 2.5l-1-2h-2l-1 2C9 18.5 7 18 5 16z M9.5 12.5h.01 M14.5 12.5h.01', 'https://discord.gg/…'],
@@ -58,7 +59,7 @@ const CSS = `
 .lc-cv[style*="url"]{color:transparent}
 .lc-hd{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between}
 .lc-tabs{display:flex;gap:4px;border:1px solid var(--line);padding:3px;flex-wrap:wrap}
-.lc-tabs button{border:0;cursor:pointer;padding:8px 14px;font:600 13px 'IBM Plex Sans',sans-serif;background:transparent;color:var(--paper);min-height:36px}
+.lc-tabs button{border:0;cursor:pointer;padding:10px 14px;font:600 13px 'IBM Plex Sans',sans-serif;background:transparent;color:var(--paper);min-height:44px}
 .lc-tabs button.on{background:var(--ac);color:#0d0c0a}
 .lc-shg{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:14px}
 .lc-shg a{font-size:13px}
@@ -74,9 +75,15 @@ const CSS = `
 @media(max-width:640px){.lc-av{width:84px;height:84px;font-size:36px}.lc-se span{width:48px;height:48px;font-size:20px}.lc-kj{width:42px;height:42px;font-size:24px}}
 
 .pf{display:flex;flex-wrap:wrap;border:1px solid var(--line);background:#14120e;margin-top:20px}
-.pf-nav{flex:1 1 200px;max-width:240px;border-right:1px solid var(--line);padding:18px 0;display:grid;align-content:start}
-.pf-nav a{padding:11px 20px;text-decoration:none;font-size:14px;font-weight:600;color:var(--mute);border-left:3px solid transparent}
-.pf-nav a.on{color:var(--paper);background:#1f1c15;border-left-color:var(--gold)}
+.pf-nav{flex:0 0 238px;max-width:238px;border-right:1px solid var(--line);padding:14px 0;display:grid;align-content:start;gap:12px}
+.pf-nav-group{display:grid;align-content:start}
+.pf-nav-title{font:700 10px 'IBM Plex Mono',monospace;color:var(--mute);letter-spacing:.11em;text-transform:uppercase;margin:12px 18px 6px}
+.pf-nav a{display:flex;align-items:center;min-height:44px;padding:8px 16px;text-decoration:none;font-size:14px;font-weight:600;color:var(--mute);border-left:3px solid transparent;box-sizing:border-box}
+.pf-nav a:hover{color:var(--paper);background:#1b1913}
+.pf-nav a.on,.pf-nav a[aria-current="page"]{color:var(--paper);background:#242017;border-left-color:var(--gold)}
+.pf-mobile-nav{display:none}
+.pf :is(a,button,input,select,textarea):focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.pf :is(button,input,select,textarea):disabled{cursor:not-allowed}
 .pf-body{flex:999 1 420px;padding:clamp(18px,3vw,32px);display:grid;gap:28px;min-width:0}
 .pf-body h2{margin:0;font:800 26px 'Shippori Mincho B1',serif}
 .pf-body h3{margin:0;font-size:16px}
@@ -87,11 +94,13 @@ const CSS = `
 .pf-f textarea{font-family:Literata,serif;resize:vertical}
 .pf-kj{width:64px!important;text-align:center;border:2px solid #c8402e!important;color:#e2604b!important;font:800 28px 'Shippori Mincho B1',serif!important}
 .pf-sw{display:flex;gap:8px;flex-wrap:wrap}
-.pf-sw button{width:34px;height:34px;border-radius:50%;border:2px solid transparent;cursor:pointer}
-.pf-sw button.on{border-color:var(--paper);box-shadow:0 0 0 2px #0d0c0a inset}
+.pf-sw button{width:44px;height:44px;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;position:relative;border-radius:50%}
+.pf-sw button::before{content:"";width:30px;height:30px;border:2px solid rgba(255,255,255,.22);border-radius:50%;background:var(--swatch);box-sizing:border-box}
+.pf-sw button.on::before,.pf-sw button[aria-pressed="true"]::before{box-shadow:0 0 0 2px #0d0c0a,0 0 0 4px var(--paper)}
 .pf-up{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .pf-up label{flex:none;white-space:nowrap;cursor:pointer}
-.pf-up input{display:none}
+.pf-up input[type="file"]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip-path:inset(50%)} 
+.pf-up label:focus-within{outline:3px solid var(--gold);outline-offset:3px}
 .pf-ban{width:160px;height:60px;background:#1c1a14 center/cover;border:1px solid var(--line)}
 .pf-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 12px;border:1px solid #2c281e;background:#0d0c0a}
 .pf-row input{flex:1 1 180px;min-width:0;font:13px 'IBM Plex Mono',monospace}
@@ -100,22 +109,52 @@ const CSS = `
 .pf-row.off{opacity:.55}
 .pf-x{background:none;border:0;color:var(--mute);cursor:pointer;font-size:20px;min-width:44px;min-height:44px}
 .pf-x:hover{color:#f59e7a}
-.pf-tg{flex:none;width:44px;height:26px;border-radius:999px;border:1px solid #5a503b;background:#2c281e;padding:2px;cursor:pointer;display:flex;justify-content:flex-start}
-.pf-tg[aria-pressed="true"]{background:var(--gold);justify-content:flex-end}
-.pf-tg i{width:20px;height:20px;border-radius:50%;background:var(--paper)}
+.pf-tg{flex:none;width:48px;height:44px;border:0;background:transparent;padding:0;cursor:pointer;position:relative;display:flex;align-items:center}
+.pf-tg::before{content:"";position:absolute;left:2px;top:9px;width:44px;height:26px;box-sizing:border-box;border-radius:999px;border:1px solid #70634b;background:#2c281e}
+.pf-tg[aria-pressed="true"]::before{background:var(--gold);border-color:var(--gold)}
+.pf-tg i{position:relative;z-index:1;width:20px;height:20px;margin-left:5px;border-radius:50%;background:var(--paper);transition:transform .15s ease}
+.pf-tg[aria-pressed="true"] i{transform:translateX(18px)}
+@media(prefers-reduced-motion:reduce){.pf-tg i{transition:none}}
 .pf-sl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px}
 .pf-sl>div{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 12px;border:1px solid #2c281e;background:#0d0c0a}
 .pf-favs{display:flex;flex-wrap:wrap;gap:12px}
 .pf-favs>span{position:relative;width:84px;display:grid;gap:6px;font-size:12px}
-.pf-favs .pf-x{position:absolute;top:-10px;right:-10px;min-width:28px;min-height:28px;width:28px;height:28px;border-radius:50%;background:#0d0c0a;border:1px solid var(--line);font-size:14px}
+.pf-favs .pf-x{position:absolute;top:-12px;right:-12px;min-width:44px;min-height:44px;width:44px;height:44px;border-radius:50%;background:#0d0c0a;border:1px solid var(--line);font-size:18px}
 .pf-res{display:grid;gap:4px;max-width:420px}
 .pf-res button{display:flex;gap:10px;align-items:center;text-align:left;background:#0d0c0a;border:1px solid var(--line);color:var(--paper);padding:6px 10px;cursor:pointer;min-height:44px;font:14px 'IBM Plex Sans',sans-serif}
 .pf-res button:hover{border-color:var(--gold)}
 .pf-res i{width:28px;height:38px;flex:none;background:var(--c) center/cover}
 .pf-save{position:sticky;bottom:0;display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:14px 0 0;border-top:1px solid var(--line);background:#14120e}
 .pf-save .mono{margin-right:auto}
-@media(max-width:700px){.pf-nav{max-width:none;flex-basis:100%;border-right:0;border-bottom:1px solid var(--line);display:flex;overflow-x:auto;padding:0}.pf-nav a{border-left:0;border-bottom:3px solid transparent;white-space:nowrap}.pf-nav a.on{border-bottom-color:var(--gold)}.pf-nav{scrollbar-width:thin;scroll-padding-inline:12px;scroll-snap-type:x proximity;overscroll-behavior-x:contain}.pf-nav a{scroll-snap-align:start;min-height:44px;display:flex;align-items:center}}
-@media(max-width:700px){.pf{position:relative}.pf:has(.pf-nav)::before{content:"Desliza para ver más secciones →";position:absolute;right:8px;top:-17px;font:10px "IBM Plex Mono",monospace;color:var(--mute);pointer-events:none}}
+@media(max-width:760px){
+.pf{display:block}
+.pf-nav{display:none}
+.pf-mobile-nav{display:grid;gap:7px;padding:16px;border-bottom:1px solid var(--line);background:#1b1812}
+.pf-mobile-nav label{font:700 11px 'IBM Plex Mono',monospace;letter-spacing:.11em;text-transform:uppercase;color:var(--paper)}
+.pf-mobile-nav select{width:100%;min-height:48px;box-sizing:border-box;border:1px solid #766543;background:#0d0c0a;color:var(--paper);padding:9px 12px;font:600 15px 'IBM Plex Sans',sans-serif}
+.pf-body{padding:18px;min-width:0}
+.pf-save{padding-bottom:max(12px,env(safe-area-inset-bottom))}
+}
+@media(max-width:390px){.pf-body{padding:14px}.pf-row{gap:8px}.pf-sl{grid-template-columns:minmax(0,1fr)}}
+
+.pf-preview{border:1px solid #6b5a39;background:#1c1913;padding:14px;display:grid;gap:12px;min-width:0}
+.pf-preview h3{margin:0;font-size:16px}
+.pf-preview-guide{display:grid;gap:8px;font:13px/1.5 'IBM Plex Sans',sans-serif;color:#e3dccb}
+.pf-preview-guide p{margin:0}
+.pf-preview-note{color:var(--mute);font:12px/1.5 'IBM Plex Sans',sans-serif;margin:0}
+.pf-preview-list{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0}
+.pf-preview-list li{border:1px solid #61563f;background:#282319;padding:5px 9px;font:600 12px 'IBM Plex Sans',sans-serif}
+.pf-preview-list li.off{color:var(--mute);border-color:#3d3529;background:#17140f}
+.pf-preview-audience{display:flex;gap:8px;flex-wrap:wrap}
+.pf-preview-audience button{min-height:44px;border:1px solid #6b5a39;background:#100f0c;color:var(--paper);padding:8px 12px;cursor:pointer;font:600 13px 'IBM Plex Sans',sans-serif}
+.pf-preview-audience button[aria-pressed="true"]{background:var(--gold);color:#0d0c0a;border-color:var(--gold)}
+.pf-preview-sample{min-width:0;border:1px solid #514735;background:#14120e;padding:14px;display:grid;gap:10px}
+.pf-preview-sample p{margin:0}
+.pf-preview-sample strong{overflow-wrap:anywhere}
+.pf-mail-pause{border-left:3px solid var(--gold);padding:10px 12px;background:#201b12;font:13px/1.5 'IBM Plex Sans',sans-serif}
+.pf-mail-off{opacity:.65}
+.pf .pf-tg:disabled{opacity:.6;cursor:not-allowed}
+@media(max-width:760px){.pf-reading-preview{position:static!important;max-width:none!important}.pf-preview{padding:12px}}
 `;
 const css = () => { if (document.getElementById('lc-css')) return; const s = document.createElement('style'); s.id = 'lc-css'; s.textContent = CSS; document.head.appendChild(s); };
 
@@ -185,14 +224,48 @@ export async function preferences(C){
   const user = getUser(); if (!user) return C.go('/entrar');
   const MED = p => p ? (/^https?:/.test(p) ? p : url + '/storage/v1/object/public/obi-media/' + encodeURI(p)) : '';
   const TABS = [['perfil', 'Perfil público'], ['privacidad', 'Privacidad'], ['lectura', 'Lectura'], ['avisos', 'Avisos'], ['adulto', 'Contenido'], ['pantalla', 'Accesibilidad'], ['bloqueos', 'Bloqueos'], ['cuenta', 'Cuenta']];
+  const NAV_GROUPS = [
+    ['Mi identidad', ['perfil', 'privacidad']],
+    ['Mi experiencia', ['lectura', 'adulto', 'pantalla']],
+    ['Comunidad', ['avisos', 'bloqueos']],
+    ['Seguridad y cuenta', ['cuenta']]
+  ];
+  const TAB_NAMES = Object.fromEntries(TABS);
+  app.__obiPrefsDispose?.();
+  app.__obiPrefsNavGuard = null;
   const tab = TABS.some(t => t[0] === new URLSearchParams(location.search).get('s')) ? new URLSearchParams(location.search).get('s') : 'perfil';
   app.innerHTML = '<p class="mono">Cargando preferencias…</p>';
   const { data: P, error } = await sb.rpc('my_profile');
   if (error) { app.innerHTML = `<h1>Preferencias</h1><p class="mono">No se pudieron cargar: ${esc(error.message)}</p>`; return; }
-  const shell = body => `<h1>Preferencias</h1><div class="pf"><nav class="pf-nav" aria-label="Secciones de preferencias">${TABS.map(([k, l]) => `<a href="/preferencias${k === 'perfil' ? '' : '?s=' + k}" class="${k === tab ? 'on' : ''}" ${k === tab ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav><div class="pf-body">${body}</div></div>`;
-  const tg = (id, on, label) => `<button type="button" class="pf-tg" id="${id}" aria-pressed="${!!on}" aria-label="${esc(label)}"><i></i></button>`;
+  const navHref = k => '/preferencias' + (k === 'perfil' ? '' : '?s=' + k);
+  const shell = body => `<h1>Preferencias</h1><div class="pf">
+    <nav class="pf-nav" aria-label="Secciones de preferencias">
+      ${NAV_GROUPS.map(([group, keys]) => `<div class="pf-nav-group"><p class="pf-nav-title">${group}</p>${keys.map(k =>
+        `<a href="${navHref(k)}" class="${k === tab ? 'on' : ''}" ${k === tab ? 'aria-current="page"' : ''}>${TAB_NAMES[k]}</a>`).join('')}</div>`).join('')}
+    </nav>
+    <div class="pf-mobile-nav">
+      <label for="pf-mobile-tab">Sección de preferencias</label>
+      <select id="pf-mobile-tab" aria-label="Ir a otra sección de preferencias">
+        ${NAV_GROUPS.map(([group, keys]) => `<optgroup label="${group}">${keys.map(k =>
+          `<option value="${k}" ${k === tab ? 'selected' : ''}>${TAB_NAMES[k]}</option>`).join('')}</optgroup>`).join('')}
+      </select>
+    </div>
+    <div class="pf-body">${body}</div></div>`;
+  if (app.__obiPrefsSelectHandler) app.removeEventListener('change', app.__obiPrefsSelectHandler);
+  const selectHandler = e => {
+    if (e.target?.id !== 'pf-mobile-tab') return;
+    const next = e.target.value;
+    if (!TAB_NAMES[next] || next === tab) return;
+    if (app.__obiPrefsNavGuard && !app.__obiPrefsNavGuard()) { e.target.value = tab; return; }
+    C.go(navHref(next));
+  };
+  app.__obiPrefsSelectHandler = selectHandler;
+  app.addEventListener('change', selectHandler);
+  const tg = (id, on, label, disabled = false) => `<button type="button" class="pf-tg" id="${id}" aria-pressed="${!!on}" aria-label="${esc(label)}" ${disabled ? 'disabled' : ''}><i></i></button>`;
   const flip = b => b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
-  const UI = { motion: 'system', hour: 'auto', hide: [], ...(window.__obiUI || {}), ...(P.ui_prefs || {}) };
+  // La configuración de otra sesión nunca es el valor inicial de la cuenta actual.
+  // La respuesta del perfil autenticado es la única fuente para este formulario.
+  const UI = { motion: 'system', hour: 'auto', hide: [], ...(P.ui_prefs || {}) };
   const saveUI = async patch => { const prev = { ...UI }; Object.assign(UI, patch); window.obiSetUI?.({ ...UI }); const upd = { ui_prefs: UI }; if ('tz' in patch && P.notify) upd.notify = { ...P.notify, tz: UI.tz || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' };
     const { error } = await sb.from('profiles').update(upd).eq('id', user.id); if (error) { Object.assign(UI, prev); window.obiSetUI?.({ ...UI }); toast(error.message); return false; } P.ui_prefs = { ...UI }; if (upd.notify) P.notify = upd.notify; C.setProfile?.(upd.notify ? { ui_prefs: P.ui_prefs, notify: upd.notify } : { ui_prefs: P.ui_prefs }); return true; };
   const card = (name, k, cur, l, d) => `<label style="display:grid;gap:4px;padding:14px 16px;border:2px solid ${cur === k ? 'var(--gold)' : '#2c281e'};background:${cur === k ? '#1f1c15' : '#0d0c0a'};cursor:pointer"><span style="display:flex;gap:10px;align-items:center;font-weight:700"><input type="radio" name="${name}" value="${k}" ${cur === k ? 'checked' : ''} style="accent-color:var(--gold);width:18px;height:18px">${l}</span>${d ? `<span class="pf-note" style="font-size:13px">${d}</span>` : ''}</label>`;
@@ -201,11 +274,43 @@ export async function preferences(C){
   if (tab === 'lectura') {
     const DEF = { theme: 'oscuro', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', illus: true, continuous: 'off', cw: 'show', autonext: true, autosecs: 5 };
     let R = readReaderPrefs(localStorage, user.id);
-    const { data: rp } = await sb.from('reader_prefs').select('global,per_volume').eq('user_id', user.id).maybeSingle(); if (rp) R = { global: rp.global || {}, per_volume: rp.per_volume || {} };
+    // Un borrador pendiente (por ejemplo, tras cerrar la pestaña sin red) gana a
+    // una copia antigua de Supabase. Nunca se consulta el borrador de otra cuenta.
+    const pending = readPendingReaderPrefs(localStorage, user.id);
+    const { data: rp, error: loadError } = await sb.from('reader_prefs').select('global,per_volume').eq('user_id', user.id).maybeSingle();
+    if (!sameReaderAccount(getUser()?.id, user.id)) return;
+    if (pending) R = pending;
+    else if (!loadError && rp) R = { global: rp.global || {}, per_volume: rp.per_volume || {} };
     const vids = Object.keys(R.per_volume || {});
     const { data: vols } = vids.length ? await sb.from('volumes').select('id,num,series:series_id(title,theme)').in('id', vids) : { data: [] };
-    let G = { ...DEF, ...R.global }, pt;
-    const persist = () => { localStorage.setItem(readerPrefsKey(user.id), JSON.stringify(R)); clearTimeout(pt); pt = setTimeout(async () => { const { error } = await sb.from('reader_prefs').upsert({ user_id: user.id, global: R.global, per_volume: R.per_volume, updated_at: new Date().toISOString() }); if (error) toast(error.message); }, 400); };
+    let G = { ...DEF, ...R.global }, pt, saving = false;
+    let syncStatus = pending ? 'Cambios locales pendientes de sincronizar' : loadError ? 'No se pudo verificar la sincronización' : 'Ajustes cargados';
+    const showSync = text => { syncStatus = text; const el = app.querySelector('#lc-sync'); if (el) el.textContent = text; };
+    const flush = async () => {
+      if (saving || !sameReaderAccount(getUser()?.id, user.id)) return;
+      saving = true;
+      try {
+        // Una sola escritura en vuelo: las ediciones rápidas posteriores se envían
+        // después, en orden. Solo se reconoce la revisión confirmada por Supabase.
+        while (sameReaderAccount(getUser()?.id, user.id)) {
+          const snapshot = readPendingReaderPrefs(localStorage, user.id);
+          if (!snapshot) break;
+          showSync('Guardando en tu cuenta…');
+          const { error } = await sb.from('reader_prefs').upsert({ user_id: user.id, global: snapshot.global, per_volume: snapshot.per_volume, updated_at: new Date().toISOString() });
+          if (error) { showSync('Guardado en este dispositivo; pendiente de sincronizar'); toast('No se pudo sincronizar lectura: ' + error.message); break; }
+          acknowledgeReaderPrefs(localStorage, user.id, snapshot);
+          if (!readPendingReaderPrefs(localStorage, user.id)) showSync('Guardado en tu cuenta');
+        }
+      } catch (error) { showSync('Guardado en este dispositivo; pendiente de sincronizar'); toast('No se pudo sincronizar lectura: ' + error.message); }
+      finally { saving = false; }
+    };
+    const persist = () => {
+      if (!stageReaderPrefs(localStorage, user.id, R)) { showSync('No se pudo guardar en este dispositivo'); toast('No se pudo guardar el cambio localmente'); return; }
+      showSync('Guardando…');
+      clearTimeout(pt); pt = setTimeout(() => { void flush(); }, 150);
+    };
+    if (pending && navigator.onLine) void flush();
+    addEventListener('online', () => { if (readPendingReaderPrefs(localStorage, user.id)) void flush(); }, { once: true });
     const set = (k, v) => { G[k] = v; R.global = { ...R.global, [k]: v }; persist(); draw(); };
     const seg = (k, l, o) => `<div style="display:grid;gap:8px"><span style="font-size:13px;font-weight:600;color:#e3dccb">${l}</span><div class="lc-tabs" style="justify-self:start">${o.map(([v, t]) => `<button type="button" data-k="${k}" data-v="${v}" class="${String(G[k]) === v ? 'on' : ''}" aria-pressed="${String(G[k]) === v}" style="--ac:var(--gold)">${t}</button>`).join('')}</div></div>`;
     const TH = { claro: ['#f6f1e5', '#1e1b15', '#e3dccb'], sepia: ['#efe2c6', '#3b2f1e', '#d8c7a2'], oscuro: ['#16140f', '#e9e1cd', '#2a2519'] };
@@ -213,9 +318,10 @@ export async function preferences(C){
     const sumV = v => [v.theme, v.font && v.font !== 'original' ? v.font : '', v.size ? v.size + ' px' : '', v.align === 'justificada' ? 'justificada' : ''].filter(Boolean).join(' · ').toUpperCase() || 'AJUSTES PROPIOS';
     const draw = () => {
       const th = TH[G.theme] || TH.oscuro, auto = G.continuous === 'off', season = localStorage.getItem('obi-season') !== 'off';
+      const pv = readingPreviewDescription(G);
       app.innerHTML = shell(`<div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;min-width:0">
         <div style="flex:1 1 340px;display:grid;gap:30px;min-width:0">
-          <div style="display:grid;gap:6px"><h2>Lectura</h2><p class="pf-note">Tus ajustes se aplican a todas las obras, aunque el equipo haya definido otro estilo. Se guardan al momento.</p></div>
+          <div style="display:grid;gap:6px"><h2>Lectura</h2><p class="pf-note">Tus ajustes se aplican a todas las obras, aunque el equipo haya definido otro estilo. Se guardan al momento en este dispositivo y se sincronizan con tu cuenta.</p><p id="lc-sync" class="pf-note" role="status" aria-live="polite">${esc(syncStatus)}</p></div>
           <div style="display:grid;gap:14px"><h3>Texto</h3>
             ${seg('theme', 'Tema', [['claro', 'Claro'], ['sepia', 'Sepia'], ['oscuro', 'Oscuro']])}
             ${seg('font', 'Tipografía', [['original', 'Original del EPUB'], ['Literata', 'Literata'], ['serif', 'Serif'], ['sans', 'Sans']])}
@@ -235,15 +341,26 @@ export async function preferences(C){
             ${Object.keys(R.per_volume || {}).length ? Object.entries(R.per_volume).map(([id, v]) => { const vo = (vols || []).find(x => x.id === id); return `<div class="pf-row"><span style="width:34px;height:46px;flex:none;background:${esc(vo?.series?.theme?.color || '#2a2519')}"></span><span style="display:grid;gap:3px;flex:1 1 200px;min-width:0"><b style="font-size:14px">${esc(vo ? vo.series?.title + ' · Vol. ' + vo.num : 'Volumen eliminado')}</b><span class="mono" style="font-size:12px">${esc(sumV(v))}</span></span><button type="button" class="btn ghost sm" data-delv="${esc(id)}" style="flex:none;white-space:nowrap">Borrar</button></div>`; }).join('') : '<p class="pf-note">No tienes ajustes por volumen.</p>'}</div>
           <div class="pf-up" style="padding-top:16px;border-top:1px solid var(--line)"><button type="button" class="btn ghost" id="lc-reset">Restablecer valores</button><span class="pf-note" style="font-size:13px">Vuelve a los ajustes originales. No borra los de cada volumen.</span></div>
         </div>
-        <aside style="flex:1 1 320px;max-width:460px;position:sticky;top:80px;display:grid;gap:10px"><span class="mono" style="font-size:11px;letter-spacing:.14em">VISTA PREVIA</span>
+        <aside class="pf-reading-preview" aria-label="Vista previa de lectura" style="flex:1 1 320px;max-width:460px;position:sticky;top:80px;display:grid;gap:10px"><h3>Vista previa de lectura</h3><p class="pf-preview-note">Texto de ejemplo para comprobar cómo se vería un capítulo. No modifica el contenido de ninguna obra.</p>
           <div id="lc-pv" style="background:${th[0]};color:${th[1]};border:1px solid var(--line);padding:28px ${{ estrecho: 48, normal: 30, amplio: 16 }[G.width] || 30}px;display:grid;gap:14px">
             <span class="mono" style="font-size:11px;letter-spacing:.14em;opacity:.7;color:inherit">VOL. 2 · CAP. 14</span>
             <h4 style="margin:0;font:800 ${Math.round(G.size * 1.3)}px/1.2 'Shippori Mincho B1',serif">El archivo de las horas</h4>
             ${['La bibliotecaria dejó la lámpara sobre el mostrador y abrió el registro. Nadie había pedido ese libro en cuarenta años, y sin embargo la ficha tenía una fecha de hoy escrita con su propia letra.', '—¿Quién lo devolvió? —preguntó, aunque ya sabía la respuesta.'].map(t => `<p class="lc-pp" style="margin:0;font-family:${FF[G.font] || FF.original};font-size:${G.size}px;line-height:${{ compacto: 1.45, comodo: 1.7, amplio: 1.95 }[G.lh] || 1.7};text-align:${G.align === 'justificada' ? 'justify' : 'left'};hyphens:auto">${t}</p>`).join('')}
-            ${G.illus !== false ? `<div style="aspect-ratio:16/9;background:${th[2]};display:grid;place-items:center;font:11px 'IBM Plex Mono',monospace;opacity:.8">ILUSTRACIÓN</div>` : ''}
+            ${G.illus !== false ? `<div style="aspect-ratio:16/9;background:${th[2]};display:grid;place-items:center;font:11px 'IBM Plex Mono',monospace;opacity:.8">ILUSTRACIÓN DE EJEMPLO</div>` : ''}
+            ${G.cw === 'hide' ? '' : G.cw === 'icon' ? '<p style="margin:0;font-size:13px">⚠ Aviso de contenido (icono)</p>' : '<details style="font-size:13px"><summary>Aviso de contenido (ejemplo)</summary><p style="margin:8px 0 0">Este capítulo puede incluir temas sensibles.</p></details>'}
+          </div>
+          <div class="pf-preview" aria-live="polite" aria-atomic="true">
+            <strong>${esc(pv.mode)}</strong>
+            <div class="pf-preview-guide"><p>${esc(pv.next)}</p><p>${esc(pv.warnings)}</p><p>${esc(pv.illustration)}</p></div>
           </div></aside></div>`);
       const $ = s => app.querySelector(s);
-      app.querySelectorAll('[data-k]').forEach(b => b.onclick = () => set(b.dataset.k, b.dataset.v));
+      app.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+        const k = b.dataset.k, v = b.dataset.v;
+        set(k, v);
+        app.querySelectorAll('[data-k]').forEach(next => {
+          if (next.dataset.k === k && next.dataset.v === v) next.focus({ preventScroll: true });
+        });
+      });
       $('#lc-size').oninput = e => { G.size = +e.target.value; $('#lc-sz').textContent = G.size + ' px'; app.querySelectorAll('.lc-pp').forEach(x => x.style.fontSize = G.size + 'px'); $('#lc-pv h4').style.fontSize = Math.round(G.size * 1.3) + 'px'; };
       $('#lc-size').onchange = () => set('size', G.size);
       $('#lc-secs')?.addEventListener('input', e => { G.autosecs = +e.target.value; $('#lc-sc').textContent = G.autosecs + ' s'; });
@@ -251,8 +368,8 @@ export async function preferences(C){
       $('#lc-auto')?.addEventListener('click', () => set('autonext', G.autonext === false));
       $('#lc-illus').onclick = () => set('illus', G.illus === false);
       $('#lc-season').onclick = () => { localStorage.getItem('obi-season') === 'off' ? localStorage.removeItem('obi-season') : (localStorage.setItem('obi-season-mig1', '1'), localStorage.setItem('obi-season', 'off')); dispatchEvent(new Event('obi-season')); draw(); };
-      app.querySelectorAll('[data-delv]').forEach(b => b.onclick = () => { delete R.per_volume[b.dataset.delv]; persist(); toast('Ajustes del volumen borrados'); draw(); });
-      $('#lc-reset').onclick = () => { if (!confirm('¿Volver a los ajustes originales de lectura?')) return; G = { ...DEF }; R.global = {}; persist(); toast('Ajustes restablecidos'); draw(); };
+      app.querySelectorAll('[data-delv]').forEach(b => b.onclick = () => { delete R.per_volume[b.dataset.delv]; persist(); draw(); });
+      $('#lc-reset').onclick = () => { if (!confirm('¿Volver a los ajustes originales de lectura?')) return; G = { ...DEF }; R.global = {}; persist(); draw(); };
     };
     draw(); return;
   }
@@ -268,10 +385,34 @@ export async function preferences(C){
     const endDate = d => new Date(new Date(d).getTime() + 30 * 864e5).toLocaleDateString('es-MX', { dateStyle: 'long' });
     const teamsHTML = (prev?.teams || []).length ? `<div class="pf-row" style="display:grid;gap:4px"><span class="mono" style="color:var(--gold);font-size:11px;letter-spacing:.12em">ERES PROPIETARIO DE ${prev.teams.length} ${prev.teams.length === 1 ? 'EQUIPO' : 'EQUIPOS'}</span>${prev.teams.map(t => `<span>«${esc(t.name)}» ${t.heir ? `pasará a <b>@${esc(t.heir)}</b>, su admin más antiguo.` : 'no tiene otro admin: quedará <b>en pausa</b> hasta que el Bibliotecario lo asigne.'}</span>`).join('')}</div>` : '';
     const MED2 = s => MED(s.cover_thumb_path || s.cover_path);
+    let viewAs = app.__obiPrivacyView === 'auth' ? 'auth' : 'guest';
+    const privacyPreview = () => {
+      const m = privacyPreviewModel(P, S, viewAs);
+      return `<div class="pf-preview">
+        <h3 id="pv-preview-heading">Así puede verse tu carnet</h3>
+        <p class="pf-preview-note">Vista orientativa, calculada con las opciones guardadas. No publica cambios ni sustituye una visita real con otra cuenta.</p>
+        <div class="pf-preview-audience" role="group" aria-label="Simular tipo de visitante">
+          <button type="button" data-pv-audience="guest" aria-pressed="${viewAs === 'guest'}">Sin iniciar sesión</button>
+          <button type="button" data-pv-audience="auth" aria-pressed="${viewAs === 'auth'}">Con cuenta</button>
+        </div>
+        <div class="pf-preview-sample">
+          <strong>${esc(P.username)}</strong>
+          <strong>${esc(m.headline)}</strong>
+          <p class="pf-preview-note">${esc(m.note)}</p>
+          ${m.accessible ? `<p class="pf-preview-note">Secciones visibles para este visitante:</p>
+            ${m.visible.length ? `<ul class="pf-preview-list">${m.visible.map(name => `<li>${esc(name)}</li>`).join('')}</ul>` : '<p class="pf-preview-note">No hay secciones públicas activadas.</p>'}
+            ${m.hidden.length ? `<p class="pf-preview-note">Ocultas: ${esc(m.hidden.join(', '))}.</p>` : ''}
+            <p class="pf-preview-note">${esc(m.reading)}</p>
+            ${m.since ? '<p class="pf-preview-note">Aparecerá la fecha «miembro desde».</p>' : ''}` : ''}
+          <p class="pf-preview-note">${esc(m.search)}</p>
+        </div>
+      </div>`;
+    };
     app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Privacidad</h2><p class="pf-note">Decide quién ve tu carnet y qué se muestra en él. Se guarda al momento.</p></div>
       <div style="display:grid;gap:12px"><h3>¿Quién ve mi perfil?</h3><div class="pf-sl" role="radiogroup" aria-label="Quién ve mi perfil">${VIS.map(([k, l, d]) => `<label style="display:grid;gap:4px;padding:14px 16px;border:2px solid ${P.profile_visibility === k ? 'var(--gold)' : '#2c281e'};background:${P.profile_visibility === k ? '#1f1c15' : '#0d0c0a'};cursor:pointer"><span style="display:flex;gap:10px;align-items:center;font-weight:700"><input type="radio" name="vis" value="${k}" ${P.profile_visibility === k ? 'checked' : ''} style="accent-color:var(--gold);width:18px;height:18px">${l}</span><span class="pf-note" style="font-size:13px">${d}</span></label>`).join('')}</div></div>
       <div style="display:grid;gap:10px"><h3>Visibilidad</h3>${OPT.map(([k, l, d]) => `<div class="pf-row" style="justify-content:space-between"><span style="display:grid;gap:3px;flex:1 1 240px"><b style="font-size:14px">${l}</b><span class="pf-note" style="font-size:13px">${d}</span></span>${tg('o-' + k, P[k], l)}</div>`).join('')}</div>
       <div style="display:grid;gap:10px"><h3>Secciones del carnet</h3><div class="pf-sl">${SECS.map(([k, l]) => `<div><span>${l}</span>${tg('s-' + k, S[k], l)}</div>`).join('')}<div><span>Estadísticas</span>${tg('s-pub', P.public_activity, 'Estadísticas')}</div></div></div>
+      <section id="pv-preview" aria-labelledby="pv-preview-heading" aria-live="polite" aria-atomic="true">${privacyPreview()}</section>
       <div style="display:grid;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h3>Obras ocultas de mis estantes</h3><a class="mono" style="font-size:11px" href="/biblioteca">SE OCULTAN DESDE MI BIBLIOTECA</a></div>
         <div id="pv-hid">${(hs || []).length ? hs.map(s => `<div class="pf-row"><span style="width:34px;height:46px;flex:none;background:${esc(s.theme?.color || '#2a2519')} center/cover ${s.cover_path ? `url('${esc(MED2(s))}')` : ''}"></span><span style="flex:1;min-width:0;font-weight:600">${esc(s.title)}</span><button type="button" class="btn ghost sm" data-unhide="${s.id}" style="flex:none;white-space:nowrap">Mostrar de nuevo</button></div>`).join('') : '<p class="pf-note">No tienes obras ocultas.</p>'}</div></div>
       <div style="display:grid;gap:8px"><h3>Reseñas</h3><p class="pf-note" style="color:#e3dccb;max-width:62ch">Al publicar cada reseña eliges si va con tu nombre o como <b>Lector anónimo</b>. Las anónimas no aparecen en tu carnet ni cuentan para el sello 評.</p><span class="mono" style="font-size:12px">${nRv} ${nRv === 1 ? 'RESEÑA' : 'RESEÑAS'} · ${nAn} ${nAn === 1 ? 'ANÓNIMA' : 'ANÓNIMAS'}</span></div>
@@ -286,10 +427,19 @@ export async function preferences(C){
           <span style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn" id="pv-go" disabled style="background:#c8402e;color:#fff">Eliminar en 30 días</button><button type="button" class="btn ghost" id="pv-cancel">Cancelar</button></span></div>`}
       </div>`);
     const $ = s => app.querySelector(s);
+    const refreshPrivacyPreview = () => { const region = $('#pv-preview'); if (region) region.innerHTML = privacyPreview(); };
+    $('#pv-preview').onclick = e => {
+      const b = e.target.closest('[data-pv-audience]');
+      if (!b) return;
+      viewAs = b.dataset.pvAudience;
+      app.__obiPrivacyView = viewAs;
+      refreshPrivacyPreview();
+      $('#pv-preview [data-pv-audience="' + viewAs + '"]')?.focus({ preventScroll: true });
+    };
     app.querySelectorAll('[name="vis"]').forEach(i => i.onchange = async () => { if (await save({ profile_visibility: i.value }, 'Visibilidad actualizada')) preferences(C); });
-    OPT.forEach(([k]) => $('#o-' + k).onclick = async e => { const b = e.currentTarget, v = !P[k]; if (await save({ [k]: v })) flip(b); });
-    SECS.forEach(([k]) => $('#s-' + k).onclick = async e => { const b = e.currentTarget; S[k] = !S[k]; if (await save({ profile_sections: { ...S } })) flip(b); else S[k] = !S[k]; });
-    $('#s-pub').onclick = async e => { const b = e.currentTarget; if (await save({ public_activity: !P.public_activity })) flip(b); };
+    OPT.forEach(([k]) => $('#o-' + k).onclick = async e => { const b = e.currentTarget, v = !P[k]; if (await save({ [k]: v })) { flip(b); refreshPrivacyPreview(); } });
+    SECS.forEach(([k]) => $('#s-' + k).onclick = async e => { const b = e.currentTarget; S[k] = !S[k]; if (await save({ profile_sections: { ...S } })) { flip(b); refreshPrivacyPreview(); } else S[k] = !S[k]; });
+    $('#s-pub').onclick = async e => { const b = e.currentTarget; if (await save({ public_activity: !P.public_activity })) { flip(b); refreshPrivacyPreview(); } };
     app.querySelectorAll('[data-unhide]').forEach(b => b.onclick = async () => { if (await save({ hidden_series: (P.hidden_series || []).filter(x => x !== b.dataset.unhide) }, 'Vuelve a verse en tu perfil')) preferences(C); });
     $('#pv-exp').onclick = async e => { const b = e.currentTarget; b.disabled = true; const { data, error } = await sb.rpc('export_my_data'); b.disabled = false; if (error) return toast(error.message);
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })); a.download = 'obi-mis-datos-' + new Date().toISOString().slice(0, 10) + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
@@ -314,9 +464,15 @@ export async function preferences(C){
     const lbl = 'font-size:11px;letter-spacing:.1em;color:var(--mute);display:grid;justify-items:center;gap:4px';
     const draw = () => {
       const off = N.freq === 'off';
+      const summary = notificationPreviewSummary(N, KINDS);
       app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Avisos</h2><p class="pf-note">Elige qué te avisamos y por dónde. Se guarda al momento.</p></div>
       <div style="display:grid;gap:12px"><h3>Correo</h3><p class="pf-note">Se envía a <b>${esc(user.email)}</b>.</p><div class="pf-sl" role="radiogroup" aria-label="Frecuencia de correo">${FREQ.map(([k, l, d]) => `<label style="display:grid;gap:4px;padding:14px 16px;border:2px solid ${N.freq === k ? 'var(--gold)' : '#2c281e'};background:${N.freq === k ? '#1f1c15' : '#0d0c0a'};cursor:pointer"><span style="display:flex;gap:10px;align-items:center;font-weight:700"><input type="radio" name="fq" value="${k}" ${N.freq === k ? 'checked' : ''} style="accent-color:var(--gold);width:18px;height:18px">${l}</span><span class="pf-note" style="font-size:13px">${d}</span></label>`).join('')}</div></div>
-      <div style="display:grid;gap:10px"><h3>Qué te avisamos</h3>${KINDS.map(([k, l, d, de]) => `<div class="pf-row" style="justify-content:space-between"><span style="display:grid;gap:3px;flex:1 1 240px"><b style="font-size:14px">${l}</b><span class="pf-note" style="font-size:13px">${d}</span></span><span style="display:flex;gap:18px"><span class="mono" style="${lbl}">CAMPANA${tg('w-' + k, onW(k), l + ' en la campana')}</span><span class="mono" style="${lbl};opacity:${off ? .4 : 1}">CORREO${tg('e-' + k, !off && onE(k, de), l + ' por correo')}</span></span></div>`).join('')}
+      <section class="pf-preview" aria-label="Resumen de configuración de avisos">
+        <h3>Tu configuración de avisos</h3>
+        <p class="pf-note">Campana: ${summary.webCount} de ${summary.total} tipos activos · Correo: ${summary.emailCount} de ${summary.total} seleccionados.</p>
+        <p class="${off ? 'pf-mail-pause' : 'pf-preview-note'}" role="status">${esc(summary.description)}</p>
+      </section>
+      <div style="display:grid;gap:10px"><h3>Qué te avisamos</h3>${KINDS.map(([k, l, d, de]) => `<div class="pf-row" style="justify-content:space-between"><span style="display:grid;gap:3px;flex:1 1 240px"><b style="font-size:14px">${l}</b><span class="pf-note" style="font-size:13px">${d}</span></span><span style="display:flex;gap:18px"><span class="mono" style="${lbl}">CAMPANA${tg('w-' + k, onW(k), l + ' en la campana')}</span><span class="mono ${off ? 'pf-mail-off' : ''}" style="${lbl}">CORREO${tg('e-' + k, onE(k, de), l + ' por correo' + (off ? ', pausado hasta activar correo' : ''), off)}</span></span></div>`).join('')}
       <p class="pf-note" style="font-size:13px">Los avisos de moderación sobre tu cuenta siempre llegan a la campana.</p></div>
       <div style="display:grid;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h3>Obras que sigues</h3><span class="mono" style="font-size:11px">${FL.length} ${FL.length === 1 ? 'OBRA' : 'OBRAS'}</span></div>
       ${!onW('capitulo') && off ? '<p class="pf-note" style="font-size:13px">Tienes desactivados los avisos de capítulos nuevos: estos interruptores no tendrán efecto hasta que los actives arriba.</p>' : ''}
@@ -324,8 +480,8 @@ export async function preferences(C){
       const $ = s => app.querySelector(s);
       app.querySelectorAll('[name="fq"]').forEach(i => i.onchange = async () => { const prev = N.freq; N.freq = i.value; if (await save()) { toast(i.value === 'off' ? 'Ya no recibirás correos' : 'Frecuencia de correo guardada'); draw(); } else N.freq = prev; });
       KINDS.forEach(([k, , , de]) => {
-        $('#w-' + k).onclick = async e => { const b = e.currentTarget; N.web[k] = !onW(k); if (await save()) flip(b); else N.web[k] = !N.web[k]; };
-        $('#e-' + k).onclick = async e => { if (off) return toast('Elige primero con qué frecuencia quieres correos'); const b = e.currentTarget; N.email[k] = !onE(k, de); if (await save()) flip(b); else N.email[k] = !N.email[k]; };
+        $('#w-' + k).onclick = async e => { const b = e.currentTarget; N.web[k] = !onW(k); if (await save()) { flip(b); draw(); } else N.web[k] = !N.web[k]; };
+        $('#e-' + k).onclick = async e => { if (off) return; const b = e.currentTarget; N.email[k] = !onE(k, de); if (await save()) { flip(b); draw(); } else N.email[k] = !N.email[k]; };
       });
       FL.forEach(({ r, s }) => { $('#f-' + s.id).onclick = async e => { const b = e.currentTarget, ch = { ...(r.channels || {}), web: r.channels?.web === false };
         const { error } = await sb.from('follows').update({ channels: ch }).eq('user_id', user.id).eq('series_id', s.id); if (error) return toast(error.message); r.channels = ch; flip(b); }; });
@@ -444,7 +600,29 @@ export async function preferences(C){
   const D = { bio: P.bio || '', kanji: P.seal_kanji || '', accent: P.accent || '#f2c230', banner: P.banner_url, links: (P.links || []).map(l => ({ on: true, ...l })),
     sec: Object.fromEntries(SECS.map(([k, , d]) => [k, P.profile_sections?.[k] ?? d])), pub: !!P.public_activity, favs: [] };
   if (P.favorites?.length) { const { data } = await sb.from('series').select('id,title,slug,cover_path,cover_thumb_path,theme').in('id', P.favorites); D.favs = P.favorites.map(id => (data || []).find(s => s.id === id)).filter(Boolean); }
-  let dirty = false; const mark = () => { dirty = true; const s = app.querySelector('#pf-st'); if (s) s.textContent = 'Cambios sin guardar'; };
+  // La navegación dentro del SPA no dispara beforeunload. Mantener un borrador
+  // local por usuario evita perder bio, enlaces y favoritas si cambia la ruta.
+  const draftKey = 'obi-profile-draft:user:' + user.id;
+  let dirty = false, recovered = false, editVersion = 0, saveInFlight = false;
+  try {
+    const saved = JSON.parse(localStorage.getItem(draftKey) || 'null');
+    if (saved?.version === 1 && saved.data && typeof saved.data === 'object') {
+      const d = saved.data;
+      if (typeof d.bio === 'string') D.bio = d.bio.slice(0, 280);
+      if (typeof d.kanji === 'string') D.kanji = d.kanji.slice(0, 2);
+      if (SWATCH.includes(d.accent)) D.accent = d.accent;
+      if (typeof d.banner === 'string' || d.banner === null) D.banner = d.banner;
+      if (Array.isArray(d.links)) D.links = d.links.filter(l => l && ICON[l.k] && typeof l.url === 'string').slice(0, 12);
+      if (Array.isArray(d.favs)) D.favs = d.favs.filter(x => x && typeof x.id === 'string' && typeof x.title === 'string').slice(0, 5);
+      dirty = true; recovered = true;
+    }
+  } catch {}
+  const mark = () => {
+    editVersion++; dirty = true; recovered = false;
+    try { localStorage.setItem(draftKey, JSON.stringify({ version: 1, data: D })); }
+    catch { toast('No se pudo conservar el borrador en este dispositivo'); }
+    const s = app.querySelector('#pf-st'); if (s) s.textContent = 'Borrador sin guardar';
+  };
   const favHTML = () => D.favs.map((s, i) => `<span><span class="lc-cv" style="--c:${esc(s.theme?.color || '#2a2519')};${s.cover_path ? `background-image:url('${esc(MED(s.cover_thumb_path || s.cover_path))}')` : ''}">${esc(s.title)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.title)}</span><button type="button" class="pf-x" data-rf="${i}" aria-label="Quitar ${esc(s.title)}">×</button></span>`).join('') || '<p class="pf-note">Aún no eliges favoritas.</p>';
   const linkRow = (l, i) => `<div class="pf-row ${l.on ? '' : 'off'}"><span class="ic">${svg(l.k, 18)}</span>
     <select data-lk="${i}" aria-label="Red">${GROUPS.map(([g, ks]) => `<optgroup label="${g}">${ks.map(k => `<option value="${k}" ${k === l.k ? 'selected' : ''}>${ICON[k][0]}</option>`).join('')}</optgroup>`).join('')}</select>
@@ -458,14 +636,14 @@ export async function preferences(C){
         <div class="pf-f">Portada del carnet<span class="pf-up"><span class="pf-ban" style="${D.banner ? `background-image:url('${esc(D.banner)}')` : ''}"></span><label class="btn ghost sm">${D.banner ? 'Cambiar' : 'Subir'}<input type="file" id="fban" accept="image/jpeg,image/png,image/webp"></label>${D.banner ? '<button type="button" class="btn ghost sm" id="noban">Quitar</button>' : ''}</span><small class="pf-note" style="font-size:12px">Sin portada se usa un collage de tus favoritas.</small></div>
         <label class="pf-f" style="grid-column:1/-1">Bio<textarea id="bio" rows="3" maxlength="280">${esc(D.bio)}</textarea></label>
         <label class="pf-f">Kanji del sello<input id="kj" class="pf-kj" maxlength="1" value="${esc(D.kanji)}" placeholder="月" aria-describedby="kjh"><small id="kjh" class="pf-note" style="font-size:12px">Un solo kanji. Déjalo vacío para no mostrar sello.</small></label>
-        <div class="pf-f">Color de acento<div class="pf-sw">${SWATCH.map(c => `<button type="button" data-ac="${c}" class="${c === D.accent ? 'on' : ''}" style="background:${c}" aria-label="Color ${c}"></button>`).join('')}</div></div>
+        <div class="pf-f">Color de acento<div class="pf-sw">${SWATCH.map(c => `<button type="button" data-ac="${c}" class="${c === D.accent ? 'on' : ''}" style="--swatch:${c}" aria-label="Color ${c}" aria-pressed="${c === D.accent}"></button>`).join('')}</div></div>
       </div>
       <div style="display:grid;gap:10px"><h3>Favoritas <small class="pf-note">(${D.favs.length}/5)</small></h3><div class="pf-favs">${favHTML()}</div>
         ${D.favs.length < 5 ? '<input class="pf-q" id="fq" placeholder="Busca una obra para añadirla…" autocomplete="off" style="max-width:420px"><div class="pf-res" id="fr"></div>' : ''}</div>
       <div style="display:grid;gap:10px"><h3>Enlaces</h3>${D.links.map(linkRow).join('')}
         ${D.links.length < 12 ? '<button type="button" class="btn ghost sm" id="addl" style="justify-self:start">+ Añadir enlace</button>' : ''}</div>
       <p class="pf-note">Qué secciones se muestran y quién ve tu carnet se elige en <a href="/preferencias?s=privacidad">Privacidad</a>.</p>
-      <div class="pf-save"><span class="mono" id="pf-st">${dirty ? 'Cambios sin guardar' : ''}</span><a class="btn ghost" href="/perfil">Ver mi perfil</a><button class="btn" id="save">Guardar cambios</button></div>`);
+      <div class="pf-save"><span class="mono" id="pf-st" role="status" aria-live="polite">${dirty ? (recovered ? 'Borrador recuperado: revisa y guarda' : 'Borrador sin guardar') : ''}</span><a class="btn ghost" href="/perfil">Ver mi perfil</a><button class="btn" id="save">Guardar cambios</button></div>`);
     const $ = s => app.querySelector(s), $$ = s => app.querySelectorAll(s);
     $('#bio').oninput = e => { D.bio = e.target.value; mark(); };
     $('#kj').oninput = e => { D.kanji = e.target.value.trim(); mark(); };
@@ -490,16 +668,54 @@ export async function preferences(C){
         D.banner = sb.storage.from('avatars').getPublicUrl(path).data.publicUrl; mark(); draw(); } catch (er) { toast(er.message); } };
     $('#noban')?.addEventListener('click', () => { D.banner = null; mark(); draw(); });
     $('#save').onclick = async e => { const b = e.currentTarget;
+      if (saveInFlight) return;
       if (D.kanji && !KANJI.test(D.kanji)) return toast('El sello debe ser un solo kanji');
       const links = []; for (const l of D.links) { if (!l.url) continue; let u = l.url; if (!/^https?:\/\//i.test(u)) u = 'https://' + u.replace(/^\/+/, ''); u = u.replace(/^http:/i, 'https:');
         if (!/^https:\/\/[^\s<>"]{3,200}$/.test(u)) return toast(`Revisa el enlace de ${ICON[l.k][0]}`); links.push({ k: l.k, url: u, on: !!l.on }); }
+      saveInFlight = true; const submittedVersion = editVersion;
       b.disabled = true; b.textContent = 'Guardando…';
-      const { error } = await sb.from('profiles').update({ bio: D.bio.trim() || null, seal_kanji: D.kanji || null, accent: D.accent, banner_url: D.banner, links, favorites: D.favs.map(f => f.id) }).eq('id', user.id);
-      b.disabled = false; b.textContent = 'Guardar cambios';
+      let error;
+      try {
+        const response = await sb.from('profiles').update({ bio: D.bio.trim() || null, seal_kanji: D.kanji || null, accent: D.accent, banner_url: D.banner, links, favorites: D.favs.map(f => f.id) }).eq('id', user.id);
+        error = response.error;
+      } catch (cause) { error = cause; }
+      saveInFlight = false; b.disabled = false; b.textContent = 'Guardar cambios';
       if (error) return toast(/links/.test(error.message) ? 'Revisa los enlaces' : /seal_kanji/.test(error.message) ? 'El sello debe ser un solo kanji' : error.message);
-      D.links = links; dirty = false; toast('Perfil guardado'); reload?.(); draw(); };
+      // Una edición hecha durante la petición no se puede marcar como guardada.
+      if (editVersion !== submittedVersion) {
+        toast('Se guardaron los cambios anteriores; quedan cambios nuevos sin guardar');
+        draw(); return;
+      }
+      D.links = links; dirty = false; recovered = false;
+      try { localStorage.removeItem(draftKey); } catch {}
+      toast('Perfil guardado'); reload?.(); draw(); };
   };
   draw();
-  const leave = e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } }; addEventListener('beforeunload', leave);
-  addEventListener('popstate', () => removeEventListener('beforeunload', leave), { once: true });
+  const leave = e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } };
+  const cleanup = () => {
+    removeEventListener('beforeunload', leave);
+    document.removeEventListener('click', navigate, true);
+    removeEventListener('popstate', onBack);
+    if (app.__obiPrefsNavGuard === canLeave) app.__obiPrefsNavGuard = null;
+    if (app.__obiPrefsDispose === cleanup) app.__obiPrefsDispose = null;
+  };
+  const canLeave = () => {
+    if (dirty && !confirm('Tienes cambios sin guardar en tu perfil. El borrador se conservará para volver después. ¿Salir?')) return false;
+    cleanup();
+    return true;
+  };
+  const navigate = e => {
+    const a = e.target.closest?.('a[href^="/"]');
+    if (!a || a.target || a.getAttribute('href') === location.pathname + location.search) return;
+    if (!canLeave()) { e.preventDefault(); e.stopImmediatePropagation(); }
+  };
+  const onBack = () => {
+    // Atrás tampoco atraviesa el controlador de enlaces. El borrador se conserva.
+    cleanup();
+  };
+  app.__obiPrefsNavGuard = canLeave;
+  app.__obiPrefsDispose = cleanup;
+  addEventListener('beforeunload', leave);
+  document.addEventListener('click', navigate, true);
+  addEventListener('popstate', onBack);
 }

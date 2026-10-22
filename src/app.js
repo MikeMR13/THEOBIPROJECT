@@ -48,18 +48,22 @@ if (!navigator.onLine) {
   profile = user ? saved.profile || null : null;
   me = user ? saved.me || null : null;
   meReady = Promise.resolve();
+  window.obiSetUI(profile?.ui_prefs || {});
   if (!user) window.obiSetBlocks([]);
   drawSession();
   return;
 }
 const { data } = await sb.auth.getSession(); user = data.session?.user || null;
-if (!user) { profile = me = null; window.obiSetBlocks([]); drawSession(); meReady = Promise.resolve(); return; }
+if (!user) { profile = me = null; window.obiSetUI({}); window.obiSetBlocks([]); drawSession(); meReady = Promise.resolve(); return; }
 try { const c = JSON.parse(localStorage.getItem('obi-me') || 'null'); if (c?.id === user.id) ({ profile, me } = c); else profile = me = null; } catch {}
+// Aplicar solo los ajustes de la identidad verificada, incluso si no tiene ajustes.
+window.obiSetUI(profile?.ui_prefs || {});
 drawSession();
 const uid = user.id;
 meReady = Promise.all([sb.rpc('my_profile'), sb.rpc('whoami')]).then(([p, w]) => {
   if (user?.id !== uid) return; profile = p.data; me = w.data || null;
   if (profile?.ui_prefs && Object.keys(profile.ui_prefs).length) window.obiSetUI(profile.ui_prefs);
+  else window.obiSetUI({});
   sb.rpc('my_blocks').then(({ data }) => { if (user?.id === uid && Array.isArray(data)) window.obiSetBlocks(data); });
   try { localStorage.setItem('obi-me', JSON.stringify({ id: uid, email: user.email, profile, me })); } catch {}
   drawSession(); bell(); delBanner();
