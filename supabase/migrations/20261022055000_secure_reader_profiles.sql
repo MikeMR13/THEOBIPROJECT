@@ -4,9 +4,19 @@
 BEGIN;
 
 -- 1. Retirar la lectura directa de campos privados de perfiles.
-REVOKE SELECT ON TABLE public.profiles FROM anon, authenticated;
--- El cliente autenticado necesita filtrar por ID para UPDATE bajo RLS.
+-- El ACL anterior daba SELECT, INSERT, DELETE y MAINTAIN a anon/authenticated.
+-- RLS no se aplica a todas las operaciones de mantenimiento: retirar los grants
+-- de tabla y restaurar únicamente los permisos mínimos necesarios.
+REVOKE ALL PRIVILEGES ON TABLE public.profiles FROM anon, authenticated;
+-- SELECT(id) permite el filtro por id de UPDATE, bajo policy de propietario.
 GRANT SELECT (id) ON TABLE public.profiles TO authenticated;
+-- Restaurar exclusivamente los campos editables por el lector (ACL previo).
+-- No habilitar edición de id, roles, tier, datos de pago ni atributos internos.
+GRANT UPDATE (username, avatar_url, discord_id, telegram_id, adult_ok,
+  bio, banner_url, discoverable, public_library, public_activity,
+  seal_kanji, accent, links, favorites, profile_sections, profile_visibility,
+  show_since, hide_reading, hidden_series, notify, ui_prefs)
+ON TABLE public.profiles TO authenticated;
 DROP POLICY IF EXISTS "profiles read" ON public.profiles;
 DROP POLICY IF EXISTS "profiles self read" ON public.profiles;
 CREATE POLICY "profiles self read" ON public.profiles
