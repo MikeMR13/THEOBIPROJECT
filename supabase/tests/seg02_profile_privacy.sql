@@ -23,6 +23,7 @@ BEGIN
 
   IF NOT has_column_privilege('authenticated','public.profiles','notify','UPDATE')
     OR NOT has_column_privilege('authenticated','public.profiles','bio','UPDATE')
+    OR NOT has_column_privilege('authenticated','public.profiles','patron_wall','UPDATE')
     OR has_column_privilege('authenticated','public.profiles','platform_role','UPDATE')
   THEN RAISE EXCEPTION 'SEG-02: permisos UPDATE demasiado amplios o insuficientes'; END IF;
 
