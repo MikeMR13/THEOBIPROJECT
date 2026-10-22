@@ -1,4 +1,4 @@
-import { readerPrefsKey, readReaderPrefs } from './reader-pref-cache.js?v=1';
+import { readReaderPrefs, readPendingReaderPrefs, stageReaderPrefs, acknowledgeReaderPrefs, sameReaderAccount } from './reader-pref-cache.js?v=1';
 // Perfil público de lector (carnet) y página /preferencias. Se carga solo al visitar esas rutas.
 const ICON = {
   discord: ['Discord', 'M7 7c3-1.5 7-1.5 10 0l2 9c-2 2-4 2.5-5 2.5l-1-2h-2l-1 2C9 18.5 7 18 5 16z M9.5 12.5h.01 M14.5 12.5h.01', 'https://discord.gg/…'],
@@ -201,11 +201,43 @@ export async function preferences(C){
   if (tab === 'lectura') {
     const DEF = { theme: 'oscuro', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', illus: true, continuous: 'off', cw: 'show', autonext: true, autosecs: 5 };
     let R = readReaderPrefs(localStorage, user.id);
-    const { data: rp } = await sb.from('reader_prefs').select('global,per_volume').eq('user_id', user.id).maybeSingle(); if (rp) R = { global: rp.global || {}, per_volume: rp.per_volume || {} };
+    // Un borrador pendiente (por ejemplo, tras cerrar la pestaña sin red) gana a
+    // una copia antigua de Supabase. Nunca se consulta el borrador de otra cuenta.
+    const pending = readPendingReaderPrefs(localStorage, user.id);
+    const { data: rp, error: loadError } = await sb.from('reader_prefs').select('global,per_volume').eq('user_id', user.id).maybeSingle();
+    if (!sameReaderAccount(getUser()?.id, user.id)) return;
+    if (pending) R = pending;
+    else if (!loadError && rp) R = { global: rp.global || {}, per_volume: rp.per_volume || {} };
     const vids = Object.keys(R.per_volume || {});
     const { data: vols } = vids.length ? await sb.from('volumes').select('id,num,series:series_id(title,theme)').in('id', vids) : { data: [] };
-    let G = { ...DEF, ...R.global }, pt;
-    const persist = () => { localStorage.setItem(readerPrefsKey(user.id), JSON.stringify(R)); clearTimeout(pt); pt = setTimeout(async () => { const { error } = await sb.from('reader_prefs').upsert({ user_id: user.id, global: R.global, per_volume: R.per_volume, updated_at: new Date().toISOString() }); if (error) toast(error.message); }, 400); };
+    let G = { ...DEF, ...R.global }, pt, saving = false;
+    let syncStatus = pending ? 'Cambios locales pendientes de sincronizar' : loadError ? 'No se pudo verificar la sincronización' : 'Ajustes cargados';
+    const showSync = text => { syncStatus = text; const el = app.querySelector('#lc-sync'); if (el) el.textContent = text; };
+    const flush = async () => {
+      if (saving || !sameReaderAccount(getUser()?.id, user.id)) return;
+      saving = true;
+      try {
+        // Una sola escritura en vuelo: las ediciones rápidas posteriores se envían
+        // después, en orden. Solo se reconoce la revisión confirmada por Supabase.
+        while (sameReaderAccount(getUser()?.id, user.id)) {
+          const snapshot = readPendingReaderPrefs(localStorage, user.id);
+          if (!snapshot) break;
+          showSync('Guardando en tu cuenta…');
+          const { error } = await sb.from('reader_prefs').upsert({ user_id: user.id, global: snapshot.global, per_volume: snapshot.per_volume, updated_at: new Date().toISOString() });
+          if (error) { showSync('Guardado en este dispositivo; pendiente de sincronizar'); toast('No se pudo sincronizar lectura: ' + error.message); break; }
+          acknowledgeReaderPrefs(localStorage, user.id, snapshot);
+          if (!readPendingReaderPrefs(localStorage, user.id)) showSync('Guardado en tu cuenta');
+        }
+      } catch (error) { showSync('Guardado en este dispositivo; pendiente de sincronizar'); toast('No se pudo sincronizar lectura: ' + error.message); }
+      finally { saving = false; }
+    };
+    const persist = () => {
+      if (!stageReaderPrefs(localStorage, user.id, R)) { showSync('No se pudo guardar en este dispositivo'); toast('No se pudo guardar el cambio localmente'); return; }
+      showSync('Guardando…');
+      clearTimeout(pt); pt = setTimeout(() => { void flush(); }, 150);
+    };
+    if (pending && navigator.onLine) void flush();
+    addEventListener('online', () => { if (readPendingReaderPrefs(localStorage, user.id)) void flush(); }, { once: true });
     const set = (k, v) => { G[k] = v; R.global = { ...R.global, [k]: v }; persist(); draw(); };
     const seg = (k, l, o) => `<div style="display:grid;gap:8px"><span style="font-size:13px;font-weight:600;color:#e3dccb">${l}</span><div class="lc-tabs" style="justify-self:start">${o.map(([v, t]) => `<button type="button" data-k="${k}" data-v="${v}" class="${String(G[k]) === v ? 'on' : ''}" aria-pressed="${String(G[k]) === v}" style="--ac:var(--gold)">${t}</button>`).join('')}</div></div>`;
     const TH = { claro: ['#f6f1e5', '#1e1b15', '#e3dccb'], sepia: ['#efe2c6', '#3b2f1e', '#d8c7a2'], oscuro: ['#16140f', '#e9e1cd', '#2a2519'] };
@@ -215,7 +247,7 @@ export async function preferences(C){
       const th = TH[G.theme] || TH.oscuro, auto = G.continuous === 'off', season = localStorage.getItem('obi-season') !== 'off';
       app.innerHTML = shell(`<div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;min-width:0">
         <div style="flex:1 1 340px;display:grid;gap:30px;min-width:0">
-          <div style="display:grid;gap:6px"><h2>Lectura</h2><p class="pf-note">Tus ajustes se aplican a todas las obras, aunque el equipo haya definido otro estilo. Se guardan al momento.</p></div>
+          <div style="display:grid;gap:6px"><h2>Lectura</h2><p class="pf-note">Tus ajustes se aplican a todas las obras, aunque el equipo haya definido otro estilo. Se guardan al momento en este dispositivo y se sincronizan con tu cuenta.</p><p id="lc-sync" class="pf-note" role="status" aria-live="polite">${esc(syncStatus)}</p></div>
           <div style="display:grid;gap:14px"><h3>Texto</h3>
             ${seg('theme', 'Tema', [['claro', 'Claro'], ['sepia', 'Sepia'], ['oscuro', 'Oscuro']])}
             ${seg('font', 'Tipografía', [['original', 'Original del EPUB'], ['Literata', 'Literata'], ['serif', 'Serif'], ['sans', 'Sans']])}
@@ -251,8 +283,8 @@ export async function preferences(C){
       $('#lc-auto')?.addEventListener('click', () => set('autonext', G.autonext === false));
       $('#lc-illus').onclick = () => set('illus', G.illus === false);
       $('#lc-season').onclick = () => { localStorage.getItem('obi-season') === 'off' ? localStorage.removeItem('obi-season') : (localStorage.setItem('obi-season-mig1', '1'), localStorage.setItem('obi-season', 'off')); dispatchEvent(new Event('obi-season')); draw(); };
-      app.querySelectorAll('[data-delv]').forEach(b => b.onclick = () => { delete R.per_volume[b.dataset.delv]; persist(); toast('Ajustes del volumen borrados'); draw(); });
-      $('#lc-reset').onclick = () => { if (!confirm('¿Volver a los ajustes originales de lectura?')) return; G = { ...DEF }; R.global = {}; persist(); toast('Ajustes restablecidos'); draw(); };
+      app.querySelectorAll('[data-delv]').forEach(b => b.onclick = () => { delete R.per_volume[b.dataset.delv]; persist(); draw(); });
+      $('#lc-reset').onclick = () => { if (!confirm('¿Volver a los ajustes originales de lectura?')) return; G = { ...DEF }; R.global = {}; persist(); draw(); };
     };
     draw(); return;
   }
