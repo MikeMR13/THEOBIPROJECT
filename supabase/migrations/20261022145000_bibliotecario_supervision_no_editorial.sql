@@ -241,6 +241,33 @@ begin
 end
 $fn$;
 
+-- Verificacion oficial: prerrogativa administrativa, no edicion del equipo.
+create or replace function public.admin_verify_team(
+  p_team uuid, p_verified boolean, p_reason text
+) returns void
+language plpgsql security definer
+set search_path to ''
+as $fn$
+begin
+  if not private.is_admin() then raise exception 'forbidden'; end if;
+  if p_verified is null then raise exception 'Se requiere indicar el estado de verificacion'; end if;
+  if length(btrim(coalesce(p_reason, ''))) < 12 then
+    raise exception 'Explica el motivo de la verificacion (12 caracteres minimo)';
+  end if;
+  update public.teams
+  set official_verified = p_verified
+  where id = p_team;
+  if not found then raise exception 'El equipo no existe'; end if;
+  perform private.audit(
+    case when p_verified then 'verificar_equipo' else 'retirar_verificacion_equipo' end,
+    'team', p_team::text, jsonb_build_object('reason', btrim(p_reason))
+  );
+end
+$fn$;
+
+revoke all on function public.admin_verify_team(uuid, boolean, text) from public, anon;
+grant execute on function public.admin_verify_team(uuid, boolean, text) to authenticated;
+
 revoke all on function public.admin_create_team(text, text, text, text) from public, anon;
 revoke all on function public.admin_add_publisher(text, uuid, text, text) from public, anon;
 revoke all on function public.admin_remove_member(uuid, uuid, text) from public, anon;
