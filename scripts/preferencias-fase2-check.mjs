@@ -37,9 +37,11 @@ for(const part of [
   '@media(max-width:760px){', '.pf-nav{display:none}',
   '.pf-mobile-nav{display:grid;', '.pf-mobile-nav select{width:100%;min-height:48px;',
   '.pf-tg{flex:none;width:48px;height:44px;', '.pf-sw button{width:44px;height:44px;',
-  '.pf-favs .pf-x{position:absolute;', 'min-width:44px;min-height:44px;',
+  '.pf-fav-remove{display:flex;', 'min-height:44px;',
   '.lc-tabs button{border:0;cursor:pointer;padding:10px 14px;',
   '.pf :is(a,button,input,select,textarea):focus-visible', '.pf-up label:focus-within'
 ])assert(css.includes(part),'Falta tratamiento táctil o responsive: '+part);
 assert(src.includes('aria-pressed="${c === D.accent}"'),'El color activo se anuncia');
+for(const part of ['const liveHTML = () =>', 'id="pf-live-card"', 'live.innerHTML = liveHTML()', 'class="pf-editor-preview"', 'D.favs.slice(0, 5)'])
+  assert(src.includes(part),'Falta actualización del carnet en tiempo real: '+part);
 console.log('Preferencias fase 2: rutas, grupos, selector móvil, foco y objetivos táctiles — OK');
