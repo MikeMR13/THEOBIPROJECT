@@ -6,6 +6,8 @@ const sql=readFileSync('supabase/migrations/20261022055000_secure_reader_profile
 const studio=readFileSync('src/studio.js','utf8');
 const app=readFileSync('src/app.js','utf8');
 const profile=readFileSync('src/profile.js','utf8');
+const teamPage=readFileSync('src/teampage.js','utf8');
+const adminPage=readFileSync('src/admin.js','utf8');
 function requireSQL(pattern,description){assert.match(sql,pattern,description)}
 requireSQL(/REVOKE ALL PRIVILEGES ON TABLE public\.profiles FROM anon, authenticated;/i,'retirar SELECT, INSERT, DELETE y MAINTAIN');
 requireSQL(/GRANT UPDATE \(username, avatar_url, discord_id, telegram_id, adult_ok,[\s\S]*?hidden_series, notify, ui_prefs\)/i,'retener solo edición autorizada');
@@ -22,6 +24,12 @@ for(const name of ['export_my_data','deletion_preview','request_account_deletion
  assert(sql.includes('REVOKE EXECUTE ON FUNCTION public.'+name+'('),'falta cierre del RPC '+name);
  assert(sql.includes('GRANT EXECUTE ON FUNCTION public.'+name+'('),'falta acceso de autenticados al RPC '+name);
 }
+requireSQL(/CREATE OR REPLACE FUNCTION public\.team_public_members\(p_team uuid\)[\s\S]*?public\.team_members m[\s\S]*?public\.profiles p[\s\S]*?show_members/i,'miembros públicos respetan ajustes de equipo');
+requireSQL(/GRANT EXECUTE ON FUNCTION public\.team_public_members\(uuid\) TO anon, authenticated;/i,'lista pública de equipos mantiene acceso público');
+assert.match(teamPage,/sb\.rpc\('team_public_members',\s*\{\s*p_team:/,'página de equipo usa RPC limitada');
+assert.doesNotMatch(teamPage,/team_members'\)\.select\('role,profiles\(/,'no acceder a perfiles desde el join público');
+assert.match(adminPage,/sb\.rpc\('studio_profile_names',\s*\{\s*p_ids:/,'admin consulta nombres por RPC');
+assert.doesNotMatch(adminPage,/profiles!translator_requests_user_id_fkey/,'admin evita join a datos privados');
 assert.match(studio,/sb\.rpc\('studio_profile_names',\s*\{\s*p_ids:/,'Estudio usa RPC');
 assert.doesNotMatch(studio,/sb\.from\('profiles'\)\.select\(/,'Estudio no debe leer tabla de perfiles');
 assert.match(app,/sb\.rpc\('my_profile'\)/,'perfil autenticado utiliza my_profile');
