@@ -344,6 +344,8 @@ export function createReader(ctx){
   const untilTxt = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
   async function rateBox(){
     const el = $('#rd-rate'); if (!el) return;
+    // Calificar requiere servidor; en modo avión no bloquear ni iniciar RPC.
+    if (!navigator.onLine) { el.innerHTML = '<p class="mono">Podrás calificar esta obra cuando recuperes la conexión.</p>'; return; }
     if (!document.getElementById('rd-rate-css')) { const st = document.createElement('style'); st.id = 'rd-rate-css'; st.textContent = '.rd-rate{display:grid;justify-items:center;gap:6px;margin:26px auto 8px;text-align:center}.rd-rate h3{margin:0;font-size:1.05em}.rd-rate .st{display:flex}.rd-rate .st button{width:44px;height:48px;padding:0;background:none;border:0;font-size:30px;line-height:1;color:currentColor;opacity:.25;cursor:pointer}.rd-rate .st button.on{color:var(--gold,#f2c230);opacity:1}.rd-rate .st:hover button{color:var(--gold,#f2c230);opacity:1}.rd-rate .st button:hover~button{color:currentColor;opacity:.25}.rd-rate small{opacity:.75}'; document.head.appendChild(st); }
     const sid = S.series.id, { data } = await sb.rpc('series_rating', { p_series: sid }); if (!document.body.contains(el)) return;
     const r = data || {}, mine = r.mine || 0, u = getUser();
