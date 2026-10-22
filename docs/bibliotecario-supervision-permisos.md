@@ -19,6 +19,9 @@ justificadas, reversibles cuando sea posible y auditadas.
 - Restringe carga/sustitucion de archivos `obi-media` y `obi-epub`.
 - Protege mediante trigger la salida/degradacion del ultimo propietario.
 - Exige propietario registrado en `admin_create_team`.
+- La verificacion oficial de equipos usa `admin_verify_team` con motivo,
+  bitacora y un control exclusivo del Mostrador; los equipos no pueden
+  atribuirse unilateralmente la verificacion.
 - Exige justificacion en `admin_add_publisher` y `admin_remove_member`.
   No permite asignar o retirar propietarios a traves de estos dos RPC.
 - `src/admin.js` se adapta a las nuevas firmas de esos RPC.
@@ -50,9 +53,12 @@ El despliegue preview de Vercel **no** crea una base de datos staging.
 10. Confirmar que borrar/degradar al ultimo propietario falla incluso por
     intentos directos; la eliminacion normal de un equipo no debe quedar
     inadvertidamente bloqueada por la comprobacion del trigger.
-11. Confirmar que los flujos de aprobacion de solicitudes, reseñas,
+11. Confirmar que verificar y quitar verificacion a un equipo desde el
+    Mostrador exige motivo, respeta la bitacora y no otorga permisos
+    editoriales al Bibliotecario. Confirmar que un equipo no se verifica solo.
+12. Confirmar que los flujos de aprobacion de solicitudes, reseñas,
     verificacion de enlaces y configuracion general siguen operativos.
-12. Ejecutar `node scripts/admin-permissions-check.mjs`, el conjunto
+13. Ejecutar `node scripts/admin-permissions-check.mjs`, el conjunto
     completo de verificaciones del repositorio y analisis de seguridad.
 
 ## Pendiente de etapas siguientes
