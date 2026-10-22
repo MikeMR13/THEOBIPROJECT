@@ -3,12 +3,12 @@
 -- El cierre de ACL/RLS va en supabase/release-gates/SEG02_FINAL_LOCK_PROFILES.sql.
 -- IMPORTANTE: desplegar el nuevo frontend y verificarlo antes del cierre.
 BEGIN;
+SET LOCAL lock_timeout = '4s';
+SET LOCAL statement_timeout = '20s';
 -- Patreon › Muro de agradecimientos: el lector actualiza este booleano
 -- solo en su perfil (protección por profiles self update USING/WITH CHECK).
 -- En producción actualmente carece de GRANT UPDATE, lo que rompe el control.
 GRANT UPDATE (patron_wall) ON TABLE public.profiles TO authenticated;
-SET LOCAL lock_timeout = '4s';
-SET LOCAL statement_timeout = '20s';
 
 -- 2. Nombres de colaboradores por equipo; nunca enumeración pública de lectores.
 CREATE OR REPLACE FUNCTION public.studio_profile_names(p_ids uuid[])
