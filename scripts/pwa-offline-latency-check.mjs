@@ -107,7 +107,7 @@ await probe('arranque con sesión remota bloqueada', async()=>{
   const ctx={
     navigator:{onLine:false},user:null,profile:null,me:null,meReady:Promise.resolve(),lastBar:'',
     sb:{auth:{getSession:()=>{sessionCalls++;return never();}}},
-    drawSession:()=>{draws++},window:{obiSetBlocks:()=>{}},
+    drawSession:()=>{draws++},window:{obiSetBlocks:()=>{},obiSetUI:()=>{}},
     localStorage:{getItem:()=>null,setItem:()=>{}},
     console
   };

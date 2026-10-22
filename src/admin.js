@@ -133,13 +133,22 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
 
   async function solicitudes(){
     const [{ data, error }, { data: teams }] = await Promise.all([
-      sb.from('translator_requests').select('id,alias,team_name,langs,links,message,reply,status,note,created_at,updated_at,team_id,profiles!translator_requests_user_id_fkey(username),teams(name,slug)').order('updated_at', { ascending: false }),
+      sb.from('translator_requests').select('id,alias,team_name,langs,links,message,reply,status,note,created_at,updated_at,team_id,user_id,teams(name,slug)').order('updated_at', { ascending: false }),
       sb.from('teams').select('id,name').order('name')]);
     if (error) throw error;
+    // Resolver solo el nombre del solicitante con el RPC limitado a administración.
+    const requesterIds=[...new Set((data||[]).map(r=>r.user_id).filter(Boolean))];
+    const nameLookups=await Promise.all(
+      Array.from({length:Math.ceil(requesterIds.length/100)},(_,i)=>
+        sb.rpc('studio_profile_names',{p_ids:requesterIds.slice(i*100,(i+1)*100)})
+      )
+    );
+    for(const result of nameLookups) if(result.error) throw result.error;
+    const requesterById=Object.fromEntries(nameLookups.flatMap(r=>r.data||[]).map(u=>[u.id,u.username]));
     const ST = { pending: ['Pendiente', '#f2c230'], info: ['Esperando respuesta', '#8cc3f2'], approved: ['Aprobada', '#a9d18e'], rejected: ['Rechazada', '#a89f8a'] };
     const list = (data || []).sort((a, b) => (a.status === 'pending' ? 0 : a.status === 'info' ? 1 : 2) - (b.status === 'pending' ? 0 : b.status === 'info' ? 1 : 2));
     view().innerHTML = list.map(r => { const open = r.status === 'pending' || r.status === 'info';
-      return `<div class="bb-box"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(r.team_name || '(sin nombre de grupo)')} <span class="mono">· ${esc(r.alias)} · @${esc(r.profiles?.username || '')}</span></h3><span class="bb-role" style="color:${ST[r.status]?.[1]}">${ST[r.status]?.[0] || r.status}</span></div>
+      return `<div class="bb-box"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(r.team_name || '(sin nombre de grupo)')} <span class="mono">· ${esc(r.alias)} · @${esc(requesterById[r.user_id] || '')}</span></h3><span class="bb-role" style="color:${ST[r.status]?.[1]}">${ST[r.status]?.[0] || r.status}</span></div>
       <p class="mono" style="margin:0">${esc((r.langs || []).join(', '))} · ${when(r.updated_at || r.created_at)}</p>
       ${r.links ? `<p style="margin:0;white-space:pre-line">${esc(r.links)}</p>` : ''}${r.message ? `<p style="margin:0;white-space:pre-line"><b>Mensaje:</b> ${esc(r.message)}</p>` : ''}
       ${r.note ? `<p class="mono" style="margin:0">Tu nota: ${esc(r.note)}</p>` : ''}${r.reply && r.status === 'pending' ? `<p style="margin:0;white-space:pre-line;color:#8cc3f2"><b>Respuesta:</b> ${esc(r.reply)}</p>` : ''}

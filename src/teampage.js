@@ -146,9 +146,15 @@ export async function loadTeamData(sb, slug){
   const S = t.settings || {};
   const [{ data: works }, { data: mem }, { data: next }] = await Promise.all([
     sb.from('series').select('id,slug,title,short,synopsis,cover_path,translation_status,views,chapters(count)').eq('team_id', t.id).eq('published', true).is('archived_at', null).order('title'),
-    S.show_members !== false ? sb.from('team_members').select('role,profiles(username),team_roles(name,color)').eq('team_id', t.id) : { data: [] },
+    S.show_members !== false ? sb.rpc('team_public_members', { p_team: t.id }) : { data: [] },
     sb.from('schedule').select('at,label,series!inner(team_id,slug,title)').eq('series.team_id', t.id).gte('at', new Date().toISOString()).order('at').limit(1)]);
-  return { t, works: works || [], mem: mem || [], next: next?.[0] || null };
+  // Preservar el contrato del render sin exponer la tabla privada profiles.
+  const members=(mem||[]).map(m=>({
+    role:m.role,
+    profiles:{ username:m.username },
+    team_roles:m.role_name ? { name:m.role_name, color:m.role_color } : null
+  }));
+  return { t, works: works || [], mem: members, next: next?.[0] || null };
 }
 
 // Diseño con el tema de temporada aplicado (si hay uno vigente). sim = clave para simular en la vista previa.

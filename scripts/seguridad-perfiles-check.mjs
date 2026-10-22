@@ -1,0 +1,58 @@
+// SEG-02: contratos de aislamiento. Sin credenciales ni acceso a datos reales.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const additive=readFileSync('supabase/migrations/20261022055000_secure_reader_profiles.sql','utf8');
+const gate=readFileSync('supabase/release-gates/SEG02_FINAL_LOCK_PROFILES.sql','utf8');
+const sql=additive+'\n'+gate;
+assert.match(additive,/GRANT UPDATE \(patron_wall\) ON TABLE public\.profiles TO authenticated;/i,'muro Patreon exige permiso de dueño en fase A');
+// A: toda RPC necesaria debe existir ANTES de desplegar el frontend.
+// C: jamás quitar SELECT público en migración automática (rompería clientes viejos).
+assert.doesNotMatch(additive,/REVOKE ALL PRIVILEGES ON TABLE public\.profiles/i,'fase A no debe bloquear frontend antiguo');
+assert.doesNotMatch(additive,/DROP POLICY IF EXISTS "profiles read"/i,'fase A conserva política legacy hasta cambiar clientes');
+assert.match(gate,/REVOKE ALL PRIVILEGES ON TABLE public\.profiles/i,'cierre final RLS separado y supervisado');
+assert.match(gate,/to_regprocedure\('public\.studio_profile_names\(uuid\[\]\)'\)/i,'preflight exige nuevas RPC');
+assert.match(additive,/CREATE OR REPLACE FUNCTION public\.studio_profile_names/i,'RPC lista antes del cierre');
+assert.match(additive,/CREATE OR REPLACE FUNCTION public\.team_public_members/i,'RPC equipos antes del cierre');
+assert.match(additive,/CREATE OR REPLACE FUNCTION public\.comment_public_authors/i,'RPC comentarios antes del cierre');
+const studio=readFileSync('src/studio.js','utf8');
+const app=readFileSync('src/app.js','utf8');
+const profile=readFileSync('src/profile.js','utf8');
+const teamPage=readFileSync('src/teampage.js','utf8');
+const adminPage=readFileSync('src/admin.js','utf8');
+const readerPage=readFileSync('src/reader.js','utf8');
+function requireSQL(pattern,description){assert.match(sql,pattern,description)}
+requireSQL(/REVOKE ALL PRIVILEGES ON TABLE public\.profiles FROM anon, authenticated;/i,'retirar SELECT, INSERT, DELETE y MAINTAIN');
+requireSQL(/GRANT UPDATE \(username, avatar_url, discord_id, telegram_id, adult_ok,[\s\S]*?hidden_series, notify, ui_prefs, patron_wall\)/i,'retener solo edición autorizada');
+requireSQL(/GRANT SELECT \(id\) ON TABLE public\.profiles TO authenticated;/i,'UPDATE conserva lectura mínima id');
+requireSQL(/DROP POLICY IF EXISTS "profiles read" ON public\.profiles;/i,'eliminar RLS público permisivo');
+requireSQL(/CREATE POLICY "profiles self read" ON public\.profiles[\s\S]*?FOR SELECT TO authenticated[\s\S]*?USING \(id = \(SELECT auth\.uid\(\)\)\)/i,'RLS propietario');
+requireSQL(/CREATE OR REPLACE FUNCTION public\.studio_profile_names\(p_ids uuid\[\]\)[\s\S]*?private\.is_admin\(\)[\s\S]*?FROM public\.team_members viewer[\s\S]*?viewer\.user_id = \(SELECT auth\.uid\(\)\)/i,'RPC equipo/administrador');
+for (const needle of ['public.team_members colleague','public.team_log l','public.team_design_versions d','public.comments cm','public.reports r','public.chapter_revisions cr']) assert(sql.includes(needle),'No romper identidades de colaboradores, comentarios, erratas e historial: '+needle);
+requireSQL(/REVOKE ALL ON FUNCTION public\.studio_profile_names\(uuid\[\]\) FROM PUBLIC, anon;/i,'RPC de equipo no expuesto anon');
+requireSQL(/CREATE OR REPLACE FUNCTION public\.reader_stats\([\s\S]*?pr\.public_activity[\s\S]*?pr\.delete_requested_at is null[\s\S]*?pr\.profile_visibility = 'all'[\s\S]*?pr\.profile_visibility = 'auth'[\s\S]*?user_blocks b/i,'estadísticas privadas o bloqueadas inaccesibles');
+requireSQL(/CREATE OR REPLACE FUNCTION public\.search_readers\([\s\S]*?is_anonymous/i,'buscar solo usuarios registrados');
+requireSQL(/CREATE OR REPLACE FUNCTION private\.reader_public_core\([\s\S]*?is_anonymous/i,'carnet solo usuarios registrados');
+for(const name of ['export_my_data','deletion_preview','request_account_deletion','cancel_account_deletion','favorite_candidates','patreon_unlink','patreon_begin','patreon_disconnect','admin_review_queue','admin_review_resolve']){
+ assert(sql.includes('REVOKE EXECUTE ON FUNCTION public.'+name+'('),'falta cierre del RPC '+name);
+ assert(sql.includes('GRANT EXECUTE ON FUNCTION public.'+name+'('),'falta acceso de autenticados al RPC '+name);
+}
+requireSQL(/CREATE OR REPLACE FUNCTION public\.team_public_members\(p_team uuid\)[\s\S]*?public\.team_members m[\s\S]*?public\.profiles p[\s\S]*?show_members/i,'miembros públicos respetan ajustes de equipo');
+requireSQL(/GRANT EXECUTE ON FUNCTION public\.team_public_members\(uuid\) TO anon, authenticated;/i,'lista pública de equipos mantiene acceso público');
+assert.match(teamPage,/sb\.rpc\('team_public_members',\s*\{\s*p_team:/,'página de equipo usa RPC limitada');
+assert.doesNotMatch(teamPage,/team_members'\)\.select\('role,profiles\(/,'no acceder a perfiles desde el join público');
+assert.match(adminPage,/sb\.rpc\('studio_profile_names',\s*\{\s*p_ids:/,'admin consulta nombres por RPC');
+requireSQL(/CREATE OR REPLACE FUNCTION public\.comment_public_authors\(p_chapter uuid\)[\s\S]*?public\.comments cm[\s\S]*?public\.profiles p[\s\S]*?cm\.chapter_id = p_chapter/i,'identidad de autores restringida a capítulo');
+requireSQL(/GRANT EXECUTE ON FUNCTION public\.comment_public_authors\(uuid\) TO anon, authenticated;/i,'el lector público puede mostrar autores');
+assert.match(readerPage,/sb\.rpc\('comment_public_authors',\s*\{\s*p_chapter:/,'comentarios usan RPC');
+assert.doesNotMatch(readerPage,/comments'\)\.select\([^\n]*profiles\(/,'comentarios no exponen profiles mediante JOIN');
+
+assert.doesNotMatch(adminPage,/profiles!translator_requests_user_id_fkey/,'admin evita join a datos privados');
+assert.match(studio,/sb\.rpc\('studio_profile_names',\s*\{\s*p_ids:/,'Estudio usa RPC');
+assert.doesNotMatch(studio,/sb\.from\('profiles'\)\.select\(/,'Estudio no debe leer tabla de perfiles');
+assert.match(app,/sb\.rpc\('my_profile'\)/,'perfil autenticado utiliza my_profile');
+assert.match(profile,/sb\.rpc\('reader_public'/,'carnet utiliza reader_public');
+assert.match(profile,/sb\.rpc\('my_profile'\)/,'Preferencias utiliza my_profile');
+assert.match(sql,/\bBEGIN;/,'migración transaccional');
+assert.match(sql,/\bCOMMIT;/,'migración transaccional');
+console.log('SEG-02 OK · permisos mínimos, visibilidad real, sesión anónima y colaboradores');

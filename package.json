@@ -27,7 +27,9 @@
     "preferencias-fase1-check": "node scripts/preferencias-fase1-check.mjs",
     "preferencias-fase2-check": "node scripts/preferencias-fase2-check.mjs",
     "preferencias-fase2-browser": "node scripts/preferencias-fase2-browser.mjs",
-    "preferencias-fase3-check": "node scripts/preferencias-fase3-check.mjs"
+    "preferencias-fase3-check": "node scripts/preferencias-fase3-check.mjs",
+    "preferencias-fase4-browser": "node scripts/preferencias-fase4-browser.mjs",
+    "seguridad-perfiles-check": "node scripts/seguridad-perfiles-check.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",

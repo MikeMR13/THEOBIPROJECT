@@ -1,5 +1,10 @@
 name: ci
 on: [push, pull_request]
+# Un único CI por rama: evita que 3 PRs del mismo SHA ejecuten Chromium
+# simultáneamente y compitan por CPU. Nunca silencia aserciones funcionales.
+concurrency:
+  group: ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -56,6 +61,8 @@ jobs:
         run: npm run preferencias-fase2-check && npm run preferencias-fase2-browser
       - name: Preferencias fase 3 — vista previa de lector, privacidad y avisos
         run: npm run preferencias-fase3-check
+      - name: Preferencias fase 4 — sesión simulada, guardado, navegación y responsive
+        run: npm run preferencias-fase4-browser
       - name: Fase 6.2 temporadas y preferencias (funciones reales)
         run: node scripts/phase6-seasons-preferences-check.mjs
       - name: Fase 6.3 Studio, permisos y enlaces de borrador
@@ -78,3 +85,5 @@ jobs:
         run: node scripts/phase7-platform-compat-check.mjs
       - name: SEG-01 privacidad de perfiles e identidades unificadas
         run: node scripts/privacy-identity-compat-check.mjs
+      - name: SEG-02 permisos mínimos, visibilidad y RPC seguros
+        run: npm run seguridad-perfiles-check
