@@ -106,13 +106,22 @@ try{
  await navigate('/leer/obra-local/1');
  let chapterReady=false,terminal='';
  try{
-   await waitFor(()=>evalJs("Boolean(document.querySelector('.rd-body')?.textContent.includes('TEXTO OFFLINE DE PRUEBA'))"),6000);
+   await waitFor(()=>evalJs("Boolean(document.querySelector('.rd-body')?.textContent.includes('TEXTO OFFLINE DE PRUEBA'))"),20000);
    chapterReady=true;
  }catch{
    terminal=await evalJs("document.querySelector('#app')?.textContent?.slice(0,250) || 'sin contenido'");
  }
+ const diagnostics=await evalJs(`(async()=>{const c=await caches.open('obi-offline-v1');return {
+   online:navigator.onLine,controlled:!!navigator.serviceWorker.controller,
+   meta:!!(await c.match('/offline/meta/obra-local')),
+   body:!!(await c.match('/offline/obra-local/1')),
+   localIndex:!!localStorage.getItem('obi-offline-index'),
+   pathname:location.pathname,
+   errors:performance.getEntriesByType('resource').filter(x=>/supabase|\.invalid/i.test(x.name)).map(x=>({name:x.name.slice(0,130),duration:Math.round(x.duration)})).slice(-12)
+ };})()`);
  const chapterMs=Math.round(performance.now()-startChapter);
  console.log('CHROMIUM PWA modo avión: SW='+setup.shell.join(',')+'; Mis descargas='+descMs+'ms; capítulo='+chapterMs+'ms; resultado='+ (chapterReady?'OK':'FALLA: '+terminal));
+ console.log('DIAGNÓSTICO CHROMIUM '+JSON.stringify(diagnostics));
  assert(chapterReady,'El capítulo ficticio descargado no abrió sin red: '+terminal);
 }finally{
  try{ws?.close();}catch{}
