@@ -223,12 +223,20 @@ const CSS = `
 .lc-public-card{display:grid;grid-template-rows:auto auto;min-height:0;align-items:stretch;overflow:visible;background:#16130f}
 .lc-public-card .lc-cover-stage{height:clamp(172px,22vw,280px);position:relative;overflow:hidden;background:#0d0c0a}
 .lc-public-card .lc-cover-stage .lc-bg{opacity:.82}
-.lc-public-card .lc-cover-stage.is-user-banner .lc-bg{background-size:contain;background-position:center;background-repeat:no-repeat;background-color:#0d0c0a;opacity:1}
+/* Mantener el logotipo entero sin franjas negras: ambiente extendido y logo nítido. */
+.lc-public-card .lc-cover-stage.is-user-banner .lc-bg{background-size:0 0;background-position:center;background-repeat:no-repeat;background-color:#0d0c0a;opacity:1;isolation:isolate}
+.lc-public-card .lc-cover-stage.is-user-banner .lc-bg::before,
+.lc-public-card .lc-cover-stage.is-user-banner .lc-bg::after{content:"";position:absolute;inset:0;background-image:inherit;background-position:center;background-repeat:no-repeat;pointer-events:none}
+.lc-public-card .lc-cover-stage.is-user-banner .lc-bg::before{background-size:cover;filter:blur(26px) brightness(.42);transform:scale(1.12)}
+.lc-public-card .lc-cover-stage.is-user-banner .lc-bg::after{background-size:contain;filter:drop-shadow(0 3px 9px rgba(0,0,0,.6))}
 .lc-public-card .lc-cover-stage .lc-sh{background:linear-gradient(180deg,transparent 65%,rgba(13,12,10,.28) 100%)}
 .lc-public-card .lc-in{display:flex;align-items:flex-start;flex-wrap:wrap;gap:16px 22px;background:#16130f;padding:0 clamp(16px,3vw,30px) clamp(20px,3vw,30px)}
 .lc-public-card .lc-av{position:relative;z-index:2;width:96px;height:96px;font-size:38px;margin-top:-40px;box-shadow:0 5px 16px rgba(0,0,0,.4);background:#211c13}
 .lc-public-card .lc-tx{padding-top:17px;flex:1 1 230px;gap:10px}
 .lc-public-card .lc-tx h1{font-size:clamp(26px,3.3vw,44px);line-height:1.12}
+.lc-public-card .lc-name-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;min-width:0}
+.lc-public-card .lc-name-row h1{min-width:0;max-width:100%;flex:0 1 auto}
+.lc-public-card .lc-name-row .lc-seal-pop{flex:none;max-width:100%}
 .lc-public-card .lc-tx p{font-size:15px;max-width:70ch}
 .lc-public-card .lc-seal-pop{position:relative;top:auto;right:auto;display:inline-flex;align-items:center;justify-items:start;justify-content:flex-start;gap:10px;width:fit-content;max-width:100%;z-index:5}
 .lc-public-card .lc-seal-pop details{display:block;flex:none}
@@ -328,7 +336,7 @@ export async function publicProfile(C, name, opt = {}){
       <div class="lc-in">
         <span class="lc-av">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase())}</span>
         <div class="lc-tx"><span class="k">CARNET DE LECTOR · 読者証${r.since ? ' · DESDE ' + new Date(r.since).toLocaleDateString('es-MX', { month: 'short', year: 'numeric' }).toUpperCase() : ''}</span>
-          <h1>${esc(r.username)}</h1>${sealMarkup(r.kanji, esc)}${r.bio ? `<p>${esc(r.bio)}</p>` : ''}
+          <div class="lc-name-row"><h1>${esc(r.username)}</h1>${sealMarkup(r.kanji, esc)}</div>${r.bio ? `<p>${esc(r.bio)}</p>` : ''}
           ${r.links?.length ? `<div class="lc-ln">${r.links.filter(l => ICON[l.k]).map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener nofollow ugc">${svg(l.k)}${ICON[l.k][0]}</a>`).join('')}</div>` : ''}
         </div>
         ${seals.length ? `<div class="lc-se">${seals.map(([k, t]) => `<span title="${t}" aria-label="${t}">${k}</span>`).join('')}</div>` : ''}
@@ -791,8 +799,8 @@ export async function preferences(C){
       "</div></section>" : "";
     return "<div class='lc lc-public' style='--ac:" + esc(D.accent) + "'><section class='lc-card lc-public-card'><div class='lc-cover-stage " + (D.banner ? "is-user-banner" : "is-collage") + "'>" + bg +
       "<div class='lc-sh'></div></div><div class='lc-in'><span class='lc-av' aria-hidden='true'>" + avatar +
-      "</span><div class='lc-tx'><span class='k'>CARNET DE LECTOR · 読者証</span><h1>" + esc(P.username || 'Lector') +
-      "</h1>" + stamp + bio + links + "</div></div></section>" + covers + "</div>";
+      "</span><div class='lc-tx'><span class='k'>CARNET DE LECTOR · 読者証</span><div class='lc-name-row'><h1>" + esc(P.username || 'Lector') +
+      "</h1>" + stamp + "</div>" + bio + links + "</div></div></section>" + covers + "</div>";
   };
   let sealQuery = '', sealCategory = 'Todas', sealCustom = !!D.kanji && !SEAL_LOOKUP.has(D.kanji);
   const normalizeSeal = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
