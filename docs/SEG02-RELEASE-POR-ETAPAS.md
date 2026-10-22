@@ -1,6 +1,11 @@
 # SEG-02 — Publicación por etapas sin romper lectores existentes
 
-**Estado de la rama:** candidato de GitHub, sin modificaciones sobre Supabase/Vercel de producción.
+**Estado de publicación al 22/10/2026:** **FASE A APLICADA EN SUPABASE PRODUCCIÓN** y validada. Histórico de Supabase: `20261022152232_seg02_phase_a_additive_profiles_20261022` (versión `20261022152232`). Fuente exacta aplicada: `supabase/migrations/20261022055000_secure_reader_profiles.sql` (SHA blob `c1c4be0fd7b29dbe57e856c8788259d5c5313221`; el nombre físico del archivo en GitHub difiere del nombre registrado por la herramienta de migraciones). La Fase B (frontend) y la C (revocación final) **NO están aplicadas**, Vercel y `main` sin cambios.
+
+**Post-verificación productiva:** las tres RPC nuevas existen, `anon` puede usar las públicas de equipos y comentarios pero no `studio_profile_names`; las diez RPC privadas ya no son ejecutables por `anon` y sí por `authenticated`/`service_role`. Siguen presentes `profiles read USING(true)`, la lectura heredada de `profiles`, el `UPDATE` de `notify` y los privilegios de Patreon de `service_role`; se añadió `UPDATE(patron_wall)` limitado por RLS propietario. Las comprobaciones en transacciones de solo lectura ejecutadas como `anon` y `authenticated` aprobaron. Se solicitó la recarga de esquema de PostgREST (`NOTIFY pgrst`). **No se accedió a datos de lectores reales en la validación**.
+
+**Advertencia:** los campos privados de `profiles` continúan expuestos a lectura por el permiso legado hasta Fase C. No equivale a cerrar el hallazgo de privacidad. La etapa B debe validarse primero y la etapa C necesita plan para clientes/PWA antiguos.
+
 
 ## Principio de compatibilidad
 
