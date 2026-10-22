@@ -34,7 +34,7 @@ must(admin, /p_owner:\s*\$\('#to'\)\.value\.trim\(\)/, 'El frontend no pasa prop
 must(admin, /Object\.entries\(TROLE\)\.filter\(\(\[k\]\) => k !== 'owner'\)/, 'El selector permite asignar propietario sin transferencia');
 must(admin, /p_reason: reason/g, 'El frontend no incluye motivos administrativos');
 must(admin, /rpc\('admin_verify_team', \{ p_team: id, p_verified: verified, p_reason: reason\.trim\(\) \}\)/, 'Mostrador sin RPC de verificacion');
-assert.equal((admin.match(/p_reason: reason/g) || []).length, 2, 'Ambas operaciones de miembros deben incluir motivo');
+assert.equal((admin.match(/p_reason: reason/g) || []).length, 3, 'Las tres operaciones administrativas deben incluir motivo');
 
 console.log('OK: sintaxis del Mostrador y contratos estructurales de la migracion.');
 console.log('PENDIENTE: aplicar y ensayar en Supabase aislado; sin pruebas RLS reales NO desplegar.');
