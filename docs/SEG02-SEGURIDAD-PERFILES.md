@@ -9,10 +9,11 @@ Migración: `supabase/migrations/20261022055000_secure_reader_profiles.sql`.
 1. Retira de `anon` y `authenticated` los privilegios amplios de tabla sobre `profiles` (incluidos SELECT, INSERT, DELETE y MAINTAIN). Solo restituye `SELECT(id)` para cuentas autenticadas y `UPDATE` sobre las 21 columnas que anteriormente estaban explícitamente permitidas. No concede escritura de roles, membresías de donación ni identificadores internos.
 2. Elimina la política `profiles read USING (true)` y la reemplaza por `profiles self read` limitada a `id = auth.uid()`. Conserva las políticas de actualización propia y administración.
 3. Los datos propios se siguen obteniendo mediante `my_profile()`, ya protegido por identificación del usuario. El carnet público se sigue sirviendo por `reader_public()`.
-4. El Estudio deja de leer nombres directamente desde `profiles`. El nuevo RPC `studio_profile_names(uuid[])` solo admite usuarios autenticados y permite nombres del propietario, personal administrador o integrantes de un equipo en común. No concede SELECT directo.
-5. `reader_stats(uuid)` deja de publicar actividad de perfiles `none`, de perfiles `auth` a visitantes (incluidas sesiones anónimas de Supabase), de perfiles en eliminación y de usuarios bloqueados. El propio lector puede consultar sus estadísticas.
-6. `search_readers` y `private.reader_public_core` ya no equiparan una sesión anónima de Supabase con una cuenta registrada.
-7. Los RPC relacionados con exportación, eliminación de cuenta, favoritos, vinculación de Patreon y administración dejan de poder ejecutarse desde `anon`; se conserva `EXECUTE` para `authenticated`. Las funciones de lectura pública del catálogo continúan accesibles.
+4. El Estudio deja de leer nombres directamente desde `profiles`. El nuevo RPC `studio_profile_names(uuid[])` solo admite usuarios autenticados y permite nombres del propietario, personal administrador y personas relacionadas con un equipo: integrantes, autores de comentarios o erratas, colaboradores asignados, actores de bitácora, revisores de capítulos y autores de diseños. No concede SELECT directo.
+5. El carnet público de equipos usa `team_public_members(uuid)` en lugar de la relación `team_members → profiles`, y entrega únicamente nombre, rol y color del rol cuando la visibilidad de integrantes está activada. La administración de solicitudes obtiene nombres con `studio_profile_names` en lotes de hasta 100 identificadores. Los comentarios del lector usan `comment_public_authors(uuid)` en lugar del join `comments → profiles`, sin acceder a preferencias privadas.
+6. `reader_stats(uuid)` deja de publicar actividad de perfiles `none`, de perfiles `auth` a visitantes (incluidas sesiones anónimas de Supabase), de perfiles en eliminación y de usuarios bloqueados. El propio lector puede consultar sus estadísticas.
+7. `search_readers` y `private.reader_public_core` ya no equiparan una sesión anónima de Supabase con una cuenta registrada.
+8. Los RPC relacionados con exportación, eliminación de cuenta, favoritos, vinculación de Patreon y administración dejan de poder ejecutarse desde `anon`; se conserva `EXECUTE` para `authenticated`. Las funciones de lectura pública del catálogo continúan accesibles.
 
 ## Pruebas automatizadas
 
@@ -50,3 +51,9 @@ Migración: `supabase/migrations/20261022055000_secure_reader_profiles.sql`.
 ### Límites de esta intervención
 
 La migración de seguridad aún no se ejecutó en ningún backend (el actual es productivo). Las pruebas estáticas verifican los contratos, no sustituyen las pruebas de permiso en PostgreSQL con sesión real. El análisis completo de todas las funciones privilegiadas y otros componentes fuera de perfiles sigue siendo una tarea de seguridad independiente; estos cambios atienden los hallazgos críticos concretos de Privacidad de Lectores y sus RPC relacionadas.
+
+## Compatibilidad adicional verificada estáticamente
+
+La primera revisión detectó cuatro dependencias directas de `profiles` en el frontend que debían migrarse juntas, ya que revocar SELECT sin ellas hubiera roto pantallas existentes: (1) nombres de Estudio, (2) peticiones de traductores en Administración, (3) integrantes de páginas de equipos, (4) autores de comentarios del lector. Se sustituyeron por funciones con respuesta mínima y validaciones de acceso.
+
+Las consultas SQL de las tres funciones nuevas fueron comprobadas contra el planificador de la base de producción mediante `EXPLAIN` sin ejecutarlas ni modificar registros. Eso demuestra que las tablas y columnas referenciadas existen y que las expresiones se pueden planificar; **no demuestra permisos efectivos ni comportamiento de RLS tras la migración**. También se inspeccionó el caso de `private.team_heir`, llamado desde funciones SECURITY DEFINER.
