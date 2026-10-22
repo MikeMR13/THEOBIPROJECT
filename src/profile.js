@@ -792,7 +792,7 @@ export async function preferences(C){
     const updateSealPanel = () => {
       const choices = $('#seal-results'); if (choices) choices.innerHTML = sealChoices();
       const info = $('#seal-selected'); if (info) info.innerHTML = sealSelected();
-      $('[data-seal-pick]').forEach(b => b.onclick = () => {
+      app.querySelectorAll('[data-seal-pick]').forEach(b => b.onclick = () => {
         D.kanji = b.dataset.sealPick; sealCustom = false; mark(); draw();
         app.querySelector('[data-seal-pick="' + D.kanji + '"]')?.focus({ preventScroll: true });
       });
