@@ -192,8 +192,11 @@ try{
  const coverStage=publicCard?.querySelector('.lc-cover-stage');
  const coverBg=coverStage?.querySelector('.lc-bg');
  check(!!publicCard&&!!coverStage,'No se encontró la cabecera editorial pública');
- check(!!coverBg&&getComputedStyle(coverBg,'::before').backgroundSize==='cover','La portada no rellena el fondo');
- check(!!coverBg&&getComputedStyle(coverBg,'::after').backgroundSize==='contain','El logotipo se está recortando');
+ check(!!coverBg&&getComputedStyle(coverBg).backgroundSize==='cover','La portada no ocupa toda la superficie');
+ check(!!coverBg&&getComputedStyle(coverBg).backgroundImage!=='none','No se está mostrando la portada original');
+ check(!!coverBg&&['none','normal'].includes(getComputedStyle(coverBg,'::before').content),'Quedó una capa añadida a la portada');
+ check(!!coverBg&&['none','normal'].includes(getComputedStyle(coverBg,'::after').content),'Quedó un fondo superpuesto');
+ check(!!coverStage&&!coverStage.querySelector('.lc-sh:not([style])')?.getBoundingClientRect().height,'La portada conserva una capa de sombra');
  const nameRow=publicCard.querySelector('.lc-name-row');
  check(!!nameRow&&nameRow.querySelector('h1')?.nextElementSibling?.classList.contains('lc-seal-pop'),'El sello no está inmediatamente después del nombre');
  if(nameRow&&innerWidth>=1200){
