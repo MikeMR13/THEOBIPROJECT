@@ -54,6 +54,8 @@ jobs:
         run: npm run preferencias-fase1-check
       - name: Preferencias fase 2 — navegación y accesibilidad
         run: npm run preferencias-fase2-check && npm run preferencias-fase2-browser
+      - name: Preferencias fase 3 — vista previa de lector, privacidad y avisos
+        run: npm run preferencias-fase3-check
       - name: Fase 6.2 temporadas y preferencias (funciones reales)
         run: node scripts/phase6-seasons-preferences-check.mjs
       - name: Fase 6.3 Studio, permisos y enlaces de borrador
