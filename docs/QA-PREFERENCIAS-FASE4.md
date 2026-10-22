@@ -32,6 +32,12 @@ Se ejecutan sin credenciales reales, con datos ficticios y sin llamadas externas
 
 **Importante:** una cuenta inventada en el navegador y una respuesta mock no demuestran que Supabase RLS, las funciones SQL, OAuth ni el correo real funcionen contra un servicio remoto.
 
+## Incidencia detectada y corregida
+
+La validación de dos identidades detectó que la configuración de Accesibilidad podía heredarse de la sesión anterior cuando el nuevo perfil tenía `ui_prefs` vacío. Se corrigió la inicialización de Preferencias para utilizar exclusivamente `P.ui_prefs` y se añadió el restablecimiento de `window.obiSetUI({})` al cargar una cuenta sin ajustes (también en la sesión local sin conexión). El caso se comprueba en Chromium, y se adaptó el mock offline de CI.
+
+El restablecimiento visual no sustituye el ejercicio de dos cuentas reales y el control de acceso del servidor.
+
 ## Bloqueos antes de producción
 
 Pendiente de ejecutar con **cuentas de prueba autorizadas** en un **backend Supabase aislado de producción**:
