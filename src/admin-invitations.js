@@ -14,23 +14,32 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
 
   const teams = teamsResult.data || [];
   const invites = invitesResult.data || [];
-  const roleLabels = { admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
+  const roleLabels = { owner: 'Propietario · administrador del equipo', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
   const statusLabels = { pendiente: 'Pendiente', utilizada: 'Utilizada', revocada: 'Revocada', caducada: 'Caducada' };
   target.innerHTML = `<div class="bb-secintro"><div><h2>Invitaciones a equipos traductores</h2><p>Enlaces privados, de un solo uso y vinculados al correo del destinatario.</p></div><span class="bb-status warn">ACCESO CONTROLADO</span></div>
     <section class="bb-box">
       <h3>Crear invitación</h3>
-      <p class="mono" style="font-size:12px;line-height:1.65">El invitado deberá iniciar sesión o registrarse con el correo indicado. Al aceptar recibirá el rol elegido <b>solo dentro del equipo</b>, nunca el de Bibliotecario.</p>
+      <p class="mono" style="font-size:12px;line-height:1.65">Puedes invitar a un nuevo responsable para <b>crear su propio equipo</b>, o agregar a alguien a un equipo existente. La invitación exige iniciar sesión y verificar el correo.</p>
       <form id="inv-form" class="bb-row" style="align-items:end">
-        <label>Equipo existente<select name="team" required>${teams.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select></label>
+        <label>Tipo de invitación<select name="kind">
+          <option value="create_team">Crear un equipo nuevo · Propietario</option>
+          <option value="join">Unirse a equipo existente</option>
+        </select></label>
+        <label id="inv-team-wrap" hidden>Equipo existente<select name="team">
+          ${teams.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}
+        </select></label>
+        <label id="inv-new-name-wrap">Nombre del nuevo equipo<input name="newName" minlength="2" maxlength="60" required placeholder="Nombre del grupo traductor"></label>
+        <label id="inv-new-slug-wrap">Identificador del equipo<input name="newSlug" minlength="3" maxlength="40" pattern="[a-z0-9][a-z0-9-]{1,38}[a-z0-9]" required placeholder="equipo-traductor"></label>
+        <div id="inv-owner-role" class="bb-super-note" style="flex:1 1 100%;margin:0">El invitado será <b>Propietario y administrador interno</b> de su nuevo equipo. No recibirá el rol de Bibliotecario.</div>
         <label>Correo del invitado<input name="email" type="email" autocomplete="off" maxlength="254" required placeholder="traductor@ejemplo.com"></label>
-        <label>Rol<select name="role" required>
+        <label id="inv-role-wrap" hidden>Rol dentro del equipo<select name="role">
           ${Object.entries(roleLabels).map(([k,n]) => `<option value="${k}" ${k === 'admin' ? 'selected' : ''}>${n}</option>`).join('')}
         </select></label>
         <label>Caducidad<select name="hours">
           <option value="24">24 horas</option><option value="48" selected>48 horas</option>
           <option value="168">7 días</option></select></label>
         <label style="flex-basis:100%">Motivo administrativo<input name="reason" minlength="12" maxlength="400" required placeholder="Explica por qué se invita a esta persona"></label>
-        <button type="submit" class="btn" ${teams.length ? '' : 'disabled'}>Crear enlace único</button>
+        <button type="submit" class="btn">Crear enlace único</button>
       </form>
       <div id="inv-created" hidden aria-live="polite"></div>
       <p class="mono" style="font-size:11px;margin:0">No se podrá recuperar el enlace completo desde la lista. Si se pierde, revoca la invitación y crea otra.</p>
@@ -40,7 +49,7 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
         <thead><tr><th>Invitado</th><th>Equipo</th><th>Rol</th><th>Estado</th><th>Caduca</th><th>Gestión</th></tr></thead>
         <tbody>${invites.map(i => `<tr>
           <td class="mono">${esc(i.invite_email)}</td><td>${esc(i.team_name)}</td>
-          <td>${esc(roleLabels[i.invited_role] || i.invited_role)}</td>
+          <td>${esc(roleLabels[i.invited_role] || i.invited_role)}${i.invitation_kind === 'create_team' ? '<small style="display:block;color:var(--gold)">Equipo nuevo</small>' : ''}</td>
           <td><span class="bb-status ${i.status === 'pendiente' ? 'warn' : i.status === 'utilizada' ? 'ok':''}">${esc(statusLabels[i.status] || i.status)}</span></td>
           <td class="mono">${esc(when(i.expires_at))}</td>
           <td>${i.status === 'pendiente' ? `<button class="bb-mini red" type="button" data-revoke="${esc(i.id)}">Revocar</button>` : '—'}</td>
@@ -49,18 +58,45 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
     </section>`;
 
   const form = target.querySelector('#inv-form'), created = target.querySelector('#inv-created');
+  const syncMode = () => {
+    const create = form.elements.kind.value === 'create_team';
+    target.querySelector('#inv-team-wrap').hidden = create;
+    target.querySelector('#inv-new-name-wrap').hidden = !create;
+    target.querySelector('#inv-new-slug-wrap').hidden = !create;
+    target.querySelector('#inv-role-wrap').hidden = create;
+    target.querySelector('#inv-owner-role').hidden = !create;
+    form.elements.newName.required = create;
+    form.elements.newSlug.required = create;
+    form.elements.team.required = !create;
+    if (!create && teams.length === 0) {
+      form.querySelector('[type=submit]').disabled = true;
+    } else {
+      form.querySelector('[type=submit]').disabled = false;
+    }
+  };
+  form.elements.kind.onchange = syncMode;
+  syncMode();
   form.onsubmit = async event => {
     event.preventDefault();
     if (!form.reportValidity()) return;
-    const team = form.elements.team.value, email = form.elements.email.value.trim(),
-      role = form.elements.role.value, hours = Number(form.elements.hours.value),
+    const kind = form.elements.kind.value, create = kind === 'create_team',
+      team = create ? null : form.elements.team.value,
+      newName = create ? form.elements.newName.value.trim() : null,
+      newSlug = create ? form.elements.newSlug.value.trim() : null,
+      email = form.elements.email.value.trim(),
+      role = create ? 'owner' : form.elements.role.value,
+      hours = Number(form.elements.hours.value),
       reason = form.elements.reason.value.trim();
     if (reason.length < 12) return toast('Escribe un motivo de al menos 12 caracteres');
-    if (role === 'admin' && !confirm('La persona podrá administrar este equipo y sus publicaciones, pero no será Bibliotecario ni Propietario. ¿Continuar?')) return;
+    if (create && !/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(newSlug))
+      return toast('El identificador admite 3-40 caracteres: minúsculas, números y guiones');
+    if (create && !confirm('Se creará «' + newName + '» cuando ' + email + ' acepte la invitación. Será Propietario y Administrador interno del equipo. ¿Continuar?')) return;
+    if (!create && role === 'admin' && !confirm('Esta persona administrará el equipo seleccionado, sin ser Bibliotecario ni Propietario. ¿Continuar?')) return;
     const button = form.querySelector('[type=submit]'); button.disabled = true;
     try {
       const invitation = await rpc('admin_invitation_create',
-        { p_team: team, p_email: email, p_role: role, p_hours: hours, p_reason: reason });
+        { p_team: team, p_email: email, p_role: role, p_hours: hours, p_reason: reason,
+          p_kind: kind, p_new_team_name: newName, p_new_team_slug: newSlug });
       const link = location.origin + '/invitacion#token=' + encodeURIComponent(invitation.token);
       created.hidden = false;
       created.innerHTML = `<div class="bb-super-note"><b>Invitación creada para ${esc(email)}</b><br>
@@ -77,8 +113,9 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
         }
       };
       form.reset();
-      const id = target.querySelector('#inv-form')?.elements.team;
-      if (id) id.value = team;
+      form.elements.kind.value = kind;
+      if (!create) form.elements.team.value = team;
+      syncMode();
       // La creación no oculta el enlace recién generado; actualiza la lista solo al volver.
       toast('Invitación creada');
     } catch (err) {
