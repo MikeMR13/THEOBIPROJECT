@@ -13,7 +13,7 @@ let user = null, profile = null, me = null;
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
 let LG; const lg = async () => LG ||= await import('/legal.js?v=1');
 let PF; const pf = async () => PF ||= await import('/profile.js?v=10');
-const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
+const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, email: user.email, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
 let ST; const st = async () => ST ||= (await import('/studio.js?v=39')).createStudio(CTX());
 let AG; const ag = async () => AG ||= await import('/agenda.js?v=1');
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=10')).createAdmin(CTX());
@@ -39,6 +39,19 @@ const RL = { bibliotecario: 'Bibliotecario', publicador: 'Publicador', lector: '
 // perfil y whoami llegan en paralelo y actualizan la barra. meReady avisa cuándo `me` es definitivo.
 let meReady = Promise.resolve(), lastBar = '';
 async function loadSession(){
+// La identidad de la última sesión verificada solo sirve para preferencias y lectura
+// local en modo avión. Al recuperar internet se valida la sesión real de Supabase.
+if (!navigator.onLine) {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('obi-me') || 'null'); } catch {}
+  user = saved?.id ? { id: saved.id, email: saved.email || 'Cuenta sin conexión' } : null;
+  profile = user ? saved.profile || null : null;
+  me = user ? saved.me || null : null;
+  meReady = Promise.resolve();
+  if (!user) window.obiSetBlocks([]);
+  drawSession();
+  return;
+}
 const { data } = await sb.auth.getSession(); user = data.session?.user || null;
 if (!user) { profile = me = null; window.obiSetBlocks([]); drawSession(); meReady = Promise.resolve(); return; }
 try { const c = JSON.parse(localStorage.getItem('obi-me') || 'null'); if (c?.id === user.id) ({ profile, me } = c); else profile = me = null; } catch {}
@@ -48,7 +61,7 @@ meReady = Promise.all([sb.rpc('my_profile'), sb.rpc('whoami')]).then(([p, w]) =>
   if (user?.id !== uid) return; profile = p.data; me = w.data || null;
   if (profile?.ui_prefs && Object.keys(profile.ui_prefs).length) window.obiSetUI(profile.ui_prefs);
   sb.rpc('my_blocks').then(({ data }) => { if (user?.id === uid && Array.isArray(data)) window.obiSetBlocks(data); });
-  try { localStorage.setItem('obi-me', JSON.stringify({ id: uid, profile, me })); } catch {}
+  try { localStorage.setItem('obi-me', JSON.stringify({ id: uid, email: user.email, profile, me })); } catch {}
   drawSession(); bell(); delBanner();
   if (profile?.needs_username && !['/elige-nombre', '/privacidad', '/condiciones-servicio'].includes(location.pathname)) go('/elige-nombre');
 }).catch(e => console.warn('perfil', e));
@@ -144,7 +157,12 @@ document.addEventListener('click', e => { document.querySelectorAll('.ob-user[op
 let PS = null; const seasons = async () => PS ||= await import('/season.js?v=4');
 addEventListener('obi-season', () => { afterRender(); });
 // Se dibuja la página sin esperar la temporada; afterRender la aplica cuando llega.
-function render(){ seasons().then(S => { S.clear(); S.load(sb); }); return render0().catch(e => { if (!navigator.onLine || /Failed to fetch|NetworkError|Load failed|network/i.test(e?.message || '')) return offlinePage(); throw e; }).then(r => { contBtn(); return afterRender(r); }); }
+function render(){
+  // En la lectura offline no iniciar cargas decorativas ni peticiones a Supabase.
+  if (navigator.onLine) seasons().then(S => { S.clear(); S.load(sb); }).catch(() => {});
+  return render0().catch(e => { if (!navigator.onLine || /Failed to fetch|NetworkError|Load failed|network/i.test(e?.message || '')) return offlinePage(); throw e; })
+    .then(r => { if (navigator.onLine) { contBtn(); return afterRender(r); } return r; });
+}
 // ---------- sin conexión ----------
 function offlinePage(){
   const on = navigator.onLine; lbCss();
@@ -159,7 +177,10 @@ function netBanner(){
   delete b.dataset.on; b.innerHTML = 'Sin conexión · <a href="/descargas">ver mis descargas</a>';
 }
 addEventListener('offline', netBanner);
-addEventListener('online', () => { netBanner(); if (user) rd().syncPending().then(n => { if (n) toast('Tu progreso sin conexión ya se guardó en tu cuenta'); }); });
+addEventListener('online', () => { netBanner();
+  // Revalidar la identidad antes de sincronizar cualquier progreso pendiente.
+  loadSession().then(() => { ui().refreshBadge(); if (user) return rd().syncPending().then(n => { if (n) toast('Tu progreso sin conexión ya se guardó en tu cuenta'); }); }).catch(e => console.warn('sesión reconectada', e));
+});
 if (!navigator.onLine) netBanner();
 let seasonApplySeq = 0;
 async function afterRender(){
@@ -447,7 +468,7 @@ let warmT = 0; const warmOn = e => { const l = e.target.closest?.('a[href^="/lee
 document.addEventListener('pointerover', warmOn, { passive: true }); document.addEventListener('touchstart', warmOn, { passive: true }); document.addEventListener('focusin', warmOn);
 addEventListener('load', () => setTimeout(() => { if (user && navigator.onLine) rd().syncPending(); }, 5000));
 let authEv = null;
-sb.auth.onAuthStateChange(ev => { if (ev !== 'INITIAL_SESSION') loadSession().then(() => ui().refreshBadge()); if (['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(ev) && authEv !== null) seasons().then(S => S.load(sb, true)).then(() => afterRender()); authEv = ev; });
+sb.auth.onAuthStateChange(ev => { if (ev !== 'INITIAL_SESSION') loadSession().then(() => ui().refreshBadge()); if (navigator.onLine && ['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(ev) && authEv !== null) seasons().then(S => S.load(sb, true)).then(() => afterRender()); authEv = ev; });
 loadSession().then(() => {
 const qs = new URLSearchParams(location.search), hash = new URLSearchParams(location.hash.slice(1));
 if (hash.get('error_description')) { history.replaceState({}, '', '/entrar'); render(); return toast(hash.get('error_description').includes('expired') ? 'El enlace expiró. Inicia sesión para recibir otro.' : hash.get('error_description')); }
