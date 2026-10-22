@@ -105,6 +105,7 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
     if (create && !/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(newSlug))
       return toast('El identificador admite 3-40 caracteres: minúsculas, números y guiones');
     if (create && !confirm('Se creará «' + newName + '» cuando ' + email + ' acepte la invitación. Será Propietario y Administrador interno del equipo. ¿Continuar?')) return;
+    if (open && !confirm('Cualquier cuenta con correo verificado podrá reclamar este enlace una sola vez. ¿Generar enlace libre?')) return;
     if (!create && role === 'admin' && !confirm('Esta persona administrará el equipo seleccionado, sin ser Bibliotecario ni Propietario. ¿Continuar?')) return;
     const button = form.querySelector('[type=submit]'); button.disabled = true;
     try {
@@ -113,8 +114,8 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
           p_kind: kind, p_new_team_name: newName, p_new_team_slug: newSlug });
       const link = location.origin + '/invitacion#token=' + encodeURIComponent(invitation.token);
       created.hidden = false;
-      created.innerHTML = `<div class="bb-super-note"><b>Invitación creada para ${esc(email)}</b><br>
-        Copia este enlace ahora. Caduca el ${esc(when(invitation.expires_at))}; solamente el correo invitado podrá aceptarlo.
+      created.innerHTML = `<div class="bb-super-note"><b>${open ? 'Enlace libre creado' : 'Invitación creada para ' + esc(email)}</b><br>
+        Copia este enlace ahora. Caduca el ${esc(when(invitation.expires_at))}; ${open ? 'la primera cuenta con correo verificado que lo acepte obtendrá acceso.' : 'solamente el correo invitado podrá aceptarlo.'}
         <div class="bb-row" style="margin:12px 0 0">
           <label>Enlace privado<input id="inv-secret-url" readonly value="${esc(link)}" autocomplete="off" spellcheck="false"></label>
           <button class="btn ghost" type="button" id="inv-copy">Copiar enlace</button>
@@ -128,7 +129,11 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
       };
       form.reset();
       form.elements.kind.value = kind;
-      if (!create) form.elements.team.value = team;
+      if (!create) {
+        form.elements.team.value = team;
+        form.elements.target.value = open ? 'open' : 'email';
+        if (open) form.elements.role.value = role;
+      }
       syncMode();
       // La creación no oculta el enlace recién generado; actualiza la lista solo al volver.
       toast('Invitación creada');
