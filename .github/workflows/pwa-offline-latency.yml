@@ -16,5 +16,13 @@ jobs:
         with: { node-version: '22' }
       - name: Verificar protección del caché ya desplegada
         run: node scripts/pwa-offline-check.mjs
+      - name: Preparar sitio local con backend ficticio
+        run: npm install --no-audit --no-fund && npm run build
+        env:
+          OBI_SUPABASE_URL: https://obi-qa-backend.invalid
+          OBI_SUPABASE_PUBLISHABLE_KEY: sb_publishable_qa_mock_not_connected
+          VERCEL_ENV: preview
+      - name: Modo avión real en Chromium - rutas y volumen descargado
+        run: node scripts/pwa-offline-browser-check.mjs
       - name: Probar apertura de lectura con red bloqueada
         run: node scripts/pwa-offline-latency-check.mjs
