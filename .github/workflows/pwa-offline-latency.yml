@@ -25,4 +25,5 @@ jobs:
       - name: Modo avión real en Chromium - rutas y volumen descargado
         run: node scripts/pwa-offline-browser-check.mjs
       - name: Probar apertura de lectura con red bloqueada
+        if: always()
         run: node scripts/pwa-offline-latency-check.mjs
