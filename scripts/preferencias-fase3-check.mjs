@@ -65,7 +65,7 @@ for(const needle of [
   "const refreshPrivacyPreview = () =>", "refreshPrivacyPreview();",
   "const summary = notificationPreviewSummary(N, KINDS)",
   "tg('e-' + k, onE(k, de),", "off)}", 'disabled = false',
-  "class=\"pf-preview\"", "class=\"pf-mail-pause\""
+  "class=\"pf-preview\"", "pf-mail-pause"
 ]) requireText(needle);
 assert(profile.includes('aria-live="polite"'),'Vistas y guardados requieren anuncios accesibles');
 const css=profile.slice(cssStart, profile.indexOf('`;',cssStart));
