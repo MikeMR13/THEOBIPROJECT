@@ -275,6 +275,46 @@ const CSS = `
  .pf-live-card .lc-public-card .lc-in{padding:0 14px 18px}
 }
 
+/* Fase 2 — identidad literaria, estanterías visibles y reseñas. */
+.lc-public .lc-about{border:1px solid #544733;border-left:3px solid var(--ac);background:#1a1712;padding:clamp(18px,2.6vw,26px);gap:13px}
+.lc-public .lc-about-heading{display:flex;gap:11px;align-items:center}
+.lc-public .lc-about-mark{font:800 27px 'Shippori Mincho B1',serif;color:var(--ac)}
+.lc-public .lc-about p{margin:0;max-width:75ch;font:15px/1.8 Literata,serif;color:#e9dfcf;white-space:pre-line;overflow-wrap:anywhere}
+.lc-public .lc-about .lc-empty{font:13px/1.7 'IBM Plex Sans',sans-serif;color:var(--mute)}
+.lc-public .lc-about .lc-empty a{color:var(--ac)}
+.lc-public .lc-reading-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.lc-public .lc-reading-count{font:11px 'IBM Plex Mono',monospace;color:var(--mute)}
+.lc-public .lc-reading-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}
+.lc-public .lc-reading-item{display:grid;grid-template-columns:90px minmax(0,1fr);gap:14px;align-items:start;min-width:0;border:1px solid #544733;background:#1b1813;padding:13px}
+.lc-public .lc-reading-cover{display:block;min-width:0;align-self:start}
+.lc-public .lc-reading-cover .lc-cv{width:100%;padding:6px;box-sizing:border-box;overflow-wrap:anywhere;font-size:11px}
+.lc-public .lc-reading-copy{display:grid;align-content:start;gap:11px;min-width:0}
+.lc-public .lc-reading-copy a{font:700 14px/1.5 'IBM Plex Sans',sans-serif;color:var(--paper);text-decoration:none;overflow-wrap:anywhere}
+.lc-public .lc-reading-copy a:hover{color:var(--ac)}
+.lc-public .lc-reading-state{display:inline-flex;align-items:center;width:fit-content;border:1px solid #70603b;background:#272114;color:var(--ac);font:600 11px 'IBM Plex Sans',sans-serif;padding:5px 10px}
+.lc-public .lc-shelf-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.lc-public .lc-shelf-tile{border:1px solid #50442f;border-top:2px solid var(--ac);background:#1b1812;padding:15px;display:grid;align-content:start;gap:9px;min-width:0}
+.lc-public .lc-shelf-tile b{font:800 clamp(24px,3vw,36px)/1 'Shippori Mincho B1',serif;color:var(--ac);font-variant-numeric:tabular-nums}
+.lc-public .lc-shelf-tile span{color:var(--paper);font:600 13px/1.4 'IBM Plex Sans',sans-serif}
+.lc-public .lc-shelf-nav{display:grid;gap:13px}
+.lc-public .lc-shelf-nav .lc-tabs{width:fit-content;max-width:100%}
+.lc-public .lc-rv{grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))}
+.lc-public .lc-rv article{grid-template-columns:78px minmax(0,1fr);gap:14px;border:1px solid #554733;background:#1b1812;padding:16px;min-width:0}
+.lc-public .lc-rv .lc-review-cover{min-width:0}
+.lc-public .lc-rv .lc-review-cover .lc-cv{box-sizing:border-box;min-width:0;width:100%;padding:5px;font-size:9px;overflow-wrap:anywhere}
+.lc-public .lc-rv .lc-review-main{display:grid;align-content:start;gap:9px;min-width:0}
+.lc-public .lc-rv .lc-review-main .t{font:700 15px/1.4 'IBM Plex Sans',sans-serif;overflow-wrap:anywhere}
+.lc-public .lc-rv .lc-review-rating{color:var(--ac);letter-spacing:.08em;font-size:16px}
+.lc-public .lc-rv .lc-review-meta{color:var(--mute)}
+.lc-public .lc-rv .lc-review-spoiler{border:1px solid #7d6040;padding:10px 12px;background:#282015}
+.lc-public .lc-rv .lc-review-spoiler summary{cursor:pointer;font:600 13px 'IBM Plex Sans',sans-serif;color:var(--ac);min-height:28px}
+.lc-public .lc-rv .lc-review-spoiler p{margin-top:9px}
+.pf-live-card .lc-about{padding:12px;gap:8px}
+.pf-live-card .lc-about h2{font-size:15px}
+.pf-live-card .lc-about p{font-size:12px;line-height:1.65}
+@media(max-width:760px){.lc-public .lc-shelf-summary{gap:9px}.lc-public .lc-shelf-tile{padding:12px 10px}.lc-public .lc-reading-grid{grid-template-columns:1fr}}
+@media(max-width:480px){.lc-public .lc-reading-item{grid-template-columns:76px minmax(0,1fr);gap:11px;padding:11px}.lc-public .lc-shelf-summary{gap:7px}.lc-public .lc-shelf-tile{padding:10px 8px;gap:6px}.lc-public .lc-shelf-tile b{font-size:25px}.lc-public .lc-shelf-tile span{font-size:11px;overflow-wrap:anywhere}.lc-public .lc-rv article{grid-template-columns:65px minmax(0,1fr);padding:12px;gap:12px}}
+
 .pf-preview{border:1px solid #6b5a39;background:#1c1913;padding:14px;display:grid;gap:12px;min-width:0}
 .pf-preview h3{margin:0;font-size:16px}
 .pf-preview-guide{display:grid;gap:8px;font:13px/1.5 'IBM Plex Sans',sans-serif;color:#e3dccb}
@@ -321,6 +361,14 @@ export async function publicProfile(C, name, opt = {}){
   const SHV = SHELF.filter(([k]) => !(k === 'reading' && r.hide_reading)), sh = r.shelves || {}, firstShelf = (SHV.find(([k]) => sh[k]?.n) || SHV[0])[0];
   const shelfBody = k => { const x = sh[k]; if (!x?.n) return '<p class="lc-empty">Nada en este estante todavía.</p>';
     return `<div class="lc-shg">${x.items.map(s => `<a href="/serie/${esc(s.slug)}">${card(s)}<span>${esc(s.title)}</span></a>`).join('')}</div>${x.n > 6 ? `<span class="lc-more">+${x.n - 6} más</span>` : ''}`; };
+  // Solo datos visibles proporcionados por reader_public. No consultar estanterías privadas.
+  const readingItems = !r.hide_reading && Array.isArray(sh.reading?.items) ? sh.reading.items.slice(0, 3) : [];
+  const about = r.bio ? `<section class="lc-sec lc-about" aria-labelledby="lc-about-heading"><div class="lc-about-heading"><span class="lc-about-mark" aria-hidden="true">文</span><h2 id="lc-about-heading">Sobre mí</h2></div><p>${esc(r.bio)}</p></section>`
+    : opt.owner ? '<section class="lc-sec lc-about" aria-labelledby="lc-about-heading"><h2 id="lc-about-heading">Sobre mí</h2><p class="lc-empty">Presenta tus gustos y lecturas. <a href="/preferencias">Añade una biografía en Preferencias</a>.</p></section>' : '';
+  const readingSection = readingItems.length ? `<section class="lc-sec lc-reading" aria-labelledby="lc-reading-heading"><div class="lc-reading-head"><h2 id="lc-reading-heading">Leyendo actualmente</h2><span class="lc-reading-count">Hasta tres lecturas destacadas</span></div>
+    <div class="lc-reading-grid">${readingItems.map(s => `<article class="lc-reading-item"><a class="lc-reading-cover" href="/serie/${esc(s.slug)}" aria-label="Abrir ${esc(s.title)}">${card(s)}</a>
+      <div class="lc-reading-copy"><a href="/serie/${esc(s.slug)}">${esc(s.title)}</a><span class="lc-reading-state">En lectura</span></div></article>`).join('')}</div></section>` : '';
+  const shelfSummary = r.shelves && SHV.length ? `<div class="lc-shelf-summary" aria-label="Resumen de estanterías">${SHV.map(([k,l]) => `<div class="lc-shelf-tile"><b>${Math.max(0,Number(sh[k]?.n)||0).toLocaleString('es-MX')}</b><span>${l}</span></div>`).join('')}</div>` : '';
   const stars = n => '★'.repeat(n || 0) + '☆'.repeat(Math.max(0, 5 - (n || 0)));
   const VIS = { all: 'Visible para todos', auth: 'Visible solo con cuenta', none: 'Privado: solo tú lo ves' };
   const bar = opt.owner ? `<div style="display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between"><span style="display:grid;gap:2px"><h1 style="margin:0;font:800 30px 'Shippori Mincho B1',serif">Mi perfil</h1><span class="mono" style="font-size:12px">${VIS[opt.visibility] || ''} · <a href="/lector/${encodeURIComponent(r.username)}" id="lc-cp" title="Copiar enlace público">/lector/${esc(r.username)} ⧉</a></span></span><span style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn" href="/preferencias">Editar carnet</a><a class="btn ghost" href="/preferencias?s=privacidad">Privacidad</a></span></div>` : '';
@@ -333,18 +381,20 @@ export async function publicProfile(C, name, opt = {}){
       <div class="lc-in">
         <span class="lc-av">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase())}</span>
         <div class="lc-tx"><span class="k">CARNET DE LECTOR · 読者証${r.since ? ' · DESDE ' + new Date(r.since).toLocaleDateString('es-MX', { month: 'short', year: 'numeric' }).toUpperCase() : ''}</span>
-          <div class="lc-name-row"><h1>${esc(r.username)}</h1>${sealMarkup(r.kanji, esc)}</div>${r.bio ? `<p>${esc(r.bio)}</p>` : ''}
+          <div class="lc-name-row"><h1>${esc(r.username)}</h1>${sealMarkup(r.kanji, esc)}</div>
           ${r.links?.length ? `<div class="lc-ln">${r.links.filter(l => ICON[l.k]).map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener nofollow ugc">${svg(l.k)}${ICON[l.k][0]}</a>`).join('')}</div>` : ''}
         </div>
         ${seals.length ? `<div class="lc-se">${seals.map(([k, t]) => `<span title="${t}" aria-label="${t}">${k}</span>`).join('')}</div>` : ''}
-      </div></section>${empty}
+      </div></section>${empty}${about}${readingSection}
     ${favs.length ? `<section class="lc-sec"><h2>Favoritas</h2><div class="lc-fav">${favs.map(s => `<a href="/serie/${esc(s.slug)}" title="${esc(s.title)}">${card(s)}<span class="lc-fav-title">${esc(s.title)}</span></a>`).join('')}</div></section>` : ''}
-    ${r.shelves ? `<section class="lc-sec"><div class="lc-hd"><h2>Estanterías</h2><div class="lc-tabs" role="tablist">${SHV.map(([k, l]) => `<button role="tab" data-sh="${k}" class="${k === firstShelf ? 'on' : ''}" aria-selected="${k === firstShelf}">${l} · ${sh[k]?.n || 0}</button>`).join('')}</div></div><div id="lc-shb">${shelfBody(firstShelf)}</div></section>` : ''}
+    ${r.shelves ? `<section class="lc-sec lc-shelf-nav"><h2>Mis estanterías</h2>${shelfSummary}<div class="lc-hd"><span class="lc-more">Explora las obras de cada estantería</span><div class="lc-tabs" role="tablist" aria-label="Estanterías">${SHV.map(([k, l]) => `<button role="tab" data-sh="${k}" class="${k === firstShelf ? 'on' : ''}" aria-selected="${k === firstShelf}" aria-controls="lc-shb">${l} · ${sh[k]?.n || 0}</button>`).join('')}</div></div><div id="lc-shb" role="tabpanel">${shelfBody(firstShelf)}</div></section>` : ''}
     ${r.reviews?.length ? `<section class="lc-sec"><h2>Reseñas recientes</h2><div class="lc-rv">${r.reviews.map(v => `<article>
-        <a href="/serie/${esc(v.series.slug)}" aria-label="${esc(v.series.title)}">${card(v.series)}</a>
-        <div><a class="t" href="/serie/${esc(v.series.slug)}">${esc(v.series.title)}</a>${v.stars ? `<span style="color:var(--ac);letter-spacing:2px" aria-label="${v.stars} de 5">${stars(v.stars)}</span>` : ''}
-        <p>${esc(v.body)}${v.body?.length >= 400 ? '…' : ''}</p>
-        <small>${new Date(v.at).toLocaleDateString('es-MX', { dateStyle: 'medium' })}</small></div></article>`).join('')}</div></section>` : ''}
+        <a class="lc-review-cover" href="/serie/${esc(v.series.slug)}" aria-label="Abrir ${esc(v.series.title)}">${card(v.series)}</a>
+        <div class="lc-review-main"><a class="t" href="/serie/${esc(v.series.slug)}">${esc(v.series.title)}</a>
+        ${v.stars ? `<span class="lc-review-rating" aria-label="${v.stars} de 5 estrellas">${stars(v.stars)}</span>` : ''}
+        ${v.spoiler || v.is_spoiler || v.has_spoilers ? `<details class="lc-review-spoiler"><summary>Mostrar opinión con spoilers</summary><p>${esc(v.body || '')}${v.body?.length >= 400 ? '…' : ''}</p></details>`
+          : `<p>${esc(v.body || '')}${v.body?.length >= 400 ? '…' : ''}</p>`}
+        <small class="lc-review-meta">${new Date(v.at).toLocaleDateString('es-MX', { dateStyle: 'medium' })}</small></div></article>`).join('')}</div></section>` : ''}
     ${r.public_activity && r.stats ? `<section class="lc-sec lc-stats"><h2>Estadísticas</h2>${statsHTML(r.stats)}</section>` : ''}${mine}
   </div>`;
   app.querySelectorAll('[data-sh]').forEach(b => b.onclick = () => { app.querySelectorAll('[data-sh]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); app.querySelector('#lc-shb').innerHTML = shelfBody(b.dataset.sh); });
@@ -788,7 +838,9 @@ export async function preferences(C){
         : "<div class='lc-bg' style='opacity:.35'></div>";
     const avatar = P.avatar_url ? "<img src='" + esc(P.avatar_url) + "' alt=''>" : esc((P.username || '?')[0].toUpperCase());
     const stamp = sealMarkup(D.kanji, esc);
-    const bio = D.bio ? "<p>" + esc(D.bio) + "</p>" : "<p class='pf-live-placeholder'>Tu biografía aparecerá aquí.</p>";
+    const bio = "<section class='lc-sec lc-about'><h2>Sobre mí</h2>" +
+      (D.bio ? "<p>" + esc(D.bio) + "</p>" : "<p class='pf-live-placeholder'>Tu biografía aparecerá aquí.</p>") +
+      "</section>";
     const links = enabled.length ? "<div class='lc-ln'>" + enabled.map(l =>
       "<span class='pf-live-link'>" + svg(l.k, 14) + esc(ICON[l.k][0]) + "</span>").join('') + "</div>" : "";
     const covers = favs.length ? "<section class='lc-sec'><h2>Favoritas</h2><div class='pf-live-fav-list'>" +
@@ -797,7 +849,7 @@ export async function preferences(C){
     return "<div class='lc lc-public' style='--ac:" + esc(D.accent) + "'><section class='lc-card lc-public-card'><div class='lc-cover-stage " + (D.banner ? "is-user-banner" : "is-collage") + "'>" + bg +
       "<div class='lc-sh'></div></div><div class='lc-in'><span class='lc-av' aria-hidden='true'>" + avatar +
       "</span><div class='lc-tx'><span class='k'>CARNET DE LECTOR · 読者証</span><div class='lc-name-row'><h1>" + esc(P.username || 'Lector') +
-      "</h1>" + stamp + "</div>" + bio + links + "</div></div></section>" + covers + "</div>";
+      "</h1>" + stamp + "</div>" + links + "</div></div></section>" + bio + covers + "</div>";
   };
   let sealQuery = '', sealCategory = 'Todas', sealCustom = !!D.kanji && !SEAL_LOOKUP.has(D.kanji);
   const normalizeSeal = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();

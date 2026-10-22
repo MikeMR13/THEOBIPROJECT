@@ -21,6 +21,7 @@ const rows=(name,filters)=>{
  if(name==='profiles')return [clone(P(id))];
  return [];
 };
+let publicScenario='rich';
 const sb={
  rpc:name=>{
   if(name==='my_profile')return Promise.resolve({data:clone(P(user.id)),error:null});
@@ -28,14 +29,28 @@ const sb={
   if(name==='favorite_candidates')return Promise.resolve({data:[],error:null});
   if(name==='platform_patron')return Promise.resolve({data:false,error:null});
   if(name==='reader_public')return Promise.resolve({data:{
-    username:'OX-MRTRADUCCIONES',private:false,accent:'#f2c230',banner_url:'https://fake.invalid/portada.jpg',
-    avatar_url:null,kanji:'書',bio:'Mi biblioteca de novelas ligeras',since:'2026-10-01T00:00:00Z',
+    username:'OX-MRTRADUCCIONES',private:publicScenario==='private'?'auth':false,accent:'#f2c230',banner_url:'https://fake.invalid/portada.jpg',
+    avatar_url:null,kanji:'書',bio:publicScenario==='empty-bio'?'':'Mi biblioteca de novelas ligeras',since:'2026-10-01T00:00:00Z',
     links:[{k:'facebook',url:'https://facebook.com/ejemplo'}],
     favorites:[{slug:'a',title:'Una novela con un título bastante largo',color:'#58402b',cover_path:null},
       {slug:'b',title:'Segunda novela',color:'#352e49',cover_path:null},
       {slug:'c',title:'Tercera novela',color:'#294958',cover_path:null}],
     stats:{chapters:0,month:0,series:0,finished:0,following:2},public_activity:true,
-    seals:null,shelves:null,reviews:null
+    seals:null,hide_reading:publicScenario==='hidden-reading',
+    shelves:{
+      reading:{n:4,items:[
+        {slug:'read-1',title:'Lectura primera',color:'#563922',cover_path:null},
+        {slug:'read-2',title:'Lectura segunda',color:'#202b50',cover_path:null},
+        {slug:'read-3',title:'Lectura tercera',color:'#48412a',cover_path:null},
+        {slug:'read-4',title:'Lectura cuarta',color:'#422a43',cover_path:null}
+      ]},
+      done:{n:2,items:[{slug:'done-1',title:'Terminada',color:'#305234',cover_path:null}]},
+      plan:{n:5,items:[{slug:'plan-1',title:'Pendiente',color:'#595036',cover_path:null}]}
+    },
+    reviews:[
+      {series:{slug:'a',title:'Una reseña spoiler',color:'#58402b',cover_path:null},body:'Gran revelación secreta',stars:4,spoiler:true,at:'2026-10-20T10:00:00Z'},
+      {series:{slug:'b',title:'Opinión sin spoilers',color:'#252b55',cover_path:null},body:'Me gustó el mundo y sus personajes',stars:5,spoiler:false,at:'2026-10-21T11:00:00Z'}
+    ]
   },error:null});
   throw Error('RPC inesperada: '+name);
  },
@@ -215,12 +230,41 @@ try{
  const firstStat=app.querySelector('.lc-public .lc-stats .st-k');
  check(getComputedStyle(firstStat).borderTopWidth!=='0px','Estadísticas sin énfasis de tarjeta');
  check(firstStat?.querySelector('b')?.textContent==='0','El cero de las estadísticas desapareció');
+ check(app.querySelector('.lc-about p')?.textContent==='Mi biblioteca de novelas ligeras','La biografía no aparece en Sobre mí');
+ check(!app.querySelector('.lc-public-card .lc-tx p'),'La biografía sigue duplicada en el encabezado');
+ check(app.querySelectorAll('.lc-reading-item').length===3,'Leyendo actualmente no respeta el máximo de tres');
+ check(app.querySelectorAll('.lc-shelf-tile').length===3,'El resumen de estanterías no incluye tres categorías');
+ check(app.querySelector('.lc-shelf-summary')?.textContent.includes('4'),'El conteo de lecturas no corresponde a la estantería visible');
+ check(app.querySelectorAll('.lc-rv article').length===2,'Faltan reseñas');
+ check(!!app.querySelector('.lc-review-spoiler:not([open])'),'Las reseñas spoiler no están inicialmente ocultas');
+ check(![...app.querySelectorAll('.lc-review-main > p')].some(p=>p.textContent.includes('Gran revelación secreta')),'La reseña spoiler está visible fuera de su desplegable');
+ const shelfDone=app.querySelector('[data-sh="done"]');
+ shelfDone?.click();
+ check(app.querySelector('#lc-shb')?.textContent.includes('Terminada'),'Cambiar estantería no actualiza la biblioteca');
+ const publicSections=['.lc-public-card','.lc-about','.lc-reading','.lc-fav','.lc-shelf-nav','.lc-rv','.lc-stats'];
+ const positions=publicSections.map(sel=>app.querySelector(sel)?.getBoundingClientRect().top);
+ check(positions.every(Number.isFinite)&&positions.every((n,i)=>i===0||n>=positions[i-1]),'Orden incorrecto de las secciones del perfil');
  const pageWidth=document.documentElement.clientWidth;
  check(document.documentElement.scrollWidth<=pageWidth+3,'Desbordamiento del carnet público a '+pageWidth+'px');
+ // Probar permisos: la sección de lectura y la pestaña deben desaparecer cuando está oculta.
+ publicScenario='hidden-reading';
+ await publicProfile({...C,statsHTML},'OX-MRTRADUCCIONES');
+ check(!app.querySelector('.lc-reading'),'Se filtró la estantería Leyendo oculta');
+ check(!app.querySelector('[data-sh="reading"]'),'La estantería Leyendo oculta se ofrece para explorar');
+ check(!app.querySelector('.lc-shelf-summary')?.textContent.includes('Leyendo'),'El resumen revela el contador de lecturas ocultas');
+ publicScenario='empty-bio';
+ await publicProfile({...C,statsHTML},'OX-MRTRADUCCIONES');
+ check(!app.querySelector('.lc-about'),'La biografía vacía ocupa espacio para visitantes');
+ publicScenario='private';
+ await publicProfile({...C,statsHTML},'OX-MRTRADUCCIONES');
+ check(!app.querySelector('.lc-reading')&&!app.querySelector('.lc-rv'),'Un perfil privado expone lecturas o reseñas');
+ check(app.textContent.includes('Inicia sesión'),'Falta protección de perfil privado');
+ publicScenario='rich';
  // Verificar también que la vista previa en Preferencias use la fila de nombre y kanji.
  await open('/preferencias');
  const liveNameRow=app.querySelector('#pf-live-card .lc-name-row');
  check(!!liveNameRow&&!!liveNameRow.querySelector('h1'),'La vista previa perdió la nueva fila de identidad');
+ check(!!app.querySelector('#pf-live-card .lc-about'),'La vista previa no muestra Sobre mí');
 }catch(e){problems.push('Excepción: '+(e.stack||e.message))}
 report.dataset.qaStatus=problems.length?'fail':'pass';
 report.textContent=problems.length?problems.join(' | '):'Chromium '+innerWidth+'px: navegación, privacidad, avisos, sincronización y cuentas OK';
