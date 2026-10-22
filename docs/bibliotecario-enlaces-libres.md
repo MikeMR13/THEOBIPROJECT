@@ -14,4 +14,5 @@ El esquema mantiene los enlaces preexistentes por correo; la migración solo per
 `.github/workflows/invitaciones-local-functional.yml` reproduce las migraciones en Auth GoTrue + PostgREST + PostgreSQL desechables de GitHub Actions. Prueba que dos cuentas de correo distinto compiten por el enlace libre, exactamente una lo consume, ninguno se convierte en Bibliotecario y se conserva al propietario inicial. Las pruebas también rechazan enlaces libres para admin, owner y creación de equipo. `scripts/invitaciones-visibility-browser.mjs` comprueba ocultamiento del correo y del selector en móvil/escritorio.
 
 ## Despliegue
+Aplicar primero `20261022232000_team_invitation_open_links.sql` y después `20261022232100_team_invitation_redeem_guard.sql` (condición de correo opcional explícita en canje).
 Publicar migración primero; comprobar ACL de las RPC y RLS; después fusionar el frontend a `main`. No modificar `Temporadas`, `season-sync` ni otros equipos.
