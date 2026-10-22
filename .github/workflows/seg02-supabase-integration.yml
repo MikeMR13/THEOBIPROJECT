@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - test/preferencias-fase4-qa-integral-20261021
+      - fix/seg02-fasec-studio-miembros-20261022
     paths:
       - '.github/workflows/seg02-supabase-integration.yml'
       - 'scripts/seg02-make-supabase-fixture.mjs'
@@ -13,6 +14,8 @@ on:
       - 'supabase/tests/seg02_rls_integration.sql'
       - 'supabase/migrations/20261022055000_secure_reader_profiles.sql'
       - 'supabase/release-gates/SEG02_FINAL_LOCK_PROFILES.sql'
+      - 'supabase/migrations/20261022161000_studio_team_member_profiles.sql'
+      - 'supabase/tests/seg02_team_member_privacy.sql'
       - 'supabase/tests/seg02_additive_compat.sql'
       - 'scripts/seg02-stage-http-check.mjs'
   workflow_dispatch:
@@ -106,12 +109,15 @@ jobs:
           sleep 3
           echo 'PASO SEPARADO: comprobar acceso HTTP antes del cierre RLS'
           node scripts/seg02-stage-http-check.mjs
+          echo 'Preparar identidades del Estudio antes del cierre'
+          psql_local supabase/migrations/20261022161000_studio_team_member_profiles.sql > "$RUNNER_TEMP/seg02-studio-team.log"
           echo '4/6 · Migración C: cierre final RLS solo en QA'
           psql_local supabase/release-gates/SEG02_FINAL_LOCK_PROFILES.sql > "$RUNNER_TEMP/seg02-gate.log"
           echo '5/6 · Privilegios y visibilidad'
           psql_local supabase/tests/seg02_profile_privacy.sql > "$RUNNER_TEMP/seg02-privileges.log"
           echo '6/6 · A/B RLS y SQL regresión'
           psql_local supabase/tests/seg02_rls_integration.sql > "$RUNNER_TEMP/seg02-rls.log"
+          psql_local supabase/tests/seg02_team_member_privacy.sql > "$RUNNER_TEMP/seg02-studio-team-privacy.log"
           echo 'Migración SQL y pruebas de permisos ejecutadas con Supabase local'
       - name: Probar dos cuentas reales locales y API HTTP
         run: node scripts/seg02-supabase-http-check.mjs

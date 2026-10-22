@@ -999,10 +999,16 @@ export function createStudio(ctx){
   const errMsg = e => e?.hint || ({ forbidden: 'No tienes permiso para esta acción', duplicate: 'Ya existe', not_found: 'No se encontró' })[e?.message] || e?.message || 'Error';
   const rpc = async (fn, args) => { const { data, error } = await sb.rpc(fn, args); if (error) throw new Error(errMsg(error)); return data; };
   async function teamMembers(){
-    const [{ data: mem }, { data: roles }] = await Promise.all([
-      sb.from('team_members').select('user_id,role,role_id,overrides,profiles(username,avatar_url)').eq('team_id', T.team.id),
-      sb.from('team_roles').select('id,name,color,description,perms,base,sort').eq('team_id', T.team.id).order('sort')]);
-    return { mem: (mem || []).sort((a, b) => (a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : 0) || (a.profiles?.username || '').localeCompare(b.profiles?.username || '')), roles: roles || [] };
+    // Tras SEG-02 Fase C, profiles no es legible directamente.
+    // La RPC restringida al mismo equipo devuelve solo nombre y avatar.
+    const [{ data: mem, error: memberError }, { data: roles, error: roleError }, { data: identities, error: identityError }] = await Promise.all([
+      sb.from('team_members').select('user_id,role,role_id,overrides').eq('team_id', T.team.id),
+      sb.from('team_roles').select('id,name,color,description,perms,base,sort').eq('team_id', T.team.id).order('sort'),
+      sb.rpc('studio_team_member_profiles', { p_team: T.team.id })]);
+    if (memberError || roleError || identityError) throw new Error(errMsg(memberError || roleError || identityError));
+    const byId = Object.fromEntries((identities || []).map(p => [p.user_id, { username: p.username, avatar_url: p.avatar_url }]));
+    return { mem: (mem || []).map(m => ({ ...m, profiles: byId[m.user_id] || null }))
+      .sort((a, b) => (a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : 0) || (a.profiles?.username || '').localeCompare(b.profiles?.username || '')), roles: roles || [] };
   }
 
   async function team(){

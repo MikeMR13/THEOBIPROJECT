@@ -4,10 +4,13 @@ on:
   push:
     branches:
       - test/preferencias-fase4-qa-integral-20261021
+      - fix/seg02-fasec-studio-miembros-20261022
     paths:
       - '.github/workflows/seg02-isolated-db.yml'
       - 'supabase/migrations/20261022055000_secure_reader_profiles.sql'
       - 'supabase/release-gates/SEG02_FINAL_LOCK_PROFILES.sql'
+      - 'supabase/migrations/20261022161000_studio_team_member_profiles.sql'
+      - 'supabase/tests/seg02_team_member_privacy.sql'
       - 'supabase/tests/seg02_additive_compat.sql'
       - 'supabase/tests/seg02_profile_privacy.sql'
       - 'supabase/tests/seg02_rls_integration.sql'
@@ -60,10 +63,13 @@ jobs:
           psql_qa supabase/migrations/20261022055000_secure_reader_profiles.sql
           echo '3/6 · Verificar que la interfaz antigua sigue compatible'
           psql_qa supabase/tests/seg02_additive_compat.sql
+          echo 'Preparar identidades del Estudio antes del cierre'
+          psql_qa supabase/migrations/20261022161000_studio_team_member_profiles.sql
           echo '4/6 · Aplicar cierre ACL/RLS supervisado (fase C) solo en QA'
           psql_qa supabase/release-gates/SEG02_FINAL_LOCK_PROFILES.sql
           echo '5/6 · Comprobar ACL, políticas y contratos RPC'
           psql_qa supabase/tests/seg02_profile_privacy.sql
           echo '6/6 · Probar dos cuentas ficticias, anon, bloqueo y comentarios'
           psql_qa supabase/tests/seg02_rls_integration.sql
+          psql_qa supabase/tests/seg02_team_member_privacy.sql
           echo 'SEG-02: VALIDACIÓN POSTGRESQL COMPLETADA'
