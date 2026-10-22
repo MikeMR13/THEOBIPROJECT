@@ -261,7 +261,7 @@ export async function preferences(C){
   };
   app.__obiPrefsSelectHandler = selectHandler;
   app.addEventListener('change', selectHandler);
-  const tg = (id, on, label) => `<button type="button" class="pf-tg" id="${id}" aria-pressed="${!!on}" aria-label="${esc(label)}"><i></i></button>`;
+  const tg = (id, on, label, disabled = false) => `<button type="button" class="pf-tg" id="${id}" aria-pressed="${!!on}" aria-label="${esc(label)}" ${disabled ? 'disabled' : ''}><i></i></button>`;
   const flip = b => b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
   const UI = { motion: 'system', hour: 'auto', hide: [], ...(window.__obiUI || {}), ...(P.ui_prefs || {}) };
   const saveUI = async patch => { const prev = { ...UI }; Object.assign(UI, patch); window.obiSetUI?.({ ...UI }); const upd = { ui_prefs: UI }; if ('tz' in patch && P.notify) upd.notify = { ...P.notify, tz: UI.tz || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' };
@@ -462,9 +462,15 @@ export async function preferences(C){
     const lbl = 'font-size:11px;letter-spacing:.1em;color:var(--mute);display:grid;justify-items:center;gap:4px';
     const draw = () => {
       const off = N.freq === 'off';
+      const summary = notificationPreviewSummary(N, KINDS);
       app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Avisos</h2><p class="pf-note">Elige qué te avisamos y por dónde. Se guarda al momento.</p></div>
       <div style="display:grid;gap:12px"><h3>Correo</h3><p class="pf-note">Se envía a <b>${esc(user.email)}</b>.</p><div class="pf-sl" role="radiogroup" aria-label="Frecuencia de correo">${FREQ.map(([k, l, d]) => `<label style="display:grid;gap:4px;padding:14px 16px;border:2px solid ${N.freq === k ? 'var(--gold)' : '#2c281e'};background:${N.freq === k ? '#1f1c15' : '#0d0c0a'};cursor:pointer"><span style="display:flex;gap:10px;align-items:center;font-weight:700"><input type="radio" name="fq" value="${k}" ${N.freq === k ? 'checked' : ''} style="accent-color:var(--gold);width:18px;height:18px">${l}</span><span class="pf-note" style="font-size:13px">${d}</span></label>`).join('')}</div></div>
-      <div style="display:grid;gap:10px"><h3>Qué te avisamos</h3>${KINDS.map(([k, l, d, de]) => `<div class="pf-row" style="justify-content:space-between"><span style="display:grid;gap:3px;flex:1 1 240px"><b style="font-size:14px">${l}</b><span class="pf-note" style="font-size:13px">${d}</span></span><span style="display:flex;gap:18px"><span class="mono" style="${lbl}">CAMPANA${tg('w-' + k, onW(k), l + ' en la campana')}</span><span class="mono" style="${lbl};opacity:${off ? .4 : 1}">CORREO${tg('e-' + k, !off && onE(k, de), l + ' por correo')}</span></span></div>`).join('')}
+      <section class="pf-preview" aria-label="Resumen de configuración de avisos">
+        <h3>Tu configuración de avisos</h3>
+        <p class="pf-note">Campana: ${summary.webCount} de ${summary.total} tipos activos · Correo: ${summary.emailCount} de ${summary.total} seleccionados.</p>
+        <p class="${off ? 'pf-mail-pause' : 'pf-preview-note'}" role="status">${esc(summary.description)}</p>
+      </section>
+      <div style="display:grid;gap:10px"><h3>Qué te avisamos</h3>${KINDS.map(([k, l, d, de]) => `<div class="pf-row" style="justify-content:space-between"><span style="display:grid;gap:3px;flex:1 1 240px"><b style="font-size:14px">${l}</b><span class="pf-note" style="font-size:13px">${d}</span></span><span style="display:flex;gap:18px"><span class="mono" style="${lbl}">CAMPANA${tg('w-' + k, onW(k), l + ' en la campana')}</span><span class="mono ${off ? 'pf-mail-off' : ''}" style="${lbl}">CORREO${tg('e-' + k, onE(k, de), l + ' por correo' + (off ? ', pausado hasta activar correo' : ''), off)}</span></span></div>`).join('')}
       <p class="pf-note" style="font-size:13px">Los avisos de moderación sobre tu cuenta siempre llegan a la campana.</p></div>
       <div style="display:grid;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h3>Obras que sigues</h3><span class="mono" style="font-size:11px">${FL.length} ${FL.length === 1 ? 'OBRA' : 'OBRAS'}</span></div>
       ${!onW('capitulo') && off ? '<p class="pf-note" style="font-size:13px">Tienes desactivados los avisos de capítulos nuevos: estos interruptores no tendrán efecto hasta que los actives arriba.</p>' : ''}
@@ -472,8 +478,8 @@ export async function preferences(C){
       const $ = s => app.querySelector(s);
       app.querySelectorAll('[name="fq"]').forEach(i => i.onchange = async () => { const prev = N.freq; N.freq = i.value; if (await save()) { toast(i.value === 'off' ? 'Ya no recibirás correos' : 'Frecuencia de correo guardada'); draw(); } else N.freq = prev; });
       KINDS.forEach(([k, , , de]) => {
-        $('#w-' + k).onclick = async e => { const b = e.currentTarget; N.web[k] = !onW(k); if (await save()) flip(b); else N.web[k] = !N.web[k]; };
-        $('#e-' + k).onclick = async e => { if (off) return toast('Elige primero con qué frecuencia quieres correos'); const b = e.currentTarget; N.email[k] = !onE(k, de); if (await save()) flip(b); else N.email[k] = !N.email[k]; };
+        $('#w-' + k).onclick = async e => { const b = e.currentTarget; N.web[k] = !onW(k); if (await save()) { flip(b); draw(); } else N.web[k] = !N.web[k]; };
+        $('#e-' + k).onclick = async e => { if (off) return; const b = e.currentTarget; N.email[k] = !onE(k, de); if (await save()) { flip(b); draw(); } else N.email[k] = !N.email[k]; };
       });
       FL.forEach(({ r, s }) => { $('#f-' + s.id).onclick = async e => { const b = e.currentTarget, ch = { ...(r.channels || {}), web: r.channels?.web === false };
         const { error } = await sb.from('follows').update({ channels: ch }).eq('user_id', user.id).eq('series_id', s.id); if (error) return toast(error.message); r.channels = ch; flip(b); }; });
