@@ -62,7 +62,15 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
   const form = target.querySelector('#inv-form'), created = target.querySelector('#inv-created');
   const syncMode = () => {
     const create = form.elements.kind.value === 'create_team';
+    const open = !create && form.elements.target.value === 'open';
     target.querySelector('#inv-team-wrap').hidden = create;
+    target.querySelector('#inv-target-wrap').hidden = create;
+    target.querySelector('#inv-open-warning').hidden = !open;
+    target.querySelector('#inv-email-wrap').hidden = open;
+    form.elements.email.required = !open;
+    const adminOption = [...form.elements.role.options].find(option => option.value === 'admin');
+    if (adminOption) adminOption.disabled = open;
+    if (open && form.elements.role.value === 'admin') form.elements.role.value = 'translator';
     target.querySelector('#inv-new-name-wrap').hidden = !create;
     target.querySelector('#inv-new-slug-wrap').hidden = !create;
     target.querySelector('#inv-role-wrap').hidden = create;
@@ -77,19 +85,23 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
     }
   };
   form.elements.kind.onchange = syncMode;
+  form.elements.target.onchange = syncMode;
   syncMode();
   form.onsubmit = async event => {
     event.preventDefault();
     if (!form.reportValidity()) return;
     const kind = form.elements.kind.value, create = kind === 'create_team',
+      open = !create && form.elements.target.value === 'open',
       team = create ? null : form.elements.team.value,
       newName = create ? form.elements.newName.value.trim() : null,
       newSlug = create ? form.elements.newSlug.value.trim() : null,
-      email = form.elements.email.value.trim(),
+      email = open ? null : form.elements.email.value.trim(),
       role = create ? 'owner' : form.elements.role.value,
       hours = Number(form.elements.hours.value),
       reason = form.elements.reason.value.trim();
     if (reason.length < 12) return toast('Escribe un motivo de al menos 12 caracteres');
+    if (open && !['translator','editor','proofreader','collaborator'].includes(role))
+      return toast('Los enlaces libres no pueden conceder administración ni propiedad');
     if (create && !/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(newSlug))
       return toast('El identificador admite 3-40 caracteres: minúsculas, números y guiones');
     if (create && !confirm('Se creará «' + newName + '» cuando ' + email + ' acepte la invitación. Será Propietario y Administrador interno del equipo. ¿Continuar?')) return;
