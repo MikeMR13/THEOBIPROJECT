@@ -86,6 +86,27 @@ AS $obi$
   ORDER BY p.username
   LIMIT 100
 $obi$;
+-- 2b. Lista pública de un equipo: reemplaza el SELECT embebido de
+-- team_members -> profiles. No devuelve ids, preferencias ni datos de cuenta.
+-- Respeta el ajuste de visibilidad de integrantes de la página del equipo.
+CREATE OR REPLACE FUNCTION public.team_public_members(p_team uuid)
+RETURNS TABLE(role text, username text, role_name text, role_color text)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path TO ''
+AS $obi_members$
+  SELECT m.role::text, p.username, tr.name, tr.color
+  FROM public.team_members m
+  JOIN public.profiles p ON p.id = m.user_id
+  JOIN public.teams t ON t.id = m.team_id
+  LEFT JOIN public.team_roles tr ON tr.id = m.role_id AND tr.team_id = m.team_id
+  WHERE m.team_id = p_team
+    AND coalesce((t.settings->>'show_members')::boolean, true)
+  ORDER BY m.role::text, p.username
+  LIMIT 300
+$obi_members$;
+REVOKE ALL ON FUNCTION public.team_public_members(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.team_public_members(uuid) TO anon, authenticated;
+
 REVOKE ALL ON FUNCTION public.studio_profile_names(uuid[]) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.studio_profile_names(uuid[]) TO authenticated;
 
