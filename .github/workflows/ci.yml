@@ -17,6 +17,10 @@ jobs:
       - run: npm run check && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run studio-fields-check && npm run integration-check
       - name: PWA sin conexión — arranque íntegro y descargas sin pérdidas
         run: npm run pwa-offline-check
+      - name: PWA sin conexión — lectura local sin espera de red
+        run: node scripts/pwa-offline-latency-check.mjs
+      - name: PWA sin conexión — Chromium, dos capítulos y sesión guardada
+        run: node scripts/pwa-offline-browser-check.mjs
       - name: "Inicio editorial: espaciado de etiquetas, ranking y títulos en 5 tamaños"
         run: npm run home-hero-layout-check
       - name: "Inicio mixto: rotación diaria, equipos y novela completa inmediata"
