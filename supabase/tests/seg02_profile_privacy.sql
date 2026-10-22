@@ -14,6 +14,18 @@ BEGIN
      OR has_column_privilege('authenticated','public.profiles','hidden_series','SELECT')
   THEN RAISE EXCEPTION 'SEG-02: usuarios pueden leer campos privados de otros perfiles'; END IF;
 
+  IF has_table_privilege('anon','public.profiles','INSERT')
+    OR has_table_privilege('anon','public.profiles','DELETE')
+    OR has_table_privilege('anon','public.profiles','MAINTAIN')
+    OR has_table_privilege('authenticated','public.profiles','INSERT')
+    OR has_table_privilege('authenticated','public.profiles','DELETE')
+  THEN RAISE EXCEPTION 'SEG-02: permisos de tabla peligrosos'; END IF;
+
+  IF NOT has_column_privilege('authenticated','public.profiles','notify','UPDATE')
+    OR NOT has_column_privilege('authenticated','public.profiles','bio','UPDATE')
+    OR has_column_privilege('authenticated','public.profiles','platform_role','UPDATE')
+  THEN RAISE EXCEPTION 'SEG-02: permisos UPDATE demasiado amplios o insuficientes'; END IF;
+
   IF NOT has_column_privilege('authenticated','public.profiles','id','SELECT')
   THEN RAISE EXCEPTION 'SEG-02: UPDATE por id perdería selección mínima'; END IF;
 
