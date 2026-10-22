@@ -75,11 +75,24 @@ for (const f of files) writeFileSync('dist/' + f, text[f]);
 const missing = [...text['index.html'].matchAll(REF)].filter(m => !H[m[2]]).map(m => m[2]);
 if (missing.length) throw new Error('index.html apunta a archivos inexistentes: ' + missing.join(', '));
 
-// 3. Service worker con la versión de la compilación y la lista exacta del arranque (sin studio.js ni admin.js).
-const BOOT = ['styles.css', 'config.js', 'boot.js', 'supabase.js', 'app.js', 'ui.js', 'reader.js', 'blocks.js'].filter(f => H[f]);
-const SHELL = ['/', '/manifest.webmanifest', '/icon.svg', ...BOOT.map(f => `/${f}?v=${H[f]}`)];
-const LAZY = Object.keys(H).filter(f => f.endsWith('.js') && !BOOT.includes(f) && !/^(studio|studio-editor|studio-importer|studio-media|admin|sw)\.js$/.test(f)).map(f => `/${f}?v=${H[f]}`);
-const V = 'obi-' + hash(SHELL.join('|')).slice(0, 8);
+// 3. Precaché completo del arranque: incluir también las dependencias ES estáticas
+// transitivas. Las importaciones dinámicas siguen siendo opcionales (LAZY).
+const BOOT = new Set(['styles.css', 'reader-a11y.css', 'config.js', 'boot.js', 'tts.js', 'supabase.js', 'app.js', 'ui.js', 'reader.js', 'blocks.js'].filter(f => H[f]));
+for (const f of BOOT) {
+  if (!f.endsWith('.js')) continue;
+  // El archivo minificado puede eliminar espacios en "import{...}from", por
+  // eso analizamos el fuente original antes de transformar ES modules.
+  const source = f === 'config.js' ? (text[f] || '') : readFileSync('src/' + f, 'utf8');
+  const imports = /\b(?:import|export)\s+(?:[^;\n]*?\s+from\s+)?['"](?:\.\/|\/)([\w-]+\.js)(?:\?v=[^'"]+)?['"]/g;
+  for (const m of source.matchAll(imports)) {
+    if (!H[m[1]]) throw new Error('Falta dependencia estática PWA: ' + f + ' -> ' + m[1]);
+    BOOT.add(m[1]);
+  }
+}
+const SHELL = ['/', '/manifest.webmanifest', '/icon.svg', ...[...BOOT].map(f => `/${f}?v=${H[f]}`)];
+const LAZY = Object.keys(H).filter(f => f.endsWith('.js') && !BOOT.has(f) && !/^(studio|studio-editor|studio-importer|studio-media|admin|sw)\.js$/.test(f)).map(f => `/${f}?v=${H[f]}`);
+// Los cambios en HTML o service worker también deben activar una nueva versión del caché.
+const V = 'obi-' + hash(SHELL.join('|') + hash(text['index.html']) + hash(readFileSync('dist/sw.js', 'utf8'))).slice(0, 8);
 const sw = readFileSync('dist/sw.js', 'utf8').replace(/\/\*@shell\*\/[\s\S]*?\/\*@end\*\//, `const V=${JSON.stringify(V)},SHELL=${JSON.stringify([...SHELL, '/icon-192.png', '/apple-touch-icon.png'])},LAZY=${JSON.stringify(LAZY)};`);
 if (!sw.includes(V)) throw new Error('sw.js: no se encontró el marcador /*@shell*/');
 writeFileSync('dist/sw.js', esbuild ? (await esbuild.transform(sw, { minify: true, target: 'es2022' })).code : sw);

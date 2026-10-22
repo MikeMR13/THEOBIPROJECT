@@ -575,33 +575,80 @@ export function createReader(ctx){
   async function offlineMeta(slug){ try { const c = await caches.open(OFF_CACHE); const r = await c.match('/offline/meta/' + slug); return r ? r.json() : null; } catch { return null; } }
   async function offlineBody(ch){ try { const c = await caches.open(OFF_CACHE); const r = await c.match(offKey(ch)); return r ? r.json() : null; } catch { return null; } }
   async function toggleOffline(){
-    const ch = S.active, key = S.series.id + ':' + ch.vol, idx = offIndex(), btns = [...document.querySelectorAll('[data-act="offline"]')];
-    if (!idx[key] && !navigator.onLine) return toast('Necesitas conexión para descargar el volumen');
+    const ch = S.active, key = S.series.id + ':' + ch.vol, idx = offIndex();
+    const btns = [...document.querySelectorAll('[data-act="offline"]')];
     const btn = { set textContent(t){ btns.forEach(b => b.textContent = t); }, set disabled(v){ btns.forEach(b => b.disabled = v); } };
-    if (idx[key]) { await removeVolume(key); btn.textContent = 'Descargar volumen'; toast('Volumen ' + ch.vol + ' eliminado del dispositivo'); return; }
-    if (!('caches' in window)) return toast('Tu navegador no permite guardar sin conexión');
-    const list = S.chapters.filter(c => c.vol === ch.vol), c = await caches.open(OFF_CACHE), assets = new Set();
-    btn.disabled = true; let n = 0;
-    for (const x of list) {
-      btn.textContent = `Descargando ${++n}/${list.length}…`;
-      const b = await body(x); if (!b) continue;
-      await c.put(offKey(x), new Response(JSON.stringify(b), { headers: { 'Content-Type': 'application/json' } }));
-      b.forEach(bl => { const s = bl.url || bl.src; if (s) assets.add(media(s)); });
+    if (idx[key]) {
+      try { await removeVolume(key); btn.textContent = 'Descargar volumen'; toast('Volumen ' + ch.vol + ' eliminado del dispositivo'); }
+      catch (e) { toast('No se pudo borrar el volumen: ' + (e?.message || 'error de almacenamiento')); }
+      return;
     }
-    (volOf(ch)?.epub_fonts || []).forEach(f => assets.add(f.url));
-    await S.extras?.catch(() => {});
-    await c.put('/offline/meta/' + S.series.slug, new Response(JSON.stringify({ series: S.series, chapters: S.chapters, vols: S.vols, gloss: S.gloss || [] }), { headers: { 'Content-Type': 'application/json' } }));
-    await Promise.all([...assets].map(u => fetch(u, { mode: 'cors' }).then(r => r.ok && c.put(u, r)).catch(() => {})));
-    idx[key] = { slug: S.series.slug, title: S.series.title, vol: ch.vol, nums: list.map(x => x.num), assets: [...assets], at: Date.now() };
-    localStorage.setItem(OFF_INDEX, JSON.stringify(idx));
-    btn.disabled = false; btn.textContent = '✓ Descargado'; toast(`Volumen ${ch.vol} listo para leer sin conexión`);
-    navigator.storage?.persist?.().catch(() => {}); // que el navegador no lo borre para liberar espacio
+    if (!navigator.onLine) return toast('Necesitas conexión para descargar el volumen');
+    if (!('caches' in window)) return toast('Tu navegador no permite guardar sin conexión');
+    btn.disabled = true;
+    const list = S.chapters.filter(c => c.vol === ch.vol);
+    const assets = new Set(), inserted = new Set(), chapterKeys = list.map(x => offKey(x));
+    const metaKey = '/offline/meta/' + S.series.slug;
+    let c, previousMeta = null, metaWritten = false, complete = false;
+    try {
+      if (!list.length) throw new Error('El volumen no contiene capítulos');
+      c = await caches.open(OFF_CACHE);
+      previousMeta = await c.match(metaKey);
+      let n = 0;
+      for (const x of list) {
+        btn.textContent = `Descargando ${++n}/${list.length}…`;
+        const b = await body(x);
+        if (!Array.isArray(b) || !b.length) throw new Error('No se pudo guardar el capítulo ' + x.num);
+        await c.put(offKey(x), new Response(JSON.stringify(b), { headers: { 'Content-Type': 'application/json' } }));
+        for (const bl of b) { const src = bl?.url || bl?.src; if (src) assets.add(media(src)); }
+      }
+      for (const f of volOf(ch)?.epub_fonts || []) if (f.url) assets.add(f.url);
+      btn.textContent = 'Guardando imágenes y fuentes…';
+      for (const url of assets) {
+        if (await c.match(url)) continue;
+        const r = await fetch(url, { mode: 'cors' });
+        if (!r.ok || r.type === 'opaque') throw new Error('No se pudo guardar un recurso del volumen');
+        await c.put(url, r);
+        inserted.add(url);
+      }
+      // Glosario es complementario; una falla de red no debe invalidar el texto.
+      await S.extras?.catch(() => {});
+      metaWritten = true;
+      await c.put(metaKey, new Response(JSON.stringify({ series: S.series, chapters: S.chapters, vols: S.vols, gloss: S.gloss || [] }), { headers: { 'Content-Type': 'application/json' } }));
+      // El índice es el último paso: solo se anuncia descargado si TODO se guardó.
+      idx[key] = { slug: S.series.slug, title: S.series.title, vol: ch.vol, nums: list.map(x => x.num), assets: [...assets], at: Date.now() };
+      localStorage.setItem(OFF_INDEX, JSON.stringify(idx));
+      complete = true;
+      btn.textContent = '✓ Descargado';
+      toast(`Volumen ${ch.vol} listo para leer sin conexión`);
+      navigator.storage?.persist?.().catch(() => {});
+    } catch (e) {
+      // Una descarga fallida no debe dejar un volumen marcado como completo.
+      if (c) {
+        await Promise.allSettled(chapterKeys.map(u => c.delete(u)));
+        await Promise.allSettled([...inserted].map(u => c.delete(u)));
+        if (metaWritten) {
+          try { if (previousMeta) await c.put(metaKey, previousMeta); else await c.delete(metaKey); } catch {}
+        }
+      }
+      toast('Descarga incompleta. Intenta de nuevo: ' + (e?.message || 'sin espacio o sin conexión'));
+    } finally {
+      btn.disabled = false;
+      if (!complete) btn.textContent = 'Descargar volumen';
+    }
   }
   async function removeVolume(key){
     const idx = offIndex(), it = idx[key]; if (!it) return;
+    const others = Object.entries(idx).filter(([k]) => k !== key).map(([,v]) => v);
+    const shared = new Set(others.flatMap(v => v.assets || []));
+    const sameSeries = others.some(v => v.slug === it.slug);
+    // Primero quitar el índice para no anunciar una descarga borrada a medias.
+    const next = { ...idx }; delete next[key];
+    localStorage.setItem(OFF_INDEX, JSON.stringify(next));
     const c = await caches.open(OFF_CACHE);
-    await Promise.all([...it.nums.map(n => c.delete(`/offline/${it.slug}/${n}`)), ...it.assets.map(u => c.delete(u))]);
-    delete idx[key]; localStorage.setItem(OFF_INDEX, JSON.stringify(idx));
+    const chapterKeys = it.nums.map(n => `/offline/${it.slug}/${n}`);
+    const exclusiveAssets = (it.assets || []).filter(u => !shared.has(u));
+    await Promise.all([...chapterKeys, ...exclusiveAssets, ...(!sameSeries ? ['/offline/meta/' + it.slug] : [])].map(u => c.delete(u)));
   }
   function offlineList(){
     const items = Object.entries(offIndex()).sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
