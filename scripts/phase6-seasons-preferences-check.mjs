@@ -69,7 +69,7 @@ contains(app,"if (p === '/catalogo') return S.apply('catalog')",'temporada en Ca
 contains(app,"return k ? S.apply('series', { key: k, greet: T.greet?.[k] || '' }) : S.apply('series')",'tema de equipo prevalece en ficha');
 contains(app,'window.obiSetUI(profile.ui_prefs)','preferencias guardadas tras sesión');
 contains(app,"localStorage.setItem('obi-ui', JSON.stringify(P || {}))",'caché de preferencias de interfaz');
-contains(profile,"sb.from('reader_prefs').upsert({ user_id: user.id, global: R.global, per_volume: R.per_volume",'persistencia global y por volumen');
+contains(profile,"sb.from('reader_prefs').upsert({ user_id: user.id, global: snapshot.global, per_volume: snapshot.per_volume",'persistencia global y por volumen');
 contains(reader,"const effective = volId => ({ ...DEF, ...(S.series?.teams?.reader_defaults || {}), ...S.remote.global, ...(S.remote.per_volume[volId] || {}) });",'prioridad equipo - global - volumen');
 contains(studio,'TP.render(D, previewDesign','vista previa del diseño sin edición en la página pública');
 console.log('Fase 6.2: respeto de temporadas, tema manual, solo colores, vista previa y preferencias confirmado.');
