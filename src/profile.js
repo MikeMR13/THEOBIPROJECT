@@ -1,4 +1,5 @@
 import { readReaderPrefs, readPendingReaderPrefs, stageReaderPrefs, acknowledgeReaderPrefs, sameReaderAccount } from './reader-pref-cache.js?v=1';
+import { readingPreviewDescription, privacyPreviewModel, notificationPreviewSummary } from './preferences-preview.js?v=1';
 // Perfil público de lector (carnet) y página /preferencias. Se carga solo al visitar esas rutas.
 const ICON = {
   discord: ['Discord', 'M7 7c3-1.5 7-1.5 10 0l2 9c-2 2-4 2.5-5 2.5l-1-2h-2l-1 2C9 18.5 7 18 5 16z M9.5 12.5h.01 M14.5 12.5h.01', 'https://discord.gg/…'],
@@ -135,6 +136,25 @@ const CSS = `
 .pf-save{padding-bottom:max(12px,env(safe-area-inset-bottom))}
 }
 @media(max-width:390px){.pf-body{padding:14px}.pf-row{gap:8px}.pf-sl{grid-template-columns:minmax(0,1fr)}}
+
+.pf-preview{border:1px solid #6b5a39;background:#1c1913;padding:14px;display:grid;gap:12px;min-width:0}
+.pf-preview h3{margin:0;font-size:16px}
+.pf-preview-guide{display:grid;gap:8px;font:13px/1.5 'IBM Plex Sans',sans-serif;color:#e3dccb}
+.pf-preview-guide p{margin:0}
+.pf-preview-note{color:var(--mute);font:12px/1.5 'IBM Plex Sans',sans-serif;margin:0}
+.pf-preview-list{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0}
+.pf-preview-list li{border:1px solid #61563f;background:#282319;padding:5px 9px;font:600 12px 'IBM Plex Sans',sans-serif}
+.pf-preview-list li.off{color:var(--mute);border-color:#3d3529;background:#17140f}
+.pf-preview-audience{display:flex;gap:8px;flex-wrap:wrap}
+.pf-preview-audience button{min-height:44px;border:1px solid #6b5a39;background:#100f0c;color:var(--paper);padding:8px 12px;cursor:pointer;font:600 13px 'IBM Plex Sans',sans-serif}
+.pf-preview-audience button[aria-pressed="true"]{background:var(--gold);color:#0d0c0a;border-color:var(--gold)}
+.pf-preview-sample{min-width:0;border:1px solid #514735;background:#14120e;padding:14px;display:grid;gap:10px}
+.pf-preview-sample p{margin:0}
+.pf-preview-sample strong{overflow-wrap:anywhere}
+.pf-mail-pause{border-left:3px solid var(--gold);padding:10px 12px;background:#201b12;font:13px/1.5 'IBM Plex Sans',sans-serif}
+.pf-mail-off{opacity:.65}
+.pf .pf-tg:disabled{opacity:.6;cursor:not-allowed}
+@media(max-width:760px){.pf-reading-preview{position:static!important;max-width:none!important}.pf-preview{padding:12px}}
 `;
 const css = () => { if (document.getElementById('lc-css')) return; const s = document.createElement('style'); s.id = 'lc-css'; s.textContent = CSS; document.head.appendChild(s); };
 
@@ -296,6 +316,7 @@ export async function preferences(C){
     const sumV = v => [v.theme, v.font && v.font !== 'original' ? v.font : '', v.size ? v.size + ' px' : '', v.align === 'justificada' ? 'justificada' : ''].filter(Boolean).join(' · ').toUpperCase() || 'AJUSTES PROPIOS';
     const draw = () => {
       const th = TH[G.theme] || TH.oscuro, auto = G.continuous === 'off', season = localStorage.getItem('obi-season') !== 'off';
+      const pv = readingPreviewDescription(G);
       app.innerHTML = shell(`<div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;min-width:0">
         <div style="flex:1 1 340px;display:grid;gap:30px;min-width:0">
           <div style="display:grid;gap:6px"><h2>Lectura</h2><p class="pf-note">Tus ajustes se aplican a todas las obras, aunque el equipo haya definido otro estilo. Se guardan al momento en este dispositivo y se sincronizan con tu cuenta.</p><p id="lc-sync" class="pf-note" role="status" aria-live="polite">${esc(syncStatus)}</p></div>
@@ -318,15 +339,26 @@ export async function preferences(C){
             ${Object.keys(R.per_volume || {}).length ? Object.entries(R.per_volume).map(([id, v]) => { const vo = (vols || []).find(x => x.id === id); return `<div class="pf-row"><span style="width:34px;height:46px;flex:none;background:${esc(vo?.series?.theme?.color || '#2a2519')}"></span><span style="display:grid;gap:3px;flex:1 1 200px;min-width:0"><b style="font-size:14px">${esc(vo ? vo.series?.title + ' · Vol. ' + vo.num : 'Volumen eliminado')}</b><span class="mono" style="font-size:12px">${esc(sumV(v))}</span></span><button type="button" class="btn ghost sm" data-delv="${esc(id)}" style="flex:none;white-space:nowrap">Borrar</button></div>`; }).join('') : '<p class="pf-note">No tienes ajustes por volumen.</p>'}</div>
           <div class="pf-up" style="padding-top:16px;border-top:1px solid var(--line)"><button type="button" class="btn ghost" id="lc-reset">Restablecer valores</button><span class="pf-note" style="font-size:13px">Vuelve a los ajustes originales. No borra los de cada volumen.</span></div>
         </div>
-        <aside style="flex:1 1 320px;max-width:460px;position:sticky;top:80px;display:grid;gap:10px"><span class="mono" style="font-size:11px;letter-spacing:.14em">VISTA PREVIA</span>
+        <aside class="pf-reading-preview" aria-label="Vista previa de lectura" style="flex:1 1 320px;max-width:460px;position:sticky;top:80px;display:grid;gap:10px"><h3>Vista previa de lectura</h3><p class="pf-preview-note">Texto de ejemplo para comprobar cómo se vería un capítulo. No modifica el contenido de ninguna obra.</p>
           <div id="lc-pv" style="background:${th[0]};color:${th[1]};border:1px solid var(--line);padding:28px ${{ estrecho: 48, normal: 30, amplio: 16 }[G.width] || 30}px;display:grid;gap:14px">
             <span class="mono" style="font-size:11px;letter-spacing:.14em;opacity:.7;color:inherit">VOL. 2 · CAP. 14</span>
             <h4 style="margin:0;font:800 ${Math.round(G.size * 1.3)}px/1.2 'Shippori Mincho B1',serif">El archivo de las horas</h4>
             ${['La bibliotecaria dejó la lámpara sobre el mostrador y abrió el registro. Nadie había pedido ese libro en cuarenta años, y sin embargo la ficha tenía una fecha de hoy escrita con su propia letra.', '—¿Quién lo devolvió? —preguntó, aunque ya sabía la respuesta.'].map(t => `<p class="lc-pp" style="margin:0;font-family:${FF[G.font] || FF.original};font-size:${G.size}px;line-height:${{ compacto: 1.45, comodo: 1.7, amplio: 1.95 }[G.lh] || 1.7};text-align:${G.align === 'justificada' ? 'justify' : 'left'};hyphens:auto">${t}</p>`).join('')}
-            ${G.illus !== false ? `<div style="aspect-ratio:16/9;background:${th[2]};display:grid;place-items:center;font:11px 'IBM Plex Mono',monospace;opacity:.8">ILUSTRACIÓN</div>` : ''}
+            ${G.illus !== false ? `<div style="aspect-ratio:16/9;background:${th[2]};display:grid;place-items:center;font:11px 'IBM Plex Mono',monospace;opacity:.8">ILUSTRACIÓN DE EJEMPLO</div>` : ''}
+            ${G.cw === 'hide' ? '' : G.cw === 'icon' ? '<p style="margin:0;font-size:13px">⚠ Aviso de contenido (icono)</p>' : '<details style="font-size:13px"><summary>Aviso de contenido (ejemplo)</summary><p style="margin:8px 0 0">Este capítulo puede incluir temas sensibles.</p></details>'}
+          </div>
+          <div class="pf-preview" aria-live="polite" aria-atomic="true">
+            <strong>${esc(pv.mode)}</strong>
+            <div class="pf-preview-guide"><p>${esc(pv.next)}</p><p>${esc(pv.warnings)}</p><p>${esc(pv.illustration)}</p></div>
           </div></aside></div>`);
       const $ = s => app.querySelector(s);
-      app.querySelectorAll('[data-k]').forEach(b => b.onclick = () => set(b.dataset.k, b.dataset.v));
+      app.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+        const k = b.dataset.k, v = b.dataset.v;
+        set(k, v);
+        app.querySelectorAll('[data-k]').forEach(next => {
+          if (next.dataset.k === k && next.dataset.v === v) next.focus({ preventScroll: true });
+        });
+      });
       $('#lc-size').oninput = e => { G.size = +e.target.value; $('#lc-sz').textContent = G.size + ' px'; app.querySelectorAll('.lc-pp').forEach(x => x.style.fontSize = G.size + 'px'); $('#lc-pv h4').style.fontSize = Math.round(G.size * 1.3) + 'px'; };
       $('#lc-size').onchange = () => set('size', G.size);
       $('#lc-secs')?.addEventListener('input', e => { G.autosecs = +e.target.value; $('#lc-sc').textContent = G.autosecs + ' s'; });
