@@ -678,7 +678,7 @@ export async function preferences(C){
     };
     app.querySelectorAll('[name="vis"]').forEach(i => i.onchange = async () => { if (await save({ profile_visibility: i.value }, 'Visibilidad actualizada')) preferences(C); });
     OPT.forEach(([k]) => $('#o-' + k).onclick = async e => { const b = e.currentTarget, v = !P[k]; if (await save({ [k]: v })) { flip(b); refreshPrivacyPreview(); } });
-    SECS.forEach(([k]) => $('#s-' + k).onclick = async e => { const b = e.currentTarget; S[k] = !S[k]; if (await save({ profile_sections: { ...S } })) { flip(b); refreshPrivacyPreview(); } else S[k] = !S[k]; });
+    SECS.forEach(([k]) => $('#s-' + k).onclick = async e => { const b = e.currentTarget; S[k] = !S[k]; if (await save({ profile_sections: { ...P.profile_sections, ...S } })) { flip(b); refreshPrivacyPreview(); } else S[k] = !S[k]; });
     $('#s-pub').onclick = async e => { const b = e.currentTarget; if (await save({ public_activity: !P.public_activity })) { flip(b); refreshPrivacyPreview(); } };
     app.querySelectorAll('[data-unhide]').forEach(b => b.onclick = async () => { if (await save({ hidden_series: (P.hidden_series || []).filter(x => x !== b.dataset.unhide) }, 'Vuelve a verse en tu perfil')) preferences(C); });
     $('#pv-exp').onclick = async e => { const b = e.currentTarget; b.disabled = true; const { data, error } = await sb.rpc('export_my_data'); b.disabled = false; if (error) return toast(error.message);
@@ -838,7 +838,7 @@ export async function preferences(C){
   }
 
   const D = { bio: P.bio || '', kanji: P.seal_kanji || '', accent: P.accent || '#f2c230', banner: P.banner_url, links: (P.links || []).map(l => ({ on: true, ...l })),
-    sec: Object.fromEntries(SECS.map(([k, , d]) => [k, P.profile_sections?.[k] ?? d])), pub: !!P.public_activity, favs: [] };
+    sec: Object.fromEntries(SECS.map(([k, , d]) => [k, P.profile_sections?.[k] ?? d])), genres: selectedGenres(P.profile_sections?.favorite_genres), pub: !!P.public_activity, favs: [] };
   if (P.favorites?.length) { const { data } = await sb.from('series').select('id,title,slug,cover_path,cover_thumb_path,theme').in('id', P.favorites); D.favs = P.favorites.map(id => (data || []).find(s => s.id === id)).filter(Boolean); }
   // La navegación dentro del SPA no dispara beforeunload. Mantener un borrador
   // local por usuario evita perder bio, enlaces y favoritas si cambia la ruta.
@@ -854,6 +854,7 @@ export async function preferences(C){
       if (typeof d.banner === 'string' || d.banner === null) D.banner = d.banner;
       if (Array.isArray(d.links)) D.links = d.links.filter(l => l && ICON[l.k] && typeof l.url === 'string').slice(0, 12);
       if (Array.isArray(d.favs)) D.favs = d.favs.filter(x => x && typeof x.id === 'string' && typeof x.title === 'string').slice(0, 5);
+      if (Array.isArray(d.genres)) D.genres = selectedGenres(d.genres);
       dirty = true; recovered = true;
     }
   } catch {}
@@ -890,6 +891,11 @@ export async function preferences(C){
         : "<div class='lc-bg' style='opacity:.35'></div>";
     const avatar = P.avatar_url ? "<img src='" + esc(P.avatar_url) + "' alt=''>" : esc((P.username || '?')[0].toUpperCase());
     const stamp = sealMarkup(D.kanji, esc);
+    const genres = D.genres.length ? "<section class='lc-sec lc-genres'><h2>Géneros favoritos</h2><div class='lc-genre-chips'>" +
+      D.genres.map(g => "<span class='lc-genre-chip'>" + esc(g) + "</span>").join('') + "</div></section>" : "";
+    const sealInfo = SEAL_LOOKUP.get(D.kanji);
+    const badges = D.kanji ? "<section class='lc-sec lc-badges'><h2>Mi sello</h2><div class='lc-badges-grid'><article class='lc-badge-card'><span class='lc-badge-glyph'>" + esc(D.kanji) +
+      "</span><div class='lc-badge-info'><strong>" + esc(sealInfo?.name || 'Sello personalizado') + "</strong><p>" + esc(sealInfo?.description || 'Un símbolo propio para tu carnet de lector.') + "</p></div></article></div></section>" : "";
     const bio = "<section class='lc-sec lc-about'><h2>Sobre mí</h2>" +
       (D.bio ? "<p>" + esc(D.bio) + "</p>" : "<p class='pf-live-placeholder'>Tu biografía aparecerá aquí.</p>") +
       "</section>";
@@ -901,7 +907,7 @@ export async function preferences(C){
     return "<div class='lc lc-public' style='--ac:" + esc(D.accent) + "'><section class='lc-card lc-public-card'><div class='lc-cover-stage " + (D.banner ? "is-user-banner" : "is-collage") + "'>" + bg +
       "<div class='lc-sh'></div></div><div class='lc-in'><span class='lc-av' aria-hidden='true'>" + avatar +
       "</span><div class='lc-tx'><span class='k'>CARNET DE LECTOR · 読者証</span><div class='lc-name-row'><h1>" + esc(P.username || 'Lector') +
-      "</h1>" + stamp + "</div>" + links + "</div></div></section>" + bio + covers + "</div>";
+      "</h1>" + stamp + "</div>" + links + "</div></div></section>" + bio + genres + covers + badges + "</div>";
   };
   let sealQuery = '', sealCategory = 'Todas', sealCustom = !!D.kanji && !SEAL_LOOKUP.has(D.kanji);
   const normalizeSeal = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -934,6 +940,10 @@ export async function preferences(C){
             <button type="button" class="btn ghost sm" id="seal-clear">Sin sello</button></div>
           <div class="pf-seal-custom" id="seal-custom-field" ${sealCustom ? '' : 'hidden'}><label>Kanji personalizado<input id="kj" class="pf-kj" maxlength="1" value="${esc(D.kanji)}" placeholder="月" aria-describedby="kjh" ${sealCustom ? '' : 'disabled'}></label>
           <small class="pf-note" id="kjh">Un solo kanji. Déjalo vacío para no mostrar sello.</small></div>
+        </section>
+        <section class="pf-genre-picker" aria-labelledby="pf-genre-title"><h3 id="pf-genre-title">Mis géneros favoritos</h3><p class="pf-note">Elige hasta tres géneros que te representan. Serán visibles en tu carnet cuando tu perfil sea accesible.</p>
+          <p class="pf-genre-count" id="pf-genre-count" role="status" aria-live="polite">${D.genres.length} de 3 seleccionados</p>
+          <div class="pf-genre-options" role="group" aria-label="Elegir géneros">${GENRE_CATALOG.map(g => `<button type="button" class="pf-genre-option" data-genre="${esc(g)}" aria-pressed="${D.genres.includes(g)}">${esc(g)}</button>`).join('')}</div>
         </section>
         <div class="pf-f">Color de acento<div class="pf-sw">${SWATCH.map(c => `<button type="button" data-ac="${c}" class="${c === D.accent ? 'on' : ''}" style="--swatch:${c}" aria-label="Color ${c}" aria-pressed="${c === D.accent}"></button>`).join('')}</div></div>
       </div>
@@ -975,7 +985,19 @@ export async function preferences(C){
       const info = $('#seal-selected'); if (info) info.innerHTML = sealSelected();
     };
     updateSealPanel();
-    $$('[data-ac]').forEach(b => b.onclick = () => { D.accent = b.dataset.ac; mark(); draw(); });
+    $('[data-genre]').forEach(b => b.onclick = () => {
+      const genre = b.dataset.genre;
+      if (!GENRE_CATALOG.includes(genre)) return;
+      if (D.genres.includes(genre)) D.genres = D.genres.filter(g => g !== genre);
+      else {
+        if (D.genres.length >= 3) return toast('Puedes seleccionar un máximo de tres géneros');
+        D.genres.push(genre);
+      }
+      $('[data-genre]').forEach(choice => choice.setAttribute('aria-pressed', String(D.genres.includes(choice.dataset.genre))));
+      $('#pf-genre-count').textContent = D.genres.length + ' de 3 seleccionados';
+      mark();
+    });
+    $('[data-ac]').forEach(b => b.onclick = () => { D.accent = b.dataset.ac; mark(); draw(); });
     $$('[data-rf]').forEach(b => b.onclick = () => { D.favs.splice(+b.dataset.rf, 1); mark(); draw(); });
     $$('[data-lk]').forEach(s => s.onchange = () => { D.links[+s.dataset.lk].k = s.value; mark(); draw(); });
     $$('[data-lu]').forEach(i => i.oninput = () => { D.links[+i.dataset.lu].url = i.value.trim(); mark(); });
@@ -1004,7 +1026,7 @@ export async function preferences(C){
       b.disabled = true; b.textContent = 'Guardando…';
       let error;
       try {
-        const response = await sb.from('profiles').update({ bio: D.bio.trim() || null, seal_kanji: D.kanji || null, accent: D.accent, banner_url: D.banner, links, favorites: D.favs.map(f => f.id) }).eq('id', user.id);
+        const response = await sb.from('profiles').update({ bio: D.bio.trim() || null, seal_kanji: D.kanji || null, accent: D.accent, banner_url: D.banner, links, favorites: D.favs.map(f => f.id), profile_sections: { ...P.profile_sections, ...D.sec, favorite_genres: selectedGenres(D.genres) } }).eq('id', user.id);
         error = response.error;
       } catch (cause) { error = cause; }
       saveInFlight = false; b.disabled = false; b.textContent = 'Guardar cambios';
@@ -1014,7 +1036,7 @@ export async function preferences(C){
         toast('Se guardaron los cambios anteriores; quedan cambios nuevos sin guardar');
         draw(); return;
       }
-      D.links = links; dirty = false; recovered = false;
+      D.links = links; P.profile_sections = { ...P.profile_sections, ...D.sec, favorite_genres: selectedGenres(D.genres) }; C.setProfile?.({ profile_sections: P.profile_sections }); dirty = false; recovered = false;
       try { localStorage.removeItem(draftKey); } catch {}
       toast('Perfil guardado'); reload?.(); draw(); };
   };
