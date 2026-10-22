@@ -81,21 +81,26 @@ try{
  assert(ready,'La PWA no quedó controlada por SW');
  const meta={
    series:{id:'serie-prueba',slug:'obra-local',title:'Obra QA offline',team_id:'e',teams:{name:'QA',slug:'qa',reader_defaults:{}}},
-   chapters:[{id:'c-1',num:1,vol:1,volume_id:'v-1',title:'Capítulo QA',updated_at:'2026-10-21T00:00:00Z'}],
+   chapters:[{id:'c-1',num:1,vol:1,volume_id:'v-1',title:'Capítulo QA',updated_at:'2026-10-21T00:00:00Z'},
+     {id:'c-2',num:2,vol:1,volume_id:'v-1',title:'Capítulo dos QA',updated_at:'2026-10-21T00:00:00Z'}],
    vols:[{id:'v-1',num:1,title:'Volumen QA',epub_fonts:[]}],gloss:[]
  };
  const content=[{type:'paragraph',text:'TEXTO OFFLINE DE PRUEBA'}];
+ const content2=[{type:'paragraph',text:'SEGUNDO CAPÍTULO OFFLINE QA'}];
  const seed=`(async()=>{
    const c=await caches.open('obi-offline-v1');
    await c.put('/offline/meta/obra-local',new Response(JSON.stringify(${JSON.stringify(meta)}),{headers:{'content-type':'application/json'}}));
    await c.put('/offline/obra-local/1',new Response(JSON.stringify(${JSON.stringify(content)}),{headers:{'content-type':'application/json'}}));
-   localStorage.setItem('obi-offline-index',JSON.stringify({'serie-prueba:1':{slug:'obra-local',title:'Obra QA offline',vol:1,nums:[1],assets:[],at:Date.now()}}));
-   return {shell:(await caches.keys()).filter(k=>k.startsWith('obi-')),downloaded:!!(await c.match('/offline/obra-local/1'))};
+   await c.put('/offline/obra-local/2',new Response(JSON.stringify(${JSON.stringify(content2)}),{headers:{'content-type':'application/json'}}));
+   localStorage.setItem('obi-offline-index',JSON.stringify({'serie-prueba:1':{slug:'obra-local',title:'Obra QA offline',vol:1,nums:[1,2],assets:[],at:Date.now()}}));
+   localStorage.setItem('obi-me',JSON.stringify({id:'lector-fixture',email:'lector@qa.invalid',profile:{username:'Lector QA'},me:{platform_role:'lector'}}));
+   return {shell:(await caches.keys()).filter(k=>k.startsWith('obi-')),downloaded:!!(await c.match('/offline/obra-local/1')) && !!(await c.match('/offline/obra-local/2'))};
  })()`;
  const setup=await evalJs(seed);
  assert(setup.downloaded,'Capítulo no quedó guardado en Cache Storage');
  await call('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
  await waitFor(()=>evalJs('navigator.onLine === false'),4500);
+ await evalJs('performance.clearResourceTimings()');
  const startList=performance.now();
  await navigate('/descargas');
  await waitFor(()=>evalJs("Boolean(document.querySelector('.off-it'))"),7500);
@@ -123,6 +128,16 @@ try{
  console.log('CHROMIUM PWA modo avión: SW='+setup.shell.join(',')+'; Mis descargas='+descMs+'ms; capítulo='+chapterMs+'ms; resultado='+ (chapterReady?'OK':'FALLA: '+terminal));
  console.log('DIAGNÓSTICO CHROMIUM '+JSON.stringify(diagnostics));
  assert(chapterReady,'El capítulo ficticio descargado no abrió sin red: '+terminal);
+ // Regresión de navegación y preferencias de la misma sesión guardada.
+ const secondStart=performance.now();
+ await navigate('/leer/obra-local/2');
+ await waitFor(()=>evalJs("Boolean(document.querySelector('.rd-body')?.textContent.includes('SEGUNDO CAPÍTULO OFFLINE QA'))"),4000);
+ const secondMs=Math.round(performance.now()-secondStart);
+ const after=await evalJs(`({offline:!navigator.onLine,username:document.querySelector('.ob-user')?.textContent || '',remote:performance.getEntriesByType('resource').filter(r=>/obi-qa-backend\\.invalid/i.test(r.name)).length})`);
+ console.log('CHROMIUM PWA segundo capítulo='+secondMs+'ms; sin conexión='+after.offline+'; backend solicitudes='+after.remote);
+ assert(after.offline,'Cambiar de capítulo no debe activar la red');
+ assert.equal(after.remote,0,'Ninguna consulta a Supabase tras entrar en modo avión');
+ assert(secondMs<2500,'El segundo capítulo debe cargar sin esperas de red en el laboratorio');
 }finally{
  try{ws?.close();}catch{}
  try{proc?.kill('SIGKILL');}catch{}
