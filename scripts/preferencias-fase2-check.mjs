@@ -19,7 +19,7 @@ const flattened=groups.flatMap(([,items])=>items);
 assert.equal(keys.length,8,'Conservar ocho rutas');
 assert.equal(new Set(keys).size,8,'No duplicar rutas');
 assert.deepEqual([...flattened].sort(),[...keys].sort(),'Cada apartado aparece una sola vez');
-assert.deepEqual(groups.map(([l])=>l),['Mi identidad','Mi experiencia','Comunidad','Seguridad y cuenta']);
+assert.deepEqual(Array.from(groups, ([l])=>l),['Mi identidad','Mi experiencia','Comunidad','Seguridad y cuenta']);
 assert(keys.includes('adulto') && keys.includes('pantalla'),'Conservar slugs originales');
 for(const part of [
   '<nav class="pf-nav" aria-label="Secciones de preferencias">',
