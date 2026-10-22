@@ -29,6 +29,7 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
         <label>Caducidad<select name="hours">
           <option value="24">24 horas</option><option value="48" selected>48 horas</option>
           <option value="168">7 días</option></select></label>
+        <label style="flex-basis:100%">Motivo administrativo<input name="reason" minlength="12" maxlength="400" required placeholder="Explica por qué se invita a esta persona"></label>
         <button type="submit" class="btn" ${teams.length ? '' : 'disabled'}>Crear enlace único</button>
       </form>
       <div id="inv-created" hidden aria-live="polite"></div>
@@ -52,12 +53,14 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
     event.preventDefault();
     if (!form.reportValidity()) return;
     const team = form.elements.team.value, email = form.elements.email.value.trim(),
-      role = form.elements.role.value, hours = Number(form.elements.hours.value);
+      role = form.elements.role.value, hours = Number(form.elements.hours.value),
+      reason = form.elements.reason.value.trim();
+    if (reason.length < 12) return toast('Escribe un motivo de al menos 12 caracteres');
     if (role === 'admin' && !confirm('La persona podrá administrar este equipo y sus publicaciones, pero no será Bibliotecario ni Propietario. ¿Continuar?')) return;
     const button = form.querySelector('[type=submit]'); button.disabled = true;
     try {
       const invitation = await rpc('admin_invitation_create',
-        { p_team: team, p_email: email, p_role: role, p_hours: hours });
+        { p_team: team, p_email: email, p_role: role, p_hours: hours, p_reason: reason });
       const link = location.origin + '/invitacion#token=' + encodeURIComponent(invitation.token);
       created.hidden = false;
       created.innerHTML = `<div class="bb-super-note"><b>Invitación creada para ${esc(email)}</b><br>
