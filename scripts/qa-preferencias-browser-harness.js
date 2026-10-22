@@ -121,6 +121,28 @@ try{
  check(!!localStorage.getItem(readerPrefsKey(oldUser)),'Cuenta A perdió su caché');
 
  await open('/preferencias');
+
+ // QA del catálogo real: 32 opciones, búsqueda, categorías, selección y personalización.
+ check(app.querySelectorAll('[data-seal-pick]').length===32,'Catálogo no muestra 32 sellos');
+ const querySeal=app.querySelector('#seal-query');
+ querySeal.value='mago';querySeal.dispatchEvent(new Event('input',{bubbles:true}));
+ check(app.querySelectorAll('[data-seal-pick]').length===1 && !!app.querySelector('[data-seal-pick="魔"]'),'Búsqueda de sellos incorrecta');
+ querySeal.value='';querySeal.dispatchEvent(new Event('input',{bubbles:true}));
+ const categorySeal=app.querySelector('#seal-category');
+ categorySeal.value='Aventura';categorySeal.dispatchEvent(new Event('change',{bubbles:true}));
+ check(app.querySelectorAll('[data-seal-pick]').length===8,'Filtro de Aventura incorrecto');
+ categorySeal.value='Todas';categorySeal.dispatchEvent(new Event('change',{bubbles:true}));
+ click('[data-seal-pick="魔"]');
+ check((app.querySelector('#pf-live-card .lc-seal-name')?.textContent||'').includes('El Mago'),'Vista previa de apodo ausente');
+ check((app.querySelector('#seal-selected')?.textContent||'').includes('Significado del kanji'),'Descripción del sello ausente');
+ click('#seal-custom-toggle');
+ const manualSeal=app.querySelector('#kj');
+ check(manualSeal&&!manualSeal.disabled,'No se habilita el kanji personalizado');
+ manualSeal.value='猫';manualSeal.dispatchEvent(new Event('input',{bubbles:true}));
+ check((app.querySelector('#pf-live-card .lc-kj')?.textContent||'')==='猫','Kanji personalizado no aparece');
+ click('#seal-clear');
+ check(!app.querySelector('#pf-live-card .lc-kj'),'Sin sello no oculta el kanji');
+
  const bio=app.querySelector('#bio');
  if(!bio)throw Error('Campo bio ausente');
  bio.value='Borrador de cuenta B';bio.dispatchEvent(new Event('input',{bubbles:true}));
@@ -138,10 +160,10 @@ try{
  check(app.querySelector('#bio')?.value==='Borrador de cuenta B','No recuperó borrador de perfil');
  check(!localStorage.getItem('obi-profile-draft:user:'+oldUser),'Borrador cruzado de A');
 
- const width=document.documentElement.clientWidth,mobileScreen=width<=760;
+ const width=document.documentElement.clientWidth,mobileScreen=matchMedia('(max-width: 760px)').matches;
  check((getComputedStyle(app.querySelector('.pf-mobile-nav')).display!=='none')===mobileScreen,'Selector móvil mal ubicado');
  check((getComputedStyle(app.querySelector('.pf-nav')).display==='none')===mobileScreen,'Navegación lateral mal ubicada');
- for(const s of ['.pf-tg','.pf-sw button','.pf-favs .pf-x']){
+ for(const s of ['.pf-tg','.pf-sw button','.pf-fav-remove']){
   const e=app.querySelector(s);if(!e)continue;
   const rect=e.getBoundingClientRect();
   check(rect.width>=43&&rect.height>=43,'Objetivo táctil insuficiente: '+s);
