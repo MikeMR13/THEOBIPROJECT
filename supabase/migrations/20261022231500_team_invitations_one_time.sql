@@ -63,8 +63,10 @@ begin
     raise exception 'La caducidad debe ser 24, 48 o 168 horas';
   end if;
 
-  select name into v_team_name from public.teams where id=p_team;
-  if v_team_name is null then raise exception 'Equipo no encontrado'; end if;
+  select t.name into v_team_name from public.teams t where t.id=p_team
+    and exists (select 1 from public.team_members m
+                where m.team_id=t.id and m.role='owner'::public.team_role);
+  if v_team_name is null then raise exception 'El equipo debe tener propietario'; end if;
   -- Límite sencillo para prevenir generación masiva accidental o abusiva.
   if (select count(*) from public.team_invitations
       where created_by=auth.uid() and created_at>now()-interval '24 hours') >= 30 then
@@ -155,7 +157,8 @@ begin
   if auth.uid() is null then raise exception 'Inicia sesión para ver la invitación'; end if;
   if p_token is null or p_token !~ '^[0-9a-f]{64}$' then raise exception 'Enlace inválido'; end if;
   select lower(email) into v_email from auth.users
-  where id=auth.uid() and email_confirmed_at is not null;
+  where id=auth.uid() and email_confirmed_at is not null
+    and deleted_at is null and (banned_until is null or banned_until<=now());
   if v_email is null then raise exception 'Verifica tu correo antes de aceptar'; end if;
   select * into v_inv from public.team_invitations
   where token_hash=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_token,'UTF8')),'hex');
@@ -188,7 +191,8 @@ begin
   if auth.uid() is null then raise exception 'Debes iniciar sesión'; end if;
   if p_token is null or p_token !~ '^[0-9a-f]{64}$' then raise exception 'Enlace inválido'; end if;
   select lower(email) into v_email from auth.users
-    where id=auth.uid() and email_confirmed_at is not null;
+    where id=auth.uid() and email_confirmed_at is not null
+    and deleted_at is null and (banned_until is null or banned_until<=now());
   if v_email is null then raise exception 'Debes verificar tu correo'; end if;
   select * into v_inv from public.team_invitations
     where token_hash=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_token,'UTF8')),'hex')
