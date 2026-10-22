@@ -13,7 +13,7 @@ requireSQL(/GRANT SELECT \(id\) ON TABLE public\.profiles TO authenticated;/i,'U
 requireSQL(/DROP POLICY IF EXISTS "profiles read" ON public\.profiles;/i,'eliminar RLS público permisivo');
 requireSQL(/CREATE POLICY "profiles self read" ON public\.profiles[\s\S]*?FOR SELECT TO authenticated[\s\S]*?USING \(id = \(SELECT auth\.uid\(\)\)\)/i,'RLS propietario');
 requireSQL(/CREATE OR REPLACE FUNCTION public\.studio_profile_names\(p_ids uuid\[\]\)[\s\S]*?private\.is_admin\(\)[\s\S]*?FROM public\.team_members viewer[\s\S]*?viewer\.user_id = \(SELECT auth\.uid\(\)\)/i,'RPC equipo/administrador');
-...['public.team_members colleague','public.team_log l','public.team_design_versions d','public.comments cm','public.reports r','public.chapter_revisions cr'].map(needle=>assert(sql.includes(needle),'No romper identidades de colaboradores, comentarios, erratas e historial: '+needle));
+for (const needle of ['public.team_members colleague','public.team_log l','public.team_design_versions d','public.comments cm','public.reports r','public.chapter_revisions cr']) assert(sql.includes(needle),'No romper identidades de colaboradores, comentarios, erratas e historial: '+needle);
 requireSQL(/REVOKE ALL ON FUNCTION public\.studio_profile_names\(uuid\[\]\) FROM PUBLIC, anon;/i,'RPC de equipo no expuesto anon');
 requireSQL(/CREATE OR REPLACE FUNCTION public\.reader_stats\([\s\S]*?pr\.public_activity[\s\S]*?pr\.delete_requested_at is null[\s\S]*?pr\.profile_visibility = 'all'[\s\S]*?pr\.profile_visibility = 'auth'[\s\S]*?user_blocks b/i,'estadísticas privadas o bloqueadas inaccesibles');
 requireSQL(/CREATE OR REPLACE FUNCTION public\.search_readers\([\s\S]*?is_anonymous/i,'buscar solo usuarios registrados');
