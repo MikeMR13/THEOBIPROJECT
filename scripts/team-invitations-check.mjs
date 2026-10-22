@@ -21,6 +21,8 @@ requireMatch(sql,/invited_role <> 'owner'/i,'Nunca otorgar propiedad por enlace'
 requireMatch(sql,/if auth\.uid\(\) is null or not private\.is_admin\(\)/i,'Crear invitaciones requiere Bibliotecario');
 requireMatch(sql,/p_role not in \('admin','translator','editor','proofreader','collaborator'\)/i,'Roles restringidos');
 requireMatch(sql,/p_hours not in \(24,48,168\)/i,'Caducidad restringida');
+requireMatch(sql,/pg_advisory_xact_lock/i,'Prevención de invitaciones duplicadas');
+requireMatch(sql,/length\(btrim\(coalesce\(p_reason,''\)\)\)<12/i,'Motivo obligatorio');
 requireMatch(sql,/lower\(email\)[\s\S]*?email_confirmed_at is not null/i,'Validar correo confirmado en el servidor');
 requireMatch(sql,/if v_email<>v_inv\.invite_email/i,'Invitación vinculada al correo');
 requireMatch(sql,/for update;/i,'Canje serializado bajo bloqueo');
@@ -28,7 +30,7 @@ requireMatch(sql,/insert into public\.team_members/i,'Alta atómica al equipo');
 requireMatch(sql,/set redeemed_at=now\(\),redeemed_by=auth\.uid\(\)/i,'Canje marcado como usado');
 requireMatch(sql,/private\.audit\('invitacion_equipo_canjeada'/i,'Auditoría de canjes');
 for(const fn of [
- 'admin_invitation_create\\(uuid,text,text,integer\\)',
+ 'admin_invitation_create\\(uuid,text,text,integer,text\\)',
  'admin_invitation_list\\(integer\\)',
  'admin_invitation_revoke\\(uuid,text\\)',
  'team_invitation_preview\\(text\\)',
@@ -42,6 +44,7 @@ requireMatch(app,/pendingInviteToken\(\); go\(pendingInvite \? '\/invitacion' : 
 requireMatch(admin,/\['invitaciones','Invitaciones'\]/,'Pestaña del Mostrador');
 requireMatch(admin,/renderAdminInvitations/,'Vista del Bibliotecario');
 requireMatch(invites,/admin_invitation_create/,'Creación desde UI');
+requireMatch(invites,/p_reason: reason/,'La invitación envía el motivo al backend');
 requireMatch(invites,/admin_invitation_revoke/,'Revocación desde UI');
 requireMatch(invites,/navigator\.clipboard\.writeText\(link\)/,'Enlace privado copiable');
 requireMatch(redeem,/new URLSearchParams\(location\.hash\.slice\(1\)\)/,'URL fragment para secreto');
