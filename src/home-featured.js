@@ -78,6 +78,9 @@ export function homeFeaturedSelection({series=[], news={entries:[],bySeries:{}},
   for(const x of pool.team)add(x);
   // Completar huecos editoriales sin repetir novelas y sin quitar a los equipos.
   for(const x of [...releases,...['popular','historic','editorial','discover','trending']
-    .flatMap(k=>rotate(pool[k],today,k))])add(x);
+    .flatMap(k=>rotate(pool[k],today,k))]){
+    if(x.kind==='release'&&chosen.filter(y=>y.kind==='release').length>=2)continue;
+    add(x);
+  }
   return {day:today,entries:chosen,bySeries:Object.fromEntries(chosen.map(x=>[x.id,x])),pool};
 }
