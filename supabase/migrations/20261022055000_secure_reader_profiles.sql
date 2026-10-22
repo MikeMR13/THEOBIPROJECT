@@ -110,6 +110,32 @@ GRANT EXECUTE ON FUNCTION public.team_public_members(uuid) TO anon, authenticate
 REVOKE ALL ON FUNCTION public.studio_profile_names(uuid[]) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.studio_profile_names(uuid[]) TO authenticated;
 
+-- 2c. Comentarios del lector: solo identidad pública de participantes del
+-- capítulo, nunca preferencias u otras columnas sensibles de profiles.
+CREATE OR REPLACE FUNCTION public.comment_public_authors(p_chapter uuid)
+RETURNS TABLE(user_id uuid, username text, avatar_url text)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path TO ''
+AS $obi_comments$
+  SELECT DISTINCT p.id, p.username, p.avatar_url
+  FROM public.comments cm
+  JOIN public.profiles p ON p.id = cm.user_id
+  JOIN public.chapters ch ON ch.id = cm.chapter_id
+  JOIN public.series s ON s.id = ch.series_id
+  WHERE cm.chapter_id = p_chapter
+    AND (
+      (ch.status = 'published' AND ch.deleted_at IS NULL
+       AND s.published AND s.archived_at IS NULL)
+      OR EXISTS (
+        SELECT 1 FROM public.team_members tm
+        WHERE tm.user_id = (SELECT auth.uid()) AND tm.team_id = s.team_id
+      )
+    )
+  LIMIT 500
+$obi_comments$;
+REVOKE ALL ON FUNCTION public.comment_public_authors(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.comment_public_authors(uuid) TO anon, authenticated;
+
 -- 3. Estadísticas: el propietario siempre puede consultar las suyas.
 -- Terceros solo si el perfil es visible para su audiencia, con actividad
 -- pública habilitada, sin solicitud de eliminación y sin bloqueo.
