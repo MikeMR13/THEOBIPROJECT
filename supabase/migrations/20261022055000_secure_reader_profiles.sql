@@ -1,29 +1,10 @@
--- El Obi — privacidad por defecto / reparación SEG-01.
--- Basado en funciones reales inspeccionadas en Supabase, sin leer datos personales.
--- Aplicar SOLO después de verificar en backend aislado.
+-- SEG-02 / FASE A — ADDITIVE (compatible con la interfaz vieja y la nueva).
+-- Seguro para instalar ANTES del frontend: NO modifica permisos de public.profiles.
+-- El cierre de ACL/RLS va en supabase/release-gates/SEG02_FINAL_LOCK_PROFILES.sql.
+-- IMPORTANTE: desplegar el nuevo frontend y verificarlo antes del cierre.
 BEGIN;
-
--- 1. Retirar la lectura directa de campos privados de perfiles.
--- El ACL anterior daba SELECT, INSERT, DELETE y MAINTAIN a anon/authenticated.
--- RLS no se aplica a todas las operaciones de mantenimiento: retirar los grants
--- de tabla y restaurar únicamente los permisos mínimos necesarios.
-REVOKE ALL PRIVILEGES ON TABLE public.profiles FROM anon, authenticated;
--- SELECT(id) permite el filtro por id de UPDATE, bajo policy de propietario.
-GRANT SELECT (id) ON TABLE public.profiles TO authenticated;
--- Restaurar exclusivamente los campos editables por el lector (ACL previo).
--- No habilitar edición de id, roles, tier, datos de pago ni atributos internos.
-GRANT UPDATE (username, avatar_url, discord_id, telegram_id, adult_ok,
-  bio, banner_url, discoverable, public_library, public_activity,
-  seal_kanji, accent, links, favorites, profile_sections, profile_visibility,
-  show_since, hide_reading, hidden_series, notify, ui_prefs)
-ON TABLE public.profiles TO authenticated;
-DROP POLICY IF EXISTS "profiles read" ON public.profiles;
-DROP POLICY IF EXISTS "profiles self read" ON public.profiles;
-CREATE POLICY "profiles self read" ON public.profiles
-  FOR SELECT TO authenticated
-  USING (id = (SELECT auth.uid()));
--- Conservar "profiles self update" y "profiles admin" existentes.
--- my_profile() y reader_public() mantienen sus contratos seguros.
+SET LOCAL lock_timeout = '4s';
+SET LOCAL statement_timeout = '20s';
 
 -- 2. Nombres de colaboradores por equipo; nunca enumeración pública de lectores.
 CREATE OR REPLACE FUNCTION public.studio_profile_names(p_ids uuid[])
