@@ -2,7 +2,18 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const sql=readFileSync('supabase/migrations/20261022055000_secure_reader_profiles.sql','utf8');
+const additive=readFileSync('supabase/migrations/20261022055000_secure_reader_profiles.sql','utf8');
+const gate=readFileSync('supabase/release-gates/SEG02_FINAL_LOCK_PROFILES.sql','utf8');
+const sql=additive+'\n'+gate;
+// A: toda RPC necesaria debe existir ANTES de desplegar el frontend.
+// C: jamás quitar SELECT público en migración automática (rompería clientes viejos).
+assert.doesNotMatch(additive,/REVOKE ALL PRIVILEGES ON TABLE public\.profiles/i,'fase A no debe bloquear frontend antiguo');
+assert.doesNotMatch(additive,/DROP POLICY IF EXISTS "profiles read"/i,'fase A conserva política legacy hasta cambiar clientes');
+assert.match(gate,/REVOKE ALL PRIVILEGES ON TABLE public\.profiles/i,'cierre final RLS separado y supervisado');
+assert.match(gate,/to_regprocedure\('public\.studio_profile_names\(uuid\[\]\)'\)/i,'preflight exige nuevas RPC');
+assert.match(additive,/CREATE OR REPLACE FUNCTION public\.studio_profile_names/i,'RPC lista antes del cierre');
+assert.match(additive,/CREATE OR REPLACE FUNCTION public\.team_public_members/i,'RPC equipos antes del cierre');
+assert.match(additive,/CREATE OR REPLACE FUNCTION public\.comment_public_authors/i,'RPC comentarios antes del cierre');
 const studio=readFileSync('src/studio.js','utf8');
 const app=readFileSync('src/app.js','utf8');
 const profile=readFileSync('src/profile.js','utf8');
