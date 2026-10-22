@@ -142,5 +142,8 @@ try{
  try{ws?.close();}catch{}
  try{proc?.kill('SIGKILL');}catch{}
  try{await new Promise(r=>server.close(r));}catch{}
- rmSync(temp,{recursive:true,force:true});
+ // Chromium puede escribir archivos de perfil durante el cierre; reintentar la
+ // limpieza para evitar fallos ENOTEMPTY posteriores a pruebas aprobadas.
+ try { rmSync(temp,{recursive:true,force:true,maxRetries:12,retryDelay:150}); }
+ catch(e) { console.warn('Limpieza temporal Chromium incompleta:',e.message); }
 }
