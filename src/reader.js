@@ -19,7 +19,8 @@ export function createReader(ctx){
     S.prefsRequest=request;
     S.remote=loadLocal(uid);
     S.prefsOwner=uid;
-    if (uid) {
+    // El lector descargado no debe esperar la sincronización de preferencias.
+    if (uid && navigator.onLine) {
       const { data, error } = await sb.from('reader_prefs').select('global,per_volume').eq('user_id', uid).maybeSingle();
       if (!error && data && sameReaderAccount(getUser()?.id, uid) && sameReaderAccount(S.prefsOwner, uid) && S.prefsRequest === request && (S.prefsVersion || 0) === version) {
         S.remote={ global:data.global || {}, per_volume:data.per_volume || {} };
@@ -63,7 +64,18 @@ export function createReader(ctx){
   }
   async function loadSeries(slug, num){
     if (S.series?.slug === slug && (num == null || S.chapters.some(c => c.num === num))) return true;
-    let m = null, offGl = null; const hit = navigator.onLine ? cachedMeta(slug) : null;
+    // Sin conexión: no consultar Supabase; la descarga tiene sus propios metadatos íntegros.
+    // Esto evita esperas de red incluso si la petición nunca rechaza.
+    if (!navigator.onLine) {
+      const local = await offlineMeta(slug);
+      if (!local?.series || (num != null && !local.chapters?.some(c => c.num === num))) return false;
+      setSeries(local);
+      const gl = local.gloss || [];
+      Object.assign(S, { nextAt: null, gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined });
+      S.extras = Promise.resolve();
+      return true;
+    }
+    let m = null, offGl = null; const hit = cachedMeta(slug);
     if (hit?.series && (num == null || hit.chapters.some(c => c.num === num))) {
       // copia guardada al instante; la red la refresca por detrás (capítulos nuevos, títulos, avisos)
       m = hit; S.metaFresh = fetchMeta(slug).then(n => { if (n && S.series?.id === n.series.id) { const act = S.active, nw = act && n.chapters.find(c => c.id === act.id); S.series = n.series; S.chapters = n.chapters; S.vols = n.vols;
@@ -95,6 +107,13 @@ export function createReader(ctx){
       if (ks.length > BC_MAX) await Promise.all(ks.slice(0, ks.length - BC_MAX).map(k => c.delete(k))); }).catch(() => {}); }
   async function body(ch){
     if (S.bodies.has(ch.id)) return S.bodies.get(ch.id);
+    // En modo avión, el texto completo descargado es la fuente primaria.
+    // No crear ni aguardar ninguna solicitud remota aunque el navegador tarde en detectar el corte.
+    if (!navigator.onLine) {
+      const b = await offlineBody(ch) || await cacheGet(ch);
+      if (b) S.bodies.set(ch.id, b);
+      return b;
+    }
     { const hit = await cacheGet(ch); if (hit) { S.bodies.set(ch.id, hit); return hit; } }
     const ek = (S.series?.slug || '') + '/' + ch.num;
     if (early.has(ek)) { const d = await early.get(ek); early.delete(ek); if (d?.id === ch.id && d.body) { S.bodies.set(ch.id, d.body); cachePut(ch, d.body); return d.body; } }
@@ -108,7 +127,7 @@ export function createReader(ctx){
   // texto del siguiente capítulo + sus 2 primeras ilustraciones (salvo modo ahorro de datos)
   // No descargar por anticipado el capítulo en conexiones lentas, ahorro de datos
   // o pestañas ocultas. La navegación normal sigue cargando el capítulo al abrirlo.
-  const canPrefetch = () => !document.hidden && !navigator.connection?.saveData &&
+  const canPrefetch = () => navigator.onLine && !document.hidden && !navigator.connection?.saveData &&
     !/(^|-)2g$/i.test(navigator.connection?.effectiveType || '');
   const prefetchNext = ch => { const n = nextOf(ch); if (!n || S.bodies.has(n.id) || !canPrefetch()) return;
     (window.requestIdleCallback || (fn => setTimeout(fn, 250)))(() => {
@@ -279,7 +298,7 @@ export function createReader(ctx){
     if (!(await loadSeries(slug, num))) { if ((getUser()?.id || null) !== openingUser) return; app.innerHTML = '<h1>Serie no encontrada</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
     if (!sameReaderAccount(getUser()?.id, openingUser)) return;
     const ch = S.chapters.find(c => c.num === num);
-    if (!ch) { const { data: L } = await sb.rpc('lock_info', { p_slug: slug, p_num: num }).then(x => x, () => ({ data: null })); if (L) { const P = await import('/patreon.js?v=1'); app.innerHTML = P.lockHTML(L, esc, slug); app.querySelector('#lk-link')?.addEventListener('click', () => P.start(sb, url, 'link', null, toast)); return; } app.innerHTML = '<h1>Capítulo no disponible</h1><p>Puede que aún no se publique. <a href="/serie/' + esc(slug) + '">Volver a la obra</a></p>'; return; }
+    if (!ch) { const { data: L } = navigator.onLine ? await sb.rpc('lock_info', { p_slug: slug, p_num: num }).then(x => x, () => ({ data: null })) : { data: null }; if (L) { const P = await import('/patreon.js?v=1'); app.innerHTML = P.lockHTML(L, esc, slug); app.querySelector('#lk-link')?.addEventListener('click', () => P.start(sb, url, 'link', null, toast)); return; } app.innerHTML = '<h1>Capítulo no disponible</h1><p>Puede que aún no se publique. <a href="/serie/' + esc(slug) + '">Volver a la obra</a></p>'; return; }
     const annP = fetchAnnots([ch.id]);
     // ajustes y posición del servidor no frenan la apertura: si tardan más de 300 ms se usa lo de este dispositivo y lo del servidor se aplica al llegar
     const quick = (p, fb) => Promise.race([p, new Promise(r => setTimeout(() => r(fb()), 300))]);
@@ -466,6 +485,10 @@ export function createReader(ctx){
   }
   // gana la posición más reciente entre la del servidor y la de este dispositivo
   async function fetchPos(){
+    // La posición de este dispositivo siempre está disponible al leer sin conexión.
+    if (!navigator.onLine) {
+      try { return JSON.parse(localStorage.getItem(posKey(S.series.id))); } catch { return null; }
+    }
     let srv = null, loc = null; const user = getUser();
     if (user) try { const { data } = await sb.from('reading_progress').select('chapter_id,chapter_num,block,pct,updated_at').eq('user_id', user.id).eq('series_id', S.series.id).order('updated_at', { ascending: false }).limit(1); srv = data?.[0] || null; } catch {}
     try { loc = JSON.parse(localStorage.getItem(posKey(S.series.id))); } catch {}
@@ -489,7 +512,10 @@ export function createReader(ctx){
     else scrollTo(0, 0);
   }
   function logHistory(ch){
-    if (S.historyLogged.has(ch.id)) return; S.historyLogged.add(ch.id);
+    if (S.historyLogged.has(ch.id)) return;
+    // El historial online es complementario: nunca intentar escribir sin red.
+    if (!navigator.onLine) return;
+    S.historyLogged.add(ch.id);
     const user = getUser(); if (user) sb.from('reading_history').insert({ user_id: user.id, chapter_id: ch.id });
   }
 
@@ -665,7 +691,7 @@ export function createReader(ctx){
   // ---------- anotaciones ----------
   // solo los capítulos que se piden (en el lector: los que están en pantalla)
   async function fetchAnnots(ids){
-    const user = getUser(); if (!user || !ids.length) return [];
+    const user = getUser(); if (!navigator.onLine || !user || !ids.length) return [];
     try { const { data } = await sb.from('annotations').select('*').eq('user_id', user.id).in('chapter_id', ids); return data || []; } catch { return []; }
   }
   function textOffset(blockEl, node, off){ const r = document.createRange(); r.setStart(blockEl, 0); r.setEnd(node, off); return r.toString().length; }
