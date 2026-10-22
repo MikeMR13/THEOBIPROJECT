@@ -80,7 +80,9 @@ if (missing.length) throw new Error('index.html apunta a archivos inexistentes: 
 const BOOT = new Set(['styles.css', 'reader-a11y.css', 'config.js', 'boot.js', 'tts.js', 'supabase.js', 'app.js', 'ui.js', 'reader.js', 'blocks.js'].filter(f => H[f]));
 for (const f of BOOT) {
   if (!f.endsWith('.js')) continue;
-  const source = text[f] || '';
+  // El archivo minificado puede eliminar espacios en "import{...}from", por
+  // eso analizamos el fuente original antes de transformar ES modules.
+  const source = f === 'config.js' ? (text[f] || '') : readFileSync('src/' + f, 'utf8');
   const imports = /\b(?:import|export)\s+(?:[^;\n]*?\s+from\s+)?['"](?:\.\/|\/)([\w-]+\.js)(?:\?v=[^'"]+)?['"]/g;
   for (const m of source.matchAll(imports)) {
     if (!H[m[1]]) throw new Error('Falta dependencia estática PWA: ' + f + ' -> ' + m[1]);
