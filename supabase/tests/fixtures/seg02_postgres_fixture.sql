@@ -99,7 +99,8 @@ INSERT INTO public.profiles(id,username,avatar_url,notify,ui_prefs,hidden_series
 VALUES
 ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','qa_alfa','a.png','{"freq":"off"}','{"contrast":true}','{}','all',true),
 ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','qa_beta','b.png','{"freq":"diario"}','{"contrast":false}','{}','auth',true),
-('cccccccc-cccc-4ccc-8ccc-cccccccccccc','qa_gamma','c.png','{}','{}','{}','none',true);
+('cccccccc-cccc-4ccc-8ccc-cccccccccccc','qa_gamma','c.png','{}','{}','{}','none',true),
+('99999999-9999-4999-8999-999999999999','qa_extra','d.png','{}','{}','{}','none',false);
 INSERT INTO public.teams(id,settings)
 VALUES ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','{"show_members":true}');
 INSERT INTO public.team_members(team_id,user_id,role)
@@ -113,3 +114,12 @@ INSERT INTO public.comments(id,chapter_id,user_id,body)
 VALUES (1,'ffffffff-ffff-4fff-8fff-ffffffffffff','cccccccc-cccc-4ccc-8ccc-cccccccccccc','Comentario ficticio');
 INSERT INTO public.reports(id,chapter_id,user_id)
 VALUES (1,'ffffffff-ffff-4fff-8fff-ffffffffffff','cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+
+-- Control negativo: el estado previo a migrar debe ser inseguro.
+DO $before$
+BEGIN
+  IF NOT has_column_privilege('anon','public.profiles','notify','SELECT')
+    OR NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public'
+      AND tablename='profiles' AND policyname='profiles read')
+  THEN RAISE EXCEPTION 'Fixture no reproduce permisos excesivos de origen'; END IF;
+END $before$;
