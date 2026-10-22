@@ -1,4 +1,5 @@
 import { readReaderPrefs, readPendingReaderPrefs, stageReaderPrefs, acknowledgeReaderPrefs, sameReaderAccount } from './reader-pref-cache.js?v=1';
+import { readingPreviewDescription, privacyPreviewModel, notificationPreviewSummary } from './preferences-preview.js?v=1';
 // Perfil público de lector (carnet) y página /preferencias. Se carga solo al visitar esas rutas.
 const ICON = {
   discord: ['Discord', 'M7 7c3-1.5 7-1.5 10 0l2 9c-2 2-4 2.5-5 2.5l-1-2h-2l-1 2C9 18.5 7 18 5 16z M9.5 12.5h.01 M14.5 12.5h.01', 'https://discord.gg/…'],
@@ -135,6 +136,25 @@ const CSS = `
 .pf-save{padding-bottom:max(12px,env(safe-area-inset-bottom))}
 }
 @media(max-width:390px){.pf-body{padding:14px}.pf-row{gap:8px}.pf-sl{grid-template-columns:minmax(0,1fr)}}
+
+.pf-preview{border:1px solid #6b5a39;background:#1c1913;padding:14px;display:grid;gap:12px;min-width:0}
+.pf-preview h3{margin:0;font-size:16px}
+.pf-preview-guide{display:grid;gap:8px;font:13px/1.5 'IBM Plex Sans',sans-serif;color:#e3dccb}
+.pf-preview-guide p{margin:0}
+.pf-preview-note{color:var(--mute);font:12px/1.5 'IBM Plex Sans',sans-serif;margin:0}
+.pf-preview-list{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0}
+.pf-preview-list li{border:1px solid #61563f;background:#282319;padding:5px 9px;font:600 12px 'IBM Plex Sans',sans-serif}
+.pf-preview-list li.off{color:var(--mute);border-color:#3d3529;background:#17140f}
+.pf-preview-audience{display:flex;gap:8px;flex-wrap:wrap}
+.pf-preview-audience button{min-height:44px;border:1px solid #6b5a39;background:#100f0c;color:var(--paper);padding:8px 12px;cursor:pointer;font:600 13px 'IBM Plex Sans',sans-serif}
+.pf-preview-audience button[aria-pressed="true"]{background:var(--gold);color:#0d0c0a;border-color:var(--gold)}
+.pf-preview-sample{min-width:0;border:1px solid #514735;background:#14120e;padding:14px;display:grid;gap:10px}
+.pf-preview-sample p{margin:0}
+.pf-preview-sample strong{overflow-wrap:anywhere}
+.pf-mail-pause{border-left:3px solid var(--gold);padding:10px 12px;background:#201b12;font:13px/1.5 'IBM Plex Sans',sans-serif}
+.pf-mail-off{opacity:.65}
+.pf .pf-tg:disabled{opacity:.6;cursor:not-allowed}
+@media(max-width:760px){.pf-reading-preview{position:static!important;max-width:none!important}.pf-preview{padding:12px}}
 `;
 const css = () => { if (document.getElementById('lc-css')) return; const s = document.createElement('style'); s.id = 'lc-css'; s.textContent = CSS; document.head.appendChild(s); };
 
@@ -241,7 +261,7 @@ export async function preferences(C){
   };
   app.__obiPrefsSelectHandler = selectHandler;
   app.addEventListener('change', selectHandler);
-  const tg = (id, on, label) => `<button type="button" class="pf-tg" id="${id}" aria-pressed="${!!on}" aria-label="${esc(label)}"><i></i></button>`;
+  const tg = (id, on, label, disabled = false) => `<button type="button" class="pf-tg" id="${id}" aria-pressed="${!!on}" aria-label="${esc(label)}" ${disabled ? 'disabled' : ''}><i></i></button>`;
   const flip = b => b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
   const UI = { motion: 'system', hour: 'auto', hide: [], ...(window.__obiUI || {}), ...(P.ui_prefs || {}) };
   const saveUI = async patch => { const prev = { ...UI }; Object.assign(UI, patch); window.obiSetUI?.({ ...UI }); const upd = { ui_prefs: UI }; if ('tz' in patch && P.notify) upd.notify = { ...P.notify, tz: UI.tz || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' };
@@ -296,6 +316,7 @@ export async function preferences(C){
     const sumV = v => [v.theme, v.font && v.font !== 'original' ? v.font : '', v.size ? v.size + ' px' : '', v.align === 'justificada' ? 'justificada' : ''].filter(Boolean).join(' · ').toUpperCase() || 'AJUSTES PROPIOS';
     const draw = () => {
       const th = TH[G.theme] || TH.oscuro, auto = G.continuous === 'off', season = localStorage.getItem('obi-season') !== 'off';
+      const pv = readingPreviewDescription(G);
       app.innerHTML = shell(`<div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;min-width:0">
         <div style="flex:1 1 340px;display:grid;gap:30px;min-width:0">
           <div style="display:grid;gap:6px"><h2>Lectura</h2><p class="pf-note">Tus ajustes se aplican a todas las obras, aunque el equipo haya definido otro estilo. Se guardan al momento en este dispositivo y se sincronizan con tu cuenta.</p><p id="lc-sync" class="pf-note" role="status" aria-live="polite">${esc(syncStatus)}</p></div>
@@ -318,15 +339,26 @@ export async function preferences(C){
             ${Object.keys(R.per_volume || {}).length ? Object.entries(R.per_volume).map(([id, v]) => { const vo = (vols || []).find(x => x.id === id); return `<div class="pf-row"><span style="width:34px;height:46px;flex:none;background:${esc(vo?.series?.theme?.color || '#2a2519')}"></span><span style="display:grid;gap:3px;flex:1 1 200px;min-width:0"><b style="font-size:14px">${esc(vo ? vo.series?.title + ' · Vol. ' + vo.num : 'Volumen eliminado')}</b><span class="mono" style="font-size:12px">${esc(sumV(v))}</span></span><button type="button" class="btn ghost sm" data-delv="${esc(id)}" style="flex:none;white-space:nowrap">Borrar</button></div>`; }).join('') : '<p class="pf-note">No tienes ajustes por volumen.</p>'}</div>
           <div class="pf-up" style="padding-top:16px;border-top:1px solid var(--line)"><button type="button" class="btn ghost" id="lc-reset">Restablecer valores</button><span class="pf-note" style="font-size:13px">Vuelve a los ajustes originales. No borra los de cada volumen.</span></div>
         </div>
-        <aside style="flex:1 1 320px;max-width:460px;position:sticky;top:80px;display:grid;gap:10px"><span class="mono" style="font-size:11px;letter-spacing:.14em">VISTA PREVIA</span>
+        <aside class="pf-reading-preview" aria-label="Vista previa de lectura" style="flex:1 1 320px;max-width:460px;position:sticky;top:80px;display:grid;gap:10px"><h3>Vista previa de lectura</h3><p class="pf-preview-note">Texto de ejemplo para comprobar cómo se vería un capítulo. No modifica el contenido de ninguna obra.</p>
           <div id="lc-pv" style="background:${th[0]};color:${th[1]};border:1px solid var(--line);padding:28px ${{ estrecho: 48, normal: 30, amplio: 16 }[G.width] || 30}px;display:grid;gap:14px">
             <span class="mono" style="font-size:11px;letter-spacing:.14em;opacity:.7;color:inherit">VOL. 2 · CAP. 14</span>
             <h4 style="margin:0;font:800 ${Math.round(G.size * 1.3)}px/1.2 'Shippori Mincho B1',serif">El archivo de las horas</h4>
             ${['La bibliotecaria dejó la lámpara sobre el mostrador y abrió el registro. Nadie había pedido ese libro en cuarenta años, y sin embargo la ficha tenía una fecha de hoy escrita con su propia letra.', '—¿Quién lo devolvió? —preguntó, aunque ya sabía la respuesta.'].map(t => `<p class="lc-pp" style="margin:0;font-family:${FF[G.font] || FF.original};font-size:${G.size}px;line-height:${{ compacto: 1.45, comodo: 1.7, amplio: 1.95 }[G.lh] || 1.7};text-align:${G.align === 'justificada' ? 'justify' : 'left'};hyphens:auto">${t}</p>`).join('')}
-            ${G.illus !== false ? `<div style="aspect-ratio:16/9;background:${th[2]};display:grid;place-items:center;font:11px 'IBM Plex Mono',monospace;opacity:.8">ILUSTRACIÓN</div>` : ''}
+            ${G.illus !== false ? `<div style="aspect-ratio:16/9;background:${th[2]};display:grid;place-items:center;font:11px 'IBM Plex Mono',monospace;opacity:.8">ILUSTRACIÓN DE EJEMPLO</div>` : ''}
+            ${G.cw === 'hide' ? '' : G.cw === 'icon' ? '<p style="margin:0;font-size:13px">⚠ Aviso de contenido (icono)</p>' : '<details style="font-size:13px"><summary>Aviso de contenido (ejemplo)</summary><p style="margin:8px 0 0">Este capítulo puede incluir temas sensibles.</p></details>'}
+          </div>
+          <div class="pf-preview" aria-live="polite" aria-atomic="true">
+            <strong>${esc(pv.mode)}</strong>
+            <div class="pf-preview-guide"><p>${esc(pv.next)}</p><p>${esc(pv.warnings)}</p><p>${esc(pv.illustration)}</p></div>
           </div></aside></div>`);
       const $ = s => app.querySelector(s);
-      app.querySelectorAll('[data-k]').forEach(b => b.onclick = () => set(b.dataset.k, b.dataset.v));
+      app.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+        const k = b.dataset.k, v = b.dataset.v;
+        set(k, v);
+        app.querySelectorAll('[data-k]').forEach(next => {
+          if (next.dataset.k === k && next.dataset.v === v) next.focus({ preventScroll: true });
+        });
+      });
       $('#lc-size').oninput = e => { G.size = +e.target.value; $('#lc-sz').textContent = G.size + ' px'; app.querySelectorAll('.lc-pp').forEach(x => x.style.fontSize = G.size + 'px'); $('#lc-pv h4').style.fontSize = Math.round(G.size * 1.3) + 'px'; };
       $('#lc-size').onchange = () => set('size', G.size);
       $('#lc-secs')?.addEventListener('input', e => { G.autosecs = +e.target.value; $('#lc-sc').textContent = G.autosecs + ' s'; });
@@ -351,10 +383,34 @@ export async function preferences(C){
     const endDate = d => new Date(new Date(d).getTime() + 30 * 864e5).toLocaleDateString('es-MX', { dateStyle: 'long' });
     const teamsHTML = (prev?.teams || []).length ? `<div class="pf-row" style="display:grid;gap:4px"><span class="mono" style="color:var(--gold);font-size:11px;letter-spacing:.12em">ERES PROPIETARIO DE ${prev.teams.length} ${prev.teams.length === 1 ? 'EQUIPO' : 'EQUIPOS'}</span>${prev.teams.map(t => `<span>«${esc(t.name)}» ${t.heir ? `pasará a <b>@${esc(t.heir)}</b>, su admin más antiguo.` : 'no tiene otro admin: quedará <b>en pausa</b> hasta que el Bibliotecario lo asigne.'}</span>`).join('')}</div>` : '';
     const MED2 = s => MED(s.cover_thumb_path || s.cover_path);
+    let viewAs = app.__obiPrivacyView === 'auth' ? 'auth' : 'guest';
+    const privacyPreview = () => {
+      const m = privacyPreviewModel(P, S, viewAs);
+      return `<div class="pf-preview">
+        <h3 id="pv-preview-heading">Así puede verse tu carnet</h3>
+        <p class="pf-preview-note">Vista orientativa, calculada con las opciones guardadas. No publica cambios ni sustituye una visita real con otra cuenta.</p>
+        <div class="pf-preview-audience" role="group" aria-label="Simular tipo de visitante">
+          <button type="button" data-pv-audience="guest" aria-pressed="${viewAs === 'guest'}">Sin iniciar sesión</button>
+          <button type="button" data-pv-audience="auth" aria-pressed="${viewAs === 'auth'}">Con cuenta</button>
+        </div>
+        <div class="pf-preview-sample">
+          <strong>${esc(P.username)}</strong>
+          <strong>${esc(m.headline)}</strong>
+          <p class="pf-preview-note">${esc(m.note)}</p>
+          ${m.accessible ? `<p class="pf-preview-note">Secciones visibles para este visitante:</p>
+            ${m.visible.length ? `<ul class="pf-preview-list">${m.visible.map(name => `<li>${esc(name)}</li>`).join('')}</ul>` : '<p class="pf-preview-note">No hay secciones públicas activadas.</p>'}
+            ${m.hidden.length ? `<p class="pf-preview-note">Ocultas: ${esc(m.hidden.join(', '))}.</p>` : ''}
+            <p class="pf-preview-note">${esc(m.reading)}</p>
+            ${m.since ? '<p class="pf-preview-note">Aparecerá la fecha «miembro desde».</p>' : ''}` : ''}
+          <p class="pf-preview-note">${esc(m.search)}</p>
+        </div>
+      </div>`;
+    };
     app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Privacidad</h2><p class="pf-note">Decide quién ve tu carnet y qué se muestra en él. Se guarda al momento.</p></div>
       <div style="display:grid;gap:12px"><h3>¿Quién ve mi perfil?</h3><div class="pf-sl" role="radiogroup" aria-label="Quién ve mi perfil">${VIS.map(([k, l, d]) => `<label style="display:grid;gap:4px;padding:14px 16px;border:2px solid ${P.profile_visibility === k ? 'var(--gold)' : '#2c281e'};background:${P.profile_visibility === k ? '#1f1c15' : '#0d0c0a'};cursor:pointer"><span style="display:flex;gap:10px;align-items:center;font-weight:700"><input type="radio" name="vis" value="${k}" ${P.profile_visibility === k ? 'checked' : ''} style="accent-color:var(--gold);width:18px;height:18px">${l}</span><span class="pf-note" style="font-size:13px">${d}</span></label>`).join('')}</div></div>
       <div style="display:grid;gap:10px"><h3>Visibilidad</h3>${OPT.map(([k, l, d]) => `<div class="pf-row" style="justify-content:space-between"><span style="display:grid;gap:3px;flex:1 1 240px"><b style="font-size:14px">${l}</b><span class="pf-note" style="font-size:13px">${d}</span></span>${tg('o-' + k, P[k], l)}</div>`).join('')}</div>
       <div style="display:grid;gap:10px"><h3>Secciones del carnet</h3><div class="pf-sl">${SECS.map(([k, l]) => `<div><span>${l}</span>${tg('s-' + k, S[k], l)}</div>`).join('')}<div><span>Estadísticas</span>${tg('s-pub', P.public_activity, 'Estadísticas')}</div></div></div>
+      <section id="pv-preview" aria-labelledby="pv-preview-heading" aria-live="polite" aria-atomic="true">${privacyPreview()}</section>
       <div style="display:grid;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h3>Obras ocultas de mis estantes</h3><a class="mono" style="font-size:11px" href="/biblioteca">SE OCULTAN DESDE MI BIBLIOTECA</a></div>
         <div id="pv-hid">${(hs || []).length ? hs.map(s => `<div class="pf-row"><span style="width:34px;height:46px;flex:none;background:${esc(s.theme?.color || '#2a2519')} center/cover ${s.cover_path ? `url('${esc(MED2(s))}')` : ''}"></span><span style="flex:1;min-width:0;font-weight:600">${esc(s.title)}</span><button type="button" class="btn ghost sm" data-unhide="${s.id}" style="flex:none;white-space:nowrap">Mostrar de nuevo</button></div>`).join('') : '<p class="pf-note">No tienes obras ocultas.</p>'}</div></div>
       <div style="display:grid;gap:8px"><h3>Reseñas</h3><p class="pf-note" style="color:#e3dccb;max-width:62ch">Al publicar cada reseña eliges si va con tu nombre o como <b>Lector anónimo</b>. Las anónimas no aparecen en tu carnet ni cuentan para el sello 評.</p><span class="mono" style="font-size:12px">${nRv} ${nRv === 1 ? 'RESEÑA' : 'RESEÑAS'} · ${nAn} ${nAn === 1 ? 'ANÓNIMA' : 'ANÓNIMAS'}</span></div>
@@ -369,10 +425,19 @@ export async function preferences(C){
           <span style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn" id="pv-go" disabled style="background:#c8402e;color:#fff">Eliminar en 30 días</button><button type="button" class="btn ghost" id="pv-cancel">Cancelar</button></span></div>`}
       </div>`);
     const $ = s => app.querySelector(s);
+    const refreshPrivacyPreview = () => { const region = $('#pv-preview'); if (region) region.innerHTML = privacyPreview(); };
+    $('#pv-preview').onclick = e => {
+      const b = e.target.closest('[data-pv-audience]');
+      if (!b) return;
+      viewAs = b.dataset.pvAudience;
+      app.__obiPrivacyView = viewAs;
+      refreshPrivacyPreview();
+      $('#pv-preview [data-pv-audience="' + viewAs + '"]')?.focus({ preventScroll: true });
+    };
     app.querySelectorAll('[name="vis"]').forEach(i => i.onchange = async () => { if (await save({ profile_visibility: i.value }, 'Visibilidad actualizada')) preferences(C); });
-    OPT.forEach(([k]) => $('#o-' + k).onclick = async e => { const b = e.currentTarget, v = !P[k]; if (await save({ [k]: v })) flip(b); });
-    SECS.forEach(([k]) => $('#s-' + k).onclick = async e => { const b = e.currentTarget; S[k] = !S[k]; if (await save({ profile_sections: { ...S } })) flip(b); else S[k] = !S[k]; });
-    $('#s-pub').onclick = async e => { const b = e.currentTarget; if (await save({ public_activity: !P.public_activity })) flip(b); };
+    OPT.forEach(([k]) => $('#o-' + k).onclick = async e => { const b = e.currentTarget, v = !P[k]; if (await save({ [k]: v })) { flip(b); refreshPrivacyPreview(); } });
+    SECS.forEach(([k]) => $('#s-' + k).onclick = async e => { const b = e.currentTarget; S[k] = !S[k]; if (await save({ profile_sections: { ...S } })) { flip(b); refreshPrivacyPreview(); } else S[k] = !S[k]; });
+    $('#s-pub').onclick = async e => { const b = e.currentTarget; if (await save({ public_activity: !P.public_activity })) { flip(b); refreshPrivacyPreview(); } };
     app.querySelectorAll('[data-unhide]').forEach(b => b.onclick = async () => { if (await save({ hidden_series: (P.hidden_series || []).filter(x => x !== b.dataset.unhide) }, 'Vuelve a verse en tu perfil')) preferences(C); });
     $('#pv-exp').onclick = async e => { const b = e.currentTarget; b.disabled = true; const { data, error } = await sb.rpc('export_my_data'); b.disabled = false; if (error) return toast(error.message);
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })); a.download = 'obi-mis-datos-' + new Date().toISOString().slice(0, 10) + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
@@ -397,9 +462,15 @@ export async function preferences(C){
     const lbl = 'font-size:11px;letter-spacing:.1em;color:var(--mute);display:grid;justify-items:center;gap:4px';
     const draw = () => {
       const off = N.freq === 'off';
+      const summary = notificationPreviewSummary(N, KINDS);
       app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Avisos</h2><p class="pf-note">Elige qué te avisamos y por dónde. Se guarda al momento.</p></div>
       <div style="display:grid;gap:12px"><h3>Correo</h3><p class="pf-note">Se envía a <b>${esc(user.email)}</b>.</p><div class="pf-sl" role="radiogroup" aria-label="Frecuencia de correo">${FREQ.map(([k, l, d]) => `<label style="display:grid;gap:4px;padding:14px 16px;border:2px solid ${N.freq === k ? 'var(--gold)' : '#2c281e'};background:${N.freq === k ? '#1f1c15' : '#0d0c0a'};cursor:pointer"><span style="display:flex;gap:10px;align-items:center;font-weight:700"><input type="radio" name="fq" value="${k}" ${N.freq === k ? 'checked' : ''} style="accent-color:var(--gold);width:18px;height:18px">${l}</span><span class="pf-note" style="font-size:13px">${d}</span></label>`).join('')}</div></div>
-      <div style="display:grid;gap:10px"><h3>Qué te avisamos</h3>${KINDS.map(([k, l, d, de]) => `<div class="pf-row" style="justify-content:space-between"><span style="display:grid;gap:3px;flex:1 1 240px"><b style="font-size:14px">${l}</b><span class="pf-note" style="font-size:13px">${d}</span></span><span style="display:flex;gap:18px"><span class="mono" style="${lbl}">CAMPANA${tg('w-' + k, onW(k), l + ' en la campana')}</span><span class="mono" style="${lbl};opacity:${off ? .4 : 1}">CORREO${tg('e-' + k, !off && onE(k, de), l + ' por correo')}</span></span></div>`).join('')}
+      <section class="pf-preview" aria-label="Resumen de configuración de avisos">
+        <h3>Tu configuración de avisos</h3>
+        <p class="pf-note">Campana: ${summary.webCount} de ${summary.total} tipos activos · Correo: ${summary.emailCount} de ${summary.total} seleccionados.</p>
+        <p class="${off ? 'pf-mail-pause' : 'pf-preview-note'}" role="status">${esc(summary.description)}</p>
+      </section>
+      <div style="display:grid;gap:10px"><h3>Qué te avisamos</h3>${KINDS.map(([k, l, d, de]) => `<div class="pf-row" style="justify-content:space-between"><span style="display:grid;gap:3px;flex:1 1 240px"><b style="font-size:14px">${l}</b><span class="pf-note" style="font-size:13px">${d}</span></span><span style="display:flex;gap:18px"><span class="mono" style="${lbl}">CAMPANA${tg('w-' + k, onW(k), l + ' en la campana')}</span><span class="mono ${off ? 'pf-mail-off' : ''}" style="${lbl}">CORREO${tg('e-' + k, onE(k, de), l + ' por correo' + (off ? ', pausado hasta activar correo' : ''), off)}</span></span></div>`).join('')}
       <p class="pf-note" style="font-size:13px">Los avisos de moderación sobre tu cuenta siempre llegan a la campana.</p></div>
       <div style="display:grid;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h3>Obras que sigues</h3><span class="mono" style="font-size:11px">${FL.length} ${FL.length === 1 ? 'OBRA' : 'OBRAS'}</span></div>
       ${!onW('capitulo') && off ? '<p class="pf-note" style="font-size:13px">Tienes desactivados los avisos de capítulos nuevos: estos interruptores no tendrán efecto hasta que los actives arriba.</p>' : ''}
@@ -407,8 +478,8 @@ export async function preferences(C){
       const $ = s => app.querySelector(s);
       app.querySelectorAll('[name="fq"]').forEach(i => i.onchange = async () => { const prev = N.freq; N.freq = i.value; if (await save()) { toast(i.value === 'off' ? 'Ya no recibirás correos' : 'Frecuencia de correo guardada'); draw(); } else N.freq = prev; });
       KINDS.forEach(([k, , , de]) => {
-        $('#w-' + k).onclick = async e => { const b = e.currentTarget; N.web[k] = !onW(k); if (await save()) flip(b); else N.web[k] = !N.web[k]; };
-        $('#e-' + k).onclick = async e => { if (off) return toast('Elige primero con qué frecuencia quieres correos'); const b = e.currentTarget; N.email[k] = !onE(k, de); if (await save()) flip(b); else N.email[k] = !N.email[k]; };
+        $('#w-' + k).onclick = async e => { const b = e.currentTarget; N.web[k] = !onW(k); if (await save()) { flip(b); draw(); } else N.web[k] = !N.web[k]; };
+        $('#e-' + k).onclick = async e => { if (off) return; const b = e.currentTarget; N.email[k] = !onE(k, de); if (await save()) { flip(b); draw(); } else N.email[k] = !N.email[k]; };
       });
       FL.forEach(({ r, s }) => { $('#f-' + s.id).onclick = async e => { const b = e.currentTarget, ch = { ...(r.channels || {}), web: r.channels?.web === false };
         const { error } = await sb.from('follows').update({ channels: ch }).eq('user_id', user.id).eq('series_id', s.id); if (error) return toast(error.message); r.channels = ch; flip(b); }; });
