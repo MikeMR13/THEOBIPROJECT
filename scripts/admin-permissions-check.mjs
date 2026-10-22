@@ -26,11 +26,14 @@ must(sql, /create function public\.admin_create_team\([\s\S]*?p_owner text/i, 'F
 must(sql, /create function public\.admin_add_publisher\([\s\S]*?p_reason text/i, 'Falta razon administrativa al agregar integrantes');
 must(sql, /create function public\.admin_remove_member\([\s\S]*?p_reason text/i, 'Falta razon administrativa al retirar integrantes');
 must(sql, /role_id = null, overrides = '\{\}'::jsonb/i, 'Reasignacion de roles no limpia permisos anteriores');
+must(sql, /create or replace function public\.admin_verify_team\([\s\S]*?p_reason text/i, 'Falta verificacion administrativa con motivo');
+must(sql, /'verificar_equipo' else 'retirar_verificacion_equipo'/i, 'Falta auditoria de la verificacion oficial');
 
 must(admin, /Propietario inicial<input id="to"/, 'Falta solicitar propietario inicial');
 must(admin, /p_owner:\s*\$\('#to'\)\.value\.trim\(\)/, 'El frontend no pasa propietario al RPC');
 must(admin, /Object\.entries\(TROLE\)\.filter\(\(\[k\]\) => k !== 'owner'\)/, 'El selector permite asignar propietario sin transferencia');
 must(admin, /p_reason: reason/g, 'El frontend no incluye motivos administrativos');
+must(admin, /rpc\('admin_verify_team', \{ p_team: id, p_verified: verified, p_reason: reason\.trim\(\) \}\)/, 'Mostrador sin RPC de verificacion');
 assert.equal((admin.match(/p_reason: reason/g) || []).length, 2, 'Ambas operaciones de miembros deben incluir motivo');
 
 console.log('OK: sintaxis del Mostrador y contratos estructurales de la migracion.');
