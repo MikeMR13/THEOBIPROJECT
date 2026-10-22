@@ -50,6 +50,8 @@ jobs:
         run: node scripts/section-types-check.mjs
       - name: Anuncios editoriales — publicación, caducidad y UI móvil sin notificaciones
         run: node scripts/editorial-announcements-check.mjs
+      - name: Preferencias fase 1 — aislamiento y borradores recuperables
+        run: npm run preferencias-fase1-check
       - name: Fase 6.2 temporadas y preferencias (funciones reales)
         run: node scripts/phase6-seasons-preferences-check.mjs
       - name: Fase 6.3 Studio, permisos y enlaces de borrador
