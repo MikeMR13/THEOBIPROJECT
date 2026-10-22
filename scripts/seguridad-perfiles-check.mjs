@@ -7,7 +7,8 @@ const studio=readFileSync('src/studio.js','utf8');
 const app=readFileSync('src/app.js','utf8');
 const profile=readFileSync('src/profile.js','utf8');
 function requireSQL(pattern,description){assert.match(sql,pattern,description)}
-requireSQL(/REVOKE SELECT ON TABLE public\.profiles FROM anon, authenticated;/i,'prohibir SELECT global perfiles');
+requireSQL(/REVOKE ALL PRIVILEGES ON TABLE public\.profiles FROM anon, authenticated;/i,'retirar SELECT, INSERT, DELETE y MAINTAIN');
+requireSQL(/GRANT UPDATE \(username, avatar_url, discord_id, telegram_id, adult_ok,[\s\S]*?hidden_series, notify, ui_prefs\)/i,'retener solo edición autorizada');
 requireSQL(/GRANT SELECT \(id\) ON TABLE public\.profiles TO authenticated;/i,'UPDATE conserva lectura mínima id');
 requireSQL(/DROP POLICY IF EXISTS "profiles read" ON public\.profiles;/i,'eliminar RLS público permisivo');
 requireSQL(/CREATE POLICY "profiles self read" ON public\.profiles[\s\S]*?FOR SELECT TO authenticated[\s\S]*?USING \(id = \(SELECT auth\.uid\(\)\)\)/i,'RLS propietario');
