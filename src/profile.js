@@ -142,6 +142,36 @@ const CSS = `
 }
 @media(max-width:390px){.pf-body{padding:14px}.pf-row{gap:8px}.pf-sl{grid-template-columns:minmax(0,1fr)}}
 
+
+/* Editor del carnet: vista previa local y adaptable, sin guardado implícito. */
+.pf-editor-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(270px,340px);gap:clamp(18px,2.5vw,32px);align-items:start;min-width:0}
+.pf-editor-fields{display:grid;gap:28px;min-width:0}
+.pf-editor-preview{position:sticky;top:84px;display:grid;gap:10px;min-width:0}
+.pf-editor-preview-head{display:grid;gap:6px}
+.pf-editor-preview-head h3{font:800 20px 'Shippori Mincho B1',serif;margin:0}
+.pf-live-card{min-width:0}
+.pf-live-card .lc{gap:16px}
+.pf-live-card .lc-card{min-height:290px}
+.pf-live-card .lc-in{padding:18px;gap:12px;align-items:start}
+.pf-live-card .lc-av{width:68px;height:68px;font-size:28px}
+.pf-live-card .lc-tx{flex:1 1 100%;gap:7px}
+.pf-live-card .lc-tx h1{font-size:clamp(22px,2vw,30px);line-height:1.15}
+.pf-live-card .lc-tx .k{font-size:9px}
+.pf-live-card .lc-tx p{font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.pf-live-card .lc-kj{top:12px;right:12px;width:40px;height:40px;font-size:22px}
+.pf-live-card .lc-ln{gap:6px}
+.pf-live-link{display:inline-flex;gap:5px;align-items:center;max-width:100%;border:1px solid #5a503b;border-radius:999px;background:rgba(13,12,10,.7);color:var(--paper);padding:5px 8px;font:11px 'IBM Plex Mono',monospace}
+.pf-live-link svg{flex:none}
+.pf-live-placeholder{color:#b7ad98!important;font-style:italic}
+.pf-live-fav-list{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.pf-live-fav-list .lc-cv{padding:0;min-width:0;box-shadow:none}
+.pf-live-fav-list .lc-cv:not([style*="url"]){font-size:9px;padding:4px;overflow:hidden;overflow-wrap:anywhere}
+.pf-live-card .lc-sec{gap:8px}
+.pf-live-card .lc-sec h2{font:700 15px 'Shippori Mincho B1',serif}
+.pf-editor-preview-note{font-size:12px}
+@media(max-width:1180px){.pf-editor-layout{grid-template-columns:minmax(0,1fr)}.pf-editor-preview{position:static;max-width:470px}}
+@media(max-width:760px){.pf-editor-preview{max-width:none}.pf-live-card .lc-card{min-height:270px}.pf-live-fav-list{gap:8px}}
+
 .pf-preview{border:1px solid #6b5a39;background:#1c1913;padding:14px;display:grid;gap:12px;min-width:0}
 .pf-preview h3{margin:0;font-size:16px}
 .pf-preview-guide{display:grid;gap:8px;font:13px/1.5 'IBM Plex Sans',sans-serif;color:#e3dccb}
@@ -627,6 +657,7 @@ export async function preferences(C){
     try { localStorage.setItem(draftKey, JSON.stringify({ version: 1, data: D })); }
     catch { toast('No se pudo conservar el borrador en este dispositivo'); }
     const s = app.querySelector('#pf-st'); if (s) s.textContent = 'Borrador sin guardar';
+    const live = app.querySelector('#pf-live-card'); if (live) live.innerHTML = liveHTML();
   };
   const favHTML = () => D.favs.map((s, i) => `<article class="pf-fav">
     <span class="lc-cv pf-fav-cover" aria-hidden="true" style="--c:${esc(s.theme?.color || '#2a2519')};${s.cover_thumb_path || s.cover_path ? `background-image:url('${esc(MED(s.cover_thumb_path || s.cover_path))}')` : ''}">${esc(s.title)}</span>
@@ -638,8 +669,35 @@ export async function preferences(C){
     <input data-lu="${i}" value="${esc(l.url || '')}" placeholder="${ICON[l.k][2]}" inputmode="url" aria-label="Enlace de ${ICON[l.k][0]}">
     <button type="button" class="pf-tg" data-lo="${i}" aria-pressed="${l.on}" aria-label="Mostrar en el perfil"><i></i></button>
     <button type="button" class="pf-x" data-lx="${i}" aria-label="Quitar enlace">×</button></div>`;
+
+  // Vista previa de cliente: refleja solo los datos del borrador.
+  const liveHTML = () => {
+    const favs = D.favs.slice(0, 5);
+    const enabled = D.links.filter(l => l.on && ICON[l.k] && typeof l.url === 'string' && l.url.trim());
+    const cover = s => "--c:" + esc(s.theme?.color || '#2a2519') + ";" +
+      (s.cover_thumb_path || s.cover_path ? "background-image:url(&quot;" + esc(MED(s.cover_thumb_path || s.cover_path)) + "&quot;)" : "");
+    const bg = D.banner
+      ? "<div class='lc-bg' style='background-image:url(&quot;" + esc(D.banner) + "&quot;)'></div>"
+      : favs.length
+        ? "<div class='lc-bg' style='--n:" + favs.length + "'>" +
+          favs.map(s => "<span style='background-color:" + esc(s.theme?.color || '#2a2519') + ";" +
+            (s.cover_thumb_path || s.cover_path ? "background-image:url(&quot;" + esc(MED(s.cover_thumb_path || s.cover_path)) + "&quot;)" : "") + "'></span>").join('') + "</div>"
+        : "<div class='lc-bg' style='opacity:.35'></div>";
+    const avatar = P.avatar_url ? "<img src='" + esc(P.avatar_url) + "' alt=''>" : esc((P.username || '?')[0].toUpperCase());
+    const stamp = D.kanji ? "<span class='lc-kj' title='Sello del lector'>" + esc(D.kanji) + "</span>" : "";
+    const bio = D.bio ? "<p>" + esc(D.bio) + "</p>" : "<p class='pf-live-placeholder'>Tu biografía aparecerá aquí.</p>";
+    const links = enabled.length ? "<div class='lc-ln'>" + enabled.map(l =>
+      "<span class='pf-live-link'>" + svg(l.k, 14) + esc(ICON[l.k][0]) + "</span>").join('') + "</div>" : "";
+    const covers = favs.length ? "<section class='lc-sec'><h2>Favoritas</h2><div class='pf-live-fav-list'>" +
+      favs.map(s => "<span class='lc-cv' role='img' aria-label='" + esc(s.title) + "' style='" + cover(s) + "'>" + esc(s.title) + "</span>").join('') +
+      "</div></section>" : "";
+    return "<div class='lc' style='--ac:" + esc(D.accent) + "'><section class='lc-card'>" + bg +
+      "<div class='lc-sh'></div>" + stamp + "<div class='lc-in'><span class='lc-av' aria-hidden='true'>" + avatar +
+      "</span><div class='lc-tx'><span class='k'>CARNET DE LECTOR · 読者証</span><h1>" + esc(P.username || 'Lector') +
+      "</h1>" + bio + links + "</div></div></section>" + covers + "</div>";
+  };
   const draw = () => {
-    app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Perfil público</h2><p class="pf-note">Así te ven los demás en <a href="/perfil">/lector/${esc(P.username)}</a>.</p></div>
+    app.innerHTML = shell(`<div class="pf-editor-layout"><div class="pf-editor-fields"><div style="display:grid;gap:6px"><h2>Perfil público</h2><p class="pf-note">Así te ven los demás en <a href="/perfil">/lector/${esc(P.username)}</a>.</p></div>
       <div class="pf-grid">
         <div class="pf-f">Foto<span class="pf-up"><span class="lc-av" style="--ac:${esc(D.accent)};width:60px;height:60px;font-size:26px">${P.avatar_url ? `<img src="${esc(P.avatar_url)}" alt="">` : esc((P.username || '?')[0].toUpperCase())}</span><label class="btn ghost sm">Cambiar foto<input type="file" id="fav" accept="image/jpeg,image/png,image/webp"></label></span></div>
         <div class="pf-f">Portada del carnet<span class="pf-up"><span class="pf-ban" style="${D.banner ? `background-image:url('${esc(D.banner)}')` : ''}"></span><label class="btn ghost sm">${D.banner ? 'Cambiar' : 'Subir'}<input type="file" id="fban" accept="image/jpeg,image/png,image/webp"></label>${D.banner ? '<button type="button" class="btn ghost sm" id="noban">Quitar</button>' : ''}</span><small class="pf-note" style="font-size:12px">Sin portada se usa un collage de tus favoritas.</small></div>
@@ -652,7 +710,12 @@ export async function preferences(C){
       <div style="display:grid;gap:10px"><h3>Enlaces</h3>${D.links.map(linkRow).join('')}
         ${D.links.length < 12 ? '<button type="button" class="btn ghost sm" id="addl" style="justify-self:start">+ Añadir enlace</button>' : ''}</div>
       <p class="pf-note">Qué secciones se muestran y quién ve tu carnet se elige en <a href="/preferencias?s=privacidad">Privacidad</a>.</p>
-      <div class="pf-save"><span class="mono" id="pf-st" role="status" aria-live="polite">${dirty ? (recovered ? 'Borrador recuperado: revisa y guarda' : 'Borrador sin guardar') : ''}</span><a class="btn ghost" href="/perfil">Ver mi perfil</a><button class="btn" id="save">Guardar cambios</button></div>`);
+      <div class="pf-save"><span class="mono" id="pf-st" role="status" aria-live="polite">${dirty ? (recovered ? 'Borrador recuperado: revisa y guarda' : 'Borrador sin guardar') : ''}</span><a class="btn ghost" href="/perfil">Ver mi perfil</a><button class="btn" id="save">Guardar cambios</button></div></div>
+      <aside class="pf-editor-preview" aria-label="Vista previa del carnet">
+        <div class="pf-editor-preview-head"><h3>Vista previa del carnet</h3><p class="pf-note pf-editor-preview-note">Se actualiza mientras editas. Es una simulación, no un perfil publicado.</p></div>
+        <div id="pf-live-card" class="pf-live-card">${liveHTML()}</div>
+        <p class="pf-note pf-editor-preview-note">Los cambios del carnet se publican al guardar. La foto de perfil se guarda al subirla.</p>
+      </aside></div>`);
     const $ = s => app.querySelector(s), $$ = s => app.querySelectorAll(s);
     $('#bio').oninput = e => { D.bio = e.target.value; mark(); };
     $('#kj').oninput = e => { D.kanji = e.target.value.trim(); mark(); };
