@@ -1,0 +1,20 @@
+name: QA PWA sin conexion - latencia
+on:
+  push:
+    branches:
+      - test/pwa-offline-latencia-20261021
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-latency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Verificar protección del caché ya desplegada
+        run: node scripts/pwa-offline-check.mjs
+      - name: Probar apertura de lectura con red bloqueada
+        run: node scripts/pwa-offline-latency-check.mjs
