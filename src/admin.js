@@ -46,6 +46,54 @@ const CSS = `
 .bb #bbv .bb-tbl{min-width:720px}
 }
 
+/* Mostrador · integración visual. No se alteran estilos ni controladores de Temporadas. */
+.bb .bb-top{align-items:center;border-bottom:1px solid #383124;padding-bottom:20px;margin-bottom:17px}
+.bb .bb-heading{display:grid;gap:7px}
+.bb .bb-kicker{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:var(--gold)}
+.bb .bb-top h1{font-size:clamp(25px,3.1vw,38px);line-height:1.14}
+.bb .bb-top h1 em{font-style:normal;color:var(--gold)}
+.bb .bb-top .bb-sub{margin:0;color:var(--mute);font-size:13px}
+.bb .bb-headside{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bb .bb-headside .bb-admin-tag{display:grid;gap:3px;border:1px solid #625020;background:#1b1811;color:var(--gold);padding:9px 12px;font-size:12px;font-weight:700}
+.bb .bb-headside .bb-admin-tag small{font-family:'IBM Plex Mono',monospace;color:var(--mute);font-size:10px;font-weight:400}
+.bb .bb-tabs{flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;scroll-snap-type:x proximity;scroll-padding:0 12px}
+.bb .bb-tabs button{flex:none;min-height:43px;scroll-snap-align:start;white-space:nowrap;font-size:13px}
+.bb .bb-kpi{min-height:100px;border-top:3px solid var(--gold);background:#191710}
+.bb .bb-kpi .ui-lbl{font-family:'IBM Plex Mono',monospace;letter-spacing:.07em;color:var(--mute)}
+.bb .bb-kpi b{font-size:clamp(26px,3vw,34px)}
+.bb .bb-dashboard{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px}
+.bb .bb-dashboard .bb-box{margin-bottom:0}
+.bb .bb-task{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #393124}
+.bb .bb-task:last-child{border-bottom:0}
+.bb .bb-task b{font-size:13px;font-weight:700}
+.bb .bb-task small{display:block;margin-top:6px;color:var(--mute);font-size:11px}
+.bb .bb-rule{padding:11px 12px;border-left:3px solid var(--gold);background:#242015;display:grid;gap:4px}
+.bb .bb-rule b{font-size:13px}
+.bb .bb-rule small{font-size:11px;line-height:1.65;color:var(--mute)}
+.bb .bb-secintro{display:flex;gap:12px;align-items:start;justify-content:space-between;margin-bottom:15px;flex-wrap:wrap}
+.bb .bb-secintro h2{font-family:'Shippori Mincho B1',serif;font-size:23px;font-weight:500;margin:0 0 5px}
+.bb .bb-secintro p{margin:0;color:var(--mute);font-size:12px;line-height:1.6}
+.bb .bb-supercard{display:grid;gap:10px;border:1px solid var(--line);background:#17150f;padding:18px;margin-bottom:11px}
+.bb .bb-superhead{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:9px}
+.bb .bb-superhead h3{font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:20px;margin:0}
+.bb .bb-super-meta{font-family:'IBM Plex Mono',monospace;color:var(--mute);font-size:11px}
+.bb .bb-status{font-family:'IBM Plex Mono',monospace;display:inline-flex;border:1px solid #675a3b;font-size:10px;padding:4px 7px}
+.bb .bb-status.ok{border-color:#4b7046;color:#a9d18e}
+.bb .bb-status.warn{border-color:#957a22;color:var(--gold)}
+.bb .bb-super-actions{display:flex;gap:8px;flex-wrap:wrap}
+.bb .bb-super-note{border-left:3px solid var(--gold);padding:12px 14px;background:#211d13;color:#d2c5aa;line-height:1.7;font-size:12px;margin:12px 0 18px}
+.bb .bb-super-detail{padding:12px;border:1px solid #4b3d24;background:#11100d}
+.bb .bb-super-detail .bb-tbl{min-width:520px}
+.bb .bb-role-lock{font-family:'IBM Plex Mono',monospace;color:var(--gold);font-size:11px}
+@media(max-width:760px){
+  .bb .bb-dashboard{grid-template-columns:1fr}
+  .bb .bb-top{align-items:start}
+  .bb .bb-headside{width:100%;justify-content:space-between}
+  .bb .bb-secintro h2{font-size:21px}
+  .bb .bb-supercard{padding:14px}
+  .bb .bb-task{align-items:start}
+}
+
 `;
 const ROLE = { bibliotecario: ['Bibliotecario', '#f2c230'], publicador: ['Publicador', '#8cc3f2'], lector: ['Lector', '#a89f8a'] };
 const TROLE = { owner: 'Propietario', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
@@ -94,25 +142,35 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   }
 
   async function panel(me){
-    app.innerHTML = `<div class="bb"><div class="bb-top"><div><span class="ui-lbl">Mostrador del Bibliotecario</span><h1>Hola, ${esc(me.username)}</h1></div><button class="btn ghost" id="bbout">Cerrar sesión</button></div>
-      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['solicitudes','Solicitudes'],['compras','Enlaces de compra'],['inicio','Inicio'],['resenas','Reseñas'],['temporadas','Temporadas'],['apoyar','Botón Apoyar'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
+    app.innerHTML = `<div class="bb"><div class="bb-top"><div class="bb-heading"><span class="bb-kicker">EL OBI DEL LECTOR · ADMINISTRACIÓN GENERAL</span><h1>Mostrador del <em>Bibliotecario</em></h1><p class="bb-sub">Supervisión global · Independencia editorial de los equipos</p></div><div class="bb-headside"><span class="bb-admin-tag">◆ ${esc(me.username)}<small>Autoridad de plataforma</small></span><button class="btn ghost" id="bbout">Cerrar sesión</button></div></div>
+      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['solicitudes','Solicitudes'],['supervision','Supervisión'],['compras','Enlaces de compra'],['inicio','Inicio'],['resenas','Reseñas'],['temporadas','Temporadas'],['apoyar','Botón Apoyar'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
     $('#bbout').onclick = async () => { await sb.auth.signOut(); location.href = '/'; };
     app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; panel(me); });
-    try { await ({ resumen, usuarios, equipos, solicitudes, compras, inicio, resenas, temporadas, apoyar, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
+    try { await ({ resumen, usuarios, equipos, solicitudes, supervision, compras, inicio, resenas, temporadas, apoyar, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
   }
   const view = () => $('#bbv');
 
   async function resumen(){
     const o = await rpc('admin_overview');
-    view().innerHTML = `<div class="bb-kpis">${[['Lectores', o.lectores], ['Publicadores', o.publicadores], ['Equipos', o.equipos], ['Obras', o.obras], ['Capítulos publicados', o.capitulos], ['Erratas abiertas', o.reportes], ['Solicitudes pendientes', o.solicitudes], ['Cuentas nuevas · 7 días', o.nuevos7d]].map(([l, v]) => `<div class="bb-kpi"><span class="ui-lbl">${l}</span><b>${v ?? 0}</b></div>`).join('')}</div>
-      <div class="bb-box"><h3>Cómo funcionan los roles</h3><p class="mono" style="font-size:13px;line-height:1.7;margin:0">
-      <b style="color:#f2c230">Bibliotecario</b> · único en toda la plataforma. Crea equipos, asigna publicadores, modera y ve la bitácora.<br>
-      <b style="color:#8cc3f2">Publicador</b> · cualquier cuenta que pertenece a un equipo traductor. Entra al Estudio y publica según el rol que tenga en su equipo.<br>
-      <b style="color:#a89f8a">Lector</b> · todas las demás cuentas. Leen, comentan, subrayan y siguen series.</p></div>`;
+    const goto = (label, target, detail) => `<div class="bb-task"><div><b>${esc(label)}</b><small>${esc(detail)}</small></div><button class="bb-mini" data-jump="${target}">Revisar</button></div>`;
+    view().innerHTML = `<div class="bb-kpis">${[['Lectores', o.lectores], ['Publicadores', o.publicadores], ['Equipos', o.equipos], ['Obras', o.obras], ['Capítulos publicados', o.capitulos], ['Erratas abiertas', o.reportes], ['Solicitudes pendientes', o.solicitudes], ['Cuentas nuevas · 7 días', o.nuevos7d]].map(([l,v])=>`<div class="bb-kpi"><span class="ui-lbl">${esc(l)}</span><b>${v ?? 0}</b></div>`).join('')}</div>
+      <div class="bb-dashboard">
+        <section class="bb-box"><h3>Atención administrativa</h3>
+          ${goto('Solicitudes de publicación', 'solicitudes', `${o.solicitudes ?? 0} solicitudes pendientes`)}
+          ${goto('Incidencias de la comunidad', 'resenas', 'Revisar reseñas reportadas')}
+          ${goto('Supervisión de las obras', 'supervision', 'Consultar publicaciones y borradores de todos los equipos')}
+        </section>
+        <section class="bb-box"><h3>Autoridad y límites</h3>
+          <div class="bb-rule"><b>◆ Administración global</b><small>Usuarios, equipos, solicitudes y configuración de la plataforma.</small></div>
+          <div class="bb-rule"><b>▤ Supervisión de publicaciones</b><small>Visibilidad general de obras y borradores, sin asumir edición.</small></div>
+          <div class="bb-rule"><b>◇ Autonomía editorial</b><small>Cada equipo conserva sus traducciones, capítulos y decisiones editoriales.</small></div>
+        </section>
+      </div>`;
+    view().querySelectorAll('[data-jump]').forEach(b => b.onclick = () => { app.querySelector('[data-t="' + b.dataset.jump + '"]')?.click(); });
   }
 
   async function usuarios(){
-    view().innerHTML = `<div class="bb-row"><label>Buscar<input id="bbq" placeholder="Usuario o correo"></label><label style="flex:0 0 180px">Rol<select id="bbr"><option value="">Todos</option><option value="lector">Lectores</option><option value="publicador">Publicadores</option><option value="bibliotecario">Bibliotecario</option></select></label></div><div id="bbu"></div>`;
+    view().innerHTML = `<div class="bb-secintro"><div><h2>Gestión de usuarios</h2><p>Consulta de cuentas, roles y equipos · Privacidad protegida</p></div></div><div class="bb-row"><label>Buscar<input id="bbq" placeholder="Usuario o correo"></label><label style="flex:0 0 180px">Rol<select id="bbr"><option value="">Todos</option><option value="lector">Lectores</option><option value="publicador">Publicadores</option><option value="bibliotecario">Bibliotecario</option></select></label></div><div id="bbu"></div>`;
     const draw = async () => {
       const rows = await rpc('admin_users', { p_q: $('#bbq').value.trim(), p_role: $('#bbr').value || null });
       $('#bbu').innerHTML = `<table class="bb-tbl"><thead><tr><th>Usuario</th><th>Correo</th><th>Rol</th><th>Equipos</th><th>Alta</th><th>Último acceso</th></tr></thead><tbody>${rows.map(u => { const [l, c] = ROLE[u.platform_role]; return `<tr><td><strong>${esc(u.username)}</strong></td><td class="mono">${esc(u.email)}</td><td><span class="bb-role" style="color:${c}">${l}</span></td><td>${u.teams.map(t => esc(t.name) + ' <span class="mono">(' + (TROLE[t.role] || t.role) + ')</span>').join('<br>') || '—'}</td><td class="mono">${when(u.created_at)}</td><td class="mono">${when(u.last_sign_in)}</td></tr>`; }).join('') || '<tr><td colspan="6" class="mono">Sin resultados.</td></tr>'}</tbody></table>`;
@@ -121,14 +179,54 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   }
 
   async function equipos(){
-    const [{ data: teams }, users] = await Promise.all([sb.from('teams').select('id,slug,name,color,status').order('name'), rpc('admin_users', { p_q: '', p_role: 'publicador' })]);
+    const [{ data: teams }, users] = await Promise.all([sb.from('teams').select('id,slug,name,color,status,official_verified').order('name'), rpc('admin_users', { p_q: '', p_role: 'publicador' })]);
     view().innerHTML = `<div class="bb-box"><h3>Nuevo equipo traductor</h3><div class="bb-row"><label>Nombre<input id="tn" placeholder="Kaori Translations"></label><label>Identificador<input id="ts" placeholder="kaori"></label><label style="flex:0 0 120px">Color<input id="tc" type="color" value="#f2c230" style="height:44px;padding:4px"></label><button class="btn" id="tcreate">Crear equipo</button></div></div>
-      ${(teams || []).map(t => { const mem = users.filter(u => u.teams.some(x => x.id === t.id)); return `<div class="bb-box" style="border-left:6px solid ${esc(t.color || '#f2c230')}"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(t.name)} <span class="mono">/${esc(t.slug)}</span></h3><span class="mono">${mem.length} publicador(es)</span></div>
-        <table class="bb-tbl"><tbody>${mem.map(u => { const r = u.teams.find(x => x.id === t.id).role; return `<tr><td><strong>${esc(u.username)}</strong> <span class="mono">${esc(u.email)}</span></td><td>${TROLE[r] || r}</td><td style="text-align:right"><button class="bb-mini red" data-rm="${t.id}|${u.id}|${esc(u.username)}">Quitar del equipo</button></td></tr>`; }).join('') || '<tr><td class="mono">Sin publicadores todavía.</td></tr>'}</tbody></table>
+      ${(teams || []).map(t => { const mem = users.filter(u => u.teams.some(x => x.id === t.id)); return `<div class="bb-box" style="border-left:6px solid ${esc(t.color || '#f2c230')}"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(t.name)} <span class="mono">/${esc(t.slug)}</span></h3><span class="mono">${mem.length} publicador(es) · ${t.official_verified ? "✓ Verificado" : "Sin verificar"}</span></div>
+        <table class="bb-tbl"><tbody>${mem.map(u => { const r = u.teams.find(x => x.id === t.id).role; return `<tr><td><strong>${esc(u.username)}</strong> <span class="mono">${esc(u.email)}</span></td><td>${TROLE[r] || r}</td><td style="text-align:right"><button class="bb-mini red" data-rm="${t.id}|${u.id}|${esc(u.username)}" ${r === "owner" ? 'disabled title="La propiedad requiere transferencia"':''}>${r === "owner" ? "Propietario protegido" : "Quitar del equipo"}</button></td></tr>`; }).join('') || '<tr><td class="mono">Sin publicadores todavía.</td></tr>'}</tbody></table>
         <div class="bb-row"><label>Agregar publicador (correo o usuario)<input data-add="${t.id}" placeholder="correo@ejemplo.com"></label><label style="flex:0 0 180px">Rol en el equipo<select data-role="${t.id}">${Object.entries(TROLE).map(([k, l]) => `<option value="${k}" ${k === 'editor' ? 'selected' : ''}>${l}</option>`).join('')}</select></label><button class="btn" data-go="${t.id}">Agregar</button></div></div>`; }).join('')}`;
     $('#tcreate').onclick = async () => { try { await rpc('admin_create_team', { p_name: $('#tn').value, p_slug: $('#ts').value.trim().toLowerCase(), p_color: $('#tc').value }); toast('Equipo creado'); equipos(); } catch (e) { toast(msg(e)); } };
     view().querySelectorAll('[data-go]').forEach(b => b.onclick = async () => { const id = b.dataset.go, who = view().querySelector(`[data-add="${id}"]`).value; if (!who.trim()) return toast('Escribe el correo o usuario'); try { await rpc('admin_add_publisher', { p_user: who, p_team: id, p_role: view().querySelector(`[data-role="${id}"]`).value }); toast('Ahora es Publicador del equipo'); equipos(); } catch (e) { toast(msg(e)); } });
     view().querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { const [t, u, n] = b.dataset.rm.split('|'); if (!confirm('¿Quitar a ' + n + ' del equipo? Si no pertenece a otro equipo volverá a ser Lector.')) return; try { await rpc('admin_remove_member', { p_team: t, p_user: u }); toast('Quitado del equipo'); equipos(); } catch (e) { toast(msg(e)); } });
+  }
+
+
+  async function supervision(){
+    view().innerHTML = `<div class="bb-secintro"><div><h2>Supervisión de publicaciones</h2><p>Lectura administrativa de todas las obras · La edición corresponde a cada equipo</p></div><span class="bb-status warn">SOLO SUPERVISIÓN</span></div>
+      <div class="bb-super-note">El Bibliotecario puede consultar publicaciones y borradores. Esta vista no permite editar traducciones, alterar calendarios ni borrar capítulos. Las sanciones editoriales deberán tramitarse mediante un procedimiento administrativo independiente y auditado.</div>
+      <div class="bb-row"><label>Buscar obra<input id="bb-superq" placeholder="Buscar por título"></label></div><div id="bb-superlist"><p class="mono">Consultando biblioteca…</p></div>`;
+    const q = view().querySelector('#bb-superq'), list = view().querySelector('#bb-superlist');
+    let delay;
+    async function load(){
+      const term = q.value.trim();
+      let query = sb.from('series').select('id,title,slug,published,archived_at,team_id,teams(name)')
+        .order('title').limit(100);
+      if(term) query = query.ilike('title', '%' + term.replace(/[%_]/g,'') + '%');
+      const {data, error} = await query;
+      if(!list.isConnected)return;
+      if(error) throw error;
+      list.innerHTML = (data||[]).map(w => `<article class="bb-supercard">
+        <div class="bb-superhead"><h3>${esc(w.title)}</h3>
+        <span class="bb-status ${w.archived_at ? 'warn' : w.published ? 'ok':'warn'}">${w.archived_at ? 'Archivada' : w.published ? 'Publicada':'Borrador'}</span></div>
+        <div class="bb-super-meta">Equipo: ${esc(w.teams?.name || '—')} · /serie/${esc(w.slug)}</div>
+        <div class="bb-super-actions"><button class="bb-mini" data-series="${w.id}">Consultar capítulos</button>
+          ${w.published && !w.archived_at ? `<a class="bb-mini" href="/serie/${encodeURIComponent(w.slug)}" style="text-decoration:none">Ver ficha ↗</a>` : ''}</div>
+        <div data-detail="${w.id}" hidden></div>
+      </article>`).join('') || '<p class="mono">No se encontraron obras con ese título.</p>';
+      list.querySelectorAll('[data-series]').forEach(b => b.onclick = async () => {
+        const id=b.dataset.series, target=list.querySelector('[data-detail="'+id+'"]');
+        if(!target.hidden){target.hidden=true;return;}
+        target.hidden=false;target.className='bb-super-detail';
+        target.innerHTML='<p class="mono">Consultando capítulos…</p>';
+        const {data:chapters,error:err}=await sb.from('chapters').select('id,num,status,publish_at')
+          .eq('series_id',id).order('num').limit(50);
+        if(!target.isConnected)return;
+        target.innerHTML=err ? `<p class="mono">${esc(err.message)}</p>` :
+          `<div style="overflow-x:auto"><table class="bb-tbl"><thead><tr><th>Capítulo</th><th>Estado</th><th>Programación</th></tr></thead><tbody>
+          ${(chapters||[]).map(c=>`<tr><td>${esc(c.num)}</td><td>${esc(c.status)}</td><td>${c.publish_at ? esc(when(c.publish_at)) : '—'}</td></tr>`).join('') || '<tr><td colspan="3">No hay capítulos.</td></tr>'}</tbody></table></div>`;
+      });
+    }
+    q.oninput=()=>{clearTimeout(delay);delay=setTimeout(()=>load().catch(e=>{list.textContent='No se pudo consultar: '+msg(e)}),300);};
+    await load();
   }
 
   async function solicitudes(){
