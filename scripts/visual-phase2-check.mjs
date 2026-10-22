@@ -22,7 +22,7 @@ assert(st.includes('previewDesign = matchMedia') && st.includes('UI.mobDeco ? { 
 assert(st.includes('TP.render(D, previewDesign') && st.includes('TP.effective(previewDesign'), 'Vista previa usa renderizador real de equipos');
 assert(css.includes('.pf-panel,#pf-pub,#pf-discard,.pf-pvbar .pf-seg{display:none}'), 'Edición y publicación oculta en móvil');
 assert(css.includes('.pf-mobile-sim{display:grid'), 'Controles de simulación visibles en teléfono');
-assert(profile.includes('aria-label="Secciones de preferencias"') && profile.includes('scroll-snap-type:x proximity'), 'Preferencias responsivas');
+assert(profile.includes('aria-label="Secciones de preferencias"') && profile.includes('select id="pf-mobile-tab"') && profile.includes('class="pf-nav-group"') && profile.includes('@media(max-width:760px)'), 'Preferencias responsivas con selector móvil y grupos');
 assert(ui.includes("a.setAttribute('aria-current', 'page')"), 'Navegación pública con estado accesible');
 assert(admin.includes('.bb-tabs{flex-wrap:nowrap') && admin.includes('.bb-sea-g{grid-template-columns:minmax(0,1fr)}'), 'Mostrador y temporadas móvil');
 console.log('Fase visual 2: 14 rutas, permisos, navegación, temporadas y accesibilidad OK');
