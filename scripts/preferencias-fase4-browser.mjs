@@ -54,7 +54,7 @@ async function runGroup(widths, attempt) {
   throw Error('Chromium agotó 2 intentos en '+widths.join('/')+'; '+stderr.slice(-1200));
  }
  assert.equal(code,0,'Chromium exit '+code+': '+stderr.slice(-1200));
- const result=stdout.match(/<p id="qa-result" data-qa-status="(pass|fail)">([\\s\\S]*?)<\\/p>/);
+ const result=stdout.match(/<p id="qa-result" data-qa-status="(pass|fail)">([\s\S]*?)<\/p>/);
  assert(result,'Chromium sin resultado en '+widths.join('/')+': '+stdout.slice(-1700)+' stderr '+stderr.slice(-900));
  assert.equal(result[1],'pass',result[2]);
  console.log('QA Chromium '+widths.join('/')+'px: '+result[2]);
