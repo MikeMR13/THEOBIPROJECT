@@ -38,7 +38,8 @@ alter table public.team_invitations enable row level security;
 revoke all on table public.team_invitations from public, anon, authenticated;
 
 create function public.admin_invitation_create(
-  p_team uuid, p_email text, p_role text default 'admin', p_hours integer default 48
+  p_team uuid, p_email text, p_role text default 'admin', p_hours integer default 48,
+  p_reason text default ''
 )
 returns jsonb
 language plpgsql security definer
@@ -62,6 +63,12 @@ begin
   if p_hours is null or p_hours not in (24,48,168) then
     raise exception 'La caducidad debe ser 24, 48 o 168 horas';
   end if;
+  if length(btrim(coalesce(p_reason,'')))<12 then
+    raise exception 'Explica el motivo de invitación (mínimo 12 caracteres)';
+  end if;
+  -- Serializa operaciones del Bibliotecario para que límite y unicidad
+  -- de invitaciones activas se comprueben de forma consistente.
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(auth.uid()::text,0));
 
   select t.name into v_team_name from public.teams t where t.id=p_team
     and exists (select 1 from public.team_members m
@@ -91,7 +98,7 @@ begin
   returning id into v_id;
   perform private.audit('invitacion_equipo_creada','team_invitation',v_id::text,
     pg_catalog.jsonb_build_object('team_id',p_team,'email',v_email,'role',p_role,
-      'expires_at',v_expires));
+      'expires_at',v_expires,'reason',btrim(p_reason)));
   return pg_catalog.jsonb_build_object('id',v_id,'token',v_token,'team_name',v_team_name,
     'expires_at',v_expires);
 end
@@ -228,12 +235,12 @@ end
 $fn$;
 
 -- EXECUTE sobre RPC SECURITY DEFINER nunca debe heredarse de PUBLIC.
-revoke all on function public.admin_invitation_create(uuid,text,text,integer) from public, anon;
+revoke all on function public.admin_invitation_create(uuid,text,text,integer,text) from public, anon;
 revoke all on function public.admin_invitation_list(integer) from public, anon;
 revoke all on function public.admin_invitation_revoke(uuid,text) from public, anon;
 revoke all on function public.team_invitation_preview(text) from public, anon;
 revoke all on function public.team_invitation_redeem(text) from public, anon;
-grant execute on function public.admin_invitation_create(uuid,text,text,integer) to authenticated;
+grant execute on function public.admin_invitation_create(uuid,text,text,integer,text) to authenticated;
 grant execute on function public.admin_invitation_list(integer) to authenticated;
 grant execute on function public.admin_invitation_revoke(uuid,text) to authenticated;
 grant execute on function public.team_invitation_preview(text) to authenticated;
