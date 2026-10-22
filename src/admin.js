@@ -193,7 +193,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   async function supervision(){
     view().innerHTML = `<div class="bb-secintro"><div><h2>Supervisión de publicaciones</h2><p>Lectura administrativa de todas las obras · La edición corresponde a cada equipo</p></div><span class="bb-status warn">SOLO SUPERVISIÓN</span></div>
       <div class="bb-super-note">El Bibliotecario puede consultar publicaciones y borradores. Esta vista no permite editar traducciones, alterar calendarios ni borrar capítulos. Las sanciones editoriales deberán tramitarse mediante un procedimiento administrativo independiente y auditado.</div>
-      <div class="bb-row"><label>Buscar obra<input id="bb-superq" placeholder="Título, equipo o identificador"></label></div><div id="bb-superlist"><p class="mono">Consultando biblioteca…</p></div>`;
+      <div class="bb-row"><label>Buscar obra<input id="bb-superq" placeholder="Buscar por título"></label></div><div id="bb-superlist"><p class="mono">Consultando biblioteca…</p></div>`;
     const q = view().querySelector('#bb-superq'), list = view().querySelector('#bb-superlist');
     let delay;
     async function load(){
@@ -202,8 +202,8 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
         .order('title').limit(100);
       if(term) query = query.ilike('title', '%' + term.replace(/[%_]/g,'') + '%');
       const {data, error} = await query;
-      if(error) throw error;
       if(!list.isConnected)return;
+      if(error) throw error;
       list.innerHTML = (data||[]).map(w => `<article class="bb-supercard">
         <div class="bb-superhead"><h3>${esc(w.title)}</h3>
         <span class="bb-status ${w.archived_at ? 'warn' : w.published ? 'ok':'warn'}">${w.archived_at ? 'Archivada' : w.published ? 'Publicada':'Borrador'}</span></div>
