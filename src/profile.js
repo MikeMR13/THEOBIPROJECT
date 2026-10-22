@@ -619,27 +619,30 @@ export async function preferences(C){
   };
   draw();
   const leave = e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } };
+  const cleanup = () => {
+    removeEventListener('beforeunload', leave);
+    document.removeEventListener('click', navigate, true);
+    removeEventListener('popstate', onBack);
+    if (app.__obiPrefsNavGuard === canLeave) app.__obiPrefsNavGuard = null;
+    if (app.__obiPrefsDispose === cleanup) app.__obiPrefsDispose = null;
+  };
+  const canLeave = () => {
+    if (dirty && !confirm('Tienes cambios sin guardar en tu perfil. El borrador se conservará para volver después. ¿Salir?')) return false;
+    cleanup();
+    return true;
+  };
   const navigate = e => {
     const a = e.target.closest?.('a[href^="/"]');
     if (!a || a.target || a.getAttribute('href') === location.pathname + location.search) return;
-    if (!dirty) {
-      removeEventListener('beforeunload', leave);
-      document.removeEventListener('click', navigate, true);
-      return;
-    }
-    if (!confirm('Tienes cambios sin guardar en tu perfil. El borrador se conservará para volver después. ¿Salir?')) {
-      e.preventDefault(); e.stopImmediatePropagation();
-    } else {
-      removeEventListener('beforeunload', leave);
-      document.removeEventListener('click', navigate, true);
-    }
+    if (!canLeave()) { e.preventDefault(); e.stopImmediatePropagation(); }
   };
+  const onBack = () => {
+    // Atrás tampoco atraviesa el controlador de enlaces. El borrador se conserva.
+    cleanup();
+  };
+  app.__obiPrefsNavGuard = canLeave;
+  app.__obiPrefsDispose = cleanup;
   addEventListener('beforeunload', leave);
   document.addEventListener('click', navigate, true);
-  addEventListener('popstate', () => {
-    // El botón Atrás no pasa por el controlador de enlaces del SPA; el borrador
-    // ya está persistido, así que se puede recuperar al volver a Preferencias.
-    removeEventListener('beforeunload', leave);
-    document.removeEventListener('click', navigate, true);
-  }, { once: true });
+  addEventListener('popstate', onBack);
 }
