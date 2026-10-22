@@ -1,10 +1,14 @@
 // Chromium real, backend simulado y cuatro anchuras para Preferencias.
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {createServer} from 'node:http';
 import {spawn,execFileSync} from 'node:child_process';
 
-const views=[[320,390],[768,1280]];
+// Un solo viewport por Chromium: evita dos renderizadores compitiendo
+// por CPU en Actions cuando se lanzan otros workflows simultáneos.
+const views=[[320],[390],[768],[1280]];
 const application=readFileSync('src/app.js','utf8');
 const screen=readFileSync('src/profile.js','utf8');
 // La sesión sin ui_prefs debe aplicar valores por defecto: nunca la configuración de otra cuenta.
@@ -33,22 +37,29 @@ const server=createServer((req,res)=>{
 });
 const browser=process.env.QA_CHROME||['google-chrome','google-chrome-stable','chromium','chromium-browser'].map(name=>{try{return execFileSync('which',[name],{encoding:'utf8'}).trim()}catch{return ''}}).find(Boolean);
 assert(browser,'Chromium requerido');
-// Dos navegadores secuenciales y dos iframes por ejecución. Evita que
-// cuatro renderizadores simultáneos saturen runners compartidos de Actions.
+// Cuatro procesos secuenciales y un solo iframe cada vez. Cada proceso recibe
+// su propio directorio de perfil temporal; evita GPU/cache/procesos residuales.
 // Un fallo real de aserción NO se reintenta. Solo reintenta un arranque colgado.
 async function runGroup(widths, attempt) {
  const url='http://127.0.0.1:'+server.address().port+'/?widths='+widths.join(',');
- const args=['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking','--no-proxy-server','--incognito',
+ const profileDir=mkdtempSync(join(tmpdir(),'obi-pref-qa-'));
+ const args=['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking','--no-proxy-server','--disable-sync','--disable-extensions','--no-first-run','--no-default-browser-check',`--user-data-dir=${profileDir}`,
  '--disable-renderer-backgrounding','--disable-background-timer-throttling','--window-size=1500,900','--virtual-time-budget=12000','--dump-dom',url];
  const child=spawn(browser,args,{stdio:['ignore','pipe','pipe']});
  let stdout='',stderr='',timedOut=false;
  child.stdout.on('data',d=>{if(stdout.length<160000)stdout+=String(d)});
  child.stderr.on('data',d=>{if(stderr.length<30000)stderr+=String(d)});
- const code=await new Promise((resolve,reject)=>{
-  const timer=setTimeout(()=>{timedOut=true;child.kill('SIGKILL')},35000);
-  child.once('error',error=>{clearTimeout(timer);reject(error)});
-  child.once('close',result=>{clearTimeout(timer);resolve(result)});
- });
+ let code;
+ try {
+  code=await new Promise((resolve,reject)=>{
+   const timer=setTimeout(()=>{timedOut=true;child.kill('SIGKILL')},45000);
+   child.once('error',error=>{clearTimeout(timer);reject(error)});
+   child.once('close',result=>{clearTimeout(timer);resolve(result)});
+  });
+ } finally {
+  try { rmSync(profileDir,{recursive:true,force:true,maxRetries:12,retryDelay:120}); }
+  catch (error) { console.warn('Limpieza de perfil QA Chromium:',error.message); }
+ }
  if(timedOut) {
   if(attempt===1){console.warn('Chromium bloqueado en '+widths.join('/')+'; reintento aislado con perfil nuevo');return runGroup(widths,2)}
   throw Error('Chromium agotó 2 intentos en '+widths.join('/')+'; '+stderr.slice(-1200));
