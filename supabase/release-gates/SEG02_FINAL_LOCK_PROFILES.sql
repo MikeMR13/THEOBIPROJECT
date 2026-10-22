@@ -22,6 +22,7 @@ BEGIN
     OR NOT has_column_privilege('service_role','public.profiles','patreon_user_id','SELECT')
     OR NOT has_column_privilege('authenticated','public.profiles','notify','UPDATE')
     OR NOT has_column_privilege('authenticated','public.profiles','ui_prefs','UPDATE')
+    OR NOT has_column_privilege('authenticated','public.profiles','patron_wall','UPDATE')
   THEN RAISE EXCEPTION 'SEG-02: falta fase A, privilegios o servicio de Patreon'; END IF;
 END $preflight$;
 
@@ -37,7 +38,7 @@ GRANT SELECT (id) ON TABLE public.profiles TO authenticated;
 GRANT UPDATE (username, avatar_url, discord_id, telegram_id, adult_ok,
   bio, banner_url, discoverable, public_library, public_activity,
   seal_kanji, accent, links, favorites, profile_sections, profile_visibility,
-  show_since, hide_reading, hidden_series, notify, ui_prefs)
+  show_since, hide_reading, hidden_series, notify, ui_prefs, patron_wall)
 ON TABLE public.profiles TO authenticated;
 DROP POLICY IF EXISTS "profiles read" ON public.profiles;
 DROP POLICY IF EXISTS "profiles self read" ON public.profiles;
@@ -56,6 +57,7 @@ BEGIN
     OR has_table_privilege('anon','public.profiles','SELECT')
     OR NOT has_column_privilege('authenticated','public.profiles','id','SELECT')
     OR NOT has_column_privilege('service_role','public.profiles','patreon_user_id','SELECT')
+    OR NOT has_column_privilege('authenticated','public.profiles','patron_wall','UPDATE')
   THEN RAISE EXCEPTION 'SEG-02: falla verificación final de grants'; END IF;
 END $verify$;
 COMMIT;
