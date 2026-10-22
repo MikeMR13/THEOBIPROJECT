@@ -1,3 +1,5 @@
+> **Actualización 22/10/2026:** SEG-02 fue dividido en **FASE A aditiva** (`supabase/migrations/20261022055000_secure_reader_profiles.sql`) y **FASE C manual de cierre RLS** (`supabase/release-gates/SEG02_FINAL_LOCK_PROFILES.sql`). Los laboratorios PostgreSQL y Supabase Auth/PostgREST aplican ambas secuencialmente y comprueban compatibilidad del frontend previo entre etapas. La migración automática **no** revoca `SELECT` sobre perfiles; ese cierre se coordina solo después de desplegar el frontend compatible. Plan vigente: [SEG02-RELEASE-POR-ETAPAS.md](./SEG02-RELEASE-POR-ETAPAS.md). Este documento conserva contexto histórico y no sustituye la puerta de lanzamiento.
+
 # SEG-02 — Corrección de privacidad de perfiles
 
 **Estado:** migración aplicada y probada con éxito en PostgreSQL 17 efímero de GitHub Actions, con estructura y usuarios ficticios. **NO aplicada a Supabase de producción ni validada en un clon completo de Supabase**.
