@@ -31,7 +31,10 @@ RETURNS TABLE(id uuid, username text)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path TO ''
 AS $obi$
-  SELECT p.id,p.username
+  -- Todos los sujetos deben tener una relación efectiva con el Estudio del
+  -- solicitante; el editor también necesita autores externos de erratas,
+  -- comentarios, revisiones y personas que abandonaron el equipo.
+  SELECT p.id, p.username
   FROM public.profiles p
   WHERE (SELECT auth.uid()) IS NOT NULL
     AND p.id = ANY (COALESCE(p_ids, ARRAY[]::uuid[]))
@@ -41,8 +44,43 @@ AS $obi$
       OR EXISTS (
         SELECT 1
         FROM public.team_members viewer
-        JOIN public.team_members member ON member.team_id = viewer.team_id
-        WHERE viewer.user_id = (SELECT auth.uid()) AND member.user_id = p.id
+        WHERE viewer.user_id = (SELECT auth.uid())
+          AND (
+            EXISTS (
+              SELECT 1 FROM public.team_members colleague
+              WHERE colleague.team_id = viewer.team_id AND colleague.user_id = p.id
+            )
+            OR EXISTS (
+              SELECT 1 FROM public.team_log l
+              WHERE l.team_id = viewer.team_id AND l.actor = p.id
+            )
+            OR EXISTS (
+              SELECT 1 FROM public.team_design_versions d
+              WHERE d.team_id = viewer.team_id AND d.created_by = p.id
+            )
+            OR EXISTS (
+              SELECT 1 FROM public.chapters c JOIN public.series s ON s.id = c.series_id
+              WHERE s.team_id = viewer.team_id AND c.assigned_to = p.id
+            )
+            OR EXISTS (
+              SELECT 1 FROM public.comments cm
+              JOIN public.chapters c ON c.id = cm.chapter_id
+              JOIN public.series s ON s.id = c.series_id
+              WHERE s.team_id = viewer.team_id AND cm.user_id = p.id
+            )
+            OR EXISTS (
+              SELECT 1 FROM public.reports r
+              JOIN public.chapters c ON c.id = r.chapter_id
+              JOIN public.series s ON s.id = c.series_id
+              WHERE s.team_id = viewer.team_id AND r.user_id = p.id
+            )
+            OR EXISTS (
+              SELECT 1 FROM public.chapter_revisions cr
+              JOIN public.chapters c ON c.id = cr.chapter_id
+              JOIN public.series s ON s.id = c.series_id
+              WHERE s.team_id = viewer.team_id AND cr.created_by = p.id
+            )
+          )
       )
     )
   ORDER BY p.username
