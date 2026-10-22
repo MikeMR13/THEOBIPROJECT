@@ -233,7 +233,7 @@ begin
   if not found then raise exception 'Enlace inválido'; end if;
   if v_inv.revoked_at is not null or v_inv.redeemed_at is not null
     or v_inv.expires_at<=now() then raise exception 'Enlace caducado o utilizado'; end if;
-  if v_email<>v_inv.invite_email then
+  if v_inv.invite_email is not null and v_email<>v_inv.invite_email then
     raise exception 'Inicia sesión con el correo invitado';
   end if;
   select platform_role into v_platform_role from public.profiles where id=auth.uid();
