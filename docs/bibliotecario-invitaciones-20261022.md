@@ -1,9 +1,11 @@
-# Invitaciones de equipo: validación antes de producción
+# Invitaciones de equipo: implementación y pruebas funcionales
 
-**Estado:** funciones SQL versionadas en GitHub; ninguna migración ejecutada en
-Supabase de producción. Vercel Preview sólo verifica compilación y contratos
-estáticos. La nueva pestaña «Invitaciones» informa que no está activa hasta
-instalar las funciones RPC.
+**Estado al 22 de octubre de 2026:** la migración aditiva
+`team_invitations_one_time` está aplicada en Supabase de producción.
+La integración del frontend se gestiona en el PR #60 y su despliegue en
+Vercel. GitHub Actions ejecutó satisfactoriamente el flujo con Supabase Auth,
+PostgREST y PostgreSQL **locales**, además de CI y la compilación de Vercel.
+Ningún dato ni credencial de producción se empleó para estas pruebas.
 
 ## Flujo preparado
 1. El Bibliotecario, desde «Invitaciones», elige entre dos destinos:
@@ -53,11 +55,20 @@ instalar las funciones RPC.
 - Los flujos de autenticación no se reemplazan y las temporadas siguen intactas.
 - No resuelve las vulnerabilidades heredadas del Bibliotecario por
   `private.team_can` ni las operaciones administrativas pendientes de revisión;
-  son iniciativas separadas que deben probarse en staging.
-- No habilitar públicamente los nuevos enlaces antes de aplicar la migración
-  probada; de lo contrario los RPC faltarán y la página lo indicará.
+  son iniciativas separadas que requieren auditoría específica.
+- La creación real de invitaciones debe hacerse únicamente desde una sesión
+  del Bibliotecario; no se usan enlaces de ejemplo en producción.
 
-## Ensayos obligatorios en Supabase aislado
+## Pruebas funcionales y escenarios complementarios
+
+Las pruebas gratuitas de `.github/workflows/invitaciones-local-functional.yml`
+superaron la migración SQL real sobre un esquema sintético, registro de
+usuarios reales en GoTrue, bloqueo de inicio de sesión hasta verificar correo,
+autorización JWT/RPC, creación atómica del equipo y propietario, concurrencia
+de doble canje, alta de administrador en equipo existente, revocación y auditoría.
+También superó la suite general `.github/workflows/ci.yml`.
+
+Escenarios adicionales recomendados antes de futuras ampliaciones:
 1. Usar un Bibliotecario real y otro usuario normal: sólo Bibliotecario puede
    crear/listar/revocar invitaciones y los tokens no pueden consultarse por REST.
 2. Probar cinco roles para equipos existentes (prohibiendo `owner` allí).
@@ -89,7 +100,11 @@ instalar las funciones RPC.
     DEFINER y políticas RLS antes de cualquier promoción.
 12. Confirmar que «Temporadas» y `season-sync` no han cambiado.
 
-## Despliegue
-Primero habilitar staging (previa autorización expresa del costo), probar
-la migración y sus RPC, integrar los fallos descubiertos. Sólo después
-planificar backend productivo y frontend `main` de forma coordinada.
+## Despliegue sin base alojada adicional
+
+El repositorio es público y las pruebas usan un runner estándar gratuito
+de GitHub Actions; la base Supabase se levanta de forma efímera y aislada,
+se destruye al terminar, y solo contiene identidades y datos ficticios.
+La migración aditiva se publicó en Supabase producción tras el resultado
+verde. La actualización del frontend se integra en `main` mediante el PR #60,
+con compilación de producción supervisada y temporadas intactas.
