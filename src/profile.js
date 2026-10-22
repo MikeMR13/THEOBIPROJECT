@@ -32,6 +32,16 @@ const SECS = [['favs', 'Favoritas', true], ['seals', 'Sellos', true], ['shelves'
 const SHELF = [['reading', 'Leyendo'], ['done', 'Terminadas'], ['plan', 'Pendientes']];
 const KANJI = /^[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]$/;
 
+// Apodos editoriales, no traducciones literales del kanji.
+const SEAL_CATALOG = [["読","El Lector","Leer","Descubre universos enteros entre las páginas.","Lectura"],["書","El Escriba","Escribir","Encuentra poder en las palabras y las historias.","Lectura"],["本","El Bibliófilo","Libro","Siempre encuentra un hogar entre los libros.","Lectura"],["文","El Literato","Literatura","Aprecia la belleza de cada palabra.","Lectura"],["詩","El Poeta","Poesía","Descubre emociones donde otros solo ven palabras.","Lectura"],["語","El Narrador","Relato","Cada historia merece una voz.","Lectura"],["章","El Cronista","Capítulo","Atesora cada capítulo de sus aventuras.","Lectura"],["魔","El Mago","Magia","Encuentra lo extraordinario en cada historia.","Fantasía"],["夢","El Soñador","Sueño","Vive aventuras que solo la imaginación permite.","Fantasía"],["龍","El Dragón","Dragón","Su espíritu es tan indomable como una leyenda.","Fantasía"],["星","El Astral","Estrella","Encuentra su camino siguiendo las estrellas.","Fantasía"],["月","El Lunar","Luna","Prefiere las historias bajo la luz de la luna.","Fantasía"],["光","El Luminoso","Luz","Incluso en la oscuridad encuentra esperanza.","Fantasía"],["闇","El Nocturno","Oscuridad","Se aventura donde las historias se vuelven misteriosas.","Fantasía"],["炎","El Ígneo","Llama","Lee con una pasión que nunca se apaga.","Fantasía"],["氷","El Glacial","Hielo","Mantiene la calma aun frente a las mayores amenazas.","Fantasía"],["雷","El Relámpago","Trueno","Su entusiasmo aparece con la fuerza de una tormenta.","Fantasía"],["探","El Explorador","Buscar","Siempre está en busca de nuevos mundos.","Aventura"],["旅","El Viajero","Viaje","Recorre mil destinos a través de la lectura.","Aventura"],["武","El Guerrero","Artes marciales","No teme enfrentarse a grandes desafíos.","Aventura"],["守","El Guardián","Proteger","Atesora las historias que merecen conservarse.","Aventura"],["剣","El Espadachín","Espada","En cada aventura encuentra una batalla digna de contar.","Aventura"],["風","El Errante","Viento","Sigue el viento hacia historias desconocidas.","Aventura"],["海","El Navegante","Mar","Ningún horizonte es demasiado lejano.","Aventura"],["森","El Silvestre","Bosque","Encuentra maravillas en los rincones ocultos del mundo.","Aventura"],["知","El Sabio","Conocer","Cada lectura es una oportunidad para aprender.","Personalidad"],["心","El Sensible","Corazón","Vive cada historia con el corazón.","Personalidad"],["勇","El Valiente","Valentía","No teme comenzar una nueva aventura.","Personalidad"],["静","El Sereno","Calma","Encuentra paz en el silencio de las páginas.","Personalidad"],["絆","El Compañero","Vínculo","Cree en los lazos que unen a los personajes.","Personalidad"],["和","El Armonioso","Armonía","Busca equilibrio entre mundos y emociones.","Personalidad"],["影","La Sombra","Sombra","Observa los misterios desde las sombras.","Personalidad"]];
+const SEAL_LOOKUP = new Map(SEAL_CATALOG.map(([kanji,name,meaning,description,category]) => [kanji,{name,meaning,description,category}]));
+const sealMarkup = (kanji, esc) => {
+  if (!kanji) return '';
+  const seal = SEAL_LOOKUP.get(kanji);
+  if (!seal) return `<span class="lc-kj" title="Sello personalizado" aria-label="Sello personalizado: ${esc(kanji)}">${esc(kanji)}</span>`;
+  return `<details class="lc-seal-pop"><summary class="lc-kj" aria-label="${esc(seal.name)}. Ver descripción del sello">${esc(kanji)}</summary><span class="lc-seal-name">${esc(seal.name)}</span><div class="lc-seal-info"><strong>${esc(seal.name)}</strong><span>${esc(seal.description)}</span><small>Kanji: ${esc(seal.meaning)}</small></div></details>`;
+};
+
 const CSS = `
 .lc{display:grid;gap:44px}
 .lc-card{position:relative;overflow:hidden;border:1px solid var(--line);min-height:340px;display:grid;align-items:end}
@@ -172,6 +182,41 @@ const CSS = `
 @media(max-width:1180px){.pf-editor-layout{grid-template-columns:minmax(0,1fr)}.pf-editor-preview{position:static;max-width:470px}}
 @media(max-width:760px){.pf-editor-preview{max-width:none}.pf-live-card .lc-card{min-height:270px}.pf-live-fav-list{gap:8px}}
 
+
+/* Sellos temáticos y apodos seleccionables */
+.lc-seal-pop{position:absolute;top:18px;right:18px;z-index:3;display:grid;justify-items:end;gap:6px}
+.lc-seal-pop .lc-kj{position:static;cursor:pointer;list-style:none;user-select:none}
+.lc-seal-pop summary::-webkit-details-marker{display:none}
+.lc-seal-pop summary::marker{content:''}
+.lc-seal-pop .lc-kj:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.lc-seal-name{padding:4px 8px;background:rgba(13,12,10,.8);color:var(--paper);font:600 11px 'IBM Plex Sans',sans-serif;text-align:right}
+.lc-seal-info{position:absolute;top:calc(100% + 8px);right:0;width:min(230px,calc(100vw - 64px));box-sizing:border-box;background:#17130e;border:1px solid #866946;box-shadow:0 8px 32px rgba(0,0,0,.65);padding:12px;display:grid;gap:7px;color:var(--paper);font:13px/1.45 'IBM Plex Sans',sans-serif;text-align:left}
+.lc-seal-pop:not([open]) .lc-seal-info{display:none}
+.lc-seal-info strong{font:800 17px 'Shippori Mincho B1',serif}
+.lc-seal-info small{color:var(--mute)}
+.pf-live-card .lc-seal-pop{top:12px;right:12px}
+.pf-seal-panel{display:grid;gap:12px;min-width:0;grid-column:1/-1}
+.pf-seal-controls{display:flex;gap:10px;flex-wrap:wrap}
+.pf-seal-controls input,.pf-seal-controls select{background:#0d0c0a;border:1px solid var(--line);color:var(--paper);font:14px 'IBM Plex Sans',sans-serif;min-height:44px;padding:9px 10px;min-width:0}
+.pf-seal-controls input{flex:1 1 190px}
+.pf-seal-controls select{flex:1 1 145px}
+.pf-seal-catalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,130px),1fr));gap:9px}
+.pf-seal-choice{min-width:0;min-height:94px;cursor:pointer;border:1px solid #544731;background:#1b1812;color:var(--paper);padding:9px 7px;display:grid;justify-items:center;align-content:center;gap:5px;text-align:center}
+.pf-seal-choice:hover{border-color:var(--gold)}
+.pf-seal-choice[aria-pressed="true"]{border:2px solid var(--gold);background:#272115}
+.pf-seal-choice .kanji{font:800 29px 'Shippori Mincho B1',serif;color:#e2604b}
+.pf-seal-choice .name{font:700 12px 'IBM Plex Sans',sans-serif;overflow-wrap:anywhere}
+.pf-seal-choice .meaning{font:11px 'IBM Plex Sans',sans-serif;color:var(--mute)}
+.pf-seal-selected{border-left:3px solid var(--gold);background:#221e16;padding:11px 13px;display:grid;gap:5px;font-size:13px;line-height:1.5}
+.pf-seal-selected strong{font:800 16px 'Shippori Mincho B1',serif}
+.pf-seal-selected small{color:var(--mute)}
+.pf-seal-actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.pf-seal-actions button{min-height:44px}
+.pf-seal-custom{display:grid;gap:8px;align-items:start;justify-items:start;padding:12px;border:1px solid var(--line);background:#1b1812}
+.pf-seal-custom[hidden]{display:none}
+.pf-seal-custom label{display:grid;gap:6px}
+@media(max-width:640px){.lc-seal-pop{right:12px;top:12px}.pf-seal-catalog{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 .pf-preview{border:1px solid #6b5a39;background:#1c1913;padding:14px;display:grid;gap:12px;min-width:0}
 .pf-preview h3{margin:0;font-size:16px}
 .pf-preview-guide{display:grid;gap:8px;font:13px/1.5 'IBM Plex Sans',sans-serif;color:#e3dccb}
@@ -226,7 +271,7 @@ export async function publicProfile(C, name, opt = {}){
   const mine = opt.owner && !(r.public_activity && r.stats) && own.data ? `<section class="lc-sec"><div class="lc-hd"><h2>Mis estadísticas</h2><span class="mono" style="font-size:11px">SOLO TÚ VES ESTO · <a href="/preferencias?s=privacidad">HACERLAS PÚBLICAS</a></span></div>${statsHTML(own.data) || '<p class="lc-empty">Aún no hay lecturas registradas.</p>'}</section>` : '';
   const empty = opt.owner && !r.bio && !r.kanji && !favs.length && !r.links?.length ? `<p class="lc-empty" style="border:1px dashed var(--line);padding:14px 16px">Tu carnet está vacío. <a href="/preferencias">Añade bio, kanji, favoritas y enlaces</a>.</p>` : '';
   app.innerHTML = `<div class="lc" style="--ac:${esc(ac)}">${bar}${act}
-    <section class="lc-card">${bg}<div class="lc-sh"></div>${r.kanji ? `<span class="lc-kj" title="Sello de ${esc(r.username)}">${esc(r.kanji)}</span>` : ''}
+    <section class="lc-card">${bg}<div class="lc-sh"></div>${sealMarkup(r.kanji, esc)}
       <div class="lc-in">
         <span class="lc-av">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase())}</span>
         <div class="lc-tx"><span class="k">CARNET DE LECTOR · 読者証${r.since ? ' · DESDE ' + new Date(r.since).toLocaleDateString('es-MX', { month: 'short', year: 'numeric' }).toUpperCase() : ''}</span>
@@ -684,7 +729,7 @@ export async function preferences(C){
             (s.cover_thumb_path || s.cover_path ? "background-image:url(&quot;" + esc(MED(s.cover_thumb_path || s.cover_path)) + "&quot;)" : "") + "'></span>").join('') + "</div>"
         : "<div class='lc-bg' style='opacity:.35'></div>";
     const avatar = P.avatar_url ? "<img src='" + esc(P.avatar_url) + "' alt=''>" : esc((P.username || '?')[0].toUpperCase());
-    const stamp = D.kanji ? "<span class='lc-kj' title='Sello del lector'>" + esc(D.kanji) + "</span>" : "";
+    const stamp = sealMarkup(D.kanji, esc);
     const bio = D.bio ? "<p>" + esc(D.bio) + "</p>" : "<p class='pf-live-placeholder'>Tu biografía aparecerá aquí.</p>";
     const links = enabled.length ? "<div class='lc-ln'>" + enabled.map(l =>
       "<span class='pf-live-link'>" + svg(l.k, 14) + esc(ICON[l.k][0]) + "</span>").join('') + "</div>" : "";
