@@ -57,7 +57,7 @@ await probe('capítulo descargado abre con red colgada', async () => {
   const S={series:cacheSeries.series,bodies:new Map()};
   const snippet=slice(reader,'  async function body(ch){','  // texto del siguiente capítulo');
   const ctx={
-    S,early:new Map(),
+    navigator:{onLine:false},S,early:new Map(),
     cacheGet:async()=>null,
     bKey:()=>'',cachePut:()=>{},
     offlineBody:async()=>{local++;return block;},
@@ -76,7 +76,7 @@ await probe('preferencias locales offline sin espera remota', async()=>{
   const snippet=slice(reader,'  async function loadPrefs(){','  const effective = volId');
   const local={global:{size:22},per_volume:{}};
   const getUser=()=>({id:'lector-test'});
-  const ctx={S,getUser,loadLocal:()=>local,readerPrefsKey:id=>'local-'+id,sameReaderAccount:(a,b)=>a===b,
+  const ctx={navigator:{onLine:false},S,getUser,loadLocal:()=>local,readerPrefsKey:id=>'local-'+id,sameReaderAccount:(a,b)=>a===b,
     localStorage:{setItem:()=>{}},
     sb:{from:()=>({select:()=>({eq:()=>({maybeSingle:()=>{remote++;return never();}})})})}
   };
@@ -89,7 +89,7 @@ await probe('preferencias locales offline sin espera remota', async()=>{
 await probe('posición local offline sin esperar PostgREST', async()=>{
   let remote=0;
   const snippet=slice(reader,'  async function fetchPos(){','  // guardar ya al salir');
-  const ctx={S:{series:cacheSeries.series},getUser:()=>({id:'lector-test'}),
+  const ctx={navigator:{onLine:false},S:{series:cacheSeries.series},getUser:()=>({id:'lector-test'}),
     posKey:()=> 'obi-position-test',
     localStorage:{getItem:()=>JSON.stringify({chapter_id:'chapter-1',block:2,at:'2026-10-21T00:00:00Z'})},
     sb:{from:()=>({select:()=>({eq:()=>({eq:()=>({order:()=>({limit:()=>{remote++;return never();}})})})})})},Date
@@ -105,7 +105,7 @@ await probe('arranque con sesión remota bloqueada', async()=>{
   let sessionCalls=0,draws=0;
   const snippet=slice(app,'async function loadSession(){','function delBanner(){');
   const ctx={
-    user:null,profile:null,me:null,meReady:Promise.resolve(),lastBar:'',
+    navigator:{onLine:false},user:null,profile:null,me:null,meReady:Promise.resolve(),lastBar:'',
     sb:{auth:{getSession:()=>{sessionCalls++;return never();}}},
     drawSession:()=>{draws++},window:{obiSetBlocks:()=>{}},
     localStorage:{getItem:()=>null,setItem:()=>{}},
