@@ -231,7 +231,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       mb.onclick = () => set(!top.classList.contains('ob-open')); top.querySelector('.ob-nav').addEventListener('click', e => { if (e.target.closest('a')) set(false); });
       addEventListener('popstate', () => set(false)); addEventListener('keydown', e => { if (e.key === 'Escape' && top.classList.contains('ob-open')) { set(false); mb.focus(); } });
       document.addEventListener('click', e => { if (top.classList.contains('ob-open') && !top.contains(e.target)) set(false); }); }
-    sb.from('platform_settings').select('support').eq('id', 1).maybeSingle().then(({ data }) => { const c = data?.support || {}, b = top.querySelector('.ob-sup'); if (!b) return; if (c.show === false) b.hidden = true; if (c.label) b.textContent = c.label.slice(0, 24); if (c.mode === 'external' && /^https:\/\//.test(c.url || '')) { b.href = c.url; b.target = '_blank'; b.rel = 'noopener'; } }, () => {});
+    // El encabezado no necesita solicitar configuración pública al funcionar offline.
+    if (navigator.onLine) sb.from('platform_settings').select('support').eq('id', 1).maybeSingle().then(({ data }) => { const c = data?.support || {}, b = top.querySelector('.ob-sup'); if (!b) return; if (c.show === false) b.hidden = true; if (c.label) b.textContent = c.label.slice(0, 24); if (c.mode === 'external' && /^https:\/\//.test(c.url || '')) { b.href = c.url; b.target = '_blank'; b.rel = 'noopener'; } }, () => {});
     top.querySelector('.ob-tools').appendChild(ses);
     srCss(); const q = top.querySelector('#ob-q'), tools = top.querySelector('.ob-tools'); tools.style.position = 'relative';
     const pop = document.createElement('div'); pop.className = 'sr-pop'; pop.hidden = true; tools.appendChild(pop);
