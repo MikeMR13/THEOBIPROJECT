@@ -5,6 +5,12 @@ import {createServer} from 'node:http';
 import {spawn,execFileSync} from 'node:child_process';
 
 const views=[320,390,768,1280];
+const application=readFileSync('src/app.js','utf8');
+const screen=readFileSync('src/profile.js','utf8');
+// La sesión sin ui_prefs debe aplicar valores por defecto: nunca la configuración de otra cuenta.
+assert(screen.includes("hide: [], ...(P.ui_prefs || {})"),'Preferencias debe inicializarse exclusivamente desde el perfil autenticado');
+assert(application.includes("else window.obiSetUI({});"),'Cambiar a una cuenta sin preferencias debe restablecer accesibilidad');
+assert(application.includes("window.obiSetUI(profile?.ui_prefs || {});"),'La sesión cacheada o sin conexión no debe heredar otra identidad');
 const source='<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>:root{--gold:#f2c230;--paper:#eee2cf;--mute:#a79a82;--line:#665942}*,*:before,*:after{box-sizing:border-box}body{margin:0;padding:8px;background:#0d0c0a;color:var(--paper);font-family:Arial,sans-serif}</style></head><body><main id="app"></main><p id="result" data-qa-status="running">EJECUTANDO</p><script type="module" src="/harness.js"></script></body></html>';
 const parent='<!doctype html><html><body><p id="qa-result" data-qa-status="running">EJECUTANDO</p><script>'+
   'const expected='+JSON.stringify(views)+';const results=new Map();'+
