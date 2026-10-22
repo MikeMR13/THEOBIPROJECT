@@ -796,12 +796,15 @@ export function createReader(ctx){
   async function comments(){
     const ch = S.active, pn = toggle({ kind: 'coms', body: '<p class="mono">Cargando comentarios…</p>' }); if (!pn) return;
     if (!navigator.onLine) { pn.innerHTML = '<p class="mono">Los comentarios necesitan conexión a internet.</p>'; return; }
-    const [{ data: list }, { data: tm }] = await Promise.all([
-      sb.from('comments').select('id,parent_id,user_id,body,spoiler,pinned,para,created_at,profiles(username,avatar_url)').eq('chapter_id', ch.id).order('created_at').limit(500),
-      S.teamIds ? { data: null } : sb.from('team_members').select('user_id').eq('team_id', S.series.team_id)]);
+    const [{ data: list }, { data: tm }, { data: authors }] = await Promise.all([
+      sb.from('comments').select('id,parent_id,user_id,body,spoiler,pinned,para,created_at').eq('chapter_id', ch.id).order('created_at').limit(500),
+      S.teamIds ? { data: null } : sb.from('team_members').select('user_id').eq('team_id', S.series.team_id),
+      sb.rpc('comment_public_authors', { p_chapter: ch.id })]);
     if (tm) S.teamIds = new Set(tm.map(x => x.user_id));
     if (pn.dataset.kind !== 'coms' || S.active !== ch) return;
-    const u = getUser(), all = (list || []).filter(c => !window.__obiBlocks?.has(c.user_id)), top = all.filter(c => !c.parent_id).sort((a, b) => (b.pinned - a.pinned) || (new Date(b.created_at) - new Date(a.created_at)));
+    const authorById=Object.fromEntries((authors||[]).map(x=>[x.user_id,{username:x.username,avatar_url:x.avatar_url}]));
+    const u = getUser(), all = (list || []).filter(c => !window.__obiBlocks?.has(c.user_id))
+      .map(c=>({...c,profiles:authorById[c.user_id]||null})), top = all.filter(c => !c.parent_id).sort((a, b) => (b.pinned - a.pinned) || (new Date(b.created_at) - new Date(a.created_at)));
     const kids = id => all.filter(c => c.parent_id === id);
     const ago = d => { const m = Math.round((Date.now() - new Date(d)) / 60000); return m < 60 ? 'hace ' + Math.max(1, m) + ' min' : m < 1440 ? 'hace ' + Math.round(m / 60) + ' h' : 'hace ' + Math.round(m / 1440) + ' d'; };
     const one = (c, reply) => `<div class="cm-it${reply ? ' re' : ''}" data-cid="${c.id}"><span class="cm-hd"><b>${esc(c.profiles?.username || 'Lector')}</b>${S.teamIds?.has(c.user_id) ? '<span class="cm-tm">EQUIPO</span>' : ''}${c.pinned ? '<span class="cm-tm pin">FIJADO</span>' : ''}<span class="mono">${ago(c.created_at)}</span></span>
