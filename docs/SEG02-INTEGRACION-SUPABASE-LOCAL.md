@@ -1,3 +1,5 @@
+> **Actualización 22/10/2026:** SEG-02 fue dividido en **FASE A aditiva** (`supabase/migrations/20261022055000_secure_reader_profiles.sql`) y **FASE C manual de cierre RLS** (`supabase/release-gates/SEG02_FINAL_LOCK_PROFILES.sql`). Los laboratorios PostgreSQL y Supabase Auth/PostgREST aplican ambas secuencialmente y comprueban compatibilidad del frontend previo entre etapas. La migración automática **no** revoca `SELECT` sobre perfiles; ese cierre se coordina solo después de desplegar el frontend compatible. Plan vigente: [SEG02-RELEASE-POR-ETAPAS.md](./SEG02-RELEASE-POR-ETAPAS.md). Este documento conserva contexto histórico y no sustituye la puerta de lanzamiento.
+
 # SEG-02 — Informe de integración de Supabase local
 
 **Fecha:** 2026-10-22  
