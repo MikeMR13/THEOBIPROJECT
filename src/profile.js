@@ -58,7 +58,7 @@ const CSS = `
 .lc-cv[style*="url"]{color:transparent}
 .lc-hd{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between}
 .lc-tabs{display:flex;gap:4px;border:1px solid var(--line);padding:3px;flex-wrap:wrap}
-.lc-tabs button{border:0;cursor:pointer;padding:8px 14px;font:600 13px 'IBM Plex Sans',sans-serif;background:transparent;color:var(--paper);min-height:36px}
+.lc-tabs button{border:0;cursor:pointer;padding:10px 14px;font:600 13px 'IBM Plex Sans',sans-serif;background:transparent;color:var(--paper);min-height:44px}
 .lc-tabs button.on{background:var(--ac);color:#0d0c0a}
 .lc-shg{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:14px}
 .lc-shg a{font-size:13px}
@@ -74,9 +74,15 @@ const CSS = `
 @media(max-width:640px){.lc-av{width:84px;height:84px;font-size:36px}.lc-se span{width:48px;height:48px;font-size:20px}.lc-kj{width:42px;height:42px;font-size:24px}}
 
 .pf{display:flex;flex-wrap:wrap;border:1px solid var(--line);background:#14120e;margin-top:20px}
-.pf-nav{flex:1 1 200px;max-width:240px;border-right:1px solid var(--line);padding:18px 0;display:grid;align-content:start}
-.pf-nav a{padding:11px 20px;text-decoration:none;font-size:14px;font-weight:600;color:var(--mute);border-left:3px solid transparent}
-.pf-nav a.on{color:var(--paper);background:#1f1c15;border-left-color:var(--gold)}
+.pf-nav{flex:0 0 238px;max-width:238px;border-right:1px solid var(--line);padding:14px 0;display:grid;align-content:start;gap:12px}
+.pf-nav-group{display:grid;align-content:start}
+.pf-nav-title{font:700 10px 'IBM Plex Mono',monospace;color:var(--mute);letter-spacing:.11em;text-transform:uppercase;margin:12px 18px 6px}
+.pf-nav a{display:flex;align-items:center;min-height:44px;padding:8px 16px;text-decoration:none;font-size:14px;font-weight:600;color:var(--mute);border-left:3px solid transparent;box-sizing:border-box}
+.pf-nav a:hover{color:var(--paper);background:#1b1913}
+.pf-nav a.on,.pf-nav a[aria-current="page"]{color:var(--paper);background:#242017;border-left-color:var(--gold)}
+.pf-mobile-nav{display:none}
+.pf :is(a,button,input,select,textarea):focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.pf :is(button,input,select,textarea):disabled{cursor:not-allowed}
 .pf-body{flex:999 1 420px;padding:clamp(18px,3vw,32px);display:grid;gap:28px;min-width:0}
 .pf-body h2{margin:0;font:800 26px 'Shippori Mincho B1',serif}
 .pf-body h3{margin:0;font-size:16px}
@@ -87,11 +93,13 @@ const CSS = `
 .pf-f textarea{font-family:Literata,serif;resize:vertical}
 .pf-kj{width:64px!important;text-align:center;border:2px solid #c8402e!important;color:#e2604b!important;font:800 28px 'Shippori Mincho B1',serif!important}
 .pf-sw{display:flex;gap:8px;flex-wrap:wrap}
-.pf-sw button{width:34px;height:34px;border-radius:50%;border:2px solid transparent;cursor:pointer}
-.pf-sw button.on{border-color:var(--paper);box-shadow:0 0 0 2px #0d0c0a inset}
+.pf-sw button{width:44px;height:44px;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;position:relative;border-radius:50%}
+.pf-sw button::before{content:"";width:30px;height:30px;border:2px solid rgba(255,255,255,.22);border-radius:50%;background:var(--swatch);box-sizing:border-box}
+.pf-sw button.on::before,.pf-sw button[aria-pressed="true"]::before{box-shadow:0 0 0 2px #0d0c0a,0 0 0 4px var(--paper)}
 .pf-up{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .pf-up label{flex:none;white-space:nowrap;cursor:pointer}
-.pf-up input{display:none}
+.pf-up input[type="file"]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip-path:inset(50%)} 
+.pf-up label:focus-within{outline:3px solid var(--gold);outline-offset:3px}
 .pf-ban{width:160px;height:60px;background:#1c1a14 center/cover;border:1px solid var(--line)}
 .pf-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 12px;border:1px solid #2c281e;background:#0d0c0a}
 .pf-row input{flex:1 1 180px;min-width:0;font:13px 'IBM Plex Mono',monospace}
@@ -100,22 +108,33 @@ const CSS = `
 .pf-row.off{opacity:.55}
 .pf-x{background:none;border:0;color:var(--mute);cursor:pointer;font-size:20px;min-width:44px;min-height:44px}
 .pf-x:hover{color:#f59e7a}
-.pf-tg{flex:none;width:44px;height:26px;border-radius:999px;border:1px solid #5a503b;background:#2c281e;padding:2px;cursor:pointer;display:flex;justify-content:flex-start}
-.pf-tg[aria-pressed="true"]{background:var(--gold);justify-content:flex-end}
-.pf-tg i{width:20px;height:20px;border-radius:50%;background:var(--paper)}
+.pf-tg{flex:none;width:48px;height:44px;border:0;background:transparent;padding:0;cursor:pointer;position:relative;display:flex;align-items:center}
+.pf-tg::before{content:"";position:absolute;left:2px;top:9px;width:44px;height:26px;box-sizing:border-box;border-radius:999px;border:1px solid #70634b;background:#2c281e}
+.pf-tg[aria-pressed="true"]::before{background:var(--gold);border-color:var(--gold)}
+.pf-tg i{position:relative;z-index:1;width:20px;height:20px;margin-left:5px;border-radius:50%;background:var(--paper);transition:transform .15s ease}
+.pf-tg[aria-pressed="true"] i{transform:translateX(18px)}
+@media(prefers-reduced-motion:reduce){.pf-tg i{transition:none}}
 .pf-sl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px}
 .pf-sl>div{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 12px;border:1px solid #2c281e;background:#0d0c0a}
 .pf-favs{display:flex;flex-wrap:wrap;gap:12px}
 .pf-favs>span{position:relative;width:84px;display:grid;gap:6px;font-size:12px}
-.pf-favs .pf-x{position:absolute;top:-10px;right:-10px;min-width:28px;min-height:28px;width:28px;height:28px;border-radius:50%;background:#0d0c0a;border:1px solid var(--line);font-size:14px}
+.pf-favs .pf-x{position:absolute;top:-12px;right:-12px;min-width:44px;min-height:44px;width:44px;height:44px;border-radius:50%;background:#0d0c0a;border:1px solid var(--line);font-size:18px}
 .pf-res{display:grid;gap:4px;max-width:420px}
 .pf-res button{display:flex;gap:10px;align-items:center;text-align:left;background:#0d0c0a;border:1px solid var(--line);color:var(--paper);padding:6px 10px;cursor:pointer;min-height:44px;font:14px 'IBM Plex Sans',sans-serif}
 .pf-res button:hover{border-color:var(--gold)}
 .pf-res i{width:28px;height:38px;flex:none;background:var(--c) center/cover}
 .pf-save{position:sticky;bottom:0;display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:14px 0 0;border-top:1px solid var(--line);background:#14120e}
 .pf-save .mono{margin-right:auto}
-@media(max-width:700px){.pf-nav{max-width:none;flex-basis:100%;border-right:0;border-bottom:1px solid var(--line);display:flex;overflow-x:auto;padding:0}.pf-nav a{border-left:0;border-bottom:3px solid transparent;white-space:nowrap}.pf-nav a.on{border-bottom-color:var(--gold)}.pf-nav{scrollbar-width:thin;scroll-padding-inline:12px;scroll-snap-type:x proximity;overscroll-behavior-x:contain}.pf-nav a{scroll-snap-align:start;min-height:44px;display:flex;align-items:center}}
-@media(max-width:700px){.pf{position:relative}.pf:has(.pf-nav)::before{content:"Desliza para ver más secciones →";position:absolute;right:8px;top:-17px;font:10px "IBM Plex Mono",monospace;color:var(--mute);pointer-events:none}}
+@media(max-width:760px){
+.pf{display:block}
+.pf-nav{display:none}
+.pf-mobile-nav{display:grid;gap:7px;padding:16px;border-bottom:1px solid var(--line);background:#1b1812}
+.pf-mobile-nav label{font:700 11px 'IBM Plex Mono',monospace;letter-spacing:.11em;text-transform:uppercase;color:var(--paper)}
+.pf-mobile-nav select{width:100%;min-height:48px;box-sizing:border-box;border:1px solid #766543;background:#0d0c0a;color:var(--paper);padding:9px 12px;font:600 15px 'IBM Plex Sans',sans-serif}
+.pf-body{padding:18px;min-width:0}
+.pf-save{padding-bottom:max(12px,env(safe-area-inset-bottom))}
+}
+@media(max-width:390px){.pf-body{padding:14px}.pf-row{gap:8px}.pf-sl{grid-template-columns:minmax(0,1fr)}}
 `;
 const css = () => { if (document.getElementById('lc-css')) return; const s = document.createElement('style'); s.id = 'lc-css'; s.textContent = CSS; document.head.appendChild(s); };
 
@@ -512,7 +531,7 @@ export async function preferences(C){
         <div class="pf-f">Portada del carnet<span class="pf-up"><span class="pf-ban" style="${D.banner ? `background-image:url('${esc(D.banner)}')` : ''}"></span><label class="btn ghost sm">${D.banner ? 'Cambiar' : 'Subir'}<input type="file" id="fban" accept="image/jpeg,image/png,image/webp"></label>${D.banner ? '<button type="button" class="btn ghost sm" id="noban">Quitar</button>' : ''}</span><small class="pf-note" style="font-size:12px">Sin portada se usa un collage de tus favoritas.</small></div>
         <label class="pf-f" style="grid-column:1/-1">Bio<textarea id="bio" rows="3" maxlength="280">${esc(D.bio)}</textarea></label>
         <label class="pf-f">Kanji del sello<input id="kj" class="pf-kj" maxlength="1" value="${esc(D.kanji)}" placeholder="月" aria-describedby="kjh"><small id="kjh" class="pf-note" style="font-size:12px">Un solo kanji. Déjalo vacío para no mostrar sello.</small></label>
-        <div class="pf-f">Color de acento<div class="pf-sw">${SWATCH.map(c => `<button type="button" data-ac="${c}" class="${c === D.accent ? 'on' : ''}" style="background:${c}" aria-label="Color ${c}"></button>`).join('')}</div></div>
+        <div class="pf-f">Color de acento<div class="pf-sw">${SWATCH.map(c => `<button type="button" data-ac="${c}" class="${c === D.accent ? 'on' : ''}" style="--swatch:${c}" aria-label="Color ${c}" aria-pressed="${c === D.accent}"></button>`).join('')}</div></div>
       </div>
       <div style="display:grid;gap:10px"><h3>Favoritas <small class="pf-note">(${D.favs.length}/5)</small></h3><div class="pf-favs">${favHTML()}</div>
         ${D.favs.length < 5 ? '<input class="pf-q" id="fq" placeholder="Busca una obra para añadirla…" autocomplete="off" style="max-width:420px"><div class="pf-res" id="fr"></div>' : ''}</div>
