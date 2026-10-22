@@ -192,9 +192,17 @@ try{
  const coverStage=publicCard?.querySelector('.lc-cover-stage');
  const coverBg=coverStage?.querySelector('.lc-bg');
  check(!!publicCard&&!!coverStage,'No se encontró la cabecera editorial pública');
- check(!!coverBg&&getComputedStyle(coverBg).backgroundSize==='contain','La portada no conserva el encuadre completo');
- check(!!publicCard.querySelector('.lc-tx .lc-seal-pop'),'El sello no está junto al nombre');
+ check(!!coverBg&&getComputedStyle(coverBg,'::before').backgroundSize==='cover','La portada no rellena el fondo');
+ check(!!coverBg&&getComputedStyle(coverBg,'::after').backgroundSize==='contain','El logotipo se está recortando');
+ const nameRow=publicCard.querySelector('.lc-name-row');
+ check(!!nameRow&&nameRow.querySelector('h1')?.nextElementSibling?.classList.contains('lc-seal-pop'),'El sello no está inmediatamente después del nombre');
+ if(nameRow&&innerWidth>=1200){
+  const nameRect=nameRow.querySelector('h1').getBoundingClientRect();
+  const sealRect=nameRow.querySelector('.lc-seal-pop').getBoundingClientRect();
+  check(Math.abs(nameRect.top-sealRect.top)<25,'Nombre y sello no comparten fila en escritorio');
+ }
  check(publicCard.querySelector('.lc-seal-name')?.textContent==='El Escriba','Apodo de lector incorrecto');
+ check(!publicCard.querySelector('.lc-cover-stage .lc-seal-pop'),'El sello regresó encima de la portada');
  const sealSummary=publicCard.querySelector('.lc-seal-pop summary');
  sealSummary?.click();
  check(!!publicCard.querySelector('.lc-seal-pop details[open]'),'La explicación del sello no se puede desplegar');
@@ -206,6 +214,10 @@ try{
  check(firstStat?.querySelector('b')?.textContent==='0','El cero de las estadísticas desapareció');
  const pageWidth=document.documentElement.clientWidth;
  check(document.documentElement.scrollWidth<=pageWidth+3,'Desbordamiento del carnet público a '+pageWidth+'px');
+ // Verificar también que la vista previa en Preferencias use la fila de nombre y kanji.
+ await open('/preferencias');
+ const liveNameRow=app.querySelector('#pf-live-card .lc-name-row');
+ check(!!liveNameRow&&!!liveNameRow.querySelector('h1'),'La vista previa perdió la nueva fila de identidad');
 }catch(e){problems.push('Excepción: '+(e.stack||e.message))}
 report.dataset.qaStatus=problems.length?'fail':'pass';
 report.textContent=problems.length?problems.join(' | '):'Chromium '+innerWidth+'px: navegación, privacidad, avisos, sincronización y cuentas OK';
