@@ -8,6 +8,7 @@ const app=readFileSync('src/app.js','utf8');
 const profile=readFileSync('src/profile.js','utf8');
 const teamPage=readFileSync('src/teampage.js','utf8');
 const adminPage=readFileSync('src/admin.js','utf8');
+const readerPage=readFileSync('src/reader.js','utf8');
 function requireSQL(pattern,description){assert.match(sql,pattern,description)}
 requireSQL(/REVOKE ALL PRIVILEGES ON TABLE public\.profiles FROM anon, authenticated;/i,'retirar SELECT, INSERT, DELETE y MAINTAIN');
 requireSQL(/GRANT UPDATE \(username, avatar_url, discord_id, telegram_id, adult_ok,[\s\S]*?hidden_series, notify, ui_prefs\)/i,'retener solo edición autorizada');
@@ -29,6 +30,11 @@ requireSQL(/GRANT EXECUTE ON FUNCTION public\.team_public_members\(uuid\) TO ano
 assert.match(teamPage,/sb\.rpc\('team_public_members',\s*\{\s*p_team:/,'página de equipo usa RPC limitada');
 assert.doesNotMatch(teamPage,/team_members'\)\.select\('role,profiles\(/,'no acceder a perfiles desde el join público');
 assert.match(adminPage,/sb\.rpc\('studio_profile_names',\s*\{\s*p_ids:/,'admin consulta nombres por RPC');
+requireSQL(/CREATE OR REPLACE FUNCTION public\.comment_public_authors\(p_chapter uuid\)[\s\S]*?public\.comments cm[\s\S]*?public\.profiles p[\s\S]*?cm\.chapter_id = p_chapter/i,'identidad de autores restringida a capítulo');
+requireSQL(/GRANT EXECUTE ON FUNCTION public\.comment_public_authors\(uuid\) TO anon, authenticated;/i,'el lector público puede mostrar autores');
+assert.match(readerPage,/sb\.rpc\('comment_public_authors',\s*\{\s*p_chapter:/,'comentarios usan RPC');
+assert.doesNotMatch(readerPage,/comments'\)\.select\([^\n]*profiles\(/,'comentarios no exponen profiles mediante JOIN');
+
 assert.doesNotMatch(adminPage,/profiles!translator_requests_user_id_fkey/,'admin evita join a datos privados');
 assert.match(studio,/sb\.rpc\('studio_profile_names',\s*\{\s*p_ids:/,'Estudio usa RPC');
 assert.doesNotMatch(studio,/sb\.from\('profiles'\)\.select\(/,'Estudio no debe leer tabla de perfiles');
