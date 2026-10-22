@@ -45,6 +45,16 @@ requireOk(await root.from('team_members').insert([
   {team_id:team,user_id:B.id,role:'editor'}
 ]),'service_role seeds team membership');
 
+console.log('SEG-02 HTTP: service_role conserva datos internos para Patreon y correos');
+const linked=requireOk(await root.from('profiles').update({patreon_user_id:'seg02-local-patreon-id'}).eq('id',A.id).select('id,patreon_user_id'),'service_role Patreon link');
+assert.equal(linked[0]?.patreon_user_id,'seg02-local-patreon-id');
+isDenied(await B.session.from('profiles').select('patreon_user_id'),'B cannot read Patreon ID');
+isDenied(await B.session.from('profiles').update({patreon_user_id:'attacker'}).eq('id',B.id),'B cannot set Patreon ID');
+const patreonLookup=requireOk(await root.from('profiles').select('id').eq('patreon_user_id','seg02-local-patreon-id').maybeSingle(),'service_role Patreon lookup');
+assert.equal(patreonLookup.id,A.id);
+const serviceNotify=requireOk(await root.from('profiles').select('notify').eq('id',A.id).single(),'service_role reads notification delivery prefs');
+assert.equal(serviceNotify.notify.freq,'diario');
+
 console.log('SEG-02 HTTP: anon bloqueado ante tabla de perfiles y RPC privadas');
 isDenied(await visitor.from('profiles').select('id,notify').limit(1),'anon SELECT profiles');
 isDenied(await visitor.rpc('studio_profile_names',{p_ids:[A.id]}),'anon studio RPC');
@@ -91,6 +101,9 @@ console.log('SEG-02 HTTP: miembros, autores de comentarios, colaboradores y perm
 const members=requireOk(await visitor.rpc('team_public_members',{p_team:team}),'public team members');
 assert(members.some(m=>m.username==='http_alfa'));
 assert(members.some(m=>m.username==='http_beta'));
+requireOk(await root.from('teams').update({settings:{show_members:false}}).eq('id',team),'hide members team');
+assert.deepEqual(requireOk(await visitor.rpc('team_public_members',{p_team:team}),'hidden public team members'),[]);
+requireOk(await root.from('teams').update({settings:{show_members:true}}).eq('id',team),'restore members team');
 const authors=requireOk(await visitor.rpc('comment_public_authors',{p_chapter:chapter}),'public chapter authors');
 assert(authors.some(x=>x.username==='qa_gamma'));
 const comments=requireOk(await visitor.from('comments').select('id,body').eq('chapter_id',chapter),'public comments query');
@@ -99,6 +112,16 @@ const names=requireOk(await B.session.rpc('studio_profile_names',{p_ids:[A.id,B.
 assert(names.some(x=>x.id===A.id));
 assert(names.some(x=>x.id===B.id));
 assert(!names.some(x=>x.id===unrelated),'Studio leaked unrelated account');
+
+console.log('SEG-02 HTTP: bloqueo cruzado y cambio de privacidad por API');
+requireOk(await root.from('user_blocks').insert({user_id:A.id,blocked_id:B.id,kind:'block'}),'seed block A->B');
+assert.equal(requireOk(await B.session.rpc('reader_stats',{p_user:A.id}),'blocked B stats A'),null);
+requireOk(await root.from('user_blocks').delete().eq('user_id',A.id).eq('blocked_id',B.id),'remove block');
+requireOk(await A.session.from('profiles').update({profile_visibility:'none'}).eq('id',A.id),'A hide carnet');
+assert.equal(requireOk(await visitor.rpc('reader_public',{p_username:'http_alfa'}),'A hidden to anon').private,'none');
+assert.equal(requireOk(await B.session.rpc('reader_stats',{p_user:A.id}),'A hidden stats to B'),null);
+requireOk(await A.session.from('profiles').update({profile_visibility:'all'}).eq('id',A.id),'A restore visibility');
+assert.equal(requireOk(await visitor.rpc('reader_public',{p_username:'http_alfa'}),'A visible again').username,'http_alfa');
 
 console.log('SEG-02 HTTP: cuenta anónima auténtica de GoTrue');
 const anonymousSession=client(anonKey);
