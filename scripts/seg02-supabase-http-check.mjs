@@ -35,7 +35,7 @@ async function signup(label){
 }
 
 console.log('SEG-02 HTTP: GoTrue signup/password login y dos sesiones JWT reales');
-const A=await signup('alfa'), B=await signup('beta');
+const A=await signup('alfa'), B=await signup('beta'), outsider=await signup('sin-equipo');
 requireOk(await root.from('profiles').insert([
   {id:A.id,username:'http_alfa',profile_visibility:'all',public_activity:true,notify:{freq:'diario'},ui_prefs:{font:'serif'}},
   {id:B.id,username:'http_beta',profile_visibility:'auth',public_activity:true,notify:{freq:'semanal'},ui_prefs:{font:'sans'}}
@@ -127,6 +127,14 @@ assert.equal(requireOk(await visitor.rpc('reader_public',{p_username:'http_alfa'
 assert.equal(requireOk(await B.session.rpc('reader_stats',{p_user:A.id}),'A hidden stats to B'),null);
 requireOk(await A.session.from('profiles').update({profile_visibility:'all'}).eq('id',A.id),'A restore visibility');
 assert.equal(requireOk(await visitor.rpc('reader_public',{p_username:'http_alfa'}),'A visible again').username,'http_alfa');
+
+console.log('SEG-02 HTTP: miembros del Estudio por JWT real sin join a profiles');
+isDenied(await visitor.rpc('studio_team_member_profiles',{p_team:team}),'visitor must not see team members');
+const permitted=requireOk(await B.session.rpc('studio_team_member_profiles',{p_team:team}),'B team identities');
+assert(permitted.some(x=>x.user_id===A.id && x.username==='http_alfa'));
+assert(permitted.some(x=>x.user_id===B.id && x.username==='http_beta'));
+const denied=requireOk(await outsider.session.rpc('studio_team_member_profiles',{p_team:team}),'outsider team identities');
+assert.equal(denied.length,0,'Outside account enumerated other team members');
 
 console.log('SEG-02 HTTP: cuenta anónima auténtica de GoTrue');
 const anonymousSession=client(anonKey);
