@@ -33,7 +33,7 @@ export async function renderTeamInvitation({ sb, app, esc, toast, go }) {
         style="line-height:1.7;font-size:13px">Comprobando la invitación…</div>
       <div id="team-invite-actions" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:22px"></div>
       <p class="mono" style="font-size:11px;color:var(--mute);margin-top:25px;line-height:1.6">
-        Por seguridad, esta invitación es individual, caduca y solamente puede usarse una vez.
+        Esta invitación caduca y solamente puede usarse una vez.
         No convierte a nadie en Bibliotecario.</p>
     </div>`;
   const status = app.querySelector('#team-invite-status'), actions = app.querySelector('#team-invite-actions');
@@ -48,7 +48,7 @@ export async function renderTeamInvitation({ sb, app, esc, toast, go }) {
   }
   const { data: { user }, error: authError } = await sb.auth.getUser();
   if (authError || !user) {
-    message('Te han invitado a colaborar en un equipo traductor. Entra con el correo al que se envió la invitación o crea una cuenta con ese mismo correo. No se asignará ningún rol hasta que aceptes.');
+    message('Te han invitado a colaborar en un equipo traductor. Inicia sesión o crea una cuenta y confirma tu correo. Si la invitación es personal, deberás utilizar el correo autorizado. No se asignará ningún rol hasta que aceptes.');
     actions.innerHTML = '<a class="btn" href="/entrar">Iniciar sesión</a><a class="btn ghost" href="/registro">Crear cuenta</a>';
     return;
   }
@@ -67,7 +67,10 @@ export async function renderTeamInvitation({ sb, app, esc, toast, go }) {
     proofreader:'Corrector', collaborator:'Colaborador' };
   const roleName = ROLE[invitation.role] || 'Colaborador';
   const newTeam = invitation.kind === 'create_team';
-  message('Cuenta: ' + user.email + '. ' + (newTeam
+  const openLink = invitation.open_link === true;
+  message('Cuenta: ' + user.email + '. ' +
+    (openLink ? 'Este enlace es libre: la primera cuenta verificada que lo acepte recibirá acceso. ' : '') +
+    (newTeam
     ? 'Al aceptar, se creará el equipo «' + invitation.team_name +
       '» y serás su Propietario y Administrador interno.'
     : 'Te unirás a «' + invitation.team_name + '» con el rol «' + roleName + '».') +
