@@ -218,6 +218,58 @@ const CSS = `
 .pf-seal-custom label{display:grid;gap:6px}
 @media(max-width:640px){.lc-seal-pop{right:12px;top:12px}.pf-seal-catalog{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
+/* Carnet público: portada sin texto superpuesto, sello integrado y ritmo editorial. */
+.lc-public{gap:clamp(24px,3.5vw,40px);min-width:0}
+.lc-public-card{display:grid;grid-template-rows:auto auto;min-height:0;align-items:stretch;overflow:visible;background:#16130f}
+.lc-public-card .lc-cover-stage{height:clamp(172px,22vw,280px);position:relative;overflow:hidden;background:#0d0c0a}
+.lc-public-card .lc-cover-stage .lc-bg{opacity:.82}
+.lc-public-card .lc-cover-stage.is-user-banner .lc-bg{background-size:contain;background-position:center;background-repeat:no-repeat;background-color:#0d0c0a;opacity:1}
+.lc-public-card .lc-cover-stage .lc-sh{background:linear-gradient(180deg,transparent 65%,rgba(13,12,10,.28) 100%)}
+.lc-public-card .lc-in{display:flex;align-items:flex-start;flex-wrap:wrap;gap:16px 22px;background:#16130f;padding:0 clamp(16px,3vw,30px) clamp(20px,3vw,30px)}
+.lc-public-card .lc-av{position:relative;z-index:2;width:96px;height:96px;font-size:38px;margin-top:-40px;box-shadow:0 5px 16px rgba(0,0,0,.4);background:#211c13}
+.lc-public-card .lc-tx{padding-top:17px;flex:1 1 230px;gap:10px}
+.lc-public-card .lc-tx h1{font-size:clamp(26px,3.3vw,44px);line-height:1.12}
+.lc-public-card .lc-tx p{font-size:15px;max-width:70ch}
+.lc-public-card .lc-seal-pop{position:relative;top:auto;right:auto;display:inline-flex;align-items:center;justify-items:start;justify-content:flex-start;gap:10px;width:fit-content;max-width:100%;z-index:5}
+.lc-public-card .lc-seal-pop details{display:block;flex:none}
+.lc-public-card .lc-seal-pop .lc-kj{width:44px;height:44px;font-size:24px}
+.lc-public-card .lc-seal-name{font:700 14px 'IBM Plex Sans',sans-serif;color:var(--paper);background:transparent;padding:0;text-align:left}
+.lc-public-card .lc-seal-pop .lc-seal-info{top:calc(100% + 8px);right:auto;left:0}
+.lc-public-card .lc-tx>.lc-kj{position:static;width:44px;height:44px;font-size:24px}
+.lc-public-card .lc-se{align-self:center}
+.lc-public .lc-fav{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,184px));gap:20px;justify-content:center;max-width:1120px;width:100%;margin-inline:auto}
+.lc-public .lc-fav a{min-width:0;align-content:start;gap:9px}
+.lc-public .lc-fav .lc-cv{width:100%;box-sizing:border-box;overflow:hidden;overflow-wrap:anywhere;box-shadow:0 10px 24px rgba(0,0,0,.3)}
+.lc-public .lc-fav .lc-fav-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;overflow-wrap:anywhere;line-height:1.45;min-height:2.9em;font-size:13px}
+.lc-public .lc-stats .st-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,174px),1fr));gap:14px}
+.lc-public .lc-stats .st-k{min-width:0;display:flex;flex-direction:column;gap:10px;background:#1a1712;border:1px solid #524632;border-top:2px solid var(--ac);padding:18px 16px;align-items:flex-start}
+.lc-public .lc-stats .st-k b{display:block;font:800 clamp(26px,2.8vw,38px)/1 'Shippori Mincho B1',serif;color:var(--ac);font-variant-numeric:tabular-nums}
+.lc-public .lc-stats .st-k span{display:block;color:var(--paper);font:600 13px/1.5 'IBM Plex Sans',sans-serif;overflow-wrap:anywhere;text-transform:none}
+.pf-live-card .lc-public-card{min-height:0}
+.pf-live-card .lc-public-card .lc-cover-stage{height:124px}
+.pf-live-card .lc-public-card .lc-in{padding:0 14px 18px;gap:8px 12px}
+.pf-live-card .lc-public-card .lc-av{width:60px;height:60px;font-size:26px;margin-top:-25px}
+.pf-live-card .lc-public-card .lc-tx{padding-top:7px}
+.pf-live-card .lc-public-card .lc-tx h1{font-size:clamp(21px,2vw,27px)}
+.pf-live-card .lc-public-card .lc-seal-name{font-size:12px}
+@media(max-width:760px){
+ .lc-public-card .lc-cover-stage{height:clamp(160px,32vw,228px)}
+ .lc-public-card .lc-in{gap:10px 16px}
+ .lc-public-card .lc-tx{padding-top:10px}
+ .lc-public .lc-stats .st-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+}
+@media(max-width:480px){
+ .lc-public-card .lc-av{width:76px;height:76px;margin-top:-30px;font-size:30px}
+ .lc-public-card .lc-tx{flex-basis:100%;padding-top:0}
+ .lc-public-card .lc-tx h1{font-size:clamp(25px,7.5vw,34px)}
+ .lc-public-card .lc-in{padding:0 16px 20px}
+ .lc-public .lc-fav{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+ .lc-public .lc-stats .st-k{padding:14px 12px}
+ .lc-public .lc-stats .st-k b{font-size:28px}
+ .pf-live-card .lc-public-card .lc-av{width:60px;height:60px}
+ .pf-live-card .lc-public-card .lc-in{padding:0 14px 18px}
+}
+
 .pf-preview{border:1px solid #6b5a39;background:#1c1913;padding:14px;display:grid;gap:12px;min-width:0}
 .pf-preview h3{margin:0;font-size:16px}
 .pf-preview-guide{display:grid;gap:8px;font:13px/1.5 'IBM Plex Sans',sans-serif;color:#e3dccb}
@@ -269,26 +321,26 @@ export async function publicProfile(C, name, opt = {}){
   const bar = opt.owner ? `<div style="display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between"><span style="display:grid;gap:2px"><h1 style="margin:0;font:800 30px 'Shippori Mincho B1',serif">Mi perfil</h1><span class="mono" style="font-size:12px">${VIS[opt.visibility] || ''} · <a href="/lector/${encodeURIComponent(r.username)}" id="lc-cp" title="Copiar enlace público">/lector/${esc(r.username)} ⧉</a></span></span><span style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn" href="/preferencias">Editar carnet</a><a class="btn ghost" href="/preferencias?s=privacidad">Privacidad</a></span></div>` : '';
   const meU = C.getUser?.(), blk = !opt.owner && meU && r.username ? [...(window.__obiBlocks?.values() || [])].find(b => b.username === r.username) : null;
   const act = !opt.owner && meU && r.username && C.getProfile?.()?.username !== r.username ? `<div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;align-items:center">${blk ? `<span class="mono" style="font-size:11px;color:var(--mute)">${blk.kind === 'block' ? 'LO BLOQUEASTE' : 'LO SILENCIASTE'}</span><button type="button" class="btn ghost sm" id="lc-unb">${blk.kind === 'block' ? 'Desbloquear' : 'Quitar silencio'}</button>` : '<button type="button" class="btn ghost sm" data-blk="mute">Silenciar</button><button type="button" class="btn ghost sm" data-blk="block">Bloquear</button>'}</div>` : '';
-  const mine = opt.owner && !(r.public_activity && r.stats) && own.data ? `<section class="lc-sec"><div class="lc-hd"><h2>Mis estadísticas</h2><span class="mono" style="font-size:11px">SOLO TÚ VES ESTO · <a href="/preferencias?s=privacidad">HACERLAS PÚBLICAS</a></span></div>${statsHTML(own.data) || '<p class="lc-empty">Aún no hay lecturas registradas.</p>'}</section>` : '';
+  const mine = opt.owner && !(r.public_activity && r.stats) && own.data ? `<section class="lc-sec lc-stats"><div class="lc-hd"><h2>Mis estadísticas</h2><span class="mono" style="font-size:11px">SOLO TÚ VES ESTO · <a href="/preferencias?s=privacidad">HACERLAS PÚBLICAS</a></span></div>${statsHTML(own.data) || '<p class="lc-empty">Aún no hay lecturas registradas.</p>'}</section>` : '';
   const empty = opt.owner && !r.bio && !r.kanji && !favs.length && !r.links?.length ? `<p class="lc-empty" style="border:1px dashed var(--line);padding:14px 16px">Tu carnet está vacío. <a href="/preferencias">Añade bio, kanji, favoritas y enlaces</a>.</p>` : '';
-  app.innerHTML = `<div class="lc" style="--ac:${esc(ac)}">${bar}${act}
-    <section class="lc-card">${bg}<div class="lc-sh"></div>${sealMarkup(r.kanji, esc)}
+  app.innerHTML = `<div class="lc lc-public" style="--ac:${esc(ac)}">${bar}${act}
+    <section class="lc-card lc-public-card"><div class="lc-cover-stage ${r.banner_url ? 'is-user-banner' : 'is-collage'}">${bg}<div class="lc-sh"></div></div>
       <div class="lc-in">
         <span class="lc-av">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : esc((r.username || '?')[0].toUpperCase())}</span>
         <div class="lc-tx"><span class="k">CARNET DE LECTOR · 読者証${r.since ? ' · DESDE ' + new Date(r.since).toLocaleDateString('es-MX', { month: 'short', year: 'numeric' }).toUpperCase() : ''}</span>
-          <h1>${esc(r.username)}</h1>${r.bio ? `<p>${esc(r.bio)}</p>` : ''}
+          <h1>${esc(r.username)}</h1>${sealMarkup(r.kanji, esc)}${r.bio ? `<p>${esc(r.bio)}</p>` : ''}
           ${r.links?.length ? `<div class="lc-ln">${r.links.filter(l => ICON[l.k]).map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener nofollow ugc">${svg(l.k)}${ICON[l.k][0]}</a>`).join('')}</div>` : ''}
         </div>
         ${seals.length ? `<div class="lc-se">${seals.map(([k, t]) => `<span title="${t}" aria-label="${t}">${k}</span>`).join('')}</div>` : ''}
       </div></section>${empty}
-    ${favs.length ? `<section class="lc-sec"><h2>Favoritas</h2><div class="lc-fav">${favs.map(s => `<a href="/serie/${esc(s.slug)}">${card(s)}<span>${esc(s.title)}</span></a>`).join('')}</div></section>` : ''}
+    ${favs.length ? `<section class="lc-sec"><h2>Favoritas</h2><div class="lc-fav">${favs.map(s => `<a href="/serie/${esc(s.slug)}" title="${esc(s.title)}">${card(s)}<span class="lc-fav-title">${esc(s.title)}</span></a>`).join('')}</div></section>` : ''}
     ${r.shelves ? `<section class="lc-sec"><div class="lc-hd"><h2>Estanterías</h2><div class="lc-tabs" role="tablist">${SHV.map(([k, l]) => `<button role="tab" data-sh="${k}" class="${k === firstShelf ? 'on' : ''}" aria-selected="${k === firstShelf}">${l} · ${sh[k]?.n || 0}</button>`).join('')}</div></div><div id="lc-shb">${shelfBody(firstShelf)}</div></section>` : ''}
     ${r.reviews?.length ? `<section class="lc-sec"><h2>Reseñas recientes</h2><div class="lc-rv">${r.reviews.map(v => `<article>
         <a href="/serie/${esc(v.series.slug)}" aria-label="${esc(v.series.title)}">${card(v.series)}</a>
         <div><a class="t" href="/serie/${esc(v.series.slug)}">${esc(v.series.title)}</a>${v.stars ? `<span style="color:var(--ac);letter-spacing:2px" aria-label="${v.stars} de 5">${stars(v.stars)}</span>` : ''}
         <p>${esc(v.body)}${v.body?.length >= 400 ? '…' : ''}</p>
         <small>${new Date(v.at).toLocaleDateString('es-MX', { dateStyle: 'medium' })}</small></div></article>`).join('')}</div></section>` : ''}
-    ${r.public_activity && r.stats ? `<section class="lc-sec"><h2>Estadísticas</h2>${statsHTML(r.stats)}</section>` : ''}${mine}
+    ${r.public_activity && r.stats ? `<section class="lc-sec lc-stats"><h2>Estadísticas</h2>${statsHTML(r.stats)}</section>` : ''}${mine}
   </div>`;
   app.querySelectorAll('[data-sh]').forEach(b => b.onclick = () => { app.querySelectorAll('[data-sh]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); app.querySelector('#lc-shb').innerHTML = shelfBody(b.dataset.sh); });
   app.querySelectorAll('.lc-rv .sp').forEach(p => p.onclick = p.onkeydown = () => p.classList.remove('sp'));
@@ -737,10 +789,10 @@ export async function preferences(C){
     const covers = favs.length ? "<section class='lc-sec'><h2>Favoritas</h2><div class='pf-live-fav-list'>" +
       favs.map(s => "<span class='lc-cv' role='img' aria-label='" + esc(s.title) + "' style='" + cover(s) + "'>" + esc(s.title) + "</span>").join('') +
       "</div></section>" : "";
-    return "<div class='lc' style='--ac:" + esc(D.accent) + "'><section class='lc-card'>" + bg +
-      "<div class='lc-sh'></div>" + stamp + "<div class='lc-in'><span class='lc-av' aria-hidden='true'>" + avatar +
+    return "<div class='lc lc-public' style='--ac:" + esc(D.accent) + "'><section class='lc-card lc-public-card'><div class='lc-cover-stage " + (D.banner ? "is-user-banner" : "is-collage") + "'>" + bg +
+      "<div class='lc-sh'></div></div><div class='lc-in'><span class='lc-av' aria-hidden='true'>" + avatar +
       "</span><div class='lc-tx'><span class='k'>CARNET DE LECTOR · 読者証</span><h1>" + esc(P.username || 'Lector') +
-      "</h1>" + bio + links + "</div></div></section>" + covers + "</div>";
+      "</h1>" + stamp + bio + links + "</div></div></section>" + covers + "</div>";
   };
   let sealQuery = '', sealCategory = 'Todas', sealCustom = !!D.kanji && !SEAL_LOOKUP.has(D.kanji);
   const normalizeSeal = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
