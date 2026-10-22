@@ -133,10 +133,10 @@ try{
  await navigate('/leer/obra-local/2');
  await waitFor(()=>evalJs("Boolean(document.querySelector('.rd-body')?.textContent.includes('SEGUNDO CAPÍTULO OFFLINE QA'))"),4000);
  const secondMs=Math.round(performance.now()-secondStart);
- const after=await evalJs(`({offline:!navigator.onLine,username:document.querySelector('.ob-user')?.textContent || '',remote:performance.getEntriesByType('resource').filter(r=>/\\/rest\\/v1\\//i.test(r.name)).length})`);
- console.log('CHROMIUM PWA segundo capítulo='+secondMs+'ms; sin conexión='+after.offline+'; backend solicitudes='+after.remote);
+ const after=await evalJs(`({offline:!navigator.onLine,username:document.querySelector('.ob-user')?.textContent || '',remote:performance.getEntriesByType('resource').filter(r=>/\\/rest\\/v1\\//i.test(r.name)).map(r=>({url:r.name.slice(0,210),started:Math.round(r.startTime),duration:Math.round(r.duration)}))})`);
+ console.log('CHROMIUM PWA segundo capítulo='+secondMs+'ms; sin conexión='+after.offline+'; backend solicitudes='+JSON.stringify(after.remote));
  assert(after.offline,'Cambiar de capítulo no debe activar la red');
- assert.equal(after.remote,0,'Ninguna consulta a Supabase tras entrar en modo avión');
+ assert.equal(after.remote.length,0,'Ninguna consulta a Supabase tras entrar en modo avión');
  assert(secondMs<2500,'El segundo capítulo debe cargar sin esperas de red en el laboratorio');
 }finally{
  try{ws?.close();}catch{}
