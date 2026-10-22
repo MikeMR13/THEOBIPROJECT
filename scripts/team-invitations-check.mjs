@@ -81,6 +81,8 @@ requireMatch(openSql,/v_inv\.invite_email is not null and v_email<>v_inv\.invite
   'La comprobación de correo solo aplica a invitaciones personalizadas');
 requireMatch(openSql,/email_confirmed_at is not null/g,
   'Correo confirmado requerido incluso en enlace libre');
+assert.equal((openSql.match(/if v_inv\.invite_email is not null and v_email<>v_inv\.invite_email then/g) || []).length,2,
+  'Preview y canje deben comprobar explícitamente el correo opcional');
 requireMatch(openSql,/'open_link',v_inv\.invite_email is null/i,
   'El preview comunica cuando el enlace es libre');
 const invitationUi=readFileSync('src/admin-invitations.js','utf8');
