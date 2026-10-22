@@ -2,7 +2,7 @@ name: Invitaciones · QA funcional Supabase local (sin costo de branch)
 
 on:
   push:
-    branches: [feat/bibliotecario-invitaciones-20261022]
+    branches: [main, feat/bibliotecario-invitaciones-20261022]
     paths:
       - ".github/workflows/invitaciones-local-functional.yml"
       - "supabase/tests/fixtures/invitaciones_auth_local.sql"
