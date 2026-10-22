@@ -1,6 +1,6 @@
 # SEG-02 — Corrección de privacidad de perfiles
 
-**Estado:** implementado en el candidato de GitHub, **NO aplicado a Supabase de producción**.
+**Estado:** migración aplicada y probada con éxito en PostgreSQL 17 efímero de GitHub Actions, con estructura y usuarios ficticios. **NO aplicada a Supabase de producción ni validada en un clon completo de Supabase**.
 
 ## Alcance de la corrección
 
@@ -18,10 +18,13 @@ Migración: `supabase/migrations/20261022055000_secure_reader_profiles.sql`.
 ## Pruebas automatizadas
 
 - `npm run seguridad-perfiles-check`: contratos estáticos del esquema, políticas, RPC y compatibilidad de llamadas del frontend; integrado en GitHub Actions.
-- `supabase/tests/seg02_profile_privacy.sql`: aserciones **ejecutables sobre QA después de aplicar la migración**, no ejecutadas aún. Comprueban ACL, RLS, RPC públicas y restricciones.
+- `supabase/tests/seg02_profile_privacy.sql`: aserciones ejecutadas exitosamente en PostgreSQL 17 desechable después de aplicar la migración. Comprueban ACL, RLS, RPC públicas y restricciones.
+- `supabase/tests/seg02_rls_integration.sql`: pruebas ejecutadas exitosamente con roles `anon`/`authenticated`, identidades A/B ficticias, bloqueo de terceros, perfil público completo, sesión anónima, privacidad y nombres limitados.
+- `.github/workflows/seg02-isolated-db.yml` y `supabase/tests/fixtures/seg02_postgres_fixture.sql`: levantan un contenedor desechable PostgreSQL 17, crean roles y funciones `auth.uid()` / `auth.jwt()` sintéticas y prueban la migración real; no acceden a Supabase alojado ni usan credenciales de producción.
+- [GitHub Actions — validación aislada exitosa](https://github.com/MikeMR13/THEOBIPROJECT/actions/runs/39731586006).
 - El conjunto completo de CI (navegación, lector, Estudio, preferencias, PWA, build y otras pruebas) debe ser verde para el último SHA.
 
-### Matriz imprescindible con un backend aislado y usuarios reales de prueba
+### Matriz de pruebas que aún requiere una instancia Supabase completa y cuentas reales de QA
 
 | Prueba | Resultado esperado |
 |---|---|
@@ -40,17 +43,23 @@ Migración: `supabase/migrations/20261022055000_secure_reader_profiles.sql`.
 | Avisos, búsqueda, favoritos y cuenta | Las RPC autenticadas siguen funcionando; las públicas legítimas no se rompen |
 | Cambios de usuario, recarga, conexión intermitente | Preferencias persistentes, sin contaminación entre cuentas |
 
+## Validación sin coste de Supabase — completada
+
+GitHub Actions ejecutó el esquema sintético con PostgreSQL 17 y un control negativo que reproduce la política insegura anterior. Aplicó **sin modificaciones** la migración completa, ejecutó las aserciones de catálogo y los escenarios de acceso para usuarios ficticios, incluyendo `reader_public` completo, `reader_stats`, `search_readers`, `studio_profile_names`, `team_public_members` y `comment_public_authors`. Resultado **SUCCESS**: [ejecución 39731586006](https://github.com/MikeMR13/THEOBIPROJECT/actions/runs/39731586006).
+
+**Alcance y limitaciones:** es PostgreSQL, no la pila completa de Supabase. Simula `auth.uid()` y `auth.jwt()` mediante parámetros de sesión y reconstruye solamente las tablas involucradas; los RPC preexistentes no pertinentes se sustituyen por contratos mínimos. No verifica el servicio Auth real, PostgREST, Storage, Patreon, correo, datos reales, triggers desconocidos, migraciones históricas completas ni las variables de Vercel. La prueba nunca puede aprobar por sí sola el cambio sobre la instancia productiva.
+
 ## Puerta de seguridad para publicar
 
-1. Crear una rama de Supabase aislada y **aceptar explícitamente sus cargos** si corresponde. La creación se intentó sin confirmación y Supabase la bloqueó al exigir un ID de aceptación de coste. No existe una rama QA disponible en este proyecto.
-2. Aplicar la migración **primero en QA**. Verificar `supabase/tests/seg02_profile_privacy.sql`, el analizador de seguridad y la matriz autenticada.
-3. Probar un Preview Vercel que utilice **solo** ese backend de QA, sin lectores ni correos reales.
-4. Revisar los resultados, preparar una ventana corta de cambio, aplicar la migración validada a la base de producción y comprobar permisos y endpoints antes de desplegar el frontend vinculado.
-5. Solo si las verificaciones pasan, fusionar el PR de integración a `main`; Vercel desplegará automáticamente. Si se detecta una incidencia, detener el deploy. **Nunca revertir restableciendo la política insegura `USING(true)`.**
+1. **Completado**: ejecutar la migración real en PostgreSQL aislado con roles e identidades sintéticas. No genera cargos adicionales de Supabase.
+2. **Pendiente**: validar de forma controlada en una instancia **completa** Supabase sin datos reales (por ejemplo, instalación local con el esquema completo o entorno QA existente confirmado), incluyendo endpoints PostgREST, Auth, RLS y regresiones.
+3. **Pendiente**: probar un Preview Vercel contra ese backend de QA, más privacidad y operaciones con A/B, registro, comentarios, equipo, correo y Patreon sintéticos.
+4. Aplicar la migración validada a producción, verificar inmediatamente permisos y RPC, y fusionar el PR a `main` solo cuando el backend sea compatible. Vercel desplegará automáticamente el frontend.
+5. Nunca revertir reabriendo la política insegura `profiles read USING(true)`.
 
 ### Límites de esta intervención
 
-La migración de seguridad aún no se ejecutó en ningún backend (el actual es productivo). Las pruebas estáticas verifican los contratos, no sustituyen las pruebas de permiso en PostgreSQL con sesión real. El análisis completo de todas las funciones privilegiadas y otros componentes fuera de perfiles sigue siendo una tarea de seguridad independiente; estos cambios atienden los hallazgos críticos concretos de Privacidad de Lectores y sus RPC relacionadas.
+No se han cambiado políticas, registros ni credenciales de producción. Los tests en PostgreSQL sintético demuestran que el SQL se ejecuta y que los controles ejercitados pasan; **no representan una auditoría ni certificación integral de Supabase productivo**. La revisión de las restantes funciones `SECURITY DEFINER` queda como trabajo de seguridad independiente.
 
 ## Compatibilidad adicional verificada estáticamente
 
