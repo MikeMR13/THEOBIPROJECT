@@ -15,7 +15,8 @@
     "verify": "node scripts/stability-check.mjs && node scripts/visual-phase1-check.mjs && node scripts/visual-phase2-check.mjs && node scripts/visual-phase3-check.mjs && node scripts/visual-phase4-check.mjs",
     "integration-check": "node scripts/integration-check.mjs",
     "home-volume-check": "node scripts/home-volume-check.mjs",
-    "visual-browser-check": "node scripts/visual-phase4-browser.mjs"
+    "visual-browser-check": "node scripts/visual-phase4-browser.mjs",
+    "admin-permissions-check": "node scripts/admin-permissions-check.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
