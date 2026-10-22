@@ -80,3 +80,5 @@ jobs:
         run: node scripts/phase7-platform-compat-check.mjs
       - name: SEG-01 privacidad de perfiles e identidades unificadas
         run: node scripts/privacy-identity-compat-check.mjs
+      - name: SEG-02 permisos mínimos, visibilidad y RPC seguros
+        run: npm run seguridad-perfiles-check
