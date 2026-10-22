@@ -204,11 +204,43 @@ export async function preferences(C){
   const user = getUser(); if (!user) return C.go('/entrar');
   const MED = p => p ? (/^https?:/.test(p) ? p : url + '/storage/v1/object/public/obi-media/' + encodeURI(p)) : '';
   const TABS = [['perfil', 'Perfil público'], ['privacidad', 'Privacidad'], ['lectura', 'Lectura'], ['avisos', 'Avisos'], ['adulto', 'Contenido'], ['pantalla', 'Accesibilidad'], ['bloqueos', 'Bloqueos'], ['cuenta', 'Cuenta']];
+  const NAV_GROUPS = [
+    ['Mi identidad', ['perfil', 'privacidad']],
+    ['Mi experiencia', ['lectura', 'adulto', 'pantalla']],
+    ['Comunidad', ['avisos', 'bloqueos']],
+    ['Seguridad y cuenta', ['cuenta']]
+  ];
+  const TAB_NAMES = Object.fromEntries(TABS);
+  app.__obiPrefsDispose?.();
+  app.__obiPrefsNavGuard = null;
   const tab = TABS.some(t => t[0] === new URLSearchParams(location.search).get('s')) ? new URLSearchParams(location.search).get('s') : 'perfil';
   app.innerHTML = '<p class="mono">Cargando preferencias…</p>';
   const { data: P, error } = await sb.rpc('my_profile');
   if (error) { app.innerHTML = `<h1>Preferencias</h1><p class="mono">No se pudieron cargar: ${esc(error.message)}</p>`; return; }
-  const shell = body => `<h1>Preferencias</h1><div class="pf"><nav class="pf-nav" aria-label="Secciones de preferencias">${TABS.map(([k, l]) => `<a href="/preferencias${k === 'perfil' ? '' : '?s=' + k}" class="${k === tab ? 'on' : ''}" ${k === tab ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav><div class="pf-body">${body}</div></div>`;
+  const navHref = k => '/preferencias' + (k === 'perfil' ? '' : '?s=' + k);
+  const shell = body => `<h1>Preferencias</h1><div class="pf">
+    <nav class="pf-nav" aria-label="Secciones de preferencias">
+      ${NAV_GROUPS.map(([group, keys]) => `<div class="pf-nav-group"><p class="pf-nav-title">${group}</p>${keys.map(k =>
+        `<a href="${navHref(k)}" class="${k === tab ? 'on' : ''}" ${k === tab ? 'aria-current="page"' : ''}>${TAB_NAMES[k]}</a>`).join('')}</div>`).join('')}
+    </nav>
+    <div class="pf-mobile-nav">
+      <label for="pf-mobile-tab">Sección de preferencias</label>
+      <select id="pf-mobile-tab" aria-label="Ir a otra sección de preferencias">
+        ${NAV_GROUPS.map(([group, keys]) => `<optgroup label="${group}">${keys.map(k =>
+          `<option value="${k}" ${k === tab ? 'selected' : ''}>${TAB_NAMES[k]}</option>`).join('')}</optgroup>`).join('')}
+      </select>
+    </div>
+    <div class="pf-body">${body}</div></div>`;
+  if (app.__obiPrefsSelectHandler) app.removeEventListener('change', app.__obiPrefsSelectHandler);
+  const selectHandler = e => {
+    if (e.target?.id !== 'pf-mobile-tab') return;
+    const next = e.target.value;
+    if (!TAB_NAMES[next] || next === tab) return;
+    if (app.__obiPrefsNavGuard && !app.__obiPrefsNavGuard()) { e.target.value = tab; return; }
+    C.go(navHref(next));
+  };
+  app.__obiPrefsSelectHandler = selectHandler;
+  app.addEventListener('change', selectHandler);
   const tg = (id, on, label) => `<button type="button" class="pf-tg" id="${id}" aria-pressed="${!!on}" aria-label="${esc(label)}"><i></i></button>`;
   const flip = b => b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
   const UI = { motion: 'system', hour: 'auto', hide: [], ...(window.__obiUI || {}), ...(P.ui_prefs || {}) };
