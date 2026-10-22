@@ -106,7 +106,7 @@ const CSS = `
 .pf-sl>div{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 12px;border:1px solid #2c281e;background:#0d0c0a}
 .pf-favs{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}
 .pf-fav{width:148px;max-width:100%;min-width:0;display:grid;grid-template-rows:auto minmax(2.8em,auto) auto;gap:8px}
-.pf-fav-cover{display:block;width:100%;box-sizing:border-box;overflow:hidden;overflow-wrap:anywhere}
+.pf-fav-cover{display:grid;width:100%;box-sizing:border-box;overflow:hidden;overflow-wrap:anywhere}
 .pf-fav-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;line-height:1.4;font-size:13px;font-weight:600;min-height:2.8em}
 .pf-fav-remove{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;padding:8px 10px;background:#1c1a14;border:1px solid var(--line);color:var(--paper);font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
 .pf-fav-remove:hover{border-color:#f59e7a;color:#f59e7a}
