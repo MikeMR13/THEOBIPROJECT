@@ -4,13 +4,40 @@ const IMG = 'obi-img', IMG_MAX = 400;
 // Una sola revalidación de cada portada durante la vida del service worker.
 const refreshedImages = new Set();
 let puts = 0;
-// Instalación tolerante: si un archivo falla (p. ej. Cloudflare responde con un desafío 403) no se cancela todo.
-// Lo que no se pudo bajar se toma de la versión anterior, así la app instalada nunca se queda sin arranque.
-const grab = async (c, u) => { try { const r = await fetch(u, { cache: 'reload', credentials: 'same-origin' }); if (r.ok && !r.redirected) { await c.put(u, r); return true; } } catch {} const old = await caches.match(u); if (old) { await c.put(u, old); return true; } return false; };
-self.addEventListener('install', e => e.waitUntil(caches.open(V).then(async c => { await Promise.all(SHELL.map(u => grab(c, u))); }).then(() => self.skipWaiting())));
+// No activar una versión sin todos sus archivos esenciales. Un recurso versionado
+// puede recuperarse de la versión previa solo si coincide su URL exacta.
+const validShellResponse = (url, r) => {
+  if (!r || !r.ok || r.redirected) return false;
+  const type = (r.headers.get('content-type') || '').toLowerCase();
+  if (url === '/') return type.includes('text/html');
+  if (/\.js(?:\?|$)/.test(url)) return /javascript|ecmascript/.test(type);
+  if (/\.css(?:\?|$)/.test(url)) return type.includes('text/css');
+  if (url.endsWith('.webmanifest')) return /json|manifest/.test(type);
+  if (/\.(?:png|svg)$/.test(url)) return type.startsWith('image/');
+  return true;
+};
+const grab = async (c, u) => {
+  try {
+    const r = await fetch(u, { cache: 'reload', credentials: 'same-origin' });
+    if (validShellResponse(u, r)) { await c.put(u, r); return true; }
+  } catch {}
+  // Nunca reutilizar HTML antiguo: podría apuntar a módulos ya eliminados.
+  if (u !== '/' && /\?v=/.test(u)) {
+    const old = await caches.match(u);
+    if (validShellResponse(u, old)) { await c.put(u, old); return true; }
+  }
+  return false;
+};
+self.addEventListener('install', e => e.waitUntil((async () => {
+  const c = await caches.open(V);
+  const results = await Promise.all(SHELL.map(u => grab(c, u)));
+  if (results.some(ok => !ok)) throw new Error('Instalación PWA incompleta: se conserva la versión anterior');
+  await self.skipWaiting();
+})()));
 self.addEventListener('activate', e => e.waitUntil((async () => {
-  const c = await caches.open(V), ok = !!(await c.match('/'));
-  // solo se borran las versiones viejas si la nueva tiene su página de arranque
+  const c = await caches.open(V);
+  const ok = (await Promise.all(SHELL.map(u => c.match(u)))).every(Boolean);
+  // Solo retirar versiones antiguas si todo el arranque está guardado
   if (ok) { const ks = await caches.keys(); await Promise.all(ks.filter(k => k !== V && k !== V + '-ch' && k !== V + '-lib' && k !== IMG && k !== 'obi-bodies' && !k.startsWith('obi-offline')).map(k => caches.delete(k))); }
   await self.clients.claim();
   // el resto de módulos (calendario, perfil, captcha…) se guardan después, sin frenar el arranque
@@ -23,9 +50,10 @@ const trim = c => { if (++puts % 20) return; c.keys().then(k => k.length > IMG_M
 async function nav(e, req, u){
   if (u.pathname.includes('.')) return fetch(req);
   const c = await caches.open(V), hit = await c.match('/');
-  const net = fetch(req).then(r => { if (r.ok && !r.redirected && (r.headers.get('content-type') || '').includes('text/html')) c.put('/', r.clone()); return r; });
-  if (hit) { e.waitUntil(net.catch(() => {})); return hit; }
-  try { return await net; } catch { return Response.error(); }
+  // HTML y módulos son una unidad: el HTML no cambia hasta que se active un
+  // nuevo SW con todas sus dependencias, evitando arranques a medias offline.
+  if (hit) return hit;
+  try { return await fetch(req); } catch { return Response.error(); }
 }
 // Portadas: la guardada al instante y se actualiza en segundo plano. Se piden en modo CORS para no guardar respuestas opacas.
 function image(e, req){
