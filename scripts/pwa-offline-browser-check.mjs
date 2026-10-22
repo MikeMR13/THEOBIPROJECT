@@ -59,7 +59,7 @@ try{
    {stdio:['ignore','ignore','pipe']});
  let stderr=''; proc.stderr.on('data',b=>{stderr+=String(b).slice(0,1000);});
  const active=join(temp,'DevToolsActivePort');
- await waitFor(()=>existsSync(active),10000);
+ await waitFor(()=>{ if (proc.exitCode !== null) throw Error('Chromium terminó: '+stderr.slice(-500)); return existsSync(active); },30000);
  const port=readFileSync(active,'utf8').split('\n')[0].trim();
  const targets=await waitFor(async()=>{
    const r=await fetch('http://127.0.0.1:'+port+'/json/list');
