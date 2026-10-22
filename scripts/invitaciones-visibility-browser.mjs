@@ -58,7 +58,16 @@ try {
 
   form.elements.kind.value='create_team';form.elements.kind.dispatchEvent(new Event('change',{bubbles:true}));
   check(!shown('inv-team-wrap')&&shown('inv-new-name-wrap'),'Error al volver a crear equipo');
-  check(!shown('inv-target-wrap')&&shown('inv-email-wrap')&&form.elements.email.required,'Crear propietario exige correo');
+  check(shown('inv-target-wrap')&&shown('inv-email-wrap')&&form.elements.email.required,'Crear propietario debe permitir correo vinculado');
+  form.elements.target.value='open';
+  form.elements.target.dispatchEvent(new Event('change',{bubbles:true}));
+  check(!shown('inv-email-wrap')&&!form.elements.email.required,'Crear propietario libre debe ocultar correo');
+  check(shown('inv-open-warning'),'Crear propietario libre debe mostrar advertencia');
+  check(document.getElementById('inv-open-warning').textContent.includes('Propietario'),'Advertencia de propiedad requerida');
+  check(!shown('inv-team-wrap')&&shown('inv-new-name-wrap'),'Equipo existente oculto incluso en propietario libre');
+  form.elements.target.value='email';
+  form.elements.target.dispatchEvent(new Event('change',{bubbles:true}));
+  check(shown('inv-email-wrap')&&form.elements.email.required,'Se debe poder volver a invitación personalizada');
   check(form.elements.newName.required&&form.elements.newSlug.required,'Nuevo equipo requiere nombre y slug');
   result.dataset.qaStatus='pass';result.textContent='OK: ocultamiento correcto en ambos modos';
 } catch (error) {
