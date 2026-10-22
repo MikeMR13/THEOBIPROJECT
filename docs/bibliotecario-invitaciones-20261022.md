@@ -7,9 +7,11 @@ instalar las funciones RPC.
 
 ## Flujo preparado
 1. El Bibliotecario, desde «Invitaciones», selecciona un equipo **existente con
-   propietario**, correo del destinatario, rol y duración (24/48/168 horas).
+   propietario**, correo del destinatario, rol, duración (24/48/168 horas)
+   y motivo administrativo de al menos 12 caracteres.
 2. El backend genera 32 bytes criptográficamente aleatorios. Sólo guarda SHA-256;
    devuelve el enlace una sola vez al Bibliotecario para que pueda copiarlo.
+   Las solicitudes de creación se serializan para impedir duplicados concurrentes.
 3. La URL utiliza `/invitacion#token=…`: el secreto en el fragmento no viaja en
    la petición GET. El cliente lo guarda sólo en `sessionStorage` de la pestaña
    y lo quita de la barra de direcciones al abrirla.
@@ -44,7 +46,8 @@ instalar las funciones RPC.
 ## Ensayos obligatorios en Supabase aislado
 1. Usar un Bibliotecario real y otro usuario normal: sólo Bibliotecario puede
    crear/listar/revocar invitaciones y los tokens no pueden consultarse por REST.
-2. Probar los cinco roles permitidos y rechazar `owner`, roles desconocidos,
+2. Probar los cinco roles permitidos y rechazar ausencia de motivo,
+   `owner`, roles desconocidos,
    duración no permitida, correos inválidos y equipos sin propietario.
 3. Registrar una cuenta nueva con el correo invitado, confirmar ese correo
    y aceptar; comprobar `team_members.role` y `profiles.platform_role`.
