@@ -36,7 +36,7 @@ const sb={
       {slug:'b',title:'Segunda novela',color:'#352e49',cover_path:null},
       {slug:'c',title:'Tercera novela',color:'#294958',cover_path:null}],
     stats:{chapters:0,month:0,series:0,finished:0,following:2},public_activity:true,
-    seals:null,hide_reading:publicScenario==='hidden-reading',
+    seals:{donor:false,chapters:12,reviews:3},sections:{favorite_genres:['Fantasía','Misterio','Romance','Código malicioso']},hide_reading:publicScenario==='hidden-reading',
     shelves:{
       reading:{n:4,items:[
         {slug:'read-1',title:'Lectura primera',color:'#563922',cover_path:null},
@@ -232,6 +232,11 @@ try{
  check(firstStat?.querySelector('b')?.textContent==='0','El cero de las estadísticas desapareció');
  check(app.querySelector('.lc-about p')?.textContent==='Mi biblioteca de novelas ligeras','La biografía no aparece en Sobre mí');
  check(!app.querySelector('.lc-public-card .lc-tx p'),'La biografía sigue duplicada en el encabezado');
+ check(app.querySelectorAll('.lc-genre-chip').length===3,'No se mostraron los tres géneros favoritos');
+ check(!app.querySelector('.lc-genres')?.textContent.includes('Código malicioso'),'El filtro permitió un género no admitido');
+ check(app.querySelector('.lc-public .lc-badges-grid')?.textContent.includes('El Escriba'),'La galería de sellos no explica el sello seleccionado');
+ check(app.querySelector('.lc-public .lc-badges-grid')?.textContent.includes('Más de 10 capítulos'),'Se perdieron los sellos de actividad');
+ check(!!app.querySelector('#lc-share'),'Falta el botón Compartir carnet');
  check(app.querySelectorAll('.lc-reading-item').length===3,'Leyendo actualmente no respeta el máximo de tres');
  check(app.querySelectorAll('.lc-shelf-tile').length===3,'El resumen de estanterías no incluye tres categorías');
  check(app.querySelector('.lc-shelf-summary')?.textContent.includes('4'),'El conteo de lecturas no corresponde a la estantería visible');
@@ -241,7 +246,7 @@ try{
  const shelfDone=app.querySelector('[data-sh="done"]');
  shelfDone?.click();
  check(app.querySelector('#lc-shb')?.textContent.includes('Terminada'),'Cambiar estantería no actualiza la biblioteca');
- const publicSections=['.lc-public-card','.lc-about','.lc-reading','.lc-fav','.lc-shelf-nav','.lc-rv','.lc-stats'];
+ const publicSections=['.lc-public-card','.lc-about','.lc-genres','.lc-reading','.lc-fav','.lc-shelf-nav','.lc-rv','.lc-badges','.lc-stats'];
  const positions=publicSections.map(sel=>app.querySelector(sel)?.getBoundingClientRect().top);
  check(positions.every(Number.isFinite)&&positions.every((n,i)=>i===0||n>=positions[i-1]),'Orden incorrecto de las secciones del perfil');
  const pageWidth=document.documentElement.clientWidth;
@@ -257,7 +262,7 @@ try{
  check(!app.querySelector('.lc-about'),'La biografía vacía ocupa espacio para visitantes');
  publicScenario='private';
  await publicProfile({...C,statsHTML},'OX-MRTRADUCCIONES');
- check(!app.querySelector('.lc-reading')&&!app.querySelector('.lc-rv'),'Un perfil privado expone lecturas o reseñas');
+ check(!app.querySelector('.lc-reading')&&!app.querySelector('.lc-rv')&&!app.querySelector('.lc-genres')&&!app.querySelector('#lc-share'),'Un perfil privado expone información del carnet');
  check(app.textContent.includes('Inicia sesión'),'Falta protección de perfil privado');
  publicScenario='rich';
  // Verificar también que la vista previa en Preferencias use la fila de nombre y kanji.
@@ -265,6 +270,20 @@ try{
  const liveNameRow=app.querySelector('#pf-live-card .lc-name-row');
  check(!!liveNameRow&&!!liveNameRow.querySelector('h1'),'La vista previa perdió la nueva fila de identidad');
  check(!!app.querySelector('#pf-live-card .lc-about'),'La vista previa no muestra Sobre mí');
+ // Selección: límite de 3, borrador, guardado y conservación al cambiar privacidad.
+ check(app.querySelectorAll('[data-genre]').length===12,'No hay 12 géneros en el editor');
+ click('[data-genre="Fantasía"]');
+ click('[data-genre="Misterio"]');
+ click('[data-genre="Romance"]');
+ check(app.querySelectorAll('[data-genre][aria-pressed="true"]').length===3,'No marca tres géneros elegidos');
+ click('[data-genre="Terror"]');
+ check(app.querySelectorAll('[data-genre][aria-pressed="true"]').length===3,'Se superó el límite de géneros');
+ check(app.querySelectorAll('#pf-live-card .lc-genre-chip').length===3,'La vista previa no refleja los géneros');
+ click('#save');await sleep(70);
+ check(P(user.id).profile_sections?.favorite_genres?.join('|')==='Fantasía|Misterio|Romance','El guardado no persiste los géneros elegidos');
+ await open('/preferencias?s=privacidad');
+ click('#s-reviews');await sleep(40);
+ check(P(user.id).profile_sections?.favorite_genres?.length===3,'Cambiar privacidad eliminó los géneros guardados');
 }catch(e){problems.push('Excepción: '+(e.stack||e.message))}
 report.dataset.qaStatus=problems.length?'fail':'pass';
 report.textContent=problems.length?problems.join(' | '):'Chromium '+innerWidth+'px: navegación, privacidad, avisos, sincronización y cuentas OK';
