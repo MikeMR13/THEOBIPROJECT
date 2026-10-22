@@ -1,7 +1,7 @@
 // Lector de El Obi del Lector: por capítulo o continuo, fuentes EPUB, progreso exacto, leídos, historial, sin conexión y anotaciones.
 const OFF_CACHE = 'obi-offline-v1', OFF_INDEX = 'obi-offline-index', PREF_KEY = 'obi-reader-prefs';
 import { cleanInline, renderBlock, warningsHTML, teaserHTML } from './blocks.js?v=2';
-import { readerPrefsKey, readReaderPrefs, sameReaderAccount, readingProgressKey, readingProgressPrefix, readerProgressKeys } from './reader-pref-cache.js?v=1';
+import { readerPrefsKey, readReaderPrefs, readPendingReaderPrefs, stageReaderPrefs, acknowledgeReaderPrefs, sameReaderAccount, readingProgressKey, readingProgressPrefix, readerProgressKeys } from './reader-pref-cache.js?v=1';
 import { SECTION_LABELS } from './section-types.js?v=1';
 const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true };
 const COLORS = { gold: '#f2c230', rose: '#f29bb0', sky: '#8cc3f2', mint: '#9fdcb0' };
@@ -13,7 +13,7 @@ export function createReader(ctx){
   const S = { series: null, chapters: [], vols: [], bodies: new Map(), prefs: null, remote: null, mounted: [], active: null, annots: [], saveT: 0, readMarked: new Set(), historyLogged: new Set() };
 
   // ---------- preferencias ----------
-  const loadLocal = userId => readReaderPrefs(localStorage, userId);
+  const loadLocal = userId => readPendingReaderPrefs(localStorage, userId) || readReaderPrefs(localStorage, userId);
   async function loadPrefs(){
     const uid=getUser()?.id || null, request=(S.prefsRequest || 0)+1, version=S.prefsVersion || 0;
     S.prefsRequest=request;
@@ -21,8 +21,17 @@ export function createReader(ctx){
     S.prefsOwner=uid;
     // El lector descargado no debe esperar la sincronización de preferencias.
     if (uid && navigator.onLine) {
+      // Recuperar antes de leer del servidor un cambio local que quedó pendiente.
+      const pending = readPendingReaderPrefs(localStorage, uid);
+      if (pending && sameReaderAccount(getUser()?.id, uid) && S.prefsRequest === request) {
+        try {
+          const { error } = await sb.from('reader_prefs').upsert({ user_id: uid, global: pending.global, per_volume: pending.per_volume, updated_at: new Date().toISOString() });
+          if (!error) acknowledgeReaderPrefs(localStorage, uid, pending);
+          else console.warn('Preferencias pendientes', error.message);
+        } catch (error) { console.warn('Preferencias pendientes', error.message); }
+      }
       const { data, error } = await sb.from('reader_prefs').select('global,per_volume').eq('user_id', uid).maybeSingle();
-      if (!error && data && sameReaderAccount(getUser()?.id, uid) && sameReaderAccount(S.prefsOwner, uid) && S.prefsRequest === request && (S.prefsVersion || 0) === version) {
+      if (!error && data && !readPendingReaderPrefs(localStorage, uid) && sameReaderAccount(getUser()?.id, uid) && sameReaderAccount(S.prefsOwner, uid) && S.prefsRequest === request && (S.prefsVersion || 0) === version) {
         S.remote={ global:data.global || {}, per_volume:data.per_volume || {} };
         try { localStorage.setItem(readerPrefsKey(uid), JSON.stringify(S.remote)); } catch {}
       }
@@ -34,11 +43,18 @@ export function createReader(ctx){
     S.prefsVersion=(S.prefsVersion || 0)+1;
     const uid=getUser()?.id || null;
     const snapshot=JSON.parse(JSON.stringify(S.remote));
-    try { localStorage.setItem(readerPrefsKey(uid), JSON.stringify(snapshot)); } catch {}
+    if (uid) {
+      if (!stageReaderPrefs(localStorage, uid, snapshot)) console.warn('No se pudieron guardar preferencias locales');
+    } else {
+      try { localStorage.setItem(readerPrefsKey(uid), JSON.stringify(snapshot)); } catch {}
+    }
     clearTimeout(prefT);
     prefT=setTimeout(() => {
       if (uid && sameReaderAccount(getUser()?.id, uid) && sameReaderAccount(S.prefsOwner, uid))
-        sb.from('reader_prefs').upsert({ user_id: uid, global: snapshot.global, per_volume: snapshot.per_volume, updated_at: new Date().toISOString() }).then(({error}) => { if (error) console.warn('Preferencias',error.message); }, () => {});
+        sb.from('reader_prefs').upsert({ user_id: uid, global: snapshot.global, per_volume: snapshot.per_volume, updated_at: new Date().toISOString() }).then(({error}) => {
+          if (error) console.warn('Preferencias', error.message);
+          else acknowledgeReaderPrefs(localStorage, uid, snapshot);
+        }, () => {});
     },800);
   }
 
