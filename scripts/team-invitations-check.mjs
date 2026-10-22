@@ -41,7 +41,8 @@ assert.equal((sql.match(/create function public\./g) || []).length,5,
   'El archivo SQL debe contener las 5 RPC una sola vez');
 assert.equal((sql.match(/create table public\.team_invitations/g) || []).length,1,
   'La tabla de invitaciones sólo debe aparecer una vez');
-requireMatch(sql,/set redeemed_at=now\(\),redeemed_by=auth\.uid\(\)/i,'Canje marcado como usado');
+requireMatch(sql,/set team_id=v_team_id,redeemed_at=now\(\),redeemed_by=auth\.uid\(\)/i,
+  'Canje debe vincular el equipo antes de marcarlo como utilizado');
 requireMatch(sql,/private\.audit\('invitacion_equipo_canjeada'/i,'Auditoría de canjes');
 for(const fn of [
  'admin_invitation_create\\(uuid,text,text,integer,text,text,text,text\\)',
