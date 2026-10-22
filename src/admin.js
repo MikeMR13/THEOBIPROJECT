@@ -138,11 +138,13 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     if (error) throw error;
     // Resolver solo el nombre del solicitante con el RPC limitado a administración.
     const requesterIds=[...new Set((data||[]).map(r=>r.user_id).filter(Boolean))];
-    const {data: requesterNames,error: nameError}=requesterIds.length
-      ? await sb.rpc('studio_profile_names',{p_ids:requesterIds.slice(0,100)})
-      : {data:[],error:null};
-    if(nameError) throw nameError;
-    const requesterById=Object.fromEntries((requesterNames||[]).map(u=>[u.id,u.username]));
+    const nameLookups=await Promise.all(
+      Array.from({length:Math.ceil(requesterIds.length/100)},(_,i)=>
+        sb.rpc('studio_profile_names',{p_ids:requesterIds.slice(i*100,(i+1)*100)})
+      )
+    );
+    for(const result of nameLookups) if(result.error) throw result.error;
+    const requesterById=Object.fromEntries(nameLookups.flatMap(r=>r.data||[]).map(u=>[u.id,u.username]));
     const ST = { pending: ['Pendiente', '#f2c230'], info: ['Esperando respuesta', '#8cc3f2'], approved: ['Aprobada', '#a9d18e'], rejected: ['Rechazada', '#a89f8a'] };
     const list = (data || []).sort((a, b) => (a.status === 'pending' ? 0 : a.status === 'info' ? 1 : 2) - (b.status === 'pending' ? 0 : b.status === 'info' ? 1 : 2));
     view().innerHTML = list.map(r => { const open = r.status === 'pending' || r.status === 'info';
