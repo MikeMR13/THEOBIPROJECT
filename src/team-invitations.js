@@ -63,13 +63,16 @@ export async function renderTeamInvitation({ sb, app, esc, toast, go }) {
     };
     return;
   }
-  const ROLE = { admin:'Administrador', translator:'Traductor', editor:'Editor',
+  const ROLE = { owner:'Propietario y Administrador del equipo', admin:'Administrador', translator:'Traductor', editor:'Editor',
     proofreader:'Corrector', collaborator:'Colaborador' };
   const roleName = ROLE[invitation.role] || 'Colaborador';
-  message('Cuenta: ' + user.email + '. La invitación te permitirá participar en «' +
-    invitation.team_name + '» con el rol «' + roleName +
-    '». Caduca: ' + new Date(invitation.expires_at).toLocaleString('es-MX') + '.');
-  actions.innerHTML = '<button class="btn" id="team-invite-accept">Aceptar e ingresar al equipo</button>' +
+  const newTeam = invitation.kind === 'create_team';
+  message('Cuenta: ' + user.email + '. ' + (newTeam
+    ? 'Al aceptar, se creará el equipo «' + invitation.team_name +
+      '» y serás su Propietario y Administrador interno.'
+    : 'Te unirás a «' + invitation.team_name + '» con el rol «' + roleName + '».') +
+    ' La invitación caduca: ' + new Date(invitation.expires_at).toLocaleString('es-MX') + '.');
+  actions.innerHTML = '<button class="btn" id="team-invite-accept">' + (newTeam ? 'Aceptar y crear mi equipo' : 'Aceptar e ingresar al equipo') + '</button>' +
     '<button class="btn ghost" id="team-invite-switch">Cambiar de cuenta</button>';
   app.querySelector('#team-invite-switch').onclick = async () => {
     await sb.auth.signOut();
@@ -90,7 +93,7 @@ export async function renderTeamInvitation({ sb, app, esc, toast, go }) {
       toast('Invitación aceptada');
     } catch (err) {
       button.disabled = false;
-      button.textContent = 'Aceptar e ingresar al equipo';
+      button.textContent = newTeam ? 'Aceptar y crear mi equipo' : 'Aceptar e ingresar al equipo';
       message(err?.message || 'No se pudo aceptar la invitación.', true);
     }
   };
