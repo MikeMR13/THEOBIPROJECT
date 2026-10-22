@@ -40,6 +40,8 @@ jobs:
         run: node scripts/tts-continuity-check.mjs
       - name: Chromium accesible (normal y movimiento reducido)
         run: node scripts/visual-phase5-browser.mjs
+      - name: Invitaciones · mostrar únicamente los campos del modo seleccionado
+        run: node scripts/invitaciones-visibility-browser.mjs
       - run: npm run studio-browser-check
       - name: QA visual responsive (5 anchuras, datos ficticios)
         run: npm run visual-browser-check
