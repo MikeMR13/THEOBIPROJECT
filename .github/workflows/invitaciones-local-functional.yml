@@ -47,11 +47,11 @@ jobs:
           import re
           f=Path('supabase/config.toml')
           s=f.read_text()
-          s,n=re.subn(r'(?m)^enable_confirmations\s*=\s*(?:true|false)', 'enable_confirmations = false',s)
-          if not n: s=s.replace('[auth.email]\n','[auth.email]\nenable_confirmations = false\n',1)
+          s,n=re.subn(r'(?m)^enable_confirmations\s*=\s*(?:true|false)', 'enable_confirmations = true',s)
+          if not n: s=s.replace('[auth.email]\n','[auth.email]\nenable_confirmations = true\n',1)
           f.write_text(s)
           PY
-          supabase start -x studio,realtime,storage-api,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor > "$RUNNER_TEMP/invitaciones-cli.log" 2>&1 || {
+          supabase start -x studio,realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor > "$RUNNER_TEMP/invitaciones-cli.log" 2>&1 || {
             tail -n 100 "$RUNNER_TEMP/invitaciones-cli.log"
             exit 1
           }
