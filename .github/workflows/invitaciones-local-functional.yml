@@ -8,6 +8,7 @@ on:
       - "supabase/tests/fixtures/invitaciones_auth_local.sql"
       - "supabase/migrations/20261022231500_team_invitations_one_time.sql"
       - "supabase/migrations/20261022232000_team_invitation_open_links.sql"
+      - "supabase/migrations/20261022232100_team_invitation_redeem_guard.sql"
       - "scripts/invitaciones-supabase-local-http-check.mjs"
   workflow_dispatch:
 
@@ -88,6 +89,7 @@ jobs:
           psql_local supabase/tests/fixtures/invitaciones_auth_local.sql
           psql_local supabase/migrations/20261022231500_team_invitations_one_time.sql
           psql_local supabase/migrations/20261022232000_team_invitation_open_links.sql
+          psql_local supabase/migrations/20261022232100_team_invitation_redeem_guard.sql
           docker exec -i -e PGPASSWORD=postgres "$db" \
             psql -X -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema';"
           sleep 3
