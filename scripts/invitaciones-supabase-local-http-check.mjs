@@ -33,6 +33,8 @@ const bibliotecario=await account('bibliotecario',true);
 const owner=await account('propietario');
 const outsider=await account('ajeno');
 const nextMember=await account('colaborador');
+const openOne=await account('enlace-libre-uno');
+const openTwo=await account('enlace-libre-dos');
 
 const make=async (args)=>bibliotecario.session.rpc('admin_invitation_create',{
   p_team:null,p_email:owner.email,p_role:'owner',p_hours:48,
@@ -105,6 +107,60 @@ assert.equal(joined.role,'admin');
 const after=ok(await root.from('team_members').select('user_id,role').eq('team_id',redeemed.team_id),'roles tras invitación');
 assert(after.some(x=>x.user_id===owner.uid&&x.role==='owner'),'Propietario inicial intacto');
 assert(after.some(x=>x.user_id===nextMember.uid&&x.role==='admin'),'Administrador agregado');
+
+console.log('QA: enlace libre sin destinatario, con límites de rol y correo verificado');
+const basicOpen = {
+  p_team:redeemed.team_id,p_email:null,p_role:'translator',p_hours:24,
+  p_reason:'Compartir invitación de traductor con equipo existente',
+  p_kind:'join',p_new_team_name:null,p_new_team_slug:null
+};
+denied(await bibliotecario.session.rpc('admin_invitation_create',{
+  ...basicOpen,p_role:'admin'
+}),'Enlace libre no permite administrador');
+denied(await bibliotecario.session.rpc('admin_invitation_create',{
+  ...basicOpen,p_role:'owner'
+}),'Enlace libre no permite propietario');
+denied(await bibliotecario.session.rpc('admin_invitation_create',{
+  ...basicOpen,p_kind:'create_team',p_team:null,p_role:'owner',
+  p_new_team_name:'Prohibido',p_new_team_slug:'prohibido-open-team'
+}),'Enlace libre no permite crear equipo');
+const openCreated=ok(await bibliotecario.session.rpc('admin_invitation_create',basicOpen),'enlace libre válido');
+const openStatus=ok(await bibliotecario.session.rpc('admin_invitation_list',{p_limit:100}),'listar enlaces libres');
+assert(openStatus.some(x=>x.id===openCreated.id&&x.invite_email===null&&x.status==='pendiente'),
+  'Enlace libre debe aparecer sin correo y como pendiente');
+const openPreview=ok(await openOne.session.rpc('team_invitation_preview',{p_token:openCreated.token}),
+  'preview libre desde correo diferente');
+assert.equal(openPreview.open_link,true,'El preview debe identificar enlace libre');
+assert.equal(openPreview.role,'translator');
+assert.equal(openPreview.kind,'join');
+denied(await guest.rpc('team_invitation_redeem',{p_token:openCreated.token}),
+  'Visitante sin sesión no puede reclamar enlace');
+const race=await Promise.all([
+  openOne.session.rpc('team_invitation_redeem',{p_token:openCreated.token}),
+  openTwo.session.rpc('team_invitation_redeem',{p_token:openCreated.token})
+]);
+assert.equal(race.filter(x=>!x.error).length,1,'Enlace libre debe aceptar exactamente una cuenta');
+assert.equal(race.filter(x=>!!x.error).length,1,'Un segundo reclamante debe ser rechazado');
+const winner=race.find(x=>!x.error).data;
+assert.equal(winner.team_id,redeemed.team_id);
+assert.equal(winner.role,'translator');
+const openMembers=ok(await root.from('team_members').select('user_id,role').eq('team_id',redeemed.team_id),
+  'miembros tras enlace libre');
+const openNewMembers=openMembers.filter(x=>x.user_id===openOne.uid||x.user_id===openTwo.uid);
+assert.equal(openNewMembers.length,1,'El enlace libre incorporó múltiples personas');
+assert.equal(openNewMembers[0].role,'translator');
+assert(openMembers.some(x=>x.user_id===owner.uid&&x.role==='owner'),'Propietario debe mantenerse');
+assert(openMembers.some(x=>x.user_id===nextMember.uid&&x.role==='admin'),'Administrador existente debe mantenerse');
+denied(await openOne.session.rpc('admin_invitation_list',{p_limit:100}),
+  'Quien reclama enlace libre no puede gestionar invitaciones');
+denied(await openTwo.session.rpc('admin_invitation_list',{p_limit:100}),
+  'Segundo usuario no puede gestionar invitaciones');
+denied(await openOne.session.rpc('team_invitation_redeem',{p_token:openCreated.token}),
+  'No reutilizar enlace libre');
+const openUsed=ok(await bibliotecario.session.rpc('admin_invitation_list',{p_limit:100}),
+  'enlace libre consumido');
+assert(openUsed.some(x=>x.id===openCreated.id&&x.status==='utilizada'),
+  'Enlace libre debe quedar consumido');
 
 console.log('QA: revocación y no reutilización');
 const pending=ok(await bibliotecario.session.rpc('admin_invitation_create',{
