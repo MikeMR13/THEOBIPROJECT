@@ -152,6 +152,7 @@ if ((data || []).some(x => !x.read)) { await sb.rpc('notifications_read_all'); $
 }
 const routes = {
 '/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': async () => (await ag()).agenda(CTX()), '/ranking': () => ui().ranking(), '/lanzamientos': async () => (await ag()).agenda(CTX()), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/preferencias': async () => (await pf()).preferences(PCTX()), '/buscar': () => ui().search(), '/solicitud': solicitud, '/elige-nombre': chooseName, '/privacidad': async () => (await lg()).privacy(app), '/condiciones-servicio': async () => (await lg()).terms(app),
+'/invitacion': async () => (await import('/team-invitations.js?v=1')).renderTeamInvitation({ sb, app, esc, toast, go }),
 '/bibliotecario': async () => (await ad()).render(), '/admin': async () => { history.replaceState({}, '', '/bibliotecario'); (await ad()).render(); },
 };
 export function go(path){ history.pushState({}, '', path); render(); }
@@ -316,6 +317,13 @@ app.innerHTML = `<h1>${esc(C.title || 'Apoya a los traductores')}</h1><p style="
   + (mode === 'links' ? (grid || '<p class="mono">Aún no hay enlaces de apoyo.</p>') : mode === 'both' ? grid + '<h2>Niveles de Patreon</h2>' + tiers : tiers) + '<section id="wall"></section>';
 sb.rpc('platform_patrons_wall').then(({ data: W }) => { const el = document.getElementById('wall'); if (!el || !W?.length) return; el.innerHTML = `<h2 style="margin-top:36px">惠 Muro de agradecimientos</h2><p class="mono" style="margin:0 0 14px">Gracias a quienes sostienen El Obi del Lector.</p><div style="display:flex;flex-wrap:wrap;gap:10px">${W.map(w => `<a href="/lector/${esc(w.username)}" style="display:flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;border:1px solid var(--line);background:#16140f;color:var(--paper);text-decoration:none;font-weight:600;font-size:14px"><span style="width:28px;height:28px;flex:none;background:#2f2a20 center/cover;${w.avatar_url ? `background-image:url('${esc(w.avatar_url)}')` : ''}"></span>${esc(w.username)}</a>`).join('')}</div>`; }, () => {});
 }
+// Invitación pendiente: solo en esta pestaña y nunca en la URL de inicio de sesión.
+const pendingInviteToken = () => {
+  try {
+    const token = sessionStorage.getItem('obi-team-invitation-pending') || '';
+    return /^[0-9a-f]{64}$/.test(token) ? token : '';
+  } catch { return ''; }
+};
 const AUTH_ERR = { 'Invalid login credentials':'Correo o contraseña incorrectos.', 'Email not confirmed':'Confirma tu correo antes de entrar (revisa tu bandeja).', 'User already registered':'Ese correo ya tiene cuenta. Inicia sesión.', 'Password should be at least 8 characters.':'La contraseña debe tener al menos 8 caracteres.' };
 const authMsg = e => /captcha/i.test(e?.message || '') ? 'No pudimos comprobar que no eres un bot. Espera un momento e inténtalo otra vez.' : AUTH_ERR[e?.message] || e?.message || 'Algo salió mal. Intenta de nuevo.';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -366,7 +374,7 @@ cap.reset();
 btn.disabled = false; btn.textContent = up ? 'Crear cuenta' : 'Entrar';
 if (error) { err.textContent = authMsg(error); return; }
 if (up && !data.session) { toast('Cuenta creada. Revisa tu correo y pulsa «Confirmar mi cuenta».'); history.replaceState({}, '', '/entrar'); return login('in'); }
-toast('¡Bienvenido!'); go('/');
+toast('¡Bienvenido!'); const pendingInvite = pendingInviteToken(); go(pendingInvite ? '/invitacion' : '/');
 };
 }
 // Lectores que entraron con Google: eligen su nombre de usuario la primera vez.
@@ -476,6 +484,10 @@ sb.auth.onAuthStateChange(ev => { if (ev !== 'INITIAL_SESSION') loadSession().th
 loadSession().then(() => {
 const qs = new URLSearchParams(location.search), hash = new URLSearchParams(location.hash.slice(1));
 if (hash.get('error_description')) { history.replaceState({}, '', '/entrar'); render(); return toast(hash.get('error_description').includes('expired') ? 'El enlace expiró. Inicia sesión para recibir otro.' : hash.get('error_description')); }
+const pendingInvite = pendingInviteToken();
+if (user && pendingInvite && (location.pathname === '/' || qs.has('bienvenida'))) {
+  history.replaceState({}, '', '/invitacion'); render(); ui().refreshBadge(); return;
+}
 if (qs.has('bienvenida') && user) { history.replaceState({}, '', '/'); return meReady.then(welcome); }
 render(); ui().refreshBadge();
 });
