@@ -383,10 +383,34 @@ export async function preferences(C){
     const endDate = d => new Date(new Date(d).getTime() + 30 * 864e5).toLocaleDateString('es-MX', { dateStyle: 'long' });
     const teamsHTML = (prev?.teams || []).length ? `<div class="pf-row" style="display:grid;gap:4px"><span class="mono" style="color:var(--gold);font-size:11px;letter-spacing:.12em">ERES PROPIETARIO DE ${prev.teams.length} ${prev.teams.length === 1 ? 'EQUIPO' : 'EQUIPOS'}</span>${prev.teams.map(t => `<span>«${esc(t.name)}» ${t.heir ? `pasará a <b>@${esc(t.heir)}</b>, su admin más antiguo.` : 'no tiene otro admin: quedará <b>en pausa</b> hasta que el Bibliotecario lo asigne.'}</span>`).join('')}</div>` : '';
     const MED2 = s => MED(s.cover_thumb_path || s.cover_path);
+    let viewAs = app.__obiPrivacyView === 'auth' ? 'auth' : 'guest';
+    const privacyPreview = () => {
+      const m = privacyPreviewModel(P, S, viewAs);
+      return `<div class="pf-preview">
+        <h3 id="pv-preview-heading">Así puede verse tu carnet</h3>
+        <p class="pf-preview-note">Vista orientativa, calculada con las opciones guardadas. No publica cambios ni sustituye una visita real con otra cuenta.</p>
+        <div class="pf-preview-audience" role="group" aria-label="Simular tipo de visitante">
+          <button type="button" data-pv-audience="guest" aria-pressed="${viewAs === 'guest'}">Sin iniciar sesión</button>
+          <button type="button" data-pv-audience="auth" aria-pressed="${viewAs === 'auth'}">Con cuenta</button>
+        </div>
+        <div class="pf-preview-sample">
+          <strong>${esc(P.username)}</strong>
+          <strong>${esc(m.headline)}</strong>
+          <p class="pf-preview-note">${esc(m.note)}</p>
+          ${m.accessible ? `<p class="pf-preview-note">Secciones visibles para este visitante:</p>
+            ${m.visible.length ? `<ul class="pf-preview-list">${m.visible.map(name => `<li>${esc(name)}</li>`).join('')}</ul>` : '<p class="pf-preview-note">No hay secciones públicas activadas.</p>'}
+            ${m.hidden.length ? `<p class="pf-preview-note">Ocultas: ${esc(m.hidden.join(', '))}.</p>` : ''}
+            <p class="pf-preview-note">${esc(m.reading)}</p>
+            ${m.since ? '<p class="pf-preview-note">Aparecerá la fecha «miembro desde».</p>' : ''}` : ''}
+          <p class="pf-preview-note">${esc(m.search)}</p>
+        </div>
+      </div>`;
+    };
     app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Privacidad</h2><p class="pf-note">Decide quién ve tu carnet y qué se muestra en él. Se guarda al momento.</p></div>
       <div style="display:grid;gap:12px"><h3>¿Quién ve mi perfil?</h3><div class="pf-sl" role="radiogroup" aria-label="Quién ve mi perfil">${VIS.map(([k, l, d]) => `<label style="display:grid;gap:4px;padding:14px 16px;border:2px solid ${P.profile_visibility === k ? 'var(--gold)' : '#2c281e'};background:${P.profile_visibility === k ? '#1f1c15' : '#0d0c0a'};cursor:pointer"><span style="display:flex;gap:10px;align-items:center;font-weight:700"><input type="radio" name="vis" value="${k}" ${P.profile_visibility === k ? 'checked' : ''} style="accent-color:var(--gold);width:18px;height:18px">${l}</span><span class="pf-note" style="font-size:13px">${d}</span></label>`).join('')}</div></div>
       <div style="display:grid;gap:10px"><h3>Visibilidad</h3>${OPT.map(([k, l, d]) => `<div class="pf-row" style="justify-content:space-between"><span style="display:grid;gap:3px;flex:1 1 240px"><b style="font-size:14px">${l}</b><span class="pf-note" style="font-size:13px">${d}</span></span>${tg('o-' + k, P[k], l)}</div>`).join('')}</div>
       <div style="display:grid;gap:10px"><h3>Secciones del carnet</h3><div class="pf-sl">${SECS.map(([k, l]) => `<div><span>${l}</span>${tg('s-' + k, S[k], l)}</div>`).join('')}<div><span>Estadísticas</span>${tg('s-pub', P.public_activity, 'Estadísticas')}</div></div></div>
+      <section id="pv-preview" aria-labelledby="pv-preview-heading" aria-live="polite" aria-atomic="true">${privacyPreview()}</section>
       <div style="display:grid;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h3>Obras ocultas de mis estantes</h3><a class="mono" style="font-size:11px" href="/biblioteca">SE OCULTAN DESDE MI BIBLIOTECA</a></div>
         <div id="pv-hid">${(hs || []).length ? hs.map(s => `<div class="pf-row"><span style="width:34px;height:46px;flex:none;background:${esc(s.theme?.color || '#2a2519')} center/cover ${s.cover_path ? `url('${esc(MED2(s))}')` : ''}"></span><span style="flex:1;min-width:0;font-weight:600">${esc(s.title)}</span><button type="button" class="btn ghost sm" data-unhide="${s.id}" style="flex:none;white-space:nowrap">Mostrar de nuevo</button></div>`).join('') : '<p class="pf-note">No tienes obras ocultas.</p>'}</div></div>
       <div style="display:grid;gap:8px"><h3>Reseñas</h3><p class="pf-note" style="color:#e3dccb;max-width:62ch">Al publicar cada reseña eliges si va con tu nombre o como <b>Lector anónimo</b>. Las anónimas no aparecen en tu carnet ni cuentan para el sello 評.</p><span class="mono" style="font-size:12px">${nRv} ${nRv === 1 ? 'RESEÑA' : 'RESEÑAS'} · ${nAn} ${nAn === 1 ? 'ANÓNIMA' : 'ANÓNIMAS'}</span></div>
@@ -401,10 +425,22 @@ export async function preferences(C){
           <span style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn" id="pv-go" disabled style="background:#c8402e;color:#fff">Eliminar en 30 días</button><button type="button" class="btn ghost" id="pv-cancel">Cancelar</button></span></div>`}
       </div>`);
     const $ = s => app.querySelector(s);
+    const refreshPrivacyPreview = () => { const region = $('#pv-preview'); if (region) region.innerHTML = privacyPreview(); };
+    app.querySelectorAll('[data-pv-audience]').forEach(b => b.onclick = () => {
+      viewAs = b.dataset.pvAudience;
+      app.__obiPrivacyView = viewAs;
+      refreshPrivacyPreview();
+      $('#pv-preview [data-pv-audience="' + viewAs + '"]')?.focus({ preventScroll: true });
+      app.querySelectorAll('#pv-preview [data-pv-audience]').forEach(next => next.onclick = () => {
+        viewAs = next.dataset.pvAudience; app.__obiPrivacyView = viewAs;
+        refreshPrivacyPreview();
+        $('#pv-preview [data-pv-audience="' + viewAs + '"]')?.focus({ preventScroll: true });
+      });
+    });
     app.querySelectorAll('[name="vis"]').forEach(i => i.onchange = async () => { if (await save({ profile_visibility: i.value }, 'Visibilidad actualizada')) preferences(C); });
-    OPT.forEach(([k]) => $('#o-' + k).onclick = async e => { const b = e.currentTarget, v = !P[k]; if (await save({ [k]: v })) flip(b); });
-    SECS.forEach(([k]) => $('#s-' + k).onclick = async e => { const b = e.currentTarget; S[k] = !S[k]; if (await save({ profile_sections: { ...S } })) flip(b); else S[k] = !S[k]; });
-    $('#s-pub').onclick = async e => { const b = e.currentTarget; if (await save({ public_activity: !P.public_activity })) flip(b); };
+    OPT.forEach(([k]) => $('#o-' + k).onclick = async e => { const b = e.currentTarget, v = !P[k]; if (await save({ [k]: v })) { flip(b); refreshPrivacyPreview(); } });
+    SECS.forEach(([k]) => $('#s-' + k).onclick = async e => { const b = e.currentTarget; S[k] = !S[k]; if (await save({ profile_sections: { ...S } })) { flip(b); refreshPrivacyPreview(); } else S[k] = !S[k]; });
+    $('#s-pub').onclick = async e => { const b = e.currentTarget; if (await save({ public_activity: !P.public_activity })) { flip(b); refreshPrivacyPreview(); } };
     app.querySelectorAll('[data-unhide]').forEach(b => b.onclick = async () => { if (await save({ hidden_series: (P.hidden_series || []).filter(x => x !== b.dataset.unhide) }, 'Vuelve a verse en tu perfil')) preferences(C); });
     $('#pv-exp').onclick = async e => { const b = e.currentTarget; b.disabled = true; const { data, error } = await sb.rpc('export_my_data'); b.disabled = false; if (error) return toast(error.message);
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })); a.download = 'obi-mis-datos-' + new Date().toISOString().slice(0, 10) + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
