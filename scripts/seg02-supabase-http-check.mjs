@@ -79,6 +79,11 @@ const aOwn=requireOk(await A.session.rpc('my_profile'),'A retained profile');
 assert.equal(aOwn.notify.freq,'diario','B changed A settings');
 isDenied(await B.session.from('profiles').update({platform_role:'admin'}).eq('id',B.id),'B elevate privilege');
 
+console.log('SEG-02 HTTP: Patreon mural del titular y límite de otra cuenta');
+requireOk(await A.session.from('profiles').update({patron_wall:true}).eq('id',A.id),'A enables patron wall');
+assert.equal(requireOk(await A.session.rpc('my_profile'),'owner mural').patron_wall,true);
+requireOk(await B.session.from('profiles').update({patron_wall:false}).eq('id',A.id),'B cannot change A mural');
+assert.equal(requireOk(await A.session.rpc('my_profile'),'owner mural retained').patron_wall,true);
 console.log('SEG-02 HTTP: lector all/auth/none y búsqueda');
 const publicA=requireOk(await visitor.rpc('reader_public',{p_username:'http_alfa'}),'public carnet A');
 assert.equal(publicA.username,'http_alfa');
