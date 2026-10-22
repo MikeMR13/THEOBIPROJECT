@@ -741,13 +741,38 @@ export async function preferences(C){
       "</span><div class='lc-tx'><span class='k'>CARNET DE LECTOR · 読者証</span><h1>" + esc(P.username || 'Lector') +
       "</h1>" + bio + links + "</div></div></section>" + covers + "</div>";
   };
+  let sealQuery = '', sealCategory = 'Todas', sealCustom = !!D.kanji && !SEAL_LOOKUP.has(D.kanji);
+  const normalizeSeal = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const sealChoices = () => SEAL_CATALOG.filter(([k,n,m,d,c]) =>
+    (sealCategory === 'Todas' || c === sealCategory) &&
+    normalizeSeal([k,n,m,d].join(' ')).includes(normalizeSeal(sealQuery.trim()))
+  ).map(([k,n,m]) => `<button type="button" class="pf-seal-choice" data-seal-pick="${esc(k)}" aria-pressed="${D.kanji === k}"><span class="kanji">${esc(k)}</span><span class="name">${esc(n)}</span><span class="meaning">${esc(m)}</span></button>`).join('') ||
+    '<p class="pf-note">No encontramos sellos con esa búsqueda.</p>';
+  const sealSelected = () => {
+    const x = SEAL_LOOKUP.get(D.kanji);
+    return x
+      ? `<strong>${esc(x.name)} · ${esc(D.kanji)}</strong><span>${esc(x.description)}</span><small>Significado del kanji: ${esc(x.meaning)}. El apodo es una interpretación editorial.</small>`
+      : D.kanji
+        ? `<strong>Sello personalizado · ${esc(D.kanji)}</strong><span>Tu kanji personalizado aparecerá en el carnet sin apodo predeterminado.</span>`
+        : '<span>Elige un sello para descubrir su apodo y descripción, o escribe tu propio kanji.</span>';
+  };
   const draw = () => {
     app.innerHTML = shell(`<div class="pf-editor-layout"><div class="pf-editor-fields"><div style="display:grid;gap:6px"><h2>Perfil público</h2><p class="pf-note">Así te ven los demás en <a href="/perfil">/lector/${esc(P.username)}</a>.</p></div>
       <div class="pf-grid">
         <div class="pf-f">Foto<span class="pf-up"><span class="lc-av" style="--ac:${esc(D.accent)};width:60px;height:60px;font-size:26px">${P.avatar_url ? `<img src="${esc(P.avatar_url)}" alt="">` : esc((P.username || '?')[0].toUpperCase())}</span><label class="btn ghost sm">Cambiar foto<input type="file" id="fav" accept="image/jpeg,image/png,image/webp"></label></span></div>
         <div class="pf-f">Portada del carnet<span class="pf-up"><span class="pf-ban" style="${D.banner ? `background-image:url('${esc(D.banner)}')` : ''}"></span><label class="btn ghost sm">${D.banner ? 'Cambiar' : 'Subir'}<input type="file" id="fban" accept="image/jpeg,image/png,image/webp"></label>${D.banner ? '<button type="button" class="btn ghost sm" id="noban">Quitar</button>' : ''}</span><small class="pf-note" style="font-size:12px">Sin portada se usa un collage de tus favoritas.</small></div>
         <label class="pf-f" style="grid-column:1/-1">Bio<textarea id="bio" rows="3" maxlength="280">${esc(D.bio)}</textarea></label>
-        <label class="pf-f">Kanji del sello<input id="kj" class="pf-kj" maxlength="1" value="${esc(D.kanji)}" placeholder="月" aria-describedby="kjh"><small id="kjh" class="pf-note" style="font-size:12px">Un solo kanji. Déjalo vacío para no mostrar sello.</small></label>
+        <section class="pf-seal-panel" aria-label="Catálogo de sellos de lector">
+          <div style="display:grid;gap:4px"><h3>Tu sello de lector</h3><p class="pf-note">Elige entre 32 sellos temáticos. Cada apodo es creativo; el significado del kanji se muestra por separado.</p></div>
+          <div class="pf-seal-controls"><input type="search" id="seal-query" value="${esc(sealQuery)}" placeholder="Buscar apodo, kanji o significado…" aria-label="Buscar sello">
+            <select id="seal-category" aria-label="Filtrar sellos por categoría">${['Todas','Lectura','Fantasía','Aventura','Personalidad'].map(c => `<option value="${c}" ${c === sealCategory ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+          <div class="pf-seal-catalog" id="seal-results">${sealChoices()}</div>
+          <div class="pf-seal-selected" id="seal-selected" role="status" aria-live="polite">${sealSelected()}</div>
+          <div class="pf-seal-actions"><button type="button" class="btn ghost sm" id="seal-custom-toggle" aria-expanded="${sealCustom}" aria-controls="seal-custom-field">Usar mi propio kanji</button>
+            <button type="button" class="btn ghost sm" id="seal-clear">Sin sello</button></div>
+          <div class="pf-seal-custom" id="seal-custom-field" ${sealCustom ? '' : 'hidden'}><label>Kanji personalizado<input id="kj" class="pf-kj" maxlength="1" value="${esc(D.kanji)}" placeholder="月" aria-describedby="kjh" ${sealCustom ? '' : 'disabled'}></label>
+          <small class="pf-note" id="kjh">Un solo kanji. Déjalo vacío para no mostrar sello.</small></div>
+        </section>
         <div class="pf-f">Color de acento<div class="pf-sw">${SWATCH.map(c => `<button type="button" data-ac="${c}" class="${c === D.accent ? 'on' : ''}" style="--swatch:${c}" aria-label="Color ${c}" aria-pressed="${c === D.accent}"></button>`).join('')}</div></div>
       </div>
       <div style="display:grid;gap:10px"><h3>Favoritas <small class="pf-note">(${D.favs.length}/5)</small></h3><div class="pf-favs">${favHTML()}</div>
@@ -763,7 +788,31 @@ export async function preferences(C){
       </aside></div>`);
     const $ = s => app.querySelector(s), $$ = s => app.querySelectorAll(s);
     $('#bio').oninput = e => { D.bio = e.target.value; mark(); };
-    $('#kj').oninput = e => { D.kanji = e.target.value.trim(); mark(); };
+    const updateSealPanel = () => {
+      const choices = $('#seal-results'); if (choices) choices.innerHTML = sealChoices();
+      const info = $('#seal-selected'); if (info) info.innerHTML = sealSelected();
+      $('[data-seal-pick]').forEach(b => b.onclick = () => {
+        D.kanji = b.dataset.sealPick; sealCustom = false; mark(); draw();
+        app.querySelector('[data-seal-pick="' + D.kanji + '"]')?.focus({ preventScroll: true });
+      });
+    };
+    $('#seal-query').oninput = e => { sealQuery = e.target.value; updateSealPanel(); };
+    $('#seal-category').onchange = e => { sealCategory = e.target.value; updateSealPanel(); };
+    $('#seal-custom-toggle').onclick = () => {
+      sealCustom = !sealCustom;
+      if (sealCustom && SEAL_LOOKUP.has(D.kanji)) { D.kanji = ''; mark(); }
+      draw();
+      (sealCustom ? $('#kj') : $('#seal-custom-toggle'))?.focus({ preventScroll: true });
+    };
+    $('#seal-clear').onclick = () => {
+      if (D.kanji) { D.kanji = ''; mark(); }
+      sealCustom = false; draw(); $('#seal-clear')?.focus({ preventScroll: true });
+    };
+    $('#kj').oninput = e => {
+      D.kanji = e.target.value.trim(); mark();
+      const info = $('#seal-selected'); if (info) info.innerHTML = sealSelected();
+    };
+    updateSealPanel();
     $$('[data-ac]').forEach(b => b.onclick = () => { D.accent = b.dataset.ac; mark(); draw(); });
     $$('[data-rf]').forEach(b => b.onclick = () => { D.favs.splice(+b.dataset.rf, 1); mark(); draw(); });
     $$('[data-lk]').forEach(s => s.onchange = () => { D.links[+s.dataset.lk].k = s.value; mark(); draw(); });
