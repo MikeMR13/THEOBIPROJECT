@@ -7,6 +7,7 @@ for (const path of ['src/app.js','src/admin.js','src/admin-invitations.js','src/
   assert.equal(result.status,0,result.stderr || ('Sintaxis inválida en '+path));
 }
 const sql=readFileSync('supabase/migrations/20261022231500_team_invitations_one_time.sql','utf8');
+const openSql=readFileSync('supabase/migrations/20261022232000_team_invitation_open_links.sql','utf8');
 const app=readFileSync('src/app.js','utf8');
 const admin=readFileSync('src/admin.js','utf8');
 const invites=readFileSync('src/admin-invitations.js','utf8');
@@ -70,6 +71,24 @@ requireMatch(redeem,/new URLSearchParams\(location\.hash\.slice\(1\)\)/,'URL fra
 requireMatch(redeem,/team_invitation_preview/,'Comprobación con sesión');
 requireMatch(redeem,/invitation.kind === 'create_team'/,'Explicar creación del equipo al invitado');
 requireMatch(redeem,/team_invitation_redeem/,'Canje explícito');
+requireMatch(openSql,/alter column invite_email drop not null/i,'Enlace libre requiere email opcional');
+requireMatch(openSql,/invitation_kind='join'/i,'Enlace libre solo permite equipos existentes');
+requireMatch(openSql,/invited_role in \('translator','editor','proofreader','collaborator'\)/i,
+  'Enlace libre prohibido para propietario y administrador');
+requireMatch(openSql,/p_kind <> 'join' or p_role not in \('translator','editor','proofreader','collaborator'\)/i,
+  'El servidor debe negar invitaciones libres de privilegios altos');
+requireMatch(openSql,/v_inv\.invite_email is not null and v_email<>v_inv\.invite_email/g,
+  'La comprobación de correo solo aplica a invitaciones personalizadas');
+requireMatch(openSql,/email_confirmed_at is not null/g,
+  'Correo confirmado requerido incluso en enlace libre');
+requireMatch(openSql,/'open_link',v_inv\.invite_email is null/i,
+  'El preview comunica cuando el enlace es libre');
+const invitationUi=readFileSync('src/admin-invitations.js','utf8');
+requireMatch(invitationUi,/name="target"/,'Selector de destinatario');
+requireMatch(invitationUi,/option value="open"/,'Opción enlace libre');
+requireMatch(invitationUi,/email = open \? null/,'UI envía email nulo para enlace libre');
+requireMatch(invitationUi,/adminOption\.disabled = open/,'Admin inhabilitado en enlace libre');
+
 requireMatch(redeem,/sessionStorage\.removeItem\(KEY\)/,'Descartar token tras canje');
 assert.doesNotMatch(redeem,/localStorage\.setItem/,'No guardar secreto persistentemente');
 assert.doesNotMatch(sql,/update public[.]profiles.{0,160}platform_role/is,'No se debe promover el rol de plataforma directamente');
