@@ -39,7 +39,7 @@ const sealMarkup = (kanji, esc) => {
   if (!kanji) return '';
   const seal = SEAL_LOOKUP.get(kanji);
   if (!seal) return `<span class="lc-kj" title="Sello personalizado" aria-label="Sello personalizado: ${esc(kanji)}">${esc(kanji)}</span>`;
-  return `<details class="lc-seal-pop"><summary class="lc-kj" aria-label="${esc(seal.name)}. Ver descripción del sello">${esc(kanji)}</summary><span class="lc-seal-name">${esc(seal.name)}</span><div class="lc-seal-info"><strong>${esc(seal.name)}</strong><span>${esc(seal.description)}</span><small>Kanji: ${esc(seal.meaning)}</small></div></details>`;
+  return `<div class="lc-seal-pop"><details><summary class="lc-kj" aria-label="${esc(seal.name)}. Ver descripción del sello">${esc(kanji)}</summary><div class="lc-seal-info"><strong>${esc(seal.name)}</strong><span>${esc(seal.description)}</span><small>Kanji: ${esc(seal.meaning)}</small></div></details><span class="lc-seal-name">${esc(seal.name)}</span></div>`;
 };
 
 const CSS = `
@@ -186,12 +186,13 @@ const CSS = `
 /* Sellos temáticos y apodos seleccionables */
 .lc-seal-pop{position:absolute;top:18px;right:18px;z-index:3;display:grid;justify-items:end;gap:6px}
 .lc-seal-pop .lc-kj{position:static;cursor:pointer;list-style:none;user-select:none}
+.lc-seal-pop details{display:grid;justify-items:end}
 .lc-seal-pop summary::-webkit-details-marker{display:none}
 .lc-seal-pop summary::marker{content:''}
 .lc-seal-pop .lc-kj:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 .lc-seal-name{padding:4px 8px;background:rgba(13,12,10,.8);color:var(--paper);font:600 11px 'IBM Plex Sans',sans-serif;text-align:right}
-.lc-seal-info{position:absolute;top:calc(100% + 8px);right:0;width:min(230px,calc(100vw - 64px));box-sizing:border-box;background:#17130e;border:1px solid #866946;box-shadow:0 8px 32px rgba(0,0,0,.65);padding:12px;display:grid;gap:7px;color:var(--paper);font:13px/1.45 'IBM Plex Sans',sans-serif;text-align:left}
-.lc-seal-pop:not([open]) .lc-seal-info{display:none}
+.lc-seal-info{position:absolute;top:59px;right:0;width:min(230px,calc(100vw - 64px));box-sizing:border-box;background:#17130e;border:1px solid #866946;box-shadow:0 8px 32px rgba(0,0,0,.65);padding:12px;display:grid;gap:7px;color:var(--paper);font:13px/1.45 'IBM Plex Sans',sans-serif;text-align:left}
+.lc-seal-pop details:not([open]) .lc-seal-info{display:none}
 .lc-seal-info strong{font:800 17px 'Shippori Mincho B1',serif}
 .lc-seal-info small{color:var(--mute)}
 .pf-live-card .lc-seal-pop{top:12px;right:12px}
@@ -200,7 +201,7 @@ const CSS = `
 .pf-seal-controls input,.pf-seal-controls select{background:#0d0c0a;border:1px solid var(--line);color:var(--paper);font:14px 'IBM Plex Sans',sans-serif;min-height:44px;padding:9px 10px;min-width:0}
 .pf-seal-controls input{flex:1 1 190px}
 .pf-seal-controls select{flex:1 1 145px}
-.pf-seal-catalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,130px),1fr));gap:9px}
+.pf-seal-catalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,130px),1fr));gap:9px;max-height:380px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:2px}
 .pf-seal-choice{min-width:0;min-height:94px;cursor:pointer;border:1px solid #544731;background:#1b1812;color:var(--paper);padding:9px 7px;display:grid;justify-items:center;align-content:center;gap:5px;text-align:center}
 .pf-seal-choice:hover{border-color:var(--gold)}
 .pf-seal-choice[aria-pressed="true"]{border:2px solid var(--gold);background:#272115}
