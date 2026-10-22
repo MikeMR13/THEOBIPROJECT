@@ -263,7 +263,9 @@ export async function preferences(C){
   app.addEventListener('change', selectHandler);
   const tg = (id, on, label, disabled = false) => `<button type="button" class="pf-tg" id="${id}" aria-pressed="${!!on}" aria-label="${esc(label)}" ${disabled ? 'disabled' : ''}><i></i></button>`;
   const flip = b => b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
-  const UI = { motion: 'system', hour: 'auto', hide: [], ...(window.__obiUI || {}), ...(P.ui_prefs || {}) };
+  // La configuración de otra sesión nunca es el valor inicial de la cuenta actual.
+  // La respuesta del perfil autenticado es la única fuente para este formulario.
+  const UI = { motion: 'system', hour: 'auto', hide: [], ...(P.ui_prefs || {}) };
   const saveUI = async patch => { const prev = { ...UI }; Object.assign(UI, patch); window.obiSetUI?.({ ...UI }); const upd = { ui_prefs: UI }; if ('tz' in patch && P.notify) upd.notify = { ...P.notify, tz: UI.tz || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' };
     const { error } = await sb.from('profiles').update(upd).eq('id', user.id); if (error) { Object.assign(UI, prev); window.obiSetUI?.({ ...UI }); toast(error.message); return false; } P.ui_prefs = { ...UI }; if (upd.notify) P.notify = upd.notify; C.setProfile?.(upd.notify ? { ui_prefs: P.ui_prefs, notify: upd.notify } : { ui_prefs: P.ui_prefs }); return true; };
   const card = (name, k, cur, l, d) => `<label style="display:grid;gap:4px;padding:14px 16px;border:2px solid ${cur === k ? 'var(--gold)' : '#2c281e'};background:${cur === k ? '#1f1c15' : '#0d0c0a'};cursor:pointer"><span style="display:flex;gap:10px;align-items:center;font-weight:700"><input type="radio" name="${name}" value="${k}" ${cur === k ? 'checked' : ''} style="accent-color:var(--gold);width:18px;height:18px">${l}</span>${d ? `<span class="pf-note" style="font-size:13px">${d}</span>` : ''}</label>`;
