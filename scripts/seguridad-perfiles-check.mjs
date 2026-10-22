@@ -16,6 +16,12 @@ assert.match(additive,/CREATE OR REPLACE FUNCTION public\.studio_profile_names/i
 assert.match(additive,/CREATE OR REPLACE FUNCTION public\.team_public_members/i,'RPC equipos antes del cierre');
 assert.match(additive,/CREATE OR REPLACE FUNCTION public\.comment_public_authors/i,'RPC comentarios antes del cierre');
 const studio=readFileSync('src/studio.js','utf8');
+const membersMigration=readFileSync('supabase/migrations/20261022161000_studio_team_member_profiles.sql','utf8');
+assert.match(membersMigration,/CREATE OR REPLACE FUNCTION public\.studio_team_member_profiles\(p_team uuid\)/,'RPC interna para integrantes de equipo');
+assert.match(membersMigration,/viewer\.team_id = p_team AND viewer\.user_id = \(SELECT auth\.uid\(\)\)/,'RPC obliga a pertenecer al equipo');
+assert.match(membersMigration,/REVOKE ALL ON FUNCTION public\.studio_team_member_profiles\(uuid\) FROM PUBLIC, anon/,'la RPC no puede ser pública');
+assert.match(studio,/sb\.rpc\('studio_team_member_profiles', \{ p_team: T\.team\.id \}\)/,'Estudio resuelve identidades por RPC');
+assert.doesNotMatch(studio,/overrides,profiles\(username,avatar_url\)/,'Estudio no usa joins sobre profiles después de la Fase C');
 const app=readFileSync('src/app.js','utf8');
 const profile=readFileSync('src/profile.js','utf8');
 const teamPage=readFileSync('src/teampage.js','utf8');
