@@ -997,7 +997,7 @@ export async function preferences(C){
       $('#pf-genre-count').textContent = D.genres.length + ' de 3 seleccionados';
       mark();
     });
-    $('[data-ac]').forEach(b => b.onclick = () => { D.accent = b.dataset.ac; mark(); draw(); });
+    app.querySelectorAll('[data-ac]').forEach(b => b.onclick = () => { D.accent = b.dataset.ac; mark(); draw(); });
     $$('[data-rf]').forEach(b => b.onclick = () => { D.favs.splice(+b.dataset.rf, 1); mark(); draw(); });
     $$('[data-lk]').forEach(s => s.onchange = () => { D.links[+s.dataset.lk].k = s.value; mark(); draw(); });
     $$('[data-lu]').forEach(i => i.oninput = () => { D.links[+i.dataset.lu].url = i.value.trim(); mark(); });
