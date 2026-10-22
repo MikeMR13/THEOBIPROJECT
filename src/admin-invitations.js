@@ -16,7 +16,7 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
   const invites = invitesResult.data || [];
   const roleLabels = { owner: 'Propietario · administrador del equipo', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
   const statusLabels = { pendiente: 'Pendiente', utilizada: 'Utilizada', revocada: 'Revocada', caducada: 'Caducada' };
-  target.innerHTML = `<div class="bb-secintro"><div><h2>Invitaciones a equipos traductores</h2><p>Enlaces privados, de un solo uso y vinculados al correo del destinatario.</p></div><span class="bb-status warn">ACCESO CONTROLADO</span></div>
+  target.innerHTML = `<div class="bb-secintro"><div><h2>Invitaciones a equipos traductores</h2><p>Enlaces de un solo uso: por correo o libres para integrantes de equipos existentes.</p></div><span class="bb-status warn">ACCESO CONTROLADO</span></div>
     <section class="bb-box">
       <h3>Crear invitación</h3>
       <p class="mono" style="font-size:12px;line-height:1.65">Puedes invitar a un nuevo responsable para <b>crear su propio equipo</b>, o agregar a alguien a un equipo existente. La invitación exige iniciar sesión y verificar el correo.</p>
@@ -31,7 +31,9 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
         <label id="inv-new-name-wrap">Nombre del nuevo equipo<input name="newName" minlength="2" maxlength="60" required placeholder="Nombre del grupo traductor"></label>
         <label id="inv-new-slug-wrap">Identificador del equipo<input name="newSlug" minlength="3" maxlength="40" pattern="[a-z0-9][a-z0-9-]{1,38}[a-z0-9]" required placeholder="equipo-traductor"></label>
         <div id="inv-owner-role" class="bb-super-note" style="flex:1 1 100%;margin:0">El invitado será <b>Propietario y administrador interno</b> de su nuevo equipo. No recibirá el rol de Bibliotecario.</div>
-        <label>Correo del invitado<input name="email" type="email" autocomplete="off" maxlength="254" required placeholder="traductor@ejemplo.com"></label>
+        <label id="inv-target-wrap" hidden>Destinatario<select name="target"><option value="email">Correo específico</option><option value="open">Enlace libre de un uso</option></select></label>
+        <div id="inv-open-warning" class="bb-super-note" hidden>Quien primero confirme su correo y acepte este enlace entrará al equipo. No concede propiedad ni administración.</div>
+        <label id="inv-email-wrap">Correo del invitado<input name="email" type="email" autocomplete="off" maxlength="254" required placeholder="traductor@ejemplo.com"></label>
         <label id="inv-role-wrap" hidden>Rol dentro del equipo<select name="role">
           ${Object.entries(roleLabels).filter(([k]) => k !== 'owner').map(([k,n]) => `<option value="${k}" ${k === 'admin' ? 'selected' : ''}>${n}</option>`).join('')}
         </select></label>
@@ -48,7 +50,7 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
       <div style="max-width:100%;overflow-x:auto"><table class="bb-tbl" style="min-width:680px">
         <thead><tr><th>Invitado</th><th>Equipo</th><th>Rol</th><th>Estado</th><th>Caduca</th><th>Gestión</th></tr></thead>
         <tbody>${invites.map(i => `<tr>
-          <td class="mono">${esc(i.invite_email)}</td><td>${esc(i.team_name)}</td>
+          <td class="mono">${i.invite_email ? esc(i.invite_email) : 'Enlace libre'}</td><td>${esc(i.team_name)}</td>
           <td>${esc(roleLabels[i.invited_role] || i.invited_role)}${i.invitation_kind === 'create_team' ? '<small style="display:block;color:var(--gold)">Equipo nuevo</small>' : ''}</td>
           <td><span class="bb-status ${i.status === 'pendiente' ? 'warn' : i.status === 'utilizada' ? 'ok':''}">${esc(statusLabels[i.status] || i.status)}</span></td>
           <td class="mono">${esc(when(i.expires_at))}</td>
