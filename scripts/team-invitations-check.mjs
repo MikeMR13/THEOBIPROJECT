@@ -49,7 +49,7 @@ requireMatch(redeem,/team_invitation_preview/,'Comprobación con sesión');
 requireMatch(redeem,/team_invitation_redeem/,'Canje explícito');
 requireMatch(redeem,/sessionStorage\.removeItem\(KEY\)/,'Descartar token tras canje');
 assert.doesNotMatch(redeem,/localStorage\.setItem/,'No guardar secreto persistentemente');
-assert.doesNotMatch(sql,/platform_role\s*=\s*'bibliotecario'/i,'El enlace no concede rol de plataforma');
+assert.doesNotMatch(sql,/update public\\.profiles[\\s\\S]{0,160}platform_role/i,'No se debe promover el rol de plataforma directamente');
 
 console.log('OK: invitaciones, seguridad estática, sintaxis y flujo de acceso.');
 console.log('FALTA: integración en Supabase staging, pruebas de concurrencia y correo real.');
