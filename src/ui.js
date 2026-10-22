@@ -481,13 +481,17 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       const k = S.platformKey(), fs = k && S.SEASONS[k];
       return fs && fs.g !== 'est' ? fs : null;
     })).catch(() => null);
+    // Lectura paginada: ningún equipo se descarta por exceder 3, 8 o 100 obras.
+    const teamHighlights = () => import('/paging.js?v=1').then(({readPages}) =>
+      readPages((from,to)=>sb.from('team_featured_series')
+        .select('team_id,series_id,updated_at').order('team_id').range(from,to),{size:250}));
     const [FD, prog, pr, VR, TR, TF] = await Promise.all([
       feed(), progressMap(),
       u ? sb.rpc('my_adult_ok') : { data: null },
       // La portada del volumen publicado más reciente puede diferir de la ficha.
       sb.from('volumes').select('id,series_id,num,title,cover_path,status,published_at,announced_at,is_final').is('deleted_at', null).eq('status', 'published').then(r => r, () => ({ data: [] })),
       sb.from('rankings').select('series_id,list,period,score,pos').eq('list','tendencia').in('period',['hoy','semana']).order('pos').limit(30).then(r => r, () => ({ data: [] })),
-      sb.from('team_featured_series').select('team_id,series_id').limit(100).then(r => r, () => ({ data: [] }))]);
+      teamHighlights().then(r=>r,()=>({data:[]}))]);
     { const vc = {}; (VR?.data || []).filter(v => v.cover_path && v.status === 'published').forEach(v => { if (!vc[v.series_id] || v.num > vc[v.series_id].num) vc[v.series_id] = v; });
       (FD?.series || []).forEach(s => { const v = vc[s.id]; if (v && v.cover_path !== s.cover_path) { s.cover_path = v.cover_path; s.cover_thumb_path = null; } }); }
     const { series, latest, rkW, rkH, top10 } = FD, ps = { featured: FD.featured }, nextRel = (FD.nextRel || []).filter(e => new Date(e.at) > Date.now());
@@ -500,6 +504,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const newsBySeries = news.bySeries;
     const featured = homeFeaturedSelection({ series:list, news, weekly:rkW||[], historic:rkH||[], trends:TR?.data||[], editorial:Array.isArray(ps.featured)?ps.featured:[], teams:TF?.data||[], now });
     const feat = featured.entries.map(x => byId[x.id]);
+    const teamSignature = rows => (rows||[]).map(x=>[x.team_id,x.series_id,x.updated_at].join('/')).sort().join('|');
+    const loadedTeamSignature = teamSignature(TF?.data);
     const featReasons = featured.bySeries;
     const cont = Object.values(prog).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).filter(p => byId[p.series_id]).slice(0, 6);
     const grp = news.entries.slice(0, 6);
@@ -572,12 +578,19 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       if(homeDayKey() !== featured.day){clearInterval(homeRotationTimer);home();return;}
       checkingNewRelease=true;
       try {
-        const {data,error}=await sb.from('volumes').select('announced_at,published_at')
-          .eq('status','published').is('deleted_at',null)
-          .order('announced_at',{ascending:false,nullsFirst:false}).limit(1);
-        if(!error && (Date.parse(data?.[0]?.announced_at||data?.[0]?.published_at)||0)>currentAnnouncement){
-          clearInterval(homeRotationTimer);home();
-        }
+        const [releaseResult,teamResult]=await Promise.all([
+          sb.from('volumes').select('announced_at,published_at')
+            .eq('status','published').is('deleted_at',null)
+            .order('announced_at',{ascending:false,nullsFirst:false}).limit(1),
+          teamHighlights().then(r=>r,()=>({data:null,error:true}))
+        ]);
+        // La recomendación añadida, sustituida o vencida se refleja en una
+        // pestaña abierta en menos de un minuto, incluso sin cambio de día.
+        const changedTeam = Array.isArray(teamResult?.data)
+          && teamSignature(teamResult.data)!==loadedTeamSignature;
+        const changedRelease=!releaseResult.error
+          && (Date.parse(releaseResult.data?.[0]?.announced_at||releaseResult.data?.[0]?.published_at)||0)>currentAnnouncement;
+        if(changedTeam||changedRelease){clearInterval(homeRotationTimer);home();}
       } finally {checkingNewRelease=false;}
     }, 60000);
     // Fase 2: secciones secundarias, sin bloquear lo anterior.
@@ -630,7 +643,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       <div class="ob-txt"><span class="ob-kick">${v ? '第' + KN(v.num) + '巻 · 新刊' : '第' + KN(lc?.num || 1) + '章' + (fresh ? ' · 新刊' : '')}</span><div class="ob-hero-flags"><span class="ob-badge${v ? ' ob-badge-vol' : ''}">${reason?.kind !== 'release' ? esc(reason?.label || 'Destacado') : reason?.urgent ? '¡NOVELA COMPLETA! · VOL. ' + v.num : v ? (fresh ? '¡NUEVO VOLUMEN! · VOL. ' : 'VOLUMEN DISPONIBLE · VOL. ') + v.num : currentNotice(s)?.kind === 'chapter' ? 'CAPÍTULO PUBLICADO' : fresh ? 'NUEVO · CAP. ' + (lc?.num || 1) : 'CAP. ' + (lc?.num || 1) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${heroTag(s)}</div>${top[s.id] ? `<div class="ob-hero-rank"><a class="rk-bdg" href="/ranking"><b>#${top[s.id]}</b>Top de la semana</a></div>` : ''}
         <h1 data-len="${(s.title.length + (v ? 12 + String(v.num).length : 0)) > 70 ? 'xl' : (s.title.length + (v ? 12 + String(v.num).length : 0)) > 40 ? 'l' : ''}"><a class="ob-h1a" href="/serie/${s.slug}">${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}</a></h1>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn" style="white-space:pre-line">${esc(s.synopsis ? (synT.slice(tag.length).replace(/^\s+/, '').replace(/\n{3,}/g, '\n\n') || synT) : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), (s.chapters?.[0]?.count || 0) + ' capítulos en español'].filter(Boolean).join(' · ') + '.')}</p>
         <div class="ob-acts"><a class="a1" href="${v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + n}">${v ? 'Ver volumen ' + v.num : p ? 'Continuar capítulo ' + n : 'Leer capítulo ' + (lc?.num || 1)}</a>${v && (p || lc) ? `<a class="a2" href="/leer/${s.slug}/${n}">${p ? 'Continuar lectura' : 'Empezar a leer'}</a>` : `<a class="a2" href="/serie/${s.slug}">Ver la serie</a>`}</div></div>
-      ${feat.length > 1 ? `<div class="ob-pager2" style="position:absolute;left:clamp(16px,4vw,56px);right:clamp(16px,4vw,56px);bottom:14px;z-index:2;display:flex;align-items:center;gap:10px"><button data-j="${(i - 1 + feat.length) % feat.length}" aria-label="Anterior" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">‹</button><span style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">${feat.map((f, j) => `<button data-j="${j}" aria-label="${esc(f.title)}" aria-current="${j === i}" style="height:10px;flex:${j === i ? '0 1 160px' : '0 0 10px'};min-width:10px;padding:0;border:none;cursor:pointer;position:relative;overflow:hidden;background:${j === i ? '#3d3628' : '#5a5244'}">${j === i ? `<i class="ob-hp" style="position:absolute;inset:0;background:var(--gold);transform-origin:left;transform:scaleX(${heroPaused ? 1 : 0});${heroPaused || matchMedia('(prefers-reduced-motion: reduce)').matches ? '' : 'animation:obHp 8s linear forwards'}"></i>` : ''}</button>`).join('')}</span><button data-hp aria-label="${heroPaused ? 'Reanudar' : 'Pausar'}" style="height:40px;padding:0 12px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">${heroPaused ? '▶ Reanudar' : 'Ⅱ Pausar'}</button><button data-j="${(i + 1) % feat.length}" aria-label="Siguiente" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">›</button></div>` : ''}`;
+      ${feat.length > 1 ? `<div class="ob-pager2" style="position:absolute;left:clamp(16px,4vw,56px);right:clamp(16px,4vw,56px);bottom:14px;z-index:2;display:flex;align-items:center;gap:10px"><button data-j="${(i - 1 + feat.length) % feat.length}" aria-label="Anterior" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">‹</button><span style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">${feat.length > 10 ? `<span class="mono" aria-label="Diapositiva ${i+1} de ${feat.length}" style="min-width:70px;text-align:center;font:600 12px 'IBM Plex Mono',monospace;color:var(--paper)">${i+1} / ${feat.length}</span>` : feat.map((f, j) => `<button data-j="${j}" aria-label="${esc(f.title)}" aria-current="${j === i}" style="height:10px;flex:${j === i ? '0 1 160px' : '0 0 10px'};min-width:10px;padding:0;border:none;cursor:pointer;position:relative;overflow:hidden;background:${j === i ? '#3d3628' : '#5a5244'}">${j === i ? `<i class="ob-hp" style="position:absolute;inset:0;background:var(--gold);transform-origin:left;transform:scaleX(${heroPaused ? 1 : 0});${heroPaused || matchMedia('(prefers-reduced-motion: reduce)').matches ? '' : 'animation:obHp 8s linear forwards'}"></i>` : ''}</button>`).join('')}</span><button data-hp aria-label="${heroPaused ? 'Reanudar' : 'Pausar'}" style="height:40px;padding:0 12px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">${heroPaused ? '▶ Reanudar' : 'Ⅱ Pausar'}</button><button data-j="${(i + 1) % feat.length}" aria-label="Siguiente" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">›</button></div>` : ''}`;
     el.querySelectorAll('[data-j]').forEach(b => b.onclick = () => heroSlide(feat, +b.dataset.j, prog, lastCh, top, newsBySeries, featReasons));
     el.querySelector('[data-hp]')?.addEventListener('click', () => { heroPaused = !heroPaused; heroSlide(feat, i, prog, lastCh, top, newsBySeries, featReasons); });
     if (feat.length > 1 && !heroPaused && !matchMedia('(prefers-reduced-motion: reduce)').matches) heroT = setTimeout(() => { if (document.body.contains(el)) heroSlide(feat, el.matches(':hover') ? i : (i + 1) % feat.length, prog, lastCh, top, newsBySeries, featReasons); }, 8000);
