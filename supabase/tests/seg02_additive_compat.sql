@@ -9,6 +9,7 @@ BEGIN
     OR NOT has_column_privilege('anon','public.profiles','username','SELECT')
     OR NOT has_column_privilege('anon','public.profiles','avatar_url','SELECT')
     OR NOT has_column_privilege('authenticated','public.profiles','notify','SELECT')
+    OR NOT has_column_privilege('authenticated','public.profiles','patron_wall','UPDATE')
   THEN RAISE EXCEPTION 'SEG02 FASE A rompió acceso legacy del frontend'; END IF;
 
   IF to_regprocedure('public.studio_profile_names(uuid[])') IS NULL
