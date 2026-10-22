@@ -237,7 +237,7 @@ try{
  check(app.querySelector('.lc-shelf-summary')?.textContent.includes('4'),'El conteo de lecturas no corresponde a la estantería visible');
  check(app.querySelectorAll('.lc-rv article').length===2,'Faltan reseñas');
  check(!!app.querySelector('.lc-review-spoiler:not([open])'),'Las reseñas spoiler no están inicialmente ocultas');
- check(!app.querySelector('.lc-review-main p')?.textContent.includes('Gran revelación secreta'),'La reseña spoiler está visible fuera de su desplegable');
+ check(![...app.querySelectorAll('.lc-review-main > p')].some(p=>p.textContent.includes('Gran revelación secreta')),'La reseña spoiler está visible fuera de su desplegable');
  const shelfDone=app.querySelector('[data-sh="done"]');
  shelfDone?.click();
  check(app.querySelector('#lc-shb')?.textContent.includes('Terminada'),'Cambiar estantería no actualiza la biblioteca');
