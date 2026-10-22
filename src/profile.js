@@ -985,7 +985,7 @@ export async function preferences(C){
       const info = $('#seal-selected'); if (info) info.innerHTML = sealSelected();
     };
     updateSealPanel();
-    $('[data-genre]').forEach(b => b.onclick = () => {
+    app.querySelectorAll('[data-genre]').forEach(b => b.onclick = () => {
       const genre = b.dataset.genre;
       if (!GENRE_CATALOG.includes(genre)) return;
       if (D.genres.includes(genre)) D.genres = D.genres.filter(g => g !== genre);
@@ -993,7 +993,7 @@ export async function preferences(C){
         if (D.genres.length >= 3) return toast('Puedes seleccionar un máximo de tres géneros');
         D.genres.push(genre);
       }
-      $('[data-genre]').forEach(choice => choice.setAttribute('aria-pressed', String(D.genres.includes(choice.dataset.genre))));
+      app.querySelectorAll('[data-genre]').forEach(choice => choice.setAttribute('aria-pressed', String(D.genres.includes(choice.dataset.genre))));
       $('#pf-genre-count').textContent = D.genres.length + ' de 3 seleccionados';
       mark();
     });
