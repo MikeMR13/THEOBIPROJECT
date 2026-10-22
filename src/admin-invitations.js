@@ -33,7 +33,7 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
         <div id="inv-owner-role" class="bb-super-note" style="flex:1 1 100%;margin:0">El invitado será <b>Propietario y administrador interno</b> de su nuevo equipo. No recibirá el rol de Bibliotecario.</div>
         <label>Correo del invitado<input name="email" type="email" autocomplete="off" maxlength="254" required placeholder="traductor@ejemplo.com"></label>
         <label id="inv-role-wrap" hidden>Rol dentro del equipo<select name="role">
-          ${Object.entries(roleLabels).map(([k,n]) => `<option value="${k}" ${k === 'admin' ? 'selected' : ''}>${n}</option>`).join('')}
+          ${Object.entries(roleLabels).filter(([k]) => k !== 'owner').map(([k,n]) => `<option value="${k}" ${k === 'admin' ? 'selected' : ''}>${n}</option>`).join('')}
         </select></label>
         <label>Caducidad<select name="hours">
           <option value="24">24 horas</option><option value="48" selected>48 horas</option>
