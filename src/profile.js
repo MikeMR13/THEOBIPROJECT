@@ -223,12 +223,9 @@ const CSS = `
 .lc-public-card{display:grid;grid-template-rows:auto auto;min-height:0;align-items:stretch;overflow:visible;background:#16130f}
 .lc-public-card .lc-cover-stage{height:clamp(172px,22vw,280px);position:relative;overflow:hidden;background:#0d0c0a}
 .lc-public-card .lc-cover-stage .lc-bg{opacity:.82}
-/* Mantener el logotipo entero sin franjas negras: ambiente extendido y logo nítido. */
-.lc-public-card .lc-cover-stage.is-user-banner .lc-bg{background-size:0 0;background-position:center;background-repeat:no-repeat;background-color:#0d0c0a;opacity:1;isolation:isolate}
-.lc-public-card .lc-cover-stage.is-user-banner .lc-bg::before,
-.lc-public-card .lc-cover-stage.is-user-banner .lc-bg::after{content:"";position:absolute;inset:0;background-image:inherit;background-position:center;background-repeat:no-repeat;pointer-events:none}
-.lc-public-card .lc-cover-stage.is-user-banner .lc-bg::before{background-size:cover;filter:blur(26px) brightness(.42);transform:scale(1.12)}
-.lc-public-card .lc-cover-stage.is-user-banner .lc-bg::after{background-size:contain;filter:drop-shadow(0 3px 9px rgba(0,0,0,.6))}
+/* La portada subida ocupa todo el ancho como una sola imagen, sin capas de relleno. */
+.lc-public-card .lc-cover-stage.is-user-banner .lc-bg{background-size:cover;background-position:center center;background-repeat:no-repeat;background-color:transparent;opacity:1}
+.lc-public-card .lc-cover-stage.is-user-banner .lc-sh{display:none}
 .lc-public-card .lc-cover-stage .lc-sh{background:linear-gradient(180deg,transparent 65%,rgba(13,12,10,.28) 100%)}
 .lc-public-card .lc-in{display:flex;align-items:flex-start;flex-wrap:wrap;gap:16px 22px;background:#16130f;padding:0 clamp(16px,3vw,30px) clamp(20px,3vw,30px)}
 .lc-public-card .lc-av{position:relative;z-index:2;width:96px;height:96px;font-size:38px;margin-top:-40px;box-shadow:0 5px 16px rgba(0,0,0,.4);background:#211c13}
