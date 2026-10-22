@@ -476,7 +476,29 @@ export async function preferences(C){
   const D = { bio: P.bio || '', kanji: P.seal_kanji || '', accent: P.accent || '#f2c230', banner: P.banner_url, links: (P.links || []).map(l => ({ on: true, ...l })),
     sec: Object.fromEntries(SECS.map(([k, , d]) => [k, P.profile_sections?.[k] ?? d])), pub: !!P.public_activity, favs: [] };
   if (P.favorites?.length) { const { data } = await sb.from('series').select('id,title,slug,cover_path,cover_thumb_path,theme').in('id', P.favorites); D.favs = P.favorites.map(id => (data || []).find(s => s.id === id)).filter(Boolean); }
-  let dirty = false; const mark = () => { dirty = true; const s = app.querySelector('#pf-st'); if (s) s.textContent = 'Cambios sin guardar'; };
+  // La navegación dentro del SPA no dispara beforeunload. Mantener un borrador
+  // local por usuario evita perder bio, enlaces y favoritas si cambia la ruta.
+  const draftKey = 'obi-profile-draft:user:' + user.id;
+  let dirty = false, recovered = false;
+  try {
+    const saved = JSON.parse(localStorage.getItem(draftKey) || 'null');
+    if (saved?.version === 1 && saved.data && typeof saved.data === 'object') {
+      const d = saved.data;
+      if (typeof d.bio === 'string') D.bio = d.bio.slice(0, 280);
+      if (typeof d.kanji === 'string') D.kanji = d.kanji.slice(0, 2);
+      if (SWATCH.includes(d.accent)) D.accent = d.accent;
+      if (typeof d.banner === 'string' || d.banner === null) D.banner = d.banner;
+      if (Array.isArray(d.links)) D.links = d.links.filter(l => l && ICON[l.k] && typeof l.url === 'string').slice(0, 12);
+      if (Array.isArray(d.favs)) D.favs = d.favs.filter(x => x && typeof x.id === 'string' && typeof x.title === 'string').slice(0, 5);
+      dirty = true; recovered = true;
+    }
+  } catch {}
+  const mark = () => {
+    dirty = true; recovered = false;
+    try { localStorage.setItem(draftKey, JSON.stringify({ version: 1, data: D })); }
+    catch { toast('No se pudo conservar el borrador en este dispositivo'); }
+    const s = app.querySelector('#pf-st'); if (s) s.textContent = 'Borrador sin guardar';
+  };
   const favHTML = () => D.favs.map((s, i) => `<span><span class="lc-cv" style="--c:${esc(s.theme?.color || '#2a2519')};${s.cover_path ? `background-image:url('${esc(MED(s.cover_thumb_path || s.cover_path))}')` : ''}">${esc(s.title)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.title)}</span><button type="button" class="pf-x" data-rf="${i}" aria-label="Quitar ${esc(s.title)}">×</button></span>`).join('') || '<p class="pf-note">Aún no eliges favoritas.</p>';
   const linkRow = (l, i) => `<div class="pf-row ${l.on ? '' : 'off'}"><span class="ic">${svg(l.k, 18)}</span>
     <select data-lk="${i}" aria-label="Red">${GROUPS.map(([g, ks]) => `<optgroup label="${g}">${ks.map(k => `<option value="${k}" ${k === l.k ? 'selected' : ''}>${ICON[k][0]}</option>`).join('')}</optgroup>`).join('')}</select>
@@ -497,7 +519,7 @@ export async function preferences(C){
       <div style="display:grid;gap:10px"><h3>Enlaces</h3>${D.links.map(linkRow).join('')}
         ${D.links.length < 12 ? '<button type="button" class="btn ghost sm" id="addl" style="justify-self:start">+ Añadir enlace</button>' : ''}</div>
       <p class="pf-note">Qué secciones se muestran y quién ve tu carnet se elige en <a href="/preferencias?s=privacidad">Privacidad</a>.</p>
-      <div class="pf-save"><span class="mono" id="pf-st">${dirty ? 'Cambios sin guardar' : ''}</span><a class="btn ghost" href="/perfil">Ver mi perfil</a><button class="btn" id="save">Guardar cambios</button></div>`);
+      <div class="pf-save"><span class="mono" id="pf-st" role="status" aria-live="polite">${dirty ? (recovered ? 'Borrador recuperado: revisa y guarda' : 'Borrador sin guardar') : ''}</span><a class="btn ghost" href="/perfil">Ver mi perfil</a><button class="btn" id="save">Guardar cambios</button></div>`);
     const $ = s => app.querySelector(s), $$ = s => app.querySelectorAll(s);
     $('#bio').oninput = e => { D.bio = e.target.value; mark(); };
     $('#kj').oninput = e => { D.kanji = e.target.value.trim(); mark(); };
@@ -529,9 +551,29 @@ export async function preferences(C){
       const { error } = await sb.from('profiles').update({ bio: D.bio.trim() || null, seal_kanji: D.kanji || null, accent: D.accent, banner_url: D.banner, links, favorites: D.favs.map(f => f.id) }).eq('id', user.id);
       b.disabled = false; b.textContent = 'Guardar cambios';
       if (error) return toast(/links/.test(error.message) ? 'Revisa los enlaces' : /seal_kanji/.test(error.message) ? 'El sello debe ser un solo kanji' : error.message);
-      D.links = links; dirty = false; toast('Perfil guardado'); reload?.(); draw(); };
+      D.links = links; dirty = false; recovered = false;
+      try { localStorage.removeItem(draftKey); } catch {}
+      toast('Perfil guardado'); reload?.(); draw(); };
   };
   draw();
-  const leave = e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } }; addEventListener('beforeunload', leave);
-  addEventListener('popstate', () => removeEventListener('beforeunload', leave), { once: true });
+  const leave = e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } };
+  const navigate = e => {
+    if (!dirty) return;
+    const a = e.target.closest?.('a[href^="/"]');
+    if (!a || a.target || a.getAttribute('href') === location.pathname + location.search) return;
+    if (!confirm('Tienes cambios sin guardar en tu perfil. El borrador se conservará para volver después. ¿Salir?')) {
+      e.preventDefault(); e.stopImmediatePropagation();
+    } else {
+      removeEventListener('beforeunload', leave);
+      document.removeEventListener('click', navigate, true);
+    }
+  };
+  addEventListener('beforeunload', leave);
+  document.addEventListener('click', navigate, true);
+  addEventListener('popstate', () => {
+    // El botón Atrás no pasa por el controlador de enlaces del SPA; el borrador
+    // ya está persistido, así que se puede recuperar al volver a Preferencias.
+    removeEventListener('beforeunload', leave);
+    document.removeEventListener('click', navigate, true);
+  }, { once: true });
 }
