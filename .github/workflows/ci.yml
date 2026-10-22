@@ -1,5 +1,10 @@
 name: ci
 on: [push, pull_request]
+# Un único CI por rama: evita que 3 PRs del mismo SHA ejecuten Chromium
+# simultáneamente y compitan por CPU. Nunca silencia aserciones funcionales.
+concurrency:
+  group: ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: ubuntu-latest
