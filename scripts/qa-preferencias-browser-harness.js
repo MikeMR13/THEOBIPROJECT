@@ -1,5 +1,5 @@
 // Datos sintéticos y pantalla de preferencias real. Solo ejecutar desde el servidor de QA.
-import {preferences} from '/profile.js';
+import {preferences, publicProfile} from '/profile.js';
 import {readerPrefsPendingKey,readerPrefsKey} from '/reader-pref-cache.js';
 const report=document.getElementById('result'), problems=[];
 const check=(v,msg)=>{if(!v)problems.push(msg)};
@@ -26,6 +26,17 @@ const sb={
   if(name==='my_profile')return Promise.resolve({data:clone(P(user.id)),error:null});
   if(name==='deletion_preview')return Promise.resolve({data:{requested_at:null,teams:[]},error:null});
   if(name==='favorite_candidates')return Promise.resolve({data:[],error:null});
+  if(name==='platform_patron')return Promise.resolve({data:false,error:null});
+  if(name==='reader_public')return Promise.resolve({data:{
+    username:'OX-MRTRADUCCIONES',private:false,accent:'#f2c230',banner_url:'https://fake.invalid/portada.jpg',
+    avatar_url:null,kanji:'書',bio:'Mi biblioteca de novelas ligeras',since:'2026-10-01T00:00:00Z',
+    links:[{k:'facebook',url:'https://facebook.com/ejemplo'}],
+    favorites:[{slug:'a',title:'Una novela con un título bastante largo',color:'#58402b',cover_path:null},
+      {slug:'b',title:'Segunda novela',color:'#352e49',cover_path:null},
+      {slug:'c',title:'Tercera novela',color:'#294958',cover_path:null}],
+    stats:{chapters:0,month:0,series:0,finished:0,following:2},public_activity:true,
+    seals:null,shelves:null,reviews:null
+  },error:null});
   throw Error('RPC inesperada: '+name);
  },
  from(name){
@@ -169,6 +180,32 @@ try{
   check(rect.width>=43&&rect.height>=43,'Objetivo táctil insuficiente: '+s);
  }
  check(document.documentElement.scrollWidth<=width+3,'Desbordamiento horizontal '+width);
+
+ // Carnet público real, con backend simulado y contenido no privado.
+ const statsHTML=st=>'<div class="st-grid">'+[
+  [st.chapters,'capítulos leídos'],[st.month,'en los últimos 30 días'],
+  [st.series,'obras empezadas'],[st.finished,'obras terminadas'],
+  [st.following,'obras seguidas']
+ ].map(([n,label])=>'<div class="st-k"><b>'+n+'</b><span>'+label+'</span></div>').join('')+'</div>';
+ await publicProfile({...C,statsHTML},'OX-MRTRADUCCIONES');
+ const publicCard=app.querySelector('.lc-public .lc-public-card');
+ const coverStage=publicCard?.querySelector('.lc-cover-stage');
+ const coverBg=coverStage?.querySelector('.lc-bg');
+ check(!!publicCard&&!!coverStage,'No se encontró la cabecera editorial pública');
+ check(!!coverBg&&getComputedStyle(coverBg).backgroundSize==='contain','La portada no conserva el encuadre completo');
+ check(!!publicCard.querySelector('.lc-tx .lc-seal-pop'),'El sello no está junto al nombre');
+ check(publicCard.querySelector('.lc-seal-name')?.textContent==='El Escriba','Apodo de lector incorrecto');
+ const sealSummary=publicCard.querySelector('.lc-seal-pop summary');
+ sealSummary?.click();
+ check(!!publicCard.querySelector('.lc-seal-pop details[open]'),'La explicación del sello no se puede desplegar');
+ check(app.querySelectorAll('.lc-public .lc-fav a').length===3,'Favoritas no muestran las tres obras');
+ check(getComputedStyle(app.querySelector('.lc-fav')).justifyContent==='center','Favoritas no quedan equilibradas');
+ check(app.querySelectorAll('.lc-public .lc-stats .st-k').length===5,'Estadísticas no tienen tarjetas');
+ const firstStat=app.querySelector('.lc-public .lc-stats .st-k');
+ check(getComputedStyle(firstStat).borderTopWidth!=='0px','Estadísticas sin énfasis de tarjeta');
+ check(firstStat?.querySelector('b')?.textContent==='0','El cero de las estadísticas desapareció');
+ const pageWidth=document.documentElement.clientWidth;
+ check(document.documentElement.scrollWidth<=pageWidth+3,'Desbordamiento del carnet público a '+pageWidth+'px');
 }catch(e){problems.push('Excepción: '+(e.stack||e.message))}
 report.dataset.qaStatus=problems.length?'fail':'pass';
 report.textContent=problems.length?problems.join(' | '):'Chromium '+innerWidth+'px: navegación, privacidad, avisos, sincronización y cuentas OK';
