@@ -104,9 +104,14 @@ const CSS = `
 .pf-tg i{width:20px;height:20px;border-radius:50%;background:var(--paper)}
 .pf-sl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px}
 .pf-sl>div{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 12px;border:1px solid #2c281e;background:#0d0c0a}
-.pf-favs{display:flex;flex-wrap:wrap;gap:12px}
-.pf-favs>span{position:relative;width:84px;display:grid;gap:6px;font-size:12px}
-.pf-favs .pf-x{position:absolute;top:-10px;right:-10px;min-width:28px;min-height:28px;width:28px;height:28px;border-radius:50%;background:#0d0c0a;border:1px solid var(--line);font-size:14px}
+.pf-favs{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}
+.pf-fav{width:148px;max-width:100%;min-width:0;display:grid;grid-template-rows:auto minmax(2.8em,auto) auto;gap:8px}
+.pf-fav-cover{display:block;width:100%;box-sizing:border-box;overflow:hidden;overflow-wrap:anywhere}
+.pf-fav-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;line-height:1.4;font-size:13px;font-weight:600;min-height:2.8em}
+.pf-fav-remove{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;padding:8px 10px;background:#1c1a14;border:1px solid var(--line);color:var(--paper);font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.pf-fav-remove:hover{border-color:#f59e7a;color:#f59e7a}
+.pf-fav-remove:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+@media(max-width:480px){.pf-favs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.pf-fav{width:auto}}
 .pf-res{display:grid;gap:4px;max-width:420px}
 .pf-res button{display:flex;gap:10px;align-items:center;text-align:left;background:#0d0c0a;border:1px solid var(--line);color:var(--paper);padding:6px 10px;cursor:pointer;min-height:44px;font:14px 'IBM Plex Sans',sans-serif}
 .pf-res button:hover{border-color:var(--gold)}
@@ -444,7 +449,11 @@ export async function preferences(C){
     sec: Object.fromEntries(SECS.map(([k, , d]) => [k, P.profile_sections?.[k] ?? d])), pub: !!P.public_activity, favs: [] };
   if (P.favorites?.length) { const { data } = await sb.from('series').select('id,title,slug,cover_path,cover_thumb_path,theme').in('id', P.favorites); D.favs = P.favorites.map(id => (data || []).find(s => s.id === id)).filter(Boolean); }
   let dirty = false; const mark = () => { dirty = true; const s = app.querySelector('#pf-st'); if (s) s.textContent = 'Cambios sin guardar'; };
-  const favHTML = () => D.favs.map((s, i) => `<span><span class="lc-cv" style="--c:${esc(s.theme?.color || '#2a2519')};${s.cover_path ? `background-image:url('${esc(MED(s.cover_thumb_path || s.cover_path))}')` : ''}">${esc(s.title)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.title)}</span><button type="button" class="pf-x" data-rf="${i}" aria-label="Quitar ${esc(s.title)}">×</button></span>`).join('') || '<p class="pf-note">Aún no eliges favoritas.</p>';
+  const favHTML = () => D.favs.map((s, i) => `<article class="pf-fav">
+    <span class="lc-cv pf-fav-cover" aria-hidden="true" style="--c:${esc(s.theme?.color || '#2a2519')};${s.cover_thumb_path || s.cover_path ? `background-image:url('${esc(MED(s.cover_thumb_path || s.cover_path))}')` : ''}">${esc(s.title)}</span>
+    <span class="pf-fav-title" title="${esc(s.title)}">${esc(s.title)}</span>
+    <button type="button" class="pf-fav-remove" data-rf="${i}" aria-label="Quitar ${esc(s.title)} de favoritas">Quitar</button>
+  </article>`).join('') || '<p class="pf-note">Aún no eliges favoritas.</p>';
   const linkRow = (l, i) => `<div class="pf-row ${l.on ? '' : 'off'}"><span class="ic">${svg(l.k, 18)}</span>
     <select data-lk="${i}" aria-label="Red">${GROUPS.map(([g, ks]) => `<optgroup label="${g}">${ks.map(k => `<option value="${k}" ${k === l.k ? 'selected' : ''}>${ICON[k][0]}</option>`).join('')}</optgroup>`).join('')}</select>
     <input data-lu="${i}" value="${esc(l.url || '')}" placeholder="${ICON[l.k][2]}" inputmode="url" aria-label="Enlace de ${ICON[l.k][0]}">
