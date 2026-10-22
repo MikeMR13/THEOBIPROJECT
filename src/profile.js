@@ -426,17 +426,14 @@ export async function preferences(C){
       </div>`);
     const $ = s => app.querySelector(s);
     const refreshPrivacyPreview = () => { const region = $('#pv-preview'); if (region) region.innerHTML = privacyPreview(); };
-    app.querySelectorAll('[data-pv-audience]').forEach(b => b.onclick = () => {
+    $('#pv-preview').onclick = e => {
+      const b = e.target.closest('[data-pv-audience]');
+      if (!b) return;
       viewAs = b.dataset.pvAudience;
       app.__obiPrivacyView = viewAs;
       refreshPrivacyPreview();
       $('#pv-preview [data-pv-audience="' + viewAs + '"]')?.focus({ preventScroll: true });
-      app.querySelectorAll('#pv-preview [data-pv-audience]').forEach(next => next.onclick = () => {
-        viewAs = next.dataset.pvAudience; app.__obiPrivacyView = viewAs;
-        refreshPrivacyPreview();
-        $('#pv-preview [data-pv-audience="' + viewAs + '"]')?.focus({ preventScroll: true });
-      });
-    });
+    };
     app.querySelectorAll('[name="vis"]').forEach(i => i.onchange = async () => { if (await save({ profile_visibility: i.value }, 'Visibilidad actualizada')) preferences(C); });
     OPT.forEach(([k]) => $('#o-' + k).onclick = async e => { const b = e.currentTarget, v = !P[k]; if (await save({ [k]: v })) { flip(b); refreshPrivacyPreview(); } });
     SECS.forEach(([k]) => $('#s-' + k).onclick = async e => { const b = e.currentTarget; S[k] = !S[k]; if (await save({ profile_sections: { ...S } })) { flip(b); refreshPrivacyPreview(); } else S[k] = !S[k]; });
