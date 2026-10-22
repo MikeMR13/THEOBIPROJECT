@@ -17,7 +17,11 @@ async function account(name,admin=false){
   const signup=ok(await session.auth.signUp({email,password:pw}),name+' signup');
   const uid=signup.user?.id;
   assert(uid,name+' no recibió ID de GoTrue');
-  // Correo confirmado por administrador SOLO de esta instancia local.
+  assert.equal(signup.session,null,name+' debe confirmar correo antes de iniciar sesión');
+  const beforeConfirm=await session.auth.signInWithPassword({email,password:pw});
+  denied(beforeConfirm,name+' no inicia sesión con correo sin confirmar');
+  // La simulación local confirma el correo por la API administrativa de GoTrue.
+  // No toca cuentas alojadas ni depende de servicios de correo comerciales.
   ok(await root.auth.admin.updateUserById(uid,{email_confirm:true}),name+' confirmar correo local');
   ok(await root.from('profiles').insert({id:uid,username:'qa_'+name,platform_role:admin?'bibliotecario':'lector'}),name+' profile');
   const login=ok(await session.auth.signInWithPassword({email,password:pw}),name+' inicio de sesión');
