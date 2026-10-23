@@ -79,6 +79,20 @@ export const COMPOSITION_PRESETS = {
     columns: 'dos', emphasis: { members: 'destacado', announce: 'destacado' }
   }
 };
+export const MOBILE_ORDER_MODE = { escritorio: 'Como escritorio', propio: 'Orden personalizado' };
+export const MOBILE_HERO = { heredado: 'Como escritorio', compacto: 'Compacto', equilibrado: 'Equilibrado', amplio: 'Amplio' };
+export const MOBILE_CARDS = { heredado: 'Como escritorio', compacto: 'Compactas', amplio: 'Cómodas' };
+export const MOBILE_CATALOG = { heredado: 'Automáticas', una: 'Una columna', dos: 'Dos columnas' };
+export const MOBILE_FOLLOW = { heredado: 'Actual', mostrar: 'Mostrar barra', ocultar: 'Ocultar barra' };
+const sanitizeOrder = value => [...new Set([...(Array.isArray(value) ? value.filter(k => SEC_KEYS.includes(k)) : []), ...SEC_KEYS])];
+const cleanMobile = value => ({
+  orderMode: pick(value?.orderMode, MOBILE_ORDER_MODE, 'escritorio'),
+  order: sanitizeOrder(value?.order),
+  hero: pick(value?.hero, MOBILE_HERO, 'heredado'),
+  cards: pick(value?.cards, MOBILE_CARDS, 'heredado'),
+  catalog: pick(value?.catalog, MOBILE_CATALOG, 'heredado'),
+  follow: pick(value?.follow, MOBILE_FOLLOW, 'heredado')
+});
 const cleanEmphasis = value => Object.fromEntries(SEC_KEYS.map(key => [key, pick(value?.[key], SECTION_EMPHASIS, 'normal')]));
 const cleanComposition = obj => ({
   columns: pick(obj?.columns, COMPOSITION_COLUMNS, 'una'),
@@ -98,6 +112,7 @@ export function normalize(x, teamColor){
   const E = s.editorial && typeof s.editorial === 'object' && !Array.isArray(s.editorial) ? s.editorial : {};
   const C = s.community && typeof s.community === 'object' && !Array.isArray(s.community) ? s.community : {};
   const comp = s.composition && typeof s.composition === 'object' && !Array.isArray(s.composition) ? s.composition : {};
+  const mobile = s.mobile && typeof s.mobile === 'object' && !Array.isArray(s.mobile) ? s.mobile : {};
   return {
     theme: /^mine:\d+$/.test(s.theme || '') ? s.theme : pick(s.theme, { ...THEMES, custom: 1 }, base.theme), template: pick(s.template, TEMPLATES, base.template), bg: pick(s.bg, BGS, base.bg),
     accent: /^#[0-9a-f]{6}$/i.test(s.accent || '') ? s.accent.toLowerCase() : base.accent, font: pick(s.font, TFONTS, base.font),
@@ -128,11 +143,13 @@ export function normalize(x, teamColor){
       ctaText: String(C.ctaText ?? COMMUNITY_DEFAULT.ctaText).trim().slice(0, 120)
     },
     composition: cleanComposition(comp),
+    mobile: cleanMobile(mobile),
     savedCompositions: Array.isArray(s.savedCompositions) ? s.savedCompositions.slice(0, 6).filter(x => x && typeof x === 'object' && /^[a-z0-9_-]{1,48}$/i.test(x.id || '') && typeof x.name === 'string' && x.name.trim()).map(x => ({
       id: x.id, name: x.name.trim().slice(0, 40),
       order: [...new Set([...(Array.isArray(x.order) ? x.order.filter(k => SEC_KEYS.includes(k)) : []), ...SEC_KEYS])],
       hidden: Array.isArray(x.hidden) ? [...new Set(x.hidden.filter(k => SEC_KEYS.includes(k)))] : [],
-      composition: cleanComposition(x.composition)
+      composition: cleanComposition(x.composition),
+      ...(x.mobile && typeof x.mobile === 'object' ? { mobile: cleanMobile(x.mobile) } : {})
     })) : [],
     order: [...new Set([...(Array.isArray(s.order) ? s.order.filter(k => SEC_KEYS.includes(k)) : []), ...SEC_KEYS])],
     hidden: Array.isArray(s.hidden) ? s.hidden.filter(k => SEC_KEYS.includes(k)) : [],
@@ -551,5 +568,5 @@ export function bind(root){
   root.querySelectorAll('[data-car]').forEach(b => b.onclick = e => { e.preventDefault(); const n = car.children.length, i = (idx() + +b.dataset.car + n) % n; car.scrollTo({ left: i * car.clientWidth, behavior: 'smooth' }); });
   car.addEventListener('scroll', () => { const i = idx(); dots.forEach((d, j) => d.classList.toggle('on', i === j)); }, { passive: true });
 }
-export function exportTheme(name, design){ const { motto, theme, featured, announce, order, hidden, seasons, layout, editorial, community, composition, savedCompositions, ...look } = design; return JSON.stringify({ obi_theme: 1, name, design: look }, null, 2); }
+export function exportTheme(name, design){ const { motto, theme, featured, announce, order, hidden, seasons, layout, editorial, community, composition, savedCompositions, mobile, ...look } = design; return JSON.stringify({ obi_theme: 1, name, design: look }, null, 2); }
 export function importTheme(text){ const j = JSON.parse(text); if (!j || j.obi_theme !== 1 || typeof j.design !== 'object') throw new Error('El archivo no es un tema del Obi'); return { name: String(j.name || 'Tema importado').slice(0, 40), design: j.design }; }
