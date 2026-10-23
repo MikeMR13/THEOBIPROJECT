@@ -56,7 +56,7 @@ returns table (
   kind text, at timestamptz, series_id uuid, volume_id uuid,
   vnum numeric, vcover text, label text, acc text, can_read boolean,
   slug text, title text, short text, cover_path text,
-  cover_thumb_path text, work_type text, adult boolean, team_name text, team_slug text
+  cover_thumb_path text, work_type text, adult boolean, genres text[], team_name text, team_slug text
 )
 language sql stable security definer set search_path = ''
 as $pre$
@@ -65,7 +65,7 @@ as $pre$
     'public'::text, false,
     s.slug::text, s.title::text, s.short::text,
     s.cover_path::text, s.cover_thumb_path::text,
-    s.work_type::text, s.adult, t.name::text, t.slug::text
+    s.work_type::text, s.adult, s.genres, t.name::text, t.slug::text
   from public.volumes v
   join public.series s on s.id = v.series_id
   join public.teams t on t.id = s.team_id
