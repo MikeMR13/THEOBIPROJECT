@@ -1772,6 +1772,34 @@ export function createStudio(ctx){
     }
     function bindPanel(){
       const P = $('#pf-panel');
+      const previewPhone = () => { UI.dev = 'mobile'; pv(); };
+      P.querySelectorAll('[data-mobile-key]').forEach(button => button.onclick = () => {
+        const key = button.dataset.mobileKey, value = button.dataset.mobileValue;
+        const order = key === 'orderMode' && value === 'propio' && d.mobile.orderMode !== 'propio'
+          ? [...d.order] : d.mobile.order;
+        UI.dev = 'mobile';
+        set({ mobile: { ...d.mobile, [key]: value, order } }, key === 'orderMode');
+        if (key !== 'orderMode') P.querySelectorAll('[data-mobile-key="' + key + '"]').forEach(x => {
+          const on = x.dataset.mobileValue === value;
+          x.classList.toggle('on', on);
+          x.setAttribute('aria-checked', String(on));
+        });
+      });
+      const mobileMove = (from, to) => {
+        if (d.mobile.orderMode !== 'propio' || from < 0 || to < 0 || from >= d.mobile.order.length || to >= d.mobile.order.length) return;
+        const order = [...d.mobile.order], [item] = order.splice(from, 1);
+        order.splice(to, 0, item);
+        UI.dev = 'mobile';
+        set({ mobile: { ...d.mobile, order } }, true);
+      };
+      P.querySelectorAll('[data-mobile-up]').forEach(b => b.onclick = () => mobileMove(+b.dataset.mobileUp, +b.dataset.mobileUp - 1));
+      P.querySelectorAll('[data-mobile-down]').forEach(b => b.onclick = () => mobileMove(+b.dataset.mobileDown, +b.dataset.mobileDown + 1));
+      P.querySelector('#pf-mobile-copy')?.addEventListener('click', () => {
+        UI.dev = 'mobile';
+        set({ mobile: { ...d.mobile, orderMode: 'propio', order: [...d.order] } }, true);
+        toast('Orden de escritorio copiado al diseño móvil');
+      });
+      P.querySelector('#pf-mobile-preview')?.addEventListener('click', previewPhone);
       P.querySelectorAll('[data-comp-preset]').forEach(b => b.onclick = () => {
         const preset = TP.compositionPreset(b.dataset.compPreset);
         if (!preset) return;
