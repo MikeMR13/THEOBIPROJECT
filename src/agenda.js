@@ -23,6 +23,8 @@ const CSS = `
 .ag-btn{padding:6px 11px;border:1px solid #3d3628;background:#16140f;color:#f3ecd9;font:inherit;font-size:13px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;line-height:1.2}.ag-btn:hover{border-color:#f2c230;color:#f3ecd9}
 .ag-btn.pat{background:#f96854;border-color:#f96854;color:#1a0d0a;font-weight:600}.ag-btn.on{border-color:#a9d18e;color:#a9d18e}
 .ag-period{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.ag-period-btn{border:1px solid #3d3628;background:#16140f;color:#cfc6b0;padding:9px 12px;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;font:inherit}.ag-period-btn strong{font-size:20px;color:#f3ecd9}.ag-period-btn span{font-size:12px}.ag-period-btn.on{border-color:#f2c230;background:#2a2412}.ag-period-btn:focus-visible{outline:2px solid #f2c230;outline-offset:2px}
+.ag-milestones{display:flex;flex-wrap:wrap;gap:5px 14px;font-size:12px;color:#cfc6b0;margin-top:3px}.ag-milestones span{display:inline-flex;gap:5px;align-items:baseline}.ag-milestones b{color:#f3ecd9;font-weight:600}
+.ag-chapters{margin:5px 0 1px;border-top:1px solid #312b20;padding-top:6px}.ag-chapters summary{cursor:pointer;color:#e5cb7d;font-size:12px;display:list-item;list-style-position:inside}.ag-chapter-list{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0 3px}.ag-chapter-list a,.ag-chapter-list span{border:1px solid #413927;padding:4px 7px;font-size:11px;color:#e7dec9;text-decoration:none}.ag-chapter-list a:hover{border-color:#f2c230;color:#f2c230}
 .ag-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
 .ag-day{border:1px solid #2f2a20;background:#100f0c;min-height:150px;display:flex;flex-direction:column;min-width:0}.ag-day.today{border-color:#f2c230}
 .ag-dh{display:flex;justify-content:space-between;align-items:baseline;padding:6px 8px;border-bottom:1px solid #2f2a20;font-size:12px;color:#a89f8a;text-transform:capitalize}.ag-dh b{color:#f3ecd9;font-size:16px}.ag-day.today .ag-dh b{color:#f2c230}
@@ -51,7 +53,7 @@ const CSS = `
 @media (max-width:1100px){.ag-week{grid-template-columns:1fr;gap:6px}.ag-day{min-height:0}.ag-day.empty{display:none}.ag-day.today.empty{display:flex}.ag-ev.c{grid-template-columns:38px minmax(0,1fr)}.ag-ev.c .ag-cv{display:block}.ag-dl{grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))}}
 @media (max-width:760px){
   .ag-bar{margin:10px -12px 14px;padding:8px 12px}.ag-row.opt{display:none}.ag-bar.open .ag-row.opt{display:flex}
-  .ag-tabs{width:100%}.ag-tabs button{flex:1;padding:9px 6px}.ag-period-btn{padding:8px 6px;display:grid;gap:2px;justify-items:center;text-align:center}.ag-period-btn strong{font-size:16px}.ag-period-btn span{font-size:11px}
+  .ag-tabs{width:100%}.ag-tabs button{flex:1;padding:9px 6px}.ag-period-btn{padding:8px 6px;display:grid;gap:2px;justify-items:center;text-align:center}.ag-period-btn strong{font-size:16px}.ag-period-btn span{font-size:11px}.ag-milestones{display:grid;gap:4px}
   .ag-week{grid-template-columns:1fr;gap:6px}.ag-day{min-height:0}.ag-day.empty{display:none}.ag-day.today.empty{display:flex}
   .ag-ev{grid-template-columns:38px minmax(0,1fr);gap:8px;padding:7px}.ag-ll{grid-template-columns:1fr}
   .ag-mc{min-height:64px;padding:4px}.ag-mi span,.ag-mf{display:none}.ag-mi{display:inline-flex}.ag-mc .dots{display:flex;flex-wrap:wrap;gap:2px}.ag-mcount{font-size:11px}
@@ -188,9 +190,13 @@ export async function agenda(ctx){
     if (g.kind === 'aniv') { const a = g.team; return `<div class="ag-ev${compact ? ' c' : ''}" style="--c:${COL.aniv}"><span class="ag-cv" style="${a.avatar_path ? `background-image:url('${esc(media(a.avatar_path))}')` : `background:${esc(a.color || '#2a2519')}`}"></span><div class="ag-bd"><span class="ag-tg2"><i></i>🎉 Aniversario</span><a class="ag-t" href="/equipo/${esc(a.slug)}">${esc(a.name)}</a><span class="ag-m">${esc(a.msg)}</span><span class="ag-m">${a.years} ${a.years === 1 ? 'año' : 'años'} en el Obi</span></div></div>`; }
     const s = g.s, cv = g.cover ? media(g.cover) : media(s.cover_thumb_path || s.cover_path), unread = u && g.kind === 'pub' ? g.list.filter(c => !D.read.has(c.chapter_id)).length : null;
     const tag = g.kind === 'prog' && g.f.has('pat') ? 'Programado · Solo mecenas' : g.kind === 'pub' && g.patronFirst ? 'Estreno para mecenas' : g.kind === 'volp' ? 'Volumen programado' : TAG[g.c];
-    const dates = g.kind === 'open' ? `<span class="ag-m">Mecenas: <b>${g.early ? fdt(g.early, { day: 'numeric', month: 'short' }) : '—'}</b> · General: <b>${fdt(g.at, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</b></span>`
-      : g.f.has('pat') ? `<span class="ag-m">Mecenas: <b>${fdt(g.at, { day: 'numeric', month: 'short' })}</b> · General: <b>${g.open ? fdt(g.open, { day: 'numeric', month: 'short' }) : 'sin fecha'}</b></span>` : '';
+    const shortDate = d => fdt(d, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const dates = g.kind === 'open' || g.f.has('pat') ? `<div class="ag-milestones" aria-label="Fechas de liberación">
+      <span>🔒 Mecenas <b>${g.kind === 'open' ? (g.early ? shortDate(g.early) : '—') : shortDate(g.at)}</b></span>
+      <span>🔓 Público general <b>${g.kind === 'open' ? shortDate(g.at) : g.open ? shortDate(g.open) : 'Sin fecha'}</b></span>
+      </div>` : '';
     const cdT = g.kind === 'open' ? g.at : g.f.has('pat') ? g.open : null, cd = cdT && left(cdT) ? `<span class="ag-cd">Se abre a todos en ${left(cdT)}</span>` : future && g.kind !== 'open' ? `<span class="ag-cd" style="color:#8cc3f2">Sale en ${left(g.at)}</span>` : '';
+    const chapters = g.list.length > 1 ? `<details class="ag-chapters"><summary>Ver ${g.list.length} capítulos</summary><div class="ag-chapter-list">${g.list.map(ch => g.kind === 'pub' && g.can ? `<a href="/leer/${esc(s.slug)}/${+ch.num}">Cap. ${+ch.num}</a>` : `<span>Cap. ${+ch.num}</span>`).join('')}</div></details>` : '';
     const pl = D.pat[s.team_id], rem = D.rem.has(remK(g));
     const acts = [
       !g.can && g.acc !== 'public' ? `<a class="ag-btn pat" href="${esc(pl || '/equipo/' + (s.teams?.slug || ''))}"${pl ? ' target="_blank" rel="noopener"' : ''}>Hazte mecenas</a>` : '',
@@ -201,7 +207,7 @@ export async function agenda(ctx){
       <span class="ag-tg2"><i></i>${!g.can && g.acc !== 'public' ? '🔒︎ ' : ''}${g.wholeVolume ? 'Volumen completo · ' : ''}${tag}</span><a class="ag-t" href="${hrefOf(g)}">${esc(s.title)}</a>
       <span class="ag-m">${g.wholeVolume && g.volumeLabel ? esc(g.volumeLabel) + ' · ' : ''}${caps(g)}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}${compact ? '' : ' · ' + fdt(g.at, { hour: '2-digit', minute: '2-digit' })}</span>
       ${g.kind !== 'vol' && g.kind !== 'volp' ? `<span class="ag-m">Acceso: <b>${g.kind === 'open' ? 'Público desde esta fecha' : g.kind === 'pub' && g.patronFirst && g.open && new Date(g.open) <= Date.now() ? 'Estreno para mecenas · ahora público' : accL(g)}</b>${unread != null ? (unread ? ` · <span class="ur">${unread} sin leer</span>` : ' · <span class="rd">✓ Leído</span>') : ''}</span>` : ''}
-      ${compact ? '' : dates}${cd}${acts ? `<div class="ag-acts">${acts}</div>` : ''}</div></div>`;
+      ${dates}${cd}${chapters}${acts ? `<div class="ag-acts">${acts}</div>` : ''}</div></div>`;
   }
   function festivals(fromK, toK){
     if (!AN || !S) return [];
