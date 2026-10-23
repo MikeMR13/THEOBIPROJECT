@@ -22,7 +22,7 @@ as $pre$
       'team_name', t.name, 'team_slug', t.slug
     ),
     'volumes', (
-      select pg_catalog.coalesce(
+      select coalesce(
         pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
           'id', v.id, 'num', v.num, 'title', v.title,
           'cover_path', v.cover_path, 'synopsis', v.synopsis,
@@ -99,7 +99,7 @@ begin
   if not private.team_can(t, 'schedule') then raise exception 'forbidden_schedule'; end if;
   perform public.publish_volume(p_volume, p_at);
   update public.volumes
-    set announce_prelaunch = pg_catalog.coalesce(p_announce, false)
+    set announce_prelaunch = coalesce(p_announce, false)
     where id = p_volume;
   return 'scheduled';
 end;
