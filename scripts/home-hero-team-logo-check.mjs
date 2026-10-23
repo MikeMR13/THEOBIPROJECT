@@ -12,8 +12,16 @@ assert(sql.includes('update private.home_snapshot') && sql.includes('private.bui
  'El snapshot no puede seguir sin el logo después de migrar');
 assert(ui.includes('teams(name,slug,color,avatar_path)'),
  'Mantener la compatibilidad del feed secundario');
-assert(ui.includes('s.teams?.avatar_path && s.teams?.slug'),
- 'Solo presentar logo si existe y el equipo tiene página');
+assert(ui.includes('const hasTeamImage = !!s.teams?.avatar_path') && ui.includes('const teamLogo = s.teams?.slug'),
+ 'El equipo con perfil debe mostrar logo o nombre según la existencia de imagen');
+assert(ui.includes("hasTeamImage ? '' : ' is-text'") && ui.includes(': `<span>${esc(s.teams.name ||'),
+ 'El PNG y el texto deben ser mutuamente excluyentes');
+assert(ui.includes('img.replaceWith(fallback)') && ui.includes("anchor.classList.add('is-text')"),
+ 'Una imagen rota debe reemplazarse por texto sin cambiar el hipervínculo');
+assert(ui.includes('class="ob-hero-team-logo${hasTeamImage') && ui.includes('href="/equipo/${encodeURIComponent(s.teams.slug)}"'),
+ 'Imagen y texto deben enlazar al mismo perfil del equipo');
+assert(ui.includes('.ob-hero-team-logo.is-text span{') && !ui.includes('.ob-hero-team-logo span{display:none}'),
+ 'El texto debe ser visible incluso en 320 píxeles');
 assert(ui.includes('const teamLogo = ') && ui.includes('${teamLogo}</div>'),
  'Presentar el logo dentro de la cabecera en todas las categorías');
 assert(ui.includes('class="ob-hero-meta"') && ui.includes('class="ob-hero-head"'),
@@ -30,9 +38,9 @@ assert(ui.includes('@media(max-width:380px)') && ui.includes('width:48px'),
  'En móvil estrecho la insignia debe reducirse');
 assert(ui.includes(':not(.ob-hero-team-logo)'),
  'Ir al perfil del equipo no debe contar falsamente como clic en la novela');
-for(const token of ['320,390,768,1024,1440','logo se superpone','PNG solapa anuncio',
+for(const token of ['320,390,768,1024,1440','logo se superpone','PNG solapa anuncio','texto y aviso',
   'ob-hero-team-logo','ob-utag-hero','ob-hero-rank']) {
   assert(qa.includes(token),'La QA responsive debe cubrir: '+token);
 }
 assert(announcement.includes('chooseActiveEditorial'), 'El selector de anuncios sigue disponible');
-console.log('✓ Logo del equipo en hero: avisos de publicar/programar independientes, ranking y móvil cubiertos.');
+console.log('✓ Identidad del equipo: logo o texto excluyentes, mismo perfil y avisos intactos.');
