@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/prelaunch-check.mjs && node scripts/admin-supervision-check.mjs && node scripts/team-invitations-check.mjs && node scripts/patreon-scope-check.mjs && node scripts/patreon-publication-check.mjs && node scripts/team-profile-phase1-check.mjs && node scripts/team-profile-phase2-check.mjs && node scripts/team-profile-phase3-check.mjs && node scripts/build.mjs",
+    "build": "node scripts/prelaunch-check.mjs && node scripts/admin-supervision-check.mjs && node scripts/team-invitations-check.mjs && node scripts/patreon-scope-check.mjs && node scripts/patreon-publication-check.mjs && node scripts/team-profile-phase1-check.mjs && node scripts/team-profile-phase2-check.mjs && node scripts/team-profile-phase3-check.mjs && node scripts/team-profile-phase4-check.mjs && node scripts/build.mjs",
     "check": "node scripts/build.mjs --check",
     "optimize-check": "node scripts/optimization-check.mjs",
     "db-phase2-check": "node scripts/db-phase2-check.mjs",
@@ -37,7 +37,8 @@
     "prelaunch-check": "node scripts/prelaunch-check.mjs",
     "team-profile-phase1-check": "node scripts/team-profile-phase1-check.mjs",
     "team-profile-phase2-check": "node scripts/team-profile-phase2-check.mjs",
-    "team-profile-phase3-check": "node scripts/team-profile-phase3-check.mjs"
+    "team-profile-phase3-check": "node scripts/team-profile-phase3-check.mjs",
+    "team-profile-phase4-check": "node scripts/team-profile-phase4-check.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
