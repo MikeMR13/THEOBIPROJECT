@@ -377,10 +377,11 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 .ob-releases .ob-st{flex-wrap:wrap}
 .ob-releases .ob-st .r2{display:flex;align-items:center;gap:14px;flex-wrap:wrap;max-width:100%}
 .ob-releases .ob-st .ob-arr{display:flex;margin-left:auto}
-.ob-release-car{min-width:0}
+.ob-releases{min-width:0;max-width:100%}
+.ob-release-car{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
 .ob-release-car:focus-visible,.ob-releases .ob-arr button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 .ob-release-card{min-width:0}
-.ob-release-card .cv{overflow:hidden;isolation:isolate}
+.ob-release-card .cv{overflow:hidden;isolation:isolate;box-sizing:border-box}
 .ob-release-card .cv img{display:block;width:100%;height:100%;object-fit:cover}
 .ob-release-card .cv i{z-index:1}
 .ob-release-card.is-volume .cv{border-color:var(--gold)}
