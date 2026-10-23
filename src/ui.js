@@ -494,7 +494,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     sb.rpc('prelaunch_calendar', { p_from: now.toISOString(), p_to: new Date(Date.now() + 60 * 864e5).toISOString() }).then(({ data, error }) => {
       if (!preSlot?.isConnected || location.pathname !== '/') return;
       if (error) { console.warn('prelaunch_calendar', error.message); return preSlot.remove(); }
-      const L = (data || []).filter(x => (adultOk || !x.adult) && (!byId[x.series_id] || !hidS(byId[x.series_id]))).slice(0, 6);
+      const L = (data || []).filter(x => (adultOk || !x.adult) && !hidS(x)).slice(0, 6);
       if (!L.length) return preSlot.remove();
       preSlot.outerHTML = `<section class="ob-sec">${head('予告', 'Próximos estrenos', '<a class="r" href="/calendario?f=prog">Ver calendario →</a>')}
         <div class="ob-next ob-anim">${L.map(x => `<a class="ob-nx" href="/serie/${encodeURIComponent(x.slug)}"><span class="w">◷ PREESTRENO · ${esc(new Date(x.at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: window.obiTZ?.() || undefined }))}</span><b>${esc(x.title)}</b><small>Volumen ${+x.vnum} · Primer vistazo disponible · Lectura bloqueada</small></a>`).join('')}</div></section>`;
