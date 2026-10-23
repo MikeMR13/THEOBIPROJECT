@@ -485,13 +485,19 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const teamHighlights = () => import('/paging.js?v=1').then(({readPages}) =>
       readPages((from,to)=>sb.from('team_featured_series')
         .select('team_id,series_id,updated_at').order('team_id').range(from,to),{size:250}));
-    const [FD, prog, pr, VR, TR, TF] = await Promise.all([
+    // Tendencias y destacados de equipos complementan la rotación,
+    // pero una consulta paginada lenta no debe detener toda la portada.
+    const trendRequest = sb.from('rankings').select('series_id,list,period,score,pos')
+      .eq('list','tendencia').in('period',['hoy','semana']).order('pos').limit(30)
+      .then(r => r, () => ({ data: [] }));
+    const teamRequest = teamHighlights().then(r => r, () => ({ data: [] }));
+    const [FD, prog, pr, VR] = await Promise.all([
       feed(), progressMap(),
       u ? sb.rpc('my_adult_ok') : { data: null },
-      // La portada del volumen publicado más reciente puede diferir de la ficha.
-      sb.from('volumes').select('id,series_id,num,title,cover_path,status,published_at,announced_at,is_final').is('deleted_at', null).eq('status', 'published').then(r => r, () => ({ data: [] })),
-      sb.from('rankings').select('series_id,list,period,score,pos').eq('list','tendencia').in('period',['hoy','semana']).order('pos').limit(30).then(r => r, () => ({ data: [] })),
-      teamHighlights().then(r=>r,()=>({data:[]}))]);
+      // El volumen más reciente puede tener una portada diferente.
+      sb.from('volumes').select('id,series_id,num,title,cover_path,status,published_at,announced_at,is_final')
+        .is('deleted_at', null).eq('status', 'published').then(r => r, () => ({ data: [] }))
+    ]);
     { const vc = {}; (VR?.data || []).filter(v => v.cover_path && v.status === 'published').forEach(v => { if (!vc[v.series_id] || v.num > vc[v.series_id].num) vc[v.series_id] = v; });
       (FD?.series || []).forEach(s => { const v = vc[s.id]; if (v && v.cover_path !== s.cover_path) { s.cover_path = v.cover_path; s.cover_thumb_path = null; } }); }
     const { series, latest, rkW, rkH, top10 } = FD, ps = { featured: FD.featured }, nextRel = (FD.nextRel || []).filter(e => new Date(e.at) > Date.now());
@@ -502,10 +508,10 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     // Las publicaciones completas se anuncian como volumen, no como capítulos sueltos.
     const news = homeReleaseOverview(latest || [], VR?.data || [], list);
     const newsBySeries = news.bySeries;
-    const featured = homeFeaturedSelection({ series:list, news, weekly:rkW||[], historic:rkH||[], trends:TR?.data||[], editorial:Array.isArray(ps.featured)?ps.featured:[], teams:TF?.data||[], now });
+    const featured = homeFeaturedSelection({ series:list, news, weekly:rkW||[], historic:rkH||[], trends:[], editorial:Array.isArray(ps.featured)?ps.featured:[], teams:[], now });
     const feat = featured.entries.map(x => byId[x.id]);
     const teamSignature = rows => (rows||[]).map(x=>[x.team_id,x.series_id,x.updated_at].join('/')).sort().join('|');
-    const loadedTeamSignature = teamSignature(TF?.data);
+    let loadedTeamSignature = teamSignature([]);
     const featReasons = featured.bySeries;
     const cont = Object.values(prog).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).filter(p => byId[p.series_id]).slice(0, 6);
     const grp = news.entries.slice(0, 6);
@@ -624,6 +630,29 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       heroEl.style.display = '';
       heroSlide(feat, 0, prog, lastCh, top, newsBySeries, featReasons);
     }).catch(e => console.warn('prelaunch carousel', e));
+
+    // Completar la rotación editorial cuando lleguen los datos auxiliares,
+    // conservando la portada visible y los preestrenos ya incorporados.
+    Promise.all([trendRequest, teamRequest]).then(([trends, teamResult]) => {
+      if (!heroEl?.isConnected || app.querySelector('#hero') !== heroEl || location.pathname !== '/') return;
+      loadedTeamSignature = teamSignature(teamResult?.data);
+      const extra = homeFeaturedSelection({
+        series:list, news, weekly:rkW||[], historic:rkH||[],
+        trends:trends?.data||[], editorial:Array.isArray(ps.featured)?ps.featured:[],
+        teams:teamResult?.data||[], now
+      });
+      const covers = extra.entries.map(x => byId[x.id]).filter(Boolean);
+      const previews = feat.filter(x => x.__prelaunch);
+      const lead = feat.find(x => !x.__prelaunch);
+      const unique = new Set();
+      const updated = [lead, ...previews, ...covers].filter(x => x && !unique.has(x.id) && unique.add(x.id));
+      if (!updated.length) return;
+      const changed = updated.length !== feat.length || updated.some((x, i) => x.id !== feat[i]?.id);
+      if (!changed) return;
+      feat.splice(0, feat.length, ...updated);
+      Object.assign(featReasons, extra.bySeries);
+      if (!heroPaused && !heroEl.matches(':hover')) heroSlide(feat, 0, prog, lastCh, top, newsBySeries, featReasons);
+    }).catch(e => console.warn('destacados inicio', e));
 
     // El día editorial rota en Monterrey. Los lanzamientos completos nuevos
     // rompen la rotación en la sesión abierta; no dependen de un cron nocturno.
