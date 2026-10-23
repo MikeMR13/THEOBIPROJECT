@@ -50,6 +50,14 @@ export const UPDATE_STYLES = { lista: 'Lista', cuadricula: 'Cuadrícula', carrus
 export const UPDATE_KINDS = { ambos: 'Ambos', volumen: 'Volúmenes', capitulo: 'Capítulos' };
 export const UPDATE_COUNTS = { 3: '3', 4: '4', 6: '6', 8: '8' };
 export const EDITORIAL_DEFAULT = { featureStyle: 'normal', nextStyle: 'normal', recentStyle: 'cuadricula', recentKind: 'ambos', recentCount: 4 };
+export const MEMBER_STYLES = { tarjetas: 'Tarjetas', lista: 'Lista', etiquetas: 'Compacto' };
+export const MEMBER_COUNTS = { 4: '4', 6: '6', 8: '8', 12: '12' };
+export const ANNOUNCE_STYLES = { clasico: 'Clásico', editorial: 'Editorial', compacto: 'Compacto' };
+export const COMMUNITY_DEFAULT = {
+  memberStyle: 'tarjetas', memberCount: 6, showRoles: true,
+  announceStyle: 'editorial', showCta: true,
+  ctaText: 'Gracias por apoyar nuestras traducciones'
+};
 export const SECTIONS = { recent: 'Novedades recientes', announce: 'Anuncio', next: 'Próximo lanzamiento', stats: 'Estadísticas', featured: 'Obras destacadas', works: 'Obras', members: 'Integrantes' };
 const SEC_KEYS = Object.keys(SECTIONS);
 export const DEFAULT = { theme: 'tinta', ...THEMES.tinta.d, motto: '' };
@@ -58,6 +66,7 @@ export function normalize(x, teamColor){
   const s = x && typeof x === 'object' ? x : {}, base = { ...DEFAULT, accent: teamColor || DEFAULT.accent };
   const L = s.layout && typeof s.layout === 'object' && !Array.isArray(s.layout) ? s.layout : {};
   const E = s.editorial && typeof s.editorial === 'object' && !Array.isArray(s.editorial) ? s.editorial : {};
+  const C = s.community && typeof s.community === 'object' && !Array.isArray(s.community) ? s.community : {};
   return {
     theme: /^mine:\d+$/.test(s.theme || '') ? s.theme : pick(s.theme, { ...THEMES, custom: 1 }, base.theme), template: pick(s.template, TEMPLATES, base.template), bg: pick(s.bg, BGS, base.bg),
     accent: /^#[0-9a-f]{6}$/i.test(s.accent || '') ? s.accent.toLowerCase() : base.accent, font: pick(s.font, TFONTS, base.font),
@@ -78,6 +87,14 @@ export function normalize(x, teamColor){
       recentStyle: pick(E.recentStyle, UPDATE_STYLES, EDITORIAL_DEFAULT.recentStyle),
       recentKind: pick(E.recentKind, UPDATE_KINDS, EDITORIAL_DEFAULT.recentKind),
       recentCount: Number(pick(String(E.recentCount ?? ''), UPDATE_COUNTS, String(EDITORIAL_DEFAULT.recentCount)))
+    },
+    community: {
+      memberStyle: pick(C.memberStyle, MEMBER_STYLES, COMMUNITY_DEFAULT.memberStyle),
+      memberCount: Number(pick(String(C.memberCount ?? ''), MEMBER_COUNTS, String(COMMUNITY_DEFAULT.memberCount))),
+      showRoles: C.showRoles !== false,
+      announceStyle: pick(C.announceStyle, ANNOUNCE_STYLES, COMMUNITY_DEFAULT.announceStyle),
+      showCta: C.showCta !== false,
+      ctaText: String(C.ctaText ?? COMMUNITY_DEFAULT.ctaText).trim().slice(0, 120)
     },
     order: [...new Set([...(Array.isArray(s.order) ? s.order.filter(k => SEC_KEYS.includes(k)) : []), ...SEC_KEYS])],
     hidden: Array.isArray(s.hidden) ? s.hidden.filter(k => SEC_KEYS.includes(k)) : [],
@@ -200,7 +217,7 @@ export function render(D, design, h){
   const { esc, media } = h, d = effective(design, D.t.color, h.sim), t = D.t, S = t.settings || {}, on = k => S[k] !== false, L = d.layout;
   const LG = { ja: 'japonés', ko: 'coreano', zh: 'chino', en: 'inglés' }, langs = (t.langs || []).map(l => LG[l]).filter(Boolean);
   const LK = [['website', 'Sitio web'], ['patreon', 'Patreon'], ['kofi', 'Ko-fi'], ['discord', 'Discord'], ['twitter', 'X / Twitter']].filter(([k]) => /^https:\/\//.test(S[k] || ''));
-  const W = D.works, E = d.editorial, caps = W.reduce((a, w) => a + (w.chapters?.[0]?.count || 0), 0);
+  const W = D.works, E = d.editorial, C = d.community, caps = W.reduce((a, w) => a + (w.chapters?.[0]?.count || 0), 0);
   const featList = (d.featured.length ? d.featured : [S.featured_works]).map(sl => W.find(w => w.slug === sl)).filter(Boolean);
   const ban = t.banner_path ? `background-image:url('${esc(media(t.banner_path))}')` : '';
   const logo = `<span class="tp2-logo">${t.avatar_path ? `<img src="${esc(media(t.avatar_path))}" alt="">` : `<b>${esc(t.name.slice(0, 2).toUpperCase())}</b>`}</span>`;
@@ -412,5 +429,5 @@ export function bind(root){
   root.querySelectorAll('[data-car]').forEach(b => b.onclick = e => { e.preventDefault(); const n = car.children.length, i = (idx() + +b.dataset.car + n) % n; car.scrollTo({ left: i * car.clientWidth, behavior: 'smooth' }); });
   car.addEventListener('scroll', () => { const i = idx(); dots.forEach((d, j) => d.classList.toggle('on', i === j)); }, { passive: true });
 }
-export function exportTheme(name, design){ const { motto, theme, featured, announce, order, hidden, seasons, layout, editorial, ...look } = design; return JSON.stringify({ obi_theme: 1, name, design: look }, null, 2); }
+export function exportTheme(name, design){ const { motto, theme, featured, announce, order, hidden, seasons, layout, editorial, community, ...look } = design; return JSON.stringify({ obi_theme: 1, name, design: look }, null, 2); }
 export function importTheme(text){ const j = JSON.parse(text); if (!j || j.obi_theme !== 1 || typeof j.design !== 'object') throw new Error('El archivo no es un tema del Obi'); return { name: String(j.name || 'Tema importado').slice(0, 40), design: j.design }; }
