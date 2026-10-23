@@ -828,7 +828,7 @@ export function createStudio(ctx){
     if (tab === 'accesos') {
       const ed = can('edit'), B = () => $('#wk-lock-b');
       let tiers = [], SA = null, CH = [], VOL = [], connected = false, autoReleaseEnabled = false, dirtyS = false;
-      const dirtyV = new Map(), dirtyC = new Map();
+      const dirtyV = new Map(), dirtyC = new Map(), expandedGroups = new Map();
       const enc = (a, m) => a === 'tier' ? 'tier:' + (+m).toFixed(2) : a || 'public';
       const dec = v => v.startsWith('tier:') ? ['tier', +v.slice(5)] : [v, null];
       const opts = cur => [['public', 'Público — cualquier lector'], ['donors', 'Mecenas del equipo — cualquier nivel'],
@@ -843,8 +843,6 @@ export function createStudio(ctx){
       const cause = c => locked(SA) ? 'obra' : locked(volume(c.volume_id)) ? 'volumen' : locked(chapter(c)) ? 'capítulo' : '';
       const totalLocked = () => CH.filter(cause).length;
       const labelAccess = x => !locked(x) ? 'Público' : x.access === 'tier' ? 'Nivel de Patreon' : 'Solo mecenas';
-      const term = x => !locked(x) ? 'Disponible para todos cuando esté publicado' :
-        x.access_until ? 'Se abre al público el ' + fmtD(x.access_until) : 'Sin liberación automática';
       const changeState = () => dirtyS || dirtyV.size > 0 || dirtyC.size > 0;
       const draftV = v => dirtyV.get(v.id) || { ...v, unlockAuto: !!v.access_until };
       const badge = (x, extra = '') => `<span class="wk-access-badge ${locked(x) ? 'is-locked' : 'is-public'}">${locked(x) ? '🔒 ' : '✓ '}${esc(extra || labelAccess(x))}</span>`;
@@ -867,7 +865,7 @@ export function createStudio(ctx){
             <label class="wk-access-field" for="lk-s">Quién puede leer toda la obra
               <select id="lk-s" ${disable}>${opts(enc(SA.access, SA.access_min_price))}</select>
             </label>
-            ${workLocked ? `<div class="wk-access-release">
+            ${SA.access !== 'public' ? `<div class="wk-access-release">
               <label class="wk-lock-auto mono" for="lk-auto"><input id="lk-auto" type="checkbox" ${autoReleaseEnabled ? 'checked' : ''} ${disable}><span>Hacerla pública automáticamente en una fecha (opcional)</span></label>
               <div class="wk-lock-date" id="lk-sud" ${autoReleaseEnabled ? '' : 'hidden'}><label for="lk-su">Fecha de apertura pública</label><input id="lk-su" type="date" value="${day(SA.access_until)}" ${disable}></div>
               <small class="mono">Si no defines una fecha, permanecerá exclusiva hasta que cambies este permiso.</small>
@@ -881,7 +879,7 @@ export function createStudio(ctx){
                 <label class="wk-access-field" for="lk-v-${v.id}">Quién puede leer este volumen
                   <select id="lk-v-${v.id}" data-va="${v.id}" ${disable}>${opts(enc(d.access, d.access_min_price))}</select>
                 </label>
-                ${isL ? `<div class="wk-access-release">
+                ${d.access !== 'public' ? `<div class="wk-access-release">
                   <label class="wk-lock-auto mono" for="lk-vauto-${v.id}"><input id="lk-vauto-${v.id}" data-vauto="${v.id}" type="checkbox" ${d.unlockAuto ? 'checked' : ''} ${disable}><span>Liberar este volumen automáticamente (opcional)</span></label>
                   <div class="wk-lock-date" ${d.unlockAuto ? '' : 'hidden'}><label for="lk-vuntil-${v.id}">Fecha de apertura pública</label><input id="lk-vuntil-${v.id}" data-vuntil="${v.id}" type="date" value="${day(d.access_until)}" ${disable}></div>
                 </div>` : '<small class="wk-access-note">Este volumen no añade un bloqueo propio.</small>'}
@@ -893,7 +891,7 @@ export function createStudio(ctx){
             <p class="wk-access-note">Las fechas de aquí liberan el acceso público; las fechas de <b>publicación</b> se configuran por separado en el editor.</p>
             <div class="wk-access-chapters">${groups.map(({ v, list }) => { const effective = list.filter(cause).length;
               const local = list.filter(c => locked(chapter(c))).length;
-              return `<details class="wk-access-group" ${local && list.length <= 8 ? 'open' : ''}><summary><span><b>${v ? 'Volumen ' + v.num : 'Sin volumen'}</b><small class="mono">${effective} de ${list.length} bloqueados · ${local} con regla propia</small></span><span class="wk-access-chevron">⌄</span></summary>
+              return `<details class="wk-access-group" data-access-group="${v?.id || '_'}" ${expandedGroups.get(v?.id || '_') ?? (local > 0 && list.length <= 8) ? 'open' : ''}><summary><span><b>${v ? 'Volumen ' + v.num : 'Sin volumen'}</b><small class="mono">${effective} de ${list.length} bloqueados · ${local} con regla propia</small></span><span class="wk-access-chevron">⌄</span></summary>
                 <div class="wk-access-ch-list">${list.map(c => { const d = chapter(c), why = cause(c), localLock = locked(d);
                   return `<div class="wk-access-ch-row">
                     <div class="wk-access-ch-identity"><b>Cap. ${c.num} · ${esc(c.title || 'Sin título')}</b><small class="mono">${why ? '🔒 Bloqueado por ' + why : '✓ Acceso público'}${!localLock && why && why !== 'capítulo' ? ' · hereda el candado' : ''}</small></div>
@@ -906,6 +904,7 @@ export function createStudio(ctx){
           <p class="wk-access-note">El Patreon general de El Obi del Lector nunca desbloquea contenido. Las descargas exclusivas se configuran en la pestaña «Descargas».</p>
         </div>`;
         mark();
+        b.querySelectorAll('[data-access-group]').forEach(group => group.addEventListener('toggle', () => expandedGroups.set(group.dataset.accessGroup, group.open)));
         $('#lk-s')?.addEventListener('change', e => {
           [SA.access, SA.access_min_price] = dec(e.target.value);
           if (SA.access === 'public') SA.access_until = null;
