@@ -70,6 +70,11 @@ export function createStudio(ctx){
       link.id = 'st2-css'; link.rel = 'stylesheet'; link.href = '/studio.css?v=1';
       document.head.appendChild(link);
     }
+    if (!document.getElementById('st2-access-css')) {
+      const accessLink = document.createElement('link');
+      accessLink.id = 'st2-access-css'; accessLink.rel = 'stylesheet'; accessLink.href = '/studio-access.css?v=1';
+      document.head.appendChild(accessLink);
+    }
     return styleTask;
   };
   const shell = (title, body, tab) => { css(); document.body.classList.add('in-studio'); const t = tab === '/estudio/obra' ? '/estudio/obras' : tab; const me = getMe?.();
