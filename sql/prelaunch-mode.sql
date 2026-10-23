@@ -25,7 +25,8 @@ as $pre$
       select coalesce(
         pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
           'id', v.id, 'num', v.num, 'title', v.title,
-          'cover_path', v.cover_path, 'synopsis', v.synopsis,
+          'cover_path', v.cover_path,
+          'synopsis', case when coalesce(v.synopsis_spoiler,false) then null else v.synopsis end,
           'published_at', v.published_at
         ) order by v.num), '[]'::jsonb)
       from public.volumes v
