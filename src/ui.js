@@ -1059,11 +1059,11 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         <div><span class="ui-lbl">${esc(s.work_type || 'Novela ligera')}${s.demographic ? ' · ' + esc(s.demographic) : ''}</span>
           <h1>${esc(s.title)}</h1>${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
           <div class="ui-chips">${pill(s.translation_status)}${(s.genres || []).map(g => `<a class="ui-chip" href="/catalogo?g=${encodeURIComponent(g)}">${esc(g)}</a>`).join('')}${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</div>
-          <p class="mono" role="status" style="margin:20px 0;color:var(--mute)">Preparando capítulos, volúmenes y descargas…</p>
+          <p class="mono" id="serie-loading-status" role="status" style="margin:20px 0;color:var(--mute)">Preparando capítulos, volúmenes y descargas…</p>
         </div>
       </section></div>`;
     const u = getUser();
-    const [{ data: pre, error: preError }, { data: vols }, { data: chs }, prog, readR, folR, { data: dls, error: dlError }, { data: buys }, { data: pt }] = await Promise.all([
+    const details = await Promise.all([
       preQuery,
       sb.from('volumes').select('id,num,title,cover_path,synopsis,status,external_url,external_site,external_only').eq('series_id', s.id).eq('status', 'published').is('deleted_at', null).order('num', { ascending: false }),
       sb.rpc('series_toc', { p_series: s.id }).then(x => x.error ? sb.from('chapters').select('id,num,vol,volume_id,title,section_type,publish_at').eq('series_id', s.id).is('deleted_at', null).order('num') : x),
@@ -1072,8 +1072,17 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       u ? sb.from('follows').select('series_id').eq('user_id', u.id).eq('series_id', s.id) : { data: [] },
       sb.rpc('series_downloads_v2', { p_series: s.id }).then(r => r.error?.code === 'PGRST202' ? sb.rpc('series_downloads', { p_series: s.id }) : r),
       sb.from('purchase_links').select('id,volume_id,vol,store,region,fmt').eq('series_id', s.id).eq('verified', true).order('vol').order('id'),
-      sb.from('patreon_public').select('url').eq('owner', s.team_id).maybeSingle()]);
-    if (!stillHere()) return;
+      sb.from('patreon_public').select('url').eq('owner', s.team_id).maybeSingle()
+    ]).catch(error => {
+      if (stillHere()) {
+        const status = app.querySelector('#serie-loading-status');
+        if (status) status.innerHTML = 'No pudimos cargar los capítulos y volúmenes. <a href="' + esc(targetPath) + '">Reintentar →</a>';
+        console.warn('series loading', error);
+      }
+      return null;
+    });
+    if (!details || !stillHere()) return;
+    const [{ data: pre, error: preError }, { data: vols }, { data: chs }, prog, readR, folR, { data: dls, error: dlError }, { data: buys }, { data: pt }] = details;
     if (preError) console.warn('prelaunch_series', preError.message);
     const PRE = pre?.volumes?.length ? await import('./prelaunch.js?v=1') : null;
     if (!stillHere()) return;
