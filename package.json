@@ -18,7 +18,8 @@
     "visual-browser-check": "node scripts/visual-phase4-browser.mjs",
     "admin-permissions-check": "node scripts/admin-permissions-check.mjs",
     "patreon-scope-check": "node scripts/patreon-scope-check.mjs",
-    "patreon-publication-check": "node scripts/patreon-publication-check.mjs"
+    "patreon-publication-check": "node scripts/patreon-publication-check.mjs",
+    "prelaunch-check": "node scripts/prelaunch-check.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
