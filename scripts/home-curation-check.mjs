@@ -18,6 +18,6 @@ assert(ui.includes('ESTRENO MAÑANA · VOL. ') && ui.includes('PRÓXIMO ESTRENO 
   'Respetar etiqueta pública y destacar las próximas 24 horas cuando se estrene mañana');
 assert(featured.includes('const freshDebuts=launches.filter(') && featured.includes('<2*MS_DAY'),
   'El primer puesto garantizado debe caducar a las 48 horas');
-assert(featured.includes('const firstTeam=pool.team.find(') && featured.includes('for(const x of pool.team)add(x)'),
-  'Rotar equipo destacado sin retirar recomendaciones activas');
+assert(featured.includes('const firstTeam=pool.team.find(') && featured.includes('teamRecommendations:pool.team'),
+  'Rotar equipo destacado y conservar todos los equipos en la banda independiente');
 console.log('✓ Carrusel: prioridad 48h, adelantos cercanos y selección activa estable.');

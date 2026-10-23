@@ -71,10 +71,10 @@ export function homeFeaturedSelection({series=[], news={entries:[],bySeries:{}},
   pool.team=rotate(teamCandidates.map(t=>({id:t.series_id,kind:'team',
     label:'Recomendado por '+(existing(t.series_id)?.teams?.name||'su equipo'),
     teamId:t.team_id,expiresAt:new Date(Date.parse(t.updated_at)+7*MS_DAY).toISOString()})),today,'team');
-  // Espacios editoriales habituales + TODOS los equipos activos. Si hay más equipos,
-  // el carrusel crece en lugar de ocultar recomendaciones.
+  // El carrusel principal permanece compacto; TODAS las recomendaciones se
+  // ofrecen en una banda de equipos debajo, sin esconder al equipo más pequeño.
   const chosen=[],used=new Set();
-  const limit=Math.max(0,Math.trunc(Number.isFinite(max)?max:8),7+pool.team.length);
+  const limit=Math.max(0,Math.trunc(Number.isFinite(max)?max:8));
   const add=x=>{if(!x||used.has(x.id)||chosen.length>=limit)return false;chosen.push(x);used.add(x.id);return true;};
   const releases=pool.release || [];
   // Reservar las primeras posiciones para los estrenos reales más recientes.
@@ -97,13 +97,14 @@ export function homeFeaturedSelection({series=[], news={entries:[],bySeries:{}},
       if(!reservedTeams.has(x.id)&&add(x))break;
     }
   }
-  // Una recomendación por cada equipo participante, sin desplazar a ningún otro.
-  for(const x of pool.team)add(x);
-  // Completar huecos editoriales sin repetir novelas y sin quitar a los equipos.
+  // Solo un equipo en el hero, rotando cada día. El resto permanece visible
+  // en la banda independiente; no extender indefinidamente el hero.
   for(const x of [...releases,...['popular','historic','editorial','discover','trending']
     .flatMap(k=>rotate(pool[k],today,k))]){
     if(x.kind==='release'&&chosen.filter(y=>y.kind==='release').length>=2)continue;
+    if(reservedTeams.has(x.id))continue;
     add(x);
   }
-  return {day:today,entries:chosen,bySeries:Object.fromEntries(chosen.map(x=>[x.id,x])),pool};
+  return {day:today,entries:chosen,teamRecommendations:pool.team,
+    bySeries:Object.fromEntries(chosen.map(x=>[x.id,x])),pool};
 }

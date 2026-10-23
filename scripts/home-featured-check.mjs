@@ -19,16 +19,16 @@ const input={series,news,weekly:rankings(['s4','s5','s6']),historic:rankings(['s
   trends:rankings(['s10','s11','s12']).map(x=>({...x,list:'tendencia',period:'hoy'})),
   editorial:['s13','s14','s15'],teams:[{team_id:'t4',series_id:'s16',updated_at:'2026-10-21T08:00:00Z'},{team_id:'t5',series_id:'s17',updated_at:'2026-10-21T08:00:00Z'}],now};
 const out=homeFeaturedSelection(input);
-assert(out.entries.length>=8 && out.entries.length<=9,'Siete lugares editoriales + todas las recomendaciones');
+assert(out.entries.length<=8,'Carrusel compacto de máximo ocho diapositivas editoriales');
 assert(out.entries.filter(x=>x.kind==='release').length<=2,'Solo dos lanzamientos cada día');
-assert.equal(out.entries.filter(x=>x.kind==='team').length,2,'Deben aparecer ambos equipos, no uno por día');
+assert.equal(out.entries.filter(x=>x.kind==='team').length,1,'Un equipo diario dentro del hero; el resto en la banda');
 assert.equal(new Set(out.entries.map(x=>x.id)).size,out.entries.length,'No duplicar novelas');
 for(const category of ['release','popular','historic','editorial','discover','trending'])assert(out.pool[category].length<=3,'Tope de tres por '+category);
 assert.equal(out.day,homeDayKey(now));
 assert.deepEqual(homeFeaturedSelection({...input}).entries,out.entries,'Carrusel estable dentro del mismo día');
 assert.notEqual(homeDayKey(now),homeDayKey(day));
 assert.equal(out.pool.team.length,2,'Cada equipo presenta una candidatura');
-assert(out.entries.some(x=>x.id==='s16')&&out.entries.some(x=>x.id==='s17'),'Ningún equipo queda fuera');
+assert(out.teamRecommendations.some(x=>x.id==='s16')&&out.teamRecommendations.some(x=>x.id==='s17'),'Ningún equipo queda fuera de la banda');
 // El nuevo volumen final entra en el día ya iniciado y reemplaza inmediatamente otro lanzamiento.
 const newlyCompleted={id:'s17',kind:'volume',at:'2026-10-21T20:25:00Z',
   time:Date.parse('2026-10-21T20:25:00Z'),volume:{num:5,is_final:true}};
@@ -52,8 +52,9 @@ const eightInput={...input,series:[...series,...eightTeams],
  teams:eightTeams.map((s,i)=>({team_id:s.team_id,series_id:s.id,updated_at:'2026-10-21T08:00:00Z'}))};
 const many=homeFeaturedSelection(eightInput);
 assert.equal(many.pool.team.length,14,'Sin límite de tres recomendaciones de equipo');
-assert.equal(many.entries.filter(x=>x.kind==='team').length,14,'Todos los equipos visibles incluso si el carrusel supera ocho');
-assert(many.entries.length>=14,'El límite general del carrusel no puede ocultar equipos');
+assert.equal(many.entries.filter(x=>x.kind==='team').length,1,'El carrusel muestra un equipo rotativo');
+assert.equal(many.teamRecommendations.length,14,'Los 14 equipos permanecen en la banda propia');
+assert(many.entries.length<=8,'El hero no puede crecer con el número de equipos');
 assert.equal(new Set(many.entries.map(x=>x.id)).size,many.entries.length,'Sin repetir obras');
 assert.deepEqual(homeFeaturedSelection(eightInput).entries,many.entries,'Orden diario estable de equipos');
 const expiration='2026-10-14T20:30:00.000Z';
@@ -136,8 +137,8 @@ assert.deepEqual(steady.pool.discover,discovery.pool.discover,'Curaduría determ
 const teamLeads=Array.from({length:7},(_,i)=>{
   const at=new Date(Date.parse('2026-10-21T20:30:00Z')+i*864e5);
   const entry=homeFeaturedSelection({...eightInput,now:at});
-  assert.equal(entry.entries.filter(x=>x.kind==='team').length,14,
-    'Ningún equipo puede perder su recomendación al variar la fecha');
+  assert.equal(entry.entries.filter(x=>x.kind==='team').length,1,
+    'El carrusel debe destacar una recomendación grupal diaria');
   return entry.entries.find(x=>x.kind==='team')?.teamId;
 });
 assert(new Set(teamLeads).size>1,'Cambiar el día debe rotar qué equipo aparece temprano');

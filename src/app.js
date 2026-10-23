@@ -2,6 +2,7 @@
 import { createClient } from '/supabase.js?v=1';
 import { createReader } from '/reader.js?v=18';
 import { createUI } from '/ui.js?v=52';
+import { reportHomeRead } from '/home-metrics.js?v=1';
 import { sameReaderAccount, readingProgressPrefix, readerProgressKeys } from '/reader-pref-cache.js?v=1';
 const { url, key } = window.OBI_CONFIG;
 const ASSET = n => url + '/storage/v1/object/public/obi-app/' + n + '?v=' + (window.OBI_ASSET_V || '5');
@@ -225,7 +226,7 @@ scrollTo(0, 0); document.body.classList.remove('in-studio');
 if (p === '/descargas' || (!navigator.onLine && !p.startsWith('/leer/'))) return offlinePage();
 if (p.startsWith('/estudio') || p === '/perfil' || p === '/preferencias' || p === '/solicitud') await meReady;
 if ((m = p.match(/^\/serie\/([\w-]+)$/))) return ui().series(m[1]);
-if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) return rd().open(m[1], +m[2]);
+if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) { reportHomeRead(sb,p); return rd().open(m[1], +m[2]); }
 if ((m = p.match(/^\/anotaciones\/([\w-]+)$/))) return rd().annotationsPage(m[1]);
 if ((m = p.match(/^\/equipo\/([\w-]+)$/))) return ui().team(m[1]);
 if ((m = p.match(/^\/lector\/([^/]+)$/))) return lector(decodeURIComponent(m[1]));
