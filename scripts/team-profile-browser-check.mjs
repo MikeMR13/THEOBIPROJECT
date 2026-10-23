@@ -44,7 +44,7 @@ const sample='<!doctype html><html lang="es"><head><meta charset="utf-8"><meta n
  page+'<p id="case-result" data-qa-status="running">RUNNING</p><script type="module">'+checks+'</script></body></html>';
 const parent='<!doctype html><html><head><meta charset="utf-8"></head><body><p id="qa-result" data-qa-status="running">QA_RUNNING</p>'+
  widths.map(w=>'<iframe title="Perfil '+w+'" width="'+w+'" height="800" src="/sample"></iframe>').join('')+
- '<script>let pending='+widths.length+',errors=[];for(const x of document.querySelectorAll("iframe"))x.addEventListener("load",()=>{const p=x.contentDocument.getElementById("case-result");if(p?.dataset.qaStatus!=="pass")errors.push(x.width+": "+(p?.textContent||"sin resultado"));if(!--pending){const q=document.getElementById("qa-result");q.dataset.qaStatus=errors.length?"fail":"pass";q.textContent=errors.join(" | ")||"Perfil grupal Chromium 320/390/768/1024/1440 OK";}})</script></body></html>';
+ '<script>const frames=[...document.querySelectorAll("iframe")];let tries=0;const poll=setInterval(()=>{const results=frames.map(x=>x.contentDocument?.getElementById("case-result"));if(results.every(p=>p?.dataset.qaStatus&&p.dataset.qaStatus!=="running")||++tries>250){clearInterval(poll);const errors=results.flatMap((p,i)=>p?.dataset.qaStatus==="pass"?[]:[frames[i].width+": "+(p?.textContent||"sin resultado")]);const q=document.getElementById("qa-result");q.dataset.qaStatus=errors.length?"fail":"pass";q.textContent=errors.join(" | ")||"Perfil grupal Chromium 320/390/768/1024/1440 OK";}},20);</script></body></html>';
 const server=createServer((req,res)=>{
  const url=new URL(req.url||'/', 'http://127.0.0.1');
  res.setHeader('Cache-Control','no-store');
