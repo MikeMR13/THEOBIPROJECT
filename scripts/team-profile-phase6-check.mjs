@@ -79,4 +79,22 @@ assert.ok(!src.includes('.tp2-composition[data-mobile-order=propio] .tp2-unit{or
 assert.ok(src.includes('ResizeObserver'),'Responsive DOM reflow');
 assert.ok(src.includes('bindMobileComposition(root)'),'Reconciliación invocada en perfil');
 assert.ok(src.includes('aria-label="Secciones del grupo"'),'Navegación etiquetada');
+const longDesign=normalize({
+  announce:{title:'Avisos de la semana',text:'Aviso de prueba repetido para ver el tamaño del borrador. '.repeat(4)},
+  mobile:{orderMode:'propio',order:['next','recent','featured','works','members','announce','stats'],hero:'amplio',cards:'compacto',follow:'mostrar'},
+  savedCompositions:Array.from({length:6},(_,i)=>({
+    id:'comp_'+i,name:'Composición personalizada de grupo '+i,
+    order:['featured','next','works','members','stats','recent','announce'],hidden:i%2?['members']:[],
+    composition:{columns:i%2?'dos':'una',emphasis:{works:'destacado',members:'compacto',recent:'destacado'}},
+    mobile:{orderMode:'propio',order:['next','recent','works','members','featured','announce','stats'],hero:'compacto',cards:'amplio',catalog:'dos',follow:'mostrar'}
+  }))
+});
+assert.equal(longDesign.savedCompositions.length,6);
+const estimatedBytes=new TextEncoder().encode(JSON.stringify(longDesign)).length;
+assert.ok(estimatedBytes<19000,'Diseño de prueba excede el margen seguro de guardado: '+estimatedBytes);
+const css=readFileSync('src/studio.css','utf8');
+assert.ok(css.includes('.pf-oa button{min-width:40px;min-height:40px;'),'Flechas táctiles pequeñas');
+assert.ok(src.includes('.tp2-car-nav button{width:44px;height:44px;'),'Carrusel debe tener botones de 44px');
+assert.ok(src.includes('#grupo-novedades,#grupo-destacadas,#grupo-anuncios'),'Compensación del menú fijo en navegación');
+
 console.log('Perfil grupal Fase 6: orden DOM, foco móvil, cambios de anchura, pareja editorial y compatibilidad OK');
