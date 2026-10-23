@@ -10,6 +10,7 @@ const $ = s => document.querySelector(s), app = $('#app');
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 2800); };
 let user = null, profile = null, me = null;
+let teamMemberships = [];
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
 let LG; const lg = async () => LG ||= await import('/legal.js?v=1');
 let PF; const pf = async () => PF ||= await import('/profile.js?v=10');
@@ -39,6 +40,7 @@ const RL = { bibliotecario: 'Bibliotecario', publicador: 'Publicador', lector: '
 // perfil y whoami llegan en paralelo y actualizan la barra. meReady avisa cuándo `me` es definitivo.
 let meReady = Promise.resolve(), lastBar = '';
 async function loadSession(){
+teamMemberships = [];
 // La identidad de la última sesión verificada solo sirve para preferencias y lectura
 // local en modo avión. Al recuperar internet se valida la sesión real de Supabase.
 if (!navigator.onLine) {
@@ -60,8 +62,9 @@ try { const c = JSON.parse(localStorage.getItem('obi-me') || 'null'); if (c?.id 
 window.obiSetUI(profile?.ui_prefs || {});
 drawSession();
 const uid = user.id;
-meReady = Promise.all([sb.rpc('my_profile'), sb.rpc('whoami')]).then(([p, w]) => {
+meReady = Promise.all([sb.rpc('my_profile'), sb.rpc('whoami'), sb.from('team_members').select('teams(id,slug)').eq('user_id', uid)]).then(([p, w, memberships]) => {
   if (user?.id !== uid) return; profile = p.data; me = w.data || null;
+  teamMemberships = (memberships.data || []).map(m => m.teams).filter(t => t?.id && t?.slug);
   if (profile?.ui_prefs && Object.keys(profile.ui_prefs).length) window.obiSetUI(profile.ui_prefs);
   else window.obiSetUI({});
   sb.rpc('my_blocks').then(({ data }) => { if (user?.id === uid && Array.isArray(data)) window.obiSetBlocks(data); });
@@ -79,12 +82,13 @@ function delBanner(){
   document.body.appendChild(b);
   b.querySelector('#obi-undel').onclick = async () => { const { error } = await sb.rpc('cancel_account_deletion'); if (error) return toast(error.message); profile.delete_requested_at = null; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, profile, me })); } catch {} b.remove(); toast('Eliminación cancelada. ¡Qué bueno que te quedas!'); };
 }
+const currentGroup = () => teamMemberships.find(t => t.id === localStorage.getItem('obi-team')) || teamMemberships[0];
 function drawSession(){
 const pr = me?.platform_role || 'lector';
 const ini = esc((profile?.username || user?.email || '?')[0].toUpperCase());
 const cont = `<a class="ob-cont" id="ob-cont" href="/biblioteca" hidden><span class="k" aria-hidden="true">続</span><span class="t"><small>Continuar</small><b></b></span></a>`;
 const h = cont + (user
-? `<details class="ob-bell"><summary aria-label="Avisos"><span aria-hidden="true">鈴</span><em id="bell-n" hidden></em></summary><div class="ob-menu ob-nt" id="bell-list"><p class="mono">Cargando…</p></div></details><details class="ob-user"><summary aria-label="Menú de cuenta"><span class="ob-av">${profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : ini}</span></summary><div class="ob-menu"><div class="who2"><strong>${esc(profile?.username || user.email)}</strong><small>${RL[pr]}${profile?.donor_tier ? ' · 援 Donador' : ''}</small></div><a href="/perfil">Mi perfil</a><a href="/biblioteca">Mi biblioteca</a><a href="/preferencias">Preferencias</a><button type="button" data-install ${canInstall() ? '' : 'hidden'}>Instalar la app</button>${pr === 'bibliotecario' ? '<a href="/bibliotecario">Mostrador del Bibliotecario</a>' : ''}${pr !== 'lector' ? '<a href="/estudio">Estudio</a>' : '<a href="/solicitud">Crear mi grupo traductor</a>'}<button id="out">Salir</button></div></details>`
+? `<details class="ob-bell"><summary aria-label="Avisos"><span aria-hidden="true">鈴</span><em id="bell-n" hidden></em></summary><div class="ob-menu ob-nt" id="bell-list"><p class="mono">Cargando…</p></div></details><details class="ob-user"><summary aria-label="Menú de cuenta"><span class="ob-av">${profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : ini}</span></summary><div class="ob-menu"><div class="who2"><strong>${esc(profile?.username || user.email)}</strong><small>${RL[pr]}${profile?.donor_tier ? ' · 援 Donador' : ''}</small></div><a href="/perfil">Mi perfil</a>${teamMemberships.length ? '<a href="/mi-equipo">Perfil grupal</a>' : ''}<a href="/biblioteca">Mi biblioteca</a><a href="/preferencias">Preferencias</a><button type="button" data-install ${canInstall() ? '' : 'hidden'}>Instalar la app</button>${pr === 'bibliotecario' ? '<a href="/bibliotecario">Mostrador del Bibliotecario</a>' : ''}${pr !== 'lector' ? '<a href="/estudio">Estudio</a>' : '<a href="/solicitud">Crear mi grupo traductor</a>'}<button id="out">Salir</button></div></details>`
 : `<button class="btn" id="in">Entrar</button>`);
 if (h === lastBar) return contBtn(); lastBar = h; $('#session').innerHTML = h;
 const dd = $('#session .ob-user'); if (dd) dd.querySelector('.ob-menu').addEventListener('click', e => { if (e.target.closest('a')) dd.open = false; });
@@ -150,7 +154,16 @@ $('#bell-list').innerHTML = (data || []).length ? '<strong class="nt-h">Avisos</
 $('#bell-list').onclick = e => { if (e.target.closest('a')) d.open = false; };
 if ((data || []).some(x => !x.read)) { await sb.rpc('notifications_read_all'); $('#bell-n').hidden = true; } });
 }
+async function groupProfile(){
+  if (!user) return go('/entrar');
+  await meReady;
+  const group = currentGroup();
+  if (!group) { app.innerHTML = '<h1>Perfil grupal</h1><p>Aún no perteneces a ningún grupo traductor.</p><p><a class="btn ghost" href="/">Volver al inicio</a></p>'; return; }
+  history.replaceState({}, '', '/equipo/' + encodeURIComponent(group.slug));
+  return render();
+}
 const routes = {
+'/mi-equipo': groupProfile,
 '/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': async () => (await ag()).agenda(CTX()), '/ranking': () => ui().ranking(), '/lanzamientos': async () => (await ag()).agenda(CTX()), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/preferencias': async () => (await pf()).preferences(PCTX()), '/buscar': () => ui().search(), '/solicitud': solicitud, '/elige-nombre': chooseName, '/privacidad': async () => (await lg()).privacy(app), '/condiciones-servicio': async () => (await lg()).terms(app),
 '/invitacion': async () => (await import('/team-invitations.js?v=1')).renderTeamInvitation({ sb, app, esc, toast, go }),
 '/bibliotecario': async () => (await ad()).render(), '/admin': async () => { history.replaceState({}, '', '/bibliotecario'); (await ad()).render(); },
