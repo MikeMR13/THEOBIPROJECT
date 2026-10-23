@@ -1216,7 +1216,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const R = { list: RK_L[qs.get('lista')] ? qs.get('lista') : 'leidas', period: RK_P[qs.get('periodo')] ? qs.get('periodo') : 'semana', genre: qs.get('genero') || '', status: ['en_curso', 'terminada'].includes(qs.get('estado')) ? qs.get('estado') : '', teamView: qs.get('vista') === 'equipos' || !!qs.get('equipo'), team: qs.get('equipo') || '' };
     app.innerHTML = '<p class="mono">Cargando el ranking…</p>';
     // Los metadatos auxiliares no deben retrasar el primer resultado del ranking.
-    let genres = [], teams = [], teamRows = [], teamPromise;
+    let genres = [], teams = [], teamRows = [], teamPromise, autoHist = false;
     const firstList = R.list;
     const weeklyCheck = !qs.get('periodo') && !R.teamView
       ? sb.from('rankings').select('series_id', { count: 'exact', head: true }).eq('list', R.list).eq('period', 'semana')
@@ -1271,7 +1271,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       $('#rk-desc').textContent = RK_D[R.list];
       $('#rk-team-tab').classList.toggle('on', R.teamView); $('#rk-team-tab').setAttribute('aria-pressed', String(R.teamView));
       $('#rk-filters').hidden = R.teamView; $('#rk').hidden = R.teamView; $('#rk-teams').hidden = !R.teamView;
-      if ($('#rk-autoh')) $('#rk-autoh').hidden = R.teamView;
+      if ($('#rk-autoh')) $('#rk-autoh').hidden = R.teamView || !autoHist || R.period !== 'historico' || R.list !== firstList;
       if ($('#rk-team-sel') && R.team) $('#rk-team-sel').value = R.team;
     };
     let tk = 0;
@@ -1327,6 +1327,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       if (error || count || !app.querySelector('#rk') || R.teamView || R.list !== firstList || R.period !== 'semana') return;
       if (!RK_OK[R.list]) {
         R.period = 'historico';
+        autoHist = true;
         app.querySelector('#rk-autoh').hidden = false;
         draw();
       }
