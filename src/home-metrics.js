@@ -2,17 +2,24 @@
 // Sin cookies, IP, cuenta, serie ni identificador de dispositivo en las llamadas RPC.
 const KEY='obi-home-source';
 const TYPES=new Set(['launch','release','popular','historic','editorial','discover','trending','team','prelaunch','other']);
+const LOCAL_MAX_PER_MINUTE=24; // Guarda adicional por pestaña; el límite real vive en SQL.
+let localWindow=0, localEmitted=0;
 const emit=(sb,category,action)=>{
   if(!TYPES.has(category) && !['mobile','desktop'].includes(category))return;
-  Promise.resolve(sb.rpc('carousel_metric_record',{p_category:category,p_action:action}))
-    .catch(()=>{}); // La telemetría nunca debe bloquear ni modificar la lectura.
+  const now=Date.now();
+  if(now-localWindow>=60000 || now<localWindow){ localWindow=now; localEmitted=0; }
+  if(localEmitted>=LOCAL_MAX_PER_MINUTE)return;
+  localEmitted++;
+  // No se transmite identificador de lector, obra, pestaña ni dispositivo.
+  try {
+    Promise.resolve(sb.rpc('carousel_metric_record',{p_category:category,p_action:action})).catch(()=>{});
+  } catch {} // Las métricas nunca deben bloquear la lectura por errores de red.
 };
 export const homeMetricCategory=(reason,preview=false)=>
   preview?'prelaunch':reason?.label==='Nuevo lanzamiento'?'launch':TYPES.has(reason?.kind)?reason.kind:'other';
 
 export function createHomeMetrics(sb){
   let shown=new Set(),loadReported=false;
-  const seenPage=new Set();
   return {
     startVisit(){ shown=new Set(); loadReported=false; },
     shown(bookKey,category){
