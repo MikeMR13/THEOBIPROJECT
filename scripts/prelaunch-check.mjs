@@ -33,7 +33,12 @@ assert.doesNotMatch(ui, /id="ob-s-prelaunch"/, 'Inicio no debe crear una secció
 assert.match(ui, /const previewIds = new Set\(previews.map/, 'El carrusel combina publicaciones y preestrenos sin duplicados');
 assert.match(ui, /heroSlide\(feat, 0, prog, lastCh, top, newsBySeries, featReasons\)/, 'Los anuncios reutilizan el carrusel principal');
 assert.match(ui, /slice\(0, 2\)/, 'Se limita el número de adelantos para no desplazar publicaciones');
-assert.match(ui, /PRÓXIMAMENTE · VOL\./, 'Los preestrenos se identifican claramente en el carrusel');
+assert.match(ui, /PRÓXIMO ESTRENO · VOL\./, 'Los próximos estrenos se identifican claramente en el carrusel');
+assert.doesNotMatch(ui, /'PREESTRENO · '/, 'Evitar el término preestreno en la etiqueta del carrusel');
+assert.match(preview, /PRÓXIMO ESTRENO · PRIMER VISTAZO/, 'La ficha utiliza el mismo nombre de anuncio');
+assert.match(preview, /PRÓXIMO ESTRENO/, 'Las tarjetas usan Próximo estreno');
+assert.match(agenda, /Próximo estreno · volumen/, 'El calendario anuncia un próximo estreno');
+assert.match(studio, /Anunciar próximo estreno/, 'Studio presenta la misma etiqueta');
 assert.match(ui, /Ver primer vistazo →/, 'La llamada a la acción abre la ficha, no el lector');
 assert.match(ui, /pre \? `<p class="ob-prelaunch-timer"/, 'El carrusel muestra fecha y cuenta regresiva sin liberar lectura');
 assert.match(ui, /\(adultOk \|\| !x.adult\) && !hidS\(x\)/, 'Se respetan edad y preferencias de contenido');
