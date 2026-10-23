@@ -29,7 +29,7 @@ const checks=[
 "test(rank.top-custom.bottom>=9,'ranking demasiado junto al aviso');",
 "test(title.top-rank.bottom>=14,'ranking demasiado junto al título');",
 "test(logo.left>=meta.right-3,'logo invade la columna del aviso editorial');",
-"test(logo.top>=custom.top-5,'logo debe compartir la cabecera, no cubrir el aviso');",
+"test(Math.abs(logo.top-meta.top)<=5,'logo debe alinearse arriba en su propia columna');",
 "test(logo.bottom<=title.top-6,'logo se superpone con el título');",
 "test(badge.right<=logo.left-6&&custom.right<=logo.left-6&&rank.right<=logo.left-6,'PNG solapa anuncio o ranking');",
 "test(getComputedStyle(get('.ob-hero-head')).display==='grid','logo sin rejilla de seguridad');",
