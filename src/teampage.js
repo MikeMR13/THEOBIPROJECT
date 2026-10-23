@@ -39,18 +39,32 @@ export const THEMES = {
   washi: { l: 'Washi', d: { template: 'editorial', bg: 'claro', accent: '#c8102e', font: 'notoserif', cover: 'obi', button: 'contorno', logo: 'hanko', pattern: 'washi', patternOp: 16 } },
   noche: { l: 'Noche estrellada', d: { template: 'clasica', bg: 'oscuro', accent: '#b8c4d9', font: 'notoserif', cover: 'bolsillo', button: 'contorno', logo: 'circulo', pattern: 'shippo', patternOp: 7 } }
 };
+export const HERO_SIZES = { original: 'Original', compacto: 'Compacto', destacado: 'Destacado' };
+export const HERO_ALIGN = { natural: 'Según plantilla', izquierda: 'Izquierda', centro: 'Centrado' };
+export const FOLLOW_LABELS = { equipo: 'Seguir al equipo', grupo: 'Seguir grupo', publicaciones: 'Seguir publicaciones' };
+export const STATS_LOCATION = { secciones: 'En su sección', cabecera: 'Debajo de la cabecera' };
+export const LAYOUT_DEFAULT = { header: 'original', align: 'natural', showBio: true, showMeta: true, showLinks: true, nav: true, navWorks: true, navNext: true, navMembers: true, stats: 'secciones', followLabel: 'equipo' };
 export const SECTIONS = { announce: 'Anuncio', next: 'Próximo lanzamiento', stats: 'Estadísticas', featured: 'Obras destacadas', works: 'Obras', members: 'Integrantes' };
 const SEC_KEYS = Object.keys(SECTIONS);
 export const DEFAULT = { theme: 'tinta', ...THEMES.tinta.d, motto: '' };
 const pick = (v, o, d) => Object.prototype.hasOwnProperty.call(o, v) ? v : d;
 export function normalize(x, teamColor){
   const s = x && typeof x === 'object' ? x : {}, base = { ...DEFAULT, accent: teamColor || DEFAULT.accent };
+  const L = s.layout && typeof s.layout === 'object' && !Array.isArray(s.layout) ? s.layout : {};
   return {
     theme: /^mine:\d+$/.test(s.theme || '') ? s.theme : pick(s.theme, { ...THEMES, custom: 1 }, base.theme), template: pick(s.template, TEMPLATES, base.template), bg: pick(s.bg, BGS, base.bg),
     accent: /^#[0-9a-f]{6}$/i.test(s.accent || '') ? s.accent.toLowerCase() : base.accent, font: pick(s.font, TFONTS, base.font),
     cover: pick(COVER_OLD[s.cover] || s.cover, COVERS, base.cover), button: pick(s.button, BUTTONS, base.button), logo: pick(s.logo, LOGOS, base.logo),
     pattern: pick(s.pattern, PATTERNS, base.pattern), patternOp: Math.max(0, Math.min(30, Math.round(+s.patternOp || 0))) || (s.patternOp === 0 ? 0 : base.patternOp),
     motto: String(s.motto || '').slice(0, 120),
+    layout: {
+      header: pick(L.header, HERO_SIZES, LAYOUT_DEFAULT.header),
+      align: pick(L.align, HERO_ALIGN, LAYOUT_DEFAULT.align),
+      showBio: L.showBio !== false, showMeta: L.showMeta !== false, showLinks: L.showLinks !== false,
+      nav: L.nav !== false, navWorks: L.navWorks !== false, navNext: L.navNext !== false, navMembers: L.navMembers !== false,
+      stats: pick(L.stats, STATS_LOCATION, LAYOUT_DEFAULT.stats),
+      followLabel: pick(L.followLabel, FOLLOW_LABELS, LAYOUT_DEFAULT.followLabel)
+    },
     order: [...new Set([...(Array.isArray(s.order) ? s.order.filter(k => SEC_KEYS.includes(k)) : []), ...SEC_KEYS])],
     hidden: Array.isArray(s.hidden) ? s.hidden.filter(k => SEC_KEYS.includes(k)) : [],
     featured: Array.isArray(s.featured) ? s.featured.filter(x => typeof x === 'string' && /^[\w-]{1,80}$/.test(x)).slice(0, 3) : [],
@@ -167,7 +181,7 @@ export function effective(design, color, sim){
 }
 const TLS = { active: 'En traducción', paused: 'En pausa', completed: 'Completa', dropped: 'Abandonada', licensed: 'Licenciada' };
 export function render(D, design, h){
-  const { esc, media } = h, d = effective(design, D.t.color, h.sim), t = D.t, S = t.settings || {}, on = k => S[k] !== false;
+  const { esc, media } = h, d = effective(design, D.t.color, h.sim), t = D.t, S = t.settings || {}, on = k => S[k] !== false, L = d.layout;
   const LG = { ja: 'japonés', ko: 'coreano', zh: 'chino', en: 'inglés' }, langs = (t.langs || []).map(l => LG[l]).filter(Boolean);
   const LK = [['website', 'Sitio web'], ['patreon', 'Patreon'], ['kofi', 'Ko-fi'], ['discord', 'Discord'], ['twitter', 'X / Twitter']].filter(([k]) => /^https:\/\//.test(S[k] || ''));
   const W = D.works, caps = W.reduce((a, w) => a + (w.chapters?.[0]?.count || 0), 0);
@@ -176,20 +190,20 @@ export function render(D, design, h){
   const logo = `<span class="tp2-logo">${t.avatar_path ? `<img src="${esc(media(t.avatar_path))}" alt="">` : `<b>${esc(t.name.slice(0, 2).toUpperCase())}</b>`}</span>`;
   const meta = [langs.length ? 'Traducimos del ' + langs.join(', ') : '', W.length + (W.length === 1 ? ' obra' : ' obras'), t.status && t.status !== 'Activo' ? t.status : ''].filter(Boolean).join(' · ');
   const SN0 = d.season && SEASONS[d.season], stamp0 = SN0 && d.seasons.deco !== 'min' ? `<span class="tp2-stamp"><i></i>${esc(SN0.l.toUpperCase())}</span>` : '';
-  const name = `<h1 class="tp2-name">${esc(t.name)}</h1>${d.motto ? `<p class="tp2-motto">${esc(d.motto)}</p>` : ''}<p class="tp2-meta">${esc(meta)}</p>${stamp0}`;
-  const links = `<div class="tp2-links"><span class="tp2-fslot"></span>${LK.map(([k, l]) => `<a class="tp2-btn" href="${esc(S[k])}" target="_blank" rel="noopener">${l} ↗</a>`).join('')}</div>`;
+  const name = `<h1 class="tp2-name">${esc(t.name)}</h1>${d.motto ? `<p class="tp2-motto">${esc(d.motto)}</p>` : ''}${L.showMeta ? `<p class="tp2-meta">${esc(meta)}</p>` : ''}${stamp0}`;
+  const links = L.showLinks ? `<div class="tp2-links"><span class="tp2-fslot"></span>${LK.map(([k, l]) => `<a class="tp2-btn" href="${esc(S[k])}" target="_blank" rel="noopener">${l} ↗</a>`).join('')}</div>` : '<div class="tp2-links"><span class="tp2-fslot"></span></div>';
   const cover = w => `<span class="tp2-cv"${w.cover_path ? ` style="background-image:url('${esc(media(w.cover_path))}')"` : ''}>${w.cover_path ? '' : `<i>${esc(w.short || w.title)}</i>`}<span class="tp2-obi" aria-hidden="true"><b>${esc(w.short || w.title)}</b><small>${w.chapters?.[0]?.count || 0} cap.</small></span></span>`;
-  const stats = on('show_stats') ? `<div class="tp2-stats">${[[W.length, 'obras'], [caps, 'capítulos'], [W.reduce((a, w) => a + (w.views || 0), 0), 'lecturas']].map(([v, k]) => `<span><b>${(+v).toLocaleString('es-MX')}</b><small>${k}</small></span>`).join('')}</div>` : '';
-  const nx = D.next ? `<a class="tp2-next" data-at="${esc(D.next.at)}" href="/serie/${esc(D.next.series.slug)}"><small>PRÓXIMO LANZAMIENTO</small><b>${esc(D.next.series.title)}${D.next.label ? ' · ' + esc(D.next.label) : ''}</b><span>${new Date(D.next.at).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</span></a>` : '';
+  const stats = on('show_stats') ? `<div class="tp2-stats">${[[W.length, 'obras'], [caps, 'capítulos']].map(([v, k]) => `<span><b>${(+v).toLocaleString('es-MX')}</b><small>${k}</small></span>`).join('')}<span><b data-follow-count>—</b><small>seguidores</small></span><span><b>${D.mem.length.toLocaleString('es-MX')}</b><small>integrantes públicos</small></span></div>` : '';
+  const nx = D.next ? `<a class="tp2-next" id="grupo-lanzamientos" data-at="${esc(D.next.at)}" href="/serie/${esc(D.next.series.slug)}"><small>PRÓXIMO LANZAMIENTO</small><b>${esc(D.next.series.title)}${D.next.label ? ' · ' + esc(D.next.label) : ''}</b><span>${new Date(D.next.at).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</span></a>` : '';
   const featCard = f => `<a class="tp2-feat" href="/serie/${esc(f.slug)}">${cover(f)}<span><b>${esc(f.title)}</b><span class="tp2-syn">${esc(f.synopsis || '')}</span><span class="tp2-btn solid">Empezar a leer</span></span></a>`;
   const featH = featList.length ? `<section class="tp2-sec"><div class="tp2-sh"><h2>${featList.length > 1 ? 'Obras destacadas' : 'Obra destacada'}</h2>${featList.length > 1 ? `<span class="tp2-car-nav"><button type="button" data-car="-1" aria-label="Anterior">‹</button><button type="button" data-car="1" aria-label="Siguiente">›</button></span>` : ''}</div><div class="tp2-car" tabindex="0" aria-label="Obras destacadas">${featList.map(featCard).join('')}</div>${featList.length > 1 ? `<div class="tp2-dots">${featList.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div>` : ''}</section>` : '';
   const today = new Date().toISOString().slice(0, 10), A = d.announce;
   const ann = (A.title || A.text) && (!A.until || A.until >= today) ? `<aside class="tp2-ann"><small>AVISO DEL EQUIPO</small>${A.title ? `<b>${esc(A.title)}</b>` : ''}${A.text ? `<p>${esc(A.text)}</p>` : ''}${A.url ? `<a class="tp2-btn" href="${esc(A.url)}"${/^https/.test(A.url) ? ' target="_blank" rel="noopener"' : ''}>${esc(A.label || 'Ver más')}${/^https/.test(A.url) ? ' ↗' : ''}</a>` : ''}</aside>` : '';
-  const grid = on('show_works') && W.length ? `<section class="tp2-sec"><h2>Obras</h2><div class="tp2-works">${W.map(w => `<a href="/serie/${esc(w.slug)}" class="tp2-w">${cover(w)}<b>${esc(w.short || w.title)}</b><small>${w.chapters?.[0]?.count || 0} cap. · ${TLS[w.translation_status] || TLS.active}</small></a>`).join('')}</div></section>` : '';
-  const list = on('show_works') && W.length ? `<section class="tp2-sec"><h2>Obras</h2><div class="tp2-list">${W.map(w => `<a href="/serie/${esc(w.slug)}" class="tp2-li">${cover(w)}<span><b>${esc(w.title)}</b><small>${w.chapters?.[0]?.count || 0} capítulos · ${TLS[w.translation_status] || TLS.active}</small><span class="tp2-syn">${esc(w.synopsis || '')}</span></span></a>`).join('')}</div></section>` : '';
-  const mem = on('show_members') && D.mem.length ? `<section class="tp2-sec"><h2>Integrantes</h2><div class="tp2-mem">${D.mem.map(m => `<span>${esc(m.profiles?.username || '—')}<small>${m.role === 'owner' ? 'Propietario' : esc(m.team_roles?.name || 'Integrante')}</small></span>`).join('')}</div></section>` : '';
-  const bio = t.bio ? `<p class="tp2-bio">${esc(t.bio)}</p>` : '';
-  const SEC = { announce: ann, next: nx, stats, featured: on('show_featured') ? featH : '', works: d.template === 'editorial' ? list : grid, members: mem };
+  const grid = on('show_works') && W.length ? `<section class="tp2-sec" id="grupo-obras"><h2>Obras</h2><div class="tp2-works">${W.map(w => `<a href="/serie/${esc(w.slug)}" class="tp2-w">${cover(w)}<b>${esc(w.short || w.title)}</b><small>${w.chapters?.[0]?.count || 0} cap. · ${TLS[w.translation_status] || TLS.active}</small></a>`).join('')}</div></section>` : '';
+  const list = on('show_works') && W.length ? `<section class="tp2-sec" id="grupo-obras"><h2>Obras</h2><div class="tp2-list">${W.map(w => `<a href="/serie/${esc(w.slug)}" class="tp2-li">${cover(w)}<span><b>${esc(w.title)}</b><small>${w.chapters?.[0]?.count || 0} capítulos · ${TLS[w.translation_status] || TLS.active}</small><span class="tp2-syn">${esc(w.synopsis || '')}</span></span></a>`).join('')}</div></section>` : '';
+  const mem = on('show_members') && D.mem.length ? `<section class="tp2-sec" id="grupo-integrantes"><h2>Integrantes</h2><div class="tp2-mem">${D.mem.map(m => `<span>${esc(m.profiles?.username || '—')}<small>${m.role === 'owner' ? 'Propietario' : esc(m.team_roles?.name || 'Integrante')}</small></span>`).join('')}</div></section>` : '';
+  const bio = L.showBio && t.bio ? `<p class="tp2-bio">${esc(t.bio)}</p>` : '';
+  const SEC = { announce: ann, next: nx, stats: L.stats === 'cabecera' ? '' : stats, featured: on('show_featured') ? featH : '', works: d.template === 'editorial' ? list : grid, members: mem };
   const SN = d.season && SEASONS[d.season], greet = SN && d.seasons.greet[d.season] ? `<div class="tp2-greet"><small>${esc(SN.l.toUpperCase())}</small><span>${esc(d.seasons.greet[d.season])}</span></div>` : '';
   const ornSrc = SN && d.seasons.deco !== 'min' && !d.seasons.noOrn.includes(d.season) ? (d.seasons.orn[d.season] ? media(d.seasons.orn[d.season]) : ornURL(SN.p, d.accent)) : '';
   const orn = ornSrc ? `<span class="tp2-orn${d.seasons.orn[d.season] ? '' : ' def'}" style="background-image:url('${esc(ornSrc)}')"></span>` : '';
@@ -197,12 +211,20 @@ export function render(D, design, h){
   const corners = mot ? `<span class="tp2-cor l" style="background-image:url('${mot}')"></span><span class="tp2-cor r" style="background-image:url('${motifURL(SN.m, SN.c2, d.accent)}')"></span>` : '';
   const stamp = full ? `<span class="tp2-stamp"><i></i>${esc(SN.l.toUpperCase())}</span>` : '';
   const flow = greet + d.order.filter(k => !d.hidden.includes(k)).map(k => SEC[k] || '').join('');
+  const tabItems = [
+    ['grupo-inicio', 'Inicio', true],
+    ['grupo-obras', 'Obras', L.navWorks && on('show_works') && W.length > 0 && !d.hidden.includes('works')],
+    ['grupo-lanzamientos', 'Lanzamientos', L.navNext && !!D.next && !d.hidden.includes('next')],
+    ['grupo-integrantes', 'Integrantes', L.navMembers && on('show_members') && D.mem.length > 0 && !d.hidden.includes('members')]
+  ].filter(([, , enabled]) => enabled);
+  const tabs = L.nav && tabItems.length > 1 ? `<nav class="tp2-tabs" aria-label="Secciones del grupo">${tabItems.map(([id, label], i) => `<a href="#${id}"${i === 0 ? ' class="on" aria-current="location"' : ''}>${label}</a>`).join('')}</nav>` : '';
+  const summary = L.stats === 'cabecera' && !d.hidden.includes('stats') ? `<div class="tp2-summary">${stats}</div>` : '';
   let body;
-  if (d.template === 'revista') body = `<header class="tp2-hero" style="${ban}">${orn}${corners}<div class="tp2-heroin">${logo}<div>${name}</div></div></header><div class="tp2-in">${bio}${links}${flow}</div>`;
-  else if (d.template === 'editorial') body = `<div class="tp2-in"><header class="tp2-ed"><div class="tp2-edt">${logo}${name}${bio}${links}</div><div class="tp2-edi" style="${ban};position:relative">${orn}${corners}</div></header>${flow}</div>`;
-  else body = `<header class="tp2-ban" style="${ban};position:relative">${orn}${corners}</header><div class="tp2-in"><div class="tp2-head">${logo}<div>${name}</div></div>${bio}${links}${flow}</div>`;
+  if (d.template === 'revista') body = `<header class="tp2-hero" style="${ban}">${orn}${corners}<div class="tp2-heroin">${logo}<div>${name}</div></div></header><div class="tp2-in">${bio}${links}${tabs}${summary}${flow}</div>`;
+  else if (d.template === 'editorial') body = `<div class="tp2-in"><header class="tp2-ed"><div class="tp2-edt">${logo}${name}${bio}${links}</div><div class="tp2-edi" style="${ban};position:relative">${orn}${corners}</div></header>${tabs}${summary}${flow}</div>`;
+  else body = `<header class="tp2-ban" style="${ban};position:relative">${orn}${corners}</header><div class="tp2-in"><div class="tp2-head">${logo}<div>${name}</div></div>${bio}${links}${tabs}${summary}${flow}</div>`;
   const fbar = `<div class="tp2-fbar"><span>${esc(t.name)}</span><span class="tp2-fslot2"></span></div>`;
-  return `<div class="tp2w"><div class="tp2" data-tpl="${d.template}" data-cover="${d.cover}" data-btn="${d.button}" data-logo="${d.logo}" data-pat="${d.pattern}"${full ? ` data-season="${d.season}"` : ''} style="${vars(d)}${full ? `;--mot:url('${mot}');--motstrip:url('${stripURL(SN.m, d.accent, SN.c2)}');--c2:${SN.c2}` : ''}">${h.top || ''}${body}${fbar}</div></div>`;
+  return `<div class="tp2w"><div class="tp2" id="grupo-inicio" data-tpl="${d.template}" data-hero="${L.header}" data-align="${L.align}" data-follow-label="${L.followLabel}" data-cover="${d.cover}" data-btn="${d.button}" data-logo="${d.logo}" data-pat="${d.pattern}"${full ? ` data-season="${d.season}"` : ''} style="${vars(d)}${full ? `;--mot:url('${mot}');--motstrip:url('${stripURL(SN.m, d.accent, SN.c2)}');--c2:${SN.c2}` : ''}">${h.top || ''}${body}${fbar}</div></div>`;
 }
 
 const CSS = `
@@ -263,12 +285,54 @@ const CSS = `
 .tp2-fbar{background:color-mix(in srgb,var(--sf) 92%,transparent);backdrop-filter:blur(8px)}
 @container (max-width:640px){.tp2-top{display:none}.tp2-fbar{display:flex;position:sticky;bottom:0;z-index:4;gap:10px;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--sf);border-top:1px solid var(--ln);margin-top:30px}.tp2-fbar span{font-size:13px;color:var(--mu)}.tp2-links .tp2-fslot{display:none}}
 @container (max-width:640px){.tp2-ed{grid-template-columns:1fr}.tp2-edi{min-height:180px;order:-1}.tp2-feat{grid-template-columns:110px minmax(0,1fr);gap:14px;padding:12px}.tp2-stats{grid-template-columns:repeat(3,minmax(0,1fr))}.tp2-works{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.tp2-li{grid-template-columns:72px minmax(0,1fr)}.tp2 h2{font-size:21px}}
+
+/* Fase 1: controles de cabecera y navegación, adaptados al tema activo. */
+.tp2 :is(#grupo-obras,#grupo-lanzamientos,#grupo-integrantes){scroll-margin-top:calc(var(--top-h,64px) + 88px)}
+.tp2-tabs{display:flex;gap:2px;align-items:stretch;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--ln) transparent;position:sticky;top:var(--top-h,64px);z-index:7;border:1px solid var(--ln);background:var(--sf);box-shadow:0 4px 16px rgba(0,0,0,.12);max-width:100%}
+.tp2-tabs a{display:inline-flex;align-items:center;justify-content:center;padding:9px clamp(12px,2cqi,22px);min-height:44px;min-width:max-content;font:600 13px/1.25 'IBM Plex Sans',sans-serif;border-bottom:3px solid transparent;color:var(--fg);white-space:nowrap}
+.tp2-tabs a:hover,.tp2-tabs a.on{color:var(--act);border-bottom-color:var(--ac);background:color-mix(in srgb,var(--ac) 7%,var(--sf))}
+.tp2-tabs a:focus-visible{outline:3px solid var(--act);outline-offset:-3px}
+.tp2-summary{min-width:0}.tp2-stats{grid-template-columns:repeat(4,minmax(0,1fr));max-width:760px}
+.tp2-stats span{min-width:0}.tp2-stats b{font-size:clamp(18px,2.5cqi,26px)}.tp2-stats small{overflow-wrap:anywhere}
+.tp2[data-hero=compacto] .tp2-hero{min-height:clamp(190px,28cqi,300px)}
+.tp2[data-hero=compacto] .tp2-ban{height:clamp(110px,18cqi,180px)}
+.tp2[data-hero=compacto] .tp2-edi{min-height:230px}
+.tp2[data-hero=destacado] .tp2-hero{min-height:clamp(340px,48cqi,500px)}
+.tp2[data-hero=destacado] .tp2-ban{height:clamp(220px,34cqi,370px)}
+.tp2[data-hero=destacado] .tp2-edi{min-height:400px}
+.tp2[data-align=centro] .tp2-heroin,.tp2[data-align=centro] .tp2-head{justify-content:center;text-align:center}
+.tp2[data-align=centro] .tp2-in>.tp2-bio,.tp2[data-align=centro] .tp2-in>.tp2-links{justify-self:center;text-align:center}
+.tp2[data-align=centro] .tp2-edt{text-align:center;justify-items:center}
+.tp2[data-align=centro] .tp2-links{justify-content:center}
+.tp2[data-align=izquierda] .tp2-heroin,.tp2[data-align=izquierda] .tp2-head{justify-content:flex-start;text-align:left}
+.tp2[data-align=izquierda] .tp2-edt{text-align:left;justify-items:start}
+@container (max-width:640px){
+ .tp2-tabs{gap:0;top:var(--top-h,56px);margin-inline:-8px}
+ .tp2-tabs a{flex:1 0 auto;font-size:12px;padding-inline:13px}
+ .tp2-stats{grid-template-columns:repeat(2,minmax(0,1fr));max-width:none}
+ .tp2-stats span{padding:9px 6px}
+ .tp2[data-hero=destacado] .tp2-hero{min-height:300px}
+ .tp2[data-hero=compacto] .tp2-hero{min-height:185px}
+ .tp2[data-hero=compacto] .tp2-edi{min-height:150px}
+}
 `;
 
-export const followBtn = (on, n) => `<button type="button" class="tp2-btn tp2-follow${on ? ' on' : ''}" data-follow aria-pressed="${!!on}">${on ? '✓ Siguiendo' : '＋ Seguir al equipo'}${n ? ` · ${n.toLocaleString('es-MX')}` : ''}</button>`;
-export function fillFollow(root, on, n){ root.querySelectorAll('.tp2-fslot,.tp2-fslot2').forEach(s => { s.innerHTML = followBtn(on, n); }); }
+export const followBtn = (on, n, label = 'equipo') => `<button type="button" class="tp2-btn tp2-follow${on ? ' on' : ''}" data-follow aria-pressed="${!!on}">${on ? '✓ Siguiendo' : '＋ ' + FOLLOW_LABELS[label]}${n ? ` · ${n.toLocaleString('es-MX')}` : ''}</button>`;
+export function fillFollow(root, on, n){ root.querySelectorAll('.tp2-fslot,.tp2-fslot2').forEach(s => { s.innerHTML = followBtn(on, n, root.dataset.followLabel); }); root.querySelectorAll('[data-follow-count]').forEach(el => { el.textContent = (+n || 0).toLocaleString('es-MX'); }); }
 // carrusel de destacadas (manual)
 export function bind(root){
+  const tabs = [...root.querySelectorAll('.tp2-tabs a')];
+  const activate = active => tabs.forEach(a => { const on = a === active; a.classList.toggle('on', on); if (on) a.setAttribute('aria-current', 'location'); else a.removeAttribute('aria-current'); });
+  tabs.forEach(a => a.addEventListener('click', () => activate(a)));
+  if (tabs.length && typeof IntersectionObserver !== 'undefined') {
+    const targets = tabs.map(a => root.querySelector(a.getAttribute('href'))).filter(Boolean);
+    const observer = new IntersectionObserver(entries => {
+      if (!root.isConnected) return observer.disconnect();
+      const visible = entries.filter(e => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (visible[0]) { const link = tabs.find(a => a.hash === '#' + visible[0].target.id); if (link) activate(link); }
+    }, { rootMargin: '-15% 0px -65% 0px' });
+    targets.forEach(el => observer.observe(el));
+  }
   const car = root.querySelector('.tp2-car'); if (!car) return;
   const dots = [...root.querySelectorAll('.tp2-dots i')], idx = () => Math.round(car.scrollLeft / car.clientWidth);
   root.querySelectorAll('[data-car]').forEach(b => b.onclick = e => { e.preventDefault(); const n = car.children.length, i = (idx() + +b.dataset.car + n) % n; car.scrollTo({ left: i * car.clientWidth, behavior: 'smooth' }); });
