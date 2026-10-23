@@ -27,8 +27,16 @@ includes(sql, 'create or replace function private.chapter_readable(c uuid)', 'Se
 includes(sql, 'drop policy if exists "epub read donors"', 'Se debe cerrar el permiso antiguo de EPUB');
 excludes(sql, 'private.is_donor()', 'El Patreon de la plataforma no debe autorizar lecturas ni descargas');
 
-const downloads = studio.slice(studio.indexOf('async function downloads(){'), studio.indexOf('// ---------- Anuncios: tarjeta destacada'));
-assert.ok(downloads.length > 1000, 'No se pudo encontrar el panel de descargas');
+const panelStart = studio.indexOf('async function renderDownloads(seriesId, target){');
+const globalStart = studio.indexOf('async function downloads(){', panelStart);
+const panelEnd = studio.indexOf('// ---------- Anuncios: tarjeta destacada', globalStart);
+assert.ok(panelStart >= 0 && globalStart > panelStart && panelEnd > globalStart, 'No se pudo encontrar el panel de descargas compartido');
+const downloads = studio.slice(panelStart, panelEnd);
+includes(studio, "['descargas', 'Descargas']", 'La ficha de novela debe ofrecer pestaña Descargas');
+includes(studio, "renderDownloads(s.id, app.querySelector('#wk-downloads'))", 'La pestaña debe abrir la obra seleccionada');
+includes(downloads, ".eq('series_id', seriesId)", 'Las actualizaciones deben limitarse a la obra elegida');
+includes(downloads, "const patreonDlReady = !patreonResult.error", 'No exponer exclusividad si la migración SQL no existe');
+includes(downloads, "if (!validHttps(u))", 'No aceptar URLs inseguras');
 excludes(downloads, 'value="donor"', 'No ofrecer bloqueo por donador general');
 includes(downloads, 'Solo Patreon del equipo', 'El equipo conserva su bloqueo por enlace');
 includes(downloads, 'donor_only: false', 'No escribir nunca enlaces privados para donadores generales');
