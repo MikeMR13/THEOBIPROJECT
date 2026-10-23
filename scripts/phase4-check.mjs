@@ -8,7 +8,7 @@ const studio = src('src/studio.js'), editor = src('src/studio-editor.js'), impor
 const style = src('src/studio.css'), multimedia = src('src/studio-media.js');
 assert(!studio.includes('const STCSS'), 'CSS incrustado');
 assert(style.length > 20000 && style.includes('body.in-studio') && style.includes('.wk-vol'), 'Faltan estilos');
-assert(studio.includes("link.href = '/studio.css?v=1'"), 'CSS no se enlaza');
+assert(/link\.href\s*=\s*['"]\/studio\.css\?v=\d+['"]/.test(studio), 'CSS no se enlaza a un recurso versionado');
 assert(studio.includes('await styles;'), 'CSS debe cargarse antes del panel');
 assert(studio.includes("import('./studio-editor.js?v=1')"), 'Editor no diferido');
 assert(studio.includes("import('./studio-importer.js?v=1')"), 'Importador no diferido');

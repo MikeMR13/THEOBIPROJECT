@@ -67,7 +67,7 @@ export function createStudio(ctx){
       link.addEventListener('error', resolve, { once: true });
     });
     if (!existing) {
-      link.id = 'st2-css'; link.rel = 'stylesheet'; link.href = '/studio.css?v=1';
+      link.id = 'st2-css'; link.rel = 'stylesheet'; link.href = '/studio.css?v=4';
       document.head.appendChild(link);
     }
     if (!document.getElementById('st2-access-css')) {
@@ -1569,7 +1569,7 @@ export function createStudio(ctx){
   async function announcements(){
     if (!(await ensure())) return;
     const TAB = '/estudio/anuncios';
-    const [TP, { data: tm }] = await Promise.all([import('./teampage.js?v=12'), sb.from('teams').select('design,color').eq('id', T.team.id).maybeSingle()]);
+    const [TP, { data: tm }] = await Promise.all([import('./teampage.js?v=19'), sb.from('teams').select('design,color').eq('id', T.team.id).maybeSingle()]);
     TP.ensureFonts();
     const pub = TP.normalize(tm?.design, tm?.color).announce, ed = can('profile');
     let A = { ...pub };
@@ -1589,7 +1589,7 @@ export function createStudio(ctx){
         </div></section>
       <section class="an-box"><div class="an-h"><h2>Vista previa</h2><span class="mono">con el diseño publicado de tu página</span></div><div class="an-pv" id="an-pv"></div></section></div>`, TAB);
     bindPicker(announcements);
-    const draw = () => { const d = TP.normalize({ ...(tm?.design || {}), announce: A }, tm?.color); $('#an-pv').innerHTML = live(TP.normalize({ announce: A }).announce) ? `<div class="tp2w"><div class="tp2" data-cover="${d.cover}" data-btn="${d.button}" style="${TP.vars(d)};padding:18px;min-height:0">${TP.render({ t: { id: T.team.id, name: T.team.name, slug: T.team.slug, settings: { show_works: false, show_stats: false, show_members: false, show_featured: false } }, works: [], mem: [], next: null }, { ...d, order: ['announce'], hidden: [] }, { esc, media }).match(/<aside class="tp2-ann">[\s\S]*?<\/aside>/)?.[0] || ''}</div></div>` : `<p class="tb-empty">${A.title || A.text ? 'Con esa fecha el anuncio ya no se mostraría.' : 'Escribe un título o un texto para ver el anuncio.'}</p>`; const ok = !A.url || /^(https:\/\/|\/)[^\s"'<>]{0,400}$/.test(A.url); $('#an-n').textContent = ok ? '' : 'El enlace debe empezar con https:// o con / (una página del sitio).'; $('#an-n').style.color = '#f59e7a'; const dirty = JSON.stringify(A) !== JSON.stringify(pub); const dd = $('#an-dirty'); if (dd) dd.textContent = dirty ? 'Cambios sin publicar' : ''; const pb = $('#an-pub'); if (pb) pb.disabled = !dirty || !ok; };
+    const draw = () => { const d = TP.normalize({ ...(tm?.design || {}), announce: A }, tm?.color); $('#an-pv').innerHTML = live(TP.normalize({ announce: A }).announce) ? `<div class="tp2w"><div class="tp2" data-cover="${d.cover}" data-btn="${d.button}" style="${TP.vars(d)};padding:18px;min-height:0">${TP.render({ t: { id: T.team.id, name: T.team.name, slug: T.team.slug, settings: { show_works: false, show_stats: false, show_members: false, show_featured: false } }, works: [], mem: [], next: null }, { ...d, order: ['announce'], hidden: [] }, { esc, media }).match(/<aside class="tp2-ann[^"]*"[^>]*>[\s\S]*?<\/aside>/)?.[0] || ''}</div></div>` : `<p class="tb-empty">${A.title || A.text ? 'Con esa fecha el anuncio ya no se mostraría.' : 'Escribe un título o un texto para ver el anuncio.'}</p>`; const ok = !A.url || /^(https:\/\/|\/)[^\s"'<>]{0,400}$/.test(A.url); $('#an-n').textContent = ok ? '' : 'El enlace debe empezar con https:// o con / (una página del sitio).'; $('#an-n').style.color = '#f59e7a'; const dirty = JSON.stringify(A) !== JSON.stringify(pub); const dd = $('#an-dirty'); if (dd) dd.textContent = dirty ? 'Cambios sin publicar' : ''; const pb = $('#an-pub'); if (pb) pb.disabled = !dirty || !ok; };
     const read = () => { A = { title: $('#an-t').value.trim(), text: $('#an-x').value.trim(), label: $('#an-l').value.trim(), url: $('#an-u').value.trim(), until: $('#an-d').value }; $('#an-c').textContent = $('#an-x').value.length + ' / 300'; draw(); };
     ['#an-t', '#an-x', '#an-l', '#an-u', '#an-d'].forEach(s => $(s).oninput = read);
     const send = async x => { await rpc('team_announce_set', { p_team: T.team.id, p_announce: x }); Object.assign(pub, x); const st = state(pub), el = $('#an-st'); el.textContent = '● ' + st[0]; el.style.color = st[1]; draw(); };
@@ -1603,7 +1603,7 @@ export function createStudio(ctx){
     if (!(await ensure())) return;
     const TAB = '/estudio/preferencias';
     if (!can('profile')) { app.innerHTML = shell('Preferencias de la página', '<p class="tb-empty">Tu rol no permite personalizar la página del equipo. Pide el permiso «Perfil» a quien administra el equipo.</p>', TAB); bindPicker(prefs); return; }
-    const [TP, AN] = await Promise.all([import('./teampage.js?v=12'), import('./anim.js?v=8')]); TP.ensureFonts(TP.ALL_FONTS);
+    const [TP, AN] = await Promise.all([import('./teampage.js?v=19'), import('./anim.js?v=8')]); TP.ensureFonts(TP.ALL_FONTS);
     app.innerHTML = shell('Preferencias de la página', '<p class="mono">Cargando…</p>', TAB); bindPicker(prefs);
     const [D, { data: dr }, { data: ct }] = await Promise.all([TP.loadTeamData(sb, T.team.slug), sb.from('team_design_drafts').select('design,token,updated_at').eq('team_id', T.team.id).maybeSingle(), sb.from('team_custom_themes').select('id,name,design,updated_at').eq('team_id', T.team.id).order('name')]);
     let mine = ct || [];
@@ -1615,17 +1615,35 @@ export function createStudio(ctx){
     const CLIP = [['.pf-mine', 3, 'temas'], ['.pf-themes', 4, 'temas'], ['.pf-fonts', 6, 'tipografías'], ['.pf-pats', 8, 'patrones'], ['#pf-hist', 3, 'versiones'], ['.pf-featpick', 5, 'obras']];
     const clip = () => CLIP.forEach(([sel, n, w]) => { const box = app.querySelector(sel); if (!box) return; const kids = [...box.children].filter(k => !k.classList.contains('pf-more')); box.querySelector(':scope > .pf-more')?.remove(); if (kids.length <= n) return; const open = UI.open.has(sel), hid = kids.slice(n).filter(k => !k.classList.contains('on') && !k.querySelector('.on')); kids.forEach(k => k.hidden = false); if (!open) hid.forEach(k => k.hidden = true); const b = document.createElement('button'); b.type = 'button'; b.className = 'pf-more'; b.setAttribute('aria-expanded', open); b.textContent = open ? 'Ver menos' : `Ver más ${w} (${hid.length})`; b.onclick = () => { open ? UI.open.delete(sel) : UI.open.add(sel); clip(); }; box.appendChild(b); });
     const seg = (k, opts, extra = '') => `<div class="pf-seg" role="radiogroup">${Object.entries(opts).map(([v, l]) => `<button type="button" role="radio" aria-checked="${d[k] === v}" class="${d[k] === v ? 'on' : ''}" data-k="${k}" data-v="${v}" ${extra}>${esc(Array.isArray(l) ? l[0] : l)}</button>`).join('')}</div>`;
+    const segLayout = (key, values) => `<div class="pf-seg" role="radiogroup" aria-label="${esc(key)}">${Object.entries(values).map(([value, label]) => `<button type="button" role="radio" aria-checked="${d.layout[key] === value}" class="${d.layout[key] === value ? 'on' : ''}" data-lk="${key}" data-lv="${value}">${esc(label)}</button>`).join('')}</div>`;
+    const segEditorial = (key, opts) => `<div class="pf-seg" role="radiogroup" aria-label="${esc(key)}">${Object.entries(opts).map(([value, label]) => `<button type="button" role="radio" data-ek="${key}" data-ev="${value}" aria-checked="${String(d.editorial[key]) === value}" class="${String(d.editorial[key]) === value ? 'on' : ''}">${esc(label)}</button>`).join('')}</div>`;
+    const segCommunity = (key, opts) => `<div class="pf-seg" role="radiogroup" aria-label="${esc(key)}">${Object.entries(opts).map(([value, label]) => `<button type="button" role="radio" data-ck="${key}" data-cv="${value}" aria-checked="${String(d.community[key]) === value}" class="${String(d.community[key]) === value ? 'on' : ''}">${esc(label)}</button>`).join('')}</div>`;
+    const segMobile = (key, opts) => `<div class="pf-seg pf-mobile-seg" role="radiogroup" aria-label="Móvil: ${esc(key)}">${Object.entries(opts).map(([value, label]) => `<button type="button" role="radio" data-mobile-key="${key}" data-mobile-value="${value}" aria-checked="${d.mobile[key] === value}" class="${d.mobile[key] === value ? 'on' : ''}">${esc(label)}</button>`).join('')}</div>`;
+    const compOptions = (value, opts) => Object.entries(opts).map(([key, label]) => `<option value="${key}" ${value === key ? 'selected' : ''}>${esc(label)}</option>`).join('');
     const mineHTML = () => { const curId = d.theme?.startsWith?.('mine:') ? +d.theme.slice(5) : null; return `<section class="pf-g"><h3>Mis temas</h3>
         ${mine.length ? `<div class="pf-mine">${mine.map(m => { const x = TP.normalize(m.design, D.t.color), B = TP.palette(x); return `<div class="pf-mt ${curId === m.id ? 'on' : ''}"><button type="button" class="pf-th" data-mine="${m.id}" style="background:${B.bg};color:${B.fg}" aria-pressed="${curId === m.id}"><span class="pf-sw" style="background:${x.accent}"></span><b style="font-family:${TP.TFONTS[x.font][1]}">${esc(m.name)}</b><small style="color:${B.mu}">${TP.TEMPLATES[x.template][0]} · ${TP.BGS[x.bg].l}</small></button><span class="pf-ma"><button class="lnk" data-mexp="${m.id}">Exportar</button>${curId === m.id ? `<button class="lnk" data-mupd="${m.id}">Guardar cambios en este tema</button>` : ''}<button class="lnk" data-mren="${m.id}">Renombrar</button><button class="lnk danger" data-mdel="${m.id}">Borrar</button></span></div>`; }).join('')}</div>` : '<p class="pf-note">Aún no tienes temas propios. Ajusta colores, fondo, tipografía y formas, y guárdalo con un nombre.</p>'}
         ${mine.length < 12 ? `<div class="pf-save"><input id="pf-tname" maxlength="40" placeholder="Nombre del tema, p. ej. Otoño del equipo" aria-label="Nombre del tema"><button type="button" class="btn sm" id="pf-tsave">Guardar como tema</button></div>` : '<p class="pf-note">Llegaste al máximo de 12 temas propios.</p>'}
         <div class="pf-io"><button type="button" class="lnk" id="pf-exp">Exportar el diseño actual</button><label class="lnk" style="cursor:pointer">Importar tema…<input type="file" id="pf-imp" accept=".json,application/json" hidden></label></div>
-        <p class="pf-note">Tus temas son privados del equipo. Aplicar uno solo cambia el borrador.</p></section>`; };
+        <p class="pf-note">Los temas del equipo solo modifican el borrador.</p></section>`; };
     const panel = () => `
       ${mineHTML()}
       <section class="pf-g"><h3>Temas listos</h3><div class="pf-themes">${Object.entries(TP.THEMES).map(([k, th]) => { const B = TP.BGS[th.d.bg]; return `<button type="button" class="pf-th ${d.theme === k ? 'on' : ''}" data-theme="${k}" aria-pressed="${d.theme === k}" style="background:${B.bg};color:${B.fg}"><span class="pf-sw" style="background:${th.d.accent}"></span><b style="font-family:${TP.TFONTS[th.d.font][1]}">${th.l}</b><small style="color:${B.mu}">${TP.TEMPLATES[th.d.template][0]} · ${B.l}</small></button>`; }).join('')}</div>
-        <p class="pf-note">Un tema llena todas las opciones de abajo. Después puedes ajustar cada una.</p></section>
+        <p class="pf-note">Aplica un tema y ajusta sus opciones.</p></section>
       <section class="pf-g"><h3>Plantilla</h3><div class="pf-tpls">${Object.entries(TP.TEMPLATES).map(([k, [l, h]]) => `<button type="button" class="pf-tpl ${d.template === k ? 'on' : ''}" data-k="template" data-v="${k}" aria-pressed="${d.template === k}"><i class="pf-ic pf-ic-${k}" aria-hidden="true"></i><b>${l}</b><small>${h}</small></button>`).join('')}</div></section>
-      <section class="pf-g"><h3>Color y fondo</h3>
+      <section class="pf-g"><h3>Cabecera y navegación del grupo</h3>
+         <p class="pf-note">Los ajustes se aplican a las tres plantillas. Revisa la vista previa.</p>
+         <div class="pf-row"><span>Altura del banner</span>${segLayout('header', TP.HERO_SIZES)}</div>
+         <div class="pf-row"><span>Alineación</span>${segLayout('align', TP.HERO_ALIGN)}</div>
+         ${[['showBio','Mostrar descripción'],['showMeta','Mostrar idioma y número de obras'],['showLinks','Mostrar enlaces sociales']].map(([key, label]) => `<label class="pf-sw2"><input type="checkbox" data-lbool="${key}" ${d.layout[key] ? 'checked' : ''}><span>${label}</span></label>`).join('')}
+         <label class="pf-sw2"><input type="checkbox" data-lbool="nav" ${d.layout.nav ? 'checked' : ''}><span>Mostrar navegación interna</span></label>
+         ${d.layout.nav ? `<div class="pf-cust"><p class="pf-note">Inicio siempre aparece; el resto requiere contenido público.</p>
+           ${[['navWorks','Obras'],['navNext','Lanzamientos'],['navRecent','Novedades'],['navMembers','Integrantes']].map(([key,label]) => `<label class="pf-sw2"><input type="checkbox" data-lbool="${key}" ${d.layout[key] ? 'checked' : ''}><span>Pestaña ${label}</span></label>`).join('')}
+         </div>` : ''}
+         <div class="pf-row"><span>Estadísticas</span>${segLayout('stats', TP.STATS_LOCATION)}</div>
+         <p class="pf-note">Las estadísticas ocultas en <a href="/estudio/perfil">Página del equipo</a> no aparecerán.</p>
+         <div class="pf-row"><span>Botón de seguimiento</span>${segLayout('followLabel', TP.FOLLOW_LABELS)}</div>
+       </section>
+       <section class="pf-g"><h3>Color y fondo</h3>
         <label class="pf-row"><span>Acento</span><span class="pf-col"><input type="color" id="pf-ac" value="${d.accent}" aria-label="Color de acento"><input id="pf-hex" value="${d.accent}" maxlength="7" spellcheck="false" aria-label="Código del color"></span></label>
         <div class="pf-row"><span>Fondo</span>${seg('bg', Object.fromEntries(Object.entries(TP.BGS).map(([k, v]) => [k, v.l])))}</div>
         ${d.bg === 'propio' ? `<div class="pf-cust">${[['bg', 'Fondo'], ['sf', 'Tarjetas'], ['fg', 'Texto']].map(([k, l]) => `<label class="pf-row"><span>${l}</span><span class="pf-col"><input type="color" data-cc="${k}" value="${d.custom[k]}" aria-label="Color de ${l.toLowerCase()}"><input data-cx="${k}" value="${d.custom[k]}" maxlength="7" spellcheck="false" aria-label="Código de ${l.toLowerCase()}" class="pf-hx"></span></label>`).join('')}</div>` : ''}
@@ -1638,11 +1656,61 @@ export function createStudio(ctx){
       <section class="pf-g"><h3>Patrón de fondo</h3><div class="pf-pats">${Object.entries(TP.PATTERNS).map(([k, l]) => `<button type="button" class="pf-pt ${d.pattern === k ? 'on' : ''}" data-k="pattern" data-v="${k}" aria-pressed="${d.pattern === k}" title="${l}"><span style="${TP.vars({ ...d, pattern: k, patternOp: 40 })}"></span><small>${l.split(' · ')[0]}</small></button>`).join('')}</div>
         <label class="pf-row"><span>Intensidad</span><span class="pf-col"><input type="range" id="pf-op" min="0" max="30" value="${d.patternOp}" ${d.pattern === 'none' ? 'disabled' : ''} aria-label="Intensidad del patrón"><output id="pf-opv">${d.patternOp} %</output></span></label></section>
       <section class="pf-g"><h3>Lema</h3><label class="pf-lbl"><span class="pf-lh">Aparece bajo el nombre del equipo<span class="mono" id="pf-mc">${d.motto.length} / 120</span></span><input id="pf-motto" maxlength="120" value="${esc(d.motto)}" placeholder="p. ej. Traducciones con cariño desde 2019"></label></section>
-      <section class="pf-g"><h3>Secciones y orden</h3><p class="pf-note">Arrastra para ordenar o usa las flechas. El ojo oculta una sección sin borrarla.</p>
-        <ol class="pf-ord" id="pf-ord">${d.order.map((k, i) => `<li draggable="true" data-sec="${k}" class="${d.hidden.includes(k) ? 'off' : ''}"><span class="pf-grip" aria-hidden="true">⋮⋮</span><b>${TP.SECTIONS[k]}</b><span class="pf-oa"><button type="button" data-up="${i}" aria-label="Subir ${TP.SECTIONS[k]}" ${i ? '' : 'disabled'}>↑</button><button type="button" data-dn="${i}" aria-label="Bajar ${TP.SECTIONS[k]}" ${i < d.order.length - 1 ? '' : 'disabled'}>↓</button><button type="button" data-eye="${k}" aria-pressed="${!d.hidden.includes(k)}" aria-label="${d.hidden.includes(k) ? 'Mostrar' : 'Ocultar'} ${TP.SECTIONS[k]}">${d.hidden.includes(k) ? '◌' : '◉'}</button></span></li>`).join('')}</ol></section>
-      <section class="pf-g"><h3>Anuncio</h3><p class="pf-note">El anuncio ahora tiene su propia sección: <a href="/estudio/anuncios">Estudio › Anuncios</a>. Aquí solo decides dónde va en el orden de arriba.</p></section>
+      <section class="pf-g"><h3>Composición de la portada</h3>
+        <p class="pf-note">Los diseños reorganizan secciones sin mostrar las que ocultaste.</p>
+        <div class="pf-compose-presets">${Object.entries(TP.COMPOSITION_PRESETS).map(([id, p]) => `<button type="button" class="pf-comp-preset" data-comp-preset="${id}" aria-label="Usar composición ${esc(p.label)}"><b>${esc(p.label)}</b><small>${esc(p.description)}</small></button>`).join('')}</div>
+        <div class="pf-row"><span>Distribución de escritorio</span><div class="pf-seg" role="radiogroup" aria-label="Columnas de la portada">${Object.entries(TP.COMPOSITION_COLUMNS).map(([key,label])=>`<button type="button" role="radio" data-comp-cols="${key}" aria-checked="${d.composition.columns === key}" class="${d.composition.columns === key ? 'on' : ''}">${esc(label)}</button>`).join('')}</div></div>
+        <p class="pf-note">En móvil las columnas se adaptan automáticamente. Ajusta el orden abajo.</p>
+        <button type="button" class="btn ghost sm" id="pf-comp-reset">Restablecer orden recomendado</button>
+      </section>
+      <section class="pf-g"><h3>Composición móvil independiente</h3>
+        <p class="pf-note">Los ajustes móviles no afectan escritorio ni muestran secciones ocultas.</p>
+        <div class="pf-row"><span>Orden en teléfono</span>${segMobile('orderMode', TP.MOBILE_ORDER_MODE)}</div>
+        ${d.mobile.orderMode === 'propio' ? `<p class="pf-note">Ordena con flechas; las secciones sin contenido no aparecen.</p>
+          <ol class="pf-mobile-order" id="pf-mobile-order">${d.mobile.order.map((key,i) => `<li class="${d.hidden.includes(key) ? 'off' : ''}"><span>${esc(TP.SECTIONS[key])}${d.hidden.includes(key) ? ' (oculto)' : ''}</span><span class="pf-mobile-order-buttons"><button type="button" data-mobile-up="${i}" aria-label="Subir ${esc(TP.SECTIONS[key])}" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" data-mobile-down="${i}" aria-label="Bajar ${esc(TP.SECTIONS[key])}" ${i === d.mobile.order.length-1 ? 'disabled' : ''}>↓</button></span></li>`).join('')}</ol>
+          <button type="button" class="btn ghost sm" id="pf-mobile-copy">Copiar el orden de escritorio</button>` : '<p class="pf-note">El móvil hereda el orden de escritorio.</p>'}
+        <div class="pf-row"><span>Cabecera móvil</span>${segMobile('hero', TP.MOBILE_HERO)}</div>
+        <div class="pf-row"><span>Tamaño de tarjetas</span>${segMobile('cards', TP.MOBILE_CARDS)}</div>
+        <div class="pf-row"><span>Columnas del catálogo</span>${segMobile('catalog', TP.MOBILE_CATALOG)}</div>
+        <div class="pf-row"><span>Barra inferior Seguir</span>${segMobile('follow', TP.MOBILE_FOLLOW)}</div>
+        <button type="button" class="btn ghost sm" id="pf-mobile-preview">Ver el resultado en móvil</button>
+        <p class="pf-note">Ocultar la barra no desactiva el seguimiento.</p>
+      </section>
+      <section class="pf-g"><h3>Secciones y orden</h3><p class="pf-note">Arrastra o usa flechas; el ojo oculta sin borrar.</p>
+        <ol class="pf-ord" id="pf-ord">${d.order.map((k, i) => `<li draggable="true" data-sec="${k}" class="${d.hidden.includes(k) ? 'off' : ''}"><span class="pf-grip" aria-hidden="true">⋮⋮</span><b>${TP.SECTIONS[k]}</b><select data-comp-emphasis="${k}" aria-label="Presentación de ${esc(TP.SECTIONS[k])}" class="pf-comp-emphasis">${compOptions(d.composition.emphasis[k], TP.SECTION_EMPHASIS)}</select><span class="pf-oa"><button type="button" data-up="${i}" aria-label="Subir ${TP.SECTIONS[k]}" ${i ? '' : 'disabled'}>↑</button><button type="button" data-dn="${i}" aria-label="Bajar ${TP.SECTIONS[k]}" ${i < d.order.length - 1 ? '' : 'disabled'}>↓</button><button type="button" data-eye="${k}" aria-pressed="${!d.hidden.includes(k)}" aria-label="${d.hidden.includes(k) ? 'Mostrar' : 'Ocultar'} ${TP.SECTIONS[k]}">${d.hidden.includes(k) ? '◌' : '◉'}</button></span></li>`).join('')}</ol></section>
+      <section class="pf-g"><h3>Mis composiciones</h3>
+        <p class="pf-note">Guarda hasta seis composiciones por equipo, sin cambiar obras ni colores.</p>
+        ${d.savedCompositions.length ? `<div class="pf-saved-comps">${d.savedCompositions.map(x=>`<div class="pf-saved-comp"><b>${esc(x.name)}</b><span><button type="button" class="btn ghost sm" data-comp-apply="${x.id}">Aplicar</button><button type="button" class="lnk danger" data-comp-remove="${x.id}" aria-label="Borrar composición ${esc(x.name)}">Borrar</button></span></div>`).join('')}</div>` : '<p class="pf-note">Aún no hay composiciones guardadas.</p>'}
+        ${d.savedCompositions.length < 6 ? `<div class="pf-save"><input id="pf-comp-name" maxlength="40" aria-label="Nombre de la composición" placeholder="Nombre, p. ej. Portada de otoño"><button type="button" class="btn sm" id="pf-comp-save">Guardar composición actual</button></div>` : '<p class="pf-note">Máximo 6. Borra una para guardar otra.</p>'}
+      </section>
+      <section class="pf-g"><h3>Anuncio</h3><p class="pf-note">Edita el contenido en <a href="/estudio/anuncios">Anuncios</a> y el orden aquí.</p></section>
       <section class="pf-g"><h3>Obras destacadas</h3><p class="pf-note">Hasta 3. Con más de una se muestran en carrusel.</p>
         <div class="pf-featpick">${D.works.map(w => { const i = d.featured.indexOf(w.slug); return `<label class="pf-fw ${i >= 0 ? 'on' : ''}"><input type="checkbox" data-feat="${esc(w.slug)}" ${i >= 0 ? 'checked' : ''}><span>${esc(w.short || w.title)}</span>${i >= 0 ? `<em>${i + 1}</em>` : ''}</label>`; }).join('') || '<p class="pf-note">Aún no hay obras publicadas.</p>'}</div></section>
+      <section class="pf-g"><h3>Portada editorial y publicaciones</h3>
+        <p class="pf-note">Las novedades se generan automáticamente a partir de publicaciones públicas.</p>
+        <div class="pf-row"><span>Presentación destacada</span>${segEditorial('featureStyle', TP.FEATURE_STYLES)}</div>
+        <div class="pf-row"><span>Próximo lanzamiento</span>${segEditorial('nextStyle', TP.NEXT_STYLES)}</div>
+        <label class="pf-sw2"><input type="checkbox" id="pf-show-next" ${!d.hidden.includes('next') ? 'checked' : ''}><span>Mostrar sección Próximo lanzamiento (cuando haya fecha programada)</span></label>
+        <label class="pf-sw2"><input type="checkbox" id="pf-show-recent" ${!d.hidden.includes('recent') ? 'checked' : ''}><span>Mostrar sección Novedades recientes</span></label>
+        <div class="pf-row"><span>Cantidad de novedades</span>${segEditorial('recentCount', TP.UPDATE_COUNTS)}</div>
+        <div class="pf-row"><span>Tipo de publicación</span>${segEditorial('recentKind', TP.UPDATE_KINDS)}</div>
+        <div class="pf-row"><span>Distribución de novedades</span>${segEditorial('recentStyle', TP.UPDATE_STYLES)}</div>
+        <p class="pf-note">Los capítulos se administran en <a href="/estudio/obras">Obras</a>; los volúmenes requieren anuncio confirmado.</p>
+      </section>
+      <section class="pf-g"><h3>Comunidad, equipo y anuncios</h3>
+        <p class="pf-note">Solo nombres y roles públicos, con iniciales; sin perfiles privados.</p>
+        <label class="pf-sw2"><input type="checkbox" id="pf-show-members" ${!d.hidden.includes('members') ? 'checked' : ''}><span>Mostrar integrantes públicos</span></label>
+        <div class="pf-row"><span>Presentación del equipo</span>${segCommunity('memberStyle', TP.MEMBER_STYLES)}</div>
+        <div class="pf-row"><span>Integrantes visibles inicialmente</span>${segCommunity('memberCount', TP.MEMBER_COUNTS)}</div>
+        <label class="pf-sw2"><input type="checkbox" data-cbool="showRoles" ${d.community.showRoles ? 'checked' : ''}><span>Mostrar rol de cada integrante</span></label>
+        <p class="pf-note">El resto aparece en «Ver más». Respeta la visibilidad de <a href="/estudio/perfil">Página del equipo</a>.</p>
+        <label class="pf-sw2"><input type="checkbox" id="pf-show-announce" ${!d.hidden.includes('announce') ? 'checked' : ''}><span>Mostrar anuncio activo</span></label>
+        <div class="pf-row"><span>Estilo del anuncio</span>${segCommunity('announceStyle', TP.ANNOUNCE_STYLES)}</div>
+        <p class="pf-note">Edita textos y vigencia en <a href="/estudio/anuncios">Anuncios</a>; aquí, aspecto y orden.</p>
+        <label class="pf-sw2"><input type="checkbox" data-cbool="showCta" ${d.community.showCta ? 'checked' : ''}><span>Mostrar invitación a seguir al final</span></label>
+        ${d.community.showCta ? `<label class="pf-lbl"><span class="pf-lh">Mensaje de cierre <span class="mono" id="pf-cta-count">${d.community.ctaText.length} / 120</span></span><input id="pf-cta-text" maxlength="120" value="${esc(d.community.ctaText)}" placeholder="Gracias por apoyar nuestras traducciones"></label>` : ''}
+        <p class="pf-note">El seguimiento se sincroniza automáticamente.</p>
+      </section>
       <section class="pf-g"><h3>Animaciones</h3>
         <div class="pf-tg">${Object.entries(TP.ANIMS).map(([k, l]) => `<label class="pf-sw2"><input type="checkbox" data-an="${k}" ${d.anim[k] ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
         <div class="pf-row"><span>Intensidad</span>${seg('intensity', TP.INTENS)}</div>
@@ -1650,12 +1718,12 @@ export function createStudio(ctx){
           <div class="pf-row"><span>Cantidad</span><div class="pf-seg">${Object.entries(TP.DENS).map(([k, l]) => `<button type="button" data-pk="density" data-pv="${k}" class="${d.part.density === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
           <div class="pf-row"><span>Dónde</span><div class="pf-seg">${[['banner', 'Solo banner'], ['page', 'Toda la página']].map(([k, l]) => `<button type="button" data-pk="where" data-pv="${k}" class="${d.part.where === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
           <div class="pf-row"><span>Color</span><span class="pf-col"><div class="pf-seg">${[['accent', 'Acento'], ['custom', 'Propio']].map(([k, l]) => `<button type="button" data-pk="mode" data-pv="${k}" class="${d.part.mode === k ? 'on' : ''}">${l}</button>`).join('')}</div>${d.part.mode === 'custom' ? `<input type="color" id="pf-pc" value="${d.part.color}" aria-label="Color de las partículas">` : ''}</span></div></div>` : ''}
-        <p class="pf-note">En celulares las animaciones van más ligeras, y no se muestran a quien tiene activado «reducir movimiento» en su dispositivo.</p></section>
+        <p class="pf-note">Las animaciones respetan «reducir movimiento».</p></section>
       <section class="pf-g"><h3>Temas de temporada</h3>
-        <p class="pf-note">Cambian colores, fondo y partículas en sus fechas. Marca cuáles se activan solos; te avisamos 7 días antes.</p>
+        <p class="pf-note">Activa automáticamente las temporadas que prefieras.</p>
         <div class="pf-row"><span>Hemisferio</span>${(() => { const h = d.seasons.hemi; return `<div class="pf-seg">${[['norte', 'Norte'], ['sur', 'Sur']].map(([k, l]) => `<button type="button" data-hemi="${k}" class="${h === k ? 'on' : ''}">${l}</button>`).join('')}</div>`; })()}</div>
         <div class="pf-row"><span>Decoración</span><div class="pf-seg">${[['full', 'Completa'], ['min', 'Solo colores']].map(([k, l]) => `<button type="button" data-deco="${k}" class="${d.seasons.deco === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
-        <p class="pf-note">Completa: patrón de la temporada, figuras en las esquinas del banner, sello junto al nombre y detalles en títulos y tarjetas.</p>
+        <p class="pf-note">Completa: patrón, esquinas, sello y adornos.</p>
         <label class="pf-lbl">Activar uno ahora (sin esperar su fecha)<select id="pf-sman"><option value="">Ninguno · seguir el calendario</option>${Object.entries(TP.SEASONS).map(([k, s]) => `<option value="${k}" ${d.seasons.manual === k ? 'selected' : ''}>${s.l}</option>`).join('')}</select></label>
         ${Object.entries(TP.SGROUPS || {}).length ? '' : ''}
         <div class="pf-seas">${Object.entries(AN.SGROUPS).map(([g, gl]) => `<details class="pf-sg" ${UI.sg === g ? 'open' : ''} data-sgd="${g}"><summary>${gl}<span class="mono">${Object.entries(TP.SEASONS).filter(([k, s]) => s.g === g && d.seasons.auto.includes(k)).length} automáticos</span></summary>
@@ -1695,7 +1763,7 @@ export function createStudio(ctx){
     const status = () => { const s = $('#pf-st'); if (!s) return; s.className = 'pf-st' + (pending() ? ' warn' : ''); s.textContent = saving ? 'Guardando borrador…' : pending() ? '● Borrador con cambios sin publicar' + (savedAt ? ' · guardado ' + fmtTz(savedAt, { hour: '2-digit', minute: '2-digit' }) : '') : '✓ Lo que ves es lo publicado'; $('#pf-pub').disabled = !pending(); $('#pf-discard').disabled = !pending(); };
     const save = () => { clearTimeout(saveT); saveT = setTimeout(async () => { saving = true; status(); saveT = 0; const snapshot = JSON.stringify(d); const { data, error } = await sb.rpc('team_design_save', { p_team: T.team.id, p_design: d }); saving = false; if (error) { toast(errMsg(error)); } else { savedAt = data; savedDesign = snapshot; } status(); }, 700); };
     const redraw = () => { const y = $('#pf-panel').scrollTop; $('#pf-panel').innerHTML = panel(); bindPanel(); clip(); $('#pf-panel').scrollTop = y; hist(); };
-    const set = (o, full) => { d = TP.normalize({ ...d, ...o }, D.t.color); showPub = false; if (!('theme' in o) && Object.keys(o).some(k => !['order', 'hidden', 'featured', 'announce', 'motto', 'seasons', 'anim', 'part', 'intensity'].includes(k)) && !String(d.theme).startsWith('mine:')) d.theme = 'custom'; pv(); contrastNote(); status(); save(); track?.(); if (full) redraw(); };
+    const set = (o, full) => { d = TP.normalize({ ...d, ...o }, D.t.color); showPub = false; if (!('theme' in o) && Object.keys(o).some(k => !['order', 'hidden', 'composition', 'savedCompositions', 'mobile', 'featured', 'announce', 'motto', 'layout', 'editorial', 'community', 'seasons', 'anim', 'part', 'intensity'].includes(k)) && !String(d.theme).startsWith('mine:')) d.theme = 'custom'; pv(); contrastNote(); status(); save(); track?.(); if (full) redraw(); };
     async function hist(){
       const { data } = await sb.from('team_design_versions').select('id,created_at,design,created_by').eq('team_id', T.team.id).order('created_at', { ascending: false }).limit(10);
       const nm = await names((data || []).map(x => x.created_by)), box = $('#pf-hist'); if (!box) return;
@@ -1704,26 +1772,133 @@ export function createStudio(ctx){
     }
     function bindPanel(){
       const P = $('#pf-panel');
+      const previewPhone = () => { UI.dev = 'mobile'; pv(); };
+      P.querySelectorAll('[data-mobile-key]').forEach(button => button.onclick = () => {
+        const key = button.dataset.mobileKey, value = button.dataset.mobileValue;
+        const order = key === 'orderMode' && value === 'propio' && d.mobile.orderMode !== 'propio'
+          ? [...d.order] : d.mobile.order;
+        UI.dev = 'mobile';
+        set({ mobile: { ...d.mobile, [key]: value, order } }, key === 'orderMode');
+        if (key !== 'orderMode') P.querySelectorAll('[data-mobile-key="' + key + '"]').forEach(x => {
+          const on = x.dataset.mobileValue === value;
+          x.classList.toggle('on', on);
+          x.setAttribute('aria-checked', String(on));
+        });
+      });
+      const mobileMove = (from, to) => {
+        if (d.mobile.orderMode !== 'propio' || from < 0 || to < 0 || from >= d.mobile.order.length || to >= d.mobile.order.length) return;
+        const order = [...d.mobile.order], [item] = order.splice(from, 1);
+        order.splice(to, 0, item);
+        UI.dev = 'mobile';
+        set({ mobile: { ...d.mobile, order } }, true);
+      };
+      P.querySelectorAll('[data-mobile-up]').forEach(b => b.onclick = () => mobileMove(+b.dataset.mobileUp, +b.dataset.mobileUp - 1));
+      P.querySelectorAll('[data-mobile-down]').forEach(b => b.onclick = () => mobileMove(+b.dataset.mobileDown, +b.dataset.mobileDown + 1));
+      P.querySelector('#pf-mobile-copy')?.addEventListener('click', () => {
+        UI.dev = 'mobile';
+        set({ mobile: { ...d.mobile, orderMode: 'propio', order: [...d.order] } }, true);
+        toast('Orden de escritorio copiado al diseño móvil');
+      });
+      P.querySelector('#pf-mobile-preview')?.addEventListener('click', previewPhone);
+      P.querySelectorAll('[data-comp-preset]').forEach(b => b.onclick = () => {
+        const preset = TP.compositionPreset(b.dataset.compPreset);
+        if (!preset) return;
+        set({ order: preset.order, composition: preset.composition }, true);
+        toast('Composición aplicada al borrador. Los bloques ocultos se conservan.');
+      });
+      P.querySelectorAll('[data-comp-cols]').forEach(b => b.onclick = () => {
+        const value = b.dataset.compCols;
+        set({ composition: { ...d.composition, columns: value } });
+        P.querySelectorAll('[data-comp-cols]').forEach(x => {
+          const on = x.dataset.compCols === value;
+          x.classList.toggle('on', on);
+          x.setAttribute('aria-checked', String(on));
+        });
+      });
+      P.querySelectorAll('[data-comp-emphasis]').forEach(sel => sel.onchange = () => {
+        set({ composition: { ...d.composition, emphasis: { ...d.composition.emphasis, [sel.dataset.compEmphasis]: sel.value } } });
+      });
+      P.querySelector('#pf-comp-reset')?.addEventListener('click', () => {
+        const preset = TP.compositionPreset('equilibrada');
+        set({ order: preset.order }, true);
+        toast('Orden recomendado restaurado. Se conservan la visibilidad y los estilos.');
+      });
+      P.querySelector('#pf-comp-save')?.addEventListener('click', () => {
+        const input = P.querySelector('#pf-comp-name');
+        const name = (input?.value || '').trim().slice(0, 40);
+        if (!name) return toast('Escribe un nombre para tu composición');
+        if (d.savedCompositions.length >= 6) return toast('Máximo de seis composiciones guardadas');
+        const id = 'comp_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        set({ savedCompositions: [...d.savedCompositions, { id, name, order: [...d.order], hidden: [...d.hidden], composition: d.composition, mobile: d.mobile }] }, true);
+        toast('Composición guardada en el borrador del equipo');
+      });
+      P.querySelectorAll('[data-comp-apply]').forEach(b => b.onclick = () => {
+        const saved = d.savedCompositions.find(x => x.id === b.dataset.compApply);
+        if (!saved) return;
+        set({ order: [...saved.order], hidden: [...saved.hidden], composition: saved.composition, ...(saved.mobile ? { mobile: saved.mobile } : {}) }, true);
+        toast('Composición recuperada en el borrador');
+      });
+      P.querySelectorAll('[data-comp-remove]').forEach(b => b.onclick = () => {
+        set({ savedCompositions: d.savedCompositions.filter(x => x.id !== b.dataset.compRemove) }, true);
+        toast('Composición borrada del borrador');
+      });
+      P.querySelectorAll('[data-ck]').forEach(b => b.onclick = () => {
+        const key = b.dataset.ck, value = key === 'memberCount' ? Number(b.dataset.cv) : b.dataset.cv;
+        set({ community: { ...d.community, [key]: value } });
+        P.querySelectorAll('[data-ck="' + key + '"]').forEach(x => {
+          const on = x.dataset.cv === String(value);
+          x.classList.toggle('on', on);
+          x.setAttribute('aria-checked', String(on));
+        });
+      });
+      P.querySelectorAll('[data-cbool]').forEach(c => c.onchange = () => set({ community: { ...d.community, [c.dataset.cbool]: c.checked } }, c.dataset.cbool === 'showCta'));
+      P.querySelector('#pf-cta-text')?.addEventListener('input', e => {
+        P.querySelector('#pf-cta-count').textContent = e.target.value.length + ' / 120';
+        set({ community: { ...d.community, ctaText: e.target.value } });
+      });
+      P.querySelectorAll('[data-ek]').forEach(b => b.onclick = () => {
+        const key = b.dataset.ek, value = key === 'recentCount' ? Number(b.dataset.ev) : b.dataset.ev;
+        set({ editorial: { ...d.editorial, [key]: value } });
+        P.querySelectorAll('[data-ek="' + key + '"]').forEach(x => {
+          const on = x.dataset.ev === String(value);
+          x.classList.toggle('on', on);
+          x.setAttribute('aria-checked', String(on));
+        });
+      });
+      const setSectionVisible = (key, visible) => set({ hidden: visible ? d.hidden.filter(k => k !== key) : [...new Set([...d.hidden, key])] }, true);
+      P.querySelector('#pf-show-next')?.addEventListener('change', e => setSectionVisible('next', e.target.checked));
+      P.querySelector('#pf-show-recent')?.addEventListener('change', e => setSectionVisible('recent', e.target.checked));
+      P.querySelector('#pf-show-members')?.addEventListener('change', e => setSectionVisible('members', e.target.checked));
+      P.querySelector('#pf-show-announce')?.addEventListener('change', e => setSectionVisible('announce', e.target.checked));
+      P.querySelectorAll('[data-lk]').forEach(b => b.onclick = () => {
+        const key = b.dataset.lk, value = b.dataset.lv;
+        set({ layout: { ...d.layout, [key]: value } });
+        P.querySelectorAll('[data-lk="' + key + '"]').forEach(x => {
+          const on = x.dataset.lv === value;
+          x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on));
+        });
+      });
+      P.querySelectorAll('[data-lbool]').forEach(c => c.onchange = () => set({ layout: { ...d.layout, [c.dataset.lbool]: c.checked } }, c.dataset.lbool === 'nav'));
       P.querySelectorAll('[data-theme]').forEach(b => b.onclick = () => set({ ...TP.THEMES[b.dataset.theme].d, theme: b.dataset.theme }, true));
       P.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { set({ [b.dataset.k]: b.dataset.v }); P.querySelectorAll(`[data-k="${b.dataset.k}"]`).forEach(x => { const o = x.dataset.v === b.dataset.v; x.classList.toggle('on', o); x.setAttribute(x.getAttribute('role') === 'radio' ? 'aria-checked' : 'aria-pressed', o); }); if (b.dataset.k === 'pattern') $('#pf-op').disabled = b.dataset.v === 'none'; if (b.dataset.k === 'bg') { if (b.dataset.v === 'propio' && !d._seeded) { d.custom = { ...TP.palette({ ...d, bg: 'oscuro' }) }; d.custom = { bg: d.custom.bg, sf: d.custom.sf, fg: d.custom.fg }; } redraw(); pv(); } P.querySelectorAll('.pf-th').forEach(x => { x.classList.remove('on'); x.setAttribute('aria-pressed', 'false'); }); });
-      P.querySelectorAll('[data-mine]').forEach(b => b.onclick = () => { const m = mine.find(x => x.id === +b.dataset.mine); set({ ...TP.normalize(m.design, D.t.color), motto: d.motto, theme: 'mine:' + m.id }, true); });
-      P.querySelectorAll('[data-mupd]').forEach(b => b.onclick = () => busy(b, async () => { const id = +b.dataset.mupd, { motto, ...des } = d; const { error } = await sb.from('team_custom_themes').update({ design: des, updated_at: new Date().toISOString() }).eq('id', id); if (error) throw new Error(errMsg(error)); mine.find(x => x.id === id).design = des; toast('Tema actualizado'); }));
+      P.querySelectorAll('[data-mine]').forEach(b => b.onclick = () => { const m = mine.find(x => x.id === +b.dataset.mine); set({ ...TP.normalize(m.design, D.t.color), layout: d.layout, editorial: d.editorial, community: d.community, composition: d.composition, savedCompositions: d.savedCompositions, mobile: d.mobile, motto: d.motto, theme: 'mine:' + m.id }, true); });
+      P.querySelectorAll('[data-mupd]').forEach(b => b.onclick = () => busy(b, async () => { const id = +b.dataset.mupd, { motto, layout, editorial, community, composition, savedCompositions, mobile, ...des } = d; const { error } = await sb.from('team_custom_themes').update({ design: des, updated_at: new Date().toISOString() }).eq('id', id); if (error) throw new Error(errMsg(error)); mine.find(x => x.id === id).design = des; toast('Tema actualizado'); }));
       P.querySelectorAll('[data-mren]').forEach(b => b.onclick = () => busy(b, async () => { const m = mine.find(x => x.id === +b.dataset.mren), n = (prompt('Nuevo nombre del tema', m.name) || '').trim().slice(0, 40); if (!n || n === m.name) return; const { error } = await sb.from('team_custom_themes').update({ name: n }).eq('id', m.id); if (error) throw new Error(/duplicate|unique/.test(error.message) ? 'Ya tienes un tema con ese nombre' : errMsg(error)); m.name = n; redraw(); }));
       P.querySelectorAll('[data-mdel]').forEach(b => b.onclick = () => busy(b, async () => { const m = mine.find(x => x.id === +b.dataset.mdel); if (!confirm(`¿Borrar el tema «${m.name}»? El borrador actual no cambia.`)) return; const { error } = await sb.from('team_custom_themes').delete().eq('id', m.id); if (error) throw new Error(errMsg(error)); mine = mine.filter(x => x !== m); if (d.theme === 'mine:' + m.id) d.theme = 'custom'; redraw(); }));
-      $('#pf-tsave')?.addEventListener('click', e => busy(e.currentTarget, async () => { const n = $('#pf-tname').value.trim().slice(0, 40); if (!n) throw new Error('Ponle nombre al tema'); const { motto, theme, seasons, featured, announce, order, hidden, ...des } = d; const { data, error } = await sb.from('team_custom_themes').insert({ team_id: T.team.id, name: n, design: des }).select('id,name,design,updated_at').single(); if (error) throw new Error(/duplicate|unique/.test(error.message) ? 'Ya tienes un tema con ese nombre' : errMsg(error)); mine = [...mine, data].sort((a, b) => a.name.localeCompare(b.name)); d.theme = 'mine:' + data.id; save(); redraw(); toast('Tema «' + n + '» guardado'); }));
+      $('#pf-tsave')?.addEventListener('click', e => busy(e.currentTarget, async () => { const n = $('#pf-tname').value.trim().slice(0, 40); if (!n) throw new Error('Ponle nombre al tema'); const { motto, theme, layout, editorial, community, composition, savedCompositions, mobile, seasons, featured, announce, order, hidden, ...des } = d; const { data, error } = await sb.from('team_custom_themes').insert({ team_id: T.team.id, name: n, design: des }).select('id,name,design,updated_at').single(); if (error) throw new Error(/duplicate|unique/.test(error.message) ? 'Ya tienes un tema con ese nombre' : errMsg(error)); mine = [...mine, data].sort((a, b) => a.name.localeCompare(b.name)); d.theme = 'mine:' + data.id; save(); redraw(); toast('Tema «' + n + '» guardado'); }));
       P.querySelectorAll('[data-cc]').forEach(i => i.oninput = () => { P.querySelector(`[data-cx="${i.dataset.cc}"]`).value = i.value; set({ custom: { ...d.custom, [i.dataset.cc]: i.value } }); });
       P.querySelectorAll('[data-cx]').forEach(i => i.oninput = () => { if (/^#[0-9a-f]{6}$/i.test(i.value)) { P.querySelector(`[data-cc="${i.dataset.cx}"]`).value = i.value; set({ custom: { ...d.custom, [i.dataset.cx]: i.value } }); } });
       const dl = (name, txt) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'application/json' })); a.download = name.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() + '.obi-tema.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
       $('#pf-exp').onclick = () => dl(T.team.name + '-diseno', TP.exportTheme(T.team.name, d));
       P.querySelectorAll('[data-mexp]').forEach(b => b.onclick = () => { const m = mine.find(x => x.id === +b.dataset.mexp); dl(m.name, TP.exportTheme(m.name, m.design)); });
-      $('#pf-imp').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (f.size > 40000) return toast('El archivo es demasiado grande'); f.text().then(async txt => { try { const th = TP.importTheme(txt), look = TP.normalize(th.design, D.t.color); const { motto, theme, featured, announce, order, hidden, ...des } = look; let name = th.name; if (mine.some(x => x.name === name)) name = (name + ' (importado)').slice(0, 40); if (mine.length >= 12) { set({ ...des }, true); return toast('Tema aplicado al borrador (ya tienes 12 temas guardados)'); } const { data, error } = await sb.from('team_custom_themes').insert({ team_id: T.team.id, name, design: des }).select('id,name,design,updated_at').single(); if (error) throw new Error(errMsg(error)); mine = [...mine, data].sort((a, b) => a.name.localeCompare(b.name)); set({ ...des, theme: 'mine:' + data.id }, true); toast('Tema «' + name + '» importado y aplicado'); } catch (er) { toast(er.message || 'No se pudo leer el archivo'); } }); };
+      $('#pf-imp').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (f.size > 40000) return toast('El archivo es demasiado grande'); f.text().then(async txt => { try { const th = TP.importTheme(txt), look = TP.normalize(th.design, D.t.color); const { motto, theme, layout, editorial, community, composition, savedCompositions, mobile, featured, announce, order, hidden, ...des } = look; let name = th.name; if (mine.some(x => x.name === name)) name = (name + ' (importado)').slice(0, 40); if (mine.length >= 12) { set({ ...des }, true); return toast('Tema aplicado al borrador (ya tienes 12 temas guardados)'); } const { data, error } = await sb.from('team_custom_themes').insert({ team_id: T.team.id, name, design: des }).select('id,name,design,updated_at').single(); if (error) throw new Error(errMsg(error)); mine = [...mine, data].sort((a, b) => a.name.localeCompare(b.name)); set({ ...des, theme: 'mine:' + data.id }, true); toast('Tema «' + name + '» importado y aplicado'); } catch (er) { toast(er.message || 'No se pudo leer el archivo'); } }); };
       // orden de secciones
       const move = (i, j) => { const o = [...d.order]; const [x] = o.splice(i, 1); o.splice(j, 0, x); set({ order: o }, true); };
       P.querySelectorAll('[data-up]').forEach(b => b.onclick = () => move(+b.dataset.up, +b.dataset.up - 1));
       P.querySelectorAll('[data-dn]').forEach(b => b.onclick = () => move(+b.dataset.dn, +b.dataset.dn + 1));
       P.querySelectorAll('[data-eye]').forEach(b => b.onclick = () => { const k = b.dataset.eye; set({ hidden: d.hidden.includes(k) ? d.hidden.filter(x => x !== k) : [...d.hidden, k] }, true); });
       let dragK = null; const ord = $('#pf-ord');
-      ord.addEventListener('dragstart', e => { const li = e.target.closest('li'); dragK = li?.dataset.sec; li?.classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; });
+      ord.addEventListener('dragstart', e => { if (e.target.closest('select,button,input')) { e.preventDefault(); return; } const li = e.target.closest('li'); dragK = li?.dataset.sec; li?.classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; });
       ord.addEventListener('dragover', e => { e.preventDefault(); const li = e.target.closest('li'); ord.querySelectorAll('.over').forEach(x => x.classList.remove('over')); if (li && li.dataset.sec !== dragK) li.classList.add('over'); });
       ord.addEventListener('drop', e => { e.preventDefault(); const li = e.target.closest('li'); if (!li || !dragK || li.dataset.sec === dragK) return; move(d.order.indexOf(dragK), d.order.indexOf(li.dataset.sec)); dragK = null; });
       ord.addEventListener('dragend', () => { dragK = null; ord.querySelectorAll('.drag,.over').forEach(x => x.classList.remove('drag', 'over')); });

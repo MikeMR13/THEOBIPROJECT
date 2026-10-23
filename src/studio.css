@@ -946,3 +946,47 @@ body.in-studio .s2-main > *{min-width:0;max-width:100%}
     gap:5px;
   }
 }
+
+
+/* Fase 4: editor de composición, jerarquía y composiciones reutilizables. */
+.pf-compose-presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.pf-comp-preset{display:grid;align-content:start;gap:7px;min-height:80px;min-width:0;padding:10px 8px;background:#0f0e0b;border:1px solid #51452e;color:#f3ecd9;text-align:left;cursor:pointer;font:inherit;border-radius:3px}
+.pf-comp-preset>b{font-size:12px;line-height:1.3;overflow-wrap:anywhere}
+.pf-comp-preset>small{font-size:11px;line-height:1.4;color:#c7b9a0;overflow-wrap:anywhere}
+.pf-comp-preset:hover,.pf-comp-preset:focus-visible{border-color:var(--gold);outline-offset:2px}
+.pf-panel #pf-ord li{grid-template-columns:18px minmax(0,1fr) auto;grid-template-rows:auto auto;gap:6px 8px}
+.pf-panel #pf-ord li>.pf-grip{grid-column:1;grid-row:1}
+.pf-panel #pf-ord li>b{grid-column:2;grid-row:1;min-width:0;overflow-wrap:anywhere}
+.pf-panel #pf-ord li>.pf-oa{grid-column:3;grid-row:1}
+.pf-panel #pf-ord .pf-comp-emphasis{grid-column:2/4;grid-row:2;justify-self:stretch;min-width:0;max-width:100%;font-size:12px;padding:7px;border:1px solid #51452e;border-radius:3px;background:#1b1914;color:#f3ecd9;cursor:pointer}
+.pf-saved-comps{display:grid;gap:7px}
+.pf-saved-comp{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px;background:#0f0e0b;border:1px solid #2f2a20}
+.pf-saved-comp>b{font-size:13px;overflow-wrap:anywhere;min-width:0;flex:1}
+.pf-saved-comp>span{display:flex;align-items:center;gap:8px}
+.pf-compose-presets~.pf-row .pf-seg{flex-wrap:wrap}
+.pf-panel [data-comp-cols]:focus-visible,.pf-panel [data-comp-preset]:focus-visible,.pf-panel .pf-comp-emphasis:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+@media(max-width:420px){.pf-compose-presets{grid-template-columns:minmax(0,1fr)}.pf-comp-preset{min-height:0}}
+
+
+/* Fase 5: ajustes independientes de la versión pública móvil. */
+.pf-mobile-seg{flex-wrap:wrap;max-width:100%;gap:0}
+.pf-mobile-seg button{min-height:38px}
+.pf-mobile-order{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+.pf-mobile-order li{min-width:0;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #3d3628;background:#0f0e0b;padding:7px 10px}
+.pf-mobile-order li.off>span:first-child{color:#938b7a}
+.pf-mobile-order li>span:first-child{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.pf-mobile-order-buttons{display:flex;gap:6px;flex:none}
+.pf-mobile-order-buttons button{min-width:38px;min-height:38px;padding:0;border:1px solid #51452e;background:#201a12;color:#f3ecd9;cursor:pointer;font-size:17px}
+.pf-mobile-order-buttons button:hover:not(:disabled),.pf-mobile-order-buttons button:focus-visible{border-color:var(--gold);outline-offset:2px}
+.pf-mobile-order-buttons button:disabled{opacity:.3;cursor:default}
+#pf-mobile-preview{justify-self:start}
+
+
+/* Fase 6: controles del compositor utilizables con teclado y entrada táctil. */
+.pf-oa button{min-width:40px;min-height:40px;width:40px;height:40px}
+.pf-comp-emphasis{min-height:40px}
+.pf-panel :is(.pf-comp-preset,.pf-mobile-order-buttons button,.pf-oa button):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+@media (pointer:coarse){
+ .pf-panel .pf-seg button,.pf-oa button,.pf-comp-emphasis,.pf-mobile-order-buttons button{min-height:44px}
+ .pf-oa button,.pf-mobile-order-buttons button{min-width:44px;width:44px;height:44px}
+}
