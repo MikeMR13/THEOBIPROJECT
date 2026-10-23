@@ -33,16 +33,27 @@ export function homeFeaturedSelection({series=[], news={entries:[],bySeries:{}},
   const asRelease=g=>({id:g.id,kind:'release',label:recentLaunch(g)?'Nuevo lanzamiento':g.kind==='volume'?'Nuevo volumen':'Nuevo capítulo',at:g.at,volume:g.volume||null});
   const launches=updates.filter(recentLaunch).map(asRelease);
   const urgent=updates.filter(completeRelease).map(g=>({id:g.id,kind:'release',label:'¡Novela completa!',at:g.at,volume:g.volume,urgent:true}));
-  // El estreno real más reciente y la novela completada de mayor actualidad
-  // tienen prioridad sobre hallazgos con pocas vistas o lanzamientos antiguos.
-  // Las publicaciones pasadas no deben desplazar indefinidamente a los nuevos estrenos.
-  const priorityReleases=firstUnique([...launches,...urgent.slice(0,1)]
-    .sort((a,b)=>Date.parse(b.at)-Date.parse(a.at)),2);
-  pool.release=firstUnique([...priorityReleases,...updates.map(asRelease)]);
+  // Solo durante las primeras 48 horas un debut ocupa obligatoriamente el
+  // primer lugar; su etiqueta «Nuevo lanzamiento» permanece siete días.
+  const freshDebuts=launches.filter(g=>+new Date(now)-Date.parse(g.at)<2*MS_DAY);
+  const priorityReleases=firstUnique([...freshDebuts,...urgent.slice(0,1)],2);
+  pool.release=firstUnique([...priorityReleases,...launches,...updates.map(asRelease)]);
   pool.popular=firstUnique(sortScore(weekly).filter(r=>existing(r.series_id)).map(r=>({id:r.series_id,kind:'popular',label:'Top de la semana'})));
   pool.historic=firstUnique(sortScore(historic).filter(r=>existing(r.series_id)).map(r=>({id:r.series_id,kind:'historic',label:'Lo más visto'})));
   pool.editorial=firstUnique(editorial.filter(id=>existing(id)).map(id=>({id,kind:'editorial',label:'Selección de El Obi'})));
-  pool.discover=firstUnique([...series].sort((a,b)=>(+a.views||0)-(+b.views||0)||String(a.id).localeCompare(String(b.id))).map(s=>({id:s.id,kind:'discover',label:'Joya por descubrir'})));
+  // Una joya no es una obra de estreno con cero visitas: debe tener recorrido,
+  // contenido suficiente y actividad real reciente. Evitar candidatos sin fecha
+  // verificable (el home_feed todavía no expone created_at de todas las obras).
+  const discoverable=series.filter(s=>{
+    const count=Number(s.chapters?.[0]?.count || 0);
+    const recentAt=news.bySeries?.[s.id]?.at;
+    const firstAt=s.firstPublishedAt || s.created_at || recentAt;
+    const age=Date.parse(firstAt || ''), activity=Date.parse(recentAt || '');
+    const current=+new Date(now);
+    return count>=3 && Number.isFinite(age) && age<=current-7*MS_DAY
+      && Number.isFinite(activity) && activity<=current && activity>=current-30*MS_DAY;
+  });
+  pool.discover=firstUnique(discoverable.sort((a,b)=>(+a.views||0)-(+b.views||0)||String(a.id).localeCompare(String(b.id))).map(s=>({id:s.id,kind:'discover',label:'Joya por descubrir'})));
   const hot=sortScore(trends.filter(r=>r.list==='tendencia' && (r.period==='hoy'||r.period==='semana')));
   pool.trending=firstUnique(hot.filter(r=>existing(r.series_id)).map(r=>({id:r.series_id,kind:'trending',label:'En tendencia'})));
   // Cada equipo conserva una sola recomendación durante 7 días exactos.
@@ -75,6 +86,10 @@ export function homeFeaturedSelection({series=[], news={entries:[],bySeries:{}},
     if(chosen.filter(y=>y.kind==='release').length>=2)break;
     if(!reservedTeams.has(x.id))add(x);
   }
+  // Un equipo distinto protagoniza un lugar temprano cada día, pero TODOS
+  // conservan su espacio durante sus siete días de recomendación activa.
+  const firstTeam=pool.team.find(x=>!used.has(x.id));
+  if(firstTeam)add(firstTeam);
   // Si todas las novedades restantes coinciden con equipos recomendados, la
   // recomendación del equipo prevalece, excepto el lanzamiento completo urgente.
   for(const category of ['popular','historic','editorial','discover','trending']){
