@@ -481,6 +481,19 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 // precarga del capítulo al apuntar o tocar cualquier enlace al lector (Continuar, índice, fichas…)
 let warmT = 0; const warmOn = e => { const l = e.target.closest?.('a[href^="/leer/"]'); if (!l) return; const m = l.getAttribute('href').match(/^\/leer\/([\w-]+)\/(\d+(?:\.\d+)?)/); if (!m) return; clearTimeout(warmT); warmT = setTimeout(() => rd().warm(m[1], +m[2]), e.type === 'pointerover' ? 80 : 0); };
 document.addEventListener('pointerover', warmOn, { passive: true }); document.addEventListener('touchstart', warmOn, { passive: true }); document.addEventListener('focusin', warmOn);
+// Anticipar la consulta ligera de la ficha al señalar/focalizar una novela.
+// La precarga se comparte con series() y caduca rápidamente en memoria.
+let seriesWarmT = 0;
+const warmSeries = e => {
+  const link = e.target.closest?.('a[href^="/serie/"]');
+  const slug = link?.getAttribute('href')?.match(/^\/serie\/([\w-]+)(?:[?#]|$)/)?.[1];
+  if (!slug || !navigator.onLine) return;
+  clearTimeout(seriesWarmT);
+  seriesWarmT = setTimeout(() => ui().prefetchSeries(slug), e.type === 'pointerover' ? 120 : 0);
+};
+document.addEventListener('pointerover', warmSeries, { passive: true });
+document.addEventListener('focusin', warmSeries);
+document.addEventListener('touchstart', warmSeries, { passive: true });
 addEventListener('load', () => setTimeout(() => { if (user && navigator.onLine) rd().syncPending(); }, 5000));
 let authEv = null;
 sb.auth.onAuthStateChange(ev => { if (ev !== 'INITIAL_SESSION') loadSession().then(() => ui().refreshBadge()); if (navigator.onLine && ['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(ev) && authEv !== null) seasons().then(S => S.load(sb, true)).then(() => afterRender()); authEv = ev; });
