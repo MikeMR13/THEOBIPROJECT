@@ -120,10 +120,6 @@ denied(await bibliotecario.session.rpc('admin_invitation_create',{
 denied(await bibliotecario.session.rpc('admin_invitation_create',{
   ...basicOpen,p_role:'owner'
 }),'Enlace libre no permite propietario');
-denied(await bibliotecario.session.rpc('admin_invitation_create',{
-  ...basicOpen,p_kind:'create_team',p_team:null,p_role:'owner',
-  p_new_team_name:'Prohibido',p_new_team_slug:'prohibido-open-team'
-}),'Enlace libre no permite crear equipo');
 const openCreated=ok(await bibliotecario.session.rpc('admin_invitation_create',basicOpen),'enlace libre válido');
 const openStatus=ok(await bibliotecario.session.rpc('admin_invitation_list',{p_limit:100}),'listar enlaces libres');
 assert(openStatus.some(x=>x.id===openCreated.id&&x.invite_email===null&&x.status==='pendiente'),
@@ -161,6 +157,68 @@ const openUsed=ok(await bibliotecario.session.rpc('admin_invitation_list',{p_lim
   'enlace libre consumido');
 assert(openUsed.some(x=>x.id===openCreated.id&&x.status==='utilizada'),
   'Enlace libre debe quedar consumido');
+
+console.log('QA: enlace libre para crear equipo dirigido a NUEVOS usuarios sin cuenta previa');
+const freeOwnerArgs = {
+  p_team:null,p_email:null,p_role:'owner',p_hours:24,
+  p_reason:'Autorizar creación de equipo nuevo con enlace libre',
+  p_kind:'create_team',p_new_team_name:'Nuevo equipo libre QA',
+  p_new_team_slug:'nuevo-equipo-libre-qa'
+};
+const openOwner=ok(await bibliotecario.session.rpc('admin_invitation_create',freeOwnerArgs),
+  'Bibliotecario genera enlace libre para nuevo propietario');
+assert.equal(openOwner.kind,'create_team');
+const freeTeamBefore=ok(await root.from('teams').select('id').eq('slug','nuevo-equipo-libre-qa'),
+  'El grupo libre no existe antes de registrarse');
+assert.equal(freeTeamBefore.length,0,'El equipo libre no debe crearse al generar enlace');
+denied(await guest.rpc('team_invitation_redeem',{p_token:openOwner.token}),
+  'Una cuenta sin registrar no puede reclamar propiedad');
+// Las dos personas se registran DESPUÉS de generar el enlace.
+const firstNew=await account('futuro-propietario-libre-uno');
+const secondNew=await account('futuro-propietario-libre-dos');
+const previewFree=ok(await firstNew.session.rpc('team_invitation_preview',{p_token:openOwner.token}),
+  'Usuario recién registrado ve invitación a crear equipo');
+assert.equal(previewFree.open_link,true);
+assert.equal(previewFree.role,'owner');
+assert.equal(previewFree.kind,'create_team');
+denied(await outsider.session.rpc('admin_invitation_create',freeOwnerArgs),
+  'Un lector no puede generar invitaciones libres de propiedad');
+const contenders=await Promise.all([
+  firstNew.session.rpc('team_invitation_redeem',{p_token:openOwner.token}),
+  secondNew.session.rpc('team_invitation_redeem',{p_token:openOwner.token})
+]);
+assert.equal(contenders.filter(x=>!x.error).length,1,
+  'Exactamente uno de dos nuevos usuarios crea el equipo');
+assert.equal(contenders.filter(x=>!!x.error).length,1,
+  'El segundo reclamo del enlace libre de propietario debe fallar');
+const newCreated=contenders.find(x=>!x.error).data;
+assert.equal(newCreated.role,'owner');
+assert.equal(newCreated.kind,'create_team');
+const teamResults=ok(await root.from('teams').select('id,slug,official_verified')
+  .eq('slug','nuevo-equipo-libre-qa'),'Equipo recién creado por enlace libre');
+assert.equal(teamResults.length,1,'Debe existir exactamente un equipo nuevo');
+assert.equal(teamResults[0].id,newCreated.team_id);
+assert.equal(teamResults[0].official_verified,false,'No conceder verificación oficial automática');
+const newOwners=ok(await root.from('team_members').select('user_id,role')
+  .eq('team_id',newCreated.team_id),'Propietario en equipo creado por enlace libre');
+assert.equal(newOwners.length,1,'Debe existir exactamente un propietario inicial');
+assert.equal(newOwners[0].role,'owner');
+assert([firstNew.uid,secondNew.uid].includes(newOwners[0].user_id));
+const newOwnerProfile=ok(await root.from('profiles').select('platform_role')
+  .eq('id',newOwners[0].user_id).single(),'Rol global del nuevo propietario');
+assert.equal(newOwnerProfile.platform_role,'publicador');
+denied(await firstNew.session.rpc('admin_invitation_list',{p_limit:10}),
+  'Propietario no debe ser Bibliotecario');
+denied(await secondNew.session.rpc('admin_invitation_list',{p_limit:10}),
+  'El otro aspirante no debe ser Bibliotecario');
+denied(await firstNew.session.rpc('team_invitation_redeem',{p_token:openOwner.token}),
+  'Token de propietario libre no reutilizable');
+denied(await secondNew.session.rpc('team_invitation_redeem',{p_token:openOwner.token}),
+  'Token libre sigue agotado');
+const consumedOwner=ok(await bibliotecario.session.rpc('admin_invitation_list',{p_limit:100}),
+  'Estado del enlace libre nuevo');
+assert(consumedOwner.some(x=>x.id===openOwner.id && x.invite_email===null &&
+  x.status==='utilizada' && x.invited_role==='owner'),'Debe figurar como usado');
 
 console.log('QA: revocación y no reutilización');
 const pending=ok(await bibliotecario.session.rpc('admin_invitation_create',{

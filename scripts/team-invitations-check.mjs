@@ -85,11 +85,27 @@ assert.equal((openSql.match(/if v_inv\.invite_email is not null and v_email<>v_i
   'Preview y canje deben comprobar explícitamente el correo opcional');
 requireMatch(openSql,/'open_link',v_inv\.invite_email is null/i,
   'El preview comunica cuando el enlace es libre');
+const ownerSql=readFileSync('supabase/migrations/20261022233700_team_invitation_open_owner.sql','utf8');
+requireMatch(ownerSql,/invitation_kind='create_team' and invited_role='owner'/,
+  'Solo rol propietario para enlace libre que crea equipo');
+requireMatch(ownerSql,/p_kind='create_team' and p_role='owner'/,
+  'Backend acepta invitación libre para nuevo equipo');
+requireMatch(ownerSql,/p_kind='join' and p_role in \('translator','editor','proofreader','collaborator'\)/,
+  'Backend sigue rechazando administradores por enlace libre en equipo existente');
+requireMatch(ownerSql,/if auth\.uid\(\) is null or not private\.is_admin\(\)/,
+  'Sólo el Bibliotecario emite enlaces de nuevo equipo');
+requireMatch(ownerSql,/pg_advisory_xact_lock/,
+  'La emisión sigue serializada');
+
 const invitationUi=readFileSync('src/admin-invitations.js','utf8');
+requireMatch(invitationUi,/const open = form\.elements\.target\.value === 'open'/,
+  'Enlace libre también para equipo nuevo');
+requireMatch(invitationUi,/ATENCIÓN: la primera persona/,
+  'Se advierte la entrega de propiedad al primer reclamante');
 requireMatch(invitationUi,/name="target"/,'Selector de destinatario');
 requireMatch(invitationUi,/option value="open"/,'Opción enlace libre');
 requireMatch(invitationUi,/email = open \? null/,'UI envía email nulo para enlace libre');
-requireMatch(invitationUi,/adminOption\.disabled = open/,'Admin inhabilitado en enlace libre');
+requireMatch(invitationUi,/adminOption\.disabled = open && !create/,'Admin inhabilitado solo en enlace libre a equipo existente');
 
 requireMatch(redeem,/sessionStorage\.removeItem\(KEY\)/,'Descartar token tras canje');
 assert.doesNotMatch(redeem,/localStorage\.setItem/,'No guardar secreto persistentemente');

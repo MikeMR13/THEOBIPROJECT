@@ -16,7 +16,7 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
   const invites = invitesResult.data || [];
   const roleLabels = { owner: 'Propietario · administrador del equipo', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
   const statusLabels = { pendiente: 'Pendiente', utilizada: 'Utilizada', revocada: 'Revocada', caducada: 'Caducada' };
-  target.innerHTML = `<div class="bb-secintro"><div><h2>Invitaciones a equipos traductores</h2><p>Enlaces de un solo uso: por correo o libres para integrantes de equipos existentes.</p></div><span class="bb-status warn">ACCESO CONTROLADO</span></div>
+  target.innerHTML = `<div class="bb-secintro"><div><h2>Invitaciones a equipos traductores</h2><p>Enlaces de un solo uso para crear equipos nuevos o invitar integrantes, con correo específico o enlace libre.</p></div><span class="bb-status warn">ACCESO CONTROLADO</span></div>
     <section class="bb-box">
       <h3>Crear invitación</h3>
       <p class="mono" style="font-size:12px;line-height:1.65">Puedes invitar a un nuevo responsable para <b>crear su propio equipo</b>, o agregar a alguien a un equipo existente. La invitación exige iniciar sesión y verificar el correo.</p>
@@ -31,8 +31,8 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
         <label id="inv-new-name-wrap">Nombre del nuevo equipo<input name="newName" minlength="2" maxlength="60" required placeholder="Nombre del grupo traductor"></label>
         <label id="inv-new-slug-wrap">Identificador del equipo<input name="newSlug" minlength="3" maxlength="40" pattern="[a-z0-9][a-z0-9-]{1,38}[a-z0-9]" required placeholder="equipo-traductor"></label>
         <div id="inv-owner-role" class="bb-super-note" style="flex:1 1 100%;margin:0">El invitado será <b>Propietario y administrador interno</b> de su nuevo equipo. No recibirá el rol de Bibliotecario.</div>
-        <label id="inv-target-wrap" hidden>Destinatario<select name="target"><option value="email">Correo específico</option><option value="open">Enlace libre de un uso</option></select></label>
-        <div id="inv-open-warning" class="bb-super-note" hidden>Quien primero confirme su correo y acepte este enlace entrará al equipo. No concede propiedad ni administración.</div>
+        <label id="inv-target-wrap">Destinatario<select name="target"><option value="email">Correo específico</option><option value="open">Enlace libre de un uso</option></select></label>
+        <div id="inv-open-warning" class="bb-super-note" hidden></div>
         <label id="inv-email-wrap">Correo del invitado<input name="email" type="email" autocomplete="off" maxlength="254" required placeholder="traductor@ejemplo.com"></label>
         <label id="inv-role-wrap" hidden>Rol dentro del equipo<select name="role">
           ${Object.entries(roleLabels).filter(([k]) => k !== 'owner').map(([k,n]) => `<option value="${k}" ${k === 'admin' ? 'selected' : ''}>${n}</option>`).join('')}
@@ -62,15 +62,19 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
   const form = target.querySelector('#inv-form'), created = target.querySelector('#inv-created');
   const syncMode = () => {
     const create = form.elements.kind.value === 'create_team';
-    const open = !create && form.elements.target.value === 'open';
+    const open = form.elements.target.value === 'open';
     target.querySelector('#inv-team-wrap').hidden = create;
-    target.querySelector('#inv-target-wrap').hidden = create;
-    target.querySelector('#inv-open-warning').hidden = !open;
+    target.querySelector('#inv-target-wrap').hidden = false;
+    const warning = target.querySelector('#inv-open-warning');
+    warning.hidden = !open;
+    if (open) warning.textContent = create
+      ? 'Atención: la PRIMERA cuenta que se registre, verifique su correo y acepte este enlace creará el equipo y será su Propietario y Administrador. Comparte el enlace únicamente con la persona elegida.'
+      : 'La primera cuenta que inicie sesión, verifique su correo y acepte este enlace se unirá al equipo. No concede propiedad ni administración.';
     target.querySelector('#inv-email-wrap').hidden = open;
     form.elements.email.required = !open;
     const adminOption = [...form.elements.role.options].find(option => option.value === 'admin');
-    if (adminOption) adminOption.disabled = open;
-    if (open && form.elements.role.value === 'admin') form.elements.role.value = 'translator';
+    if (adminOption) adminOption.disabled = open && !create;
+    if (open && !create && form.elements.role.value === 'admin') form.elements.role.value = 'translator';
     target.querySelector('#inv-new-name-wrap').hidden = !create;
     target.querySelector('#inv-new-slug-wrap').hidden = !create;
     target.querySelector('#inv-role-wrap').hidden = create;
@@ -91,7 +95,7 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
     event.preventDefault();
     if (!form.reportValidity()) return;
     const kind = form.elements.kind.value, create = kind === 'create_team',
-      open = !create && form.elements.target.value === 'open',
+      open = form.elements.target.value === 'open',
       team = create ? null : form.elements.team.value,
       newName = create ? form.elements.newName.value.trim() : null,
       newSlug = create ? form.elements.newSlug.value.trim() : null,
@@ -100,12 +104,13 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
       hours = Number(form.elements.hours.value),
       reason = form.elements.reason.value.trim();
     if (reason.length < 12) return toast('Escribe un motivo de al menos 12 caracteres');
-    if (open && !['translator','editor','proofreader','collaborator'].includes(role))
-      return toast('Los enlaces libres no pueden conceder administración ni propiedad');
+    if (open && !create && !['translator','editor','proofreader','collaborator'].includes(role))
+      return toast('Un enlace libre a un equipo existente no puede conceder administración ni propiedad');
     if (create && !/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(newSlug))
       return toast('El identificador admite 3-40 caracteres: minúsculas, números y guiones');
-    if (create && !confirm('Se creará «' + newName + '» cuando ' + email + ' acepte la invitación. Será Propietario y Administrador interno del equipo. ¿Continuar?')) return;
-    if (open && !confirm('Cualquier cuenta con correo verificado podrá reclamar este enlace una sola vez. ¿Generar enlace libre?')) return;
+    if (create && open && !confirm('ATENCIÓN: la primera persona que se registre o inicie sesión con correo verificado y acepte el enlace CREARÁ «' + newName + '» y será su PROPIETARIO. Si el enlace llega a otra persona, podría reclamar el equipo. ¿Generar enlace libre?')) return;
+    if (create && !open && !confirm('Se creará «' + newName + '» cuando ' + email + ' acepte la invitación. Será Propietario y Administrador interno del equipo. ¿Continuar?')) return;
+    if (open && !create && !confirm('Cualquier cuenta con correo verificado podrá reclamar este enlace una sola vez. ¿Generar enlace libre?')) return;
     if (!create && role === 'admin' && !confirm('Esta persona administrará el equipo seleccionado, sin ser Bibliotecario ni Propietario. ¿Continuar?')) return;
     const button = form.querySelector('[type=submit]'); button.disabled = true;
     try {
@@ -115,7 +120,7 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
       const link = location.origin + '/invitacion#token=' + encodeURIComponent(invitation.token);
       created.hidden = false;
       created.innerHTML = `<div class="bb-super-note"><b>${open ? 'Enlace libre creado' : 'Invitación creada para ' + esc(email)}</b><br>
-        Copia este enlace ahora. Caduca el ${esc(when(invitation.expires_at))}; ${open ? 'la primera cuenta con correo verificado que lo acepte obtendrá acceso.' : 'solamente el correo invitado podrá aceptarlo.'}
+        Copia este enlace ahora. Caduca el ${esc(when(invitation.expires_at))}; ${open ? (create ? 'la primera cuenta verificada que lo acepte se convertirá en Propietario del nuevo equipo.' : 'la primera cuenta con correo verificado que lo acepte obtendrá acceso.') : 'solamente el correo invitado podrá aceptarlo.'}
         <div class="bb-row" style="margin:12px 0 0">
           <label>Enlace privado<input id="inv-secret-url" readonly value="${esc(link)}" autocomplete="off" spellcheck="false"></label>
           <button class="btn ghost" type="button" id="inv-copy">Copiar enlace</button>
@@ -129,9 +134,9 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
       };
       form.reset();
       form.elements.kind.value = kind;
+      form.elements.target.value = open ? 'open' : 'email';
       if (!create) {
         form.elements.team.value = team;
-        form.elements.target.value = open ? 'open' : 'email';
         if (open) form.elements.role.value = role;
       }
       syncMode();
