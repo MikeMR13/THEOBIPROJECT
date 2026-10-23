@@ -293,14 +293,16 @@ export function render(D, design, h){
   const corners = mot ? `<span class="tp2-cor l" style="background-image:url('${mot}')"></span><span class="tp2-cor r" style="background-image:url('${motifURL(SN.m, SN.c2, d.accent)}')"></span>` : '';
   const stamp = full ? `<span class="tp2-stamp"><i></i>${esc(SN.l.toUpperCase())}</span>` : '';
   const visibleOrder = d.order.filter(k => !d.hidden.includes(k));
-  const orderedContent = greet + visibleOrder.reduce((out, key, i) => {
+  const composedUnit = (key, html, joined = false) => html ? `<div class="tp2-unit" data-section="${key}" data-emphasis="${d.composition.emphasis[key]}"${joined ? ' data-paired="true"' : ''}>${html}</div>` : '';
+  const orderedContent = visibleOrder.reduce((out, key, i) => {
     if (key === 'next' && visibleOrder[i - 1] === 'featured' && E.featureStyle === 'editorial' && featH && nx) return out;
-    if (key === 'featured' && visibleOrder[i + 1] === 'next' && E.featureStyle === 'editorial' && featH && nx) return out + `<div class="tp2-editorial-pair">${featH}${nx}</div>`;
-    return out + (SEC[key] || '');
+    if (key === 'featured' && visibleOrder[i + 1] === 'next' && E.featureStyle === 'editorial' && featH && nx) return out + composedUnit(key, `<div class="tp2-editorial-pair">${featH}${nx}</div>`, true);
+    return out + composedUnit(key, SEC[key] || '');
   }, '');
+  const composition = `<div class="tp2-composition" data-columns="${d.composition.columns}">${orderedContent}</div>`;
   const closeText = C.ctaText || COMMUNITY_DEFAULT.ctaText;
   const closeCta = C.showCta ? `<aside class="tp2-community-cta" aria-label="Seguir al equipo"><div class="tp2-community-note"><small>COMUNIDAD DEL GRUPO</small><h2>${esc(closeText)}</h2><p>Sigue a ${esc(t.name)} para mantenerte al día de sus publicaciones.</p></div><span class="tp2-fslot3"></span></aside>` : '';
-  const flow = orderedContent + closeCta;
+  const flow = greet + composition + closeCta;
   const tabItems = [
     ['grupo-inicio', 'Inicio', true],
     ['grupo-obras', 'Obras', L.navWorks && on('show_works') && W.length > 0 && !d.hidden.includes('works')],
@@ -498,6 +500,32 @@ const CSS = `
  .tp2-person{padding:12px}
  .tp2-team-count{font-size:11px}
  .tp2-ann-editorial{padding:16px}
+}
+
+
+/* Compositor Fase 4: el valor antiguo es una columna; las nuevas opciones respetan cada tema. */
+.tp2-composition{display:grid;grid-template-columns:minmax(0,1fr);gap:30px;min-width:0}
+.tp2-composition[data-columns=dos],.tp2-composition[data-columns=auto]{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px;row-gap:28px}
+.tp2-composition[data-columns=auto] .tp2-unit[data-section=featured],.tp2-composition[data-columns=auto] .tp2-unit[data-section=works]{grid-column:1/-1}
+.tp2-unit{min-width:0;align-self:start}
+.tp2-composition .tp2-unit[data-emphasis=destacado]{grid-column:1/-1}
+.tp2-composition .tp2-unit[data-emphasis=destacado]>.tp2-sec{border-top:3px solid var(--ac);padding:clamp(12px,2.3cqi,22px);background:color-mix(in srgb,var(--ac) 7%,var(--sf));border-radius:var(--r)}
+.tp2-composition .tp2-unit[data-emphasis=destacado]>.tp2-next{max-width:none}
+.tp2-composition .tp2-unit[data-emphasis=destacado]>.tp2-ann{max-width:none}
+.tp2-composition .tp2-unit[data-emphasis=compacto]>.tp2-sec{padding:8px 0}
+.tp2-composition .tp2-unit[data-emphasis=compacto]>.tp2-sec>h2,.tp2-composition .tp2-unit[data-emphasis=compacto] .tp2-sh h2{font-size:20px}
+.tp2-composition .tp2-unit[data-emphasis=compacto] .tp2-works{grid-template-columns:repeat(auto-fit,minmax(min(100%,105px),1fr));gap:12px}
+.tp2-composition .tp2-unit[data-emphasis=compacto] .tp2-feat{grid-template-columns:92px minmax(0,1fr);gap:12px;padding:12px}
+.tp2-composition .tp2-unit[data-emphasis=compacto] .tp2-feat .tp2-cv{max-width:92px}
+.tp2-composition .tp2-unit[data-emphasis=compacto] .tp2-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+.tp2-composition .tp2-unit[data-emphasis=compacto]>.tp2-next,.tp2-composition .tp2-unit[data-emphasis=compacto]>.tp2-ann{padding:12px}
+.tp2-composition .tp2-unit[data-paired=true]{grid-column:1/-1}
+.tp2-composition .tp2-unit[data-paired=true] .tp2-editorial-pair{width:100%}
+.tp2-composition .tp2-unit[data-emphasis=destacado]>.tp2-editorial-pair{border-top:3px solid var(--ac);padding:12px;background:color-mix(in srgb,var(--ac) 7%,var(--sf))}
+.tp2-composition .tp2-unit[data-emphasis=compacto]>.tp2-editorial-pair{gap:10px}
+@container (max-width:760px){
+ .tp2-composition[data-columns=dos],.tp2-composition[data-columns=auto]{grid-template-columns:minmax(0,1fr);row-gap:24px}
+ .tp2-composition .tp2-unit{grid-column:1/-1}
 }
 
 `;
