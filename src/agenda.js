@@ -1,8 +1,8 @@
 // Calendario: una sola vista con lo publicado (últimos 30 días), lo programado, lo bloqueado para mecenas,
 // las aperturas a todo público, los volúmenes y los aniversarios de los equipos. Vistas: Semana, Línea de tiempo y Mes.
 const COL = { pub: '#f2c230', pat: '#f96854', open: '#a9d18e', prog: '#8cc3f2', vol: '#c9a0e8', aniv: '#efe6d2' };
-const LEG = [['pub', 'Publicado · público'], ['pat', 'Solo mecenas'], ['open', 'Se abre a todo público'], ['prog', 'Programado'], ['vol', 'Volumen completo'], ['aniv', 'Aniversario de equipo']];
-const FIL = [['', 'Todo'], ['pub', 'Público'], ['pat', 'Solo mecenas'], ['open', 'Se abre a todo público'], ['prog', 'Programados'], ['vol', 'Volúmenes completos']];
+const LEG = [['pub', 'Estreno público'], ['pat', 'Estreno para mecenas'], ['open', 'Apertura al público general'], ['prog', 'Programado'], ['vol', 'Volumen completo'], ['aniv', 'Aniversario de equipo']];
+const FIL = [['', 'Todos los eventos'], ['pub', 'Estreno público'], ['pat', 'Estreno mecenas'], ['open', 'Apertura general'], ['prog', 'Programados'], ['vol', 'Volúmenes']];
 const VIEWS = [['semana', 'Semana'], ['linea', 'Línea de tiempo'], ['mes', 'Mes']];
 const TAG = { pub: 'Publicado', pat: 'Solo mecenas', open: 'Se abre a todo público', prog: 'Programado', vol: 'Volumen completo', aniv: 'Aniversario' };
 const DAY = 864e5, PAST = 30, FUT = 60, SITE = 'https://obidellector.com';
@@ -40,7 +40,7 @@ const CSS = `
 .ag-mh{padding:6px;font-size:12px;color:#a89f8a;text-align:center;border-right:1px solid #2f2a20;border-bottom:1px solid #2f2a20;text-transform:capitalize}
 .ag-mc{min-height:96px;padding:5px;border:0;border-right:1px solid #2f2a20;border-bottom:1px solid #2f2a20;border-radius:0;background-clip:padding-box;background:#100f0c;display:flex;flex-direction:column;gap:3px;cursor:pointer;text-align:left;font:inherit;color:inherit;min-width:0}
 .ag-mc.out{background:#0b0a08;color:#5c5546}.ag-mc.today{outline:2px solid #f2c230;outline-offset:-2px}.ag-mc.sel{background:#2a2412}
-.ag-mc>b{font-size:13px}.ag-mi{display:flex;gap:4px;align-items:center;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#cfc6b0}.ag-mi i{width:7px;height:7px;flex:none;background:var(--c)}.ag-mf{font-size:11px;color:var(--fc);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ag-mc>b{font-size:13px}.ag-mcount{margin-left:auto;border-radius:10px;padding:0 5px;background:#3c3320;color:#f3ecd9;font-size:10px;font-weight:700}.ag-mi{display:flex;gap:4px;align-items:center;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#cfc6b0}.ag-mi i{width:7px;height:7px;flex:none;background:var(--c)}.ag-mf{font-size:11px;color:var(--fc);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ag-msel{margin-top:16px}.ag-msel h2{font-size:18px;font-weight:500;margin:0 0 8px;text-transform:capitalize}
 .ag-empty{padding:30px 0;color:#a89f8a}
 .ag-foot{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;margin-top:22px;font-size:12px;color:#a89f8a}
@@ -51,7 +51,7 @@ const CSS = `
   .ag-tabs{width:100%}.ag-tabs button{flex:1;padding:9px 6px}
   .ag-week{grid-template-columns:1fr;gap:6px}.ag-day{min-height:0}.ag-day.empty{display:none}.ag-day.today.empty{display:flex}
   .ag-ev{grid-template-columns:38px minmax(0,1fr);gap:8px;padding:7px}.ag-ll{grid-template-columns:1fr}
-  .ag-mc{min-height:58px;padding:3px}.ag-mi span,.ag-mf{display:none}.ag-mi{display:inline-flex}.ag-mc .dots{display:flex;flex-wrap:wrap;gap:2px}
+  .ag-mc{min-height:64px;padding:4px}.ag-mi span,.ag-mf{display:none}.ag-mi{display:inline-flex}.ag-mc .dots{display:flex;flex-wrap:wrap;gap:2px}.ag-mcount{font-size:11px}
   .ag-nav b{min-width:0;flex:1}
 }
 @media (min-width:761px){.ag-more{display:none}}
@@ -63,11 +63,11 @@ export async function agenda(ctx){
   if (location.pathname === '/lanzamientos') history.replaceState({}, '', '/calendario' + location.search);
   app.innerHTML = '<p class="mono">Cargando el calendario…</p>';
   const u = getUser(), qs = new URLSearchParams(location.search);
-  const TZ = window.obiTZ(), ymd = d => new Date(d).toLocaleDateString('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+  const TZ = window.obiTZ(), ymd = d => { const parts = new Intl.DateTimeFormat('en-US', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(d)); const part = k => parts.find(p => p.type === k)?.value; return part('year') + '-' + part('month') + '-' + part('day'); };
   const noon = k => new Date(k + 'T12:00:00Z'), addK = (k, n) => new Date(noon(k).getTime() + n * DAY).toISOString().slice(0, 10);
   const dow = k => (noon(k).getUTCDay() + 6) % 7, monday = k => addK(k, -dow(k)), today = () => ymd(Date.now());
   const media = p => p ? (/^https?:/.test(p) ? p : `${url}/storage/v1/object/public/obi-media/${encodeURI(p)}`) : '';
-  const V = { view: VIEWS.some(v => v[0] === qs.get('v')) ? qs.get('v') : 'semana', f: FIL.some(x => x[0] === qs.get('f')) ? qs.get('f') : '', mine: qs.get('sigo') === '1', team: qs.get('equipo') || '', type: qs.get('tipo') || '', anchor: /^\d{4}-\d{2}-\d{2}$/.test(qs.get('d') || '') ? qs.get('d') : today(), sel: null, opts: false };
+  const V = { view: VIEWS.some(v => v[0] === qs.get('v')) ? qs.get('v') : (window.matchMedia?.('(max-width: 760px)').matches ? 'linea' : 'semana'), f: FIL.some(x => x[0] === qs.get('f')) ? qs.get('f') : '', mine: qs.get('sigo') === '1', team: qs.get('equipo') || '', type: qs.get('tipo') || '', anchor: /^\d{4}-\d{2}-\d{2}$/.test(qs.get('d') || '') ? qs.get('d') : today(), sel: null, opts: false };
   const D = { from: null, to: null, rows: [], aniv: [], series: {}, pat: {}, read: new Set(), fol: new Set(), rem: new Set(), fests: null };
 
   const [AN, S] = await Promise.all([import('/anim.js?v=8'), import('/season.js?v=3')]).catch(() => [null, null]);
@@ -156,17 +156,17 @@ export async function agenda(ctx){
     for (const a of D.aniv) out.push({ k: 'aniv|' + a.team_id + '|' + a.at, kind: 'aniv', c: 'aniv', f: new Set(), day: a.at, at: a.at + 'T12:00:00', team: a, list: [] });
     return out.filter(g => !merged.has(g.k));
   }
-  const pass = g => {
-    if (V.f && !g.f.has(V.f)) return false;
+  const passBase = g => {
     if (g.kind === 'aniv') return (!V.team || g.team.slug === V.team) && !V.type && (!V.mine || Object.values(D.series).some(s => s.team_id === g.team.team_id && D.fol.has(s.id)));
     if (V.mine && !D.fol.has(g.s.id)) return false;
     if (V.team && g.s.teams?.slug !== V.team) return false;
     if (V.type && (g.s.work_type || 'Novela ligera') !== V.type) return false;
     return true;
   };
+  const pass = g => (!V.f || g.f.has(V.f)) && passBase(g);
 
   // ---------- piezas ----------
-  const fdt = (d, o) => new Date(d).toLocaleString('es-MX', o || { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const fdt = (d, o) => new Date(d).toLocaleString('es-MX', { timeZone: TZ, ...(o || { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) });
   const left = d => { const m = Math.round((new Date(d) - Date.now()) / 6e4); if (m <= 0) return ''; if (m < 60) return m + ' min'; if (m < 1440) return Math.floor(m / 60) + ' h ' + (m % 60 ? (m % 60) + ' min' : ''); const dd = Math.floor(m / 1440), hh = Math.floor(m % 1440 / 60); return dd + (dd === 1 ? ' día' : ' días') + (hh ? ' ' + hh + ' h' : ''); };
   const caps = g => { const n = g.list.map(c => +c.num); if (!n.length) return g.label ? esc(g.label) : ''; const v = g.list[0].vnum != null ? 'Vol. ' + (+g.list[0].vnum) + ' · ' : ''; return v + (n.length === 1 ? 'Cap. ' + n[0] : 'Caps. ' + n[0] + '–' + n[n.length - 1]); };
   const accL = g => g.acc === 'tier' ? `Nivel «${esc(g.tier || 'mecenas')}»${g.mp ? ' · desde US$' + (+g.mp) : ''}` : g.acc === 'donors' ? 'Mecenas · cualquier nivel' : 'Público';
@@ -212,7 +212,7 @@ export async function agenda(ctx){
   }
   function line(list){
     const t = today(), M = byDay(list.filter(g => g.day >= addK(t, -PAST) && g.day <= addK(t, FUT))), ks = Object.keys(M).sort().reverse();
-    const fut = ks.filter(k => k > t), pst = ks.filter(k => k < t), sec = k => `<section class="ag-ld"><h2>${lbl(k)}<small>${k.slice(8)}/${k.slice(5, 7)}</small></h2><div class="ag-ll">${M[k].map(g => card(g)).join('')}</div></section>`;
+    const fut = ks.filter(k => k > t).sort(), pst = ks.filter(k => k < t), sec = k => `<section class="ag-ld"><h2>${lbl(k)}<small>${k.slice(8)}/${k.slice(5, 7)}</small></h2><div class="ag-ll">${M[k].map(g => card(g)).join('')}</div></section>`;
     return `<div class="ag-line">${fut.length ? fut.map(sec).join('') : '<p class="ag-empty">Nada programado todavía.</p>'}<div class="ag-now" id="ag-now">Hoy · ${noon(t).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', timeZone: 'UTC' })}</div>${M[t] ? sec(t).replace(/<h2>.*?<\/h2>/, '') : '<p class="ag-empty" style="padding:6px 0">Nada hoy por ahora.</p>'}${pst.length ? pst.map(sec).join('') : '<p class="ag-empty">Nada publicado en los últimos 30 días.</p>'}</div>`;
   }
   function month(list){
@@ -220,23 +220,24 @@ export async function agenda(ctx){
     let end = addK(a, 31); end = end.slice(0, 7) === ym ? end : addK(end.slice(0, 8) + '01', -1); end = addK(monday(end), 6);
     const F = {}; festivals(start, end).forEach(f => (F[f.day] ||= []).push(f));
     const cells = []; for (let k = start; k <= end; k = addK(k, 1)) cells.push(k);
-    const sel = V.sel && V.sel.slice(0, 7) === ym ? V.sel : (t.slice(0, 7) === ym ? t : null);
+    const sel = V.sel && V.sel.slice(0, 7) === ym ? V.sel : (t.slice(0, 7) === ym ? t : (Object.keys(M).filter(k => k.slice(0, 7) === ym).sort()[0] || null));
     const hd = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'].map(d => `<div class="ag-mh">${d}</div>`).join('');
-    const grid = cells.map(k => { const L = M[k] || [], fe = F[k] || []; return `<button type="button" class="ag-mc${k.slice(0, 7) !== ym ? ' out' : ''}${k === t ? ' today' : ''}${k === sel ? ' sel' : ''}" data-day="${k}"><b>${+k.slice(8)}</b>${fe.map(f => `<span class="ag-mf" style="--fc:${f.s.ac}">${esc(f.s.l)}</span>`).join('')}<span class="dots">${L.slice(0, 3).map(g => `<span class="ag-mi" style="--c:${COL[g.c]}"><i></i><span>${esc(g.kind === 'aniv' ? g.team.name : g.s.short || g.s.title)}</span></span>`).join('')}</span>${L.length > 3 ? `<span class="ag-mi" style="color:#a89f8a">+${L.length - 3}</span>` : ''}</button>`; }).join('');
+    const grid = cells.map(k => { const L = M[k] || [], fe = F[k] || []; return `<button type="button" class="ag-mc${k.slice(0, 7) !== ym ? ' out' : ''}${k === t ? ' today' : ''}${k === sel ? ' sel' : ''}" data-day="${k}" aria-label="${esc(dayName(k))}: ${L.length} ${L.length === 1 ? 'evento' : 'eventos'}"><b>${+k.slice(8)}</b>${L.length ? `<span class="ag-mcount">${L.length}</span>` : ''}${fe.map(f => `<span class="ag-mf" style="--fc:${f.s.ac}">${esc(f.s.l)}</span>`).join('')}<span class="dots">${L.slice(0, 3).map(g => `<span class="ag-mi" style="--c:${COL[g.c]}"><i></i><span>${esc(g.kind === 'aniv' ? g.team.name : g.s.short || g.s.title)}</span></span>`).join('')}</span>${L.length > 3 ? `<span class="ag-mi" style="color:#a89f8a">+${L.length - 3}</span>` : ''}</button>`; }).join('');
     const SL = sel ? (M[sel] || []) : [], SF = sel ? (F[sel] || []) : [];
     return `<div class="ag-mon">${hd}${grid}</div>${sel ? `<div class="ag-msel"><h2>${lbl(sel)}</h2>${SF.map(f => `<p class="ag-m" style="color:${f.s.ac};font-weight:600">${esc(f.s.l)} · festividad</p>`).join('')}${SL.length ? `<div class="ag-ll">${SL.map(g => card(g)).join('')}</div>` : '<p class="ag-empty" style="padding:6px 0">Sin lanzamientos este día.</p>'}</div>` : ''}`;
   }
 
   // ---------- dibujo ----------
-  const range = () => V.view === 'semana' ? [monday(V.anchor), addK(monday(V.anchor), 6)] : V.view === 'mes' ? [monday(V.anchor.slice(0, 8) + '01'), addK(V.anchor.slice(0, 8) + '01', 42)] : [addK(today(), -PAST), addK(today(), FUT)];
+  const range = () => { if (V.view === 'semana') return [monday(V.anchor), addK(monday(V.anchor), 6)]; if (V.view !== 'mes') return [addK(today(), -PAST), addK(today(), FUT)]; const first = V.anchor.slice(0, 8) + '01'; const next = new Date(Date.UTC(+first.slice(0, 4), +first.slice(5, 7), 1, 12)).toISOString().slice(0, 10); const end = addK(next, -1); return [monday(first), addK(monday(end), 6)]; };
   const title = () => { if (V.view === 'semana') { const a = monday(V.anchor), b = addK(a, 6), f = k => noon(k).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }); return f(a) + ' – ' + f(b); } return noon(V.anchor.slice(0, 8) + '15').toLocaleDateString('es-MX', { month: 'long', year: 'numeric', timeZone: 'UTC' }); };
   const sync = () => { const p = new URLSearchParams(); if (V.view !== 'semana') p.set('v', V.view); if (V.f) p.set('f', V.f); if (V.mine) p.set('sigo', '1'); if (V.team) p.set('equipo', V.team); if (V.type) p.set('tipo', V.type); if (V.anchor !== today() && V.view !== 'linea') p.set('d', V.anchor); if (/^\/(calendario|lanzamientos)$/.test(location.pathname)) history.replaceState({}, '', '/calendario' + (p.toString() ? '?' + p : '')); };
   async function draw(scroll){
     const [a, b] = range(); await load(a, b);
     if (V.view === 'mes' && !D.fests) { try { if (S) await S.load(sb); const { data } = await sb.from('season_calendar').select('key,starts,hemi').gte('starts', addK(today(), -400)).lte('starts', addK(today(), 400)); D.fests = data || []; } catch { D.fests = []; } }
-    const all = groups(), list = all.filter(pass);
-    const weekOpen = all.filter(g => g.kind === 'open' && new Date(g.at) > Date.now() && new Date(g.at) - Date.now() < 7 * DAY).length;
-    const cnt = Object.fromEntries(FIL.map(([k]) => [k, k ? all.filter(g => g.f.has(k)).length : all.length]));
+    const all = groups(), inRange = all.filter(g => g.day >= a && g.day <= b), list = inRange.filter(pass);
+    const weekOpen = all.filter(g => g.kind === 'open' && new Date(g.at) > Date.now() && new Date(g.at) - Date.now() < 7 * DAY && pass(g)).length;
+    const countable = inRange.filter(g => passBase(g));
+    const cnt = Object.fromEntries(FIL.map(([k]) => [k, k ? countable.filter(g => g.f.has(k)).length : countable.length]));
     const teams = [...new Map(Object.values(D.series).filter(s => s.teams?.slug).map(s => [s.teams.slug, s.teams.name])).entries()].sort((x, y) => x[1].localeCompare(y[1], 'es'));
     const types = [...new Set(Object.values(D.series).map(s => s.work_type || 'Novela ligera'))].sort();
     app.innerHTML = `<div class="ag-h"><div><h1>Calendario</h1><p>Lo publicado, lo que viene, lo que es solo para mecenas y lo que se abre a todos.</p></div>${weekOpen ? `<button class="ag-cnt" data-f="open">${weekOpen} se ${weekOpen === 1 ? 'abre' : 'abren'} a todo público esta semana</button>` : ''}</div>
@@ -313,10 +314,10 @@ export async function enablePush({ sb, url, getUser }){
 // Inicio: franja con lo que se abre hoy a todo público.
 export async function openToday({ sb, esc }, el){
   if (!el) return;
-  const TZ = window.obiTZ(), k = new Date().toLocaleDateString('en-CA', { timeZone: TZ }), a = new Date(Date.now() - 36 * 36e5), b = new Date(Date.now() + 36 * 36e5);
+  const TZ = window.obiTZ(), fmt = d => { const parts = new Intl.DateTimeFormat('en-US', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d); const get = k => parts.find(p => p.type === k)?.value; return get('year') + '-' + get('month') + '-' + get('day'); }, k = fmt(new Date()), a = new Date(Date.now() - 36 * 36e5), b = new Date(Date.now() + 36 * 36e5);
   const { data, error } = await sb.rpc('agenda_events', { p_from: a.toISOString(), p_to: b.toISOString() });
   if (error) return;
-  const rows = (data || []).filter(r => r.kind === 'open' && new Date(r.at).toLocaleDateString('en-CA', { timeZone: TZ }) === k); if (!rows.length) return;
+  const rows = (data || []).filter(r => r.kind === 'open' && fmt(new Date(r.at)) === k); if (!rows.length) return;
   const ids = [...new Set(rows.map(r => r.series_id))], { data: ser } = await sb.from('series').select('id,slug,title').in('id', ids), by = Object.fromEntries((ser || []).map(s => [s.id, s]));
   const G = {}; rows.forEach(r => { if (!by[r.series_id]) return; (G[r.series_id] ||= { s: by[r.series_id], at: r.at, n: [] }).n.push(+r.num); });
   const L = Object.values(G); if (!L.length) return;
