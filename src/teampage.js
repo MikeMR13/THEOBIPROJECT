@@ -341,6 +341,54 @@ const CSS = `
  .tp2[data-hero=compacto] .tp2-hero{min-height:185px}
  .tp2[data-hero=compacto] .tp2-edi{min-height:150px}
 }
+
+/* Fase 2 — portada editorial y novedades, respeta variables del tema. */
+.tp2-feature-block{min-width:0}
+.tp2[data-feature=editorial] .tp2-feat{min-height:290px;grid-template-columns:minmax(132px,34%) 1fr;gap:clamp(12px,3cqi,28px);align-items:center;background:linear-gradient(110deg,color-mix(in srgb,var(--ac) 14%,var(--sf)),var(--sf));border-top:3px solid var(--ac)}
+.tp2[data-feature=editorial] .tp2-feat .tp2-cv{max-width:240px}
+.tp2[data-feature=editorial] .tp2-feat>span:last-child b{font-size:clamp(24px,3.6cqi,38px)}
+.tp2[data-feature=compacto] .tp2-feat{grid-template-columns:92px minmax(0,1fr);padding:12px;gap:14px}
+.tp2[data-feature=compacto] .tp2-feat .tp2-cv{width:92px}
+.tp2[data-feature=compacto] .tp2-feat .tp2-syn{-webkit-line-clamp:2}
+.tp2-next-feature{display:grid;grid-template-columns:minmax(90px,130px) 1fr;gap:16px;max-width:none;align-items:center;min-width:0;border-left:5px solid var(--ac);background:linear-gradient(115deg,color-mix(in srgb,var(--ac) 10%,var(--sf)),var(--sf))}
+.tp2-next-feature .tp2-next-cv{width:100%;max-width:130px}
+.tp2-next-copy{display:grid;gap:6px;min-width:0}
+.tp2-next-copy b{overflow-wrap:anywhere}
+.tp2-editorial-pair{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:18px;align-items:start;min-width:0}
+.tp2-editorial-pair .tp2-next{max-width:none;height:100%;align-content:center}
+.tp2-editorial-pair .tp2-feature-block{min-width:0}
+.tp2-editorial-pair .tp2-next-feature{grid-template-columns:100px minmax(0,1fr);gap:12px}
+.tp2-updates-hint{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mu);padding-bottom:7px}
+.tp2-updates{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,205px),1fr));gap:14px;min-width:0}
+.tp2-update{display:grid;grid-template-columns:82px minmax(0,1fr);gap:12px;min-width:0;padding:12px;background:var(--sf);border:1px solid var(--ln);border-radius:var(--r);transition:border-color .2s ease,transform .2s ease}
+.tp2-update:hover{border-color:var(--ac);transform:translateY(-2px)}
+.tp2-update:focus-visible{outline:3px solid var(--act);outline-offset:2px}
+.tp2-upcover{width:82px;aspect-ratio:2/3;background:var(--bg) center/cover;border:1px solid var(--ln);border-radius:var(--r);display:grid;align-items:end;overflow:hidden}
+.tp2-upcover-fallback{font-family:var(--tf);font-size:11px;line-height:1.25;color:var(--mu);padding:6px}
+.tp2-upcover[style] .tp2-upcover-fallback{display:none}
+.tp2-upbody{display:grid;gap:5px;align-content:center;min-width:0}
+.tp2-upbody b{font-family:var(--tf);font-weight:var(--tw);line-height:1.2;font-size:clamp(14px,1.6cqi,19px);overflow-wrap:anywhere}
+.tp2-upkind{font:600 10px/1.4 'IBM Plex Mono',monospace;color:var(--act);letter-spacing:.07em}
+.tp2-uptitle{font-size:13px;line-height:1.35;color:var(--fg);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tp2-upbody time{font-size:11px;color:var(--mu)}
+.tp2-updates[data-view=lista]{grid-template-columns:minmax(0,1fr);gap:0}
+.tp2-updates[data-view=lista] .tp2-update{grid-template-columns:64px 1fr;padding:12px 8px;border-width:0 0 1px;border-radius:0;background:transparent}
+.tp2-updates[data-view=lista] .tp2-upcover{width:64px}
+.tp2-updates[data-view=carrusel]{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,31%);grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:thin;padding-bottom:8px}
+.tp2-updates[data-view=carrusel] .tp2-update{scroll-snap-align:start}
+@container (max-width:760px){
+ .tp2-editorial-pair{grid-template-columns:1fr}
+ .tp2-updates{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .tp2-updates[data-view=carrusel]{grid-template-columns:none;grid-auto-columns:minmax(210px,70%)}
+}
+@container (max-width:420px){
+ .tp2[data-feature=editorial] .tp2-feat{grid-template-columns:105px minmax(0,1fr);padding:12px;min-height:0}
+ .tp2[data-feature=editorial] .tp2-feat>span:last-child b{font-size:21px}
+ .tp2-next-feature{grid-template-columns:90px minmax(0,1fr);padding:12px;gap:10px}
+ .tp2-updates{grid-template-columns:1fr}
+ .tp2-updates[data-view=carrusel]{grid-template-columns:none;grid-auto-columns:84%}
+}
+@media(prefers-reduced-motion:reduce){.tp2-update{transition:none}.tp2-update:hover{transform:none}}
 `;
 
 export const followBtn = (on, n, label = 'equipo') => `<button type="button" class="tp2-btn tp2-follow${on ? ' on' : ''}" data-follow aria-pressed="${!!on}">${on ? '✓ Siguiendo' : '＋ ' + FOLLOW_LABELS[label]}${n ? ` · ${n.toLocaleString('es-MX')}` : ''}</button>`;
