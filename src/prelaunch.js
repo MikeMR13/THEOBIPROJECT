@@ -17,12 +17,13 @@ export function landing(pre, app, esc, media){
 export function bind(pre,app,sb,getUser,go,toast){
  if(!pre?.volumes?.length)return;
  const target=app.querySelector('[data-pre-time]');if(!target)return;
- const draw=()=>{if(!target.isConnected){clearInterval(timer);return;}app.querySelectorAll('[data-pre-time]').forEach(el=>{
+ let lastCheck=0;
+ const draw=()=>{if(!target.isConnected){clearInterval(timer);return;}let expired=false;app.querySelectorAll('[data-pre-time]').forEach(el=>{
   const d=Math.max(0,Date.parse(el.dataset.preTime)-Date.now());
-  if(!d){el.textContent='¡Fecha de estreno alcanzada! Actualiza para leer.';return;}
+  if(!d){expired=true;el.textContent='¡Llegó el estreno! Comprobando disponibilidad…';return;}
   const z=n=>String(n).padStart(2,'0');
   el.textContent=`${Math.floor(d/864e5)} d · ${z(Math.floor(d%864e5/36e5))} h · ${z(Math.floor(d%36e5/6e4))} min · ${z(Math.floor(d%6e4/1e3))} s`;
- });};
+ });if(expired && Date.now()-lastCheck>15000){lastCheck=Date.now();sb.from('volumes').select('id').in('id',pre.volumes.map(v=>v.id)).eq('status','published').then(({data})=>{if(data?.length&&target.isConnected)location.reload();});}};
  const timer=setInterval(draw,1000);draw();
  app.querySelectorAll('[data-pre-rem]').forEach(async b=>{
   const v=pre.volumes.find(v=>v.id===b.dataset.preRem);if(!v)return;
