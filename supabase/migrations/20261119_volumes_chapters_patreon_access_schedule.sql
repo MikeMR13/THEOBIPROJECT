@@ -207,6 +207,19 @@ begin
     if not private.access_ok(s.team_id, s.access, s.access_min_price, s.access_until)
       or not private.volume_open(v.id)
     then raise exception 'volume_locked' using hint = 'Este volumen requiere la membresía del Patreon del equipo'; end if;
+    -- Un archivo completo del volumen tampoco puede saltarse los candados
+    -- de sus capítulos ya publicados (aunque el enlace fuera marcado público).
+    if exists (
+      select 1 from public.chapters c
+      where c.series_id = d.series_id
+        and (c.volume_id = v.id or (c.volume_id is null and c.vol = v.num))
+        and c.deleted_at is null and c.status::text = 'published'
+        and (c.publish_at is null or c.publish_at <= now())
+        and not private.chapter_row_open(
+          c.series_id, v.id, c.access, c.access_min_price, c.access_until
+        )
+    ) then raise exception 'chapter_locked'
+      using hint = 'El volumen contiene capítulos que requieren membresía del Patreon del equipo'; end if;
     if d.patreon_only and not private.is_team_patron(s.team_id) then
       raise exception 'patreon_only'
         using hint = 'Vincula una membresía activa del Patreon de este equipo para descargar';
