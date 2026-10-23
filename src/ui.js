@@ -515,7 +515,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const rkWv = (rkW || []).filter(r => byId[r.series_id]);
     const rkUse = rkWv.length ? { rows: rkWv, per: 'semana', lbl: 'lectores distintos · esta semana' } : { rows: (rkH || []).filter(r => byId[r.series_id]), per: 'historico', lbl: 'vistas · de todos los tiempos' };
     const rk = rkUse.rows.slice(0, 6);
-    const nx = (nextRel || []).filter(e => e.series && (!e.series_id || byId[e.series_id])).slice(0, 3);
+    const nx = (nextRel || []).filter(e => e.kind !== 'volume' && e.series && (!e.series_id || byId[e.series_id])).slice(0, 3);
     const until = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
     const shelf = list.slice(0, 24);
     const gc = new Map(); list.forEach(x => (x.genres || []).forEach(g => gc.set(g, (gc.get(g) || 0) + 1)));
@@ -533,7 +533,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     app.innerHTML = `<div class="ob-page">
       <div class="ob-mast"><b>翻訳図書館</b><span>Biblioteca de novelas ligeras · Español latino</span></div>
       ${grp.length ? `<div class="ob-tick" aria-label="Novedades"><div class="ob-track">${[0, 1].map(k => `<span${k ? ' aria-hidden="true"' : ''}>${[...grp, ...grp].slice(0, Math.max(6, grp.length)).map((g, i) => `<a href="${g.kind === 'volume' ? '/serie/' + byId[g.id].slug : '/leer/' + byId[g.id].slug + '/' + g.chs[0].num}"${k ? ' tabindex="-1"' : ''} style="color:inherit;text-decoration:none">${g.kind === 'volume' ? '<b>NUEVO VOLUMEN</b> · ' : tickerNotice(byId[g.id]) || (i === 0 ? 'NUEVO · ' : '★ ')}${esc(byId[g.id].title)}${g.kind === 'volume' ? ' — Volumen ' + esc(g.volume.num) : ' · ' + caps(g.chs)}</a>`).join('')}</span>`).join('')}</div></div>` : ''}
-      <div id="ob-fest-slot"></div>
+      <div id="ob-fest-slot"></div><div id="ob-s-prelaunch"></div>
       ${feat.length ? '<section class="ob-hero" id="hero"></section>' : ''}<div id="ob-open-today"></div>
       ${u ? '' : `<div class="ob-hi" style="display:grid;gap:18px"><p style="flex:none"><strong>Bienvenido a El Obi del Lector.</strong> Novelas ligeras traducidas al español por grupos de fans.</p>
         <ol style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px"><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">探</span><span><b style="display:block;font-size:15px">Descubre</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Busca por género o mira lo más leído de la semana.</span></span></li><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">追</span><span><b style="display:block;font-size:15px">Sigue una obra</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Recibe novedades de volúmenes completos y capítulos individuales.</span></span></li><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">続</span><span><b style="display:block;font-size:15px">Lee sin perderte</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Tu progreso se guarda en todos tus dispositivos.</span></span></li></ol>
@@ -555,6 +555,16 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       <div id="ob-s-ann"></div><div id="ob-s-rev"></div>
       ${shelf.length ? `<section class="ob-sec">${head('書架', 'Series', `<span class="r2"><a class="r" href="/catalogo">Ver todas →</a>${arrows('ob-car')}</span>`)}
         <div class="ob-car" id="ob-car">${shelf.map(x => cc(x, (x.chapters?.[0]?.count || 0) + ' cap. · ' + (TL[x.translation_status] || TL.active)[0])).join('')}${list.length > shelf.length ? `<a class="ob-cc all" href="/catalogo"><span class="cv">Ver las ${list.length} →</span></a>` : ''}</div></section>` : ''}</div>`;
+    // Próximos estrenos con consentimiento del equipo: sin bloquear el primer render.
+    const preSlot = app.querySelector('#ob-s-prelaunch');
+    sb.rpc('prelaunch_calendar', { p_from: now.toISOString(), p_to: new Date(Date.now() + 60 * 864e5).toISOString() }).then(({ data, error }) => {
+      if (!preSlot?.isConnected || location.pathname !== '/') return;
+      if (error) { console.warn('prelaunch_calendar', error.message); return preSlot.remove(); }
+      const L = (data || []).filter(x => (adultOk || !x.adult) && !hidS(x)).slice(0, 6);
+      if (!L.length) return preSlot.remove();
+      preSlot.outerHTML = `<section class="ob-sec">${head('予告', 'Próximos estrenos', '<a class="r" href="/calendario?f=prog">Ver calendario →</a>')}
+        <div class="ob-next ob-anim">${L.map(x => `<a class="ob-nx" href="/serie/${encodeURIComponent(x.slug)}"><span class="w">◷ PREESTRENO · ${esc(new Date(x.at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: window.obiTZ?.() || undefined }))}</span><b>${esc(x.title)}</b><small>Volumen ${+x.vnum} · Primer vistazo disponible · Lectura bloqueada</small></a>`).join('')}</div></section>`;
+    }).catch(() => preSlot?.remove());
     // Insertar el aviso de temporada sin volver a pintar el Home completo.
     // El nodo está vinculado a esta navegación: nunca actualizar una vista vieja.
     const festSlot = app.querySelector('#ob-fest-slot');
@@ -932,8 +942,16 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 
   // ---------- Ficha de serie ----------
   async function series(slug){
-    const { data: s } = await sb.from('series').select(SERIES).eq('slug', slug).maybeSingle();
-    if (!s) { app.innerHTML = '<h1>Esta serie no está en el estante</h1><p><a href="/catalogo">Volver al catálogo</a></p>'; return; }
+    const [{ data: s }, { data: pre, error: preError }] = await Promise.all([
+      sb.from('series').select(SERIES).eq('slug', slug).maybeSingle(),
+      sb.rpc('prelaunch_series', { p_slug: slug })
+    ]);
+    if (preError) console.warn('prelaunch_series', preError.message);
+    const PRE = pre?.volumes?.length ? await import('./prelaunch.js?v=1') : null;
+    if (!s) {
+      if (PRE) { PRE.landing(pre, app, esc, media); PRE.bind(pre, app, sb, getUser, go, toast); return; }
+      app.innerHTML = '<h1>Esta serie no está en el estante</h1><p><a href="/catalogo">Volver al catálogo</a></p>'; return;
+    }
     const u = getUser();
     const [{ data: vols }, { data: chs }, prog, readR, folR, { data: dls, error: dlError }, { data: buys }, { data: pt }] = await Promise.all([
       sb.from('volumes').select('id,num,title,cover_path,synopsis,status,external_url,external_site,external_only').eq('series_id', s.id).eq('status', 'published').is('deleted_at', null).order('num', { ascending: false }),
@@ -1011,7 +1029,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
               ${buyOf(v).length ? `<div class="ui-dl ui-buy"><span class="ui-lbl">Compra la edición oficial</span>${buyOf(v).map(b => `<button class="ui-dlb buy" data-buy="${b.id}">${esc(b.store)}<small>${esc([b.fmt, b.region].filter(Boolean).join(' · '))}</small></button>`).join('')}</div>` : ''}
             </div></article>`;
         }).join('') || '<p class="mono">Aún no hay volúmenes publicados.</p>'}
-      </div><p id="ui-series-empty" class="ui-series-empty" role="status" hidden>No encontramos capítulos con estos filtros. Prueba otra búsqueda.</p></section>
+      </div>${PRE ? PRE.cards(pre, esc, media) : ''}<p id="ui-series-empty" class="ui-series-empty" role="status" hidden>No encontramos capítulos con estos filtros. Prueba otra búsqueda.</p></section>
       <section id="serie-descargas" class="ui-series-panel ui-series-downloads" role="tabpanel" aria-labelledby="serie-tab-descargas" tabindex="0" hidden>
         <div class="ui-h2"><h2>Descargas</h2><span class="mono">${dlError ? 'Enlaces no disponibles' : (vols || []).reduce((n, v) => n + dlOf(v).length, 0) + ' enlaces disponibles'}</span></div>
         <p class="ui-dl-intro">Selecciona el volumen y el formato que deseas descargar. Los enlaces disponibles pertenecen al equipo traductor de esta obra.</p>
@@ -1034,6 +1052,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       app.querySelectorAll('[data-series-view]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
       localStorage.setItem('obi-serie-vol-view', view);
     });
+    if (PRE) PRE.bind(pre, app, sb, getUser, go, toast);
     app.querySelectorAll('[data-buy]').forEach(b => b.onclick = async () => { const w = window.open('about:blank', '_blank'); const { data } = await sb.rpc('purchase_open', { p_id: +b.dataset.buy }); if (data && w) { w.opener = null; w.location = data; } else w?.close(); });
     app.querySelectorAll('[data-dl]').forEach(b => b.onclick = async () => { b.disabled = true; const w = window.open('about:blank', '_blank'); const { data, error } = await sb.rpc('download_open', { p_id: +b.dataset.dl }); b.disabled = false; if (error || !data) { w?.close(); return toast(error?.hint || error?.message || 'Enlace no disponible'); } if (w) { w.opener = null; w.location = data; } else location.href = data; });
     rkCss(); seriesRank(s); reviews(s);
