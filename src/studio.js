@@ -1758,6 +1758,48 @@ export function createStudio(ctx){
     }
     function bindPanel(){
       const P = $('#pf-panel');
+      P.querySelectorAll('[data-comp-preset]').forEach(b => b.onclick = () => {
+        const preset = TP.compositionPreset(b.dataset.compPreset);
+        if (!preset) return;
+        set({ order: preset.order, composition: preset.composition }, true);
+        toast('Composición aplicada al borrador. Los bloques ocultos se conservan.');
+      });
+      P.querySelectorAll('[data-comp-cols]').forEach(b => b.onclick = () => {
+        const value = b.dataset.compCols;
+        set({ composition: { ...d.composition, columns: value } });
+        P.querySelectorAll('[data-comp-cols]').forEach(x => {
+          const on = x.dataset.compCols === value;
+          x.classList.toggle('on', on);
+          x.setAttribute('aria-checked', String(on));
+        });
+      });
+      P.querySelectorAll('[data-comp-emphasis]').forEach(sel => sel.onchange = () => {
+        set({ composition: { ...d.composition, emphasis: { ...d.composition.emphasis, [sel.dataset.compEmphasis]: sel.value } } });
+      });
+      P.querySelector('#pf-comp-reset')?.addEventListener('click', () => {
+        const preset = TP.compositionPreset('equilibrada');
+        set({ order: preset.order }, true);
+        toast('Orden recomendado restaurado. Se conservan la visibilidad y los estilos.');
+      });
+      P.querySelector('#pf-comp-save')?.addEventListener('click', () => {
+        const input = P.querySelector('#pf-comp-name');
+        const name = (input?.value || '').trim().slice(0, 40);
+        if (!name) return toast('Escribe un nombre para tu composición');
+        if (d.savedCompositions.length >= 6) return toast('Máximo de seis composiciones guardadas');
+        const id = 'comp_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        set({ savedCompositions: [...d.savedCompositions, { id, name, order: [...d.order], hidden: [...d.hidden], composition: d.composition }] }, true);
+        toast('Composición guardada en el borrador del equipo');
+      });
+      P.querySelectorAll('[data-comp-apply]').forEach(b => b.onclick = () => {
+        const saved = d.savedCompositions.find(x => x.id === b.dataset.compApply);
+        if (!saved) return;
+        set({ order: [...saved.order], hidden: [...saved.hidden], composition: saved.composition }, true);
+        toast('Composición recuperada en el borrador');
+      });
+      P.querySelectorAll('[data-comp-remove]').forEach(b => b.onclick = () => {
+        set({ savedCompositions: d.savedCompositions.filter(x => x.id !== b.dataset.compRemove) }, true);
+        toast('Composición borrada del borrador');
+      });
       P.querySelectorAll('[data-ck]').forEach(b => b.onclick = () => {
         const key = b.dataset.ck, value = key === 'memberCount' ? Number(b.dataset.cv) : b.dataset.cv;
         set({ community: { ...d.community, [key]: value } });
@@ -1814,7 +1856,7 @@ export function createStudio(ctx){
       P.querySelectorAll('[data-dn]').forEach(b => b.onclick = () => move(+b.dataset.dn, +b.dataset.dn + 1));
       P.querySelectorAll('[data-eye]').forEach(b => b.onclick = () => { const k = b.dataset.eye; set({ hidden: d.hidden.includes(k) ? d.hidden.filter(x => x !== k) : [...d.hidden, k] }, true); });
       let dragK = null; const ord = $('#pf-ord');
-      ord.addEventListener('dragstart', e => { const li = e.target.closest('li'); dragK = li?.dataset.sec; li?.classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; });
+      ord.addEventListener('dragstart', e => { if (e.target.closest('select,button,input')) { e.preventDefault(); return; } const li = e.target.closest('li'); dragK = li?.dataset.sec; li?.classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; });
       ord.addEventListener('dragover', e => { e.preventDefault(); const li = e.target.closest('li'); ord.querySelectorAll('.over').forEach(x => x.classList.remove('over')); if (li && li.dataset.sec !== dragK) li.classList.add('over'); });
       ord.addEventListener('drop', e => { e.preventDefault(); const li = e.target.closest('li'); if (!li || !dragK || li.dataset.sec === dragK) return; move(d.order.indexOf(dragK), d.order.indexOf(li.dataset.sec)); dragK = null; });
       ord.addEventListener('dragend', () => { dragK = null; ord.querySelectorAll('.drag,.over').forEach(x => x.classList.remove('drag', 'over')); });
