@@ -127,6 +127,42 @@ create trigger volumes_promote_prelaunch
 after update of status on public.volumes
 for each row execute function private.promote_prelaunch_series();
 
+
+-- Mantener recordatorios coherentes tras reprogramar, cancelar o adelantar el estreno.
+create or replace function private.sync_prelaunch_reminders()
+returns trigger language plpgsql security definer set search_path = ''
+as $pre$
+declare next_at timestamptz;
+begin
+  if old.status <> 'scheduled' or old.announce_prelaunch is not true
+    or old.published_at is null then return new; end if;
+  if new.deleted_at is not null or (new.status not in ('scheduled','published'))
+    or (new.status = 'scheduled' and new.announce_prelaunch is not true) then
+    delete from public.reminders r where r.series_id = old.series_id
+      and r.kind = 'volp' and r.at = old.published_at and r.sent_at is null;
+    return new;
+  end if;
+  next_at := case when new.status = 'published' then now() else new.published_at end;
+  if next_at is distinct from old.published_at then
+    -- Evitar conflicto de UNIQUE(user_id,series_id,kind,at) si ya existe el nuevo horario.
+    delete from public.reminders r where r.series_id = old.series_id
+      and r.kind = 'volp' and r.at = old.published_at and r.sent_at is null
+      and exists (select 1 from public.reminders d
+        where d.user_id = r.user_id and d.series_id = r.series_id
+          and d.kind = r.kind and d.at = next_at);
+    update public.reminders r set at = next_at
+      where r.series_id = old.series_id and r.kind = 'volp'
+        and r.at = old.published_at and r.sent_at is null;
+  end if;
+  return new;
+end;
+$pre$;
+drop trigger if exists volumes_sync_prelaunch_reminders on public.volumes;
+create trigger volumes_sync_prelaunch_reminders
+after update of status, published_at, announce_prelaunch, deleted_at
+on public.volumes for each row
+execute function private.sync_prelaunch_reminders();
+
 -- Validación posterior (en entorno de pruebas):
 -- select * from public.prelaunch_calendar(now(), now()+interval '60 days');
 -- select public.prelaunch_series('<slug-anunciado>');
