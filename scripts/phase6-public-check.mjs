@@ -32,7 +32,7 @@ assert(overviewCode.includes("p_list: key, p_period: 'semana', p_limit: 4"),'Un 
 assert(overviewCode.includes('if (!data?.length)') && overviewCode.includes('RK_E[key]'),'El estado vacío debe tener explicación sin puestos falsos');
 assert(overviewCode.includes("overview.hidden = true; if (R.teamView)") && overviewCode.includes("R.list === 'leidas' && R.period === 'semana'"),'Las vistas filtradas no deben duplicar clasificaciones');
 assert(overviewCode.includes('/ranking?vista=equipos') && overviewCode.includes('Ver ranking completo →'),'Se deben conservar los accesos a listas completas');
-assert(css.includes('.rk-overview[hidden]{display:none!important}') && css.includes('.rk-preview-grid{grid-template-columns:repeat(4') && css.includes('grid-template-columns:repeat(2'), 'Diseño de adelantos no adaptable');
+assert(css.includes('.rk-overview[hidden]{display:none!important}') && css.includes('.rk-preview-grid{min-width:0;max-width:100%;width:100%;box-sizing:border-box;grid-template-columns:repeat(4') && css.includes('grid-template-columns:repeat(2'), 'Diseño de adelantos no adaptable');
 // Navegación a la ficha: primer contenido visible antes de las consultas secundarias.
 const appCode=readFileSync('src/app.js','utf8');
 const seriesCode=s.slice(s.indexOf('  async function series(slug){'),s.indexOf('  // ---------- Ranking ----------'));
