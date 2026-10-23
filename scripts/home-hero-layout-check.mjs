@@ -47,7 +47,7 @@ const checks=[
 "const textRect=rect('.ob-hero-team-logo'),metaRect=rect('.ob-hero-meta'),titleRect=rect('.ob-txt h1');",
 "test(link.getAttribute('href')===href&&!link.querySelector('img')&&!!link.querySelector('span'),'logo y texto no conservan el mismo hipervínculo');",
 "test(getComputedStyle(name).display!=='none'&&name.getBoundingClientRect().height>0,'nombre oculto en móvil');",
-"test(textRect.left>=metaRect.right-3&&badge.right<=textRect.left-6&&custom.right<=textRect.left-6&&rank.right<=textRect.left-6,'texto y aviso se superponen');",
+"test(textRect.left>=metaRect.right-3&&rect('.ob-badge-vol').right<=textRect.left-6&&rect('.ob-utag-hero').right<=textRect.left-6&&rect('.ob-hero-rank').right<=textRect.left-6,'texto y aviso se superponen');",
 "test(textRect.bottom<=titleRect.top-6,'nombre se superpone al título');",
 "test(document.documentElement.scrollWidth<=max+tol,'nombre desborda el viewport');",
 "const result=get('#result');result.dataset.status=err.length?'fail':'pass';result.textContent=err.join(' | ')||'OK';"
