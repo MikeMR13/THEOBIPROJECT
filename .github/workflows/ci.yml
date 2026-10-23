@@ -77,6 +77,8 @@ jobs:
         run: npm run studio-visual-phase1-check
       - name: Estudio Fase 2 — formularios, tarjetas, tablas y filtros
         run: npm run studio-visual-phase2-check
+      - name: Patreon — selector, casilla y fecha responsive en 12 vistas Chromium
+        run: node scripts/patreon-responsive-browser-check.mjs
       - name: Estudio Fase 3 — navegación y módulos complementarios
         run: npm run studio-visual-phase3-check
       - name: Validar compilación Preview aislada
