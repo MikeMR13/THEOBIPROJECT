@@ -1,0 +1,39 @@
+// Primer vistazo: esta vista nunca consulta ni expone capítulos borrador.
+const css = '.pre-card{display:grid;grid-template-columns:90px minmax(0,1fr);gap:16px;padding:16px;background:#16140f;border:1px solid #3d3628;margin:12px 0}.pre-cover{aspect-ratio:2/3;background:#29251d center/cover no-repeat}.pre-info{display:grid;gap:9px;align-content:start}.pre-info h3{margin:0}.pre-timer{color:#8cc3f2;font:700 15px monospace}.pre-lock{color:#cfc6b0;font:12px monospace}@media(max-width:560px){.pre-card{grid-template-columns:65px minmax(0,1fr);gap:10px;padding:10px}}';
+function style(){if(document.getElementById('pre-css'))return;const s=document.createElement('style');s.id='pre-css';s.textContent=css;document.head.appendChild(s);}
+export function cards(pre, esc, media){
+ if(!pre?.volumes?.length)return '';
+ style();
+ return pre.volumes.map(v=>{
+  const cover=v.cover_path||pre.series.cover_path;
+  const date=new Date(v.published_at).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short',timeZone:window.obiTZ?.()||undefined});
+  return \`<article class="pre-card"><span class="pre-cover" style="\${cover?\`background-image:url('\${esc(media(cover))}')\`:''}"></span><div class="pre-info"><span style="color:#8cc3f2;font-size:12px">◷ Volumen \${+v.num} · PREESTRENO</span><h3>\${esc(v.title||'Volumen '+v.num)}</h3>\${v.synopsis?\`<p>\${esc(v.synopsis)}</p>\`:''}<span style="font-size:12px">Estreno: \${esc(date)}</span><span class="pre-timer" data-pre-time="\${esc(v.published_at)}">Preparando cuenta regresiva…</span><span class="pre-lock">🔒 Capítulos y enlaces bloqueados hasta el estreno.</span><button class="btn ghost" data-pre-rem="\${esc(v.id)}" type="button">🔔 Avísame al publicarse</button></div></article>\`;
+ }).join('');
+}
+export function landing(pre, app, esc, media){
+ style();const s=pre.series,cover=s.cover_path||pre.volumes[0]?.cover_path;
+ app.innerHTML=\`<div class="ui-wrap"><section class="ui-sh" style="--c:#8cc3f2;--bg:none"><span class="ui-book" style="\${cover?\`background-image:url('\${esc(media(cover))}')\`:''}"></span><div><span class="ui-lbl" style="color:#8cc3f2">PRIMER VISTAZO · PRÓXIMAMENTE</span><h1>\${esc(s.title)}</h1><p>\${esc(s.work_type||'Novela ligera')}\${s.adult?' · +18':''}</p><p class="ui-syn">\${esc(s.synopsis||'Descubre esta obra próximamente.')}</p><p class="mono">Traducción: \${esc(s.team_name)}</p><p class="mono">Ficha pública de anuncio. La lectura aún está bloqueada.</p></div></section><section><div class="ui-h2"><h2>Volúmenes anunciados</h2></div>\${cards(pre,esc,media)}</section></div>\`;
+}
+export function bind(pre,app,sb,getUser,go,toast){
+ if(!pre?.volumes?.length)return;
+ const target=app.querySelector('[data-pre-time]');if(!target)return;
+ const draw=()=>{if(!target.isConnected){clearInterval(timer);return;}app.querySelectorAll('[data-pre-time]').forEach(el=>{
+  const d=Math.max(0,Date.parse(el.dataset.preTime)-Date.now());
+  if(!d){el.textContent='¡Fecha de estreno alcanzada! Actualiza para leer.';return;}
+  const z=n=>String(n).padStart(2,'0');
+  el.textContent=\`\${Math.floor(d/864e5)} d · \${z(Math.floor(d%864e5/36e5))} h · \${z(Math.floor(d%36e5/6e4))} min · \${z(Math.floor(d%6e4/1e3))} s\`;
+ });};
+ const timer=setInterval(draw,1000);draw();
+ app.querySelectorAll('[data-pre-rem]').forEach(async b=>{
+  const v=pre.volumes.find(v=>v.id===b.dataset.preRem);if(!v)return;
+  const at=new Date(v.published_at).toISOString();
+  const where=()=>sb.from('reminders').select('id').eq('series_id',pre.series.id).eq('kind','volp').eq('at',at).is('sent_at',null);
+  let id=getUser()?(await where().maybeSingle()).data?.id:null;
+  if(id)b.textContent='✓ Recordatorio activado';
+  b.onclick=async()=>{if(!getUser()){toast('Entra para activar avisos');return go('/entrar');}b.disabled=true;
+   try{if(id){const r=await sb.from('reminders').delete().eq('id',id);if(r.error)throw r.error;id=null;b.textContent='🔔 Avísame al publicarse';}
+   else{const r=await sb.from('reminders').insert({series_id:pre.series.id,kind:'volp',at,label:'Volumen '+v.num}).select('id').single();if(r.error)throw r.error;id=r.data.id;b.textContent='✓ Recordatorio activado';}}
+   catch(e){toast(e.message||'No se pudo guardar el aviso');}finally{b.disabled=false;}
+  };
+ });
+}
