@@ -11,7 +11,8 @@ for(const x of ['@keyframes obTicker','function heroSlide(feat','const bindCars 
 // El contenido de clasificaciones no se duplica en Inicio: cada categoría pertenece a Ranking.
 const h=s.slice(s.indexOf('    app.innerHTML = `<div class="ob-page">'),s.indexOf('    const bindCars = root'));
 assert(h.includes('Más leídas') && h.includes('Nuevos volúmenes y capítulos'),'Escaparates principales no conservados');
-assert(h.indexOf('Nuevos volúmenes y capítulos') < h.indexOf('Continuar leyendo'),'Novedades deben aparecer antes de la biblioteca personal');
+assert(h.indexOf('Nuevos volúmenes y capítulos') < h.indexOf('id="ob-continue-slot"'),'Novedades deben aparecer antes de la biblioteca personal');
+assert(s.includes("const continueHTML = rows =>") && s.includes("head('続読', 'Continuar leyendo'"),'La biblioteca personal debe conservarse en la carga progresiva');
 assert(!h.includes('ob-s-trend') && !h.includes('ob-s-rated') && !h.includes('Lo más visto de cada equipo'),'Inicio no debe duplicar clasificaciones');
 assert(s.includes(".eq('period', 'semana').in('series_id', ids)"),'Ranking por equipo sin estadísticas semanales');
 // Lanzamientos: tarjetas con medidas idénticas al carrusel editorial existente.
@@ -29,7 +30,8 @@ assert(css.includes('.ob-release-card .cv{overflow:hidden;isolation:isolate;box-
 assert(!releases.includes('ob-upd ob-anim') && !releases.includes('ob-urow${v'),'La lista vertical original sigue presente');
 // Rendimiento: los datos auxiliares ya no retienen la primera visualización.
 const homePerf=s.slice(s.indexOf('  async function home(){'),s.indexOf('  let heroPaused'));
-assert(homePerf.includes('const [FD, prog, pr, VR] = await Promise.all(['),'Inicio vuelve a bloquear en destacados secundarios');
+assert(homePerf.includes('const [FD, pr, VR] = await Promise.all(['),'Inicio debe esperar la portada editorial y la validación de edad');
+assert(homePerf.includes('const progressRequest = u ? progressMap()') && !homePerf.includes('feed(), progressMap()'), 'El progreso no debe bloquear el primer render de Inicio');
 assert(homePerf.indexOf('Promise.all([trendRequest, teamRequest])')>homePerf.indexOf('app.innerHTML = \`<div class="ob-page">'),'La carga complementaria debe ocurrir tras pintar Inicio');
 assert(homePerf.includes('loadedTeamSignature = teamSignature(teamResult?.data)'),'Se perdió la supervisión de destacados');
 const rankPerf=s.slice(s.indexOf('  async function ranking(){'),s.indexOf('  async function ',s.indexOf('  async function ranking(){')+25));
