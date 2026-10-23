@@ -327,7 +327,7 @@ export function createStudio(ctx){
     if (!(await ensure())) return;
     const { data: s } = await sb.from('series').select('*').eq('slug', slug).maybeSingle();
     if (!s) return go('/estudio');
-    const tab = ({ datos: 'datos', avisos: 'avisos', media: 'media' })[new URLSearchParams(location.search).get('tab')] || 'caps';
+    const tab = ({ datos: 'datos', avisos: 'avisos', media: 'media', descargas: 'descargas' })[new URLSearchParams(location.search).get('tab')] || 'caps';
     const { readPages } = await import('/paging.js?v=1');
     const [{ data: vols }, { data: chs }, { data: cols }, { data: events }, { data: dls }, { data: buys }, { data: tch }, { data: tvol }] = await Promise.all([
       sb.from('volumes').select('*').eq('series_id', s.id).is('deleted_at', null).order('num'),
@@ -357,7 +357,7 @@ export function createStudio(ctx){
         <span class="wk-vc" style="${v.cover_path ? `background-image:url('${esc(media(v.cover_path))}')` : ''};border-top-color:${c0}"></span>
         <span class="wk-vt"><small>VOLUMEN ${v.num}</small><b>${esc(v.title && v.title !== String(v.num) && !/^volumen\s*\d+$/i.test(v.title.trim()) ? v.title : 'Volumen ' + v.num)}</b><span><i style="color:${vs[1]}">●</i> ${esc(meta)}</span></span>
         <span class="wk-va" aria-hidden="true">${isOpen ? '▾' : '▸'}</span></button>
-        ${isOpen ? `<div class="wk-vbar"><span class="wk-syn">${v.synopsis ? esc(v.synopsis) : 'Sin sinopsis del volumen.'}</span><a class="mono" href="/estudio/descargas" style="color:${nd ? '#a9d18e' : '#a89f8a'}">${nd ? nd + (nd === 1 ? ' descarga' : ' descargas') : 'Sin descargas'}</a>
+        ${isOpen ? `<div class="wk-vbar"><span class="wk-syn">${v.synopsis ? esc(v.synopsis) : 'Sin sinopsis del volumen.'}</span><a class="mono" href="?tab=descargas" data-tab="descargas" style="color:${nd ? '#a9d18e' : '#a89f8a'}">${nd ? nd + (nd === 1 ? ' descarga' : ' descargas') : 'Sin descargas'}</a>
           ${can('edit') ? `<button class="btn ghost sm" data-vedit="${v.id}">Editar volumen</button>` : ''}
           ${can('create') ? `<button class="btn ghost sm gold" data-addch="${v.id}" data-n="${v.num}">＋ Capítulo en este volumen</button>` : ''}
           ${can('schedule') && v.status !== 'published' ? `<span class="wk-sch"><input type="datetime-local" data-at="${v.id}" aria-label="Fecha de publicación del volumen ${v.num}">${tzHint()}<button class="btn sm" data-sch="${v.id}">◷ Programar volumen</button></span>` : ''}
@@ -385,7 +385,7 @@ export function createStudio(ctx){
         <section class="wk-box"><h2>Etiquetas</h2><div class="wk-tags" id="wk-tags">${D.tags.map((t, i) => `<span>#${esc(t)}<button type="button" data-untag="${i}" aria-label="Quitar ${esc(t)}">×</button></span>`).join('')}<input id="wk-tag" maxlength="30" placeholder="Escribe y pulsa Enter" aria-label="Nueva etiqueta"></div><small class="mono">Detalles para quien busca algo concreto: sirvienta, nobleza, comedia romántica…</small></section>
         <section class="wk-box" style="border-top:4px solid #a9d18e"><h2>Compra oficial</h2><small class="mono">Enlaces para apoyar al autor. Se proponen por volumen y el Bibliotecario los verifica.</small>
           <div class="ed-chips">${(buys || []).map(b => `<span class="wk-buy" style="border-color:${b.verified ? '#a9d18e' : '#3d3628'};color:${b.verified ? '#a9d18e' : '#a89f8a'}">${b.verified ? '✓' : '◷'} ${esc(b.store)}${b.region ? ' · ' + esc(b.region) : ''}</span>`).join('') || '<span class="mono">Aún sin enlaces.</span>'}</div>
-          <a class="btn ghost sm" href="/estudio/descargas" style="justify-self:start">Gestionar compra y descargas</a></section>
+          <a class="btn ghost sm" href="?tab=descargas" data-tab="descargas" style="justify-self:start">Gestionar compra y descargas</a></section>
         <section class="wk-box" style="border-top:4px solid #8cc3f2"><h2>Créditos compartidos</h2><small class="mono">Invita a otro grupo traductor. Al aceptar, la obra aparece en el catálogo y en el perfil de ambos equipos.</small>
           ${(cols || []).map(c => `<div class="wk-cb"><span class="wk-ini" style="background:${esc(c.invited?.color || '#8cc3f2')}">${esc((c.invited?.name || '?').slice(0, 2).toUpperCase())}</span><b>${esc(c.invited?.name || '')}</b><span class="mono">${{ pending: 'Pendiente', accepted: 'Aceptada', rejected: 'Rechazada', revoked: 'Revocada' }[c.status] || c.status}</span>${c.status !== 'revoked' && can('edit') ? `<button class="lnk danger" data-revoke="${c.id}">Revocar</button>` : '<span></span>'}</div>`).join('')}
           ${can('edit') ? '<div class="wk-inv"><input id="inv" placeholder="@alias del equipo" aria-label="Alias del equipo a invitar"><button class="btn sm blue" id="invite">Invitar</button></div>' : ''}</section>
@@ -410,9 +410,10 @@ export function createStudio(ctx){
     app.innerHTML = shell(esc(s.title), `<div class="wk">
       <div class="wk-top"><span class="pl" style="--p:${st[1]}">${st[0]}</span><span class="mono">${V.length} ${V.length === 1 ? 'volumen' : 'volúmenes'} · ${n('published')} publicados · ${n('scheduled')} programados · ${n('draft')} borradores</span>
         <span class="wk-acts">${can('create') ? '<button class="btn sm" id="wk-new">＋ Nuevo capítulo</button>' : ''}${can('import') ? '<a class="btn ghost sm" href="/estudio/importar">Importar volumen</a>' : ''}<a class="btn ghost sm" href="?tab=datos" data-tab="datos">Editar datos</a><a class="lnk" href="/serie/${esc(s.slug)}">Ver en el sitio ↗</a></span></div>
-      <div class="wk-tabs" role="tablist">${[['caps', 'Volúmenes y capítulos'], ['datos', 'Datos de la obra'], ['avisos', 'Avisos'], ['media', 'Anime y galería']].map(([k, l]) => `<a role="tab" aria-selected="${tab === k}" class="${tab === k ? 'on' : ''}" href="${k === 'caps' ? location.pathname : '?tab=' + k}" data-tab="${k}">${l}</a>`).join('')}</div>
-      ${tab === 'caps' ? `${filterBar()}${V.map(volHTML).join('') || '<p class="tb-empty">Esta obra aún no tiene volúmenes.</p>'}${can('create') ? '<button class="wk-addv" id="addvol"><span>＋</span>Nuevo volumen</button>' : ''}${trashHTML()}<div id="wk-bulkw"></div>` : tab === 'avisos' ? avisos() : tab === 'media' ? '<div id="wk-media"><p class="mono">Cargando…</p></div>' : datos()}</div>`, '/estudio/obra');
+      <div class="wk-tabs" role="tablist">${[['caps', 'Volúmenes y capítulos'], ['datos', 'Datos de la obra'], ['avisos', 'Avisos'], ['media', 'Anime y galería'], ['descargas', 'Descargas']].map(([k, l]) => `<a role="tab" aria-selected="${tab === k}" class="${tab === k ? 'on' : ''}" href="${k === 'caps' ? location.pathname : '?tab=' + k}" data-tab="${k}">${l}</a>`).join('')}</div>
+      ${tab === 'caps' ? `${filterBar()}${V.map(volHTML).join('') || '<p class="tb-empty">Esta obra aún no tiene volúmenes.</p>'}${can('create') ? '<button class="wk-addv" id="addvol"><span>＋</span>Nuevo volumen</button>' : ''}${trashHTML()}<div id="wk-bulkw"></div>` : tab === 'avisos' ? avisos() : tab === 'media' ? '<div id="wk-media"><p class="mono">Cargando…</p></div>' : tab === 'descargas' ? '<div id="wk-downloads"><p class="mono">Cargando enlaces…</p></div>' : datos()}</div>`, '/estudio/obra');
     bindPicker(home);
+    if (tab === 'descargas') renderDownloads(s.id, app.querySelector('#wk-downloads'));
     const on = (sel2, fn) => app.querySelectorAll(sel2).forEach(b => b.onclick = e => { e.preventDefault(); busy(b, () => fn(b)); });
     const again = () => work(slug);
     app.querySelectorAll('[data-tab]').forEach(a => a.onclick = e => { e.preventDefault(); history.replaceState({}, '', a.dataset.tab === 'caps' ? location.pathname : location.pathname + '?tab=' + a.dataset.tab); again(); });
@@ -1196,38 +1197,73 @@ export function createStudio(ctx){
   const FMTS = ['EPUB','PDF','MOBI','AZW3','CBZ','DOCX','ZIP'];
   const STORES = ['Amazon Japón','BookWalker','Kindle','Kobo','Google Play Libros','Apple Books','J-Novel Club','Yen Press','Seven Seas','Ivrea','Panini','Planeta Cómic','Norma Editorial','Kamite','Editorial Kemuri','Otra tienda'];
   const REGIONS = ['Japón','EE. UU.','México','Argentina','España','Latinoamérica','Global'];
-  let buys = [];
+  // Editor de enlaces compartido por la ficha de la obra y la sección general.
+  // Trabaja sobre los mismos registros: no duplica descargas ni datos en Supabase.
+  const validHttps = value => { try { const u = new URL(value); return u.protocol === 'https:' && !!u.hostname && !u.username && !u.password; } catch { return false; } };
+  async function renderDownloads(seriesId, target){
+    if (!target) return;
+    target.innerHTML = '<p class="mono">Cargando enlaces…</p>';
+    const [volumeResult, linkResult, buyResult] = await Promise.all([
+      sb.from('volumes').select('id,num,title,status').eq('series_id', seriesId).is('deleted_at', null).order('num'),
+      sb.from('download_links').select('*').eq('series_id', seriesId).order('sort').order('id'),
+      sb.from('purchase_links').select('*').eq('series_id', seriesId).order('id')
+    ]);
+    if (!target.isConnected) return;
+    const failure = volumeResult.error || linkResult.error || buyResult.error;
+    if (failure) { target.innerHTML = `<p class="mono" role="alert">No se pudieron cargar los enlaces: ${esc(errMsg(failure))}</p>`; return; }
+    const vols = volumeResult.data || [], links = linkResult.data || [], buys = buyResult.data || [];
+    const ed = can('edit');
+    const editLink = l => `<form class="dl-add dl-edit" data-editform="${l.id}" style="display:none">
+      <select name="fmt" aria-label="Formato de la descarga">${FMTS.map(f => `<option ${l.fmt === f ? 'selected' : ''}>${f}</option>`).join('')}</select>
+      <input name="url" type="url" required value="${esc(l.url)}" aria-label="URL de descarga">
+      <input name="label" maxlength="60" value="${esc(l.label || '')}" placeholder="Nombre (opcional)" aria-label="Nombre del enlace">
+      <button class="btn sm" type="submit">Guardar cambios</button>
+      <button class="btn ghost sm" type="button" data-dcancel>Cancelar</button></form>`;
+    target.innerHTML = `<div class="lg">
+      <div class="cm-f"><span class="mono">Aparecen en la ficha de la obra, debajo de cada volumen. Los enlaces de compra van primero.</span></div>
+      ${(vols || []).map(v => { const ls = (links || []).filter(l => l.volume_id === v.id || (!l.volume_id && l.vol === v.num)); return `<section class="tm-box"><div class="tm-bh"><h2>Volumen ${v.num}${v.title && v.title !== String(v.num) && v.title.length > 2 && !/^volumen\s*\d+$/i.test(v.title.trim()) ? ' · ' + esc(v.title) : ''}</h2><span class="mono">${v.status === 'published' ? 'Publicado' : 'Sin publicar'} · ${ls.length} ${ls.length === 1 ? 'enlace' : 'enlaces'}</span></div>
+        ${ls.map(l => `<div class="dl-row"><span class="dl-f">${esc(l.fmt)}</span><span class="tm-n"><b>${esc(l.label || l.provider || provOf(l.url))}</b><small><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.url.replace(/^https:\/\//, '').slice(0, 60))}</a></small></span><span class="mono">${l.patreon_only ? '🔒︎ Solo Patreon del equipo' : 'Para todos'} · ${(l.clicks || 0).toLocaleString('es-MX')} descargas</span>${ed ? `<span class="tm-a"><select data-daccess="${l.id}" aria-label="Permiso de descarga"><option value="public" ${!l.patreon_only ? 'selected' : ''}>Público</option><option value="patreon" ${l.patreon_only ? 'selected' : ''}>Solo Patreon del equipo</option></select><button type="button" class="lnk" data-dedit="${l.id}">Editar</button><button type="button" class="lnk danger" data-ddel="${l.id}">Quitar</button></span>` : '<span></span>'}</div>${ed ? editLink(l) : ''}`).join('')}
+        ${(() => { const bs = buys.filter(b => b.volume_id === v.id || (!b.volume_id && b.vol === v.num)); return `<div class="dl-buyh"><b>Compra oficial</b><span class="mono">El Bibliotecario verifica cada enlace antes de que se muestre</span></div>${bs.map(b => `<div class="dl-row"><span class="dl-f buy">${esc(b.fmt || 'Digital')}</span><span class="tm-n"><b>${esc(b.store)}${b.region ? ' · ' + esc(b.region) : ''}</b><small><a href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.url.replace(/^https:\/\//, '').slice(0, 60))}</a></small></span><span class="mono" style="color:${b.verified ? '#a9d18e' : '#f2c230'}">${b.verified ? '✓ Verificado · ' + (b.clicks || 0).toLocaleString('es-MX') + ' clics' : '◷ Pendiente de verificar'}</span>${ed ? `<span class="tm-a"><button class="lnk danger" data-bdel="${b.id}">Quitar</button></span>` : '<span></span>'}</div>`).join('')}${ed ? `<form class="dl-add buy-add" data-vol="${v.id}" data-num="${v.num}"><select name="store" aria-label="Tienda">${STORES.map(s => `<option>${s}</option>`).join('')}</select><select name="region" aria-label="Región">${REGIONS.map(s => `<option>${s}</option>`).join('')}</select><select name="fmt" aria-label="Formato"><option>Digital</option><option>Físico</option><option>Audiolibro</option></select><input name="url" type="url" required placeholder="https://… (tienda oficial)" aria-label="Enlace de compra"><button class="btn ghost">Proponer</button></form>` : ''}`; })()}
+        ${ed ? `<form class="dl-add" data-vol="${v.id}" data-num="${v.num}"><select name="fmt" aria-label="Formato">${FMTS.map(f => `<option>${f}</option>`).join('')}</select><input name="url" type="url" required placeholder="https://drive.google.com/…" aria-label="Enlace"><input name="label" maxlength="60" placeholder="Nombre (opcional)" aria-label="Nombre del enlace"><select name="access" aria-label="Quién puede descargar"><option value="public">Público</option><option value="patreon">Solo Patreon del equipo</option></select><button class="btn">Agregar</button></form>` : ''}</section>`; }).join('') || '<p class="tb-empty">Esta obra aún no tiene volúmenes.</p>'}
+      <p class="mono">Los enlaces exclusivos son únicamente para mecenas activos del Patreon del equipo que publica la obra. El Patreon de El Obi del Lector es solo para apoyo voluntario y nunca controla estas descargas. El servidor comprueba el permiso antes de entregar el enlace.</p></div>`;
+    target.querySelectorAll('.buy-add').forEach(f => f.onsubmit = e => { e.preventDefault(); e.stopImmediatePropagation(); busy(e.submitter, async () => {
+      const u = f.url.value.trim(); if (!validHttps(u)) throw new Error('El enlace debe empezar con https://');
+      const { error } = await sb.from('purchase_links').insert({ series_id: seriesId, volume_id: f.dataset.vol, vol: +f.dataset.num, store: f.store.value, region: f.region.value, fmt: f.fmt.value, url: u, verified: false, created_by: getUser().id });
+      if (error) throw new Error(errMsg(error)); toast('Enlace propuesto · se mostrará cuando el Bibliotecario lo verifique'); renderDownloads(seriesId, target); }); });
+    target.querySelectorAll('[data-bdel]').forEach(b => b.onclick = () => busy(b, async () => { if (!confirm('¿Quitar este enlace de compra?')) return; const { error } = await sb.from('purchase_links').delete().eq('id', b.dataset.bdel); if (error) throw new Error(errMsg(error)); renderDownloads(seriesId, target); }));
+    target.querySelectorAll('.dl-add:not(.buy-add):not(.dl-edit)').forEach(f => f.onsubmit = e => { e.preventDefault(); busy(e.submitter, async () => {
+      const u = f.url.value.trim(); if (!validHttps(u)) throw new Error('El enlace debe empezar con https://');
+      const { error } = await sb.from('download_links').insert({ series_id: seriesId, volume_id: f.dataset.vol, vol: +f.dataset.num, fmt: f.fmt.value, url: u, provider: provOf(u), label: f.label.value.trim() || null, donor_only: false, patreon_only: f.elements.access.value === 'patreon', sort: Date.now() % 1e6 });
+      if (error) throw new Error(errMsg(error)); toast('Enlace agregado'); renderDownloads(seriesId, target); }); });
+    target.querySelectorAll('[data-daccess]').forEach(sel => sel.onchange = () => busy(null, async () => { const access = sel.value; sel.disabled = true; try { const { error } = await sb.from('download_links').update({ donor_only: false, patreon_only: access === 'patreon' }).eq('id', sel.dataset.daccess); if (error) throw new Error(errMsg(error)); renderDownloads(seriesId, target); } finally { sel.disabled = false; } }));
+    target.querySelectorAll('[data-ddel]').forEach(b => b.onclick = () => busy(b, async () => { if (!confirm('¿Quitar este enlace?')) return; const { error } = await sb.from('download_links').delete().eq('id', b.dataset.ddel); if (error) throw new Error(errMsg(error)); toast('Enlace quitado'); renderDownloads(seriesId, target); }));    target.querySelectorAll('[data-dedit]').forEach(b => b.onclick = () => {
+      const form = target.querySelector(`[data-editform="${b.dataset.dedit}"]`);
+      if (form) form.style.display = form.style.display === 'none' ? '' : 'none';
+    });
+    target.querySelectorAll('[data-dcancel]').forEach(b => b.onclick = () => { b.closest('.dl-edit').style.display = 'none'; });
+    target.querySelectorAll('form.dl-edit').forEach(f => f.onsubmit = e => { e.preventDefault(); busy(e.submitter, async () => {
+      const u = f.elements.url.value.trim();
+      if (!validHttps(u)) throw new Error('El enlace debe ser una URL https:// válida');
+      const { error } = await sb.from('download_links').update({ fmt: f.elements.fmt.value, url: u, provider: provOf(u), label: f.elements.label.value.trim() || null })
+        .eq('id', f.dataset.editform).eq('series_id', seriesId);
+      if (error) throw new Error(errMsg(error));
+      toast('Enlace actualizado'); renderDownloads(seriesId, target);
+    }); });
+  }
+
   async function downloads(){
     if (!(await ensure())) return;
     const works = await teamWorks();
     const F = downloads.f || (downloads.f = { work: '' });
     if (!F.work || !works.some(w => w.id === F.work)) F.work = works[0]?.id || '';
-    app.innerHTML = shell('Descargas y compra', works.length ? '<p class="mono">Cargando…</p>' : '<p class="tb-empty">Aún no hay obras.</p>', '/estudio/descargas'); bindPicker(downloads);
+    const body = works.length
+      ? `<div class="lg"><div class="cm-f">${pick(works, F.work, 'fs', '')}</div><div id="st-dl-panel"><p class="mono">Cargando enlaces…</p></div></div>`
+      : '<p class="tb-empty">Aún no hay obras.</p>';
+    app.innerHTML = shell('Descargas y compra', body, '/estudio/descargas');
+    bindPicker(downloads);
     if (!works.length) return;
-    const [{ data: vols }, { data: links }] = await Promise.all([
-      sb.from('volumes').select('id,num,title,status').eq('series_id', F.work).is('deleted_at', null).order('num'),
-      sb.from('download_links').select('*').eq('series_id', F.work).order('sort').order('id'),
-      sb.from('purchase_links').select('*').eq('series_id', F.work).order('id')]).then(([a, b, c]) => { buys = c.data || []; return [a, b]; });
-    const ed = can('edit');
-    app.querySelector('.s2-main').innerHTML = app.querySelector('.s2-head').outerHTML + `<div class="lg">
-      <div class="cm-f">${pick(works, F.work, 'fs', '')}<span class="mono">Aparecen en la ficha de la obra, debajo de cada volumen. Los enlaces de compra van primero.</span></div>
-      ${(vols || []).map(v => { const ls = (links || []).filter(l => l.volume_id === v.id || (!l.volume_id && l.vol === v.num)); return `<section class="tm-box"><div class="tm-bh"><h2>Volumen ${v.num}${v.title && v.title !== String(v.num) && v.title.length > 2 && !/^volumen\s*\d+$/i.test(v.title.trim()) ? ' · ' + esc(v.title) : ''}</h2><span class="mono">${v.status === 'published' ? 'Publicado' : 'Sin publicar'} · ${ls.length} ${ls.length === 1 ? 'enlace' : 'enlaces'}</span></div>
-        ${ls.map(l => `<div class="dl-row"><span class="dl-f">${esc(l.fmt)}</span><span class="tm-n"><b>${esc(l.label || l.provider || provOf(l.url))}</b><small><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.url.replace(/^https:\/\//, '').slice(0, 60))}</a></small></span><span class="mono">${l.patreon_only ? '🔒︎ Solo Patreon del equipo' : 'Para todos'} · ${(l.clicks || 0).toLocaleString('es-MX')} descargas</span>${ed ? `<span class="tm-a"><select data-daccess="${l.id}" aria-label="Permiso de descarga"><option value="public" ${!l.patreon_only ? 'selected' : ''}>Público</option><option value="patreon" ${l.patreon_only ? 'selected' : ''}>Solo Patreon del equipo</option></select><button class="lnk danger" data-ddel="${l.id}">Quitar</button></span>` : '<span></span>'}</div>`).join('')}
-        ${(() => { const bs = buys.filter(b => b.volume_id === v.id || (!b.volume_id && b.vol === v.num)); return `<div class="dl-buyh"><b>Compra oficial</b><span class="mono">El Bibliotecario verifica cada enlace antes de que se muestre</span></div>${bs.map(b => `<div class="dl-row"><span class="dl-f buy">${esc(b.fmt || 'Digital')}</span><span class="tm-n"><b>${esc(b.store)}${b.region ? ' · ' + esc(b.region) : ''}</b><small><a href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.url.replace(/^https:\/\//, '').slice(0, 60))}</a></small></span><span class="mono" style="color:${b.verified ? '#a9d18e' : '#f2c230'}">${b.verified ? '✓ Verificado · ' + (b.clicks || 0).toLocaleString('es-MX') + ' clics' : '◷ Pendiente de verificar'}</span>${ed ? `<span class="tm-a"><button class="lnk danger" data-bdel="${b.id}">Quitar</button></span>` : '<span></span>'}</div>`).join('')}${ed ? `<form class="dl-add buy-add" data-vol="${v.id}" data-num="${v.num}"><select name="store" aria-label="Tienda">${STORES.map(s => `<option>${s}</option>`).join('')}</select><select name="region" aria-label="Región">${REGIONS.map(s => `<option>${s}</option>`).join('')}</select><select name="fmt" aria-label="Formato"><option>Digital</option><option>Físico</option><option>Audiolibro</option></select><input name="url" type="url" required placeholder="https://… (tienda oficial)" aria-label="Enlace de compra"><button class="btn ghost">Proponer</button></form>` : ''}`; })()}
-        ${ed ? `<form class="dl-add" data-vol="${v.id}" data-num="${v.num}"><select name="fmt" aria-label="Formato">${FMTS.map(f => `<option>${f}</option>`).join('')}</select><input name="url" type="url" required placeholder="https://drive.google.com/…" aria-label="Enlace"><input name="label" maxlength="60" placeholder="Nombre (opcional)" aria-label="Nombre del enlace"><select name="access" aria-label="Quién puede descargar"><option value="public">Público</option><option value="patreon">Solo Patreon del equipo</option></select><button class="btn">Agregar</button></form>` : ''}</section>`; }).join('') || '<p class="tb-empty">Esta obra aún no tiene volúmenes.</p>'}
-      <p class="mono">Los enlaces exclusivos son únicamente para mecenas activos del Patreon del equipo que publica la obra. El Patreon de El Obi del Lector es solo para apoyo voluntario y nunca controla estas descargas. El servidor comprueba el permiso antes de entregar el enlace.</p></div>`;
     $('#fs').onchange = e => { F.work = e.target.value; downloads(); };
-    app.querySelectorAll('.buy-add').forEach(f => f.onsubmit = e => { e.preventDefault(); e.stopImmediatePropagation(); busy(e.submitter, async () => {
-      const u = f.url.value.trim(); if (!/^https:\/\//.test(u)) throw new Error('El enlace debe empezar con https://');
-      const { error } = await sb.from('purchase_links').insert({ series_id: F.work, volume_id: f.dataset.vol, vol: +f.dataset.num, store: f.store.value, region: f.region.value, fmt: f.fmt.value, url: u, verified: false, created_by: getUser().id });
-      if (error) throw new Error(errMsg(error)); toast('Enlace propuesto · se mostrará cuando el Bibliotecario lo verifique'); downloads(); }); });
-    app.querySelectorAll('[data-bdel]').forEach(b => b.onclick = () => busy(b, async () => { if (!confirm('¿Quitar este enlace de compra?')) return; const { error } = await sb.from('purchase_links').delete().eq('id', b.dataset.bdel); if (error) throw new Error(errMsg(error)); downloads(); }));
-    app.querySelectorAll('.dl-add:not(.buy-add)').forEach(f => f.onsubmit = e => { e.preventDefault(); busy(e.submitter, async () => {
-      const u = f.url.value.trim(); if (!/^https:\/\//.test(u)) throw new Error('El enlace debe empezar con https://');
-      const { error } = await sb.from('download_links').insert({ series_id: F.work, volume_id: f.dataset.vol, vol: +f.dataset.num, fmt: f.fmt.value, url: u, provider: provOf(u), label: f.label.value.trim() || null, donor_only: false, patreon_only: f.elements.access.value === 'patreon', sort: Date.now() % 1e6 });
-      if (error) throw new Error(errMsg(error)); toast('Enlace agregado'); downloads(); }); });
-    app.querySelectorAll('[data-daccess]').forEach(sel => sel.onchange = () => busy(null, async () => { const access = sel.value; sel.disabled = true; try { const { error } = await sb.from('download_links').update({ donor_only: false, patreon_only: access === 'patreon' }).eq('id', sel.dataset.daccess); if (error) throw new Error(errMsg(error)); downloads(); } finally { sel.disabled = false; } }));
-    app.querySelectorAll('[data-ddel]').forEach(b => b.onclick = () => busy(b, async () => { if (!confirm('¿Quitar este enlace?')) return; const { error } = await sb.from('download_links').delete().eq('id', b.dataset.ddel); if (error) throw new Error(errMsg(error)); toast('Enlace quitado'); downloads(); }));
+    renderDownloads(F.work, app.querySelector('#st-dl-panel'));
   }
 
   // ---------- Anuncios: tarjeta destacada en la página pública del equipo ----------
