@@ -373,6 +373,24 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 .ob-carw{position:relative}@keyframes obHp{to{transform:scaleX(1)}}@media(max-width:600px){.ob-car{grid-auto-columns:40vw!important;padding-right:16px}}
 .ob-car{display:grid;grid-auto-flow:column;grid-auto-columns:clamp(132px,16vw,172px);gap:18px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 2px 14px;scrollbar-width:thin;scrollbar-color:#3d3628 transparent}
 .ob-cc{scroll-snap-align:start;display:grid;gap:8px;align-content:start;color:var(--paper);text-decoration:none}.ob-cc:hover{color:var(--paper)}
+/* Lanzamientos: las mismas dimensiones que los demás carruseles .ob-car/.ob-cc. */
+.ob-releases .ob-st{flex-wrap:wrap}
+.ob-releases .ob-st .r2{display:flex;align-items:center;gap:14px;flex-wrap:wrap;max-width:100%}
+.ob-releases .ob-st .ob-arr{display:flex;margin-left:auto}
+.ob-releases{min-width:0;max-width:100%}
+.ob-release-car{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+.ob-release-car:focus-visible,.ob-releases .ob-arr button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.ob-release-card{min-width:0}
+.ob-release-card .cv{overflow:hidden;isolation:isolate;box-sizing:border-box}
+.ob-release-card .cv img{display:block;width:100%;height:100%;object-fit:cover}
+.ob-release-card .cv i{z-index:1}
+.ob-release-card.is-volume .cv{border-color:var(--gold)}
+.ob-release-type{font:700 11px/1.4 'IBM Plex Mono',monospace;letter-spacing:.04em;color:var(--mute)}
+.ob-release-card.is-volume .ob-release-type{color:var(--gold)}
+.ob-release-card b{min-height:2.7em}
+.ob-release-card .ob-release-detail{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.5;overflow-wrap:anywhere;color:#cfc6b0}
+.ob-release-card time{display:block;font:11px/1.5 'IBM Plex Mono',monospace;color:var(--mute)}
+@media(max-width:600px){.ob-releases .ob-st .r2{width:100%;gap:10px}.ob-releases .ob-st .ob-arr{margin-left:auto}}
 .ob-cc .cv{position:relative;aspect-ratio:2/3;background:#1c1a14 center/cover no-repeat;border:1px solid var(--line);transition:transform .25s,box-shadow .25s}.ob-cc:hover .cv{transform:translateY(-4px);box-shadow:0 12px 26px rgba(0,0,0,.45)}
 .ob-cc .cv.no{display:flex;align-items:flex-end;padding:10px;font-family:'Shippori Mincho B1',serif;font-size:15px;line-height:1.25;background:linear-gradient(160deg,var(--c),#16140f)}
 .ob-cc .cv i{position:absolute;top:8px;left:0;padding:3px 8px;background:var(--gold);color:#0d0c0a;font:700 11px/1.3 'IBM Plex Mono',monospace;font-style:normal;letter-spacing:.04em}
@@ -533,8 +551,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     let loadedTeamSignature = teamSignature([]);
     const featReasons = featured.bySeries;
     const cont = Object.values(prog).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).filter(p => byId[p.series_id]).slice(0, 6);
-    const grp = news.entries.slice(0, 6);
-    const dayK = d => publicationDay(d);
+    const grp = news.entries.slice(0, 10);
     const caps = chs => { const n = [...new Set(chs.map(c => c.num))].sort((a, b) => a - b); if (n.length === 1) return 'Cap. ' + n[0]; const run = n.every((x, i) => !i || x - n[i - 1] === 1); return 'Caps. ' + (run ? n[0] + '–' + n[n.length - 1] : n.slice(0, 4).join(', ') + (n.length > 4 ? '…' : '')); };
     const top = {}; (top10 || []).forEach(r => { if (!top[r.series_id] || r.pos < top[r.series_id]) top[r.series_id] = r.pos; });
     const rkWv = (rkW || []).filter(r => byId[r.series_id]);
@@ -556,8 +573,23 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       ${grp.length ? `<div class="ob-tick" aria-label="Novedades"><div class="ob-track">${[0, 1].map(k => `<span${k ? ' aria-hidden="true"' : ''}>${[...grp, ...grp].slice(0, Math.max(6, grp.length)).map((g, i) => `<a href="${g.kind === 'volume' ? '/serie/' + byId[g.id].slug : '/leer/' + byId[g.id].slug + '/' + g.chs[0].num}"${k ? ' tabindex="-1"' : ''} style="color:inherit;text-decoration:none">${g.kind === 'volume' ? '<b>NUEVO VOLUMEN</b> · ' : tickerNotice(byId[g.id]) || (i === 0 ? 'NUEVO · ' : '★ ')}${esc(byId[g.id].title)}${g.kind === 'volume' ? ' — Volumen ' + esc(g.volume.num) : ' · ' + caps(g.chs)}</a>`).join('')}</span>`).join('')}</div></div>` : ''}
       <div id="ob-fest-slot"></div>
       <section class="ob-hero" id="hero" ${feat.length ? '' : 'style="display:none"'}></section><div id="ob-open-today"></div>
-      ${grp.length ? `<section class="ob-sec ob-releases" style="border-top:none;padding-top:32px">${head('新着', 'Nuevos volúmenes y capítulos', '<a class="r" href="/lanzamientos">Todos los lanzamientos →</a>')}
-        <div class="ob-upd ob-anim">${grp.map((g, gi) => { const s = byId[g.id], c = g.chs[0] || {}, v = g.kind === 'volume' ? g.volume : null, coverPath = v?.cover_path || s.cover_path, dk = dayK(g.at), prevK = gi ? dayK(grp[gi - 1].at) : null; return `${dk !== prevK ? `<h3 class="mono" style="margin:${gi ? '14px' : '0'} 0 4px;font-size:11px;letter-spacing:.14em;color:var(--mute)">${dk.toUpperCase()}</h3>` : ''}<a class="ob-urow${v ? ' is-volume' : ''}" href="${v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + c.num}"><i style="background:${esc(color(s))}"></i>${coverPath ? `<span class="ob-ucover" aria-hidden="true" style="background-image:url('${esc(media(coverPath))}')"></span>` : ''}<span class="ob-u-info">${v ? '<span class="ob-u-kind">¡Nuevo volumen!</span>' : ''}<b>${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}${utag(s)}</b><span class="t">${v ? (v.title && v.title.trim() && v.title.trim() !== String(v.num) && !/^volumen\s*\d+$/i.test(v.title.trim()) ? esc(v.title) : 'Volumen completo disponible') : caps(g.chs) + (g.chs.length === 1 && c.title ? ' — ' + esc(c.title) : '')}</span></span>${publicationDate(g.at) ? `<time datetime="${esc(g.at)}">${ago(g.at)}</time>` : ''}</a>`; }).join('') }</div></section>` : ''}
+      ${grp.length ? `<section class="ob-sec ob-releases" style="border-top:none;padding-top:32px">${head('新着', 'Nuevos volúmenes y capítulos', `<span class="r2"><a class="r" href="/lanzamientos">Todos los lanzamientos →</a>${arrows('ob-release-car')}</span>`)}
+        <div class="ob-car ob-release-car ob-anim" id="ob-release-car" role="region" aria-roledescription="carrusel" aria-label="Lanzamientos recientes" tabindex="0">${grp.map(g => {
+          const s = byId[g.id], c = g.chs[0] || {}, v = g.kind === 'volume' ? g.volume : null;
+          const coverPath = v?.cover_path || s.cover_thumb_path || s.cover_path;
+          const coverUrl = v?.cover_path && v.cover_path !== s.cover_path ? media(v.cover_path) : thumb(s);
+          const detail = v
+            ? 'Volumen ' + esc(v.num) + (v.title && v.title.trim() && v.title.trim() !== String(v.num) && !/^volumen\s*\d+$/i.test(v.title.trim()) ? ' · ' + esc(v.title) : '')
+            : caps(g.chs) + (g.chs.length === 1 && c.title ? ' · ' + esc(c.title) : '');
+          const href = v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + c.num;
+          return `<a class="ob-cc ob-release-card${v ? ' is-volume' : ''}" href="${esc(href)}" style="--c:${esc(color(s))}">
+            <span class="cv${coverPath ? '' : ' no'}">${coverPath ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" decoding="async">` : esc(s.short || s.title)}<i>${v ? 'VOLUMEN' : 'CAPÍTULO'}</i></span>
+            <span class="ob-release-type">${v ? '¡Nuevo volumen!' : 'Nuevo capítulo'}</span>
+            <b>${esc(s.title)}</b>
+            <small class="ob-release-detail">${detail}</small>
+            ${publicationDate(g.at) ? `<time datetime="${esc(g.at)}">${ago(g.at)}</time>` : ''}
+          </a>`;
+        }).join('')}</div></section>` : ''}
       ${u ? '' : `<div class="ob-hi" style="display:grid;gap:18px"><p style="flex:none"><strong>Bienvenido a El Obi del Lector.</strong> Novelas ligeras traducidas al español por grupos de fans.</p>
         <ol style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px"><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">探</span><span><b style="display:block;font-size:15px">Descubre</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Busca por género o mira lo más leído de la semana.</span></span></li><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">追</span><span><b style="display:block;font-size:15px">Sigue una obra</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Recibe novedades de volúmenes completos y capítulos individuales.</span></span></li><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">続</span><span><b style="display:block;font-size:15px">Lee sin perderte</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Tu progreso se guarda en todos tus dispositivos.</span></span></li></ol>
         <div><a class="a1" href="/entrar">Crear cuenta gratis</a><a class="a2" href="/catalogo" style="border-color:transparent">o explora el catálogo →</a></div></div>`}
@@ -586,6 +618,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const bindCars = root => root.querySelectorAll('[data-cs]').forEach(bt => { const c = document.getElementById(bt.dataset.cs); if (!c) return; bt.onclick = () => c.scrollBy({ left: +bt.dataset.d * c.clientWidth * .85, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
       const upd = () => { const [l, r] = root.querySelectorAll(`[data-cs="${bt.dataset.cs}"]`); if (l) l.disabled = c.scrollLeft < 4; if (r) r.disabled = c.scrollLeft + c.clientWidth >= c.scrollWidth - 4; }; c.addEventListener('scroll', upd, { passive: true }); upd(); });
     bindCars(app);
+    // Mantener navegación horizontal por teclado además de flechas y gesto táctil.
+    const releaseCar = app.querySelector('#ob-release-car');
+    releaseCar?.addEventListener('keydown', e => {
+      if (e.target !== releaseCar || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+      e.preventDefault();
+      releaseCar.scrollBy({ left: (e.key === 'ArrowRight' ? 1 : -1) * releaseCar.clientWidth * .85,
+        behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    });
     // El ranking usa el carrusel existente; actualizamos solo su contador visible y navegación de teclado.
     const rankCar = app.querySelector('#ob-rank-car');
     if (rankCar) {
