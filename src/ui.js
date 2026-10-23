@@ -1186,18 +1186,29 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const qs = new URLSearchParams(location.search);
     const R = { list: RK_L[qs.get('lista')] ? qs.get('lista') : 'leidas', period: RK_P[qs.get('periodo')] ? qs.get('periodo') : 'semana', genre: qs.get('genero') || '', status: ['en_curso', 'terminada'].includes(qs.get('estado')) ? qs.get('estado') : '', teamView: qs.get('vista') === 'equipos' || !!qs.get('equipo'), team: qs.get('equipo') || '' };
     app.innerHTML = '<p class="mono">Cargando el ranking…</p>';
-    let autoHist = false;
-    if (!qs.get('periodo')) { const { count } = await sb.from('rankings').select('series_id', { count: 'exact', head: true }).eq('list', R.list).eq('period', 'semana'); if (!count) { R.period = RK_OK[R.list] ? R.period : 'historico'; autoHist = R.period === 'historico'; } }
-    const { data: gs } = await sb.from('series').select('id,genres,team_id,teams(name,slug,color)').eq('published', true);
-    const genres = [...new Set((gs || []).flatMap(x => x.genres || []))].sort((a, b) => a.localeCompare(b, 'es'));
-    if (R.genre && !genres.includes(R.genre)) R.genre = '';
-    const teams = [...new Map((gs || []).filter(s => s.teams?.slug).map(s => [s.teams.slug, s.teams])).values()].sort((a, b) => a.name.localeCompare(b.name, 'es'));
-    if (!teams.some(t => t.slug === R.team)) R.team = teams[0]?.slug || '';
-    app.innerHTML = `<div class="ui-cath"><div><h1>Ranking</h1><p>Las obras que más se leen, más suben y más gustan.</p></div><span class="kj" aria-hidden="true">番付</span></div>${autoHist ? '<p class="mono" id="rk-autoh" style="margin:-6px 0 18px;font-size:13px">Esta semana todavía no hay suficientes lecturas: te mostramos el ranking de todos los tiempos.</p>' : ''}
+    // Los metadatos auxiliares no deben retrasar el primer resultado del ranking.
+    let genres = [], teams = [], teamRows = [], teamPromise;
+    const firstList = R.list;
+    const weeklyCheck = !qs.get('periodo') && !R.teamView
+      ? sb.from('rankings').select('series_id', { count: 'exact', head: true }).eq('list', R.list).eq('period', 'semana')
+      : null;
+    const loadTeams = () => teamPromise ||= sb.from('series')
+      .select('id,team_id,teams(name,slug,color)').eq('published', true)
+      .then(({ data, error }) => {
+        if (error) throw error;
+        teamRows = data || [];
+        teams = [...new Map(teamRows.filter(s => s.teams?.slug).map(s => [s.teams.slug, s.teams])).values()]
+          .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+        if (!teams.some(t => t.slug === R.team)) R.team = teams[0]?.slug || '';
+        const picker = app.querySelector('#rk-team-sel');
+        if (picker) { picker.innerHTML = teams.map(t => `<option value="${esc(t.slug)}">${esc(t.name)}</option>`).join(''); picker.value = R.team; }
+        return teamRows;
+      }).catch(e => { teamPromise = null; throw e; });
+    app.innerHTML = `<div class="ui-cath"><div><h1>Ranking</h1><p>Las obras que más se leen, más suben y más gustan.</p></div><span class="kj" aria-hidden="true">番付</span></div><p class="mono" id="rk-autoh" hidden style="margin:-6px 0 18px;font-size:13px">Esta semana todavía no hay suficientes lecturas: te mostramos el ranking de todos los tiempos.</p>
       <div class="rk-bar">
         <div class="ui-chips" role="group" aria-label="Lista">${Object.entries(RK_L).map(([k, l]) => `<button class="ui-chip" type="button" data-rl="${k}">${l}</button>`).join('')}<button class="ui-chip" type="button" id="rk-team-tab" aria-controls="rk-teams">Por equipo</button></div>
         <div id="rk-filters"><div class="rk-row"><div class="rk-seg" role="group" aria-label="Periodo">${Object.entries(RK_P).map(([k, l]) => `<button type="button" data-rp="${k}">${l}</button>`).join('')}</div>
-          <label class="rk-sel"><span class="ui-lbl">Género</span><select id="rk-g"><option value="">Todos</option>${genres.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('')}</select></label>
+          <label class="rk-sel"><span class="ui-lbl">Género</span><select id="rk-g"><option value="">Todos</option></select></label>
           <div class="rk-seg" role="group" aria-label="Estado">${[['', 'Todas'], ['en_curso', 'En curso'], ['terminada', 'Terminadas']].map(([k, l]) => `<button type="button" data-rs="${k}">${l}</button>`).join('')}</div></div>
         <p class="mono rk-desc" id="rk-desc"></p></div>
       </div><div id="rk"></div>
@@ -1205,11 +1216,20 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         <div class="rk-team-header"><div><h2 id="rk-teams-title">Lo más visto de cada equipo</h2>
           <p class="rk-team-note">Novelas ordenadas por lectores distintos de esta semana.</p></div>
           <label class="rk-team-select" for="rk-team-sel">Equipo
-            <select id="rk-team-sel" aria-label="Seleccionar equipo">${teams.map(t => `<option value="${esc(t.slug)}">${esc(t.name)}</option>`).join('')}</select>
+            <select id="rk-team-sel" aria-label="Seleccionar equipo"><option value="">Cargando equipos…</option></select>
           </label></div>
         <div id="rk-team-results" aria-live="polite"></div>
       </section>`;
     $('#rk-g').value = R.genre;
+    // Géneros en segundo plano, sin retener la primera clasificación.
+    sb.from('series').select('genres').eq('published', true).then(({ data, error }) => {
+      if (error || !app.querySelector('#rk-g')) return;
+      genres = [...new Set((data || []).flatMap(x => x.genres || []))].sort((a, b) => a.localeCompare(b, 'es'));
+      const select = app.querySelector('#rk-g');
+      select.innerHTML = '<option value="">Todos</option>' + genres.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('');
+      if (R.genre && !genres.includes(R.genre)) { R.genre = ''; if (!R.teamView) draw(); }
+      select.value = R.genre;
+    }).catch(() => {});
     const sync = () => {
       const ok = RK_OK[R.list]; if (ok && !ok.includes(R.period)) R.period = 'semana';
       const q = new URLSearchParams();
@@ -1228,10 +1248,15 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     let tk = 0;
     const drawTeam = async my => {
       const box = $('#rk-team-results');
+      box.innerHTML = '<p class="mono">Cargando las obras del equipo…</p>';
+      try { await loadTeams(); } catch (e) {
+        if (my === tk && box.isConnected) box.innerHTML = '<p class="mono" role="alert">No se pudo cargar la lista de equipos.</p>';
+        return;
+      }
+      if (my !== tk || !box.isConnected) return;
       const team = teams.find(t => t.slug === R.team);
       if (!team) { box.innerHTML = '<p class="mono">Aún no hay equipos con obras publicadas.</p>'; return; }
-      const ids = (gs || []).filter(s => s.teams?.slug === team.slug).map(s => s.id);
-      box.innerHTML = '<p class="mono">Cargando las obras del equipo…</p>';
+      const ids = teamRows.filter(s => s.teams?.slug === team.slug).map(s => s.id);
       if (!ids.length) { box.innerHTML = '<p class="mono">Este equipo no tiene obras publicadas.</p>'; return; }
       const { data, error } = await sb.from('rankings').select('series_id,score,pos').eq('list', 'leidas').eq('period', 'semana').in('series_id', ids).order('score', { ascending: false }).limit(50);
       if (my !== tk || !box.isConnected) return;
@@ -1267,6 +1292,16 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     app.querySelectorAll('[data-rs]').forEach(b => b.onclick = () => { R.status = b.dataset.rs; draw(); });
     $('#rk-g').onchange = e => { R.genre = e.target.value; draw(); };
     draw();
+    // El respaldo histórico solo se activa cuando no hay ranking semanal.
+    // Comprobarlo en paralelo evita bloquear la portada del ranking.
+    if (weeklyCheck) weeklyCheck.then(({ count, error }) => {
+      if (error || count || !app.querySelector('#rk') || R.teamView || R.list !== firstList || R.period !== 'semana') return;
+      if (!RK_OK[R.list]) {
+        R.period = 'historico';
+        app.querySelector('#rk-autoh').hidden = false;
+        draw();
+      }
+    }).catch(() => {});
   }
   async function teamRank(root, teamId){
     const { data: tw } = await sb.from('series').select('id,slug,title,cover_path').eq('team_id', teamId).eq('published', true);
