@@ -374,8 +374,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 .ob-hero .ob-hero-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:clamp(12px,2.2vw,26px);min-width:0;max-width:100%}
 .ob-hero .ob-hero-meta{min-width:0;max-width:100%}
 .ob-hero .ob-hero-head:not(:has(.ob-hero-team-logo)){display:block}
-.ob-hero .ob-hero-team-logo{box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:7px;min-width:0;width:clamp(72px,7vw,104px);color:var(--paper);text-align:center;text-decoration:none}
-.ob-hero .ob-hero-team-logo img{display:block;width:clamp(72px,7vw,104px);height:clamp(72px,7vw,104px);object-fit:contain;border:none;filter:drop-shadow(0 4px 8px rgba(0,0,0,.55))}
+.ob-hero .ob-hero-team-logo{box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:7px;min-width:0;width:clamp(128px,10vw,140px);color:var(--paper);text-align:center;text-decoration:none}
+.ob-hero .ob-hero-team-logo img{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:contain;border:none;filter:drop-shadow(0 4px 8px rgba(0,0,0,.55))}
 .ob-hero .ob-hero-team-logo.is-text{width:clamp(92px,11vw,140px);min-height:44px;justify-content:center;padding:8px 6px;border:1px solid var(--line);background:rgba(13,12,10,.42)}
 .ob-hero .ob-hero-team-logo.is-text span{display:block;width:100%;max-width:100%;font:600 12px/1.4 'IBM Plex Mono',monospace;overflow-wrap:anywhere;text-wrap:balance}
 .ob-hero .ob-hero-team-logo:hover,.ob-hero .ob-hero-team-logo:focus-visible{color:var(--gold)}
@@ -383,16 +383,19 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 .ob-hero .ob-hero-head+h1{margin-top:clamp(18px,2.2vw,28px)}
 @media(max-width:600px){
  .ob-hero .ob-hero-head{column-gap:10px}
- .ob-hero .ob-hero-team-logo{width:56px}
- .ob-hero .ob-hero-team-logo img{width:56px;height:56px}
+ .ob-hero .ob-hero-team-logo{width:80px}
+ .ob-hero .ob-hero-team-logo img{width:100%}
  .ob-hero .ob-hero-team-logo.is-text{width:clamp(78px,22vw,104px);padding:6px 4px}
  .ob-hero .ob-hero-team-logo.is-text span{font-size:10px}
 }
 @media(max-width:380px){
- .ob-hero .ob-hero-team-logo{width:48px}
- .ob-hero .ob-hero-team-logo img{width:48px;height:48px}
+ .ob-hero .ob-hero-team-logo{width:64px}
+ .ob-hero .ob-hero-team-logo img{width:100%}
  .ob-hero .ob-hero-team-logo.is-text{width:76px}
  .ob-hero .ob-hero-team-logo.is-text span{font-size:9px}
+}
+@media(min-width:601px) and (max-width:1100px){
+ .ob-hero .ob-hero-team-logo{width:clamp(96px,10vw,112px)}
 }
 .ob-fest{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:22px 0 0;padding:12px 16px;border:1px solid var(--fc);border-left:4px solid var(--fc);background:color-mix(in srgb,var(--fc) 9%,#16140f);color:var(--paper);text-decoration:none}
 .ob-fest:hover{color:var(--paper);background:color-mix(in srgb,var(--fc) 15%,#16140f)}.ob-fest b{font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:18px}.ob-fest span{font-size:13px;color:var(--mute)}.ob-fest em{margin-left:auto;font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--fc)}
@@ -881,7 +884,7 @@ ${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読'
     const teamLogo = s.teams?.slug
       ? `<a class="ob-hero-team-logo${hasTeamImage ? '' : ' is-text'}" href="/equipo/${encodeURIComponent(s.teams.slug)}" aria-label="Visitar el equipo ${esc(s.teams.name || 'traductor')}">
           ${hasTeamImage
-            ? `<img src="${esc(media(s.teams.avatar_path))}" alt="" width="104" height="104" loading="lazy" decoding="async">`
+            ? `<img src="${esc(media(s.teams.avatar_path))}" alt="" width="140" height="140" loading="lazy" decoding="async">`
             : `<span>${esc(s.teams.name || 'Equipo traductor')}</span>`}</a>`
       : '';
     el.innerHTML = `<span class="ob-vk" aria-hidden="true">${pre ? "予告" : "新刊案内"}</span>
