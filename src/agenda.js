@@ -3,7 +3,9 @@
 const COL = { pub: '#f2c230', pat: '#f96854', open: '#a9d18e', prog: '#8cc3f2', vol: '#c9a0e8', aniv: '#efe6d2' };
 const LEG = [['pub', 'Estreno público'], ['pat', 'Estreno para mecenas'], ['open', 'Apertura al público general'], ['prog', 'Programado'], ['vol', 'Volumen completo'], ['aniv', 'Aniversario de equipo']];
 const FIL = [['', 'Todos los eventos'], ['pub', 'Estreno público'], ['pat', 'Estreno mecenas'], ['open', 'Apertura general'], ['prog', 'Programados'], ['vol', 'Volúmenes']];
-const VIEWS = [['semana', 'Semana'], ['linea', 'Línea de tiempo'], ['mes', 'Mes']];
+const VIEWS = [['semana', 'Semana'], ['linea', 'Agenda'], ['mes', 'Mes']];
+const PERIODS = [['', 'Todo el periodo'], ['next', 'Próximos'], ['past', 'Anteriores']];
+const ACCESS = [['', 'Cualquier acceso'], ['readable', 'Puedo leer ahora'], ['restricted', 'Restringidos']];
 const TAG = { pub: 'Publicado', pat: 'Solo mecenas', open: 'Se abre a todo público', prog: 'Programado', vol: 'Volumen completo', aniv: 'Aniversario' };
 const DAY = 864e5, PAST = 30, FUT = 60, SITE = 'https://obidellector.com';
 const JOIN = u => { try { const x = new URL(u); if (!/(^|\.)patreon\.com$/.test(x.hostname) || x.searchParams.has('u') || /\/(membership|join|checkout)(\/|$)/.test(x.pathname)) return u; x.pathname = x.pathname.replace(/\/+$/, '') + '/membership'; return x.toString(); } catch { return u; } };
@@ -20,6 +22,7 @@ const CSS = `
 .ag-nav{display:flex;gap:6px;align-items:center}.ag-nav b{min-width:150px;text-align:center;font-weight:600;text-transform:capitalize}
 .ag-btn{padding:6px 11px;border:1px solid #3d3628;background:#16140f;color:#f3ecd9;font:inherit;font-size:13px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;line-height:1.2}.ag-btn:hover{border-color:#f2c230;color:#f3ecd9}
 .ag-btn.pat{background:#f96854;border-color:#f96854;color:#1a0d0a;font-weight:600}.ag-btn.on{border-color:#a9d18e;color:#a9d18e}
+.ag-period{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.ag-period-btn{border:1px solid #3d3628;background:#16140f;color:#cfc6b0;padding:9px 12px;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;font:inherit}.ag-period-btn strong{font-size:20px;color:#f3ecd9}.ag-period-btn span{font-size:12px}.ag-period-btn.on{border-color:#f2c230;background:#2a2412}.ag-period-btn:focus-visible{outline:2px solid #f2c230;outline-offset:2px}
 .ag-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
 .ag-day{border:1px solid #2f2a20;background:#100f0c;min-height:150px;display:flex;flex-direction:column;min-width:0}.ag-day.today{border-color:#f2c230}
 .ag-dh{display:flex;justify-content:space-between;align-items:baseline;padding:6px 8px;border-bottom:1px solid #2f2a20;font-size:12px;color:#a89f8a;text-transform:capitalize}.ag-dh b{color:#f3ecd9;font-size:16px}.ag-day.today .ag-dh b{color:#f2c230}
@@ -48,7 +51,7 @@ const CSS = `
 @media (max-width:1100px){.ag-week{grid-template-columns:1fr;gap:6px}.ag-day{min-height:0}.ag-day.empty{display:none}.ag-day.today.empty{display:flex}.ag-ev.c{grid-template-columns:38px minmax(0,1fr)}.ag-ev.c .ag-cv{display:block}.ag-dl{grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))}}
 @media (max-width:760px){
   .ag-bar{margin:10px -12px 14px;padding:8px 12px}.ag-row.opt{display:none}.ag-bar.open .ag-row.opt{display:flex}
-  .ag-tabs{width:100%}.ag-tabs button{flex:1;padding:9px 6px}
+  .ag-tabs{width:100%}.ag-tabs button{flex:1;padding:9px 6px}.ag-period-btn{padding:8px 6px;display:grid;gap:2px;justify-items:center;text-align:center}.ag-period-btn strong{font-size:16px}.ag-period-btn span{font-size:11px}
   .ag-week{grid-template-columns:1fr;gap:6px}.ag-day{min-height:0}.ag-day.empty{display:none}.ag-day.today.empty{display:flex}
   .ag-ev{grid-template-columns:38px minmax(0,1fr);gap:8px;padding:7px}.ag-ll{grid-template-columns:1fr}
   .ag-mc{min-height:64px;padding:4px}.ag-mi span,.ag-mf{display:none}.ag-mi{display:inline-flex}.ag-mc .dots{display:flex;flex-wrap:wrap;gap:2px}.ag-mcount{font-size:11px}
@@ -67,7 +70,7 @@ export async function agenda(ctx){
   const noon = k => new Date(k + 'T12:00:00Z'), addK = (k, n) => new Date(noon(k).getTime() + n * DAY).toISOString().slice(0, 10);
   const dow = k => (noon(k).getUTCDay() + 6) % 7, monday = k => addK(k, -dow(k)), today = () => ymd(Date.now());
   const media = p => p ? (/^https?:/.test(p) ? p : `${url}/storage/v1/object/public/obi-media/${encodeURI(p)}`) : '';
-  const V = { view: VIEWS.some(v => v[0] === qs.get('v')) ? qs.get('v') : (window.matchMedia?.('(max-width: 760px)').matches ? 'linea' : 'semana'), f: FIL.some(x => x[0] === qs.get('f')) ? qs.get('f') : '', mine: qs.get('sigo') === '1', team: qs.get('equipo') || '', type: qs.get('tipo') || '', anchor: /^\d{4}-\d{2}-\d{2}$/.test(qs.get('d') || '') ? qs.get('d') : today(), sel: null, opts: false };
+  const V = { view: VIEWS.some(v => v[0] === qs.get('v')) ? qs.get('v') : (window.matchMedia?.('(max-width: 760px)').matches ? 'linea' : 'semana'), when: PERIODS.some(x => x[0] === qs.get('cuando')) ? qs.get('cuando') : '', access: ACCESS.some(x => x[0] === qs.get('acceso')) ? qs.get('acceso') : '', f: FIL.some(x => x[0] === qs.get('f')) ? qs.get('f') : '', mine: qs.get('sigo') === '1', team: qs.get('equipo') || '', type: qs.get('tipo') || '', anchor: /^\d{4}-\d{2}-\d{2}$/.test(qs.get('d') || '') ? qs.get('d') : today(), sel: null, opts: false };
   const D = { from: null, to: null, rows: [], aniv: [], series: {}, pat: {}, read: new Set(), fol: new Set(), rem: new Set(), fests: null };
 
   const [AN, S] = await Promise.all([import('/anim.js?v=8'), import('/season.js?v=3')]).catch(() => [null, null]);
@@ -163,7 +166,13 @@ export async function agenda(ctx){
     if (V.type && (g.s.work_type || 'Novela ligera') !== V.type) return false;
     return true;
   };
-  const pass = g => (!V.f || g.f.has(V.f)) && passBase(g);
+  // Publicación y acceso actual son dimensiones distintas: un estreno de
+  // mecenas puede estar ya abierto a todo el público.
+  const passWhen = g => !V.when || (V.when === 'next' ? new Date(g.at) > Date.now() : new Date(g.at) <= Date.now());
+  const passAccess = g => !V.access || (V.access === 'readable'
+    ? (g.kind === 'pub' && g.can) || (g.kind === 'vol' && g.can) || (g.kind === 'open' && new Date(g.at) <= Date.now())
+    : (g.kind === 'pub' && !g.can) || (g.kind === 'prog' && g.f.has('pat')));
+  const pass = g => (!V.f || g.f.has(V.f)) && passBase(g) && passWhen(g) && passAccess(g);
 
   // ---------- piezas ----------
   const fdt = (d, o) => new Date(d).toLocaleString('es-MX', { timeZone: TZ, ...(o || { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) });
@@ -213,7 +222,7 @@ export async function agenda(ctx){
   function line(list){
     const t = today(), M = byDay(list.filter(g => g.day >= addK(t, -PAST) && g.day <= addK(t, FUT))), ks = Object.keys(M).sort().reverse();
     const fut = ks.filter(k => k > t).sort(), pst = ks.filter(k => k < t), sec = k => `<section class="ag-ld"><h2>${lbl(k)}<small>${k.slice(8)}/${k.slice(5, 7)}</small></h2><div class="ag-ll">${M[k].map(g => card(g)).join('')}</div></section>`;
-    return `<div class="ag-line">${fut.length ? fut.map(sec).join('') : '<p class="ag-empty">Nada programado todavía.</p>'}<div class="ag-now" id="ag-now">Hoy · ${noon(t).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', timeZone: 'UTC' })}</div>${M[t] ? sec(t).replace(/<h2>.*?<\/h2>/, '') : '<p class="ag-empty" style="padding:6px 0">Nada hoy por ahora.</p>'}${pst.length ? pst.map(sec).join('') : '<p class="ag-empty">Nada publicado en los últimos 30 días.</p>'}</div>`;
+    return `<div class="ag-line">${V.when === 'past' ? '' : fut.length ? fut.map(sec).join('') : '<p class="ag-empty">Nada programado todavía.</p>'}<div class="ag-now" id="ag-now">Hoy · ${noon(t).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', timeZone: 'UTC' })}</div>${M[t] ? sec(t).replace(/<h2>.*?<\/h2>/, '') : '<p class="ag-empty" style="padding:6px 0">Nada hoy por ahora.</p>'}${V.when === 'next' ? '' : pst.length ? pst.map(sec).join('') : '<p class="ag-empty">Nada publicado en los últimos 30 días.</p>'}</div>`;
   }
   function month(list){
     const a = V.anchor.slice(0, 8) + '01', ym = a.slice(0, 7), start = monday(a), M = byDay(list), t = today();
@@ -230,47 +239,51 @@ export async function agenda(ctx){
   // ---------- dibujo ----------
   const range = () => { if (V.view === 'semana') return [monday(V.anchor), addK(monday(V.anchor), 6)]; if (V.view !== 'mes') return [addK(today(), -PAST), addK(today(), FUT)]; const first = V.anchor.slice(0, 8) + '01'; const next = new Date(Date.UTC(+first.slice(0, 4), +first.slice(5, 7), 1, 12)).toISOString().slice(0, 10); const end = addK(next, -1); return [monday(first), addK(monday(end), 6)]; };
   const title = () => { if (V.view === 'semana') { const a = monday(V.anchor), b = addK(a, 6), f = k => noon(k).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }); return f(a) + ' – ' + f(b); } return noon(V.anchor.slice(0, 8) + '15').toLocaleDateString('es-MX', { month: 'long', year: 'numeric', timeZone: 'UTC' }); };
-  const sync = () => { const p = new URLSearchParams(); if (V.view !== 'semana') p.set('v', V.view); if (V.f) p.set('f', V.f); if (V.mine) p.set('sigo', '1'); if (V.team) p.set('equipo', V.team); if (V.type) p.set('tipo', V.type); if (V.anchor !== today() && V.view !== 'linea') p.set('d', V.anchor); if (/^\/(calendario|lanzamientos)$/.test(location.pathname)) history.replaceState({}, '', '/calendario' + (p.toString() ? '?' + p : '')); };
+  const sync = () => { const p = new URLSearchParams(); if (V.view !== 'semana') p.set('v', V.view); if (V.f) p.set('f', V.f); if (V.when) p.set('cuando', V.when); if (V.access) p.set('acceso', V.access); if (V.mine) p.set('sigo', '1'); if (V.team) p.set('equipo', V.team); if (V.type) p.set('tipo', V.type); if (V.anchor !== today() && V.view !== 'linea') p.set('d', V.anchor); if (/^\/(calendario|lanzamientos)$/.test(location.pathname)) history.replaceState({}, '', '/calendario' + (p.toString() ? '?' + p : '')); };
   async function draw(scroll){
     const [a, b] = range(); await load(a, b);
     if (V.view === 'mes' && !D.fests) { try { if (S) await S.load(sb); const { data } = await sb.from('season_calendar').select('key,starts,hemi').gte('starts', addK(today(), -400)).lte('starts', addK(today(), 400)); D.fests = data || []; } catch { D.fests = []; } }
     const all = groups(), inRange = all.filter(g => g.day >= a && g.day <= b), list = inRange.filter(pass);
     const weekOpen = all.filter(g => g.kind === 'open' && new Date(g.at) > Date.now() && new Date(g.at) - Date.now() < 7 * DAY && pass(g)).length;
-    const countable = inRange.filter(g => passBase(g));
+    const scoped = inRange.filter(passBase), countable = scoped.filter(g => passWhen(g) && passAccess(g));
+    const periodCount = { '': scoped.length, next: scoped.filter(g => new Date(g.at) > Date.now()).length, past: scoped.filter(g => new Date(g.at) <= Date.now()).length };
     const cnt = Object.fromEntries(FIL.map(([k]) => [k, k ? countable.filter(g => g.f.has(k)).length : countable.length]));
     const teams = [...new Map(Object.values(D.series).filter(s => s.teams?.slug).map(s => [s.teams.slug, s.teams.name])).entries()].sort((x, y) => x[1].localeCompare(y[1], 'es'));
     const types = [...new Set(Object.values(D.series).map(s => s.work_type || 'Novela ligera'))].sort();
-    app.innerHTML = `<div class="ag-h"><div><h1>Calendario</h1><p>Lo publicado, lo que viene, lo que es solo para mecenas y lo que se abre a todos.</p></div>${weekOpen ? `<button class="ag-cnt" data-f="open">${weekOpen} se ${weekOpen === 1 ? 'abre' : 'abren'} a todo público esta semana</button>` : ''}</div>
+    app.innerHTML = `<div class="ag-h"><div><h1>Calendario de lanzamientos</h1><p>Estrenos para mecenas, aperturas al público y próximos volúmenes, sin anuncios repetidos.</p></div>${weekOpen ? `<button class="ag-cnt" data-f="open">${weekOpen} se ${weekOpen === 1 ? 'abre' : 'abren'} a todo público esta semana</button>` : ''}</div>
       <div class="ag-bar${V.opts ? ' open' : ''}">
         <div class="ag-row sp"><div class="ag-tabs" role="tablist">${VIEWS.map(([k, l]) => `<button role="tab" aria-selected="${V.view === k}" class="${V.view === k ? 'on' : ''}" data-v="${k}">${l}</button>`).join('')}</div>
           ${V.view !== 'linea' ? `<div class="ag-nav"><button class="ag-btn" data-mv="-1" aria-label="Anterior">‹</button><b>${title()}</b><button class="ag-btn" data-mv="1" aria-label="Siguiente">›</button><button class="ag-btn" data-mv="0">Hoy</button></div>` : '<button class="ag-btn" id="ag-tonow">Ir a hoy</button>'}
-          <button class="ag-btn ag-more" id="ag-more" aria-expanded="${V.opts}">Filtros${V.mine || V.team || V.type ? ' •' : ''}</button></div>
-        <div class="ag-chips">${FIL.map(([k, l]) => `<button class="ag-chip${V.f === k ? ' on' : ''}" data-f="${k}" aria-pressed="${V.f === k}">${k ? `<i style="--c:${COL[k]}"></i>` : ''}${l}${k === 'open' && weekOpen ? ` <em>${weekOpen}</em>` : cnt[k] ? ` <span style="color:#6b6252">${cnt[k]}</span>` : ''}</button>`).join('')}</div>
-        <div class="ag-row opt">${u ? `<label class="ag-tg"><input type="checkbox" id="ag-mine" ${V.mine ? 'checked' : ''}> Mis obras seguidas</label>` : ''}
+          <button class="ag-btn ag-more" id="ag-more" aria-expanded="${V.opts}">Más filtros${V.mine || V.team || V.type || V.access ? ' •' : ''}</button></div>
+        <div class="ag-period" role="group" aria-label="Filtrar por fecha">${PERIODS.map(([k, l]) => `<button class="ag-period-btn${V.when === k ? ' on' : ''}" data-when="${k}" aria-pressed="${V.when === k}"><strong>${periodCount[k]}</strong><span>${l}</span></button>`).join('')}</div>
+        <div class="ag-chips" aria-label="Tipos de lanzamiento">${u ? `<button class="ag-chip${V.mine ? ' on' : ''}" data-mine="1" aria-pressed="${V.mine}">★ Mis obras seguidas</button>` : ''}${FIL.map(([k, l]) => `<button class="ag-chip${V.f === k ? ' on' : ''}" data-f="${k}" aria-pressed="${V.f === k}">${k ? `<i style="--c:${COL[k]}"></i>` : ''}${l}${k === 'open' && weekOpen ? ` <em>${weekOpen}</em>` : cnt[k] ? ` <span style="color:#6b6252">${cnt[k]}</span>` : ''}</button>`).join('')}</div>
+        <div class="ag-row opt"><label class="ag-tg" for="ag-access">Lectura:</label><select class="ag-sel" id="ag-access" aria-label="Filtrar por disponibilidad">${ACCESS.map(([k, l]) => `<option value="${k}" ${V.access === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
           <select class="ag-sel" id="ag-team" aria-label="Equipo"><option value="">Todos los equipos</option>${teams.map(([s, n]) => `<option value="${esc(s)}" ${V.team === s ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
           <select class="ag-sel" id="ag-type" aria-label="Tipo de obra"><option value="">Todos los tipos</option>${types.map(t => `<option ${V.type === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
           <button class="ag-btn" id="ag-ics">⤓ Exportar .ics</button></div>
         <div class="ag-leg" aria-label="Leyenda">${LEG.map(([k, l]) => `<span><i style="--c:${COL[k]}"></i>${l}</span>`).join('')}${V.view === 'mes' ? '<span><i style="--c:linear-gradient(90deg,#d9668a,#8cc3f2);background:linear-gradient(90deg,#d9668a,#8cc3f2)"></i>Festividad</span>' : ''}</div>
       </div>
       <div id="ag-body">${V.view === 'semana' ? week(list) : V.view === 'mes' ? month(list) : line(list)}</div>
-      ${list.length ? '' : `<p class="ag-empty">${V.f || V.mine || V.team || V.type ? 'Nada con estos filtros. <button class="ag-btn" id="ag-clear">Quitar filtros</button>' : 'Nada en estas fechas.'}</p>`}
+      ${list.length ? '' : `<p class="ag-empty">${V.f || V.mine || V.team || V.type || V.access || V.when ? 'No hay lanzamientos que coincidan con estos filtros. <button class="ag-btn" id="ag-clear">Quitar filtros</button>' : 'Sin lanzamientos en estas fechas.'}</p>`}
       <div class="ag-foot"><span>${window.__obiUI?.tz ? '<a href="/preferencias?s=pantalla">Tu zona horaria</a>' : 'Horario de tu dispositivo'} · ${esc(TZ.replace(/_/g, ' '))}</span><span>Publicados: últimos ${PAST} días · Próximos: ${FUT} días</span></div>`;
     sync(); bind(all);
     if (scroll && V.view === 'linea') { const n = document.getElementById('ag-now'); if (n) window.scrollTo({ top: n.getBoundingClientRect().top + window.scrollY - 160 }); }
   }
   function bind(all){
     const on = (s, f) => app.querySelectorAll(s).forEach(f);
-    on('[data-v]', b => b.onclick = () => { V.view = b.dataset.v; draw(true); });
+    on('[data-v]', b => b.onclick = () => { V.view = b.dataset.v; draw(false); });
     on('[data-f]', b => b.onclick = () => { V.f = b.dataset.f; draw(); });
+    on('[data-when]', b => b.onclick = () => { V.when = b.dataset.when; draw(); });
+    on('[data-mine]', b => b.onclick = () => { V.mine = !V.mine; draw(); });
     on('[data-mv]', b => b.onclick = () => { const n = +b.dataset.mv; if (!n) V.anchor = today(); else if (V.view === 'semana') V.anchor = addK(V.anchor, 7 * n); else { const [y, m] = V.anchor.split('-').map(Number), d = new Date(Date.UTC(y, m - 1 + n, 1, 12)); V.anchor = d.toISOString().slice(0, 10); } V.sel = null; draw(); });
     on('[data-day]', b => b.onclick = () => { V.sel = b.dataset.day; draw(); });
     const g = id => app.querySelector('#' + id);
     g('ag-tonow')?.addEventListener('click', () => { const n = g('ag-now'); if (n) window.scrollTo({ top: n.getBoundingClientRect().top + window.scrollY - 160, behavior: 'smooth' }); });
     g('ag-more')?.addEventListener('click', () => { V.opts = !V.opts; app.querySelector('.ag-bar').classList.toggle('open', V.opts); g('ag-more').setAttribute('aria-expanded', V.opts); });
-    g('ag-mine')?.addEventListener('change', e => { V.mine = e.target.checked; draw(); });
+    g('ag-access').onchange = e => { V.access = e.target.value; draw(); };
     g('ag-team').onchange = e => { V.team = e.target.value; draw(); };
     g('ag-type').onchange = e => { V.type = e.target.value; draw(); };
-    g('ag-clear')?.addEventListener('click', () => { Object.assign(V, { f: '', mine: false, team: '', type: '' }); draw(); });
+    g('ag-clear')?.addEventListener('click', () => { Object.assign(V, { f: '', when: '', access: '', mine: false, team: '', type: '' }); draw(); });
     g('ag-ics').onclick = () => ics(all.filter(pass).filter(x => new Date(x.at) > Date.now()));
     on('[data-rem]', b => b.onclick = () => remind(all.find(x => x.k === b.dataset.rem), b));
   }
@@ -294,7 +307,7 @@ export async function agenda(ctx){
     L.push('END:VCALENDAR');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([L.join('\r\n')], { type: 'text/calendar' })); a.download = 'obi-calendario.ics'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
-  await draw(true);
+  await draw(false);
 }
 
 // Push: pide permiso una vez y guarda la suscripción del dispositivo.
