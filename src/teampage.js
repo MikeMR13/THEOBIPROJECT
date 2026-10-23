@@ -60,6 +60,36 @@ export const COMMUNITY_DEFAULT = {
 };
 export const SECTIONS = { recent: 'Novedades recientes', announce: 'Anuncio', next: 'Próximo lanzamiento', stats: 'Estadísticas', featured: 'Obras destacadas', works: 'Obras', members: 'Integrantes' };
 const SEC_KEYS = Object.keys(SECTIONS);
+export const COMPOSITION_COLUMNS = { una: 'Una columna', dos: 'Dos columnas', auto: 'Adaptable' };
+export const SECTION_EMPHASIS = { normal: 'Normal', destacado: 'Protagonista', compacto: 'Compacto' };
+export const COMPOSITION_PRESETS = {
+  equilibrada: {
+    label: 'Equilibrada', description: 'Identidad, obras y comunidad',
+    order: ['featured', 'next', 'recent', 'works', 'announce', 'members', 'stats'],
+    columns: 'una', emphasis: { featured: 'destacado', recent: 'normal' }
+  },
+  editorial: {
+    label: 'Revista editorial', description: 'Obras y novedades protagonistas',
+    order: ['featured', 'next', 'recent', 'works', 'stats', 'announce', 'members'],
+    columns: 'dos', emphasis: { featured: 'destacado', recent: 'destacado', works: 'destacado' }
+  },
+  comunidad: {
+    label: 'Comunidad', description: 'Equipo y anuncios visibles',
+    order: ['announce', 'members', 'recent', 'featured', 'works', 'next', 'stats'],
+    columns: 'dos', emphasis: { members: 'destacado', announce: 'destacado' }
+  }
+};
+const cleanEmphasis = value => Object.fromEntries(SEC_KEYS.map(key => [key, pick(value?.[key], SECTION_EMPHASIS, 'normal')]));
+const cleanComposition = obj => ({
+  columns: pick(obj?.columns, COMPOSITION_COLUMNS, 'una'),
+  emphasis: cleanEmphasis(obj?.emphasis)
+});
+export function compositionPreset(name){
+  const preset = COMPOSITION_PRESETS[name];
+  if (!preset) return null;
+  return { order: [...preset.order], composition: cleanComposition(preset) };
+}
+
 export const DEFAULT = { theme: 'tinta', ...THEMES.tinta.d, motto: '' };
 const pick = (v, o, d) => Object.prototype.hasOwnProperty.call(o, v) ? v : d;
 export function normalize(x, teamColor){
@@ -67,6 +97,7 @@ export function normalize(x, teamColor){
   const L = s.layout && typeof s.layout === 'object' && !Array.isArray(s.layout) ? s.layout : {};
   const E = s.editorial && typeof s.editorial === 'object' && !Array.isArray(s.editorial) ? s.editorial : {};
   const C = s.community && typeof s.community === 'object' && !Array.isArray(s.community) ? s.community : {};
+  const comp = s.composition && typeof s.composition === 'object' && !Array.isArray(s.composition) ? s.composition : {};
   return {
     theme: /^mine:\d+$/.test(s.theme || '') ? s.theme : pick(s.theme, { ...THEMES, custom: 1 }, base.theme), template: pick(s.template, TEMPLATES, base.template), bg: pick(s.bg, BGS, base.bg),
     accent: /^#[0-9a-f]{6}$/i.test(s.accent || '') ? s.accent.toLowerCase() : base.accent, font: pick(s.font, TFONTS, base.font),
@@ -96,6 +127,13 @@ export function normalize(x, teamColor){
       showCta: C.showCta !== false,
       ctaText: String(C.ctaText ?? COMMUNITY_DEFAULT.ctaText).trim().slice(0, 120)
     },
+    composition: cleanComposition(comp),
+    savedCompositions: Array.isArray(s.savedCompositions) ? s.savedCompositions.slice(0, 6).filter(x => x && typeof x === 'object' && /^[a-z0-9_-]{1,48}$/i.test(x.id || '') && typeof x.name === 'string' && x.name.trim()).map(x => ({
+      id: x.id, name: x.name.trim().slice(0, 40),
+      order: [...new Set([...(Array.isArray(x.order) ? x.order.filter(k => SEC_KEYS.includes(k)) : []), ...SEC_KEYS])],
+      hidden: Array.isArray(x.hidden) ? [...new Set(x.hidden.filter(k => SEC_KEYS.includes(k)))] : [],
+      composition: cleanComposition(x.composition)
+    })) : [],
     order: [...new Set([...(Array.isArray(s.order) ? s.order.filter(k => SEC_KEYS.includes(k)) : []), ...SEC_KEYS])],
     hidden: Array.isArray(s.hidden) ? s.hidden.filter(k => SEC_KEYS.includes(k)) : [],
     featured: Array.isArray(s.featured) ? s.featured.filter(x => typeof x === 'string' && /^[\w-]{1,80}$/.test(x)).slice(0, 3) : [],
@@ -485,5 +523,5 @@ export function bind(root){
   root.querySelectorAll('[data-car]').forEach(b => b.onclick = e => { e.preventDefault(); const n = car.children.length, i = (idx() + +b.dataset.car + n) % n; car.scrollTo({ left: i * car.clientWidth, behavior: 'smooth' }); });
   car.addEventListener('scroll', () => { const i = idx(); dots.forEach((d, j) => d.classList.toggle('on', i === j)); }, { passive: true });
 }
-export function exportTheme(name, design){ const { motto, theme, featured, announce, order, hidden, seasons, layout, editorial, community, ...look } = design; return JSON.stringify({ obi_theme: 1, name, design: look }, null, 2); }
+export function exportTheme(name, design){ const { motto, theme, featured, announce, order, hidden, seasons, layout, editorial, community, composition, savedCompositions, ...look } = design; return JSON.stringify({ obi_theme: 1, name, design: look }, null, 2); }
 export function importTheme(text){ const j = JSON.parse(text); if (!j || j.obi_theme !== 1 || typeof j.design !== 'object') throw new Error('El archivo no es un tema del Obi'); return { name: String(j.name || 'Tema importado').slice(0, 40), design: j.design }; }
