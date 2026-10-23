@@ -45,6 +45,8 @@ jobs:
       - run: npm run studio-browser-check
       - name: QA visual responsive (5 anchuras, datos ficticios)
         run: npm run visual-browser-check
+      - name: Perfil público de grupos — Chromium responsive y orden de teclado
+        run: node scripts/team-profile-browser-check.mjs
       - name: Fase 6.1 QA Inicio y Catálogo (Chromium)
         run: node scripts/phase6-public-check.mjs
       - name: Ficha pública Fases 1–2 — galería, lista y descargas en 5 tamaños
