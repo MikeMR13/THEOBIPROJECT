@@ -412,5 +412,5 @@ export function bind(root){
   root.querySelectorAll('[data-car]').forEach(b => b.onclick = e => { e.preventDefault(); const n = car.children.length, i = (idx() + +b.dataset.car + n) % n; car.scrollTo({ left: i * car.clientWidth, behavior: 'smooth' }); });
   car.addEventListener('scroll', () => { const i = idx(); dots.forEach((d, j) => d.classList.toggle('on', i === j)); }, { passive: true });
 }
-export function exportTheme(name, design){ const { motto, theme, featured, announce, order, hidden, seasons, layout, ...look } = design; return JSON.stringify({ obi_theme: 1, name, design: look }, null, 2); }
+export function exportTheme(name, design){ const { motto, theme, featured, announce, order, hidden, seasons, layout, editorial, ...look } = design; return JSON.stringify({ obi_theme: 1, name, design: look }, null, 2); }
 export function importTheme(text){ const j = JSON.parse(text); if (!j || j.obi_theme !== 1 || typeof j.design !== 'object') throw new Error('El archivo no es un tema del Obi'); return { name: String(j.name || 'Tema importado').slice(0, 40), design: j.design }; }
