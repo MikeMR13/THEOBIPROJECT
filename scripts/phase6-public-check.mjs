@@ -14,6 +14,15 @@ assert(h.includes('Más leídas') && h.includes('Nuevos volúmenes y capítulos'
 assert(h.indexOf('Nuevos volúmenes y capítulos') < h.indexOf('Continuar leyendo'),'Novedades deben aparecer antes de la biblioteca personal');
 assert(!h.includes('ob-s-trend') && !h.includes('ob-s-rated') && !h.includes('Lo más visto de cada equipo'),'Inicio no debe duplicar clasificaciones');
 assert(s.includes(".eq('period', 'semana').in('series_id', ids)"),'Ranking por equipo sin estadísticas semanales');
+// Rendimiento: los datos auxiliares ya no retienen la primera visualización.
+const homePerf=s.slice(s.indexOf('  async function home(){'),s.indexOf('  let heroPaused'));
+assert(homePerf.includes('const [FD, prog, pr, VR] = await Promise.all(['),'Inicio vuelve a bloquear en destacados secundarios');
+assert(homePerf.indexOf('Promise.all([trendRequest, teamRequest])')>homePerf.indexOf('app.innerHTML = \`<div class="ob-page">'),'La carga complementaria debe ocurrir tras pintar Inicio');
+assert(homePerf.includes('loadedTeamSignature = teamSignature(teamResult?.data)'),'Se perdió la supervisión de destacados');
+const rankPerf=s.slice(s.indexOf('  async function ranking(){'),s.indexOf('  async function ',s.indexOf('  async function ranking(){')+25));
+assert(rankPerf.includes('const loadTeams = () => teamPromise ||='),'La vista Por equipo debe consultar equipos bajo demanda');
+assert(!rankPerf.includes("const { data: gs } = await sb.from('series')"),'El ranking no debe bloquear esperando todos los equipos');
+assert(rankPerf.includes('if (R.teamView) return drawTeam(my)'),'El ranking estándar debe cargar sin consulta de equipos');
 for(const bad of ['96','1996-01-01T00:00:00Z','not-a-date'])assert.equal(publicationAge(bad),'','Fecha fantasma');
 // Regresión: las descargas aparecen en su propia pestaña, por volumen y accesibles.
 const volMarkup=s.slice(s.indexOf('const dlOf = v =>'),s.indexOf("app.querySelectorAll('[data-buy]')"));
