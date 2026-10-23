@@ -598,11 +598,11 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         };
       }));
       if (!heroEl.isConnected || app.querySelector('#hero') !== heroEl || location.pathname !== '/') return;
-      for (const item of previews) {
-        const existing = feat.findIndex(s => s.id === item.id);
-        if (existing === -1) feat.push(item);
-        else feat[existing] = item; // Una sola diapositiva por obra, nunca duplicarla.
-      }
+      // Mantener el estreno ya publicado como portada y mostrar el adelanto a
+      // continuación, sin obligar a esperar toda la rotación para descubrirlo.
+      const previewIds = new Set(previews.map(s => s.id));
+      const published = feat.filter(s => !previewIds.has(s.id));
+      feat.splice(0, feat.length, ...published.slice(0, 1), ...previews, ...published.slice(1));
       heroEl.style.display = '';
       heroSlide(feat, 0, prog, lastCh, top, newsBySeries, featReasons);
     }).catch(e => console.warn('prelaunch carousel', e));
@@ -675,7 +675,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     clearTimeout(heroT); const el = $('#hero'); if (!el) return;
     const s = feat[i], pre = s.__prelaunch || null, reason = featReasons[s.id], p = pre ? null : prog[s.id], lc = pre ? null : lastCh[s.id], n = p?.chapter_num || lc?.num || 1; const pub = pre ? null : newsBySeries[s.id], v = pre ? { num: pre.vnum, cover_path: pre.cover_path } : pub?.kind === 'volume' ? pub.volume : null, art = v?.cover_path || s.cover_path; const freshDate = publicationDate(pub?.at || lc?.publish_at), fresh = !!freshDate && Date.now() - freshDate.getTime() < 7 * 864e5;
     const preAt = pre && new Date(pre.at), preWhen = preAt ? preAt.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: window.obiTZ?.() || undefined }) : '';
-    const preTime = preAt ? Math.max(0, preAt - Date.now()) : 0, preLeft = preTime > 864e5 ? Math.ceil(preTime / 864e5) + ' días' : preTime > 36e5 ? Math.ceil(preTime / 36e5) + ' horas' : Math.max(1, Math.ceil(preTime / 6e4)) + ' min';
+    const preTime = preAt ? Math.max(0, preAt - Date.now()) : 0, preDays = Math.ceil(preTime / 864e5), preHours = Math.ceil(preTime / 36e5), preLeft = preTime > 864e5 ? preDays + (preDays === 1 ? ' día' : ' días') : preTime > 36e5 ? preHours + (preHours === 1 ? ' hora' : ' horas') : Math.max(1, Math.ceil(preTime / 6e4)) + ' min';
     // frase de gancho: la primera oración completa (acepta comillas de cierre); si es larga o no hay más texto, no se separa
     const synT = (s.synopsis || '').replace(/\r/g, '').trim(), lines = synT.split(/\n+/), sents = lines[0].split(/(?<=[.!?…]["”»'’)]*)\s+/);
     let tag = lines.length > 1 && lines[0].length <= 140 ? lines[0] : sents.length > 1 && sents[0].length <= 110 ? sents[0] : '';
