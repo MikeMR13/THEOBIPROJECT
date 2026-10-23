@@ -23,6 +23,17 @@ const rankPerf=s.slice(s.indexOf('  async function ranking(){'),s.indexOf('  asy
 assert(rankPerf.includes('const loadTeams = () => teamPromise ||='),'La vista Por equipo debe consultar equipos bajo demanda');
 assert(!rankPerf.includes("const { data: gs } = await sb.from('series')"),'El ranking no debe bloquear esperando todos los equipos');
 assert(rankPerf.includes('if (R.teamView) return drawTeam(my)'),'El ranking estándar debe cargar sin consulta de equipos');
+// Navegación a la ficha: primer contenido visible antes de las consultas secundarias.
+const appCode=readFileSync('src/app.js','utf8');
+const seriesCode=s.slice(s.indexOf('  async function series(slug){'),s.indexOf('  // ---------- Ranking ----------'));
+assert(seriesCode.includes("app.innerHTML = '<div class=\"ui-wrap ui-series-page\"><p class=\"mono\" role=\"status\">Cargando ficha de la novela"),'Falta estado inmediato al abrir una novela');
+assert(seriesCode.includes('aria-busy="true"') && seriesCode.includes('Preparando capítulos, volúmenes y descargas'), 'Falta portada progresiva');
+assert(seriesCode.indexOf('Preparando capítulos, volúmenes y descargas')<seriesCode.indexOf('const details = await Promise.all(['),'La portada se debe mostrar antes de esperar el índice');
+assert(seriesCode.includes('const stillHere = () => seq === seriesSeq && location.pathname === targetPath'),'Una carga anterior podría sobrescribir otra página');
+assert(seriesCode.includes('if (!details || !stillHere()) return'),'Falta protección de navegación al resolver detalles');
+assert(s.includes('const prefetchSeries = slug =>') && s.includes('seriesCache.set(slug'),'Precarga de ficha no disponible');
+assert(appCode.includes("document.addEventListener('pointerover', warmSeries") && appCode.includes("document.addEventListener('focusin', warmSeries"),'No se anticipa la carga de fichas');
+assert(seriesCode.includes("d.locked || vLk") && seriesCode.includes("sb.rpc('series_downloads_v2'"),'No se deben modificar restricciones de descarga');
 for(const bad of ['96','1996-01-01T00:00:00Z','not-a-date'])assert.equal(publicationAge(bad),'','Fecha fantasma');
 // Regresión: las descargas aparecen en su propia pestaña, por volumen y accesibles.
 const volMarkup=s.slice(s.indexOf('const dlOf = v =>'),s.indexOf("app.querySelectorAll('[data-buy]')"));

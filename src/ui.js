@@ -1011,19 +1011,60 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   }
 
   // ---------- Ficha de serie ----------
+  // Mantener brevemente la ficha pública precargada cuando el lector señala un enlace.
+  // Solo se guarda en memoria y se descarta tras unos segundos o si hubo un error.
+  let seriesSeq = 0;
+  const seriesCache = new Map();
+  const seriesMeta = slug => {
+    const hit = seriesCache.get(slug);
+    if (hit && Date.now() - hit.at < 15000) return hit.promise;
+    seriesCache.delete(slug);
+    const promise = Promise.resolve(sb.from('series').select(SERIES).eq('slug', slug).maybeSingle())
+      .then(r => { if (r.error) seriesCache.delete(slug); return r; })
+      .catch(error => { seriesCache.delete(slug); return { data: null, error }; });
+    seriesCache.set(slug, { at: Date.now(), promise });
+    if (seriesCache.size > 8) seriesCache.delete(seriesCache.keys().next().value);
+    return promise;
+  };
+  const prefetchSeries = slug => { if (/^[\w-]+$/.test(slug)) seriesMeta(slug); };
   async function series(slug){
-    const [{ data: s }, { data: pre, error: preError }] = await Promise.all([
-      sb.from('series').select(SERIES).eq('slug', slug).maybeSingle(),
-      sb.rpc('prelaunch_series', { p_slug: slug })
-    ]);
-    if (preError) console.warn('prelaunch_series', preError.message);
-    const PRE = pre?.volumes?.length ? await import('./prelaunch.js?v=1') : null;
+    const seq = ++seriesSeq, targetPath = '/serie/' + slug;
+    const stillHere = () => seq === seriesSeq && location.pathname === targetPath;
+    // Cambiar de vista al instante: no dejar visible la pantalla anterior.
+    app.innerHTML = '<div class="ui-wrap ui-series-page"><p class="mono" role="status">Cargando ficha de la novela…</p></div>';
+    // Preestrenos se consultan en paralelo pero no retienen el primer render.
+    const preQuery = Promise.resolve(sb.rpc('prelaunch_series', { p_slug: slug }))
+      .catch(error => ({ data: null, error }));
+    const { data: s, error: seriesError } = await seriesMeta(slug);
+    if (!stillHere()) return;
+    if (seriesError) {
+      app.innerHTML = '<p class="mono" role="alert">No pudimos cargar esta novela. <a href="' + esc(targetPath) + '">Reintentar →</a></p>';
+      return;
+    }
     if (!s) {
+      const { data: pre, error: preError } = await preQuery;
+      if (!stillHere()) return;
+      if (preError) console.warn('prelaunch_series', preError.message);
+      const PRE = pre?.volumes?.length ? await import('./prelaunch.js?v=1') : null;
+      if (!stillHere()) return;
       if (PRE) { PRE.landing(pre, app, esc, media); PRE.bind(pre, app, sb, getUser, go, toast); return; }
       app.innerHTML = '<h1>Esta serie no está en el estante</h1><p><a href="/catalogo">Volver al catálogo</a></p>'; return;
     }
+    // Primer contenido útil: título, portada, género y ficha editorial mientras
+    // siguen cargándose capítulos, accesos, volúmenes y descargas en paralelo.
+    fxCss();
+    app.innerHTML = `<div class="ui-wrap ui-series-page" aria-busy="true">
+      <section class="ui-sh ui-series-hero" id="serie-portada" style="--c:${esc(color(s))};--bg:${s.cover_path ? `url('${esc(thumb(s))}')` : 'none'}">
+        ${book(s)}
+        <div><span class="ui-lbl">${esc(s.work_type || 'Novela ligera')}${s.demographic ? ' · ' + esc(s.demographic) : ''}</span>
+          <h1>${esc(s.title)}</h1>${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
+          <div class="ui-chips">${pill(s.translation_status)}${(s.genres || []).map(g => `<a class="ui-chip" href="/catalogo?g=${encodeURIComponent(g)}">${esc(g)}</a>`).join('')}${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</div>
+          <p class="mono" id="serie-loading-status" role="status" style="margin:20px 0;color:var(--mute)">Preparando capítulos, volúmenes y descargas…</p>
+        </div>
+      </section></div>`;
     const u = getUser();
-    const [{ data: vols }, { data: chs }, prog, readR, folR, { data: dls, error: dlError }, { data: buys }, { data: pt }] = await Promise.all([
+    const details = await Promise.all([
+      preQuery,
       sb.from('volumes').select('id,num,title,cover_path,synopsis,status,external_url,external_site,external_only').eq('series_id', s.id).eq('status', 'published').is('deleted_at', null).order('num', { ascending: false }),
       sb.rpc('series_toc', { p_series: s.id }).then(x => x.error ? sb.from('chapters').select('id,num,vol,volume_id,title,section_type,publish_at').eq('series_id', s.id).is('deleted_at', null).order('num') : x),
       progressMap(),
@@ -1031,7 +1072,20 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       u ? sb.from('follows').select('series_id').eq('user_id', u.id).eq('series_id', s.id) : { data: [] },
       sb.rpc('series_downloads_v2', { p_series: s.id }).then(r => r.error?.code === 'PGRST202' ? sb.rpc('series_downloads', { p_series: s.id }) : r),
       sb.from('purchase_links').select('id,volume_id,vol,store,region,fmt').eq('series_id', s.id).eq('verified', true).order('vol').order('id'),
-      sb.from('patreon_public').select('url').eq('owner', s.team_id).maybeSingle()]);
+      sb.from('patreon_public').select('url').eq('owner', s.team_id).maybeSingle()
+    ]).catch(error => {
+      if (stillHere()) {
+        const status = app.querySelector('#serie-loading-status');
+        if (status) status.innerHTML = 'No pudimos cargar los capítulos y volúmenes. <a href="' + esc(targetPath) + '">Reintentar →</a>';
+        console.warn('series loading', error);
+      }
+      return null;
+    });
+    if (!details || !stillHere()) return;
+    const [{ data: pre, error: preError }, { data: vols }, { data: chs }, prog, readR, folR, { data: dls, error: dlError }, { data: buys }, { data: pt }] = details;
+    if (preError) console.warn('prelaunch_series', preError.message);
+    const PRE = pre?.volumes?.length ? await import('./prelaunch.js?v=1') : null;
+    if (!stillHere()) return;
     (vols || []).sort((a, b) => (parseFloat(b.num) || 0) - (parseFloat(a.num) || 0));
     const buyOf = v => (buys || []).filter(b => b.volume_id === v.id || (!b.volume_id && b.vol === v.num));
     // capítulos sin leer de ESTA obra (solo con sesión): publicados, no marcados como leídos y después de donde vas
@@ -1372,5 +1426,5 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       const { error } = following ? await sb.from('team_follows').delete().eq('team_id', D.t.id).eq('user_id', u2.id) : await sb.from('team_follows').insert({ team_id: D.t.id, user_id: u2.id });
       b.disabled = false; if (error) return toast(error.message); following = !following; n += following ? 1 : -1; TP.fillFollow(root, following, n); toast(following ? 'Ahora sigues a ' + D.t.name : 'Dejaste de seguir a ' + D.t.name); });
   }
-  return { home, catalog, series, releases, refreshBadge, team, ranking, search };
+  return { home, catalog, series, prefetchSeries, releases, refreshBadge, team, ranking, search };
 }
