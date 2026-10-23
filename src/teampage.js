@@ -550,12 +550,9 @@ const CSS = `
 
 /* Fase 5: orden móvil independiente, tarjetas y cabecera sin alterar escritorio. */
 @container (max-width:640px){
- .tp2-composition[data-mobile-order=propio] .tp2-unit{order:var(--mobile-position,0)}
- /* La pareja editorial deja ordenar Obra y Próximo lanzamiento por separado en móvil. */
- .tp2-composition[data-mobile-order=propio] .tp2-unit[data-paired=true],
- .tp2-composition[data-mobile-order=propio] .tp2-editorial-pair{display:contents}
- .tp2-composition[data-mobile-order=propio] .tp2-unit[data-paired=true] .tp2-feature-block{order:var(--mobile-featured,0);grid-column:1/-1}
- .tp2-composition[data-mobile-order=propio] .tp2-unit[data-paired=true] .tp2-next{order:var(--mobile-next,1);grid-column:1/-1;max-width:none}
+ /* El orden personalizado se aplica también al DOM: teclado y lectores de pantalla siguen la misma secuencia. */
+ .tp2-composition[data-mobile-order=propio] .tp2-unit[data-paired=true] .tp2-editorial-pair{grid-template-columns:1fr}
+ .tp2-composition .tp2-unit[data-section=next]>.tp2-next{max-width:none}
  .tp2[data-mobile-hero=compacto] .tp2-hero{min-height:172px}
  .tp2[data-mobile-hero=compacto] .tp2-ban{height:100px}
  .tp2[data-mobile-hero=compacto] .tp2-edi{min-height:130px}
@@ -591,6 +588,73 @@ const CSS = `
 export const followBtn = (on, n, label = 'equipo') => `<button type="button" class="tp2-btn tp2-follow${on ? ' on' : ''}" data-follow aria-pressed="${!!on}">${on ? '✓ Siguiendo' : '＋ ' + FOLLOW_LABELS[label]}${n ? ` · ${n.toLocaleString('es-MX')}` : ''}</button>`;
 export function fillFollow(root, on, n){ root.querySelectorAll('.tp2-fslot,.tp2-fslot2,.tp2-fslot3').forEach(s => { s.innerHTML = followBtn(on, n, root.dataset.followLabel); }); root.querySelectorAll('[data-follow-count]').forEach(el => { el.textContent = (+n || 0).toLocaleString('es-MX'); }); }
 // carrusel de destacadas (manual)
+// Fase 6: el orden de lectura y de tabulación coincide con el orden visual en móvil.
+// Al cambiar de anchura se restauran los mismos nodos, sin clonar datos ni duplicar IDs.
+export function mobileSequence(order, positions){
+  return [...order].sort((a,b) => (positions[a] ?? 999) - (positions[b] ?? 999) || order.indexOf(a) - order.indexOf(b));
+}
+export function bindMobileComposition(root){
+  const container = root?.querySelector?.('.tp2-composition');
+  if (!container) return;
+  const originalUnits = Array.from(container.children);
+  const pairedUnit = originalUnits.find(el => el.dataset?.paired === 'true');
+  const editorialPair = pairedUnit?.querySelector('.tp2-editorial-pair');
+  const featured = editorialPair?.querySelector('.tp2-feature-block');
+  const upcoming = editorialPair?.querySelector('.tp2-next');
+  let splitUnits = null, currentMode = '';
+  const splitPair = () => {
+    if (!pairedUnit || !editorialPair || !featured || !upcoming || splitUnits) return;
+    const create = (section, content, position, emphasis) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'tp2-unit';
+      wrapper.dataset.section = section;
+      wrapper.dataset.emphasis = emphasis;
+      wrapper.style.setProperty('--mobile-position', position || '0');
+      wrapper.append(content);
+      return wrapper;
+    };
+    splitUnits = [
+      create('featured', featured, pairedUnit.style.getPropertyValue('--mobile-featured'), pairedUnit.dataset.emphasis),
+      create('next', upcoming, pairedUnit.style.getPropertyValue('--mobile-next'), 'normal')
+    ];
+  };
+  const reconcile = () => {
+    if (!root.isConnected) return;
+    const width = root.closest('.tp2w')?.getBoundingClientRect().width || root.getBoundingClientRect().width;
+    const mobile = width <= 640 && container.dataset.mobileOrder === 'propio';
+    const mode = mobile ? 'mobile' : 'desktop';
+    if (mode === currentMode) return;
+    currentMode = mode;
+    if (!mobile) {
+      if (splitUnits) {
+        editorialPair.append(featured, upcoming);
+        splitUnits = null;
+      }
+      container.replaceChildren(...originalUnits);
+      return;
+    }
+    splitPair();
+    const units = originalUnits.flatMap(unit => unit === pairedUnit && splitUnits ? splitUnits : [unit]);
+    const ordered = mobileSequence(units, Object.fromEntries(units.map((unit, i) => [
+      i, Number.parseInt(unit.style.getPropertyValue('--mobile-position'), 10) || 0
+    ])));
+    container.replaceChildren(...ordered);
+  };
+  reconcile();
+  if (typeof ResizeObserver !== 'undefined') {
+    const observer = new ResizeObserver(() => {
+      if (!root.isConnected) { observer.disconnect(); return; }
+      reconcile();
+    });
+    observer.observe(root.closest('.tp2w') || root);
+  } else if (typeof window !== 'undefined') {
+    const onResize = () => {
+      if (!root.isConnected) return window.removeEventListener('resize', onResize);
+      reconcile();
+    };
+    window.addEventListener('resize', onResize, { passive: true });
+  }
+}
 export function bind(root){
   const tabs = [...root.querySelectorAll('.tp2-tabs a')];
   const activate = active => tabs.forEach(a => { const on = a === active; a.classList.toggle('on', on); if (on) a.setAttribute('aria-current', 'location'); else a.removeAttribute('aria-current'); });
@@ -604,6 +668,7 @@ export function bind(root){
     }, { rootMargin: '-15% 0px -65% 0px' });
     targets.forEach(el => observer.observe(el));
   }
+  bindMobileComposition(root);
   const car = root.querySelector('.tp2-car'); if (!car) return;
   const dots = [...root.querySelectorAll('.tp2-dots i')], idx = () => Math.round(car.scrollLeft / car.clientWidth);
   root.querySelectorAll('[data-car]').forEach(b => b.onclick = e => { e.preventDefault(); const n = car.children.length, i = (idx() + +b.dataset.car + n) % n; car.scrollTo({ left: i * car.clientWidth, behavior: 'smooth' }); });
