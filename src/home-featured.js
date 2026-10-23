@@ -28,10 +28,17 @@ export function homeFeaturedSelection({series=[], news={entries:[],bySeries:{}},
   };
   const pool = {};
   const updates=(news.entries || []).filter(g=>existing(g.id)).sort((a,b)=>(+b.time || Date.parse(b.at)||0)-(+a.time || Date.parse(a.at)||0));
-  pool.release=firstUnique(updates.map(g=>({id:g.id,kind:'release',label:g.kind==='volume'?'Nuevo volumen':'Nuevo capítulo',at:g.at,volume:g.volume||null})));
+  const recentLaunch=g=>g?.kind==='volume' && g.isNewSeries===true && isValidDate(g.at)
+    && Date.parse(g.at)<=+new Date(now) && +new Date(now)-Date.parse(g.at)<7*MS_DAY;
+  const asRelease=g=>({id:g.id,kind:'release',label:recentLaunch(g)?'Nuevo lanzamiento':g.kind==='volume'?'Nuevo volumen':'Nuevo capítulo',at:g.at,volume:g.volume||null});
+  const launches=updates.filter(recentLaunch).map(asRelease);
   const urgent=updates.filter(completeRelease).map(g=>({id:g.id,kind:'release',label:'¡Novela completa!',at:g.at,volume:g.volume,urgent:true}));
-  // La novela completa recién publicada rompe la rotación diaria; no se pospone hasta medianoche.
-  if(urgent.length) pool.release=firstUnique([...urgent,...pool.release]);
+  // El estreno real más reciente y la novela completada de mayor actualidad
+  // tienen prioridad sobre hallazgos con pocas vistas o lanzamientos antiguos.
+  // Las publicaciones pasadas no deben desplazar indefinidamente a los nuevos estrenos.
+  const priorityReleases=firstUnique([...launches,...urgent.slice(0,1)]
+    .sort((a,b)=>Date.parse(b.at)-Date.parse(a.at)),2);
+  pool.release=firstUnique([...priorityReleases,...updates.map(asRelease)]);
   pool.popular=firstUnique(sortScore(weekly).filter(r=>existing(r.series_id)).map(r=>({id:r.series_id,kind:'popular',label:'Top de la semana'})));
   pool.historic=firstUnique(sortScore(historic).filter(r=>existing(r.series_id)).map(r=>({id:r.series_id,kind:'historic',label:'Lo más visto'})));
   pool.editorial=firstUnique(editorial.filter(id=>existing(id)).map(id=>({id,kind:'editorial',label:'Selección de El Obi'})));
@@ -59,8 +66,9 @@ export function homeFeaturedSelection({series=[], news={entries:[],bySeries:{}},
   const limit=Math.max(0,Math.trunc(Number.isFinite(max)?max:8),7+pool.team.length);
   const add=x=>{if(!x||used.has(x.id)||chosen.length>=limit)return false;chosen.push(x);used.add(x.id);return true;};
   const releases=pool.release || [];
-  // Publicación completa: conserva entrada inmediata en primera posición.
-  if(urgent[0])add(urgent[0]);
+  // Reservar las primeras posiciones para los estrenos reales más recientes.
+  // No ceder su etiqueta a la categoría «Joya por descubrir» por tener pocas vistas.
+  for(const release of priorityReleases)add(release);
   const reservedTeams=new Set(pool.team.map(x=>x.id));
   const rotatedNews=rotate(releases.filter(x=>!used.has(x.id)),today,'release');
   for(const x of rotatedNews){
