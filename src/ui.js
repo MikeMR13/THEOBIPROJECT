@@ -153,7 +153,7 @@ const RK_CSS = `
 .rk-bar{display:grid;gap:12px;margin:0 0 26px}.rk-row{display:flex;gap:12px 18px;flex-wrap:wrap;align-items:center}
 .rk-seg{display:inline-flex;flex-wrap:wrap;border:1px solid #3d3628}.rk-seg button{min-height:40px;padding:0 14px;background:none;border:0;border-right:1px solid #3d3628;color:#cfc6b0;font:inherit;font-size:13px;font-weight:600;cursor:pointer}.rk-seg button:last-child{border-right:0}.rk-seg button.on{background:var(--gold);color:#0d0c0a}.rk-seg button:disabled{opacity:.35;cursor:not-allowed}
 .rk-sel{display:flex;gap:8px;align-items:center}.rk-sel select{min-height:40px;font-size:13px}
-.rk-desc{margin:0;font-size:12px;color:#a89f8a;line-height:1.5}
+.rk-desc{margin:0;font-size:12px;color:#a89f8a;line-height:1.5}\n#rk-filters[hidden],#rk[hidden],#rk-teams[hidden],#rk-autoh[hidden]{display:none!important}\n.rk-team-panel{display:grid;gap:20px;padding:22px;border:1px solid var(--line);border-top:3px solid var(--gold);background:#14120e}\n.rk-team-header{display:flex;align-items:end;justify-content:space-between;flex-wrap:wrap;gap:14px}\n.rk-team-header h2{margin:0;font-size:clamp(23px,3vw,32px)}\n.rk-team-select{display:grid;gap:7px;min-width:min(100%,240px);font:600 13px 'IBM Plex Sans',sans-serif}\n.rk-team-select select{min-height:44px;width:100%;max-width:380px}\n.rk-team-note{font:12px/1.5 'IBM Plex Mono',monospace;color:var(--mute);margin:0}\n.rk-team-panel .rk-grid{margin-top:8px}\n@media(max-width:600px){.rk-team-panel{padding:14px}.rk-team-select{width:100%}}
 .rk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,168px),1fr));gap:30px 20px}
 .rk-c{position:relative;display:grid;gap:10px;align-content:start;color:var(--paper);text-decoration:none}.rk-c .ui-book{transition:transform .2s}.rk-c:hover .ui-book{transform:translateY(-4px)}.rk-c:hover b{color:var(--gold)}
 .rk-n{position:absolute;z-index:2;top:-10px;left:-8px;min-width:44px;height:44px;padding:0 8px;display:flex;align-items:center;justify-content:center;background:#0d0c0a;border:2px solid var(--c);font-family:'Shippori Mincho B1',serif;font-weight:800;font-size:22px;line-height:1;color:var(--paper);box-shadow:0 4px 12px rgba(0,0,0,.45)}
@@ -520,37 +520,31 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const shelf = list.slice(0, 24);
     const gc = new Map(); list.forEach(x => (x.genres || []).forEach(g => gc.set(g, (gc.get(g) || 0) + 1)));
     const genres = [...gc].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es')).slice(0, 6);
-    const tmap = new Map(); rkWv.forEach(r => { const x = byId[r.series_id], t = x?.teams; if (!t?.slug) return; let g = tmap.get(t.slug); if (!g) tmap.set(t.slug, g = { t, sum: 0, rows: [] }); g.sum += +r.score || 0; g.rows.push({ s: x, n: +r.score || 0 }); });
-    const teamsTop = [...tmap.values()].sort((a, b) => b.sum - a.sum).slice(0, 6);
     const done = list.filter(x => x.translation_status === 'completed').sort((a, b) => new Date(lastCh[b.id]?.publish_at || 0) - new Date(lastCh[a.id]?.publish_at || 0) || (b.views || 0) - (a.views || 0)).slice(0, 15);
     const cover = (s, tag) => { const t = tag || (top[s.id] ? 'TOP ' + top[s.id] : ''); return s.cover_path ? `<span class="cv" style="background-image:url('${esc(thumb(s))}')">${t ? `<i>${t}</i>` : ''}</span>` : `<span class="cv no" style="--c:${esc(color(s))}">${t ? `<i>${t}</i>` : ''}${esc(s.short || s.title)}</span>`; };
     const cc = (s, sub, tag) => `<a class="ob-cc" href="/serie/${s.slug}">${cover(s, tag)}<b>${esc(s.title)}</b><small>${sub}</small></a>`;
     const arrows = id => `<span class="ob-arr"><button type="button" data-cs="${id}" data-d="-1" aria-controls="${id}" aria-label="Anteriores">‹</button><button type="button" data-cs="${id}" data-d="1" aria-controls="${id}" aria-label="Siguientes">›</button></span>`;
     const head = (k, t, right = '') => `<div class="ob-st"><span class="k">${k}</span><h2>${t}</h2>${right}</div>`;
-    const tcar = (g, i) => `<div class="ob-tm"><div class="ob-tmh"><a href="/equipo/${esc(g.t.slug)}" style="--tc:${esc(g.t.color || '#f2c230')}"><b>${esc(g.t.name)}</b></a><span class="mono">${Math.round(g.sum).toLocaleString('es-MX')} lectores esta semana</span>${arrows('ob-tcar-' + i)}</div>
-      <div class="ob-car" id="ob-tcar-${i}">${g.rows.slice(0, 15).map((r, j) => cc(r.s, Math.round(r.n).toLocaleString('es-MX') + ' lectores', '#' + (j + 1))).join('')}</div></div>`;
     setTimeout(() => import('/agenda.js?v=1').then(A => A.openToday({ sb, esc }, document.getElementById('ob-open-today'))).catch(() => {}), 0);
     app.innerHTML = `<div class="ob-page">
       <div class="ob-mast"><b>翻訳図書館</b><span>Biblioteca de novelas ligeras · Español latino</span></div>
       ${grp.length ? `<div class="ob-tick" aria-label="Novedades"><div class="ob-track">${[0, 1].map(k => `<span${k ? ' aria-hidden="true"' : ''}>${[...grp, ...grp].slice(0, Math.max(6, grp.length)).map((g, i) => `<a href="${g.kind === 'volume' ? '/serie/' + byId[g.id].slug : '/leer/' + byId[g.id].slug + '/' + g.chs[0].num}"${k ? ' tabindex="-1"' : ''} style="color:inherit;text-decoration:none">${g.kind === 'volume' ? '<b>NUEVO VOLUMEN</b> · ' : tickerNotice(byId[g.id]) || (i === 0 ? 'NUEVO · ' : '★ ')}${esc(byId[g.id].title)}${g.kind === 'volume' ? ' — Volumen ' + esc(g.volume.num) : ' · ' + caps(g.chs)}</a>`).join('')}</span>`).join('')}</div></div>` : ''}
       <div id="ob-fest-slot"></div>
       <section class="ob-hero" id="hero" ${feat.length ? '' : 'style="display:none"'}></section><div id="ob-open-today"></div>
+      ${grp.length ? `<section class="ob-sec ob-releases" style="border-top:none;padding-top:32px">${head('新着', 'Nuevos volúmenes y capítulos', '<a class="r" href="/lanzamientos">Todos los lanzamientos →</a>')}
+        <div class="ob-upd ob-anim">${grp.map((g, gi) => { const s = byId[g.id], c = g.chs[0] || {}, v = g.kind === 'volume' ? g.volume : null, coverPath = v?.cover_path || s.cover_path, dk = dayK(g.at), prevK = gi ? dayK(grp[gi - 1].at) : null; return `${dk !== prevK ? `<h3 class="mono" style="margin:${gi ? '14px' : '0'} 0 4px;font-size:11px;letter-spacing:.14em;color:var(--mute)">${dk.toUpperCase()}</h3>` : ''}<a class="ob-urow${v ? ' is-volume' : ''}" href="${v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + c.num}"><i style="background:${esc(color(s))}"></i>${coverPath ? `<span class="ob-ucover" aria-hidden="true" style="background-image:url('${esc(media(coverPath))}')"></span>` : ''}<span class="ob-u-info">${v ? '<span class="ob-u-kind">¡Nuevo volumen!</span>' : ''}<b>${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}${utag(s)}</b><span class="t">${v ? (v.title && v.title.trim() && v.title.trim() !== String(v.num) && !/^volumen\s*\d+$/i.test(v.title.trim()) ? esc(v.title) : 'Volumen completo disponible') : caps(g.chs) + (g.chs.length === 1 && c.title ? ' — ' + esc(c.title) : '')}</span></span>${publicationDate(g.at) ? `<time datetime="${esc(g.at)}">${ago(g.at)}</time>` : ''}</a>`; }).join('') }</div></section>` : ''}
       ${u ? '' : `<div class="ob-hi" style="display:grid;gap:18px"><p style="flex:none"><strong>Bienvenido a El Obi del Lector.</strong> Novelas ligeras traducidas al español por grupos de fans.</p>
         <ol style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px"><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">探</span><span><b style="display:block;font-size:15px">Descubre</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Busca por género o mira lo más leído de la semana.</span></span></li><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">追</span><span><b style="display:block;font-size:15px">Sigue una obra</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Recibe novedades de volúmenes completos y capítulos individuales.</span></span></li><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">続</span><span><b style="display:block;font-size:15px">Lee sin perderte</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Tu progreso se guarda en todos tus dispositivos.</span></span></li></ol>
         <div><a class="a1" href="/entrar">Crear cuenta gratis</a><a class="a2" href="/catalogo" style="border-color:transparent">o explora el catálogo →</a></div></div>`}
       ${cont.length ? `<div class="ob-band" style="display:flex;align-items:baseline;gap:14px;margin:56px 0 0;padding-bottom:10px;border-bottom:2px solid var(--gold)"><span aria-hidden="true" style="font-family:'Shippori Mincho B1',serif;font-size:28px;color:var(--gold)">君</span><h2 style="margin:0;font-size:clamp(26px,3vw,40px);font-family:'Shippori Mincho B1',serif;font-weight:500">Para ti</h2></div>` : ''}
       ${cont.length ? `<section class="ob-sec" style="border-top:none">${head('続読', 'Continuar leyendo', '<a class="r" href="/biblioteca">Mi biblioteca →</a>')}<div class="ui-cont ob-anim">${cont.map(p => { const s = byId[p.series_id]; return `<a class="ui-ccard" href="/leer/${s.slug}/${p.chapter_num}" style="--c:${esc(color(s))}"><span class="th" style="background-image:${s.cover_path ? `url('${esc(thumb(s))}')` : 'none'}"></span><span><span class="ui-lbl">Cap. ${p.chapter_num}${s.chapters?.[0]?.count ? ' de ' + s.chapters[0].count : ''} · ${Math.round((p.pct || 0) * 100)}% · ${ago(p.updated_at)}</span><br><strong>${esc(s.title)}</strong><span class="ui-bar"><i style="width:${Math.round((p.pct || 0) * 100)}%"></i></span></span></a>`; }).join('')}</div></section>` : ''}
       <div id="ob-s-pend"></div><div id="ob-s-foryou"></div>
-      ${grp.length ? `<div class="ob-band" style="display:flex;align-items:baseline;gap:14px;margin:56px 0 0;padding-bottom:10px;border-bottom:2px solid var(--gold)"><span aria-hidden="true" style="font-family:'Shippori Mincho B1',serif;font-size:28px;color:var(--gold)">新</span><h2 style="margin:0;font-size:clamp(26px,3vw,40px);font-family:'Shippori Mincho B1',serif;font-weight:500">Lo nuevo</h2></div><section class="ob-sec" style="border-top:none">${head('新着', 'Nuevos volúmenes y capítulos', '<a class="r" href="/lanzamientos">Todos los lanzamientos →</a>')}
-        <div class="ob-upd ob-anim">${grp.map((g, gi) => { const s = byId[g.id], c = g.chs[0] || {}, v = g.kind === 'volume' ? g.volume : null, coverPath = v?.cover_path || s.cover_path, dk = dayK(g.at), prevK = gi ? dayK(grp[gi - 1].at) : null; return `${dk !== prevK ? `<h3 class="mono" style="margin:${gi ? '14px' : '0'} 0 4px;font-size:11px;letter-spacing:.14em;color:var(--mute)">${dk.toUpperCase()}</h3>` : ''}<a class="ob-urow${v ? ' is-volume' : ''}" href="${v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + c.num}"><i style="background:${esc(color(s))}"></i>${coverPath ? `<span class="ob-ucover" aria-hidden="true" style="background-image:url('${esc(media(coverPath))}')"></span>` : ''}<span class="ob-u-info">${v ? '<span class="ob-u-kind">¡Nuevo volumen!</span>' : ''}<b>${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}${utag(s)}</b><span class="t">${v ? (v.title && v.title.trim() && v.title.trim() !== String(v.num) && !/^volumen\s*\d+$/i.test(v.title.trim()) ? esc(v.title) : 'Volumen completo disponible') : caps(g.chs) + (g.chs.length === 1 && c.title ? ' — ' + esc(c.title) : '')}</span></span>${publicationDate(g.at) ? `<time datetime="${esc(g.at)}">${ago(g.at)}</time>` : ''}</a>`; }).join('') }</div></section>` : ''}
       ${nx.length ? `<section class="ob-sec">${head('予定', 'Próximos lanzamientos', '<a class="r" href="/calendario">Calendario →</a>')}
         <div class="ob-next ob-anim">${nx.map(e => `<a class="ob-nx" href="/serie/${esc(e.series.slug)}"><span class="w">${until(e.at)} · ${new Date(e.at).toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span><b>${esc(e.series.title)}</b><small>${e.kind === 'volume' ? 'Volumen completo · ' : ''}${esc(e.label || '')}</small></a>`).join('')}</div></section>` : ''}
       <div class="ob-band" style="display:flex;align-items:baseline;gap:14px;margin:56px 0 0;padding-bottom:10px;border-bottom:2px solid var(--gold)"><span aria-hidden="true" style="font-family:'Shippori Mincho B1',serif;font-size:28px;color:var(--gold)">探</span><h2 style="margin:0;font-size:clamp(26px,3vw,40px);font-family:'Shippori Mincho B1',serif;font-weight:500">Explora</h2></div>
       ${genres.length ? `<section class="ob-sec" style="border-top:none">${head('類', 'Géneros', '<a class="r" href="/catalogo">Catálogo completo →</a>')}<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr));gap:14px">${genres.slice(0, 8).map(([g, n]) => { const x = list.find(s => (s.genres || []).includes(g) && s.cover_path); return `<a href="/catalogo?g=${encodeURIComponent(g)}" style="position:relative;display:flex;align-items:flex-end;min-height:120px;padding:14px;color:#fbf8f1;text-decoration:none;border:1px solid var(--line);background:#16140f ${x ? `url('${esc(thumb(x))}') center 25%/cover` : ''};overflow:hidden"><span aria-hidden="true" style="position:absolute;inset:0;background:linear-gradient(transparent 20%,rgba(13,12,10,.92))"></span><span style="position:relative;display:grid;gap:2px"><b style="font-size:17px">${esc(g)}</b><small class="mono" style="font-size:11px;color:#cfc6b0">${n} ${n === 1 ? 'obra' : 'obras'}</small></span></a>`; }).join('')}</div></section>` : ''}
       ${rk.length ? `<section class="ob-sec ob-rank-section">${head('人気', 'Más leídas', `<span class="r2"><span class="mono" style="font-size:12px">${rkUse.lbl}</span><a class="r" href="/ranking?lista=leidas&periodo=${rkUse.per}">Ver ranking →</a>${arrows('ob-rank-car')}</span>`)}
         <div class="ob-rank ob-anim" id="ob-rank-car" tabindex="0" role="region" aria-roledescription="carrusel" aria-label="Novelas más leídas">${rk.map((r, i) => { const s = byId[r.series_id]; return `<a class="ob-ritem" href="/serie/${s.slug}"><span class="n">${i + 1}</span><span class="c" style="background-image:${s.cover_path ? `url('${esc(thumb(s))}')` : 'none'}"></span><b>${esc(s.title)}</b><small>${Math.round(+r.score || 0).toLocaleString('es-MX')} ${rkUse.per === 'semana' ? 'lectores' : 'vistas'} · ${s.chapters?.[0]?.count || 0} cap.</small></a>`; }).join('')}</div><div class="ob-rank-count mono" data-rank-status aria-live="off"></div></section>` : ''}
-      <div id="ob-s-trend"></div><div id="ob-s-rated"></div>
-      ${teamsTop.length ? `<section class="ob-sec">${head('訳者', 'Lo más visto de cada equipo', '<span class="r2"><span class="mono" style="font-size:12px">esta semana</span></span>')}<div class="ob-tms">${teamsTop.map(tcar).join('')}</div></section>` : ''}
       ${done.length ? `<section class="ob-sec">${head('完結', 'Traducciones terminadas', `<span class="r2"><a class="r" href="/catalogo?tl=completed">Ver todas →</a>${arrows('ob-car-done')}</span>`)}<div class="ob-car" id="ob-car-done">${done.map(x => cc(x, (x.chapters?.[0]?.count || 0) + ' capítulos', 'COMPLETA')).join('')}</div></section>` : ''}
       <div id="ob-s-ann"></div><div id="ob-s-rev"></div>
       ${shelf.length ? `<section class="ob-sec">${head('書架', 'Series', `<span class="r2"><a class="r" href="/catalogo">Ver todas →</a>${arrows('ob-car')}</span>`)}
@@ -659,23 +653,15 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     // Fase 2: secciones secundarias, sin bloquear lo anterior.
     const fill = (id, html) => { const el = document.getElementById(id); if (!el || !html) return; el.outerHTML = html; const sec = document.querySelector('[data-from="' + id + '"]'); if (sec) bindCars(sec); };
     const seen = new Set([...Object.keys(prog)]);
-    const mini = (title, k, rows, unit, per, lst) => rows.length ? `<div class="ob-mini"><div class="ob-mh"><h3>${title}</h3><a class="r" href="/ranking?lista=${lst}&periodo=${per}">Ver →</a></div>${rows.map((r, i) => { const x = byId[r.series_id]; return `<a href="/serie/${x.slug}"><span class="n">${i + 1}</span><span class="c" style="${x.cover_path ? `background-image:url('${esc(thumb(x))}')` : `background:${esc(color(x))}`}"></span><span><b>${esc(x.title)}</b><small>${unit(r)}</small></span></a>`; }).join('')}</div>` : '';
     Promise.all([
-      ...(FD.trend ? [FD.trend, FD.novedades, FD.rated, FD.ann, FD.reviews].map(d => ({ data: d })) : [
-      sb.rpc('ranking_list', { p_list: 'tendencia', p_period: 'semana', p_limit: 10 }),
-      sb.rpc('ranking_list', { p_list: 'novedades', p_period: 'semana', p_limit: 10 }),
-      sb.rpc('ranking_list', { p_list: 'calificadas', p_period: 'historico', p_limit: 12 }),
+      ...(FD.ann !== undefined && FD.reviews !== undefined ? [FD.ann, FD.reviews].map(d => ({ data: d })) : [
       sb.from('teams').select('slug,name,color,ann:design->announce').not('design->announce', 'is', null),
       sb.rpc('home_reviews', { p_limit: 6 })]),
       u ? sb.rpc('reader_stats') : { data: null },
       u ? sb.from('follows').select('series_id').eq('user_id', u.id).limit(60) : { data: [] },
       u ? sb.from('read_chapters').select('chapter_id').eq('user_id', u.id) : { data: [] }
-    ].map(p => Promise.resolve(p).catch(() => ({ data: null })))).then(async ([{ data: tr }, { data: nv }, { data: rt }, { data: an }, { data: rv }, { data: st }, { data: fo }, { data: rc }]) => {
+    ].map(p => Promise.resolve(p).catch(() => ({ data: null })))).then(async ([{ data: an }, { data: rv }, { data: st }, { data: fo }, { data: rc }]) => {
       if (location.pathname !== '/') return;
-      const T = (tr || []).filter(r => byId[r.series_id] && +r.score > 0).slice(0, 5), N = (nv || []).filter(r => byId[r.series_id]).slice(0, 5);
-      if (T.length || N.length) fill('ob-s-trend', `<section class="ob-sec" data-from="ob-s-trend">${head('勢い', 'En movimiento', '<span class="r2"><span class="mono" style="font-size:12px">esta semana</span></span>')}<div class="ob-minis">${mini('Tendencia', 't', T, r => '+' + Math.round(+r.score).toLocaleString('es-MX') + ' lectores vs. semana pasada', 'semana', 'tendencia')}${mini('Novedades en ascenso', 'n', N, r => Math.round(+r.score).toLocaleString('es-MX') + ' lectores · menos de 30 días', 'semana', 'novedades')}</div></section>`);
-      const R = (rt || []).filter(r => byId[r.series_id]).slice(0, 12);
-      if (R.length) fill('ob-s-rated', `<section class="ob-sec" data-from="ob-s-rated">${head('評価', 'Mejor calificadas', `<span class="r2"><a class="r" href="/ranking?lista=calificadas&periodo=historico">Ver ranking →</a>${arrows('ob-car-rt')}</span>`)}<div class="ob-car" id="ob-car-rt">${R.map(r => cc(byId[r.series_id], '★ ' + (+r.score).toFixed(1) + ' · ' + r.votes + ' votos', '★ ' + (+r.score).toFixed(1))).join('')}</div></section>`);
       const today = new Date().toISOString().slice(0, 10);
       const A = (an || []).filter(t => t.ann && (t.ann.title || t.ann.text) && (!t.ann.until || t.ann.until >= today)).sort((a, b) => new Date(b.ann.at || 0) - new Date(a.ann.at || 0)).slice(0, 4);
       if (A.length) fill('ob-s-ann', `<section class="ob-sec" data-from="ob-s-ann">${head('告知', 'Anuncios de los equipos')}<div class="ob-anns">${A.map(t => `<article class="ob-ann" style="--tc:${esc(t.color || '#f2c230')}"><a class="tm" href="/equipo/${esc(t.slug)}">${esc(t.name)}</a>${t.ann.at && ago(t.ann.at) ? `<span class="mono">${ago(t.ann.at)}</span>` : ''}${t.ann.title ? `<h3>${esc(t.ann.title)}</h3>` : ''}${t.ann.text ? `<p>${esc(t.ann.text)}</p>` : ''}${t.ann.url && /^(https:\/\/|\/)/.test(t.ann.url) ? `<a class="go" href="${esc(t.ann.url)}"${t.ann.url.startsWith('/') ? '' : ' target="_blank" rel="noopener"'}>${esc(t.ann.label || 'Ver más')} →</a>` : `<a class="go" href="/equipo/${esc(t.slug)}">Ir a la página del equipo →</a>`}</article>`).join('')}</div></section>`);
@@ -1198,34 +1184,70 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   async function ranking(){
     rkCss();
     const qs = new URLSearchParams(location.search);
-    const R = { list: RK_L[qs.get('lista')] ? qs.get('lista') : 'leidas', period: RK_P[qs.get('periodo')] ? qs.get('periodo') : 'semana', genre: qs.get('genero') || '', status: ['en_curso', 'terminada'].includes(qs.get('estado')) ? qs.get('estado') : '' };
+    const R = { list: RK_L[qs.get('lista')] ? qs.get('lista') : 'leidas', period: RK_P[qs.get('periodo')] ? qs.get('periodo') : 'semana', genre: qs.get('genero') || '', status: ['en_curso', 'terminada'].includes(qs.get('estado')) ? qs.get('estado') : '', teamView: qs.get('vista') === 'equipos' || !!qs.get('equipo'), team: qs.get('equipo') || '' };
     app.innerHTML = '<p class="mono">Cargando el ranking…</p>';
     let autoHist = false;
     if (!qs.get('periodo')) { const { count } = await sb.from('rankings').select('series_id', { count: 'exact', head: true }).eq('list', R.list).eq('period', 'semana'); if (!count) { R.period = RK_OK[R.list] ? R.period : 'historico'; autoHist = R.period === 'historico'; } }
-    const { data: gs } = await sb.from('series').select('genres').eq('published', true);
+    const { data: gs } = await sb.from('series').select('id,genres,team_id,teams(name,slug,color)').eq('published', true);
     const genres = [...new Set((gs || []).flatMap(x => x.genres || []))].sort((a, b) => a.localeCompare(b, 'es'));
     if (R.genre && !genres.includes(R.genre)) R.genre = '';
+    const teams = [...new Map((gs || []).filter(s => s.teams?.slug).map(s => [s.teams.slug, s.teams])).values()].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    if (!teams.some(t => t.slug === R.team)) R.team = teams[0]?.slug || '';
     app.innerHTML = `<div class="ui-cath"><div><h1>Ranking</h1><p>Las obras que más se leen, más suben y más gustan.</p></div><span class="kj" aria-hidden="true">番付</span></div>${autoHist ? '<p class="mono" id="rk-autoh" style="margin:-6px 0 18px;font-size:13px">Esta semana todavía no hay suficientes lecturas: te mostramos el ranking de todos los tiempos.</p>' : ''}
       <div class="rk-bar">
-        <div class="ui-chips" role="group" aria-label="Lista">${Object.entries(RK_L).map(([k, l]) => `<button class="ui-chip" data-rl="${k}">${l}</button>`).join('')}</div>
-        <div class="rk-row"><div class="rk-seg" role="group" aria-label="Periodo">${Object.entries(RK_P).map(([k, l]) => `<button type="button" data-rp="${k}">${l}</button>`).join('')}</div>
+        <div class="ui-chips" role="group" aria-label="Lista">${Object.entries(RK_L).map(([k, l]) => `<button class="ui-chip" type="button" data-rl="${k}">${l}</button>`).join('')}<button class="ui-chip" type="button" id="rk-team-tab" aria-controls="rk-teams">Por equipo</button></div>
+        <div id="rk-filters"><div class="rk-row"><div class="rk-seg" role="group" aria-label="Periodo">${Object.entries(RK_P).map(([k, l]) => `<button type="button" data-rp="${k}">${l}</button>`).join('')}</div>
           <label class="rk-sel"><span class="ui-lbl">Género</span><select id="rk-g"><option value="">Todos</option>${genres.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('')}</select></label>
           <div class="rk-seg" role="group" aria-label="Estado">${[['', 'Todas'], ['en_curso', 'En curso'], ['terminada', 'Terminadas']].map(([k, l]) => `<button type="button" data-rs="${k}">${l}</button>`).join('')}</div></div>
-        <p class="mono rk-desc" id="rk-desc"></p>
-      </div><div id="rk"></div>`;
+        <p class="mono rk-desc" id="rk-desc"></p></div>
+      </div><div id="rk"></div>
+      <section id="rk-teams" class="rk-team-panel" aria-labelledby="rk-teams-title" hidden>
+        <div class="rk-team-header"><div><h2 id="rk-teams-title">Lo más visto de cada equipo</h2>
+          <p class="rk-team-note">Novelas ordenadas por lectores distintos de esta semana.</p></div>
+          <label class="rk-team-select" for="rk-team-sel">Equipo
+            <select id="rk-team-sel" aria-label="Seleccionar equipo">${teams.map(t => `<option value="${esc(t.slug)}">${esc(t.name)}</option>`).join('')}</select>
+          </label></div>
+        <div id="rk-team-results" aria-live="polite"></div>
+      </section>`;
     $('#rk-g').value = R.genre;
     const sync = () => {
       const ok = RK_OK[R.list]; if (ok && !ok.includes(R.period)) R.period = 'semana';
-      const q = new URLSearchParams(); if (R.list !== 'leidas') q.set('lista', R.list); if (R.period !== 'semana') q.set('periodo', R.period); if (R.genre) q.set('genero', R.genre); if (R.status) q.set('estado', R.status);
+      const q = new URLSearchParams();
+      if (R.teamView) { q.set('vista', 'equipos'); if (R.team) q.set('equipo', R.team); }
+      else { if (R.list !== 'leidas') q.set('lista', R.list); if (R.period !== 'semana') q.set('periodo', R.period); if (R.genre) q.set('genero', R.genre); if (R.status) q.set('estado', R.status); }
       history.replaceState({}, '', '/ranking' + (q.toString() ? '?' + q : ''));
-      app.querySelectorAll('[data-rl]').forEach(b => { b.classList.toggle('on', b.dataset.rl === R.list); b.setAttribute('aria-pressed', b.dataset.rl === R.list); });
+      app.querySelectorAll('[data-rl]').forEach(b => { b.classList.toggle('on', !R.teamView && b.dataset.rl === R.list); b.setAttribute('aria-pressed', String(!R.teamView && b.dataset.rl === R.list)); });
       app.querySelectorAll('[data-rp]').forEach(b => { b.classList.toggle('on', b.dataset.rp === R.period); b.disabled = !!ok && !ok.includes(b.dataset.rp); b.setAttribute('aria-pressed', b.dataset.rp === R.period); });
       app.querySelectorAll('[data-rs]').forEach(b => { b.classList.toggle('on', b.dataset.rs === R.status); b.setAttribute('aria-pressed', b.dataset.rs === R.status); });
       $('#rk-desc').textContent = RK_D[R.list];
+      $('#rk-team-tab').classList.toggle('on', R.teamView); $('#rk-team-tab').setAttribute('aria-pressed', String(R.teamView));
+      $('#rk-filters').hidden = R.teamView; $('#rk').hidden = R.teamView; $('#rk-teams').hidden = !R.teamView;
+      if ($('#rk-autoh')) $('#rk-autoh').hidden = R.teamView;
+      if ($('#rk-team-sel') && R.team) $('#rk-team-sel').value = R.team;
     };
     let tk = 0;
+    const drawTeam = async my => {
+      const box = $('#rk-team-results');
+      const team = teams.find(t => t.slug === R.team);
+      if (!team) { box.innerHTML = '<p class="mono">Aún no hay equipos con obras publicadas.</p>'; return; }
+      const ids = (gs || []).filter(s => s.teams?.slug === team.slug).map(s => s.id);
+      box.innerHTML = '<p class="mono">Cargando las obras del equipo…</p>';
+      if (!ids.length) { box.innerHTML = '<p class="mono">Este equipo no tiene obras publicadas.</p>'; return; }
+      const { data, error } = await sb.from('rankings').select('series_id,score,pos').eq('list', 'leidas').eq('period', 'semana').in('series_id', ids).order('score', { ascending: false }).limit(50);
+      if (my !== tk || !box.isConnected) return;
+      if (error) { box.innerHTML = `<p class="mono" role="alert">No se pudo cargar el ranking del equipo: ${esc(error.message)}</p>`; return; }
+      const rows = (data || []).filter(r => +r.score > 0);
+      if (!rows.length) { box.innerHTML = `<p class="mono">Este equipo todavía no registra lecturas en la clasificación semanal. <a href="/equipo/${esc(team.slug)}">Ver su página →</a></p>`; return; }
+      const { data: ss, error: se } = await sb.from('series').select(SERIES).eq('published', true).in('id', rows.map(r => r.series_id));
+      if (my !== tk || !box.isConnected) return;
+      if (se) { box.innerHTML = `<p class="mono" role="alert">No se pudieron cargar las obras: ${esc(se.message)}</p>`; return; }
+      const by = Object.fromEntries((ss || []).map(s => [s.id, s]));
+      const entries = rows.filter(r => by[r.series_id]);
+      box.innerHTML = `<p class="rk-team-note"><a href="/equipo/${esc(team.slug)}">${esc(team.name)} →</a> · ${entries.length} ${entries.length === 1 ? 'novela clasificada' : 'novelas clasificadas'}</p>` +
+        `<div class="rk-grid">${entries.map((r, i) => { const s = by[r.series_id]; return `<a class="rk-c${i < 3 ? ' top' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${i + 1} del equipo">${i + 1}</span>${book(s, null, true)}<span class="rk-b"><b>${esc(s.title)}</b><small>${fmtN(+r.score)} ${+r.score === 1 ? 'lector' : 'lectores'} · esta semana</small><span class="rk-s">${r.pos ? '#' + r.pos + ' general' : ''}</span></span></a>`; }).join('')}</div>`;
+    };
     const draw = async () => {
-      sync(); const my = ++tk, box = $('#rk'); box.innerHTML = '<p class="mono">Cargando…</p>';
+      sync(); const my = ++tk, box = $('#rk'); if (R.teamView) return drawTeam(my); box.innerHTML = '<p class="mono">Cargando…</p>';
       const { data, error } = await sb.rpc('ranking_list', { p_list: R.list, p_period: R.period, p_genre: R.genre || null, p_status: R.status || null, p_limit: 20 });
       if (my !== tk || !document.body.contains(box)) return;
       if (error) { box.innerHTML = `<p style="color:#f59e7a">No se pudo cargar el ranking: ${esc(error.message)}</p>`; return; }
@@ -1238,7 +1260,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       box.innerHTML = `<div class="rk-grid">${data.filter(r => by[r.series_id]).map(r => { const s = by[r.series_id]; return `<a class="rk-c${r.pos <= 3 ? ' top' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${r.pos}">${r.pos}</span>${book(s, null, true)}<span class="rk-b"><b>${esc(s.title)}</b>${s.teams?.name ? `<small>${esc(s.teams.name)}</small>` : ''}<span class="rk-s">${sc(r)}${mv(r)}</span></span></a>`; }).join('')}</div>
         <p class="mono rk-upd">Actualizado ${ago(data[0].computed_at)} · se recalcula cada 6 horas${filtered ? ' · con filtros no se muestra el movimiento' : ''}</p>`;
     };
-    app.querySelectorAll('[data-rl]').forEach(b => b.onclick = () => { R.list = b.dataset.rl; draw(); });
+    app.querySelectorAll('[data-rl]').forEach(b => b.onclick = () => { R.teamView = false; R.list = b.dataset.rl; draw(); });
+    $('#rk-team-tab').onclick = () => { R.teamView = true; draw(); };
+    $('#rk-team-sel').onchange = e => { R.team = e.target.value; if (R.teamView) draw(); };
     app.querySelectorAll('[data-rp]').forEach(b => b.onclick = () => { R.period = b.dataset.rp; draw(); });
     app.querySelectorAll('[data-rs]').forEach(b => b.onclick = () => { R.status = b.dataset.rs; draw(); });
     $('#rk-g').onchange = e => { R.genre = e.target.value; draw(); };

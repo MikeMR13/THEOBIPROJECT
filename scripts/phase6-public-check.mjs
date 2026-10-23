@@ -7,7 +7,13 @@ const s=readFileSync('src/ui.js','utf8'), tick=String.fromCharCode(96);
 const css2=s.match(/const CSS2 = ("(?:\\.|[^"\\])*");/);assert(css2,'Falta CSS2');
 const cssPart=n=>{let k='const '+n+' = '+tick,a=s.indexOf(k),b=s.indexOf(tick+';',a+k.length);assert(a>=0&&b>a,n);return s.slice(a+k.length,b)};
 const css=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(css2[1])+'\n'+cssPart('CSS')+'\n'+cssPart('HOME_CSS')+'\n'+readFileSync('src/reader-a11y.css','utf8');
-for(const x of ['@keyframes obTicker','function heroSlide(feat','const bindCars = root',"fill('ob-s-ann'",'ob-tcar-','const card = (s, st, lc, p)','const ficha = (s, st, lc, i, p)','data-view="portadas"','id="cat-q"','data-page="prev"','F.gout.includes(g)',"$('#cat-top').onchange",'const ageTag =','.ob-pager2>span button[data-j]{height:44px!important'])assert(s.includes(x),'Elemento no conservado: '+x);
+for(const x of ['@keyframes obTicker','function heroSlide(feat','const bindCars = root',"fill('ob-s-ann'",'id="ob-rank-car"','id="rk-team-tab"','id="rk-team-sel"','const drawTeam = async my','const card = (s, st, lc, p)','const ficha = (s, st, lc, i, p)','data-view="portadas"','id="cat-q"','data-page="prev"','F.gout.includes(g)',"$('#cat-top').onchange",'const ageTag =','.ob-pager2>span button[data-j]{height:44px!important'])assert(s.includes(x),'Elemento no conservado: '+x);
+// El contenido de clasificaciones no se duplica en Inicio: cada categoría pertenece a Ranking.
+const h=s.slice(s.indexOf('    app.innerHTML = `<div class="ob-page">'),s.indexOf('    const bindCars = root'));
+assert(h.includes('Más leídas') && h.includes('Nuevos volúmenes y capítulos'),'Escaparates principales no conservados');
+assert(h.indexOf('Nuevos volúmenes y capítulos') < h.indexOf('Continuar leyendo'),'Novedades deben aparecer antes de la biblioteca personal');
+assert(!h.includes('ob-s-trend') && !h.includes('ob-s-rated') && !h.includes('Lo más visto de cada equipo'),'Inicio no debe duplicar clasificaciones');
+assert(s.includes(".eq('period', 'semana').in('series_id', ids)"),'Ranking por equipo sin estadísticas semanales');
 for(const bad of ['96','1996-01-01T00:00:00Z','not-a-date'])assert.equal(publicationAge(bad),'','Fecha fantasma');
 // Regresión: las descargas aparecen en su propia pestaña, por volumen y accesibles.
 const volMarkup=s.slice(s.indexOf('const dlOf = v =>'),s.indexOf("app.querySelectorAll('[data-buy]')"));
