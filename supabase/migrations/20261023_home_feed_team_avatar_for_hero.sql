@@ -40,8 +40,7 @@ AS $function$
         left join public.series_ratings sr on sr.series_id = r.series_id and sr.user_id = r.user_id
         where length(trim(coalesce(r.body, ''))) > 20 order by r.updated_at desc limit 12) v), '[]'::jsonb)
   );
-$function$
-
+$function$;
 
 -- El snapshot puede sobrevivir hasta 15 minutos; reconstruirlo con el esquema nuevo
 -- en la misma migración, manteniendo el resto de las secciones de Inicio.
