@@ -18,7 +18,7 @@ assert.equal(publicationAge('2000-06-18T00:00:00Z',now).includes('2000'),true,'A
 assert.equal(publicationDate('2026-10-20T18:33:00Z',now)?.getUTCFullYear(),2026,'Tolerancia de 5 minutos');
 assert.equal(publicationDate('2026-10-20T18:40:00Z',now),null,'No presentar un lanzamiento futuro como publicación antigua');
 const markers=[
-  'const ago = d => publicationAge(d)', 'const dayK = d => publicationDay(d)',
+  'const ago = d => publicationAge(d)', 'const grp = news.entries.slice(0, 10)', 'aria-roledescription="carrusel" aria-label="Lanzamientos recientes"',
   'const featured = homeFeaturedSelection(',
   'const freshDate = publicationDate(pub?.at || lc?.publish_at)',
   'publicationDate(g.at) ? `<time datetime=',
