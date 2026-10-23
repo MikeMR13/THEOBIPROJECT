@@ -310,13 +310,15 @@ export function render(D, design, h){
   const corners = mot ? `<span class="tp2-cor l" style="background-image:url('${mot}')"></span><span class="tp2-cor r" style="background-image:url('${motifURL(SN.m, SN.c2, d.accent)}')"></span>` : '';
   const stamp = full ? `<span class="tp2-stamp"><i></i>${esc(SN.l.toUpperCase())}</span>` : '';
   const visibleOrder = d.order.filter(k => !d.hidden.includes(k));
-  const composedUnit = (key, html, joined = false) => html ? `<div class="tp2-unit" data-section="${key}" data-emphasis="${d.composition.emphasis[key]}"${joined ? ' data-paired="true"' : ''}>${html}</div>` : '';
+  const mobileSequence = (d.mobile.orderMode === 'propio' ? d.mobile.order : d.order).filter(k => !d.hidden.includes(k));
+  const mobilePos = key => Math.max(0, mobileSequence.indexOf(key));
+  const composedUnit = (key, html, joined = false) => html ? `<div class="tp2-unit" data-section="${key}" data-emphasis="${d.composition.emphasis[key]}"${joined ? ' data-paired="true"' : ''} style="--mobile-position:${mobilePos(key)}${joined ? ';--mobile-featured:' + mobilePos('featured') + ';--mobile-next:' + mobilePos('next') : ''}">${html}</div>` : '';
   const orderedContent = visibleOrder.reduce((out, key, i) => {
     if (key === 'next' && visibleOrder[i - 1] === 'featured' && E.featureStyle === 'editorial' && featH && nx) return out;
     if (key === 'featured' && visibleOrder[i + 1] === 'next' && E.featureStyle === 'editorial' && featH && nx) return out + composedUnit(key, `<div class="tp2-editorial-pair">${featH}${nx}</div>`, true);
     return out + composedUnit(key, SEC[key] || '');
   }, '');
-  const composition = `<div class="tp2-composition" data-columns="${d.composition.columns}">${orderedContent}</div>`;
+  const composition = `<div class="tp2-composition" data-columns="${d.composition.columns}" data-mobile-order="${d.mobile.orderMode}">${orderedContent}</div>`;
   const closeText = C.ctaText || COMMUNITY_DEFAULT.ctaText;
   const closeCta = C.showCta ? `<aside class="tp2-community-cta" aria-label="Seguir al equipo"><div class="tp2-community-note"><small>COMUNIDAD DEL GRUPO</small><h2>${esc(closeText)}</h2><p>Sigue a ${esc(t.name)} para mantenerte al día de sus publicaciones.</p></div><span class="tp2-fslot3"></span></aside>` : '';
   const flow = greet + composition + closeCta;
@@ -334,7 +336,7 @@ export function render(D, design, h){
   else if (d.template === 'editorial') body = `<div class="tp2-in"><header class="tp2-ed"><div class="tp2-edt">${logo}${name}${bio}${links}</div><div class="tp2-edi" style="${ban};position:relative">${orn}${corners}</div></header>${tabs}${summary}${flow}</div>`;
   else body = `<header class="tp2-ban" style="${ban};position:relative">${orn}${corners}</header><div class="tp2-in"><div class="tp2-head">${logo}<div>${name}</div></div>${bio}${links}${tabs}${summary}${flow}</div>`;
   const fbar = `<div class="tp2-fbar"><span>${esc(t.name)}</span><span class="tp2-fslot2"></span></div>`;
-  return `<div class="tp2w"><div class="tp2" id="grupo-inicio" data-tpl="${d.template}" data-feature="${E.featureStyle}" data-next="${E.nextStyle}" data-hero="${L.header}" data-align="${L.align}" data-follow-label="${L.followLabel}" data-cover="${d.cover}" data-btn="${d.button}" data-logo="${d.logo}" data-pat="${d.pattern}"${full ? ` data-season="${d.season}"` : ''} style="${vars(d)}${full ? `;--mot:url('${mot}');--motstrip:url('${stripURL(SN.m, d.accent, SN.c2)}');--c2:${SN.c2}` : ''}">${h.top || ''}${body}${fbar}</div></div>`;
+  return `<div class="tp2w"><div class="tp2" id="grupo-inicio" data-tpl="${d.template}" data-feature="${E.featureStyle}" data-next="${E.nextStyle}" data-hero="${L.header}" data-align="${L.align}" data-follow-label="${L.followLabel}" data-mobile-hero="${d.mobile.hero}" data-mobile-cards="${d.mobile.cards}" data-mobile-catalog="${d.mobile.catalog}" data-mobile-follow="${d.mobile.follow}" data-cover="${d.cover}" data-btn="${d.button}" data-logo="${d.logo}" data-pat="${d.pattern}"${full ? ` data-season="${d.season}"` : ''} style="${vars(d)}${full ? `;--mot:url('${mot}');--motstrip:url('${stripURL(SN.m, d.accent, SN.c2)}');--c2:${SN.c2}` : ''}">${h.top || ''}${body}${fbar}</div></div>`;
 }
 
 const CSS = `
@@ -543,6 +545,45 @@ const CSS = `
 @container (max-width:760px){
  .tp2-composition[data-columns=dos],.tp2-composition[data-columns=auto]{grid-template-columns:minmax(0,1fr);row-gap:24px}
  .tp2-composition .tp2-unit{grid-column:1/-1}
+}
+
+
+/* Fase 5: orden móvil independiente, tarjetas y cabecera sin alterar escritorio. */
+@container (max-width:640px){
+ .tp2-composition[data-mobile-order=propio] .tp2-unit{order:var(--mobile-position,0)}
+ /* La pareja editorial deja ordenar Obra y Próximo lanzamiento por separado en móvil. */
+ .tp2-composition[data-mobile-order=propio] .tp2-unit[data-paired=true],
+ .tp2-composition[data-mobile-order=propio] .tp2-editorial-pair{display:contents}
+ .tp2-composition[data-mobile-order=propio] .tp2-unit[data-paired=true] .tp2-feature-block{order:var(--mobile-featured,0);grid-column:1/-1}
+ .tp2-composition[data-mobile-order=propio] .tp2-unit[data-paired=true] .tp2-next{order:var(--mobile-next,1);grid-column:1/-1;max-width:none}
+ .tp2[data-mobile-hero=compacto] .tp2-hero{min-height:172px}
+ .tp2[data-mobile-hero=compacto] .tp2-ban{height:100px}
+ .tp2[data-mobile-hero=compacto] .tp2-edi{min-height:130px}
+ .tp2[data-mobile-hero=compacto] .tp2-in{gap:18px;padding-top:18px}
+ .tp2[data-mobile-hero=compacto] .tp2-logo{width:74px}
+ .tp2[data-mobile-hero=equilibrado] .tp2-hero{min-height:240px}
+ .tp2[data-mobile-hero=equilibrado] .tp2-ban{height:152px}
+ .tp2[data-mobile-hero=equilibrado] .tp2-edi{min-height:195px}
+ .tp2[data-mobile-hero=amplio] .tp2-hero{min-height:340px}
+ .tp2[data-mobile-hero=amplio] .tp2-ban{height:230px}
+ .tp2[data-mobile-hero=amplio] .tp2-edi{min-height:285px}
+ .tp2[data-mobile-cards=compacto] .tp2-feat{grid-template-columns:84px minmax(0,1fr);gap:10px;padding:10px}
+ .tp2[data-mobile-cards=compacto] .tp2-feat .tp2-cv{max-width:84px}
+ .tp2[data-mobile-cards=compacto] .tp2-feat b{font-size:18px}
+ .tp2[data-mobile-cards=compacto] .tp2-update{grid-template-columns:64px minmax(0,1fr);gap:9px;padding:9px}
+ .tp2[data-mobile-cards=compacto] .tp2-update .tp2-upcover{width:64px}
+ .tp2[data-mobile-cards=compacto] .tp2-person{padding:9px}
+ .tp2[data-mobile-cards=amplio] .tp2-feat{grid-template-columns: minmax(120px,38%) minmax(0,1fr);gap:18px;padding:18px}
+ .tp2[data-mobile-cards=amplio] .tp2-update{padding:16px;gap:15px}
+ .tp2[data-mobile-cards=amplio] .tp2-person{padding:18px}
+ .tp2[data-mobile-catalog=una] .tp2-works{grid-template-columns:minmax(0,1fr)}
+ .tp2[data-mobile-catalog=dos] .tp2-works{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .tp2[data-mobile-catalog=una] .tp2-w{grid-template-columns:80px minmax(0,1fr);align-items:center}
+ .tp2[data-mobile-catalog=una] .tp2-w .tp2-cv{grid-row:span 2}
+ .tp2[data-mobile-follow=ocultar] .tp2-fbar{display:none}
+ .tp2[data-mobile-follow=mostrar] .tp2-fbar{display:flex}
+ .tp2[data-mobile-follow=mostrar] .tp2-fbar .tp2-btn{min-height:44px}
+ .tp2[data-mobile-follow=ocultar] .tp2-community-cta{margin-bottom:10px}
 }
 
 `;
