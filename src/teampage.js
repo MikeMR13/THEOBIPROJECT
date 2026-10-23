@@ -590,8 +590,8 @@ export function fillFollow(root, on, n){ root.querySelectorAll('.tp2-fslot,.tp2-
 // carrusel de destacadas (manual)
 // Fase 6: el orden de lectura y de tabulación coincide con el orden visual en móvil.
 // Al cambiar de anchura se restauran los mismos nodos, sin clonar datos ni duplicar IDs.
-export function mobileSequence(order, positions){
-  return [...order].sort((a,b) => (positions[a] ?? 999) - (positions[b] ?? 999) || order.indexOf(a) - order.indexOf(b));
+export function mobileSequence(items, getPosition){
+  return items.map((item, index) => ({ item, index, position: getPosition(item) })).sort((a,b) => a.position - b.position || a.index - b.index).map(x => x.item);
 }
 export function bindMobileComposition(root){
   const container = root?.querySelector?.('.tp2-composition');
@@ -635,9 +635,7 @@ export function bindMobileComposition(root){
     }
     splitPair();
     const units = originalUnits.flatMap(unit => unit === pairedUnit && splitUnits ? splitUnits : [unit]);
-    const ordered = mobileSequence(units, Object.fromEntries(units.map((unit, i) => [
-      i, Number.parseInt(unit.style.getPropertyValue('--mobile-position'), 10) || 0
-    ])));
+    const ordered = mobileSequence(units, unit => Number.parseInt(unit.style.getPropertyValue('--mobile-position'), 10) || 0);
     container.replaceChildren(...ordered);
   };
   reconcile();
