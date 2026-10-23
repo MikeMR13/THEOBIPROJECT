@@ -156,16 +156,16 @@ const RK_CSS = `
 .rk-desc{margin:0;font-size:12px;color:#a89f8a;line-height:1.5}\n#rk-filters[hidden],#rk[hidden],#rk-teams[hidden],#rk-autoh[hidden]{display:none!important}\n.rk-team-panel{display:grid;gap:20px;padding:22px;border:1px solid var(--line);border-top:3px solid var(--gold);background:#14120e}\n.rk-team-header{display:flex;align-items:end;justify-content:space-between;flex-wrap:wrap;gap:14px}\n.rk-team-header h2{margin:0;font-size:clamp(23px,3vw,32px)}\n.rk-team-select{display:grid;gap:7px;min-width:min(100%,240px);font:600 13px 'IBM Plex Sans',sans-serif}\n.rk-team-select select{min-height:44px;width:100%;max-width:380px}\n.rk-team-note{font:12px/1.5 'IBM Plex Mono',monospace;color:var(--mute);margin:0}\n.rk-team-panel .rk-grid{margin-top:8px}\n@media(max-width:600px){.rk-team-panel{padding:14px}.rk-team-select{width:100%}}
 .rk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,168px),1fr));gap:30px 20px}
 .rk-overview[hidden]{display:none!important}
-.rk-overview{display:grid;gap:30px;margin:42px 0 0;padding-top:28px;border-top:1px solid var(--line)}
+.rk-overview{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;max-width:100%;box-sizing:border-box;gap:30px;margin:42px 0 0;padding-top:28px;border-top:1px solid var(--line)}
 .rk-overview-top h2{margin:0 0 8px;font-size:clamp(24px,3vw,32px);font-family:'Shippori Mincho B1',serif;font-weight:500}
 .rk-overview-top p{margin:0;color:var(--mute);font-size:13px;line-height:1.5}
-.rk-preview{display:grid;gap:17px;padding:0 0 26px;border-bottom:1px solid var(--line)}
+.rk-preview{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;max-width:100%;gap:17px;padding:0 0 26px;border-bottom:1px solid var(--line)}
 .rk-preview-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 16px}
 .rk-preview-head h3{font-size:22px;font-family:'Shippori Mincho B1',serif;font-weight:500;margin:0}
 .rk-preview-head a,.rk-preview-team a{font-size:13px;font-weight:600;white-space:normal}
-.rk-preview-body{min-height:75px}
+.rk-preview-body{min-width:0;min-height:75px}
 .rk-preview-state{margin:0;color:var(--mute);font-size:13px;line-height:1.6}
-.rk-preview-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:24px 16px}
+.rk-preview-grid{min-width:0;max-width:100%;width:100%;box-sizing:border-box;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px 16px}
 .rk-preview-grid .rk-c{min-width:0}
 .rk-preview-grid .ui-book{max-width:none;transform:none}
 .rk-preview-grid .rk-n,.rk-preview-grid .rk-c.rk-podium .rk-n{min-width:37px;height:37px;font-size:18px;top:-7px;left:-5px;padding:0 5px}
