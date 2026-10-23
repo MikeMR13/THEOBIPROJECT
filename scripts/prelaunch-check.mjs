@@ -28,6 +28,17 @@ assert.match(studio, /data-ann=/, 'Selector voluntario en Studio');
 assert.match(studio, /announce_prelaunch: false/, 'Cancelación elimina anuncio');
 assert.match(agenda, /prelaunch_calendar/, 'Calendario conectado a anuncios');
 assert.match(agenda, /filter\(r => r\.kind !== 'volp'\)/, 'Ocultar programación automática sin consentimiento');
+
+// Contrato editorial del calendario: etapas diferenciadas y navegación utilizable.
+assert.match(agenda, /const PERIODS =/, 'Filtrar futuros y anteriores por separado');
+assert.match(agenda, /const ACCESS =/, 'Diferenciar el tipo de evento del acceso efectivo');
+assert.match(agenda, /const passAccess =/, 'Controlar disponibilidad con can_read');
+assert.match(agenda, /const fut = ks\.filter\(k => k > t\)\.sort\(\)/, 'Próximos en orden cronológico');
+assert.match(agenda, /countable = scoped\.filter/, 'Contadores ligados al periodo visible');
+assert.match(agenda, /class="ag-milestones"/, 'Mostrar liberación de mecenas y público en tarjetas');
+assert.match(agenda, /class="ag-chapters"/, 'Expandir capítulos sin repetir tarjetas');
+assert.match(agenda, /matchMedia\?\./, 'Vista móvil prioriza agenda');
+
 assert.match(ui, /prelaunch_series/, 'Ficha pública con primer vistazo');
 assert.match(ui, /ob-s-prelaunch/, 'Próximos estrenos en Inicio');
 assert.match(preview, /data-pre-time/, 'Cuenta regresiva');
