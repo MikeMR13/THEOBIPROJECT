@@ -29,7 +29,14 @@ assert.match(studio, /announce_prelaunch: false/, 'Cancelación elimina anuncio'
 assert.match(agenda, /prelaunch_calendar/, 'Calendario conectado a anuncios');
 assert.match(agenda, /filter\(r => r\.kind !== 'volp'\)/, 'Ocultar programación automática sin consentimiento');
 assert.match(ui, /prelaunch_series/, 'Ficha pública con primer vistazo');
-assert.match(ui, /ob-s-prelaunch/, 'Próximos estrenos en Inicio');
+assert.doesNotMatch(ui, /id="ob-s-prelaunch"/, 'Inicio no debe crear una sección independiente para preestrenos');
+assert.match(ui, /const previewIds = new Set\(previews.map/, 'El carrusel combina publicaciones y preestrenos sin duplicados');
+assert.match(ui, /heroSlide\(feat, 0, prog, lastCh, top, newsBySeries, featReasons\)/, 'Los anuncios reutilizan el carrusel principal');
+assert.match(ui, /slice\(0, 2\)/, 'Se limita el número de adelantos para no desplazar publicaciones');
+assert.match(ui, /PRÓXIMAMENTE · VOL\./, 'Los preestrenos se identifican claramente en el carrusel');
+assert.match(ui, /Ver primer vistazo →/, 'La llamada a la acción abre la ficha, no el lector');
+assert.match(ui, /pre \? `<p class="ob-prelaunch-timer"/, 'El carrusel muestra fecha y cuenta regresiva sin liberar lectura');
+assert.match(ui, /\(adultOk \|\| !x.adult\) && !hidS\(x\)/, 'Se respetan edad y preferencias de contenido');
 assert.match(preview, /data-pre-time/, 'Cuenta regresiva');
 assert.match(preview, /data-pre-rem/, 'Recordatorios');
 assert.doesNotMatch(preview, /\.from\('chapters'\)/, 'El módulo de preestreno no lee borradores');
