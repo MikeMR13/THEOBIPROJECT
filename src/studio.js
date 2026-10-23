@@ -1624,23 +1624,23 @@ export function createStudio(ctx){
         ${mine.length ? `<div class="pf-mine">${mine.map(m => { const x = TP.normalize(m.design, D.t.color), B = TP.palette(x); return `<div class="pf-mt ${curId === m.id ? 'on' : ''}"><button type="button" class="pf-th" data-mine="${m.id}" style="background:${B.bg};color:${B.fg}" aria-pressed="${curId === m.id}"><span class="pf-sw" style="background:${x.accent}"></span><b style="font-family:${TP.TFONTS[x.font][1]}">${esc(m.name)}</b><small style="color:${B.mu}">${TP.TEMPLATES[x.template][0]} · ${TP.BGS[x.bg].l}</small></button><span class="pf-ma"><button class="lnk" data-mexp="${m.id}">Exportar</button>${curId === m.id ? `<button class="lnk" data-mupd="${m.id}">Guardar cambios en este tema</button>` : ''}<button class="lnk" data-mren="${m.id}">Renombrar</button><button class="lnk danger" data-mdel="${m.id}">Borrar</button></span></div>`; }).join('')}</div>` : '<p class="pf-note">Aún no tienes temas propios. Ajusta colores, fondo, tipografía y formas, y guárdalo con un nombre.</p>'}
         ${mine.length < 12 ? `<div class="pf-save"><input id="pf-tname" maxlength="40" placeholder="Nombre del tema, p. ej. Otoño del equipo" aria-label="Nombre del tema"><button type="button" class="btn sm" id="pf-tsave">Guardar como tema</button></div>` : '<p class="pf-note">Llegaste al máximo de 12 temas propios.</p>'}
         <div class="pf-io"><button type="button" class="lnk" id="pf-exp">Exportar el diseño actual</button><label class="lnk" style="cursor:pointer">Importar tema…<input type="file" id="pf-imp" accept=".json,application/json" hidden></label></div>
-        <p class="pf-note">Tus temas son privados del equipo. Aplicar uno solo cambia el borrador.</p></section>`; };
+        <p class="pf-note">Los temas del equipo solo modifican el borrador.</p></section>`; };
     const panel = () => `
       ${mineHTML()}
       <section class="pf-g"><h3>Temas listos</h3><div class="pf-themes">${Object.entries(TP.THEMES).map(([k, th]) => { const B = TP.BGS[th.d.bg]; return `<button type="button" class="pf-th ${d.theme === k ? 'on' : ''}" data-theme="${k}" aria-pressed="${d.theme === k}" style="background:${B.bg};color:${B.fg}"><span class="pf-sw" style="background:${th.d.accent}"></span><b style="font-family:${TP.TFONTS[th.d.font][1]}">${th.l}</b><small style="color:${B.mu}">${TP.TEMPLATES[th.d.template][0]} · ${B.l}</small></button>`; }).join('')}</div>
-        <p class="pf-note">Un tema llena todas las opciones de abajo. Después puedes ajustar cada una.</p></section>
+        <p class="pf-note">Aplica un tema y ajusta sus opciones.</p></section>
       <section class="pf-g"><h3>Plantilla</h3><div class="pf-tpls">${Object.entries(TP.TEMPLATES).map(([k, [l, h]]) => `<button type="button" class="pf-tpl ${d.template === k ? 'on' : ''}" data-k="template" data-v="${k}" aria-pressed="${d.template === k}"><i class="pf-ic pf-ic-${k}" aria-hidden="true"></i><b>${l}</b><small>${h}</small></button>`).join('')}</div></section>
       <section class="pf-g"><h3>Cabecera y navegación del grupo</h3>
-         <p class="pf-note">Estos ajustes usan el tema actual y se aplican a las tres plantillas. Previsualiza el resultado antes de publicarlo.</p>
+         <p class="pf-note">Los ajustes se aplican a las tres plantillas. Revisa la vista previa.</p>
          <div class="pf-row"><span>Altura del banner</span>${segLayout('header', TP.HERO_SIZES)}</div>
          <div class="pf-row"><span>Alineación</span>${segLayout('align', TP.HERO_ALIGN)}</div>
          ${[['showBio','Mostrar descripción'],['showMeta','Mostrar idioma y número de obras'],['showLinks','Mostrar enlaces sociales']].map(([key, label]) => `<label class="pf-sw2"><input type="checkbox" data-lbool="${key}" ${d.layout[key] ? 'checked' : ''}><span>${label}</span></label>`).join('')}
          <label class="pf-sw2"><input type="checkbox" data-lbool="nav" ${d.layout.nav ? 'checked' : ''}><span>Mostrar navegación interna</span></label>
-         ${d.layout.nav ? `<div class="pf-cust"><p class="pf-note">Inicio siempre aparece. Las demás pestañas solo se muestran cuando su sección es pública y tiene contenido.</p>
+         ${d.layout.nav ? `<div class="pf-cust"><p class="pf-note">Inicio siempre aparece; el resto requiere contenido público.</p>
            ${[['navWorks','Obras'],['navNext','Lanzamientos'],['navRecent','Novedades'],['navMembers','Integrantes']].map(([key,label]) => `<label class="pf-sw2"><input type="checkbox" data-lbool="${key}" ${d.layout[key] ? 'checked' : ''}><span>Pestaña ${label}</span></label>`).join('')}
          </div>` : ''}
          <div class="pf-row"><span>Estadísticas</span>${segLayout('stats', TP.STATS_LOCATION)}</div>
-         <p class="pf-note">Si las estadísticas están ocultas en <a href="/estudio/perfil">Página del equipo</a>, no aparecen en ninguna posición.</p>
+         <p class="pf-note">Las estadísticas ocultas en <a href="/estudio/perfil">Página del equipo</a> no aparecerán.</p>
          <div class="pf-row"><span>Botón de seguimiento</span>${segLayout('followLabel', TP.FOLLOW_LABELS)}</div>
        </section>
        <section class="pf-g"><h3>Color y fondo</h3>
@@ -1657,37 +1657,37 @@ export function createStudio(ctx){
         <label class="pf-row"><span>Intensidad</span><span class="pf-col"><input type="range" id="pf-op" min="0" max="30" value="${d.patternOp}" ${d.pattern === 'none' ? 'disabled' : ''} aria-label="Intensidad del patrón"><output id="pf-opv">${d.patternOp} %</output></span></label></section>
       <section class="pf-g"><h3>Lema</h3><label class="pf-lbl"><span class="pf-lh">Aparece bajo el nombre del equipo<span class="mono" id="pf-mc">${d.motto.length} / 120</span></span><input id="pf-motto" maxlength="120" value="${esc(d.motto)}" placeholder="p. ej. Traducciones con cariño desde 2019"></label></section>
       <section class="pf-g"><h3>Composición de la portada</h3>
-        <p class="pf-note">Elige una distribución. Los estilos predeterminados cambian el orden y la importancia visual de las secciones, pero conservan los apartados que ya ocultaste.</p>
+        <p class="pf-note">Los diseños reorganizan secciones sin mostrar las que ocultaste.</p>
         <div class="pf-compose-presets">${Object.entries(TP.COMPOSITION_PRESETS).map(([id, p]) => `<button type="button" class="pf-comp-preset" data-comp-preset="${id}" aria-label="Usar composición ${esc(p.label)}"><b>${esc(p.label)}</b><small>${esc(p.description)}</small></button>`).join('')}</div>
         <div class="pf-row"><span>Distribución de escritorio</span><div class="pf-seg" role="radiogroup" aria-label="Columnas de la portada">${Object.entries(TP.COMPOSITION_COLUMNS).map(([key,label])=>`<button type="button" role="radio" data-comp-cols="${key}" aria-checked="${d.composition.columns === key}" class="${d.composition.columns === key ? 'on' : ''}">${esc(label)}</button>`).join('')}</div></div>
-        <p class="pf-note">En teléfonos se organiza automáticamente en una columna para mantener la lectura. La configuración móvil independiente llegará en la siguiente fase.</p>
+        <p class="pf-note">En móvil las columnas se adaptan automáticamente. Ajusta el orden abajo.</p>
         <button type="button" class="btn ghost sm" id="pf-comp-reset">Restablecer orden recomendado</button>
       </section>
       <section class="pf-g"><h3>Composición móvil independiente</h3>
-        <p class="pf-note">Se configura desde Estudio, con la vista previa Móvil. No modifica el orden ni los estilos de escritorio. Las secciones ocultas siguen ocultas en ambos dispositivos.</p>
+        <p class="pf-note">Los ajustes móviles no afectan escritorio ni muestran secciones ocultas.</p>
         <div class="pf-row"><span>Orden en teléfono</span>${segMobile('orderMode', TP.MOBILE_ORDER_MODE)}</div>
-        ${d.mobile.orderMode === 'propio' ? `<p class="pf-note">Usa las flechas para definir el orden en móvil. Los bloques sin contenido no aparecen hasta que el equipo publique algo.</p>
+        ${d.mobile.orderMode === 'propio' ? `<p class="pf-note">Ordena con flechas; las secciones sin contenido no aparecen.</p>
           <ol class="pf-mobile-order" id="pf-mobile-order">${d.mobile.order.map((key,i) => `<li class="${d.hidden.includes(key) ? 'off' : ''}"><span>${esc(TP.SECTIONS[key])}${d.hidden.includes(key) ? ' (oculto)' : ''}</span><span class="pf-mobile-order-buttons"><button type="button" data-mobile-up="${i}" aria-label="Subir ${esc(TP.SECTIONS[key])}" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" data-mobile-down="${i}" aria-label="Bajar ${esc(TP.SECTIONS[key])}" ${i === d.mobile.order.length-1 ? 'disabled' : ''}>↓</button></span></li>`).join('')}</ol>
-          <button type="button" class="btn ghost sm" id="pf-mobile-copy">Copiar el orden de escritorio</button>` : '<p class="pf-note">El teléfono heredará automáticamente cualquier cambio de orden que hagas en escritorio.</p>'}
+          <button type="button" class="btn ghost sm" id="pf-mobile-copy">Copiar el orden de escritorio</button>` : '<p class="pf-note">El móvil hereda el orden de escritorio.</p>'}
         <div class="pf-row"><span>Cabecera móvil</span>${segMobile('hero', TP.MOBILE_HERO)}</div>
         <div class="pf-row"><span>Tamaño de tarjetas</span>${segMobile('cards', TP.MOBILE_CARDS)}</div>
         <div class="pf-row"><span>Columnas del catálogo</span>${segMobile('catalog', TP.MOBILE_CATALOG)}</div>
         <div class="pf-row"><span>Barra inferior Seguir</span>${segMobile('follow', TP.MOBILE_FOLLOW)}</div>
         <button type="button" class="btn ghost sm" id="pf-mobile-preview">Ver el resultado en móvil</button>
-        <p class="pf-note">El botón Seguir mantiene los permisos y el mismo estado que los botones de escritorio. «Ocultar» solo quita la barra inferior; no elimina el seguimiento del grupo.</p>
+        <p class="pf-note">Ocultar la barra no desactiva el seguimiento.</p>
       </section>
-      <section class="pf-g"><h3>Secciones y orden</h3><p class="pf-note">Arrastra para ordenar o usa las flechas. El ojo oculta una sección sin borrarla. También puedes marcar cada bloque como protagonista o compacto.</p>
+      <section class="pf-g"><h3>Secciones y orden</h3><p class="pf-note">Arrastra o usa flechas; el ojo oculta sin borrar.</p>
         <ol class="pf-ord" id="pf-ord">${d.order.map((k, i) => `<li draggable="true" data-sec="${k}" class="${d.hidden.includes(k) ? 'off' : ''}"><span class="pf-grip" aria-hidden="true">⋮⋮</span><b>${TP.SECTIONS[k]}</b><select data-comp-emphasis="${k}" aria-label="Presentación de ${esc(TP.SECTIONS[k])}" class="pf-comp-emphasis">${compOptions(d.composition.emphasis[k], TP.SECTION_EMPHASIS)}</select><span class="pf-oa"><button type="button" data-up="${i}" aria-label="Subir ${TP.SECTIONS[k]}" ${i ? '' : 'disabled'}>↑</button><button type="button" data-dn="${i}" aria-label="Bajar ${TP.SECTIONS[k]}" ${i < d.order.length - 1 ? '' : 'disabled'}>↓</button><button type="button" data-eye="${k}" aria-pressed="${!d.hidden.includes(k)}" aria-label="${d.hidden.includes(k) ? 'Mostrar' : 'Ocultar'} ${TP.SECTIONS[k]}">${d.hidden.includes(k) ? '◌' : '◉'}</button></span></li>`).join('')}</ol></section>
       <section class="pf-g"><h3>Mis composiciones</h3>
-        <p class="pf-note">Guarda hasta seis distribuciones propias para reutilizarlas con este equipo. No modifican la plantilla de color ni las obras publicadas.</p>
-        ${d.savedCompositions.length ? `<div class="pf-saved-comps">${d.savedCompositions.map(x=>`<div class="pf-saved-comp"><b>${esc(x.name)}</b><span><button type="button" class="btn ghost sm" data-comp-apply="${x.id}">Aplicar</button><button type="button" class="lnk danger" data-comp-remove="${x.id}" aria-label="Borrar composición ${esc(x.name)}">Borrar</button></span></div>`).join('')}</div>` : '<p class="pf-note">Todavía no guardaste ninguna composición propia.</p>'}
-        ${d.savedCompositions.length < 6 ? `<div class="pf-save"><input id="pf-comp-name" maxlength="40" aria-label="Nombre de la composición" placeholder="Nombre, p. ej. Portada de otoño"><button type="button" class="btn sm" id="pf-comp-save">Guardar composición actual</button></div>` : '<p class="pf-note">Máximo de 6 composiciones. Borra una para guardar otra.</p>'}
+        <p class="pf-note">Guarda hasta seis composiciones por equipo, sin cambiar obras ni colores.</p>
+        ${d.savedCompositions.length ? `<div class="pf-saved-comps">${d.savedCompositions.map(x=>`<div class="pf-saved-comp"><b>${esc(x.name)}</b><span><button type="button" class="btn ghost sm" data-comp-apply="${x.id}">Aplicar</button><button type="button" class="lnk danger" data-comp-remove="${x.id}" aria-label="Borrar composición ${esc(x.name)}">Borrar</button></span></div>`).join('')}</div>` : '<p class="pf-note">Aún no hay composiciones guardadas.</p>'}
+        ${d.savedCompositions.length < 6 ? `<div class="pf-save"><input id="pf-comp-name" maxlength="40" aria-label="Nombre de la composición" placeholder="Nombre, p. ej. Portada de otoño"><button type="button" class="btn sm" id="pf-comp-save">Guardar composición actual</button></div>` : '<p class="pf-note">Máximo 6. Borra una para guardar otra.</p>'}
       </section>
-      <section class="pf-g"><h3>Anuncio</h3><p class="pf-note">El anuncio ahora tiene su propia sección: <a href="/estudio/anuncios">Estudio › Anuncios</a>. Aquí solo decides dónde va en el orden de arriba.</p></section>
+      <section class="pf-g"><h3>Anuncio</h3><p class="pf-note">Edita el contenido en <a href="/estudio/anuncios">Anuncios</a> y el orden aquí.</p></section>
       <section class="pf-g"><h3>Obras destacadas</h3><p class="pf-note">Hasta 3. Con más de una se muestran en carrusel.</p>
         <div class="pf-featpick">${D.works.map(w => { const i = d.featured.indexOf(w.slug); return `<label class="pf-fw ${i >= 0 ? 'on' : ''}"><input type="checkbox" data-feat="${esc(w.slug)}" ${i >= 0 ? 'checked' : ''}><span>${esc(w.short || w.title)}</span>${i >= 0 ? `<em>${i + 1}</em>` : ''}</label>`; }).join('') || '<p class="pf-note">Aún no hay obras publicadas.</p>'}</div></section>
       <section class="pf-g"><h3>Portada editorial y publicaciones</h3>
-        <p class="pf-note">La obra destacada se elige en la sección anterior. Las novedades se generan automáticamente con publicaciones públicas del equipo, sin duplicarlas.</p>
+        <p class="pf-note">Las novedades se generan automáticamente a partir de publicaciones públicas.</p>
         <div class="pf-row"><span>Presentación destacada</span>${segEditorial('featureStyle', TP.FEATURE_STYLES)}</div>
         <div class="pf-row"><span>Próximo lanzamiento</span>${segEditorial('nextStyle', TP.NEXT_STYLES)}</div>
         <label class="pf-sw2"><input type="checkbox" id="pf-show-next" ${!d.hidden.includes('next') ? 'checked' : ''}><span>Mostrar sección Próximo lanzamiento (cuando haya fecha programada)</span></label>
@@ -1695,21 +1695,21 @@ export function createStudio(ctx){
         <div class="pf-row"><span>Cantidad de novedades</span>${segEditorial('recentCount', TP.UPDATE_COUNTS)}</div>
         <div class="pf-row"><span>Tipo de publicación</span>${segEditorial('recentKind', TP.UPDATE_KINDS)}</div>
         <div class="pf-row"><span>Distribución de novedades</span>${segEditorial('recentStyle', TP.UPDATE_STYLES)}</div>
-        <p class="pf-note">Los capítulos publicados se gestionan en <a href="/estudio/obras">Estudio → Obras</a>; los futuros estrenos en programación. Un volumen necesita anuncio confirmado para aparecer como volumen completo.</p>
+        <p class="pf-note">Los capítulos se administran en <a href="/estudio/obras">Obras</a>; los volúmenes requieren anuncio confirmado.</p>
       </section>
       <section class="pf-g"><h3>Comunidad, equipo y anuncios</h3>
-        <p class="pf-note">Solo aparecen los integrantes autorizados por la función pública del equipo. Se usan iniciales; no se muestran fotografías ni perfiles privados.</p>
+        <p class="pf-note">Solo nombres y roles públicos, con iniciales; sin perfiles privados.</p>
         <label class="pf-sw2"><input type="checkbox" id="pf-show-members" ${!d.hidden.includes('members') ? 'checked' : ''}><span>Mostrar integrantes públicos</span></label>
         <div class="pf-row"><span>Presentación del equipo</span>${segCommunity('memberStyle', TP.MEMBER_STYLES)}</div>
         <div class="pf-row"><span>Integrantes visibles inicialmente</span>${segCommunity('memberCount', TP.MEMBER_COUNTS)}</div>
         <label class="pf-sw2"><input type="checkbox" data-cbool="showRoles" ${d.community.showRoles ? 'checked' : ''}><span>Mostrar rol de cada integrante</span></label>
-        <p class="pf-note">Los demás integrantes públicos aparecerán bajo «Ver más». Si están desactivados en <a href="/estudio/perfil">Página del equipo</a>, no se mostrarán aunque actives esta sección.</p>
+        <p class="pf-note">El resto aparece en «Ver más». Respeta la visibilidad de <a href="/estudio/perfil">Página del equipo</a>.</p>
         <label class="pf-sw2"><input type="checkbox" id="pf-show-announce" ${!d.hidden.includes('announce') ? 'checked' : ''}><span>Mostrar anuncio activo</span></label>
         <div class="pf-row"><span>Estilo del anuncio</span>${segCommunity('announceStyle', TP.ANNOUNCE_STYLES)}</div>
-        <p class="pf-note">El contenido y la vigencia se editan desde <a href="/estudio/anuncios">Estudio → Anuncios</a>. Aquí decides su aspecto y ubicación con «Secciones y orden».</p>
+        <p class="pf-note">Edita textos y vigencia en <a href="/estudio/anuncios">Anuncios</a>; aquí, aspecto y orden.</p>
         <label class="pf-sw2"><input type="checkbox" data-cbool="showCta" ${d.community.showCta ? 'checked' : ''}><span>Mostrar invitación a seguir al final</span></label>
         ${d.community.showCta ? `<label class="pf-lbl"><span class="pf-lh">Mensaje de cierre <span class="mono" id="pf-cta-count">${d.community.ctaText.length} / 120</span></span><input id="pf-cta-text" maxlength="120" value="${esc(d.community.ctaText)}" placeholder="Gracias por apoyar nuestras traducciones"></label>` : ''}
-        <p class="pf-note">La invitación usa el botón Seguir existente: su estado y número de seguidores se sincronizan automáticamente.</p>
+        <p class="pf-note">El seguimiento se sincroniza automáticamente.</p>
       </section>
       <section class="pf-g"><h3>Animaciones</h3>
         <div class="pf-tg">${Object.entries(TP.ANIMS).map(([k, l]) => `<label class="pf-sw2"><input type="checkbox" data-an="${k}" ${d.anim[k] ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
@@ -1718,12 +1718,12 @@ export function createStudio(ctx){
           <div class="pf-row"><span>Cantidad</span><div class="pf-seg">${Object.entries(TP.DENS).map(([k, l]) => `<button type="button" data-pk="density" data-pv="${k}" class="${d.part.density === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
           <div class="pf-row"><span>Dónde</span><div class="pf-seg">${[['banner', 'Solo banner'], ['page', 'Toda la página']].map(([k, l]) => `<button type="button" data-pk="where" data-pv="${k}" class="${d.part.where === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
           <div class="pf-row"><span>Color</span><span class="pf-col"><div class="pf-seg">${[['accent', 'Acento'], ['custom', 'Propio']].map(([k, l]) => `<button type="button" data-pk="mode" data-pv="${k}" class="${d.part.mode === k ? 'on' : ''}">${l}</button>`).join('')}</div>${d.part.mode === 'custom' ? `<input type="color" id="pf-pc" value="${d.part.color}" aria-label="Color de las partículas">` : ''}</span></div></div>` : ''}
-        <p class="pf-note">En celulares las animaciones van más ligeras, y no se muestran a quien tiene activado «reducir movimiento» en su dispositivo.</p></section>
+        <p class="pf-note">Las animaciones respetan «reducir movimiento».</p></section>
       <section class="pf-g"><h3>Temas de temporada</h3>
-        <p class="pf-note">Cambian colores, fondo y partículas en sus fechas. Marca cuáles se activan solos; te avisamos 7 días antes.</p>
+        <p class="pf-note">Activa automáticamente las temporadas que prefieras.</p>
         <div class="pf-row"><span>Hemisferio</span>${(() => { const h = d.seasons.hemi; return `<div class="pf-seg">${[['norte', 'Norte'], ['sur', 'Sur']].map(([k, l]) => `<button type="button" data-hemi="${k}" class="${h === k ? 'on' : ''}">${l}</button>`).join('')}</div>`; })()}</div>
         <div class="pf-row"><span>Decoración</span><div class="pf-seg">${[['full', 'Completa'], ['min', 'Solo colores']].map(([k, l]) => `<button type="button" data-deco="${k}" class="${d.seasons.deco === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
-        <p class="pf-note">Completa: patrón de la temporada, figuras en las esquinas del banner, sello junto al nombre y detalles en títulos y tarjetas.</p>
+        <p class="pf-note">Completa: patrón, esquinas, sello y adornos.</p>
         <label class="pf-lbl">Activar uno ahora (sin esperar su fecha)<select id="pf-sman"><option value="">Ninguno · seguir el calendario</option>${Object.entries(TP.SEASONS).map(([k, s]) => `<option value="${k}" ${d.seasons.manual === k ? 'selected' : ''}>${s.l}</option>`).join('')}</select></label>
         ${Object.entries(TP.SGROUPS || {}).length ? '' : ''}
         <div class="pf-seas">${Object.entries(AN.SGROUPS).map(([g, gl]) => `<details class="pf-sg" ${UI.sg === g ? 'open' : ''} data-sgd="${g}"><summary>${gl}<span class="mono">${Object.entries(TP.SEASONS).filter(([k, s]) => s.g === g && d.seasons.auto.includes(k)).length} automáticos</span></summary>
