@@ -648,9 +648,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       const updated = [lead, ...previews, ...covers].filter(x => x && !unique.has(x.id) && unique.add(x.id));
       if (!updated.length) return;
       const changed = updated.length !== feat.length || updated.some((x, i) => x.id !== feat[i]?.id);
+      Object.assign(featReasons, extra.bySeries);
       if (!changed) return;
       feat.splice(0, feat.length, ...updated);
-      Object.assign(featReasons, extra.bySeries);
       if (!heroPaused && !heroEl.matches(':hover')) heroSlide(feat, 0, prog, lastCh, top, newsBySeries, featReasons);
     }).catch(e => console.warn('destacados inicio', e));
 
