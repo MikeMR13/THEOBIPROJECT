@@ -833,9 +833,14 @@ export function createStudio(ctx){
           b.innerHTML = `<div style="display:grid;gap:14px;margin-top:10px">
             ${conn ? '' : '<p class="mono" style="margin:0;padding:10px;border:1px solid #f59e7a;color:#f59e7a;font-size:12px">Tu equipo aún no conecta Patreon (Estudio › Página del equipo). Puedes configurar los bloqueos, pero nadie podrá desbloquearlos como mecenas hasta conectarlo.</p>'}
             <div style="display:grid;gap:8px;padding:12px;border:1px solid #2f2a20;background:#16140f"><b>Obra completa</b>
-              <span style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><select id="lk-s" ${dis} style="flex:1 1 240px">${opts(enc(SA.access, SA.access_min_price))}</select>
-              <label class="mono" style="display:flex;gap:6px;align-items:center;font-size:12px"><input type="checkbox" id="lk-auto" ${autoReleaseEnabled ? 'checked' : ''} ${dis}> Liberar automáticamente (opcional)</label>
-              <span id="lk-sud" ${autoReleaseEnabled ? '' : 'hidden'}><label class="mono" style="display:flex;gap:6px;align-items:center;font-size:12px">Fecha pública <input type="date" id="lk-su" value="${day(SA.access_until)}" ${dis}></label></span></span>
+              <div class="wk-lock-controls">
+                <select id="lk-s" aria-label="Quién puede leer la obra completa" ${dis}>${opts(enc(SA.access, SA.access_min_price))}</select>
+                <label class="wk-lock-auto mono" for="lk-auto"><input type="checkbox" id="lk-auto" ${autoReleaseEnabled ? 'checked' : ''} ${dis}><span>Liberar automáticamente (opcional)</span></label>
+                <div class="wk-lock-date" id="lk-sud" ${autoReleaseEnabled ? '' : 'hidden'}>
+                  <label class="mono" for="lk-su">Fecha pública</label>
+                  <input type="date" id="lk-su" value="${day(SA.access_until)}" ${dis}>
+                </div>
+              </div>
               <small class="mono">Sin fecha: la obra seguirá exclusiva para los mecenas de este equipo hasta que decidas liberarla. La fecha de publicación de cada capítulo se configura por separado.</small></div>
             <details ${CH.some(isL) ? 'open' : ''}><summary style="cursor:pointer;font-weight:600">Capítulos (${CH.filter(isL).length} bloqueados de ${CH.length})</summary>
               <p class="mono" style="font-size:12px;margin:0">Cada capítulo puede ser público o exclusivo de forma individual. Su fecha de liberación es opcional y NO sustituye la programación de publicación en el editor. Si el volumen está bloqueado, ningún capítulo se abre aunque aquí figure como público.</p>
