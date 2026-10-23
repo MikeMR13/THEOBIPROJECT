@@ -2,6 +2,7 @@
 import { publicationDate, publicationAge, publicationDay } from './publication-dates.js?v=1';
 import { homeReleaseOverview } from './home-releases.js?v=1';
 import { homeFeaturedSelection, homeDayKey } from './home-featured.js?v=1';
+import { createHomeMetrics, homeMetricCategory } from './home-metrics.js?v=1';
 import { initSeriesOrganization, volumeProgress } from './series-organization.js?v=1';
 import { initSeriesTabs } from './series-tabs.js?v=1';
 import { chooseActiveEditorial } from './editorial-announcements.js?v=1';
@@ -216,6 +217,8 @@ const RV_CSS = `
 const rvCss = () => { if (document.getElementById('rv-css')) return; const s = document.createElement('style'); s.id = 'rv-css'; s.textContent = RV_CSS; document.head.appendChild(s); };
 const rkCss = () => { if (document.getElementById('rk-css')) return; const s = document.createElement('style'); s.id = 'rk-css'; s.textContent = RK_CSS; document.head.appendChild(s); };
 export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
+  const homeMetrics = createHomeMetrics(sb);
+  let firstHomeVisit = true;
   if (!document.getElementById('ui-css')) { const s = document.createElement('style'); s.id = 'ui-css'; s.textContent = CSS; document.head.appendChild(s); const s2 = document.createElement('style'); s2.textContent = CSS2; document.head.appendChild(s2); }
   chrome();
   const media = p => p ? (/^https?:/.test(p) ? p : `${url}/storage/v1/object/public/obi-media/${encodeURI(p)}`) : '';
@@ -500,6 +503,11 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 `;
   const SKEL = `<div class="ob-page ob-skel" aria-busy="true" aria-label="Cargando la biblioteca"><div class="ob-mast"><b>翻訳図書館</b><span>Biblioteca de novelas ligeras · Español latino</span></div><div class="sk sk-hero"></div><div class="sk sk-h"></div><div class="sk-row">${'<div class="sk sk-ln"></div>'.repeat(4)}</div><div class="sk sk-h"></div><div class="sk-row c">${'<div class="sk sk-cv"></div>'.repeat(6)}</div></div>`;
   async function home(){
+    const navigation = performance.getEntriesByType('navigation')[0];
+    const initial = firstHomeVisit && navigation && new URL(navigation.name).pathname === '/';
+    const startedAt = initial ? 0 : performance.now();
+    firstHomeVisit = false;
+    homeMetrics.startVisit();
     clearInterval(homeRotationTimer);
     rkCss(); if (!document.getElementById('ob2-css')) { const st = document.createElement('style'); st.id = 'ob2-css'; st.textContent = HOME_CSS; document.head.appendChild(st); }
     app.innerHTML = SKEL;
@@ -595,7 +603,7 @@ ${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読'
       <div class="ob-mast"><b>翻訳図書館</b><span>Biblioteca de novelas ligeras · Español latino</span></div>
       ${grp.length ? `<div class="ob-tick" aria-label="Novedades"><div class="ob-track">${[0, 1].map(k => `<span${k ? ' aria-hidden="true"' : ''}>${[...grp, ...grp].slice(0, Math.max(6, grp.length)).map((g, i) => `<a href="${g.kind === 'volume' ? '/serie/' + byId[g.id].slug : '/leer/' + byId[g.id].slug + '/' + g.chs[0].num}"${k ? ' tabindex="-1"' : ''} style="color:inherit;text-decoration:none">${g.kind === 'volume' ? '<b>NUEVO VOLUMEN</b> · ' : tickerNotice(byId[g.id]) || (i === 0 ? 'NUEVO · ' : '★ ')}${esc(byId[g.id].title)}${g.kind === 'volume' ? ' — Volumen ' + esc(g.volume.num) : ' · ' + caps(g.chs)}</a>`).join('')}</span>`).join('')}</div></div>` : ''}
       <div id="ob-fest-slot"></div>
-      <section class="ob-hero" id="hero" ${feat.length ? '' : 'style="display:none"'}></section><div id="ob-open-today"></div>
+      <section class="ob-hero" id="hero" ${feat.length ? '' : 'style="display:none"'}></section><div id="ob-open-today"></div><div id="ob-team-recs"></div>
       ${grp.length ? `<section class="ob-sec ob-releases" style="border-top:none;padding-top:32px">${head('新着', 'Nuevos volúmenes y capítulos', `<span class="r2"><a class="r" href="/lanzamientos">Todos los lanzamientos →</a>${arrows('ob-release-car')}</span>`)}
         <div class="ob-car ob-release-car ob-anim" id="ob-release-car" role="region" aria-roledescription="carrusel" aria-label="Lanzamientos recientes" tabindex="0">${grp.map(g => {
           const s = byId[g.id], c = g.chs[0] || {}, v = g.kind === 'volume' ? g.volume : null;
@@ -685,6 +693,11 @@ ${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読'
       requestAnimationFrame(updateRank);
     }
     if (feat.length) heroSlide(feat, 0, prog, lastCh, top, newsBySeries, featReasons);
+    // Tiempo hasta que Inicio y su carrusel están listos para mostrarse, medido
+    // en el dispositivo real y agrupado por móvil/escritorio; no se envía el ms.
+    requestAnimationFrame(() => {
+      if (location.pathname === '/' && app.querySelector('#hero')) homeMetrics.paint(performance.now() - startedAt);
+    });
 
     // Incluir los preestrenos autorizados en el mismo carrusel, sin sumar secciones a Inicio.
     // Máximo dos diapositivas para mantener el protagonismo de las publicaciones actuales.
@@ -740,6 +753,20 @@ ${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読'
         teams:teamResult?.data||[], now
       });
       const covers = extra.entries.map(x => byId[x.id]).filter(Boolean);
+      const teamSlot = app.querySelector('#ob-team-recs');
+      // Hero compacto, recomendaciones de todos los equipos visibles sin límite.
+      if (teamSlot && extra.teamRecommendations.length > 1) {
+        const allTeams = extra.teamRecommendations.map(x => ({
+          reason:x, book:byId[x.id]
+        })).filter(x => x.book);
+        teamSlot.outerHTML = `<section class="ob-sec" data-from="ob-team-recs" style="border-top:1px solid var(--line);padding-top:24px">
+          ${head('推薦', 'Recomendaciones de los equipos', `<span class="r2"><span class="mono" style="font-size:12px">${allTeams.length} equipos · 7 días</span>${arrows('ob-team-car')}</span>`)}
+          <div class="ob-car" id="ob-team-car" role="region" aria-roledescription="carrusel" aria-label="Recomendaciones de todos los equipos" tabindex="0">
+            ${allTeams.map(({book,reason})=>`<a class="ob-cc" href="/serie/${esc(book.slug)}">
+              ${cover(book)}<b>${esc(book.title)}</b><small>${esc(reason.label)}</small></a>`).join('')}</div></section>`;
+        const section=app.querySelector('[data-from="ob-team-recs"]');
+        if(section) bindCars(section);
+      } else teamSlot?.remove();
       const previews = feat.filter(x => x.__prelaunch);
       const lead = feat.find(x => !x.__prelaunch);
       const unique = new Set();
@@ -829,6 +856,10 @@ ${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読'
         <h1 data-len="${(s.title.length + (v ? 12 + String(v.num).length : 0)) > 70 ? 'xl' : (s.title.length + (v ? 12 + String(v.num).length : 0)) > 40 ? 'l' : ''}"><a class="ob-h1a" href="/serie/${s.slug}">${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}</a></h1>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn" style="white-space:pre-line">${esc(s.synopsis ? (synT.slice(tag.length).replace(/^\s+/, '').replace(/\n{3,}/g, '\n\n') || synT) : pre ? 'Conoce la historia antes de su estreno. Los capítulos permanecen bloqueados hasta la fecha indicada.' : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), (s.chapters?.[0]?.count || 0) + ' capítulos en español'].filter(Boolean).join(' · ') + '.')}</p>
         ${pre ? `<p class="ob-prelaunch-timer" style="margin:8px 0;color:#8cc3f2;font-size:13px">🔒 Lectura bloqueada · Estreno: ${esc(preWhen)} · Faltan ${esc(preLeft)}</p><div class="ob-acts"><a class="a1" href="/serie/${encodeURIComponent(s.slug)}">Ver primer vistazo →</a><a class="a2" href="/calendario?f=prog">Ver en el calendario</a></div>` : `<div class="ob-acts"><a class="a1" href="${v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + n}">${v ? 'Ver volumen ' + v.num : p ? 'Continuar capítulo ' + n : 'Leer capítulo ' + (lc?.num || 1)}</a>${v && (p || lc) ? `<a class="a2" href="/leer/${s.slug}/${n}">${p ? 'Continuar lectura' : 'Empezar a leer'}</a>` : `<a class="a2" href="/serie/${s.slug}">Ver la serie</a>`}</div>`}</div>
       ${feat.length > 1 ? `<div class="ob-pager2" style="position:absolute;left:clamp(16px,4vw,56px);right:clamp(16px,4vw,56px);bottom:14px;z-index:2;display:flex;align-items:center;gap:10px"><button data-j="${(i - 1 + feat.length) % feat.length}" aria-label="Anterior" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">‹</button><span style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">${feat.length > 10 ? `<span class="mono" aria-label="Diapositiva ${i+1} de ${feat.length}" style="min-width:70px;text-align:center;font:600 12px 'IBM Plex Mono',monospace;color:var(--paper)">${i+1} / ${feat.length}</span>` : feat.map((f, j) => `<button data-j="${j}" aria-label="${esc(f.title)}" aria-current="${j === i}" style="height:10px;flex:${j === i ? '0 1 160px' : '0 0 10px'};min-width:10px;padding:0;border:none;cursor:pointer;position:relative;overflow:hidden;background:${j === i ? '#3d3628' : '#5a5244'}">${j === i ? `<i class="ob-hp" style="position:absolute;inset:0;background:var(--gold);transform-origin:left;transform:scaleX(${heroPaused ? 1 : 0});${heroPaused || matchMedia('(prefers-reduced-motion: reduce)').matches ? '' : 'animation:obHp 8s linear forwards'}"></i>` : ''}</button>`).join('')}</span><button data-hp aria-label="${heroPaused ? 'Reanudar' : 'Pausar'}" style="height:40px;padding:0 12px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">${heroPaused ? '▶ Reanudar' : 'Ⅱ Pausar'}</button><button data-j="${(i + 1) % feat.length}" aria-label="Siguiente" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">›</button></div>` : ''}`;
+    const metricCategory=homeMetricCategory(reason,!!pre);
+    homeMetrics.shown(heroKey(s),metricCategory);
+    el.querySelectorAll('.ob-txt a[href^="/"]').forEach(a =>
+      a.addEventListener('click', () => homeMetrics.clicked(s.slug,metricCategory)));
     el.querySelectorAll('[data-j]').forEach(b => b.onclick = () => heroSlide(feat, +b.dataset.j, prog, lastCh, top, newsBySeries, featReasons));
     el.querySelector('[data-hp]')?.addEventListener('click', () => { heroPaused = !heroPaused; heroSlide(feat, i, prog, lastCh, top, newsBySeries, featReasons); });
     if (feat.length > 1 && !heroPaused && !matchMedia('(prefers-reduced-motion: reduce)').matches) heroT = setTimeout(() => { if (document.body.contains(el)) heroSlide(feat, el.matches(':hover') ? i : (i + 1) % feat.length, prog, lastCh, top, newsBySeries, featReasons); }, 8000);
