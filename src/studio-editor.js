@@ -167,6 +167,7 @@ export function createEditor(deps) {
       $('#stpill').textContent = (ST2[c.status] || c.status) + (c.status === 'scheduled' && at ? ' · ' + at : '');
       $('#pub').innerHTML = c.status === 'published' ? '' : c.status === 'scheduled' ? (can('publish') ? '<button class="btn ghost" id="unsch">Cancelar programación</button>' : '')
         : (can('schedule') ? '<input type="datetime-local" id="pubat" aria-label="Fecha de publicación">' + tzHint() + '<button class="btn ghost" id="sch">Programar</button>' : '') + (can('publish') ? '<button class="btn" id="pubnow">Publicar ahora</button>' : '');
+      if (c.status !== 'published') $('#pub').insertAdjacentHTML('beforeend', '<p class="ed-note" style="margin:8px 0 0">Esta fecha programa solo la publicación de ESTE capítulo. Los demás conservan su calendario. Si el volumen o la obra está restringido a mecenas, este capítulo también seguirá bloqueado para el público hasta la liberación opcional que defina el equipo.</p>');
       const act = (btn, status, when) => busy(btn, async () => {
         lint(); if (L.total && !confirm(`La revisión automática dejó ${L.total} aviso(s). ¿${status === 'published' ? 'Publicar' : 'Programar'} de todos modos?`)) return;
         const selection=await askEditorialAnnouncement({esc,kind:'chapter',title:title()});

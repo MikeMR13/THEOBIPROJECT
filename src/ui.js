@@ -935,19 +935,21 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const { data: s } = await sb.from('series').select(SERIES).eq('slug', slug).maybeSingle();
     if (!s) { app.innerHTML = '<h1>Esta serie no está en el estante</h1><p><a href="/catalogo">Volver al catálogo</a></p>'; return; }
     const u = getUser();
-    const [{ data: vols }, { data: chs }, prog, readR, folR, { data: dls, error: dlError }, { data: buys }] = await Promise.all([
+    const [{ data: vols }, { data: chs }, prog, readR, folR, { data: dls, error: dlError }, { data: buys }, { data: pt }] = await Promise.all([
       sb.from('volumes').select('id,num,title,cover_path,synopsis,status,external_url,external_site,external_only').eq('series_id', s.id).eq('status', 'published').is('deleted_at', null).order('num', { ascending: false }),
       sb.rpc('series_toc', { p_series: s.id }).then(x => x.error ? sb.from('chapters').select('id,num,vol,volume_id,title,section_type,publish_at').eq('series_id', s.id).is('deleted_at', null).order('num') : x),
       progressMap(),
       u ? sb.from('read_chapters').select('chapter_id').eq('user_id', u.id) : { data: [] },
       u ? sb.from('follows').select('series_id').eq('user_id', u.id).eq('series_id', s.id) : { data: [] },
-      sb.rpc('series_downloads', { p_series: s.id }),
-      sb.from('purchase_links').select('id,volume_id,vol,store,region,fmt').eq('series_id', s.id).eq('verified', true).order('vol').order('id')]);
+      sb.rpc('series_downloads_v2', { p_series: s.id }).then(r => r.error?.code === 'PGRST202' ? sb.rpc('series_downloads', { p_series: s.id }) : r),
+      sb.from('purchase_links').select('id,volume_id,vol,store,region,fmt').eq('series_id', s.id).eq('verified', true).order('vol').order('id'),
+      sb.from('patreon_public').select('url').eq('owner', s.team_id).maybeSingle()]);
     (vols || []).sort((a, b) => (parseFloat(b.num) || 0) - (parseFloat(a.num) || 0));
     const buyOf = v => (buys || []).filter(b => b.volume_id === v.id || (!b.volume_id && b.vol === v.num));
     // capítulos sin leer de ESTA obra (solo con sesión): publicados, no marcados como leídos y después de donde vas
     const unread = u ? (() => { const rs = new Set((readR?.data || []).map(x => x.chapter_id)), at = prog?.[s.id]?.chapter_num ?? -Infinity, now = Date.now(); return (chs || []).filter(c => (!c.publish_at || new Date(c.publish_at) <= now) && !rs.has(c.id) && c.num > at).length; })() : null;
     const dlOf = v => (dls || []).filter(d => d.volume_id === v.id || (!d.volume_id && d.vol === v.num));
+    const patronLink = (() => { const fallback = s.teams?.slug ? '/equipo/' + encodeURIComponent(s.teams.slug) : '/serie/' + encodeURIComponent(s.slug); try { const u = new URL(pt?.url); return u.protocol === 'https:' && /(^|\.)patreon\.com$/i.test(u.hostname) ? u.toString() : fallback; } catch { return fallback; } })();
     const read = new Set((readR.data || []).map(r => r.chapter_id)), p = prog[s.id], following = !!(folR.data || []).length;
     const first = (chs || [])[0], allCh = chs || [], nRead = allCh.filter(c => read.has(c.id)).length;
     const pIdx = p ? allCh.findIndex(c => c.num === p.chapter_num) : -1;
@@ -1017,7 +1019,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
           const list = (chs || []).filter(c => c.volume_id === v.id || (!c.volume_id && c.vol === v.num));
           const vLk = list.length > 0 && list.every(c => c.locked);
           const dl = dlOf(v), name = v.title && v.title !== String(v.num) && v.title.length > 2 ? v.title : 'Volumen ' + v.num;
-          return `<article class="ui-dl-volume" id="descarga-vol-${esc(v.num)}"><div class="ui-dl-volume-head"><div><span class="ui-lbl">Volumen ${esc(v.num)}</span><h3>${esc(name)}</h3></div><span class="ui-dl-count">${dl.length ? dl.length + (dl.length === 1 ? ' formato' : ' formatos') : 'Sin descargas'}</span></div>${dl.length ? `<div class="ui-dl ui-dl-featured" role="group" aria-label="Descargas del volumen ${v.num}"><span class="ui-lbl ui-dl-title">↓ Descargar Volumen ${v.num}</span>${dl.map(d => d.locked || vLk ? `<a class="ui-dlb lock" href="/apoyar" title="Solo para donadores">援 ${esc(d.fmt)}<small>${esc(d.label || d.provider || '')} · donadores</small></a>` : `<button type="button" class="ui-dlb ui-dlb-dl" data-dl="${d.id}" aria-label="Descargar volumen ${v.num} en ${esc(d.fmt)}">↓ ${esc(d.fmt)}<small>${esc(d.label || d.provider || '')}</small></button>`).join('')}</div>` : '<p class="ui-dl-unavailable">Aún no hay enlaces de descarga para este volumen.</p>'}</article>`;
+          return `<article class="ui-dl-volume" id="descarga-vol-${esc(v.num)}"><div class="ui-dl-volume-head"><div><span class="ui-lbl">Volumen ${esc(v.num)}</span><h3>${esc(name)}</h3></div><span class="ui-dl-count">${dl.length ? dl.length + (dl.length === 1 ? ' formato' : ' formatos') : 'Sin descargas'}</span></div>${dl.length ? `<div class="ui-dl ui-dl-featured" role="group" aria-label="Descargas del volumen ${v.num}"><span class="ui-lbl ui-dl-title">↓ Descargar Volumen ${v.num}</span>${dl.map(d => d.locked || vLk ? `<a class="ui-dlb lock" href="${esc(patronLink)}" ${patronLink.startsWith('https://') ? 'target="_blank" rel="noopener noreferrer"' : ''} title="Solo para mecenas del Patreon del equipo">🔒 ${esc(d.fmt)}<small>${esc(d.label || d.provider || '')} · Patreon del equipo</small></a>` : `<button type="button" class="ui-dlb ui-dlb-dl" data-dl="${d.id}" aria-label="Descargar volumen ${v.num} en ${esc(d.fmt)}">↓ ${esc(d.fmt)}<small>${esc(d.label || d.provider || '')}${d.patreon_only ? ' · Patreon del equipo' : ''}</small></button>`).join('')}</div>` : '<p class="ui-dl-unavailable">Aún no hay enlaces de descarga para este volumen.</p>'}</article>`;
         }).join('')}</div>` : '<p class="ui-dl-empty">No hay volúmenes publicados para descargar.</p>'}
       </section>
       <section id="rv-sec" class="ui-series-panel" role="tabpanel" aria-labelledby="serie-tab-reviews" tabindex="0" hidden><div class="ui-h2"><h2>Reseñas</h2><span class="mono" id="rv-n"></span></div><div id="rv-box"><p class="mono">Cargando reseñas…</p></div></section></div>`;

@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/admin-supervision-check.mjs && node scripts/team-invitations-check.mjs && node scripts/build.mjs",
+    "build": "node scripts/admin-supervision-check.mjs && node scripts/team-invitations-check.mjs && node scripts/patreon-scope-check.mjs && node scripts/patreon-publication-check.mjs && node scripts/build.mjs",
     "check": "node scripts/build.mjs --check",
     "optimize-check": "node scripts/optimization-check.mjs",
     "db-phase2-check": "node scripts/db-phase2-check.mjs",
@@ -31,7 +31,9 @@
     "preferencias-fase4-browser": "node scripts/preferencias-fase4-browser.mjs",
     "seguridad-perfiles-check": "node scripts/seguridad-perfiles-check.mjs",
     "admin-supervision-check": "node scripts/admin-supervision-check.mjs",
-    "team-invitations-check": "node scripts/team-invitations-check.mjs"
+    "team-invitations-check": "node scripts/team-invitations-check.mjs",
+    "patreon-scope-check": "node scripts/patreon-scope-check.mjs",
+    "patreon-publication-check": "node scripts/patreon-publication-check.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
