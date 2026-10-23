@@ -74,11 +74,18 @@ export async function agenda(ctx){
   async function load(fromK, toK){
     if (D.from && fromK >= D.from && toK <= D.to) return;
     const a = D.from && D.from < fromK ? D.from : fromK, b = D.to && D.to > toK ? D.to : toK;
-    const [ev, an] = await Promise.all([
+    const [ev, an, pre] = await Promise.all([
       sb.rpc('agenda_events', { p_from: noon(addK(a, -1)).toISOString(), p_to: noon(addK(b, 1)).toISOString() }),
-      sb.rpc('team_anniversaries', { p_from: a, p_to: b })]);
+      sb.rpc('team_anniversaries', { p_from: a, p_to: b }),
+      sb.rpc('prelaunch_calendar', { p_from: noon(addK(a, -1)).toISOString(), p_to: noon(addK(b, 1)).toISOString() })]);
     if (ev.error) { console.warn('agenda_events', ev.error.message); toast('No se pudo cargar el calendario: ' + ev.error.message); }
-    D.rows = ev.data || []; D.aniv = an.data || []; D.from = a; D.to = b;
+    if (pre.error) console.warn('prelaunch_calendar', pre.error.message);
+    // Los anuncios de volúmenes son opt-in: ignorar la versión automática de 'volp' del feed heredado.
+    const previews = pre.data || [];
+    D.rows = [...(ev.data || []).filter(r => r.kind !== 'volp'), ...previews.map(r => ({ ...r, chapter_id: null, open_at: null, can_read: false }))];
+    D.aniv = an.data || []; D.from = a; D.to = b;
+    // Para obras todavía privadas, la RPC permite únicamente estos metadatos de anuncio.
+    previews.forEach(r => { D.series[r.series_id] ||= { id: r.series_id, slug: r.slug, title: r.title, short: r.short, cover_path: r.cover_path, cover_thumb_path: r.cover_thumb_path, work_type: r.work_type, teams: { name: r.team_name, slug: r.team_slug } }; });
     const ids = [...new Set(D.rows.map(r => r.series_id).filter(id => !D.series[id]))];
     for (let i = 0; i < ids.length; i += 150) { const { data } = await sb.from('series').select('id,slug,title,short,cover_path,cover_thumb_path,work_type,team_id,teams(name,slug)').in('id', ids.slice(i, i + 150)); (data || []).forEach(s => D.series[s.id] = s); }
     const tids = [...new Set(Object.values(D.series).map(s => s.team_id).filter(t => t && !(t in D.pat)))];
