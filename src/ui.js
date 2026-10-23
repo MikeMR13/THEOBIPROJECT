@@ -349,14 +349,18 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     if (!p) { const { data: f } = await sb.from('chapters').select('num').eq('series_id', s.id).eq('status', 'published').is('deleted_at', null).order('num').limit(1); if (!q.hidden) { paint(f?.[0]?.num || null, o.following()); q.querySelector('.ui-qx').focus({ preventScroll: true }); } }
   }
   // progreso del servidor + el de este dispositivo (sirve sin cuenta y si el servidor va atrasado)
-  async function progressMap(){
-    const u = getUser(); let rows = [];
-    if (u) { const { data } = await sb.from('reading_progress').select('series_id,chapter_num,pct,updated_at').eq('user_id', u.id); rows = data || []; }
-    const m = Object.fromEntries(rows.map(r => [r.series_id, r]));
+  function localProgressMap(base = {}){
+    const m = { ...base };
     try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!k?.startsWith('obi-pos-')) continue;
       const l = JSON.parse(localStorage.getItem(k)), id = k.slice(8), cur = m[id]; if (!l?.num) continue;
       if (!cur || (l.at && new Date(l.at) > new Date(cur.updated_at || 0))) m[id] = { series_id: id, chapter_num: l.num, pct: l.pct || 0, updated_at: l.at || cur?.updated_at || new Date(0).toISOString() }; } } catch {}
     return m;
+  }
+  // Solo las vistas que necesitan los datos completos deben esperar la consulta.
+  async function progressMap(){
+    const u = getUser(); let rows = [];
+    if (u) { const { data } = await sb.from('reading_progress').select('series_id,chapter_num,pct,updated_at').eq('user_id', u.id); rows = data || []; }
+    return localProgressMap(Object.fromEntries(rows.map(r => [r.series_id, r])));
   }
 
   // ---------- Inicio ----------
@@ -433,6 +437,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 .ob-cc{min-width:0}
 .ob-cc:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 .ob-cc .cv{background-position:center;background-size:cover;overflow:hidden}
+.ob-cc .cv img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .ob-cc b{overflow-wrap:anywhere;line-height:1.35}
 .ob-ann{min-width:0;transition:border-color .18s,background .18s}
 .ob-ann:hover,.ob-ann:focus-within{border-color:var(--tc,var(--gold));background:#1c1a14}
@@ -528,10 +533,15 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       .eq('list','tendencia').in('period',['hoy','semana']).order('pos').limit(30)
       .then(r => r, () => ({ data: [] }));
     const teamRequest = teamHighlights().then(r => r, () => ({ data: [] }));
-    const [FD, prog, pr, VR] = await Promise.all([
-      feed(), progressMap(),
+    // El progreso del lector es complementario: nunca retener la portada mientras
+    // responde esa consulta. Mostrar primero el progreso guardado en el dispositivo.
+    const prog = localProgressMap();
+    const progressRequest = u ? progressMap().catch(() => null) : null;
+    const [FD, pr, VR] = await Promise.all([
+      feed(),
+      // Esperar la validación +18 antes de representar cualquier título restringido.
       u ? sb.rpc('my_adult_ok') : { data: null },
-      // El volumen más reciente puede tener una portada diferente.
+      // Datos frescos del volumen: imprescindibles para «Nuevo lanzamiento».
       sb.from('volumes').select('id,series_id,num,title,cover_path,status,published_at,announced_at,is_final')
         .is('deleted_at', null).eq('status', 'published').then(r => r, () => ({ data: [] }))
     ]);
@@ -563,10 +573,15 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const gc = new Map(); list.forEach(x => (x.genres || []).forEach(g => gc.set(g, (gc.get(g) || 0) + 1)));
     const genres = [...gc].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es')).slice(0, 6);
     const done = list.filter(x => x.translation_status === 'completed').sort((a, b) => new Date(lastCh[b.id]?.publish_at || 0) - new Date(lastCh[a.id]?.publish_at || 0) || (b.views || 0) - (a.views || 0)).slice(0, 15);
-    const cover = (s, tag) => { const t = tag || (top[s.id] ? 'TOP ' + top[s.id] : ''); return s.cover_path ? `<span class="cv" style="background-image:url('${esc(thumb(s))}')">${t ? `<i>${t}</i>` : ''}</span>` : `<span class="cv no" style="--c:${esc(color(s))}">${t ? `<i>${t}</i>` : ''}${esc(s.short || s.title)}</span>`; };
+    const cover = (s, tag) => { const t = tag || (top[s.id] ? 'TOP ' + top[s.id] : ''); return s.cover_path ? `<span class="cv"><img src="${esc(thumb(s))}" alt="" loading="lazy" decoding="async">${t ? `<i>${t}</i>` : ''}</span>` : `<span class="cv no" style="--c:${esc(color(s))}">${t ? `<i>${t}</i>` : ''}${esc(s.short || s.title)}</span>`; };
     const cc = (s, sub, tag) => `<a class="ob-cc" href="/serie/${s.slug}">${cover(s, tag)}<b>${esc(s.title)}</b><small>${sub}</small></a>`;
     const arrows = id => `<span class="ob-arr"><button type="button" data-cs="${id}" data-d="-1" aria-controls="${id}" aria-label="Anteriores">‹</button><button type="button" data-cs="${id}" data-d="1" aria-controls="${id}" aria-label="Siguientes">›</button></span>`;
     const head = (k, t, right = '') => `<div class="ob-st"><span class="k">${k}</span><h2>${t}</h2>${right}</div>`;
+    const continueHTML = rows => `
+      ${rows.length ? `<div class="ob-band" style="display:flex;align-items:baseline;gap:14px;margin:56px 0 0;padding-bottom:10px;border-bottom:2px solid var(--gold)"><span aria-hidden="true" style="font-family:'Shippori Mincho B1',serif;font-size:28px;color:var(--gold)">君</span><h2 style="margin:0;font-size:clamp(26px,3vw,40px);font-family:'Shippori Mincho B1',serif;font-weight:500">Para ti</h2></div>` : ''}
+${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読', 'Continuar leyendo', '<a class="r" href="/biblioteca">Mi biblioteca →</a>')}<div class="ui-rows ob-anim">${rows.map(p => { const s = byId[p.series_id]; return `<a class="ui-ccard" href="/leer/${s.slug}/${p.chapter_num}" style="--c:${esc(color(s))}"><span class="th" style="background-image:${s.cover_path ? `url('${esc(thumb(s))}')` : 'none'}"></span><span><span class="ui-lbl">Cap. ${p.chapter_num}${s.chapters?.[0]?.count ? ' de ' + s.chapters[0].count : ''} · ${Math.round((p.pct || 0) * 100)}% · ${ago(p.updated_at)}</span><br><strong>${esc(s.title)}</strong><span class="ui-bar"><i style="width:${Math.round((p.pct || 0) * 100)}%"></i></span></span></a>`; }).join('')}</div></section>` : ''}
+    `;
+
     setTimeout(() => import('/agenda.js?v=1').then(A => A.openToday({ sb, esc }, document.getElementById('ob-open-today'))).catch(() => {}), 0);
     app.innerHTML = `<div class="ob-page">
       <div class="ob-mast"><b>翻訳図書館</b><span>Biblioteca de novelas ligeras · Español latino</span></div>
@@ -593,8 +608,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       ${u ? '' : `<div class="ob-hi" style="display:grid;gap:18px"><p style="flex:none"><strong>Bienvenido a El Obi del Lector.</strong> Novelas ligeras traducidas al español por grupos de fans.</p>
         <ol style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px"><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">探</span><span><b style="display:block;font-size:15px">Descubre</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Busca por género o mira lo más leído de la semana.</span></span></li><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">追</span><span><b style="display:block;font-size:15px">Sigue una obra</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Recibe novedades de volúmenes completos y capítulos individuales.</span></span></li><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">続</span><span><b style="display:block;font-size:15px">Lee sin perderte</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Tu progreso se guarda en todos tus dispositivos.</span></span></li></ol>
         <div><a class="a1" href="/entrar">Crear cuenta gratis</a><a class="a2" href="/catalogo" style="border-color:transparent">o explora el catálogo →</a></div></div>`}
-      ${cont.length ? `<div class="ob-band" style="display:flex;align-items:baseline;gap:14px;margin:56px 0 0;padding-bottom:10px;border-bottom:2px solid var(--gold)"><span aria-hidden="true" style="font-family:'Shippori Mincho B1',serif;font-size:28px;color:var(--gold)">君</span><h2 style="margin:0;font-size:clamp(26px,3vw,40px);font-family:'Shippori Mincho B1',serif;font-weight:500">Para ti</h2></div>` : ''}
-      ${cont.length ? `<section class="ob-sec" style="border-top:none">${head('続読', 'Continuar leyendo', '<a class="r" href="/biblioteca">Mi biblioteca →</a>')}<div class="ui-cont ob-anim">${cont.map(p => { const s = byId[p.series_id]; return `<a class="ui-ccard" href="/leer/${s.slug}/${p.chapter_num}" style="--c:${esc(color(s))}"><span class="th" style="background-image:${s.cover_path ? `url('${esc(thumb(s))}')` : 'none'}"></span><span><span class="ui-lbl">Cap. ${p.chapter_num}${s.chapters?.[0]?.count ? ' de ' + s.chapters[0].count : ''} · ${Math.round((p.pct || 0) * 100)}% · ${ago(p.updated_at)}</span><br><strong>${esc(s.title)}</strong><span class="ui-bar"><i style="width:${Math.round((p.pct || 0) * 100)}%"></i></span></span></a>`; }).join('')}</div></section>` : ''}
+      <div id="ob-continue-slot">${continueHTML(cont)}</div>
       <div id="ob-s-pend"></div><div id="ob-s-foryou"></div>
       ${nx.length ? `<section class="ob-sec">${head('予定', 'Próximos lanzamientos', '<a class="r" href="/calendario">Calendario →</a>')}
         <div class="ob-next ob-anim">${nx.map(e => `<a class="ob-nx" href="/serie/${esc(e.series.slug)}"><span class="w">${until(e.at)} · ${new Date(e.at).toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span><b>${esc(e.series.title)}</b><small>${e.kind === 'volume' ? 'Volumen completo · ' : ''}${esc(e.label || '')}</small></a>`).join('')}</div></section>` : ''}
@@ -618,6 +632,18 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const bindCars = root => root.querySelectorAll('[data-cs]').forEach(bt => { const c = document.getElementById(bt.dataset.cs); if (!c) return; bt.onclick = () => c.scrollBy({ left: +bt.dataset.d * c.clientWidth * .85, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
       const upd = () => { const [l, r] = root.querySelectorAll(`[data-cs="${bt.dataset.cs}"]`); if (l) l.disabled = c.scrollLeft < 4; if (r) r.disabled = c.scrollLeft + c.clientWidth >= c.scrollWidth - 4; }; c.addEventListener('scroll', upd, { passive: true }); upd(); });
     bindCars(app);
+    // Actualizar únicamente la sección personal cuando llegue el progreso remoto.
+    // No sustituir el Inicio ni reiniciar el carrusel durante la lectura.
+    if (progressRequest) progressRequest.then(remote => {
+      const slot = app.querySelector('#ob-continue-slot');
+      if (!remote || !slot?.isConnected || location.pathname !== '/') return;
+      Object.assign(prog, remote);
+      const nextCont = Object.values(prog)
+        .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+        .filter(p => byId[p.series_id]).slice(0, 6);
+      slot.innerHTML = continueHTML(nextCont);
+    });
+
     // Mantener navegación horizontal por teclado además de flechas y gesto táctil.
     const releaseCar = app.querySelector('#ob-release-car');
     releaseCar?.addEventListener('keydown', e => {
@@ -771,14 +797,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   let heroPaused = false;
   function heroSlide(feat, i, prog, lastCh, top = {}, newsBySeries = {}, featReasons = {}){
     clearTimeout(heroT); const el = $('#hero'); if (!el) return;
-    const s = feat[i], pre = s.__prelaunch || null, reason = featReasons[s.id], p = pre ? null : prog[s.id], lc = pre ? null : lastCh[s.id], n = p?.chapter_num || lc?.num || 1; const pub = pre ? null : newsBySeries[s.id], v = pre ? { num: pre.vnum, cover_path: pre.cover_path } : pub?.kind === 'volume' ? pub.volume : null, art = v?.cover_path || s.cover_path; const freshDate = publicationDate(pub?.at || lc?.publish_at), fresh = !!freshDate && Date.now() - freshDate.getTime() < 7 * 864e5;
+    const s = feat[i], pre = s.__prelaunch || null, reason = featReasons[s.id], p = pre ? null : prog[s.id], lc = pre ? null : lastCh[s.id], n = p?.chapter_num || lc?.num || 1; const pub = pre ? null : newsBySeries[s.id], v = pre ? { num: pre.vnum, cover_path: pre.cover_path } : pub?.kind === 'volume' ? pub.volume : null, art = v?.cover_path || s.cover_path; const heroCover = art && s.cover_thumb_path && art === s.cover_path ? thumb(s) : media(art); const freshDate = publicationDate(pub?.at || lc?.publish_at), fresh = !!freshDate && Date.now() - freshDate.getTime() < 7 * 864e5;
     const preAt = pre && new Date(pre.at), preWhen = preAt ? preAt.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: window.obiTZ?.() || undefined }) : '';
     const preTime = preAt ? Math.max(0, preAt - Date.now()) : 0, preDays = Math.ceil(preTime / 864e5), preHours = Math.ceil(preTime / 36e5), preLeft = preTime > 864e5 ? preDays + (preDays === 1 ? ' día' : ' días') : preTime > 36e5 ? preHours + (preHours === 1 ? ' hora' : ' horas') : Math.max(1, Math.ceil(preTime / 6e4)) + ' min';
     // frase de gancho: la primera oración completa (acepta comillas de cierre); si es larga o no hay más texto, no se separa
     const synT = (s.synopsis || '').replace(/\r/g, '').trim(), lines = synT.split(/\n+/), sents = lines[0].split(/(?<=[.!?…]["”»'’)]*)\s+/);
     let tag = lines.length > 1 && lines[0].length <= 140 ? lines[0] : sents.length > 1 && sents[0].length <= 110 ? sents[0] : '';
     el.innerHTML = `<span class="ob-vk" aria-hidden="true">${pre ? "予告" : "新刊案内"}</span>
-      <div class="ob-cov"><div class="f" style="${art ? `background-image:url('${esc(matchMedia('(max-width: 700px)').matches && !v ? thumb(s) : media(art))}')` : ''}"></div></div>
+      <div class="ob-cov"><div class="f" style="${art ? `background-image:url('${esc(heroCover)}')` : ''}"></div></div>
       <div class="ob-txt"><span class="ob-kick">${pre ? 'ESTRENO · ' + preWhen : v ? '第' + KN(v.num) + '巻 · 新刊' : '第' + KN(lc?.num || 1) + '章' + (fresh ? ' · 新刊' : '')}</span><div class="ob-hero-flags"><span class="ob-badge${pre ? ' ob-badge-vol' : v ? ' ob-badge-vol' : ''}" ${pre ? 'style="background:#8cc3f2;color:#0d0c0a"' : ''}>${pre ? 'PRÓXIMO ESTRENO · VOL. ' + pre.vnum : reason?.kind !== 'release' ? esc(reason?.label || 'Destacado') : reason?.label === 'Nuevo lanzamiento' ? '¡NUEVO LANZAMIENTO! · VOL. ' + v?.num : reason?.urgent ? '¡NOVELA COMPLETA! · VOL. ' + v.num : v ? (fresh ? '¡NUEVO VOLUMEN! · VOL. ' : 'VOLUMEN DISPONIBLE · VOL. ') + v.num : currentNotice(s)?.kind === 'chapter' ? 'CAPÍTULO PUBLICADO' : fresh ? 'NUEVO · CAP. ' + (lc?.num || 1) : 'CAP. ' + (lc?.num || 1) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${pre ? '' : heroTag(s)}</div>${!pre && top[s.id] ? `<div class="ob-hero-rank"><a class="rk-bdg" href="/ranking"><b>#${top[s.id]}</b>Top de la semana</a></div>` : ''}
         <h1 data-len="${(s.title.length + (v ? 12 + String(v.num).length : 0)) > 70 ? 'xl' : (s.title.length + (v ? 12 + String(v.num).length : 0)) > 40 ? 'l' : ''}"><a class="ob-h1a" href="/serie/${s.slug}">${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}</a></h1>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn" style="white-space:pre-line">${esc(s.synopsis ? (synT.slice(tag.length).replace(/^\s+/, '').replace(/\n{3,}/g, '\n\n') || synT) : pre ? 'Conoce la historia antes de su estreno. Los capítulos permanecen bloqueados hasta la fecha indicada.' : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), (s.chapters?.[0]?.count || 0) + ' capítulos en español'].filter(Boolean).join(' · ') + '.')}</p>
         ${pre ? `<p class="ob-prelaunch-timer" style="margin:8px 0;color:#8cc3f2;font-size:13px">🔒 Lectura bloqueada · Estreno: ${esc(preWhen)} · Faltan ${esc(preLeft)}</p><div class="ob-acts"><a class="a1" href="/serie/${encodeURIComponent(s.slug)}">Ver primer vistazo →</a><a class="a2" href="/calendario?f=prog">Ver en el calendario</a></div>` : `<div class="ob-acts"><a class="a1" href="${v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + n}">${v ? 'Ver volumen ' + v.num : p ? 'Continuar capítulo ' + n : 'Leer capítulo ' + (lc?.num || 1)}</a>${v && (p || lc) ? `<a class="a2" href="/leer/${s.slug}/${n}">${p ? 'Continuar lectura' : 'Empezar a leer'}</a>` : `<a class="a2" href="/serie/${s.slug}">Ver la serie</a>`}</div>`}</div>
