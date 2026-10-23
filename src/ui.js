@@ -157,7 +157,7 @@ const RK_CSS = `
 .rk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,168px),1fr));gap:30px 20px}
 .rk-c{position:relative;display:grid;gap:10px;align-content:start;color:var(--paper);text-decoration:none}.rk-c .ui-book{transition:transform .2s}.rk-c:hover .ui-book{transform:translateY(-4px)}.rk-c:hover b{color:var(--gold)}
 .rk-n{position:absolute;z-index:2;top:-10px;left:-8px;min-width:44px;height:44px;padding:0 8px;display:flex;align-items:center;justify-content:center;background:#0d0c0a;border:2px solid var(--c);font-family:'Shippori Mincho B1',serif;font-weight:800;font-size:22px;line-height:1;color:var(--paper);box-shadow:0 4px 12px rgba(0,0,0,.45)}
-.rk-c.top .rk-n{min-width:56px;height:56px;font-size:30px;background:var(--gold);border-color:var(--gold);color:#0d0c0a}
+.rk-c.rk-podium .rk-n{min-width:56px;height:56px;font-size:30px;background:var(--gold);border-color:var(--gold);color:#0d0c0a}
 .rk-b{display:grid;gap:3px}.rk-b b{font-size:15px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.rk-b small{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89f8a}
 .rk-s{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#cfc6b0}
 .rk-mv{font-weight:600;font-size:11px;padding:1px 5px;border:1px solid currentColor;line-height:1.4}.rk-mv.up{color:#a9d18e}.rk-mv.dn{color:#f59e7a}.rk-mv.eq{color:#7d745f;border-color:transparent}.rk-mv.new{color:var(--gold)}
@@ -165,7 +165,7 @@ const RK_CSS = `
 .rk-bdgs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}.rk-bdgs:empty{display:none}.rk-bdg{display:inline-flex;align-items:center;gap:8px;min-height:32px;padding:0 12px 0 0;background:#16140f;border:1px solid var(--gold);color:var(--paper)!important;font-size:13px;font-weight:600;text-decoration:none}.rk-bdg b{display:flex;align-items:center;align-self:stretch;padding:0 9px;background:var(--gold);color:#0d0c0a;font-family:'Shippori Mincho B1',serif;font-size:16px}.rk-bdg:hover{background:#1f1c14}
 .rk-rate{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0}.rk-stars{display:inline-flex}.rk-stars button{width:36px;height:40px;padding:0;background:none;border:0;font-size:24px;line-height:1;color:#3d3628;cursor:pointer}.rk-stars button.avg{color:#b5a27a}.rk-stars button.on{color:var(--gold)}.rk-stars:hover button{color:var(--gold)}.rk-stars button:hover~button{color:#3d3628}.rk-rate .mono{font-size:12px}
 .tp2-rkl{display:grid}.tp2-rki{display:grid;grid-template-columns:52px 40px minmax(0,1fr) auto;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid var(--ln);color:var(--fg)!important;text-decoration:none}.tp2-rki .n{font-family:var(--tf);font-weight:800;font-size:26px;color:var(--act);text-align:center}.tp2-rki .cv{width:40px;aspect-ratio:2/3;background:var(--sf) center/cover;border:1px solid var(--ln)}.tp2-rki b{font-weight:600}.tp2-rki .m{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mu)}.tp2-rk .tp2-sh{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}.tp2-rk .tp2-sh a{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--act)}
-@media(max-width:560px){.rk-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 14px}.rk-n{font-size:18px;min-width:38px;height:38px}.rk-c.top .rk-n{min-width:46px;height:46px;font-size:24px}}
+@media(max-width:560px){.rk-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 14px}.rk-n{font-size:18px;min-width:38px;height:38px}.rk-c.rk-podium .rk-n{min-width:46px;height:46px;font-size:24px}}
 `;
 const SR_CSS = `
 .sr-pop{position:absolute;top:calc(100% + 8px);left:0;right:0;min-width:min(420px,92vw);max-height:70vh;overflow:auto;z-index:70;background:#14120d;border:1px solid #3d3628;box-shadow:0 18px 40px rgba(0,0,0,.5)}
@@ -1266,6 +1266,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   }
   async function ranking(){
     rkCss();
+    // Preferir miniaturas en las tarjetas del ranking: no descargar portadas originales grandes.
+    const rankBook = s => book({ ...s, cover_path: s.cover_thumb_path || s.cover_path }, null, true);
     const qs = new URLSearchParams(location.search);
     const R = { list: RK_L[qs.get('lista')] ? qs.get('lista') : 'leidas', period: RK_P[qs.get('periodo')] ? qs.get('periodo') : 'semana', genre: qs.get('genero') || '', status: ['en_curso', 'terminada'].includes(qs.get('estado')) ? qs.get('estado') : '', teamView: qs.get('vista') === 'equipos' || !!qs.get('equipo'), team: qs.get('equipo') || '' };
     app.innerHTML = '<p class="mono">Cargando el ranking…</p>';
@@ -1352,7 +1354,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       const by = Object.fromEntries((ss || []).map(s => [s.id, s]));
       const entries = rows.filter(r => by[r.series_id]);
       box.innerHTML = `<p class="rk-team-note"><a href="/equipo/${esc(team.slug)}">${esc(team.name)} →</a> · ${entries.length} ${entries.length === 1 ? 'novela clasificada' : 'novelas clasificadas'}</p>` +
-        `<div class="rk-grid">${entries.map((r, i) => { const s = by[r.series_id]; return `<a class="rk-c${i < 3 ? ' top' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${i + 1} del equipo">${i + 1}</span>${book(s, null, true)}<span class="rk-b"><b>${esc(s.title)}</b><small>${fmtN(+r.score)} ${+r.score === 1 ? 'lector' : 'lectores'} · esta semana</small><span class="rk-s">${r.pos ? '#' + r.pos + ' general' : ''}</span></span></a>`; }).join('')}</div>`;
+        `<div class="rk-grid">${entries.map((r, i) => { const s = by[r.series_id]; return `<a class="rk-c${i < 3 ? ' rk-podium' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${i + 1} del equipo">${i + 1}</span>${rankBook(s)}<span class="rk-b"><b>${esc(s.title)}</b><small>${fmtN(+r.score)} ${+r.score === 1 ? 'lector' : 'lectores'} · esta semana</small><span class="rk-s">${r.pos ? '#' + r.pos + ' general' : ''}</span></span></a>`; }).join('')}</div>`;
     };
     const draw = async () => {
       sync(); const my = ++tk, box = $('#rk'); if (R.teamView) return drawTeam(my); box.innerHTML = '<p class="mono">Cargando…</p>';
@@ -1365,7 +1367,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       const by = Object.fromEntries((ss || []).map(s => [s.id, s])), filtered = !!(R.genre || R.status), anyPrev = data.some(r => r.prev_pos != null);
       const mv = r => filtered ? '' : r.prev_pos == null ? (anyPrev ? '<span class="rk-mv new">Nuevo</span>' : '') : r.prev_pos > r.gpos ? `<span class="rk-mv up" title="Subió ${r.prev_pos - r.gpos} desde la última actualización">▲${r.prev_pos - r.gpos}</span>` : r.prev_pos < r.gpos ? `<span class="rk-mv dn" title="Bajó ${r.gpos - r.prev_pos} desde la última actualización">▼${r.gpos - r.prev_pos}</span>` : '<span class="rk-mv eq" title="Sin cambios">=</span>';
       const sc = r => ({ leidas: fmtN(r.score) + ' lecturas', tendencia: '+' + fmtN(r.score) + ' lecturas', calificadas: (+r.score).toFixed(1) + ' ★ · ' + r.votes + ' votos', terminadas: fmtN(r.score) + (+r.score === 1 ? ' lector' : ' lectores') + ' al día', novedades: fmtN(r.score) + ' lecturas' })[R.list];
-      box.innerHTML = `<div class="rk-grid">${data.filter(r => by[r.series_id]).map(r => { const s = by[r.series_id]; return `<a class="rk-c${r.pos <= 3 ? ' top' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${r.pos}">${r.pos}</span>${book(s, null, true)}<span class="rk-b"><b>${esc(s.title)}</b>${s.teams?.name ? `<small>${esc(s.teams.name)}</small>` : ''}<span class="rk-s">${sc(r)}${mv(r)}</span></span></a>`; }).join('')}</div>
+      box.innerHTML = `<div class="rk-grid">${data.filter(r => by[r.series_id]).map(r => { const s = by[r.series_id]; return `<a class="rk-c${r.pos <= 3 ? ' rk-podium' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${r.pos}">${r.pos}</span>${rankBook(s)}<span class="rk-b"><b>${esc(s.title)}</b>${s.teams?.name ? `<small>${esc(s.teams.name)}</small>` : ''}<span class="rk-s">${sc(r)}${mv(r)}</span></span></a>`; }).join('')}</div>
         <p class="mono rk-upd">Actualizado ${ago(data[0].computed_at)} · se recalcula cada 6 horas${filtered ? ' · con filtros no se muestra el movimiento' : ''}</p>`;
     };
     app.querySelectorAll('[data-rl]').forEach(b => b.onclick = () => { R.teamView = false; R.list = b.dataset.rl; draw(); });
