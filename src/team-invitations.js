@@ -48,7 +48,7 @@ export async function renderTeamInvitation({ sb, app, esc, toast, go }) {
   }
   const { data: { user }, error: authError } = await sb.auth.getUser();
   if (authError || !user) {
-    message('Te han invitado a colaborar en un equipo traductor. Inicia sesión o crea una cuenta y confirma tu correo. Si la invitación es personal, deberás utilizar el correo autorizado. No se asignará ningún rol hasta que aceptes.');
+    message('Te han invitado a la plataforma El Obi del Lector. Si todavía no tienes cuenta, regístrate y verifica tu correo. Después vuelve a abrir el enlace de invitación e inicia sesión para aceptarla. Si la invitación es personal, utiliza el correo indicado por el Bibliotecario. No recibirás permisos antes de aceptar.');
     actions.innerHTML = '<a class="btn" href="/entrar">Iniciar sesión</a><a class="btn ghost" href="/registro">Crear cuenta</a>';
     return;
   }
