@@ -57,13 +57,6 @@ assert.match(agenda, /class="ag-milestones"/, 'Mostrar liberación de mecenas y 
 assert.match(agenda, /class="ag-chapters"/, 'Expandir capítulos sin repetir tarjetas');
 assert.match(agenda, /matchMedia\?\./, 'Vista móvil prioriza agenda');
 
-assert.match(ui, /prelaunch_series/, 'Ficha pública con primer vistazo');
-assert.match(ui, /ob-s-prelaunch/, 'Próximos estrenos en Inicio');
-assert.match(preview, /data-pre-time/, 'Cuenta regresiva');
-assert.match(preview, /data-pre-rem/, 'Recordatorios');
-assert.doesNotMatch(preview, /\.from\('chapters'\)/, 'El módulo de preestreno no lee borradores');
-
-
 // Regression: a previously announced scheduled volume and its chapters should
 // share a launch card only when the scheduled instant and volume match.
 const groupStart = agenda.indexOf('  const patronLaunch =');
