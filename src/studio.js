@@ -848,7 +848,7 @@ export function createStudio(ctx){
       const labelAccess = x => !locked(x) ? 'Público' : x.access === 'tier' ? 'Nivel de Patreon' : 'Solo mecenas';
       const changeState = () => dirtyS || dirtyV.size > 0 || dirtyC.size > 0;
       const draftV = v => dirtyV.get(v.id) || { ...v, unlockAuto: !!v.access_until };
-      const badge = (x, extra = '') => `<span class="wk-access-badge ${locked(x) ? 'is-locked' : 'is-public'}">${locked(x) ? '🔒 ' : '✓ '}${esc(extra || labelAccess(x))}</span>`;
+      const badge = (x, extra = '', inherited = false) => `<span class="wk-access-badge ${locked(x) || inherited ? 'is-locked' : 'is-public'}">${locked(x) || inherited ? '🔒 ' : '✓ '}${esc(extra || labelAccess(x))}</span>`;
       const mark = () => {
         const label = $('#lk-st'), save = $('#lk-save');
         if (label) label.textContent = changeState() ? 'Cambios sin guardar' : 'Todo guardado';
@@ -878,7 +878,7 @@ export function createStudio(ctx){
             <div class="wk-access-card-title"><span class="wk-access-step">2</span><div><h3 id="wk-access-vol-title">Volúmenes</h3><p>Restringir un volumen bloquea todos sus capítulos. Los permisos de la obra tienen prioridad.</p></div></div>
             <div class="wk-access-volume-list">${VOL.map(v => { const d = draftV(v), isL = locked(d), count = CH.filter(c => c.volume_id === v.id).length;
               return `<article class="wk-access-volume" data-volume="${v.id}">
-                <div class="wk-access-volume-head"><div><b>Volumen ${v.num}${v.title && v.title !== String(v.num) ? ' · ' + esc(v.title) : ''}</b><small class="mono">${count} ${count === 1 ? 'capítulo' : 'capítulos'}</small></div>${badge(d, workLocked ? 'Hereda bloqueo de obra' : '')}</div>
+                <div class="wk-access-volume-head"><div><b>Volumen ${v.num}${v.title && v.title !== String(v.num) ? ' · ' + esc(v.title) : ''}</b><small class="mono">${count} ${count === 1 ? 'capítulo' : 'capítulos'}</small></div>${badge(d, workLocked ? 'Hereda bloqueo de obra' : '', workLocked)}</div>
                 <label class="wk-access-field" for="lk-v-${v.id}">Quién puede leer este volumen
                   <select id="lk-v-${v.id}" data-va="${v.id}" ${disable}>${opts(enc(d.access, d.access_min_price))}</select>
                 </label>
