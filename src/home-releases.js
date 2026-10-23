@@ -15,10 +15,14 @@ export function homeReleaseOverview(latest = [], volumes = [], visibleSeries = [
   }
   for (const list of chapters.values()) list.sort((a, b) => atMs(b.publish_at) - atMs(a.publish_at) || (+b.num || 0) - (+a.num || 0));
 
-  const lastVolume = new Map();
+  const lastVolume = new Map(), publishedVolumeCount = new Map();
   for (const v of Array.isArray(volumes) ? volumes : []) {
+    if (!visible.has(v.series_id) || v.status !== 'published' || atMs(v.published_at) < 0) continue;
+    // Distinguir el primer volumen de una serie de los lanzamientos posteriores.
+    // El conteo incluye volúmenes publicados aunque falte su anuncio editorial.
+    publishedVolumeCount.set(v.series_id, (publishedVolumeCount.get(v.series_id) || 0) + 1);
     // announced_at certifica que la plataforma anunció el volumen, no solamente un capítulo.
-    if (!visible.has(v.series_id) || v.status !== 'published' || !v.announced_at || atMs(v.published_at) < 0) continue;
+    if (!v.announced_at) continue;
     const old = lastVolume.get(v.series_id);
     if (!old || atMs(v.published_at) > atMs(old.published_at) || (atMs(v.published_at) === atMs(old.published_at) && +v.num > +old.num))
       lastVolume.set(v.series_id, v);
@@ -30,7 +34,8 @@ export function homeReleaseOverview(latest = [], volumes = [], visibleSeries = [
     const tc = c ? atMs(c.publish_at) : -1, tv = v ? atMs(v.published_at) : -1;
     // Algunos importadores asignan publish_at a sus capítulos minutos después de publicar el volumen.
     if (v && tv + 30 * 60000 >= tc) {
-      entries.push({ id: s.id, kind: 'volume', volume: v, chs: [], at: v.published_at, time: tv });
+      entries.push({ id: s.id, kind: 'volume', volume: v, chs: [], at: v.published_at, time: tv,
+        isNewSeries: Number(v.num) === 1 && publishedVolumeCount.get(s.id) === 1 });
     } else if (c) {
       // No mezclar capítulos de publicaciones históricas en un mismo anuncio.
       const batch = chs.filter(x => tc - atMs(x.publish_at) <= 10 * 60000).slice(0, 20);
