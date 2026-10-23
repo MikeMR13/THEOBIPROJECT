@@ -24,7 +24,8 @@ set search_path = ''
 as $function$
 begin
   -- Solo contadores estrictamente agregados; ni JSON libre ni IDs de lector/obra.
-  if p_category not in ('launch','release','popular','historic','editorial','discover','trending','team','prelaunch','other','mobile','desktop')
+  if p_category is null or p_action is null
+     or p_category not in ('launch','release','popular','historic','editorial','discover','trending','team','prelaunch','other','mobile','desktop')
      or p_action not in ('show','click','read','fast','moderate','slow')
      or not (
        (p_category in ('mobile','desktop') and p_action in ('fast','moderate','slow')) or
