@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {createServer} from 'node:http';
 import {spawn,execFileSync} from 'node:child_process';
 const source=readFileSync('src/studio.js','utf8');
-const css=readFileSync('src/styles.css','utf8')+'\n'+readFileSync('src/studio.css','utf8');
+const css=readFileSync('src/styles.css','utf8')+'\n'+readFileSync('src/studio.css','utf8')+'\n'+readFileSync('src/studio-access.css','utf8');
 for(const token of ['class="wk-access-page"','class="wk-lock-auto mono"','id="lk-sud"','class="wk-access-ch-row"',"['accesos', 'Acceso y Patreon']","data-va=","data-lc="]) assert(source.includes(token),'Sin control: '+token);
 for(const token of ['.s2 #wk-lock-b .wk-lock-auto','.s2 #wk-lock-b .wk-lock-date[hidden]','.s2 #wk-lock-b .wk-access-ch-row','.s2 #wk-lock-b .wk-access-card']) assert(css.includes(token),'Falta CSS: '+token);
 const cases=[320,390,690,768,1024,1440].flatMap(w=>[0,1].map(auto=>({w,auto})));
