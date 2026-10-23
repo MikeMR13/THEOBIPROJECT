@@ -155,6 +155,25 @@ const RK_CSS = `
 .rk-sel{display:flex;gap:8px;align-items:center}.rk-sel select{min-height:40px;font-size:13px}
 .rk-desc{margin:0;font-size:12px;color:#a89f8a;line-height:1.5}\n#rk-filters[hidden],#rk[hidden],#rk-teams[hidden],#rk-autoh[hidden]{display:none!important}\n.rk-team-panel{display:grid;gap:20px;padding:22px;border:1px solid var(--line);border-top:3px solid var(--gold);background:#14120e}\n.rk-team-header{display:flex;align-items:end;justify-content:space-between;flex-wrap:wrap;gap:14px}\n.rk-team-header h2{margin:0;font-size:clamp(23px,3vw,32px)}\n.rk-team-select{display:grid;gap:7px;min-width:min(100%,240px);font:600 13px 'IBM Plex Sans',sans-serif}\n.rk-team-select select{min-height:44px;width:100%;max-width:380px}\n.rk-team-note{font:12px/1.5 'IBM Plex Mono',monospace;color:var(--mute);margin:0}\n.rk-team-panel .rk-grid{margin-top:8px}\n@media(max-width:600px){.rk-team-panel{padding:14px}.rk-team-select{width:100%}}
 .rk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,168px),1fr));gap:30px 20px}
+.rk-overview[hidden]{display:none!important}
+.rk-overview{display:grid;gap:30px;margin:42px 0 0;padding-top:28px;border-top:1px solid var(--line)}
+.rk-overview-top h2{margin:0 0 8px;font-size:clamp(24px,3vw,32px);font-family:'Shippori Mincho B1',serif;font-weight:500}
+.rk-overview-top p{margin:0;color:var(--mute);font-size:13px;line-height:1.5}
+.rk-preview{display:grid;gap:17px;padding:0 0 26px;border-bottom:1px solid var(--line)}
+.rk-preview-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 16px}
+.rk-preview-head h3{font-size:22px;font-family:'Shippori Mincho B1',serif;font-weight:500;margin:0}
+.rk-preview-head a,.rk-preview-team a{font-size:13px;font-weight:600;white-space:normal}
+.rk-preview-body{min-height:75px}
+.rk-preview-state{margin:0;color:var(--mute);font-size:13px;line-height:1.6}
+.rk-preview-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:24px 16px}
+.rk-preview-grid .rk-c{min-width:0}
+.rk-preview-grid .ui-book{max-width:none;transform:none}
+.rk-preview-grid .rk-n,.rk-preview-grid .rk-c.rk-podium .rk-n{min-width:37px;height:37px;font-size:18px;top:-7px;left:-5px;padding:0 5px}
+.rk-preview-grid .rk-b b{font-size:14px}
+.rk-preview-team{display:grid;gap:10px;padding:21px 24px;background:#16140f;border:1px solid var(--line);border-left:4px solid var(--gold)}
+.rk-preview-team h3{font-family:'Shippori Mincho B1',serif;font-size:21px;font-weight:500;margin:0}
+.rk-preview-team p{margin:0;color:var(--mute);font-size:13px}
+@media(max-width:680px){.rk-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 14px}.rk-overview{margin-top:30px;gap:26px}.rk-preview-team{padding:16px}}
 .rk-c{position:relative;display:grid;gap:10px;align-content:start;color:var(--paper);text-decoration:none}.rk-c .ui-book{transition:transform .2s}.rk-c:hover .ui-book{transform:translateY(-4px)}.rk-c:hover b{color:var(--gold)}
 .rk-n{position:absolute;z-index:2;top:-10px;left:-8px;min-width:44px;height:44px;padding:0 8px;display:flex;align-items:center;justify-content:center;background:#0d0c0a;border:2px solid var(--c);font-family:'Shippori Mincho B1',serif;font-weight:800;font-size:22px;line-height:1;color:var(--paper);box-shadow:0 4px 12px rgba(0,0,0,.45)}
 .rk-c.rk-podium .rk-n{min-width:56px;height:56px;font-size:30px;background:var(--gold);border-color:var(--gold);color:#0d0c0a}
