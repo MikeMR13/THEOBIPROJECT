@@ -437,7 +437,7 @@ export function createStudio(ctx){
     if (!(await ensure())) return;
     const { data: s } = await sb.from('series').select('*').eq('slug', slug).maybeSingle();
     if (!s) return go('/estudio');
-    const tab = ({ datos: 'datos', avisos: 'avisos', media: 'media', descargas: 'descargas' })[new URLSearchParams(location.search).get('tab')] || 'caps';
+    const tab = ({ datos: 'datos', accesos: 'accesos', avisos: 'avisos', media: 'media', descargas: 'descargas' })[new URLSearchParams(location.search).get('tab')] || 'caps';
     const { readPages } = await import('/paging.js?v=1');
     const [{ data: vols }, { data: chs }, { data: cols }, { data: events }, { data: dls }, { data: buys }, { data: tch }, { data: tvol }] = await Promise.all([
       sb.from('volumes').select('*').eq('series_id', s.id).is('deleted_at', null).order('num'),
@@ -499,11 +499,11 @@ export function createStudio(ctx){
         <section class="wk-box" style="border-top:4px solid #8cc3f2"><h2>Créditos compartidos</h2><small class="mono">Invita a otro grupo traductor. Al aceptar, la obra aparece en el catálogo y en el perfil de ambos equipos.</small>
           ${(cols || []).map(c => `<div class="wk-cb"><span class="wk-ini" style="background:${esc(c.invited?.color || '#8cc3f2')}">${esc((c.invited?.name || '?').slice(0, 2).toUpperCase())}</span><b>${esc(c.invited?.name || '')}</b><span class="mono">${{ pending: 'Pendiente', accepted: 'Aceptada', rejected: 'Rechazada', revoked: 'Revocada' }[c.status] || c.status}</span>${c.status !== 'revoked' && can('edit') ? `<button class="lnk danger" data-revoke="${c.id}">Revocar</button>` : '<span></span>'}</div>`).join('')}
           ${can('edit') ? '<div class="wk-inv"><input id="inv" placeholder="@alias del equipo" aria-label="Alias del equipo a invitar"><button class="btn sm blue" id="invite">Invitar</button></div>' : ''}</section>
-        <section class="wk-box" id="wk-lock" style="grid-column:1/-1"><h2>Mecenas y bloqueos</h2><small class="mono">Bloquea la obra completa o capítulos sueltos para mecenas de tu Patreon. Quien no es mecenas ve la ficha y los títulos con candado y un botón «Hazte mecenas». Los volúmenes se bloquean desde «Editar volumen».</small><div id="wk-lock-b"><p class="mono">Cargando…</p></div></section>
         <section class="wk-box" id="wk-rel"><h2>Obras relacionadas</h2><small class="mono">Precuelas, secuelas, spin-offs u obras del mismo universo. Se muestran en la ficha pública. Puedes enlazar obras de otros equipos.</small><div id="wk-rel-b"><p class="mono">Cargando…</p></div></section>
         <section class="wk-box"><h2>Historial de publicación</h2>${(events || []).map(e => `<p class="mono" style="margin:0">${fmtTz(e.created_at, { dateStyle: 'short', timeStyle: 'short' })} · ${esc(e.summary)}</p>`).join('') || '<p class="mono" style="margin:0">Sin eventos.</p>'}</section>
       </div>
       ${can('edit') ? '<div class="wk-save"><span class="mono" id="wk-dirty"></span><button class="btn" id="wk-savebtn">Guardar datos</button></div>' : ''}</div>`;
+    const accesos = () => `<div class="wk-access-page"><header class="wk-access-intro"><span class="mono">ACCESO EDITORIAL · PATREON DEL EQUIPO</span><h2>¿Quién puede leer tu traducción?</h2><p>Configura los permisos por niveles. Un bloqueo de obra se aplica a todos sus volúmenes y capítulos; uno de volumen, a todos sus capítulos. Los capítulos pueden tener reglas propias más restrictivas.</p><p class="wk-access-hint"><b>Publicar no es liberar.</b> Las fechas de publicación se programan desde el editor. Aquí decides cuándo puede leer el público lo que ya se publicó.</p></header><div id="wk-lock-b" aria-live="polite"><p class="mono">Cargando permisos…</p></div></div>`;
     const avisos = () => `<div class="wk-dat"><section class="wk-box" id="wk-utag"><h2>Aviso en actualizaciones</h2><small class="mono">Texto resaltado junto al título de la obra en Inicio › Últimas actualizaciones y en Lanzamientos. Úsalo para anunciar un volumen nuevo, un nivel nuevo, un capítulo extra o lo que el equipo quiera.</small><div id="wk-utag-b"></div></section>
       <div class="wk-col"><section class="wk-box"><h2>Vista previa</h2><div id="wk-utag-pv"></div></section><section class="wk-box"><h2>Último anuncio de publicación</h2><div id="wk-release-info"></div></section></div></div>`;
     const chip = (k, val, l) => `<button type="button" class="ed-chip ${F[k] === val ? 'on' : ''}" aria-pressed="${F[k] === val}" data-f${k}="${val}">${l}</button>`;
@@ -520,8 +520,8 @@ export function createStudio(ctx){
     app.innerHTML = shell(esc(s.title), `<div class="wk">
       <div class="wk-top"><div class="wk-summary"><span class="pl" style="--p:${st[1]}">${st[0]}</span><span class="mono">${V.length} ${V.length === 1 ? 'volumen' : 'volúmenes'} · ${n('published')} publicados · ${n('scheduled')} programados · ${n('draft')} borradores</span></div>
         <span class="wk-acts">${can('create') ? '<button class="btn sm" id="wk-new">＋ Nuevo capítulo</button>' : ''}${can('import') ? '<a class="btn ghost sm" href="/estudio/importar">Importar volumen</a>' : ''}<a class="btn ghost sm" href="?tab=datos" data-tab="datos">Editar datos</a><a class="lnk" href="/serie/${esc(s.slug)}">Ver en el sitio ↗</a></span></div>
-      <div class="wk-tabs" role="tablist">${[['caps', 'Volúmenes y capítulos'], ['datos', 'Datos de la obra'], ['avisos', 'Avisos'], ['media', 'Anime y galería'], ['descargas', 'Descargas']].map(([k, l]) => `<a role="tab" aria-selected="${tab === k}" class="${tab === k ? 'on' : ''}" href="${k === 'caps' ? location.pathname : '?tab=' + k}" data-tab="${k}">${l}</a>`).join('')}</div>
-      ${tab === 'caps' ? `${filterBar()}${V.map(volHTML).join('') || '<p class="tb-empty">Esta obra aún no tiene volúmenes.</p>'}${can('create') ? '<button class="wk-addv" id="addvol"><span>＋</span>Nuevo volumen</button>' : ''}${trashHTML()}<div id="wk-bulkw"></div>` : tab === 'avisos' ? avisos() : tab === 'media' ? '<div id="wk-media"><p class="mono">Cargando…</p></div>' : tab === 'descargas' ? '<div id="wk-downloads"><p class="mono">Cargando enlaces…</p></div>' : datos()}</div>`, '/estudio/obra');
+      <div class="wk-tabs" role="tablist">${[['caps', 'Volúmenes y capítulos'], ['datos', 'Datos de la obra'], ['accesos', 'Acceso y Patreon'], ['avisos', 'Avisos'], ['media', 'Anime y galería'], ['descargas', 'Descargas']].map(([k, l]) => `<a role="tab" aria-selected="${tab === k}" class="${tab === k ? 'on' : ''}" href="${k === 'caps' ? location.pathname : '?tab=' + k}" data-tab="${k}">${l}</a>`).join('')}</div>
+      ${tab === 'caps' ? `${filterBar()}${V.map(volHTML).join('') || '<p class="tb-empty">Esta obra aún no tiene volúmenes.</p>'}${can('create') ? '<button class="wk-addv" id="addvol"><span>＋</span>Nuevo volumen</button>' : ''}${trashHTML()}<div id="wk-bulkw"></div>` : tab === 'avisos' ? avisos() : tab === 'media' ? '<div id="wk-media"><p class="mono">Cargando…</p></div>' : tab === 'descargas' ? '<div id="wk-downloads"><p class="mono">Cargando enlaces…</p></div>' : tab === 'accesos' ? accesos() : datos()}</div>`, '/estudio/obra');
     bindPicker(home);
     if (tab === 'descargas') renderDownloads(s.id, app.querySelector('#wk-downloads'));
     const on = (sel2, fn) => app.querySelectorAll(sel2).forEach(b => b.onclick = e => { e.preventDefault(); busy(b, () => fn(b)); });
@@ -824,46 +824,174 @@ export function createStudio(ctx){
       const leaveUT = e => { if (utDirty && document.body.contains($('#ut-save'))) { e.preventDefault(); e.returnValue = ''; } else removeEventListener('beforeunload', leaveUT); }; addEventListener('beforeunload', leaveUT);
     }
     if (tab === 'datos') {
-      { const ed = can('edit'), B = () => $('#wk-lock-b'); let tiers = [], SA = null, CH = [], VOL = {}, dirtyC = new Map(), conn = false, autoReleaseEnabled = false;
-        const enc = (a, m) => a === 'tier' ? 'tier:' + (+m).toFixed(2) : a || 'public', dec = v => v.startsWith('tier:') ? ['tier', +v.slice(5)] : [v, null];
-        const opts = (cur) => [['public', 'Público'], ['donors', 'Todos los mecenas'], ...tiers.map(t => ['tier:' + (+t.price_usd).toFixed(2), 'Desde «' + t.name + '» · US$' + (+t.price_usd).toFixed(2)])].map(([v, l]) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`).join('');
-        const day = d => d ? toLocal(d).slice(0, 10) : '', dis = ed ? '' : 'disabled';
-        const vLock = c => { const v = VOL[c.volume_id]; return v && v.access && v.access !== 'public' && !(v.access_until && new Date(v.access_until) <= new Date()) ? v : null; }, isL = c => c.access !== 'public' || !!vLock(c);
-        const drawL = () => { const b = B(); if (!b) return; const byV = {}; CH.forEach(c => (byV[c.volume_id || '_'] ||= []).push(c));
-          b.innerHTML = `<div style="display:grid;gap:14px;margin-top:10px">
-            ${conn ? '' : '<p class="mono" style="margin:0;padding:10px;border:1px solid #f59e7a;color:#f59e7a;font-size:12px">Tu equipo aún no conecta Patreon (Estudio › Página del equipo). Puedes configurar los bloqueos, pero nadie podrá desbloquearlos como mecenas hasta conectarlo.</p>'}
-            <div style="display:grid;gap:8px;padding:12px;border:1px solid #2f2a20;background:#16140f"><b>Obra completa</b>
-              <div class="wk-lock-controls">
-                <select id="lk-s" aria-label="Quién puede leer la obra completa" ${dis}>${opts(enc(SA.access, SA.access_min_price))}</select>
-                <label class="wk-lock-auto mono" for="lk-auto"><input type="checkbox" id="lk-auto" ${autoReleaseEnabled ? 'checked' : ''} ${dis}><span>Liberar automáticamente (opcional)</span></label>
-                <div class="wk-lock-date" id="lk-sud" ${autoReleaseEnabled ? '' : 'hidden'}>
-                  <label class="mono" for="lk-su">Fecha pública</label>
-                  <input type="date" id="lk-su" value="${day(SA.access_until)}" ${dis}>
-                </div>
-              </div>
-              <small class="mono">Sin fecha: la obra seguirá exclusiva para los mecenas de este equipo hasta que decidas liberarla. La fecha de publicación de cada capítulo se configura por separado.</small></div>
-            <details ${CH.some(isL) ? 'open' : ''}><summary style="cursor:pointer;font-weight:600">Capítulos (${CH.filter(isL).length} bloqueados de ${CH.length})</summary>
-              <p class="mono" style="font-size:12px;margin:0">Cada capítulo puede ser público o exclusivo de forma individual. Su fecha de liberación es opcional y NO sustituye la programación de publicación en el editor. Si el volumen está bloqueado, ningún capítulo se abre aunque aquí figure como público.</p>
-              <div style="display:grid;gap:12px;margin-top:10px">${Object.entries(byV).sort((x, y) => (VOL[y[0]]?.num ?? -1) - (VOL[x[0]]?.num ?? -1)).map(([vid, L]) => `<div style="display:grid;gap:4px"><span class="mono" style="font-size:12px;letter-spacing:.1em">${vid === '_' ? 'SIN VOLUMEN' : 'VOLUMEN ' + esc(String(VOL[vid]?.num ?? '')) + (VOL[vid]?.access && VOL[vid].access !== 'public' ? ' · 🔒︎ volumen bloqueado' + (VOL[vid].access_until ? ' hasta el ' + new Date(VOL[vid].access_until).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : ' · sin fecha de apertura') : '')}</span>
-                ${L.map(c => { const d = dirtyC.get(c.id) || c; return `<div class="wk-lock-ch-row"><span class="wk-lock-ch-title"><span class="mono" style="font-size:12px">${c.num}</span> ${esc(c.title || '')}</span><select data-lc="${c.id}" ${dis}>${opts(enc(d.access, d.access_min_price))}</select><input type="date" data-lu="${c.id}" value="${day(d.access_until)}" title="Liberación pública opcional. Sin fecha = exclusivo sin límite; el calendario de publicación del capítulo es independiente." aria-label="Fecha opcional de liberación pública del capítulo ${c.num}" ${dis} ${d.access === 'public' ? 'hidden' : ''}>${d.access === 'public' && vLock(c) ? '<span class="mono" style="grid-column:1/-1;font-size:11px;color:#f96854">🔒︎ Bloqueado por el volumen</span>' : ''}</div>`; }).join('')}</div>`).join('') || '<p class="mono">Sin capítulos.</p>'}</div></details>
-            ${ed ? `<span style="display:flex;gap:8px;align-items:center"><button type="button" class="btn sm" id="lk-save">Guardar bloqueos</button><span class="mono" style="font-size:12px" id="lk-st"></span></span>` : ''}</div>`;
-          const mark = () => { const t = $('#lk-st'); if (t) t.textContent = 'Cambios sin guardar'; };
-          $('#lk-s')?.addEventListener('change', e => { const [a, m] = dec(e.target.value); SA.access = a; SA.access_min_price = m; mark(); });
-          $('#lk-auto')?.addEventListener('change', e => { autoReleaseEnabled = e.target.checked; $('#lk-sud').hidden = !autoReleaseEnabled; SA.access_until = autoReleaseEnabled && $('#lk-su').value ? fromLocal($('#lk-su').value + 'T00:00') : null; if (autoReleaseEnabled) $('#lk-su').focus(); mark(); });
-          $('#lk-su')?.addEventListener('change', e => { SA.access_until = e.target.value ? fromLocal(e.target.value + 'T00:00') : null; mark(); });
-          b.querySelectorAll('[data-lc]').forEach(x => x.onchange = () => { const c = CH.find(y => y.id === x.dataset.lc), d = { ...(dirtyC.get(c.id) || c) }; [d.access, d.access_min_price] = dec(x.value); if (d.access === 'public') d.access_until = null; dirtyC.set(c.id, d); drawL(); mark(); });
-          b.querySelectorAll('[data-lu]').forEach(x => x.onchange = () => { const c = CH.find(y => y.id === x.dataset.lu), d = { ...(dirtyC.get(c.id) || c) }; d.access_until = x.value ? fromLocal(x.value + 'T00:00') : null; dirtyC.set(c.id, d); mark(); });
-          $('#lk-save')?.addEventListener('click', e => busy(e.currentTarget, async () => {
-            if (SA.access !== 'public' && autoReleaseEnabled && !$('#lk-su').value) throw new Error('Elige una fecha de liberación pública o desactiva la liberación automática.');
-            const tz = v => v ? new Date(v).toISOString() : null;
-            const { error } = await sb.from('series').update({ access: SA.access, access_min_price: SA.access === 'tier' ? SA.access_min_price : null, access_until: SA.access === 'public' || !autoReleaseEnabled ? null : tz(SA.access_until) }).eq('id', s.id);
-            if (error) throw new Error(/access/.test(error.message) ? 'Falta ejecutar el SQL 20261113_patreon.sql' : errMsg(error));
-            for (const [id, d] of dirtyC) { const { error: e2 } = await sb.from('chapters').update({ access: d.access, access_min_price: d.access === 'tier' ? d.access_min_price : null, access_until: d.access === 'public' ? null : tz(d.access_until) }).eq('id', id); if (e2) throw new Error(errMsg(e2)); Object.assign(CH.find(c => c.id === id), d); }
-            dirtyC.clear(); toast('Bloqueos guardados'); drawL(); })); };
-        Promise.all([sb.from('series').select('access,access_min_price,access_until').eq('id', s.id).single(), sb.from('chapters').select('id,num,title,volume_id,access,access_min_price,access_until').eq('series_id', s.id).is('deleted_at', null).order('num'),
-          sb.from('volumes').select('id,num,access,access_min_price,access_until').eq('series_id', s.id).is('deleted_at', null), sb.from('patreon_tiers').select('name,price_usd').eq('team_id', T.team.id).order('price_usd'), sb.from('patreon_public').select('owner').eq('owner', T.team.id).maybeSingle()])
-          .then(([a1, a2, a3, a4, a5]) => { if (a1.error) { const b = B(); if (b) b.innerHTML = `<p class="mono">${/access/.test(a1.error.message) ? 'Falta ejecutar el SQL 20261113_patreon.sql' : esc(a1.error.message)}</p>`; return; }
-            SA = a1.data; autoReleaseEnabled = !!SA.access_until; CH = a2.data || []; VOL = Object.fromEntries((a3.data || []).map(v => [v.id, v])); tiers = a4.data || []; conn = !!a5.data; drawL(); }); }
+
+    if (tab === 'accesos') {
+      const ed = can('edit'), B = () => $('#wk-lock-b');
+      let tiers = [], SA = null, CH = [], VOL = [], connected = false, autoReleaseEnabled = false, dirtyS = false;
+      const dirtyV = new Map(), dirtyC = new Map();
+      const enc = (a, m) => a === 'tier' ? 'tier:' + (+m).toFixed(2) : a || 'public';
+      const dec = v => v.startsWith('tier:') ? ['tier', +v.slice(5)] : [v, null];
+      const opts = cur => [['public', 'Público — cualquier lector'], ['donors', 'Mecenas del equipo — cualquier nivel'],
+        ...tiers.map(t => ['tier:' + (+t.price_usd).toFixed(2), 'Mecenas desde «' + t.name + '» · US$' + (+t.price_usd).toFixed(2)])]
+        .map(([v, name]) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${esc(name)}</option>`).join('');
+      const day = d => d ? toLocal(d).slice(0, 10) : '';
+      const dateOf = str => str ? fromLocal(str + 'T00:00') : null;
+      const disable = ed ? '' : 'disabled';
+      const locked = x => x && x.access !== 'public' && !(x.access_until && new Date(x.access_until) <= new Date());
+      const volume = id => dirtyV.get(id) || VOL.find(v => v.id === id);
+      const chapter = c => dirtyC.get(c.id) || c;
+      const cause = c => locked(SA) ? 'obra' : locked(volume(c.volume_id)) ? 'volumen' : locked(chapter(c)) ? 'capítulo' : '';
+      const totalLocked = () => CH.filter(cause).length;
+      const labelAccess = x => !locked(x) ? 'Público' : x.access === 'tier' ? 'Nivel de Patreon' : 'Solo mecenas';
+      const term = x => !locked(x) ? 'Disponible para todos cuando esté publicado' :
+        x.access_until ? 'Se abre al público el ' + fmtD(x.access_until) : 'Sin liberación automática';
+      const changeState = () => dirtyS || dirtyV.size > 0 || dirtyC.size > 0;
+      const draftV = v => dirtyV.get(v.id) || { ...v, unlockAuto: !!v.access_until };
+      const badge = (x, extra = '') => `<span class="wk-access-badge ${locked(x) ? 'is-locked' : 'is-public'}">${locked(x) ? '🔒 ' : '✓ '}${esc(extra || labelAccess(x))}</span>`;
+      const mark = () => {
+        const label = $('#lk-st'), save = $('#lk-save');
+        if (label) label.textContent = changeState() ? 'Cambios sin guardar' : 'Todo guardado';
+        if (save) save.disabled = !ed || !changeState();
+      };
+      const drawL = () => {
+        const b = B(); if (!b || !SA) return;
+        const workLocked = locked(SA);
+        const groups = VOL.map(v => ({ v, list: CH.filter(c => c.volume_id === v.id) }));
+        const ungrouped = CH.filter(c => !VOL.some(v => v.id === c.volume_id));
+        if (ungrouped.length) groups.push({ v: null, list: ungrouped });
+        b.innerHTML = `<div class="wk-access-layout">
+          ${!connected ? '<p class="wk-access-warning" role="status">El Patreon de este equipo aún no está conectado. Puedes preparar los permisos, pero nadie podrá acceder como mecenas hasta vincularlo desde «Página del equipo».</p>' : ''}
+          <div class="wk-access-summary"><span>${badge(SA)} <b>Obra completa</b></span><span class="mono">${totalLocked()} de ${CH.length} capítulos sujetos a bloqueo efectivo</span></div>
+          <section class="wk-access-card" aria-labelledby="wk-access-work-title">
+            <div class="wk-access-card-title"><span class="wk-access-step">1</span><div><h3 id="wk-access-work-title">Obra completa</h3><p>Úsalo solo si quieres restringir toda la novela. El permiso se hereda a todos los volúmenes y capítulos.</p></div>${badge(SA)}</div>
+            <label class="wk-access-field" for="lk-s">Quién puede leer toda la obra
+              <select id="lk-s" ${disable}>${opts(enc(SA.access, SA.access_min_price))}</select>
+            </label>
+            ${workLocked ? `<div class="wk-access-release">
+              <label class="wk-lock-auto mono" for="lk-auto"><input id="lk-auto" type="checkbox" ${autoReleaseEnabled ? 'checked' : ''} ${disable}><span>Hacerla pública automáticamente en una fecha (opcional)</span></label>
+              <div class="wk-lock-date" id="lk-sud" ${autoReleaseEnabled ? '' : 'hidden'}><label for="lk-su">Fecha de apertura pública</label><input id="lk-su" type="date" value="${day(SA.access_until)}" ${disable}></div>
+              <small class="mono">Si no defines una fecha, permanecerá exclusiva hasta que cambies este permiso.</small>
+            </div>` : '<p class="wk-access-note">La obra está abierta. Todavía puedes restringir volúmenes o capítulos concretos abajo.</p>'}
+          </section>
+          <section class="wk-access-card" aria-labelledby="wk-access-vol-title">
+            <div class="wk-access-card-title"><span class="wk-access-step">2</span><div><h3 id="wk-access-vol-title">Volúmenes</h3><p>Restringir un volumen bloquea todos sus capítulos. Los permisos de la obra tienen prioridad.</p></div></div>
+            <div class="wk-access-volume-list">${VOL.map(v => { const d = draftV(v), isL = locked(d), count = CH.filter(c => c.volume_id === v.id).length;
+              return `<article class="wk-access-volume" data-volume="${v.id}">
+                <div class="wk-access-volume-head"><div><b>Volumen ${v.num}${v.title && v.title !== String(v.num) ? ' · ' + esc(v.title) : ''}</b><small class="mono">${count} ${count === 1 ? 'capítulo' : 'capítulos'}</small></div>${badge(d, workLocked ? 'Hereda bloqueo de obra' : '')}</div>
+                <label class="wk-access-field" for="lk-v-${v.id}">Quién puede leer este volumen
+                  <select id="lk-v-${v.id}" data-va="${v.id}" ${disable}>${opts(enc(d.access, d.access_min_price))}</select>
+                </label>
+                ${isL ? `<div class="wk-access-release">
+                  <label class="wk-lock-auto mono" for="lk-vauto-${v.id}"><input id="lk-vauto-${v.id}" data-vauto="${v.id}" type="checkbox" ${d.unlockAuto ? 'checked' : ''} ${disable}><span>Liberar este volumen automáticamente (opcional)</span></label>
+                  <div class="wk-lock-date" ${d.unlockAuto ? '' : 'hidden'}><label for="lk-vuntil-${v.id}">Fecha de apertura pública</label><input id="lk-vuntil-${v.id}" data-vuntil="${v.id}" type="date" value="${day(d.access_until)}" ${disable}></div>
+                </div>` : '<small class="wk-access-note">Este volumen no añade un bloqueo propio.</small>'}
+                ${workLocked ? '<p class="wk-access-inherited">🔒 Aunque este volumen sea público, la obra completa sigue bloqueada.</p>' : ''}
+              </article>`; }).join('') || '<p class="wk-access-note">Todavía no hay volúmenes. Créalos en «Volúmenes y capítulos».</p>'}</div>
+          </section>
+          <section class="wk-access-card" aria-labelledby="wk-access-ch-title">
+            <div class="wk-access-card-title"><span class="wk-access-step">3</span><div><h3 id="wk-access-ch-title">Capítulos individuales</h3><p>Solo restringe un capítulo si quieres que sea diferente del resto. Los candados de obra o volumen se mantienen.</p></div></div>
+            <p class="wk-access-note">Las fechas de aquí liberan el acceso público; las fechas de <b>publicación</b> se configuran por separado en el editor.</p>
+            <div class="wk-access-chapters">${groups.map(({ v, list }) => { const effective = list.filter(cause).length;
+              const local = list.filter(c => locked(chapter(c))).length;
+              return `<details class="wk-access-group" ${local && list.length <= 8 ? 'open' : ''}><summary><span><b>${v ? 'Volumen ' + v.num : 'Sin volumen'}</b><small class="mono">${effective} de ${list.length} bloqueados · ${local} con regla propia</small></span><span class="wk-access-chevron">⌄</span></summary>
+                <div class="wk-access-ch-list">${list.map(c => { const d = chapter(c), why = cause(c), localLock = locked(d);
+                  return `<div class="wk-access-ch-row">
+                    <div class="wk-access-ch-identity"><b>Cap. ${c.num} · ${esc(c.title || 'Sin título')}</b><small class="mono">${why ? '🔒 Bloqueado por ' + why : '✓ Acceso público'}${!localLock && why && why !== 'capítulo' ? ' · hereda el candado' : ''}</small></div>
+                    <label class="wk-access-field">Acceso de este capítulo<select data-lc="${c.id}" ${disable}>${opts(enc(d.access, d.access_min_price))}</select></label>
+                    ${localLock ? `<label class="wk-access-field">Liberación pública (opcional)<input type="date" data-lu="${c.id}" value="${day(d.access_until)}" ${disable}></label>` : '<span class="wk-access-note">Sin bloqueo individual</span>'}
+                  </div>`; }).join('') || '<p class="wk-access-note">Este volumen aún no tiene capítulos.</p>'}</div>
+              </details>`; }).join('') || '<p class="wk-access-note">Aún no hay capítulos.</p>'}</div>
+          </section>
+          ${ed ? `<div class="wk-access-save"><span class="mono" id="lk-st"></span><button type="button" class="btn" id="lk-save">Guardar cambios de acceso</button></div>` : ''}
+          <p class="wk-access-note">El Patreon general de El Obi del Lector nunca desbloquea contenido. Las descargas exclusivas se configuran en la pestaña «Descargas».</p>
+        </div>`;
+        mark();
+        $('#lk-s')?.addEventListener('change', e => {
+          [SA.access, SA.access_min_price] = dec(e.target.value);
+          if (SA.access === 'public') SA.access_until = null;
+          dirtyS = true; drawL();
+        });
+        $('#lk-auto')?.addEventListener('change', e => {
+          autoReleaseEnabled = e.target.checked;
+          if (!autoReleaseEnabled) SA.access_until = null;
+          dirtyS = true; drawL();
+          if (autoReleaseEnabled) $('#lk-su')?.focus();
+        });
+        $('#lk-su')?.addEventListener('change', e => {
+          SA.access_until = dateOf(e.target.value); dirtyS = true; mark();
+        });
+        b.querySelectorAll('[data-va]').forEach(x => x.onchange = () => {
+          const v = volume(x.dataset.va);
+          const d = { ...v, unlockAuto: dirtyV.get(v.id)?.unlockAuto ?? !!v.access_until };
+          [d.access, d.access_min_price] = dec(x.value);
+          if (d.access === 'public') { d.access_until = null; d.unlockAuto = false; }
+          dirtyV.set(v.id, d); drawL();
+        });
+        b.querySelectorAll('[data-vauto]').forEach(x => x.onchange = () => {
+          const v = volume(x.dataset.vauto), d = { ...v, unlockAuto: x.checked };
+          if (!d.unlockAuto) d.access_until = null;
+          dirtyV.set(v.id, d); drawL();
+          if (x.checked) $('#lk-vuntil-' + v.id)?.focus();
+        });
+        b.querySelectorAll('[data-vuntil]').forEach(x => x.onchange = () => {
+          const v = volume(x.dataset.vuntil);
+          dirtyV.set(v.id, { ...v, unlockAuto: true, access_until: dateOf(x.value) }); mark();
+        });
+        b.querySelectorAll('[data-lc]').forEach(x => x.onchange = () => {
+          const c = CH.find(c => c.id === x.dataset.lc), d = { ...chapter(c) };
+          [d.access, d.access_min_price] = dec(x.value);
+          if (d.access === 'public') d.access_until = null;
+          dirtyC.set(c.id, d); drawL();
+        });
+        b.querySelectorAll('[data-lu]').forEach(x => x.onchange = () => {
+          const c = CH.find(c => c.id === x.dataset.lu), d = { ...chapter(c), access_until: dateOf(x.value) };
+          dirtyC.set(c.id, d); mark();
+        });
+        $('#lk-save')?.addEventListener('click', e => busy(e.currentTarget, async () => {
+          if (dirtyS && locked(SA) && autoReleaseEnabled && !SA.access_until) throw new Error('Elige una fecha para liberar la obra, o desmarca la liberación automática.');
+          for (const v of dirtyV.values()) if (locked(v) && v.unlockAuto && !v.access_until) throw new Error('Elige una fecha para liberar el volumen ' + v.num + ', o desmarca la liberación automática.');
+          const tz = d => d ? new Date(d).toISOString() : null;
+          if (dirtyS) {
+            const { data, error } = await sb.from('series').update({ access: SA.access, access_min_price: SA.access === 'tier' ? SA.access_min_price : null, access_until: SA.access === 'public' || !autoReleaseEnabled ? null : tz(SA.access_until) }).eq('id', s.id).select('id');
+            if (error || !data?.length) throw new Error(errMsg(error) || 'No se pudo guardar el permiso de la obra.');
+            dirtyS = false;
+          }
+          for (const [id, v] of dirtyV) {
+            const { data, error } = await sb.from('volumes').update({ access: v.access, access_min_price: v.access === 'tier' ? v.access_min_price : null, access_until: v.access === 'public' || !v.unlockAuto ? null : tz(v.access_until) }).eq('id', id).eq('series_id', s.id).select('id');
+            if (error || !data?.length) throw new Error(errMsg(error) || 'No se pudo guardar el volumen ' + v.num);
+            const original = VOL.find(x => x.id === id);
+            if (original) Object.assign(original, v);
+            dirtyV.delete(id);
+          }
+          for (const [id, d] of dirtyC) {
+            const { data, error } = await sb.from('chapters').update({ access: d.access, access_min_price: d.access === 'tier' ? d.access_min_price : null, access_until: d.access === 'public' ? null : tz(d.access_until) }).eq('id', id).eq('series_id', s.id).select('id');
+            if (error || !data?.length) throw new Error(errMsg(error) || 'No se pudo guardar el capítulo ' + d.num);
+            const original = CH.find(c => c.id === id);
+            if (original) Object.assign(original, d);
+            dirtyC.delete(id);
+          }
+          toast('Permisos de lectura guardados');
+          drawL();
+        }));
+      };
+      Promise.all([
+        sb.from('series').select('access,access_min_price,access_until').eq('id', s.id).single(),
+        readPages((from, to) => sb.from('chapters').select('id,num,title,volume_id,access,access_min_price,access_until').eq('series_id', s.id).is('deleted_at', null).order('num').range(from, to), { size: 250 }),
+        sb.from('volumes').select('id,num,title,access,access_min_price,access_until').eq('series_id', s.id).is('deleted_at', null).order('num'),
+        sb.from('patreon_tiers').select('name,price_usd').eq('team_id', T.team.id).order('price_usd'),
+        sb.from('patreon_public').select('owner').eq('owner', T.team.id).maybeSingle()
+      ]).then(([a, chapters, v, t, p]) => {
+        if (!B()) return;
+        if (a.error || v.error || t.error || p.error) {
+          B().innerHTML = `<p class="wk-access-warning" role="alert">${esc(errMsg(a.error || v.error || t.error || p.error))}</p>`;
+          return;
+        }
+        SA = a.data; CH = chapters || []; VOL = v.data || []; tiers = t.data || [];
+        connected = !!p.data; autoReleaseEnabled = !!SA.access_until;
+        drawL();
+      }).catch(e => { if (B()) B().innerHTML = `<p class="wk-access-warning" role="alert">${esc(errMsg(e))}</p>`; });
+    }
+    if (tab === 'datos') {
       { const KINDS = [['precuela','Precuela'],['secuela','Secuela'],['spinoff','Spin-off'],['universo','Mismo universo'],['paralela','Historia paralela'],['adaptacion','Adaptación'],['alterna','Versión alternativa'],['otra','Relacionada']], RL = [...(Array.isArray(s.relations) ? s.relations : [])]; let all = [], relDirty = false;
         const drawRel = () => { const b = $('#wk-rel-b'); if (!b) return; const by = Object.fromEntries(all.map(x => [x.id, x])), ed = can('edit');
           b.innerHTML = `<div style="display:grid;gap:8px;margin-top:8px">${RL.map((r, i) => { const x = by[r.id]; return `<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px;border:1px solid #2f2a20;background:#16140f"><span><b>${esc(x?.title || 'Obra no disponible')}</b><br><small class="mono">${esc(x?.teams?.name || '')}</small></span><span style="display:flex;gap:6px;align-items:center"><select data-rk="${i}" ${ed ? '' : 'disabled'} aria-label="Relación">${KINDS.map(([k, l]) => `<option value="${k}" ${r.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>${ed ? `<button type="button" class="lnk danger" data-rx="${i}">Quitar</button>` : ''}</span></div>`; }).join('') || '<p class="mono" style="margin:0">Sin obras relacionadas.</p>'}
