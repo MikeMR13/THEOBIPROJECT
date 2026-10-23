@@ -823,8 +823,6 @@ export function createStudio(ctx){
       drawUT();
       const leaveUT = e => { if (utDirty && document.body.contains($('#ut-save'))) { e.preventDefault(); e.returnValue = ''; } else removeEventListener('beforeunload', leaveUT); }; addEventListener('beforeunload', leaveUT);
     }
-    if (tab === 'datos') {
-
     if (tab === 'accesos') {
       const ed = can('edit'), B = () => $('#wk-lock-b');
       let tiers = [], SA = null, CH = [], VOL = [], connected = false, autoReleaseEnabled = false, dirtyS = false;
