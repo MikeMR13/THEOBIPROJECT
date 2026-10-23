@@ -1569,7 +1569,7 @@ export function createStudio(ctx){
   async function announcements(){
     if (!(await ensure())) return;
     const TAB = '/estudio/anuncios';
-    const [TP, { data: tm }] = await Promise.all([import('./teampage.js?v=14'), sb.from('teams').select('design,color').eq('id', T.team.id).maybeSingle()]);
+    const [TP, { data: tm }] = await Promise.all([import('./teampage.js?v=15'), sb.from('teams').select('design,color').eq('id', T.team.id).maybeSingle()]);
     TP.ensureFonts();
     const pub = TP.normalize(tm?.design, tm?.color).announce, ed = can('profile');
     let A = { ...pub };
@@ -1603,7 +1603,7 @@ export function createStudio(ctx){
     if (!(await ensure())) return;
     const TAB = '/estudio/preferencias';
     if (!can('profile')) { app.innerHTML = shell('Preferencias de la página', '<p class="tb-empty">Tu rol no permite personalizar la página del equipo. Pide el permiso «Perfil» a quien administra el equipo.</p>', TAB); bindPicker(prefs); return; }
-    const [TP, AN] = await Promise.all([import('./teampage.js?v=14'), import('./anim.js?v=8')]); TP.ensureFonts(TP.ALL_FONTS);
+    const [TP, AN] = await Promise.all([import('./teampage.js?v=15'), import('./anim.js?v=8')]); TP.ensureFonts(TP.ALL_FONTS);
     app.innerHTML = shell('Preferencias de la página', '<p class="mono">Cargando…</p>', TAB); bindPicker(prefs);
     const [D, { data: dr }, { data: ct }] = await Promise.all([TP.loadTeamData(sb, T.team.slug), sb.from('team_design_drafts').select('design,token,updated_at').eq('team_id', T.team.id).maybeSingle(), sb.from('team_custom_themes').select('id,name,design,updated_at').eq('team_id', T.team.id).order('name')]);
     let mine = ct || [];
