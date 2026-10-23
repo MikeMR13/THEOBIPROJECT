@@ -153,7 +153,7 @@ const RK_CSS = `
 .rk-bar{display:grid;gap:12px;margin:0 0 26px}.rk-row{display:flex;gap:12px 18px;flex-wrap:wrap;align-items:center}
 .rk-seg{display:inline-flex;flex-wrap:wrap;border:1px solid #3d3628}.rk-seg button{min-height:40px;padding:0 14px;background:none;border:0;border-right:1px solid #3d3628;color:#cfc6b0;font:inherit;font-size:13px;font-weight:600;cursor:pointer}.rk-seg button:last-child{border-right:0}.rk-seg button.on{background:var(--gold);color:#0d0c0a}.rk-seg button:disabled{opacity:.35;cursor:not-allowed}
 .rk-sel{display:flex;gap:8px;align-items:center}.rk-sel select{min-height:40px;font-size:13px}
-.rk-desc{margin:0;font-size:12px;color:#a89f8a;line-height:1.5}
+.rk-desc{margin:0;font-size:12px;color:#a89f8a;line-height:1.5}\n#rk-filters[hidden],#rk[hidden],#rk-teams[hidden],#rk-autoh[hidden]{display:none!important}\n.rk-team-panel{display:grid;gap:20px;padding:22px;border:1px solid var(--line);border-top:3px solid var(--gold);background:#14120e}\n.rk-team-header{display:flex;align-items:end;justify-content:space-between;flex-wrap:wrap;gap:14px}\n.rk-team-header h2{margin:0;font-size:clamp(23px,3vw,32px)}\n.rk-team-select{display:grid;gap:7px;min-width:min(100%,240px);font:600 13px 'IBM Plex Sans',sans-serif}\n.rk-team-select select{min-height:44px;width:100%;max-width:380px}\n.rk-team-note{font:12px/1.5 'IBM Plex Mono',monospace;color:var(--mute);margin:0}\n.rk-team-panel .rk-grid{margin-top:8px}\n@media(max-width:600px){.rk-team-panel{padding:14px}.rk-team-select{width:100%}}
 .rk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,168px),1fr));gap:30px 20px}
 .rk-c{position:relative;display:grid;gap:10px;align-content:start;color:var(--paper);text-decoration:none}.rk-c .ui-book{transition:transform .2s}.rk-c:hover .ui-book{transform:translateY(-4px)}.rk-c:hover b{color:var(--gold)}
 .rk-n{position:absolute;z-index:2;top:-10px;left:-8px;min-width:44px;height:44px;padding:0 8px;display:flex;align-items:center;justify-content:center;background:#0d0c0a;border:2px solid var(--c);font-family:'Shippori Mincho B1',serif;font-weight:800;font-size:22px;line-height:1;color:var(--paper);box-shadow:0 4px 12px rgba(0,0,0,.45)}
@@ -1184,34 +1184,70 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   async function ranking(){
     rkCss();
     const qs = new URLSearchParams(location.search);
-    const R = { list: RK_L[qs.get('lista')] ? qs.get('lista') : 'leidas', period: RK_P[qs.get('periodo')] ? qs.get('periodo') : 'semana', genre: qs.get('genero') || '', status: ['en_curso', 'terminada'].includes(qs.get('estado')) ? qs.get('estado') : '' };
+    const R = { list: RK_L[qs.get('lista')] ? qs.get('lista') : 'leidas', period: RK_P[qs.get('periodo')] ? qs.get('periodo') : 'semana', genre: qs.get('genero') || '', status: ['en_curso', 'terminada'].includes(qs.get('estado')) ? qs.get('estado') : '', teamView: qs.get('vista') === 'equipos' || !!qs.get('equipo'), team: qs.get('equipo') || '' };
     app.innerHTML = '<p class="mono">Cargando el ranking…</p>';
     let autoHist = false;
     if (!qs.get('periodo')) { const { count } = await sb.from('rankings').select('series_id', { count: 'exact', head: true }).eq('list', R.list).eq('period', 'semana'); if (!count) { R.period = RK_OK[R.list] ? R.period : 'historico'; autoHist = R.period === 'historico'; } }
-    const { data: gs } = await sb.from('series').select('genres').eq('published', true);
+    const { data: gs } = await sb.from('series').select('id,genres,team_id,teams(name,slug,color)').eq('published', true);
     const genres = [...new Set((gs || []).flatMap(x => x.genres || []))].sort((a, b) => a.localeCompare(b, 'es'));
     if (R.genre && !genres.includes(R.genre)) R.genre = '';
+    const teams = [...new Map((gs || []).filter(s => s.teams?.slug).map(s => [s.teams.slug, s.teams])).values()].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    if (!teams.some(t => t.slug === R.team)) R.team = teams[0]?.slug || '';
     app.innerHTML = `<div class="ui-cath"><div><h1>Ranking</h1><p>Las obras que más se leen, más suben y más gustan.</p></div><span class="kj" aria-hidden="true">番付</span></div>${autoHist ? '<p class="mono" id="rk-autoh" style="margin:-6px 0 18px;font-size:13px">Esta semana todavía no hay suficientes lecturas: te mostramos el ranking de todos los tiempos.</p>' : ''}
       <div class="rk-bar">
-        <div class="ui-chips" role="group" aria-label="Lista">${Object.entries(RK_L).map(([k, l]) => `<button class="ui-chip" data-rl="${k}">${l}</button>`).join('')}</div>
-        <div class="rk-row"><div class="rk-seg" role="group" aria-label="Periodo">${Object.entries(RK_P).map(([k, l]) => `<button type="button" data-rp="${k}">${l}</button>`).join('')}</div>
+        <div class="ui-chips" role="group" aria-label="Lista">${Object.entries(RK_L).map(([k, l]) => `<button class="ui-chip" type="button" data-rl="${k}">${l}</button>`).join('')}<button class="ui-chip" type="button" id="rk-team-tab" aria-controls="rk-teams">Por equipo</button></div>
+        <div id="rk-filters"><div class="rk-row"><div class="rk-seg" role="group" aria-label="Periodo">${Object.entries(RK_P).map(([k, l]) => `<button type="button" data-rp="${k}">${l}</button>`).join('')}</div>
           <label class="rk-sel"><span class="ui-lbl">Género</span><select id="rk-g"><option value="">Todos</option>${genres.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('')}</select></label>
           <div class="rk-seg" role="group" aria-label="Estado">${[['', 'Todas'], ['en_curso', 'En curso'], ['terminada', 'Terminadas']].map(([k, l]) => `<button type="button" data-rs="${k}">${l}</button>`).join('')}</div></div>
-        <p class="mono rk-desc" id="rk-desc"></p>
-      </div><div id="rk"></div>`;
+        <p class="mono rk-desc" id="rk-desc"></p></div>
+      </div><div id="rk"></div>
+      <section id="rk-teams" class="rk-team-panel" aria-labelledby="rk-teams-title" hidden>
+        <div class="rk-team-header"><div><h2 id="rk-teams-title">Lo más visto de cada equipo</h2>
+          <p class="rk-team-note">Novelas ordenadas por lectores distintos de esta semana.</p></div>
+          <label class="rk-team-select" for="rk-team-sel">Equipo
+            <select id="rk-team-sel" aria-label="Seleccionar equipo">${teams.map(t => `<option value="${esc(t.slug)}">${esc(t.name)}</option>`).join('')}</select>
+          </label></div>
+        <div id="rk-team-results" aria-live="polite"></div>
+      </section>`;
     $('#rk-g').value = R.genre;
     const sync = () => {
       const ok = RK_OK[R.list]; if (ok && !ok.includes(R.period)) R.period = 'semana';
-      const q = new URLSearchParams(); if (R.list !== 'leidas') q.set('lista', R.list); if (R.period !== 'semana') q.set('periodo', R.period); if (R.genre) q.set('genero', R.genre); if (R.status) q.set('estado', R.status);
+      const q = new URLSearchParams();
+      if (R.teamView) { q.set('vista', 'equipos'); if (R.team) q.set('equipo', R.team); }
+      else { if (R.list !== 'leidas') q.set('lista', R.list); if (R.period !== 'semana') q.set('periodo', R.period); if (R.genre) q.set('genero', R.genre); if (R.status) q.set('estado', R.status); }
       history.replaceState({}, '', '/ranking' + (q.toString() ? '?' + q : ''));
-      app.querySelectorAll('[data-rl]').forEach(b => { b.classList.toggle('on', b.dataset.rl === R.list); b.setAttribute('aria-pressed', b.dataset.rl === R.list); });
+      app.querySelectorAll('[data-rl]').forEach(b => { b.classList.toggle('on', !R.teamView && b.dataset.rl === R.list); b.setAttribute('aria-pressed', String(!R.teamView && b.dataset.rl === R.list)); });
       app.querySelectorAll('[data-rp]').forEach(b => { b.classList.toggle('on', b.dataset.rp === R.period); b.disabled = !!ok && !ok.includes(b.dataset.rp); b.setAttribute('aria-pressed', b.dataset.rp === R.period); });
       app.querySelectorAll('[data-rs]').forEach(b => { b.classList.toggle('on', b.dataset.rs === R.status); b.setAttribute('aria-pressed', b.dataset.rs === R.status); });
       $('#rk-desc').textContent = RK_D[R.list];
+      $('#rk-team-tab').classList.toggle('on', R.teamView); $('#rk-team-tab').setAttribute('aria-pressed', String(R.teamView));
+      $('#rk-filters').hidden = R.teamView; $('#rk').hidden = R.teamView; $('#rk-teams').hidden = !R.teamView;
+      if ($('#rk-autoh')) $('#rk-autoh').hidden = R.teamView;
+      if ($('#rk-team-sel') && R.team) $('#rk-team-sel').value = R.team;
     };
     let tk = 0;
+    const drawTeam = async my => {
+      const box = $('#rk-team-results');
+      const team = teams.find(t => t.slug === R.team);
+      if (!team) { box.innerHTML = '<p class="mono">Aún no hay equipos con obras publicadas.</p>'; return; }
+      const ids = (gs || []).filter(s => s.teams?.slug === team.slug).map(s => s.id);
+      box.innerHTML = '<p class="mono">Cargando las obras del equipo…</p>';
+      if (!ids.length) { box.innerHTML = '<p class="mono">Este equipo no tiene obras publicadas.</p>'; return; }
+      const { data, error } = await sb.from('rankings').select('series_id,score,pos').eq('list', 'leidas').eq('period', 'semana').in('series_id', ids).order('score', { ascending: false }).limit(50);
+      if (my !== tk || !box.isConnected) return;
+      if (error) { box.innerHTML = `<p class="mono" role="alert">No se pudo cargar el ranking del equipo: ${esc(error.message)}</p>`; return; }
+      const rows = (data || []).filter(r => +r.score > 0);
+      if (!rows.length) { box.innerHTML = `<p class="mono">Este equipo todavía no registra lecturas en la clasificación semanal. <a href="/equipo/${esc(team.slug)}">Ver su página →</a></p>`; return; }
+      const { data: ss, error: se } = await sb.from('series').select(SERIES).eq('published', true).in('id', rows.map(r => r.series_id));
+      if (my !== tk || !box.isConnected) return;
+      if (se) { box.innerHTML = `<p class="mono" role="alert">No se pudieron cargar las obras: ${esc(se.message)}</p>`; return; }
+      const by = Object.fromEntries((ss || []).map(s => [s.id, s]));
+      const entries = rows.filter(r => by[r.series_id]);
+      box.innerHTML = `<p class="rk-team-note"><a href="/equipo/${esc(team.slug)}">${esc(team.name)} →</a> · ${entries.length} ${entries.length === 1 ? 'novela clasificada' : 'novelas clasificadas'}</p>` +
+        `<div class="rk-grid">${entries.map((r, i) => { const s = by[r.series_id]; return `<a class="rk-c${i < 3 ? ' top' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${i + 1} del equipo">${i + 1}</span>${book(s, null, true)}<span class="rk-b"><b>${esc(s.title)}</b><small>${fmtN(+r.score)} ${+r.score === 1 ? 'lector' : 'lectores'} · esta semana</small><span class="rk-s">${r.pos ? '#' + r.pos + ' general' : ''}</span></span></a>`; }).join('')}</div>`;
+    };
     const draw = async () => {
-      sync(); const my = ++tk, box = $('#rk'); box.innerHTML = '<p class="mono">Cargando…</p>';
+      sync(); const my = ++tk, box = $('#rk'); if (R.teamView) return drawTeam(my); box.innerHTML = '<p class="mono">Cargando…</p>';
       const { data, error } = await sb.rpc('ranking_list', { p_list: R.list, p_period: R.period, p_genre: R.genre || null, p_status: R.status || null, p_limit: 20 });
       if (my !== tk || !document.body.contains(box)) return;
       if (error) { box.innerHTML = `<p style="color:#f59e7a">No se pudo cargar el ranking: ${esc(error.message)}</p>`; return; }
@@ -1224,7 +1260,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       box.innerHTML = `<div class="rk-grid">${data.filter(r => by[r.series_id]).map(r => { const s = by[r.series_id]; return `<a class="rk-c${r.pos <= 3 ? ' top' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${r.pos}">${r.pos}</span>${book(s, null, true)}<span class="rk-b"><b>${esc(s.title)}</b>${s.teams?.name ? `<small>${esc(s.teams.name)}</small>` : ''}<span class="rk-s">${sc(r)}${mv(r)}</span></span></a>`; }).join('')}</div>
         <p class="mono rk-upd">Actualizado ${ago(data[0].computed_at)} · se recalcula cada 6 horas${filtered ? ' · con filtros no se muestra el movimiento' : ''}</p>`;
     };
-    app.querySelectorAll('[data-rl]').forEach(b => b.onclick = () => { R.list = b.dataset.rl; draw(); });
+    app.querySelectorAll('[data-rl]').forEach(b => b.onclick = () => { R.teamView = false; R.list = b.dataset.rl; draw(); });
+    $('#rk-team-tab').onclick = () => { R.teamView = true; draw(); };
+    $('#rk-team-sel').onchange = e => { R.team = e.target.value; if (R.teamView) draw(); };
     app.querySelectorAll('[data-rp]').forEach(b => b.onclick = () => { R.period = b.dataset.rp; draw(); });
     app.querySelectorAll('[data-rs]').forEach(b => b.onclick = () => { R.status = b.dataset.rs; draw(); });
     $('#rk-g').onchange = e => { R.genre = e.target.value; draw(); };
