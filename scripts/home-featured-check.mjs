@@ -96,6 +96,52 @@ assert(debut.entries.some(x=>x.id==='completo'&&x.kind==='release'),'Conservar o
 const afterWeek=homeFeaturedSelection({...launchInput,now:new Date('2026-11-02T21:20:00Z')});
 assert(!afterWeek.pool.release.some(x=>x.label==='Nuevo lanzamiento'),'Ningún estreno queda etiquetado como nuevo para siempre');
 
+// Editorial 2026-10-23: un estreno de menos de 48 h lidera incluso frente
+// a una traducción finalizada minutos después. La etiqueta dura siete días.
+const competing={...launchInput,news:{entries:[
+  launchInput.news.entries[0],
+  {...launchInput.news.entries[1],at:'2026-10-23T21:11:00Z',
+    time:Date.parse('2026-10-23T21:11:00Z')},
+  launchInput.news.entries[2]
+]}};
+const priority=homeFeaturedSelection(competing);
+assert.equal(priority.entries[0].id,'nuevo','Primeras 48 h: el debut reciente es el protagonista');
+assert.equal(priority.entries[0].label,'Nuevo lanzamiento');
+const after48=homeFeaturedSelection({...competing,now:new Date('2026-10-26T21:20:00Z')});
+assert.equal(after48.entries[0].id,'completo','Pasadas 48 h ya no se fija el debut delante de novedades más pertinentes');
+assert(after48.pool.release.some(x=>x.id==='nuevo' && x.label==='Nuevo lanzamiento'),
+  'El estreno mantiene su etiqueta durante siete días');
+
+// Descubrimiento: no confundir una obra de cero vistas recién estrenada con una joya.
+const curatingNow=new Date('2026-10-23T21:30:00Z');
+const curated=[
+  {id:'joya',views:2,firstPublishedAt:'2026-10-01T10:00:00Z',chapters:[{count:5}]},
+  {id:'estreno',views:0,firstPublishedAt:'2026-10-23T20:00:00Z',chapters:[{count:6}]},
+  {id:'vacia',views:1,firstPublishedAt:'2026-10-01T10:00:00Z',chapters:[{count:2}]},
+  {id:'inactiva',views:1,firstPublishedAt:'2026-08-01T10:00:00Z',chapters:[{count:9}]},
+  {id:'sinfecha',views:0,chapters:[{count:9}]}
+];
+const findAt={joya:'2026-10-19T11:00:00Z',estreno:'2026-10-23T20:00:00Z',
+  vacia:'2026-10-19T11:00:00Z',inactiva:'2026-08-10T10:00:00Z'};
+const discovery=homeFeaturedSelection({series:curated,now:curatingNow,
+  news:{entries:[],bySeries:Object.fromEntries(Object.entries(findAt)
+    .map(([id,at])=>[id,{at}]))}});
+assert.deepEqual(discovery.pool.discover.map(x=>x.id),['joya'],
+  'Solo obra con edad >=7 días, >=3 capítulos y actividad <=30 días puede ser joya');
+const steady=homeFeaturedSelection({series:[...curated],now:curatingNow,
+  news:{entries:[],bySeries:Object.fromEntries(Object.entries(findAt)
+    .map(([id,at])=>[id,{at}]))}});
+assert.deepEqual(steady.pool.discover,discovery.pool.discover,'Curaduría determinista');
+// El primer equipo rota diariamente, pero se conservan todas sus recomendaciones.
+const teamLeads=Array.from({length:7},(_,i)=>{
+  const at=new Date(Date.parse('2026-10-21T20:30:00Z')+i*864e5);
+  const entry=homeFeaturedSelection({...eightInput,now:at});
+  assert.equal(entry.entries.filter(x=>x.kind==='team').length,14,
+    'Ningún equipo puede perder su recomendación al variar la fecha');
+  return entry.entries.find(x=>x.kind==='team')?.teamId;
+});
+assert(new Set(teamLeads).size>1,'Cambiar el día debe rotar qué equipo aparece temprano');
+
 const studio=readFileSync('src/studio.js','utf8');
 const ui=readFileSync('src/ui.js','utf8');
 const sql=readFileSync('supabase/migrations/20261115_team_featured_carousel.sql','utf8');
