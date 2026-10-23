@@ -69,6 +69,33 @@ const replaced=homeFeaturedSelection({...eightInput,teams:[
 assert.equal(replaced.pool.team.length,1,'Una nueva selección reinicia sus siete días');
 assert.equal(replaced.pool.team[0].expiresAt,'2026-10-28T20:20:00.000Z');
 
+// Incidente: el primer volumen de una novela recién estrenada NO debe caer en
+// «Joya por descubrir» por tener pocas vistas o competir con novelas completas.
+const NOW_LAUNCH=new Date('2026-10-23T21:20:00Z');
+const candidateSeries=[
+  {id:'nuevo',team_id:'team-nuevo',teams:{name:'Equipo estreno'},views:0,translation_status:'active'},
+  {id:'completo',team_id:'team-viejo',teams:{name:'Equipo antiguo'},views:100,translation_status:'completed'},
+  {id:'antiguo',team_id:'team-otro',teams:{name:'Equipo otro'},views:5,translation_status:'active'}
+];
+const launchInput={
+  series:candidateSeries,
+  news:{entries:[
+    {id:'nuevo',kind:'volume',isNewSeries:true,at:'2026-10-23T21:06:44Z',time:Date.parse('2026-10-23T21:06:44Z'),volume:{num:1}},
+    {id:'completo',kind:'volume',at:'2026-10-23T04:19:18Z',time:Date.parse('2026-10-23T04:19:18Z'),volume:{num:4,is_final:true}},
+    {id:'antiguo',kind:'volume',at:'2026-10-22T02:29:00Z',time:Date.parse('2026-10-22T02:29:00Z'),volume:{num:2}}
+  ]},
+  teams:[{team_id:'team-nuevo',series_id:'nuevo',updated_at:'2026-10-23T20:00:00Z'}],
+  now:NOW_LAUNCH
+};
+const debut=homeFeaturedSelection(launchInput);
+assert.equal(debut.entries[0].id,'nuevo','El volumen 1 recién publicado lidera el carrusel, antes que una novela completada ayer');
+assert.equal(debut.bySeries.nuevo.kind,'release','Un estreno debe conservar su tipo de publicación');
+assert.equal(debut.bySeries.nuevo.label,'Nuevo lanzamiento','No usar Joya por descubrir ni recomendado por equipo');
+assert.equal(debut.entries.filter(x=>x.id==='nuevo').length,1,'No duplicar el estreno por otra categoría');
+assert(debut.entries.some(x=>x.id==='completo'&&x.kind==='release'),'Conservar otro estreno completo reciente');
+const afterWeek=homeFeaturedSelection({...launchInput,now:new Date('2026-11-02T21:20:00Z')});
+assert(!afterWeek.pool.release.some(x=>x.label==='Nuevo lanzamiento'),'Ningún estreno queda etiquetado como nuevo para siempre');
+
 const studio=readFileSync('src/studio.js','utf8');
 const ui=readFileSync('src/ui.js','utf8');
 const sql=readFileSync('supabase/migrations/20261115_team_featured_carousel.sql','utf8');
