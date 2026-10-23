@@ -16,7 +16,10 @@ language sql stable security definer set search_path = '' as $$
     select 1
     from public.chapters ch
     join public.series s on s.id = ch.series_id
-    left join public.volumes v on v.id = ch.volume_id
+    left join public.volumes v
+      on (v.id = ch.volume_id or (
+        ch.volume_id is null and v.series_id = ch.series_id and v.num = ch.vol
+      ))
     where ch.id = c
       and (
         private.in_team(s.team_id)
@@ -25,14 +28,11 @@ language sql stable security definer set search_path = '' as $$
           and s.published and s.archived_at is null
           and ch.status::text = 'published'
           and (ch.publish_at is null or ch.publish_at <= now())
-          and (
-            ch.volume_id is null
-            or (v.id is not null and v.deleted_at is null
-                and v.status = 'published'
-                and (v.published_at is null or v.published_at <= now()))
-          )
+          and v.id is not null and v.deleted_at is null
+          and v.status = 'published'
+          and (v.published_at is null or v.published_at <= now())
           and private.chapter_row_open(
-            ch.series_id, ch.volume_id, ch.access, ch.access_min_price, ch.access_until
+            ch.series_id, v.id, ch.access, ch.access_min_price, ch.access_until
           )
         )
       )
@@ -57,11 +57,14 @@ language sql stable security definer set search_path = '' as $$
   select c.id, c.num::numeric, c.vol::numeric, c.volume_id,
          c.title::text, c.section_type::text, c.publish_at,
          not private.chapter_row_open(
-           c.series_id, c.volume_id, c.access, c.access_min_price, c.access_until
+           c.series_id, v.id, c.access, c.access_min_price, c.access_until
          )
   from public.chapters c
   join public.series s on s.id = c.series_id
-  left join public.volumes v on v.id = c.volume_id
+  left join public.volumes v
+    on (v.id = c.volume_id or (
+      c.volume_id is null and v.series_id = c.series_id and v.num = c.vol
+    ))
   where c.series_id = p_series and c.deleted_at is null
     and (
       private.in_team(s.team_id)
@@ -69,12 +72,9 @@ language sql stable security definer set search_path = '' as $$
         s.published and s.archived_at is null
         and c.status::text = 'published'
         and (c.publish_at is null or c.publish_at <= now())
-        and (
-          c.volume_id is null
-          or (v.id is not null and v.deleted_at is null
-              and v.status = 'published'
-              and (v.published_at is null or v.published_at <= now()))
-        )
+        and v.id is not null and v.deleted_at is null
+        and v.status = 'published'
+        and (v.published_at is null or v.published_at <= now())
       )
     )
   order by c.num
