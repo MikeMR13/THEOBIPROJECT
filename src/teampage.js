@@ -232,10 +232,18 @@ export function render(D, design, h){
   const featCard = f => `<a class="tp2-feat" href="/serie/${esc(f.slug)}">${cover(f)}<span><b>${esc(f.title)}</b><span class="tp2-syn">${esc(f.synopsis || '')}</span><span class="tp2-btn solid">Empezar a leer</span></span></a>`;
   const featH = featList.length ? `<section class="tp2-sec tp2-feature-block" id="grupo-destacadas"><div class="tp2-sh"><h2>${featList.length > 1 ? 'Obras destacadas' : 'Obra destacada'}</h2>${featList.length > 1 ? `<span class="tp2-car-nav"><button type="button" data-car="-1" aria-label="Anterior">‹</button><button type="button" data-car="1" aria-label="Siguiente">›</button></span>` : ''}</div><div class="tp2-car" tabindex="0" aria-label="Obras destacadas">${featList.map(featCard).join('')}</div>${featList.length > 1 ? `<div class="tp2-dots">${featList.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div>` : ''}</section>` : '';
   const today = new Date().toISOString().slice(0, 10), A = d.announce;
-  const ann = (A.title || A.text) && (!A.until || A.until >= today) ? `<aside class="tp2-ann"><small>AVISO DEL EQUIPO</small>${A.title ? `<b>${esc(A.title)}</b>` : ''}${A.text ? `<p>${esc(A.text)}</p>` : ''}${A.url ? `<a class="tp2-btn" href="${esc(A.url)}"${/^https/.test(A.url) ? ' target="_blank" rel="noopener"' : ''}>${esc(A.label || 'Ver más')}${/^https/.test(A.url) ? ' ↗' : ''}</a>` : ''}</aside>` : '';
+  const ann = (A.title || A.text) && (!A.until || A.until >= today) ? `<aside class="tp2-ann tp2-ann-${C.announceStyle}" id="grupo-anuncios" aria-label="Aviso del equipo"><small>AVISO DEL EQUIPO</small>${A.title ? `<b>${esc(A.title)}</b>` : ''}${A.text ? `<p>${esc(A.text)}</p>` : ''}${A.until ? `<time datetime="${esc(A.until)}">Visible hasta el ${new Date(A.until + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</time>` : ''}${A.url ? `<a class="tp2-btn" href="${esc(A.url)}"${/^https/.test(A.url) ? ' target="_blank" rel="noopener"' : ''}>${esc(A.label || 'Ver más')}${/^https/.test(A.url) ? ' ↗' : ''}</a>` : ''}</aside>` : '';
   const grid = on('show_works') && W.length ? `<section class="tp2-sec" id="grupo-obras"><h2>Obras</h2><div class="tp2-works">${W.map(w => `<a href="/serie/${esc(w.slug)}" class="tp2-w">${cover(w)}<b>${esc(w.short || w.title)}</b><small>${w.chapters?.[0]?.count || 0} cap. · ${TLS[w.translation_status] || TLS.active}</small></a>`).join('')}</div></section>` : '';
   const list = on('show_works') && W.length ? `<section class="tp2-sec" id="grupo-obras"><h2>Obras</h2><div class="tp2-list">${W.map(w => `<a href="/serie/${esc(w.slug)}" class="tp2-li">${cover(w)}<span><b>${esc(w.title)}</b><small>${w.chapters?.[0]?.count || 0} capítulos · ${TLS[w.translation_status] || TLS.active}</small><span class="tp2-syn">${esc(w.synopsis || '')}</span></span></a>`).join('')}</div></section>` : '';
-  const mem = on('show_members') && D.mem.length ? `<section class="tp2-sec" id="grupo-integrantes"><h2>Integrantes</h2><div class="tp2-mem">${D.mem.map(m => `<span>${esc(m.profiles?.username || '—')}<small>${m.role === 'owner' ? 'Propietario' : esc(m.team_roles?.name || 'Integrante')}</small></span>`).join('')}</div></section>` : '';
+  const memberCard = m => {
+    const username = String(m.profiles?.username || 'Integrante').trim();
+    const role = m.role === 'owner' ? 'Propietario' : String(m.team_roles?.name || 'Integrante');
+    const roleColor = /^#[a-f0-9]{6}$/i.test(m.team_roles?.color || '') ? m.team_roles.color : '';
+    return `<article class="tp2-person"${roleColor ? ` style="--role-ac:${roleColor}"` : ''}><i class="tp2-person-avatar" aria-hidden="true">${esc(Array.from(username).slice(0, 2).join('').toUpperCase())}</i><div class="tp2-person-copy"><b>${esc(username)}</b>${C.showRoles ? `<small>${esc(role)}</small>` : ''}</div></article>`;
+  };
+  const memberList = (list, extraClass = '') => `<div class="tp2-mem${extraClass ? ' ' + extraClass : ''}" data-view="${C.memberStyle}">${list.map(memberCard).join('')}</div>`;
+  const publicMembers = Array.isArray(D.mem) ? D.mem : [], visibleMembers = publicMembers.slice(0, C.memberCount), overflowMembers = publicMembers.slice(C.memberCount);
+  const mem = on('show_members') && publicMembers.length ? `<section class="tp2-sec tp2-members-sec" id="grupo-integrantes"><div class="tp2-sh"><h2>Nuestro equipo</h2><span class="tp2-team-count">${publicMembers.length} integrantes públicos</span></div>${memberList(visibleMembers)}${overflowMembers.length ? `<details class="tp2-member-more"><summary>Ver ${overflowMembers.length} integrante${overflowMembers.length === 1 ? '' : 's'} más</summary>${memberList(overflowMembers, 'tp2-mem-extra')}</details>` : ''}</section>` : '';
   const feed = (Array.isArray(D.recent) ? D.recent : []).filter(item => E.recentKind === 'ambos' || item.kind === (E.recentKind === 'volumen' ? 'volume' : 'chapter')).slice(0, E.recentCount);
   const updates = feed.length ? `<section class="tp2-sec tp2-updates-sec" id="grupo-novedades"><div class="tp2-sh"><h2>Novedades recientes</h2><span class="tp2-updates-hint">${feed.length} publicaciones</span></div><div class="tp2-updates" data-view="${E.recentStyle}">${feed.map(item => `<a class="tp2-update" href="${esc(item.href)}"><span class="tp2-upcover"${item.cover_path ? ` style="background-image:url('${esc(media(item.cover_path))}')"` : ''}><span class="tp2-upcover-fallback">${esc(item.series?.short || item.series?.title || 'Obra')}</span></span><span class="tp2-upbody"><small class="tp2-upkind">${item.kind === 'volume' ? 'VOLUMEN ' + (+item.volume || '') : 'CAPÍTULO ' + (+item.chapter || '')}</small><b>${esc(item.series?.short || item.series?.title || 'Obra')}</b><span class="tp2-uptitle">${esc(item.title)}</span><time datetime="${esc(item.at)}">${new Date(item.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}</time></span></a>`).join('')}</div></section>` : '';
   const bio = L.showBio && t.bio ? `<p class="tp2-bio">${esc(t.bio)}</p>` : '';
@@ -247,11 +255,14 @@ export function render(D, design, h){
   const corners = mot ? `<span class="tp2-cor l" style="background-image:url('${mot}')"></span><span class="tp2-cor r" style="background-image:url('${motifURL(SN.m, SN.c2, d.accent)}')"></span>` : '';
   const stamp = full ? `<span class="tp2-stamp"><i></i>${esc(SN.l.toUpperCase())}</span>` : '';
   const visibleOrder = d.order.filter(k => !d.hidden.includes(k));
-  const flow = greet + visibleOrder.reduce((out, key, i) => {
+  const orderedContent = greet + visibleOrder.reduce((out, key, i) => {
     if (key === 'next' && visibleOrder[i - 1] === 'featured' && E.featureStyle === 'editorial' && featH && nx) return out;
     if (key === 'featured' && visibleOrder[i + 1] === 'next' && E.featureStyle === 'editorial' && featH && nx) return out + `<div class="tp2-editorial-pair">${featH}${nx}</div>`;
     return out + (SEC[key] || '');
   }, '');
+  const closeText = C.ctaText || COMMUNITY_DEFAULT.ctaText;
+  const closeCta = C.showCta ? `<aside class="tp2-community-cta" aria-label="Seguir al equipo"><div class="tp2-community-note"><small>COMUNIDAD DEL GRUPO</small><h2>${esc(closeText)}</h2><p>Sigue a ${esc(t.name)} para mantenerte al día de sus publicaciones.</p></div><span class="tp2-fslot3"></span></aside>` : '';
+  const flow = orderedContent + closeCta;
   const tabItems = [
     ['grupo-inicio', 'Inicio', true],
     ['grupo-obras', 'Obras', L.navWorks && on('show_works') && W.length > 0 && !d.hidden.includes('works')],
@@ -409,7 +420,7 @@ const CSS = `
 `;
 
 export const followBtn = (on, n, label = 'equipo') => `<button type="button" class="tp2-btn tp2-follow${on ? ' on' : ''}" data-follow aria-pressed="${!!on}">${on ? '✓ Siguiendo' : '＋ ' + FOLLOW_LABELS[label]}${n ? ` · ${n.toLocaleString('es-MX')}` : ''}</button>`;
-export function fillFollow(root, on, n){ root.querySelectorAll('.tp2-fslot,.tp2-fslot2').forEach(s => { s.innerHTML = followBtn(on, n, root.dataset.followLabel); }); root.querySelectorAll('[data-follow-count]').forEach(el => { el.textContent = (+n || 0).toLocaleString('es-MX'); }); }
+export function fillFollow(root, on, n){ root.querySelectorAll('.tp2-fslot,.tp2-fslot2,.tp2-fslot3').forEach(s => { s.innerHTML = followBtn(on, n, root.dataset.followLabel); }); root.querySelectorAll('[data-follow-count]').forEach(el => { el.textContent = (+n || 0).toLocaleString('es-MX'); }); }
 // carrusel de destacadas (manual)
 export function bind(root){
   const tabs = [...root.querySelectorAll('.tp2-tabs a')];
