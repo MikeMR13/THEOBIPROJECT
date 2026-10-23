@@ -101,30 +101,60 @@ export async function agenda(ctx){
   }
   await load(addK(today(), -PAST), addK(today(), FUT));
 
-  // ---------- agrupar: una entrada por obra, tipo y día ----------
+  // ---------- agrupar: un hito por lanzamiento, sin perder el estreno de mecenas ----------
+  // La RPC devuelve el acceso ACTUAL. Si el bloqueo expiró, un estreno que fue
+  // exclusivo puede venir con acc='public': open_at preserva su historia.
+  const patronLaunch = r => (r.kind === 'pub' || r.kind === 'prog') && (
+    (r.open_at && new Date(r.open_at) > new Date(r.at)) || r.acc !== 'public'
+  );
   function groups(){
     const G = new Map(), now = Date.now();
     for (const r of D.rows) {
       const s = D.series[r.series_id]; if (!s) continue;
-      const day = ymd(r.at), k = r.kind + '|' + r.series_id + '|' + day + (r.kind === 'vol' || r.kind === 'volp' ? '|' + (r.volume_id || r.label) : '');
+      const day = ymd(r.at), early = patronLaunch(r);
+      // Separar volúmenes publicados el mismo día; no dividir programaciones ni
+      // aperturas públicas, cuyos recordatorios siguen siendo por obra y fecha.
+      const volKey = ['pub', 'vol', 'volp'].includes(r.kind) ? '|' + (r.volume_id || r.label || '') : '';
+      const phaseKey = r.kind === 'pub' ? '|' + (early ? 'pat' : 'public') : '';
+      const k = r.kind + '|' + r.series_id + '|' + day + volKey + phaseKey;
       let g = G.get(k);
-      if (!g) { g = { k, kind: r.kind, day, at: r.at, s, list: [], acc: r.acc, mp: r.min_price, tier: r.tier_name, open: r.open_at, early: r.early_at, can: r.can_read, cover: r.vcover, label: r.label, vnum: r.vnum }; G.set(k, g); }
+      if (!g) { g = { k, kind: r.kind, day, at: r.at, s, list: [], acc: r.acc, mp: r.min_price, tier: r.tier_name, open: r.open_at, early: r.early_at, can: r.can_read, cover: r.vcover, label: r.label, vnum: r.vnum, volumeId: r.volume_id || null, patronFirst: early }; G.set(k, g); }
       if (new Date(r.at) < new Date(g.at)) g.at = r.at;
-      if (r.chapter_id) g.list.push(r);
+      if (r.chapter_id && !g.list.some(c => c.chapter_id === r.chapter_id)) g.list.push(r);
       if (!r.can_read) g.can = false;
       if (r.vcover && (r.vnum ?? -1) >= (g.vnum ?? -1)) { g.cover = r.vcover; g.vnum = r.vnum; }
       if (r.acc === 'tier' && (g.acc !== 'tier' || +r.min_price > +(g.mp || 0))) { g.acc = 'tier'; g.mp = r.min_price; g.tier = r.tier_name; } else if (r.acc === 'donors' && g.acc === 'public') g.acc = 'donors';
       if (r.open_at && (!g.open || new Date(r.open_at) > new Date(g.open))) g.open = r.open_at;
+      if (early) g.patronFirst = true;
     }
     const out = [...G.values()].map(g => {
       g.list.sort((a, b) => a.num - b.num);
-      const locked = g.acc !== 'public' && (!g.open || new Date(g.open) > now);
-      g.f = new Set(g.kind === 'pub' ? [locked ? 'pat' : 'pub'] : g.kind === 'prog' ? ['prog', ...(g.acc !== 'public' ? ['pat'] : [])] : g.kind === 'open' ? ['open'] : g.kind === 'vol' ? ['vol'] : ['vol', 'prog']);
+      g.f = new Set(g.kind === 'pub' ? [g.patronFirst ? 'pat' : 'pub'] : g.kind === 'prog' ? ['prog', ...(g.patronFirst ? ['pat'] : [])] : g.kind === 'open' ? ['open'] : g.kind === 'vol' ? ['vol'] : ['vol', 'prog']);
       g.c = g.kind === 'open' ? 'open' : g.f.has('pat') ? 'pat' : g.kind === 'prog' ? 'prog' : g.kind === 'pub' ? 'pub' : 'vol';
       return g;
     });
+    // El estreno de un volumen y el de sus capítulos en la misma fecha son un
+    // mismo lanzamiento editorial. Mostrar los capítulos DENTRO de la tarjeta
+    // del volumen, sin perder los filtros y sin fusionar fases de acceso distintas.
+    const chapterVolumes = new Map();
+    for (const g of out) if (g.kind === 'pub' && g.volumeId && g.list.length) {
+      const k = g.s.id + '|' + g.day + '|' + g.volumeId;
+      if (!chapterVolumes.has(k)) chapterVolumes.set(k, []);
+      chapterVolumes.get(k).push(g);
+    }
+    const merged = new Set();
+    for (const v of out) if (v.kind === 'vol' && v.volumeId) {
+      const sameRelease = chapterVolumes.get(v.s.id + '|' + v.day + '|' + v.volumeId);
+      if (!sameRelease || sameRelease.length !== 1) continue;
+      const g = sameRelease[0];
+      g.wholeVolume = true;
+      g.volumeLabel = v.label;
+      if (v.cover) g.cover = v.cover;
+      g.f.add('vol');
+      merged.add(v.k);
+    }
     for (const a of D.aniv) out.push({ k: 'aniv|' + a.team_id + '|' + a.at, kind: 'aniv', c: 'aniv', f: new Set(), day: a.at, at: a.at + 'T12:00:00', team: a, list: [] });
-    return out;
+    return out.filter(g => !merged.has(g.k));
   }
   const pass = g => {
     if (V.f && !g.f.has(V.f)) return false;
@@ -148,7 +178,7 @@ export async function agenda(ctx){
     const future = new Date(g.at) > Date.now();
     if (g.kind === 'aniv') { const a = g.team; return `<div class="ag-ev${compact ? ' c' : ''}" style="--c:${COL.aniv}"><span class="ag-cv" style="${a.avatar_path ? `background-image:url('${esc(media(a.avatar_path))}')` : `background:${esc(a.color || '#2a2519')}`}"></span><div class="ag-bd"><span class="ag-tg2"><i></i>🎉 Aniversario</span><a class="ag-t" href="/equipo/${esc(a.slug)}">${esc(a.name)}</a><span class="ag-m">${esc(a.msg)}</span><span class="ag-m">${a.years} ${a.years === 1 ? 'año' : 'años'} en el Obi</span></div></div>`; }
     const s = g.s, cv = g.cover ? media(g.cover) : media(s.cover_thumb_path || s.cover_path), unread = u && g.kind === 'pub' ? g.list.filter(c => !D.read.has(c.chapter_id)).length : null;
-    const tag = g.kind === 'prog' && g.f.has('pat') ? 'Programado · Solo mecenas' : g.kind === 'volp' ? 'Volumen programado' : TAG[g.c];
+    const tag = g.kind === 'prog' && g.f.has('pat') ? 'Programado · Solo mecenas' : g.kind === 'pub' && g.patronFirst ? 'Estreno para mecenas' : g.kind === 'volp' ? 'Volumen programado' : TAG[g.c];
     const dates = g.kind === 'open' ? `<span class="ag-m">Mecenas: <b>${g.early ? fdt(g.early, { day: 'numeric', month: 'short' }) : '—'}</b> · General: <b>${fdt(g.at, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</b></span>`
       : g.f.has('pat') ? `<span class="ag-m">Mecenas: <b>${fdt(g.at, { day: 'numeric', month: 'short' })}</b> · General: <b>${g.open ? fdt(g.open, { day: 'numeric', month: 'short' }) : 'sin fecha'}</b></span>` : '';
     const cdT = g.kind === 'open' ? g.at : g.f.has('pat') ? g.open : null, cd = cdT && left(cdT) ? `<span class="ag-cd">Se abre a todos en ${left(cdT)}</span>` : future && g.kind !== 'open' ? `<span class="ag-cd" style="color:#8cc3f2">Sale en ${left(g.at)}</span>` : '';
@@ -159,9 +189,9 @@ export async function agenda(ctx){
       future && g.kind !== 'pub' && g.kind !== 'vol' ? `<button class="ag-btn${rem ? ' on' : ''}" data-rem="${esc(g.k)}" aria-pressed="${rem}">${rem ? '✓ Te avisaremos' : '🔔 Avísame'}</button>` : '',
       future && !compact ? `<a class="ag-btn" href="${esc(gcal(g))}" target="_blank" rel="noopener">＋ Google Calendar</a>` : ''].join('');
     return `<div class="ag-ev${compact ? ' c' : ''}" style="--c:${COL[g.c]}"><a href="/serie/${esc(s.slug)}" class="ag-cv" style="${cv ? `background-image:url('${esc(cv)}')` : ''}" aria-label="${esc(s.title)}"></a><div class="ag-bd">
-      <span class="ag-tg2"><i></i>${!g.can && g.acc !== 'public' ? '🔒︎ ' : ''}${tag}</span><a class="ag-t" href="${hrefOf(g)}">${esc(s.title)}</a>
-      <span class="ag-m">${caps(g)}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}${compact ? '' : ' · ' + fdt(g.at, { hour: '2-digit', minute: '2-digit' })}</span>
-      ${g.kind !== 'vol' && g.kind !== 'volp' ? `<span class="ag-m">Acceso: <b>${g.kind === 'open' ? 'Público desde esta fecha' : accL(g)}</b>${unread != null ? (unread ? ` · <span class="ur">${unread} sin leer</span>` : ' · <span class="rd">✓ Leído</span>') : ''}</span>` : ''}
+      <span class="ag-tg2"><i></i>${!g.can && g.acc !== 'public' ? '🔒︎ ' : ''}${g.wholeVolume ? 'Volumen completo · ' : ''}${tag}</span><a class="ag-t" href="${hrefOf(g)}">${esc(s.title)}</a>
+      <span class="ag-m">${g.wholeVolume && g.volumeLabel ? esc(g.volumeLabel) + ' · ' : ''}${caps(g)}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}${compact ? '' : ' · ' + fdt(g.at, { hour: '2-digit', minute: '2-digit' })}</span>
+      ${g.kind !== 'vol' && g.kind !== 'volp' ? `<span class="ag-m">Acceso: <b>${g.kind === 'open' ? 'Público desde esta fecha' : g.kind === 'pub' && g.patronFirst && g.open && new Date(g.open) <= Date.now() ? 'Estreno para mecenas · ahora público' : accL(g)}</b>${unread != null ? (unread ? ` · <span class="ur">${unread} sin leer</span>` : ' · <span class="rd">✓ Leído</span>') : ''}</span>` : ''}
       ${compact ? '' : dates}${cd}${acts ? `<div class="ag-acts">${acts}</div>` : ''}</div></div>`;
   }
   function festivals(fromK, toK){
