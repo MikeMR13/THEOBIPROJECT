@@ -218,7 +218,7 @@ export function render(D, design, h){
     ['grupo-integrantes', 'Integrantes', L.navMembers && on('show_members') && D.mem.length > 0 && !d.hidden.includes('members')]
   ].filter(([, , enabled]) => enabled);
   const tabs = L.nav && tabItems.length > 1 ? `<nav class="tp2-tabs" aria-label="Secciones del grupo">${tabItems.map(([id, label], i) => `<a href="#${id}"${i === 0 ? ' class="on" aria-current="location"' : ''}>${label}</a>`).join('')}</nav>` : '';
-  const summary = L.stats === 'cabecera' && !d.hidden.includes('stats') ? `<div class="tp2-summary">${stats}</div>` : '';
+  const summary = stats && L.stats === 'cabecera' && !d.hidden.includes('stats') ? `<div class="tp2-summary">${stats}</div>` : '';
   let body;
   if (d.template === 'revista') body = `<header class="tp2-hero" style="${ban}">${orn}${corners}<div class="tp2-heroin">${logo}<div>${name}</div></div></header><div class="tp2-in">${bio}${links}${tabs}${summary}${flow}</div>`;
   else if (d.template === 'editorial') body = `<div class="tp2-in"><header class="tp2-ed"><div class="tp2-edt">${logo}${name}${bio}${links}</div><div class="tp2-edi" style="${ban};position:relative">${orn}${corners}</div></header>${tabs}${summary}${flow}</div>`;
