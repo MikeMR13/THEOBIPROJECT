@@ -1543,7 +1543,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   }
   // ---------- página pública del equipo (diseño en teampage.js) ----------
   async function team(slug){
-    const [TP, AN] = await Promise.all([import('/teampage.js?v=13'), import('/anim.js?v=8')]); TP.ensureFonts();
+    const [TP, AN] = await Promise.all([import('/teampage.js?v=14'), import('/anim.js?v=8')]); TP.ensureFonts();
     app.innerHTML = '<p class="mono">Abriendo la página del equipo…</p>';
     const D = await TP.loadTeamData(sb, slug);
     if (!D) { app.innerHTML = '<h1>Este equipo no está en el estante</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
