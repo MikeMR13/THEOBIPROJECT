@@ -228,7 +228,7 @@ export async function agenda(ctx){
   function line(list){
     const t = today(), M = byDay(list.filter(g => g.day >= addK(t, -PAST) && g.day <= addK(t, FUT))), ks = Object.keys(M).sort().reverse();
     const fut = ks.filter(k => k > t).sort(), pst = ks.filter(k => k < t), sec = k => `<section class="ag-ld"><h2>${lbl(k)}<small>${k.slice(8)}/${k.slice(5, 7)}</small></h2><div class="ag-ll">${M[k].map(g => card(g)).join('')}</div></section>`;
-    return `<div class="ag-line">${V.when === 'past' ? '' : fut.length ? fut.map(sec).join('') : '<p class="ag-empty">Nada programado todavía.</p>'}<div class="ag-now" id="ag-now">Hoy · ${noon(t).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', timeZone: 'UTC' })}</div>${M[t] ? sec(t).replace(/<h2>.*?<\/h2>/, '') : '<p class="ag-empty" style="padding:6px 0">Nada hoy por ahora.</p>'}${V.when === 'next' ? '' : pst.length ? pst.map(sec).join('') : '<p class="ag-empty">Nada publicado en los últimos 30 días.</p>'}</div>`;
+    return `<div class="ag-line">${V.when === 'past' ? '' : fut.length ? fut.map(sec).join('') : '<p class="ag-empty">Nada programado todavía.</p>'}<div class="ag-now" id="ag-now">Hoy · ${noon(t).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', timeZone: 'UTC' })}</div>${M[t] ? sec(t).replace(/<h2>.*?<\/h2>/, '') : V.when ? '' : '<p class="ag-empty" style="padding:6px 0">Nada hoy por ahora.</p>'}${V.when === 'next' ? '' : pst.length ? pst.map(sec).join('') : '<p class="ag-empty">Nada publicado en los últimos 30 días.</p>'}</div>`;
   }
   function month(list){
     const a = V.anchor.slice(0, 8) + '01', ym = a.slice(0, 7), start = monday(a), M = byDay(list), t = today();
@@ -251,8 +251,9 @@ export async function agenda(ctx){
     if (V.view === 'mes' && !D.fests) { try { if (S) await S.load(sb); const { data } = await sb.from('season_calendar').select('key,starts,hemi').gte('starts', addK(today(), -400)).lte('starts', addK(today(), 400)); D.fests = data || []; } catch { D.fests = []; } }
     const all = groups(), inRange = all.filter(g => g.day >= a && g.day <= b), list = inRange.filter(pass);
     const weekOpen = all.filter(g => g.kind === 'open' && new Date(g.at) > Date.now() && new Date(g.at) - Date.now() < 7 * DAY && pass(g)).length;
-    const scoped = inRange.filter(passBase), countable = scoped.filter(g => passWhen(g) && passAccess(g));
-    const periodCount = { '': scoped.length, next: scoped.filter(g => new Date(g.at) > Date.now()).length, past: scoped.filter(g => new Date(g.at) <= Date.now()).length };
+    const scoped = inRange.filter(g => passBase(g) && passAccess(g)), countable = scoped.filter(passWhen);
+    const periodScoped = scoped.filter(g => !V.f || g.f.has(V.f));
+    const periodCount = { '': periodScoped.length, next: periodScoped.filter(g => new Date(g.at) > Date.now()).length, past: periodScoped.filter(g => new Date(g.at) <= Date.now()).length };
     const cnt = Object.fromEntries(FIL.map(([k]) => [k, k ? countable.filter(g => g.f.has(k)).length : countable.length]));
     const teams = [...new Map(Object.values(D.series).filter(s => s.teams?.slug).map(s => [s.teams.slug, s.teams.name])).entries()].sort((x, y) => x[1].localeCompare(y[1], 'es'));
     const types = [...new Set(Object.values(D.series).map(s => s.work_type || 'Novela ligera'))].sort();
