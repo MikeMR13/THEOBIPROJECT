@@ -89,4 +89,8 @@ const exportData=JSON.parse(exportTheme('Equipo', normalize({community:{showCta:
 assert.equal(exportData.design.community,undefined);
 assert.equal(exportData.design.accent,'#aa6611');
 
+const previewAnn = html({ announce: { title: 'Anuncio de prueba', text: 'Visible', until: '2999-12-31' }, community: { announceStyle: 'compacto' } });
+const previewMatch = previewAnn.match(/<aside class="tp2-ann[^"]*"[^>]*>[\s\S]*?<\/aside>/)?.[0];
+assert.ok(previewMatch?.includes('Anuncio de prueba'), 'El preview de Studio extrae el anuncio con estilos nuevos');
+
 console.log('Perfil grupal Fase 3: integrantes públicos, privacidad, anuncios, CTA y 3 plantillas OK');
