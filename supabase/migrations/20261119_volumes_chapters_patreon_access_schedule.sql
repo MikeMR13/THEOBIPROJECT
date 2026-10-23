@@ -121,7 +121,19 @@ begin
     where id = v.series_id and v.is_final;
   insert into public.publication_events(team_id, series_id, actor, event, summary)
     values(t, v.series_id, auth.uid(), 'publish', 'Volumen ' || v.num || ' publicado');
-  perform private.run_publications();
+  -- No invocar el cron global desde la sesión de un equipo: podría intentar
+  -- publicar capítulos vencidos de OTROS equipos bajo auth.uid() actual.
+  if v.status is distinct from 'published' then
+    insert into public.notifications(user_id, kind, body, link)
+      select f.user_id, 'Volumen',
+        se.title || ' · Volumen ' || v.num || ' ya está disponible',
+        jsonb_build_object('slug', se.slug, 'vol', v.num)
+      from public.follows f
+      join public.series se on se.id = f.series_id
+      where f.series_id = v.series_id
+        and coalesce((f.channels->>'volumes')::boolean, true);
+    update public.volumes set announced_at = now() where id = p_volume;
+  end if;
   return 'published';
 end
 $$;
