@@ -143,12 +143,54 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
 
   async function panel(me){
     app.innerHTML = `<div class="bb"><div class="bb-top"><div class="bb-heading"><span class="bb-kicker">EL OBI DEL LECTOR · ADMINISTRACIÓN GENERAL</span><h1>Mostrador del <em>Bibliotecario</em></h1><p class="bb-sub">Supervisión global · Independencia editorial de los equipos</p></div><div class="bb-headside"><span class="bb-admin-tag">◆ ${esc(me.username)}<small>Autoridad de plataforma</small></span><button class="btn ghost" id="bbout">Cerrar sesión</button></div></div>
-      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['invitaciones','Invitaciones'],['solicitudes','Solicitudes'],['supervision','Supervisión'],['compras','Enlaces de compra'],['inicio','Inicio'],['resenas','Reseñas'],['temporadas','Temporadas'],['apoyar','Botón Apoyar'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
+      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['invitaciones','Invitaciones'],['solicitudes','Solicitudes'],['supervision','Supervisión'],['compras','Enlaces de compra'],['inicio','Inicio'],['metricas','Métricas Inicio'],['resenas','Reseñas'],['temporadas','Temporadas'],['apoyar','Botón Apoyar'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
     $('#bbout').onclick = async () => { await sb.auth.signOut(); location.href = '/'; };
     app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; panel(me); });
-    try { await ({ resumen, usuarios, equipos, invitaciones, solicitudes, supervision, compras, inicio, resenas, temporadas, apoyar, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
+    try { await ({ resumen, usuarios, equipos, invitaciones, solicitudes, supervision, compras, inicio, metricas, resenas, temporadas, apoyar, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
   }
   const view = () => $('#bbv');
+
+  // Solo los Bibliotecarios pueden consultar estos contadores. El servidor
+  // devuelve totales diarios por categoría, nunca identidades o sesiones.
+  async function metricas(days=30){
+    const rows=await rpc('admin_carousel_metrics',{p_days:days});
+    const names={launch:'Nuevo lanzamiento',release:'Nuevos volúmenes y capítulos',popular:'Top semanal',
+      historic:'Más vistas',editorial:'Selección editorial',discover:'Joya por descubrir',
+      trending:'Tendencia',team:'Recomendaciones grupales',prelaunch:'Próximos estrenos',other:'Otros'};
+    const all=Object.fromEntries(Object.keys(names).map(k=>[k,{show:0,click:0,read:0}]));
+    const speed={mobile:{fast:0,moderate:0,slow:0},desktop:{fast:0,moderate:0,slow:0}};
+    for(const row of Array.isArray(rows)?rows:[]){
+      if(all[row.category]?.[row.action]!==undefined)all[row.category][row.action]+=Number(row.total)||0;
+      if(speed[row.category]?.[row.action]!==undefined)speed[row.category][row.action]+=Number(row.total)||0;
+    }
+    const number=n=>Number(n||0).toLocaleString('es-MX');
+    const percent=(n,d)=>d ? Math.round(n*100/d)+' %' : '—';
+    const allTotals=Object.values(all).reduce((a,x)=>({show:a.show+x.show,click:a.click+x.click,read:a.read+x.read}),{show:0,click:0,read:0});
+    view().innerHTML=`<div class="bb-box">
+      <h3>Métricas agregadas · Carrusel de Inicio</h3>
+      <p class="mono" style="font-size:12px;line-height:1.6">Sin identificadores de cuenta, IP, novela ni sesión en la base de datos.
+      Son eventos totales, no visitantes únicos; pueden verse afectados por automatizaciones. Solo incluyen tráfico posterior a la activación.</p>
+      <div class="bb-seg" style="margin:12px 0 18px">${[7,30,90].map(n=>`<button type="button" data-days="${n}" class="${days===n?'on':''}">${n} días</button>`).join('')}</div>
+      <div class="bb-kpis">${[['Diapositivas mostradas',allTotals.show],['Clics en el carrusel',allTotals.click],['Lecturas iniciadas',allTotals.read]].map(([name,value])=>`<div class="bb-kpi"><span class="ui-lbl">${name}</span><b>${number(value)}</b></div>`).join('')}</div>
+      <h4>Resultados por categoría</h4>
+      <div style="overflow:auto"><table class="bb-tbl"><thead><tr><th>Categoría</th><th>Mostradas</th><th>Clics</th><th>Lecturas</th><th>Clics / mostradas</th></tr></thead><tbody>
+        ${Object.entries(all).map(([key,counts])=>`<tr><td>${esc(names[key])}</td><td>${number(counts.show)}</td><td>${number(counts.click)}</td><td>${number(counts.read)}</td><td>${percent(counts.click,counts.show)}</td></tr>`).join('')}
+      </tbody></table></div>
+      <h4 style="margin-top:24px">Tiempo hasta mostrar Inicio</h4>
+      <p class="mono" style="font-size:12px">Medición real del dispositivo: menos de 1.5 s, de 1.5 a 3 s o más de 3 s.
+      No es un resultado de Lighthouse ni sustituye las métricas de Core Web Vitals.</p>
+      <div style="overflow:auto"><table class="bb-tbl"><thead><tr><th>Dispositivo</th><th>≤ 1.5 s</th><th>1.5–3 s</th><th>&gt; 3 s</th><th>Muestras</th></tr></thead><tbody>
+      ${Object.entries(speed).map(([device,counts])=>{
+        const total=counts.fast+counts.moderate+counts.slow;
+        return `<tr><td>${device==='mobile'?'Móvil (≤ 600 px)':'Escritorio'}</td>
+          <td>${number(counts.fast)} (${percent(counts.fast,total)})</td>
+          <td>${number(counts.moderate)} (${percent(counts.moderate,total)})</td>
+          <td>${number(counts.slow)} (${percent(counts.slow,total)})</td><td>${number(total)}</td></tr>`;
+      }).join('')}</tbody></table></div>
+      ${!allTotals.show ? '<p class="mono" style="font-size:12px">Aún no hay exposiciones medidas para este período.</p>' : ''}
+    </div>`;
+    view().querySelectorAll('[data-days]').forEach(b=>b.onclick=()=>metricas(Number(b.dataset.days)));
+  }
 
   async function resumen(){
     const o = await rpc('admin_overview');
