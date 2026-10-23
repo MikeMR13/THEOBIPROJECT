@@ -68,7 +68,7 @@ for (const template of ['revista','clasica','editorial']) {
   assert.match(html, /href="#grupo-novedades"/);
   assert.match(html, /tp2-next-feature/);
   assert.match(html, /data-feature="editorial"/);
-  assert.match(html, /class="tp2-feature-block"/);
+  assert.match(html, /class="tp2-sec tp2-feature-block"/);
 }
 const volumesOnly = display({ editorial: { recentKind: 'volumen', recentStyle: 'lista' } });
 assert.match(volumesOnly, /data-view="lista"/);
