@@ -1308,6 +1308,22 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         if (picker) { picker.innerHTML = teams.map(t => `<option value="${esc(t.slug)}">${esc(t.name)}</option>`).join(''); picker.value = R.team; }
         return teamRows;
       }).catch(e => { teamPromise = null; throw e; });
+
+    // La vista general conserva Más leídas como ranking principal y ofrece
+    // adelantos de las demás clasificaciones sin cargarlos antes de tiempo.
+    const previewLists = ['tendencia', 'novedades', 'calificadas', 'terminadas'];
+    const overviewMarkup = `<div id="rk-overview" class="rk-overview" hidden>
+      <div class="rk-overview-top"><h2>Explora otros rankings</h2>
+        <p>Un vistazo a las clasificaciones de esta semana. Selecciona «Ver ranking completo» para explorar cada categoría.</p></div>
+      ${previewLists.map(key => `<section class="rk-preview" data-rk-preview="${key}" aria-labelledby="rk-preview-title-${key}">
+        <div class="rk-preview-head"><h3 id="rk-preview-title-${key}">${RK_L[key]}</h3>
+          <a href="/ranking?lista=${key}">Ver ranking completo →</a></div>
+        <div class="rk-preview-body" aria-live="polite"><p class="mono rk-preview-state">La clasificación se cargará al llegar aquí.</p></div>
+      </section>`).join('')}
+      <section class="rk-preview-team" aria-labelledby="rk-preview-team-title"><h3 id="rk-preview-team-title">Lo más leído por equipo</h3>
+        <p>Explora las novelas favoritas de cada grupo traductor.</p><a href="/ranking?vista=equipos">Consultar ranking por equipo →</a>
+      </section>
+    </div>`;
     app.innerHTML = `<div class="ui-cath"><div><h1>Ranking</h1><p>Las obras que más se leen, más suben y más gustan.</p></div><span class="kj" aria-hidden="true">番付</span></div><p class="mono" id="rk-autoh" hidden style="margin:-6px 0 18px;font-size:13px">Esta semana todavía no hay suficientes lecturas: te mostramos el ranking de todos los tiempos.</p>
       <div class="rk-bar">
         <div class="ui-chips" role="group" aria-label="Lista">${Object.entries(RK_L).map(([k, l]) => `<button class="ui-chip" type="button" data-rl="${k}">${l}</button>`).join('')}<button class="ui-chip" type="button" id="rk-team-tab" aria-controls="rk-teams">Por equipo</button></div>
@@ -1323,7 +1339,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
             <select id="rk-team-sel" aria-label="Seleccionar equipo"><option value="">Cargando equipos…</option></select>
           </label></div>
         <div id="rk-team-results" aria-live="polite"></div>
-      </section>`;
+      </section>${overviewMarkup}`;
     $('#rk-g').value = R.genre;
     // Géneros en segundo plano, sin retener la primera clasificación.
     sb.from('series').select('genres').eq('published', true).then(({ data, error }) => {
@@ -1350,6 +1366,74 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       if ($('#rk-team-sel') && R.team) $('#rk-team-sel').value = R.team;
     };
     let tk = 0;
+
+    const overview = $('#rk-overview'), previewStates = new Map();
+    const overviewEnabled = () => location.pathname === '/ranking' && !R.teamView &&
+      R.list === 'leidas' && R.period === 'semana' && !R.genre && !R.status;
+    const previewScore = (key, r) => ({
+      tendencia: '+' + fmtN(+r.score) + ' lecturas',
+      novedades: fmtN(+r.score) + ' lecturas',
+      calificadas: (+r.score).toFixed(1) + ' ★ · ' + fmtN(+(r.votes || 0)) + ' votos',
+      terminadas: fmtN(+r.score) + (+r.score === 1 ? ' lector' : ' lectores') + ' al día'
+    })[key] || '';
+    const loadPreview = async key => {
+      if (previewStates.has(key) || !overviewEnabled() || overview.hidden || !overview.isConnected) return;
+      const section = overview.querySelector('[data-rk-preview="' + key + '"]');
+      if (!section) return;
+      const body = section.querySelector('.rk-preview-body');
+      previewStates.set(key, 'loading');
+      body.innerHTML = '<p class="mono rk-preview-state">Cargando clasificación…</p>';
+      try {
+        const { data, error } = await sb.rpc('ranking_list', { p_list: key, p_period: 'semana', p_limit: 4 });
+        if (!body.isConnected) return;
+        if (error) throw error;
+        if (!data?.length) {
+          body.innerHTML = `<p class="mono rk-preview-state">${esc(RK_E[key] || 'Todavía no hay obras clasificadas en esta categoría esta semana.')}</p>`;
+          previewStates.set(key, 'done');
+          return;
+        }
+        const { data: novels, error: novelError } = await sb.from('series')
+          .select('id,slug,title,cover_path,cover_thumb_path,theme,teams(name,color)')
+          .eq('published', true).in('id', data.map(r => r.series_id));
+        if (!body.isConnected) return;
+        if (novelError) throw novelError;
+        const byId = Object.fromEntries((novels || []).map(s => [s.id, s]));
+        const entries = data.filter(r => byId[r.series_id]);
+        if (!entries.length) {
+          body.innerHTML = '<p class="mono rk-preview-state">No hay novelas públicas clasificadas todavía.</p>';
+        } else {
+          body.innerHTML = `<div class="rk-grid rk-preview-grid">${entries.map(r => {
+            const s = byId[r.series_id];
+            return `<a class="rk-c${r.pos <= 3 ? ' rk-podium' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}">
+              <span class="rk-n" aria-label="Puesto ${r.pos}">${r.pos}</span>${rankBook(s)}
+              <span class="rk-b"><b>${esc(s.title)}</b>${s.teams?.name ? `<small>${esc(s.teams.name)}</small>` : ''}
+                <span class="rk-s">${previewScore(key, r)}</span></span></a>`;
+          }).join('')}</div>`;
+        }
+        previewStates.set(key, 'done');
+      } catch (error) {
+        if (!body.isConnected) return;
+        body.innerHTML = `<p class="mono rk-preview-state" role="alert">No se pudo cargar esta clasificación. <a href="/ranking?lista=${key}">Abrir ranking completo →</a></p>`;
+        previewStates.delete(key);
+        console.warn('ranking preview', key, error);
+      }
+    };
+    const previewObserver = typeof IntersectionObserver !== 'undefined'
+      ? new IntersectionObserver(entries => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting || !overviewEnabled() || overview.hidden) continue;
+          const key = entry.target.dataset.rkPreview;
+          if (key) { previewObserver.unobserve(entry.target); loadPreview(key); }
+        }
+      }, { rootMargin: '120px 0px' }) : null;
+    const revealOverview = () => {
+      if (!overviewEnabled() || !overview.isConnected) return;
+      overview.hidden = false;
+      if (previewObserver) overview.querySelectorAll('[data-rk-preview]').forEach(section => {
+        if (!previewStates.has(section.dataset.rkPreview)) previewObserver.observe(section);
+      });
+      else previewLists.forEach(loadPreview);
+    };
     const drawTeam = async my => {
       const box = $('#rk-team-results');
       box.innerHTML = '<p class="mono">Cargando las obras del equipo…</p>';
@@ -1376,11 +1460,11 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         `<div class="rk-grid">${entries.map((r, i) => { const s = by[r.series_id]; return `<a class="rk-c${i < 3 ? ' rk-podium' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${i + 1} del equipo">${i + 1}</span>${rankBook(s)}<span class="rk-b"><b>${esc(s.title)}</b><small>${fmtN(+r.score)} ${+r.score === 1 ? 'lector' : 'lectores'} · esta semana</small><span class="rk-s">${r.pos ? '#' + r.pos + ' general' : ''}</span></span></a>`; }).join('')}</div>`;
     };
     const draw = async () => {
-      sync(); const my = ++tk, box = $('#rk'); if (R.teamView) return drawTeam(my); box.innerHTML = '<p class="mono">Cargando…</p>';
+      sync(); const my = ++tk, box = $('#rk'); overview.hidden = true; if (R.teamView) return drawTeam(my); box.innerHTML = '<p class="mono">Cargando…</p>';
       const { data, error } = await sb.rpc('ranking_list', { p_list: R.list, p_period: R.period, p_genre: R.genre || null, p_status: R.status || null, p_limit: 20 });
       if (my !== tk || !document.body.contains(box)) return;
       if (error) { box.innerHTML = `<p style="color:#f59e7a">No se pudo cargar el ranking: ${esc(error.message)}</p>`; return; }
-      if (!data?.length) { box.innerHTML = `<div class="ui-empty"><p><strong>${R.genre || R.status ? 'Ninguna obra con estos filtros entra en esta lista.' : RK_E[R.list] || 'Aún no hay lecturas en este periodo.'}</strong></p></div>`; return; }
+      if (!data?.length) { box.innerHTML = `<div class="ui-empty"><p><strong>${R.genre || R.status ? 'Ninguna obra con estos filtros entra en esta lista.' : RK_E[R.list] || 'Aún no hay lecturas en este periodo.'}</strong></p></div>`; revealOverview(); return; }
       const { data: ss } = await sb.from('series').select(SERIES).in('id', data.map(r => r.series_id));
       if (my !== tk) return;
       const by = Object.fromEntries((ss || []).map(s => [s.id, s])), filtered = !!(R.genre || R.status), anyPrev = data.some(r => r.prev_pos != null);
@@ -1388,6 +1472,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       const sc = r => ({ leidas: fmtN(r.score) + ' lecturas', tendencia: '+' + fmtN(r.score) + ' lecturas', calificadas: (+r.score).toFixed(1) + ' ★ · ' + r.votes + ' votos', terminadas: fmtN(r.score) + (+r.score === 1 ? ' lector' : ' lectores') + ' al día', novedades: fmtN(r.score) + ' lecturas' })[R.list];
       box.innerHTML = `<div class="rk-grid">${data.filter(r => by[r.series_id]).map(r => { const s = by[r.series_id]; return `<a class="rk-c${r.pos <= 3 ? ' rk-podium' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${r.pos}">${r.pos}</span>${rankBook(s)}<span class="rk-b"><b>${esc(s.title)}</b>${s.teams?.name ? `<small>${esc(s.teams.name)}</small>` : ''}<span class="rk-s">${sc(r)}${mv(r)}</span></span></a>`; }).join('')}</div>
         <p class="mono rk-upd">Actualizado ${ago(data[0].computed_at)} · se recalcula cada 6 horas${filtered ? ' · con filtros no se muestra el movimiento' : ''}</p>`;
+      revealOverview();
     };
     app.querySelectorAll('[data-rl]').forEach(b => b.onclick = () => { R.teamView = false; R.list = b.dataset.rl; draw(); });
     $('#rk-team-tab').onclick = () => { R.teamView = true; draw(); };
