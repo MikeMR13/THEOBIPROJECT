@@ -158,6 +158,29 @@ export async function agenda(ctx){
       g.f.add('vol');
       merged.add(v.k);
     }
+    // Un anuncio de volumen programado y sus capítulos programados para el
+    // MISMO instante representan un único estreno. Conservar el grupo 'volp'
+    // para no cambiar el identificador de los recordatorios del preestreno.
+    // No combinar series privadas: solo se incluyen capítulos que la RPC
+    // agenda_events ya devuelve públicamente, y nunca se consulta su contenido.
+    for (const v of out) if (v.kind === 'volp' && v.volumeId) {
+      const matches = out.filter(g => g.kind === 'prog' &&
+        g.s.id === v.s.id && g.day === v.day &&
+        new Date(g.at).getTime() === new Date(v.at).getTime() &&
+        g.list.length && g.list.every(ch => ch.volume_id === v.volumeId));
+      if (matches.length !== 1) continue;
+      const planned = matches[0];
+      v.list = planned.list;
+      v.open = planned.open;
+      v.patronFirst = planned.patronFirst;
+      v.f = new Set([...v.f, ...planned.f]);
+      v.c = v.f.has('pat') ? 'pat' : 'vol';
+      v.acc = planned.acc;
+      v.mp = planned.mp;
+      v.tier = planned.tier;
+      v.can = false;
+      merged.add(planned.k);
+    }
     for (const a of D.aniv) out.push({ k: 'aniv|' + a.team_id + '|' + a.at, kind: 'aniv', c: 'aniv', f: new Set(), day: a.at, at: a.at + 'T12:00:00', team: a, list: [] });
     return out.filter(g => !merged.has(g.k));
   }
@@ -173,7 +196,7 @@ export async function agenda(ctx){
   const passWhen = g => !V.when || (V.when === 'next' ? new Date(g.at) > Date.now() : new Date(g.at) <= Date.now());
   const passAccess = g => !V.access || (V.access === 'readable'
     ? (g.kind === 'pub' && g.can) || (g.kind === 'vol' && g.can) || (g.kind === 'open' && new Date(g.at) <= Date.now())
-    : (g.kind === 'pub' && !g.can) || (g.kind === 'prog' && g.f.has('pat')));
+    : (g.kind === 'pub' && !g.can) || ((g.kind === 'prog' || g.kind === 'volp') && g.f.has('pat')));
   const pass = g => (!V.f || g.f.has(V.f)) && passBase(g) && passWhen(g) && passAccess(g);
 
   // ---------- piezas ----------
