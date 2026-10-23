@@ -980,3 +980,13 @@ body.in-studio .s2-main > *{min-width:0;max-width:100%}
 .pf-mobile-order-buttons button:hover:not(:disabled),.pf-mobile-order-buttons button:focus-visible{border-color:var(--gold);outline-offset:2px}
 .pf-mobile-order-buttons button:disabled{opacity:.3;cursor:default}
 #pf-mobile-preview{justify-self:start}
+
+
+/* Fase 6: controles del compositor utilizables con teclado y entrada táctil. */
+.pf-oa button{min-width:40px;min-height:40px;width:40px;height:40px}
+.pf-comp-emphasis{min-height:40px}
+.pf-panel :is(.pf-comp-preset,.pf-mobile-order-buttons button,.pf-oa button):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+@media (pointer:coarse){
+ .pf-panel .pf-seg button,.pf-oa button,.pf-comp-emphasis,.pf-mobile-order-buttons button{min-height:44px}
+ .pf-oa button,.pf-mobile-order-buttons button{min-width:44px;width:44px;height:44px}
+}
