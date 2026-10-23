@@ -579,7 +579,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const head = (k, t, right = '') => `<div class="ob-st"><span class="k">${k}</span><h2>${t}</h2>${right}</div>`;
     const continueHTML = rows => `
       ${rows.length ? `<div class="ob-band" style="display:flex;align-items:baseline;gap:14px;margin:56px 0 0;padding-bottom:10px;border-bottom:2px solid var(--gold)"><span aria-hidden="true" style="font-family:'Shippori Mincho B1',serif;font-size:28px;color:var(--gold)">君</span><h2 style="margin:0;font-size:clamp(26px,3vw,40px);font-family:'Shippori Mincho B1',serif;font-weight:500">Para ti</h2></div>` : ''}
-${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読', 'Continuar leyendo', '<a class="r" href="/biblioteca">Mi biblioteca →</a>')}<div class="ui-rows ob-anim">${rows.map(p => { const s = byId[p.series_id]; return `<a class="ui-ccard" href="/leer/${s.slug}/${p.chapter_num}" style="--c:${esc(color(s))}"><span class="th" style="background-image:${s.cover_path ? `url('${esc(thumb(s))}')` : 'none'}"></span><span><span class="ui-lbl">Cap. ${p.chapter_num}${s.chapters?.[0]?.count ? ' de ' + s.chapters[0].count : ''} · ${Math.round((p.pct || 0) * 100)}% · ${ago(p.updated_at)}</span><br><strong>${esc(s.title)}</strong><span class="ui-bar"><i style="width:${Math.round((p.pct || 0) * 100)}%"></i></span></span></a>`; }).join('')}</div></section>` : ''}
+${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読', 'Continuar leyendo', '<a class="r" href="/biblioteca">Mi biblioteca →</a>')}<div class="ui-cont ob-anim">${rows.map(p => { const s = byId[p.series_id]; return `<a class="ui-ccard" href="/leer/${s.slug}/${p.chapter_num}" style="--c:${esc(color(s))}"><span class="th" style="background-image:${s.cover_path ? `url('${esc(thumb(s))}')` : 'none'}"></span><span><span class="ui-lbl">Cap. ${p.chapter_num}${s.chapters?.[0]?.count ? ' de ' + s.chapters[0].count : ''} · ${Math.round((p.pct || 0) * 100)}% · ${ago(p.updated_at)}</span><br><strong>${esc(s.title)}</strong><span class="ui-bar"><i style="width:${Math.round((p.pct || 0) * 100)}%"></i></span></span></a>`; }).join('')}</div></section>` : ''}
     `;
 
     setTimeout(() => import('/agenda.js?v=1').then(A => A.openToday({ sb, esc }, document.getElementById('ob-open-today'))).catch(() => {}), 0);
@@ -634,14 +634,14 @@ ${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読'
     bindCars(app);
     // Actualizar únicamente la sección personal cuando llegue el progreso remoto.
     // No sustituir el Inicio ni reiniciar el carrusel durante la lectura.
+    const myContinueSlot = app.querySelector('#ob-continue-slot');
     if (progressRequest) progressRequest.then(remote => {
-      const slot = app.querySelector('#ob-continue-slot');
-      if (!remote || !slot?.isConnected || location.pathname !== '/') return;
+      if (!remote || !myContinueSlot?.isConnected || app.querySelector('#ob-continue-slot') !== myContinueSlot || location.pathname !== '/') return;
       Object.assign(prog, remote);
       const nextCont = Object.values(prog)
         .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
         .filter(p => byId[p.series_id]).slice(0, 6);
-      slot.innerHTML = continueHTML(nextCont);
+      myContinueSlot.innerHTML = continueHTML(nextCont);
     });
 
     // Mantener navegación horizontal por teclado además de flechas y gesto táctil.
