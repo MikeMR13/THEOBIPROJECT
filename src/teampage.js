@@ -288,6 +288,7 @@ const CSS = `
 
 /* Fase 1: controles de cabecera y navegación, adaptados al tema activo. */
 .tp2 :is(#grupo-obras,#grupo-lanzamientos,#grupo-integrantes){scroll-margin-top:calc(var(--top-h,64px) + 88px)}
+.tp2[id=grupo-inicio]{scroll-margin-top:var(--top-h,64px)}
 .tp2-tabs{display:flex;gap:2px;align-items:stretch;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--ln) transparent;position:sticky;top:var(--top-h,64px);z-index:7;border:1px solid var(--ln);background:var(--sf);box-shadow:0 4px 16px rgba(0,0,0,.12);max-width:100%}
 .tp2-tabs a{display:inline-flex;align-items:center;justify-content:center;padding:9px clamp(12px,2cqi,22px);min-height:44px;min-width:max-content;font:600 13px/1.25 'IBM Plex Sans',sans-serif;border-bottom:3px solid transparent;color:var(--fg);white-space:nowrap}
 .tp2-tabs a:hover,.tp2-tabs a.on{color:var(--act);border-bottom-color:var(--ac);background:color-mix(in srgb,var(--ac) 7%,var(--sf))}
@@ -325,7 +326,7 @@ export function bind(root){
   const activate = active => tabs.forEach(a => { const on = a === active; a.classList.toggle('on', on); if (on) a.setAttribute('aria-current', 'location'); else a.removeAttribute('aria-current'); });
   tabs.forEach(a => a.addEventListener('click', () => activate(a)));
   if (tabs.length && typeof IntersectionObserver !== 'undefined') {
-    const targets = tabs.map(a => root.querySelector(a.getAttribute('href'))).filter(Boolean);
+    const targets = tabs.map(a => a.hash === '#grupo-inicio' ? root : root.querySelector(a.getAttribute('href'))).filter(Boolean);
     const observer = new IntersectionObserver(entries => {
       if (!root.isConnected) return observer.disconnect();
       const visible = entries.filter(e => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
@@ -338,5 +339,5 @@ export function bind(root){
   root.querySelectorAll('[data-car]').forEach(b => b.onclick = e => { e.preventDefault(); const n = car.children.length, i = (idx() + +b.dataset.car + n) % n; car.scrollTo({ left: i * car.clientWidth, behavior: 'smooth' }); });
   car.addEventListener('scroll', () => { const i = idx(); dots.forEach((d, j) => d.classList.toggle('on', i === j)); }, { passive: true });
 }
-export function exportTheme(name, design){ const { motto, theme, featured, announce, order, hidden, seasons, ...look } = design; return JSON.stringify({ obi_theme: 1, name, design: look }, null, 2); }
+export function exportTheme(name, design){ const { motto, theme, featured, announce, order, hidden, seasons, layout, ...look } = design; return JSON.stringify({ obi_theme: 1, name, design: look }, null, 2); }
 export function importTheme(text){ const j = JSON.parse(text); if (!j || j.obi_theme !== 1 || typeof j.design !== 'object') throw new Error('El archivo no es un tema del Obi'); return { name: String(j.name || 'Tema importado').slice(0, 40), design: j.design }; }
