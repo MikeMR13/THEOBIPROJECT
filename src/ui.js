@@ -369,6 +369,28 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   // ---------- Inicio ----------
   let heroT, homeRotationTimer;
   const HOME_CSS = `
+/* Logo del equipo en una columna propia: el anuncio editorial configurado al
+   publicar/programar y el ranking permanecen juntos sin solaparse. */
+.ob-hero .ob-hero-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:clamp(12px,2.2vw,26px);min-width:0;max-width:100%}
+.ob-hero .ob-hero-meta{min-width:0;max-width:100%}
+.ob-hero .ob-hero-head:not(:has(.ob-hero-team-logo)){display:block}
+.ob-hero .ob-hero-team-logo{box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:7px;min-width:0;width:clamp(72px,7vw,104px);color:var(--paper);text-align:center;text-decoration:none}
+.ob-hero .ob-hero-team-logo img{display:block;width:clamp(72px,7vw,104px);height:clamp(72px,7vw,104px);object-fit:contain;border:none;filter:drop-shadow(0 4px 8px rgba(0,0,0,.55))}
+.ob-hero .ob-hero-team-logo span{display:block;width:100%;max-width:100%;font:600 10px/1.3 'IBM Plex Mono',monospace;overflow-wrap:anywhere;text-wrap:balance}
+.ob-hero .ob-hero-team-logo:hover,.ob-hero .ob-hero-team-logo:focus-visible{color:var(--gold)}
+.ob-hero .ob-hero-team-logo:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
+.ob-hero .ob-hero-head+h1{margin-top:clamp(18px,2.2vw,28px)}
+@media(max-width:600px){
+ .ob-hero .ob-hero-head{column-gap:10px}
+ .ob-hero .ob-hero-team-logo{width:56px}
+ .ob-hero .ob-hero-team-logo img{width:56px;height:56px}
+ .ob-hero .ob-hero-team-logo span{font-size:9px}
+}
+@media(max-width:380px){
+ .ob-hero .ob-hero-team-logo{width:48px}
+ .ob-hero .ob-hero-team-logo img{width:48px;height:48px}
+ .ob-hero .ob-hero-team-logo span{display:none}
+}
 .ob-fest{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:22px 0 0;padding:12px 16px;border:1px solid var(--fc);border-left:4px solid var(--fc);background:color-mix(in srgb,var(--fc) 9%,#16140f);color:var(--paper);text-decoration:none}
 .ob-fest:hover{color:var(--paper);background:color-mix(in srgb,var(--fc) 15%,#16140f)}.ob-fest b{font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:18px}.ob-fest span{font-size:13px;color:var(--mute)}.ob-fest em{margin-left:auto;font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--fc)}
 .ob-tick a:hover{text-decoration:underline!important;text-underline-offset:3px}.ob-tick:hover .ob-track{animation-play-state:paused}
@@ -850,15 +872,20 @@ ${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読'
     // frase de gancho: la primera oración completa (acepta comillas de cierre); si es larga o no hay más texto, no se separa
     const synT = (s.synopsis || '').replace(/\r/g, '').trim(), lines = synT.split(/\n+/), sents = lines[0].split(/(?<=[.!?…]["”»'’)]*)\s+/);
     let tag = lines.length > 1 && lines[0].length <= 140 ? lines[0] : sents.length > 1 && sents[0].length <= 110 ? sents[0] : '';
+    const teamLogo = s.teams?.avatar_path && s.teams?.slug
+      ? `<a class="ob-hero-team-logo" href="/equipo/${encodeURIComponent(s.teams.slug)}" aria-label="Visitar el equipo ${esc(s.teams.name || 'traductor')}">
+          <img src="${esc(media(s.teams.avatar_path))}" alt="" width="104" height="104" loading="lazy" decoding="async">
+          <span>${esc(s.teams.name || 'Equipo traductor')}</span></a>`
+      : '';
     el.innerHTML = `<span class="ob-vk" aria-hidden="true">${pre ? "予告" : "新刊案内"}</span>
       <div class="ob-cov"><div class="f" style="${art ? `background-image:url('${esc(heroCover)}')` : ''}"></div></div>
-      <div class="ob-txt"><span class="ob-kick">${pre ? 'ESTRENO · ' + preWhen : v ? '第' + KN(v.num) + '巻 · 新刊' : '第' + KN(lc?.num || 1) + '章' + (fresh ? ' · 新刊' : '')}</span><div class="ob-hero-flags"><span class="ob-badge${pre ? ' ob-badge-vol' : v ? ' ob-badge-vol' : ''}" ${pre ? 'style="background:#8cc3f2;color:#0d0c0a"' : ''}>${pre ? (preTomorrow ? 'ESTRENO MAÑANA · VOL. ' : 'PRÓXIMO ESTRENO · VOL. ') + pre.vnum : reason?.kind !== 'release' ? esc(reason?.label || 'Destacado') : reason?.label === 'Nuevo lanzamiento' ? '¡NUEVO LANZAMIENTO! · VOL. ' + v?.num : reason?.urgent ? '¡NOVELA COMPLETA! · VOL. ' + v.num : v ? (fresh ? '¡NUEVO VOLUMEN! · VOL. ' : 'VOLUMEN DISPONIBLE · VOL. ') + v.num : currentNotice(s)?.kind === 'chapter' ? 'CAPÍTULO PUBLICADO' : fresh ? 'NUEVO · CAP. ' + (lc?.num || 1) : 'CAP. ' + (lc?.num || 1) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${pre ? '' : heroTag(s)}</div>${!pre && top[s.id] ? `<div class="ob-hero-rank"><a class="rk-bdg" href="/ranking"><b>#${top[s.id]}</b>Top de la semana</a></div>` : ''}
+      <div class="ob-txt"><div class="ob-hero-head"><div class="ob-hero-meta"><span class="ob-kick">${pre ? 'ESTRENO · ' + preWhen : v ? '第' + KN(v.num) + '巻 · 新刊' : '第' + KN(lc?.num || 1) + '章' + (fresh ? ' · 新刊' : '')}</span><div class="ob-hero-flags"><span class="ob-badge${pre ? ' ob-badge-vol' : v ? ' ob-badge-vol' : ''}" ${pre ? 'style="background:#8cc3f2;color:#0d0c0a"' : ''}>${pre ? (preTomorrow ? 'ESTRENO MAÑANA · VOL. ' : 'PRÓXIMO ESTRENO · VOL. ') + pre.vnum : reason?.kind !== 'release' ? esc(reason?.label || 'Destacado') : reason?.label === 'Nuevo lanzamiento' ? '¡NUEVO LANZAMIENTO! · VOL. ' + v?.num : reason?.urgent ? '¡NOVELA COMPLETA! · VOL. ' + v.num : v ? (fresh ? '¡NUEVO VOLUMEN! · VOL. ' : 'VOLUMEN DISPONIBLE · VOL. ') + v.num : currentNotice(s)?.kind === 'chapter' ? 'CAPÍTULO PUBLICADO' : fresh ? 'NUEVO · CAP. ' + (lc?.num || 1) : 'CAP. ' + (lc?.num || 1) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${pre ? '' : heroTag(s)}</div>${!pre && top[s.id] ? `<div class="ob-hero-rank"><a class="rk-bdg" href="/ranking"><b>#${top[s.id]}</b>Top de la semana</a></div>` : ''}</div>${teamLogo}</div>
         <h1 data-len="${(s.title.length + (v ? 12 + String(v.num).length : 0)) > 70 ? 'xl' : (s.title.length + (v ? 12 + String(v.num).length : 0)) > 40 ? 'l' : ''}"><a class="ob-h1a" href="/serie/${s.slug}">${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}</a></h1>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn" style="white-space:pre-line">${esc(s.synopsis ? (synT.slice(tag.length).replace(/^\s+/, '').replace(/\n{3,}/g, '\n\n') || synT) : pre ? 'Conoce la historia antes de su estreno. Los capítulos permanecen bloqueados hasta la fecha indicada.' : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), (s.chapters?.[0]?.count || 0) + ' capítulos en español'].filter(Boolean).join(' · ') + '.')}</p>
         ${pre ? `<p class="ob-prelaunch-timer" style="margin:8px 0;color:#8cc3f2;font-size:13px">🔒 Lectura bloqueada · Estreno: ${esc(preWhen)} · Faltan ${esc(preLeft)}</p><div class="ob-acts"><a class="a1" href="/serie/${encodeURIComponent(s.slug)}">Ver primer vistazo →</a><a class="a2" href="/calendario?f=prog">Ver en el calendario</a></div>` : `<div class="ob-acts"><a class="a1" href="${v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + n}">${v ? 'Ver volumen ' + v.num : p ? 'Continuar capítulo ' + n : 'Leer capítulo ' + (lc?.num || 1)}</a>${v && (p || lc) ? `<a class="a2" href="/leer/${s.slug}/${n}">${p ? 'Continuar lectura' : 'Empezar a leer'}</a>` : `<a class="a2" href="/serie/${s.slug}">Ver la serie</a>`}</div>`}</div>
       ${feat.length > 1 ? `<div class="ob-pager2" style="position:absolute;left:clamp(16px,4vw,56px);right:clamp(16px,4vw,56px);bottom:14px;z-index:2;display:flex;align-items:center;gap:10px"><button data-j="${(i - 1 + feat.length) % feat.length}" aria-label="Anterior" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">‹</button><span style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">${feat.length > 10 ? `<span class="mono" aria-label="Diapositiva ${i+1} de ${feat.length}" style="min-width:70px;text-align:center;font:600 12px 'IBM Plex Mono',monospace;color:var(--paper)">${i+1} / ${feat.length}</span>` : feat.map((f, j) => `<button data-j="${j}" aria-label="${esc(f.title)}" aria-current="${j === i}" style="height:10px;flex:${j === i ? '0 1 160px' : '0 0 10px'};min-width:10px;padding:0;border:none;cursor:pointer;position:relative;overflow:hidden;background:${j === i ? '#3d3628' : '#5a5244'}">${j === i ? `<i class="ob-hp" style="position:absolute;inset:0;background:var(--gold);transform-origin:left;transform:scaleX(${heroPaused ? 1 : 0});${heroPaused || matchMedia('(prefers-reduced-motion: reduce)').matches ? '' : 'animation:obHp 8s linear forwards'}"></i>` : ''}</button>`).join('')}</span><button data-hp aria-label="${heroPaused ? 'Reanudar' : 'Pausar'}" style="height:40px;padding:0 12px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">${heroPaused ? '▶ Reanudar' : 'Ⅱ Pausar'}</button><button data-j="${(i + 1) % feat.length}" aria-label="Siguiente" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">›</button></div>` : ''}`;
     const metricCategory=homeMetricCategory(reason,!!pre);
     homeMetrics.shown(heroKey(s),metricCategory);
-    el.querySelectorAll('.ob-txt a[href^="/"]').forEach(a =>
+    el.querySelectorAll('.ob-txt a[href^="/"]:not(.ob-hero-team-logo)').forEach(a =>
       a.addEventListener('click', () => homeMetrics.clicked(s.slug,metricCategory)));
     el.querySelectorAll('[data-j]').forEach(b => b.onclick = () => heroSlide(feat, +b.dataset.j, prog, lastCh, top, newsBySeries, featReasons));
     el.querySelector('[data-hp]')?.addEventListener('click', () => { heroPaused = !heroPaused; heroSlide(feat, i, prog, lastCh, top, newsBySeries, featReasons); });
