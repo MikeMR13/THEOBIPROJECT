@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/admin-permissions-check.mjs && node scripts/patreon-scope-check.mjs && node scripts/patreon-publication-check.mjs && node scripts/build.mjs",
+    "build": "node scripts/prelaunch-check.mjs && node scripts/admin-permissions-check.mjs && node scripts/patreon-scope-check.mjs && node scripts/patreon-publication-check.mjs && node scripts/build.mjs",
     "check": "node scripts/build.mjs --check",
     "optimize-check": "node scripts/optimization-check.mjs",
     "db-phase2-check": "node scripts/db-phase2-check.mjs",
