@@ -63,7 +63,7 @@ assert.equal(normalize({ editorial: { recentCount: 100, recentKind: 'fuera', rec
 for (const template of ['revista','clasica','editorial']) {
   const design = { template, featured: ['obra-uno'], editorial: { featureStyle: 'editorial', nextStyle: 'destacado', recentCount: 3, recentStyle: 'carrusel' } };
   const html = display(design);
-  assert.match(html, /class="tp2-updates-sec" /); // no duplicación
+  assert.match(html, /class="tp2-sec tp2-updates-sec" /);
   assert.match(html, /data-view="carrusel"/);
   assert.match(html, /href="#grupo-novedades"/);
   assert.match(html, /tp2-next-feature/);
