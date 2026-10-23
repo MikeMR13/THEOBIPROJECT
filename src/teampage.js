@@ -44,13 +44,20 @@ export const HERO_ALIGN = { natural: 'Según plantilla', izquierda: 'Izquierda',
 export const FOLLOW_LABELS = { equipo: 'Seguir al equipo', grupo: 'Seguir grupo', publicaciones: 'Seguir publicaciones' };
 export const STATS_LOCATION = { secciones: 'En su sección', cabecera: 'Debajo de la cabecera' };
 export const LAYOUT_DEFAULT = { header: 'original', align: 'natural', showBio: true, showMeta: true, showLinks: true, nav: true, navWorks: true, navNext: true, navMembers: true, stats: 'secciones', followLabel: 'equipo' };
-export const SECTIONS = { announce: 'Anuncio', next: 'Próximo lanzamiento', stats: 'Estadísticas', featured: 'Obras destacadas', works: 'Obras', members: 'Integrantes' };
+export const FEATURE_STYLES = { normal: 'Clásica', editorial: 'Editorial', compacto: 'Compacta' };
+export const NEXT_STYLES = { normal: 'Clásico', destacado: 'Destacado con portada' };
+export const UPDATE_STYLES = { lista: 'Lista', cuadricula: 'Cuadrícula', carrusel: 'Carrusel' };
+export const UPDATE_KINDS = { ambos: 'Ambos', volumen: 'Volúmenes', capitulo: 'Capítulos' };
+export const UPDATE_COUNTS = { 3: '3', 4: '4', 6: '6', 8: '8' };
+export const EDITORIAL_DEFAULT = { featureStyle: 'normal', nextStyle: 'normal', recentStyle: 'cuadricula', recentKind: 'ambos', recentCount: 4 };
+export const SECTIONS = { recent: 'Novedades recientes', announce: 'Anuncio', next: 'Próximo lanzamiento', stats: 'Estadísticas', featured: 'Obras destacadas', works: 'Obras', members: 'Integrantes' };
 const SEC_KEYS = Object.keys(SECTIONS);
 export const DEFAULT = { theme: 'tinta', ...THEMES.tinta.d, motto: '' };
 const pick = (v, o, d) => Object.prototype.hasOwnProperty.call(o, v) ? v : d;
 export function normalize(x, teamColor){
   const s = x && typeof x === 'object' ? x : {}, base = { ...DEFAULT, accent: teamColor || DEFAULT.accent };
   const L = s.layout && typeof s.layout === 'object' && !Array.isArray(s.layout) ? s.layout : {};
+  const E = s.editorial && typeof s.editorial === 'object' && !Array.isArray(s.editorial) ? s.editorial : {};
   return {
     theme: /^mine:\d+$/.test(s.theme || '') ? s.theme : pick(s.theme, { ...THEMES, custom: 1 }, base.theme), template: pick(s.template, TEMPLATES, base.template), bg: pick(s.bg, BGS, base.bg),
     accent: /^#[0-9a-f]{6}$/i.test(s.accent || '') ? s.accent.toLowerCase() : base.accent, font: pick(s.font, TFONTS, base.font),
@@ -61,9 +68,16 @@ export function normalize(x, teamColor){
       header: pick(L.header, HERO_SIZES, LAYOUT_DEFAULT.header),
       align: pick(L.align, HERO_ALIGN, LAYOUT_DEFAULT.align),
       showBio: L.showBio !== false, showMeta: L.showMeta !== false, showLinks: L.showLinks !== false,
-      nav: L.nav !== false, navWorks: L.navWorks !== false, navNext: L.navNext !== false, navMembers: L.navMembers !== false,
+      nav: L.nav !== false, navWorks: L.navWorks !== false, navNext: L.navNext !== false, navRecent: L.navRecent !== false, navMembers: L.navMembers !== false,
       stats: pick(L.stats, STATS_LOCATION, LAYOUT_DEFAULT.stats),
       followLabel: pick(L.followLabel, FOLLOW_LABELS, LAYOUT_DEFAULT.followLabel)
+    },
+    editorial: {
+      featureStyle: pick(E.featureStyle, FEATURE_STYLES, EDITORIAL_DEFAULT.featureStyle),
+      nextStyle: pick(E.nextStyle, NEXT_STYLES, EDITORIAL_DEFAULT.nextStyle),
+      recentStyle: pick(E.recentStyle, UPDATE_STYLES, EDITORIAL_DEFAULT.recentStyle),
+      recentKind: pick(E.recentKind, UPDATE_KINDS, EDITORIAL_DEFAULT.recentKind),
+      recentCount: Number(pick(String(E.recentCount ?? ''), UPDATE_COUNTS, String(EDITORIAL_DEFAULT.recentCount)))
     },
     order: [...new Set([...(Array.isArray(s.order) ? s.order.filter(k => SEC_KEYS.includes(k)) : []), ...SEC_KEYS])],
     hidden: Array.isArray(s.hidden) ? s.hidden.filter(k => SEC_KEYS.includes(k)) : [],
@@ -168,7 +182,9 @@ export async function loadTeamData(sb, slug){
     profiles:{ username:m.username },
     team_roles:m.role_name ? { name:m.role_name, color:m.role_color } : null
   }));
-  return { t, works: works || [], mem: members, next: next?.[0] || null };
+  // El feed solo consulta publicaciones de obras públicas; un error no bloquea el perfil.
+  const recent = await import('./team-updates.js?v=1').then(m => m.loadTeamUpdates(sb, works || [])).catch(e => { console.warn('team updates', e); return []; });
+  return { t, works: works || [], mem: members, next: next?.[0] || null, recent };
 }
 
 // Diseño con el tema de temporada aplicado (si hay uno vigente). sim = clave para simular en la vista previa.
@@ -184,7 +200,7 @@ export function render(D, design, h){
   const { esc, media } = h, d = effective(design, D.t.color, h.sim), t = D.t, S = t.settings || {}, on = k => S[k] !== false, L = d.layout;
   const LG = { ja: 'japonés', ko: 'coreano', zh: 'chino', en: 'inglés' }, langs = (t.langs || []).map(l => LG[l]).filter(Boolean);
   const LK = [['website', 'Sitio web'], ['patreon', 'Patreon'], ['kofi', 'Ko-fi'], ['discord', 'Discord'], ['twitter', 'X / Twitter']].filter(([k]) => /^https:\/\//.test(S[k] || ''));
-  const W = D.works, caps = W.reduce((a, w) => a + (w.chapters?.[0]?.count || 0), 0);
+  const W = D.works, E = d.editorial, caps = W.reduce((a, w) => a + (w.chapters?.[0]?.count || 0), 0);
   const featList = (d.featured.length ? d.featured : [S.featured_works]).map(sl => W.find(w => w.slug === sl)).filter(Boolean);
   const ban = t.banner_path ? `background-image:url('${esc(media(t.banner_path))}')` : '';
   const logo = `<span class="tp2-logo">${t.avatar_path ? `<img src="${esc(media(t.avatar_path))}" alt="">` : `<b>${esc(t.name.slice(0, 2).toUpperCase())}</b>`}</span>`;
