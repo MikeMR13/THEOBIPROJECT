@@ -97,11 +97,11 @@ requireMatch(ownerSql,/if auth\.uid\(\) is null or not private\.is_admin\(\)/,
 requireMatch(ownerSql,/pg_advisory_xact_lock/,
   'La emisión sigue serializada');
 
+const invitationUi=readFileSync('src/admin-invitations.js','utf8');
 requireMatch(invitationUi,/const open = form\.elements\.target\.value === 'open'/,
   'Enlace libre también para equipo nuevo');
 requireMatch(invitationUi,/ATENCIÓN: la primera persona/,
   'Se advierte la entrega de propiedad al primer reclamante');
-const invitationUi=readFileSync('src/admin-invitations.js','utf8');
 requireMatch(invitationUi,/name="target"/,'Selector de destinatario');
 requireMatch(invitationUi,/option value="open"/,'Opción enlace libre');
 requireMatch(invitationUi,/email = open \? null/,'UI envía email nulo para enlace libre');
