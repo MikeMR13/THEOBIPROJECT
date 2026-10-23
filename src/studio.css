@@ -966,3 +966,17 @@ body.in-studio .s2-main > *{min-width:0;max-width:100%}
 .pf-compose-presets~.pf-row .pf-seg{flex-wrap:wrap}
 .pf-panel [data-comp-cols]:focus-visible,.pf-panel [data-comp-preset]:focus-visible,.pf-panel .pf-comp-emphasis:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 @media(max-width:420px){.pf-compose-presets{grid-template-columns:minmax(0,1fr)}.pf-comp-preset{min-height:0}}
+
+
+/* Fase 5: ajustes independientes de la versión pública móvil. */
+.pf-mobile-seg{flex-wrap:wrap;max-width:100%;gap:0}
+.pf-mobile-seg button{min-height:38px}
+.pf-mobile-order{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+.pf-mobile-order li{min-width:0;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #3d3628;background:#0f0e0b;padding:7px 10px}
+.pf-mobile-order li.off>span:first-child{color:#938b7a}
+.pf-mobile-order li>span:first-child{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.pf-mobile-order-buttons{display:flex;gap:6px;flex:none}
+.pf-mobile-order-buttons button{min-width:38px;min-height:38px;padding:0;border:1px solid #51452e;background:#201a12;color:#f3ecd9;cursor:pointer;font-size:17px}
+.pf-mobile-order-buttons button:hover:not(:disabled),.pf-mobile-order-buttons button:focus-visible{border-color:var(--gold);outline-offset:2px}
+.pf-mobile-order-buttons button:disabled{opacity:.3;cursor:default}
+#pf-mobile-preview{justify-self:start}
