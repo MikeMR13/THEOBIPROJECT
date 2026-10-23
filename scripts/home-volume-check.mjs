@@ -43,4 +43,12 @@ const d1 = '2026-10-20T12:00:00Z', d2 = '2026-10-21T10:00:00Z', d3 = '2026-10-21
   const out = homeReleaseOverview([ch('a', 29, after), ch('a', 30, after)], [vol('a', 17, at)], series, NOW);
   assert.equal(out.bySeries.a.kind, 'volume', 'el registro tardío de capítulos no debe ocultar el volumen completo');
 }
+{
+  const first=homeReleaseOverview([ch('a',1,d3)], [vol('a',1,d3)], series, NOW);
+  assert.equal(first.bySeries.a.isNewSeries,true,'El primer volumen publicado representa nuevo lanzamiento');
+  const existing=homeReleaseOverview([ch('a',5,d3)], [vol('a',1,d1),vol('a',2,d3)], series, NOW);
+  assert.equal(existing.bySeries.a.isNewSeries,false,'Volumen 2 es novedad de obra existente, no debut');
+  const unannounced=homeReleaseOverview([ch('a',5,d3)], [vol('a',1,d1,null),vol('a',2,d3)], series, NOW);
+  assert.equal(unannounced.bySeries.a.isNewSeries,false,'Un volumen anterior sin anuncio no convierte el segundo en debut');
+}
 console.log('home-volume-check: OK');
