@@ -476,3 +476,9 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
 .obi-credits--reader .obi-credit img{max-height:64px;max-width:min(220px,60vw)}
 .obi-credits--reader .obi-credit-text{font:500 11px/1.4 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;text-align:center}
 @media(max-width:520px){.obi-credits--detail{gap:9px 12px}.obi-credits--reader{gap:12px 16px}.obi-credits--reader .obi-credit img{max-width:38vw;max-height:56px}.obi-credits--carousel .obi-credit img{max-height:24px;max-width:66px}}
+
+/* El Inicio de main ya muestra el logo del equipo principal en cabecera: sumar solo colaboradores. */
+.ob-hero-partners{display:flex;flex:0 1 auto;min-width:0;max-width:100%;align-items:center;flex-wrap:wrap}
+.ob-hero-partners .obi-credits{margin:0;gap:6px 12px}
+.ob-hero-partners .obi-credit img{max-height:50px;max-width:min(96px,25vw)}
+@media(max-width:600px){.ob-hero-partners .obi-credit img{max-height:36px;max-width:82px}}
