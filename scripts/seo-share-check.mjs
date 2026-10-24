@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import handler from '../api/public-meta.js';
 
-const shell = '<!doctype html><html><head><title>El Obi del Lector</title><meta name="description" content="Antigua"></head><body><main id="app" tabindex="-1" aria-live="polite"></main></body></html>';
+const shell = '<!doctype html><html><head><title>El Obi del Lector</title><link rel="canonical" href="https://elobidellector.com/"><meta property="og:title" content="Inicio"><meta name="twitter:card" content="summary_large_image"><meta name="description" content="Antigua"></head><body><main id="app" tabindex="-1" aria-live="polite"></main></body></html>';
 const data = {
   series: { id: 7, slug: 'ejemplo', title: 'Obra <especial>', synopsis: 'Una aventura original', cover_path: 'portadas/ejemplo.jpg' },
   chapters: { num: 12, title: 'Comienza el viaje', teaser: 'El capítulo doce' },
@@ -39,6 +39,9 @@ try {
   let r = await run('/api/public-meta?kind=serie&slug=ejemplo');
   assert.equal(r.statusCode, 200);
   assert.match(r.body, /og:title/);
+  assert.equal((r.body.match(/rel="canonical"/g) || []).length, 1);
+  assert.equal((r.body.match(/property="og:title"/g) || []).length, 1);
+  assert.equal((r.body.match(/name="twitter:card"/g) || []).length, 1);
   assert.match(r.body, /Obra &lt;especial&gt;/);
   assert.match(r.body, /https:\/\/elobidellector.com\/serie\/ejemplo/);
   assert.doesNotMatch(r.body, /<title>Obra <especial>/);
