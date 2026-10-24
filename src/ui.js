@@ -1,6 +1,7 @@
 // Vistas públicas con la identidad visual de El Obi del Lector: Inicio, Catálogo y Ficha de serie.
 import { publicationDate, publicationAge, publicationDay } from './publication-dates.js?v=1';
 import { homeReleaseOverview } from './home-releases.js?v=1';
+import { attachPublicCredits, creditTeams, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
 // Géneros/etiquetas que el lector ocultó en Preferencias › Contenido.
 const hidS = s => { const H = window.__obiUI?.hide; if (!H?.length) return false; const S = new Set(H.map(x => String(x).toLowerCase())); return [...(s.genres || []), ...(Array.isArray(s.tags) ? s.tags : [])].some(g => S.has(String(g).toLowerCase())); };
 const CSS = `
@@ -193,6 +194,7 @@ const RV_CSS = `
 const rvCss = () => { if (document.getElementById('rv-css')) return; const s = document.createElement('style'); s.id = 'rv-css'; s.textContent = RV_CSS; document.head.appendChild(s); };
 const rkCss = () => { if (document.getElementById('rk-css')) return; const s = document.createElement('style'); s.id = 'rk-css'; s.textContent = RK_CSS; document.head.appendChild(s); };
 export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
+  installCreditImageFallback();
   if (!document.getElementById('ui-css')) { const s = document.createElement('style'); s.id = 'ui-css'; s.textContent = CSS; document.head.appendChild(s); const s2 = document.createElement('style'); s2.textContent = CSS2; document.head.appendChild(s2); }
   chrome();
   const media = p => p ? (/^https?:/.test(p) ? p : `${url}/storage/v1/object/public/obi-media/${encodeURI(p)}`) : '';
@@ -308,7 +310,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       q.innerHTML = `<div class="ui-qvc" role="dialog" aria-modal="true" aria-labelledby="gq-t" style="--c:${esc(color(s))}">
         <button class="ui-qx" aria-label="Cerrar">×</button>${book(s)}
         <div><span class="ui-lbl">${esc(s.work_type || 'Novela ligera')}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}</span>
-          <h2 id="gq-t">${esc(s.title)}</h2>${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
+          <h2 id="gq-t">${esc(s.title)}</h2>${creditsHTML(s, { esc, media, mode: 'detail' })}${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
           <div class="ui-chips">${pill(s.translation_status)}${(s.genres || []).slice(0, 6).map(g => `<span class="ui-chip" style="cursor:default">${esc(g)}</span>`).join('')}${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</div>
           ${s.synopsis ? `<p class="syn">${esc(s.synopsis)}</p>` : '<p class="mono" style="margin:14px 0">Sin sinopsis todavía.</p>'}
           <p class="mono" style="margin:0 0 16px">${s.chapters?.[0]?.count ?? 0} capítulos${lc ? ' · último: cap. ' + lc.num + ' · ' + ago(lc.publish_at) : ''}</p>
@@ -431,7 +433,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const { series, latest, rkW, rkH, top10 } = FD, ps = { featured: FD.featured }, nextRel = (FD.nextRel || []).filter(e => new Date(e.at) > Date.now());
     if (location.pathname !== '/') return;
     const adultOk = !!pr?.data?.adult_ok;
-    const list = (series || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) && (!s.adult || adultOk) && !hidS(s)), byId = Object.fromEntries(list.map(s => [s.id, s]));
+    const list = (series || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) && (!s.adult || adultOk) && !hidS(s));
+    await attachPublicCredits(sb, list);
+    const byId = Object.fromEntries(list.map(s => [s.id, s]));
     const lastCh = {}; (latest || []).forEach(c => { lastCh[c.series_id] ||= c; });
     // El evento editorial más reciente de cada obra manda: un volumen publicado entero
     // sustituye al bloque de capítulos de ese mismo lanzamiento (sin inventar un volumen).
@@ -458,7 +462,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const teamsTop = [...tmap.values()].sort((a, b) => b.sum - a.sum).slice(0, 6);
     const done = list.filter(x => x.translation_status === 'completed').sort((a, b) => new Date(lastCh[b.id]?.publish_at || 0) - new Date(lastCh[a.id]?.publish_at || 0) || (b.views || 0) - (a.views || 0)).slice(0, 15);
     const cover = (s, tag) => { const t = tag || (top[s.id] ? 'TOP ' + top[s.id] : ''); return s.cover_path ? `<span class="cv" style="background-image:url('${esc(thumb(s))}')">${t ? `<i>${t}</i>` : ''}</span>` : `<span class="cv no" style="--c:${esc(color(s))}">${t ? `<i>${t}</i>` : ''}${esc(s.short || s.title)}</span>`; };
-    const cc = (s, sub, tag) => `<a class="ob-cc" href="/serie/${s.slug}">${cover(s, tag)}<b>${esc(s.title)}</b><small>${sub}</small></a>`;
+    const cc = (s, sub, tag) => `<a class="ob-cc" href="/serie/${s.slug}">${cover(s, tag)}<b>${esc(s.title)}</b><small>${sub}</small>${creditsHTML(s, { esc, media, mode: 'carousel' })}</a>`;
     const arrows = id => `<span class="ob-arr"><button type="button" data-cs="${id}" data-d="-1" aria-controls="${id}" aria-label="Anteriores">‹</button><button type="button" data-cs="${id}" data-d="1" aria-controls="${id}" aria-label="Siguientes">›</button></span>`;
     const head = (k, t, right = '') => `<div class="ob-st"><span class="k">${k}</span><h2>${t}</h2>${right}</div>`;
     const tcar = (g, i) => `<div class="ob-tm"><div class="ob-tmh"><a href="/equipo/${esc(g.t.slug)}" style="--tc:${esc(g.t.color || '#f2c230')}"><b>${esc(g.t.name)}</b></a><span class="mono">${Math.round(g.sum).toLocaleString('es-MX')} lectores esta semana</span>${arrows('ob-tcar-' + i)}</div>
@@ -482,7 +486,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       <div class="ob-band" style="display:flex;align-items:baseline;gap:14px;margin:56px 0 0;padding-bottom:10px;border-bottom:2px solid var(--gold)"><span aria-hidden="true" style="font-family:'Shippori Mincho B1',serif;font-size:28px;color:var(--gold)">探</span><h2 style="margin:0;font-size:clamp(26px,3vw,40px);font-family:'Shippori Mincho B1',serif;font-weight:500">Explora</h2></div>
       ${genres.length ? `<section class="ob-sec" style="border-top:none">${head('類', 'Géneros', '<a class="r" href="/catalogo">Catálogo completo →</a>')}<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr));gap:14px">${genres.slice(0, 8).map(([g, n]) => { const x = list.find(s => (s.genres || []).includes(g) && s.cover_path); return `<a href="/catalogo?g=${encodeURIComponent(g)}" style="position:relative;display:flex;align-items:flex-end;min-height:120px;padding:14px;color:#fbf8f1;text-decoration:none;border:1px solid var(--line);background:#16140f ${x ? `url('${esc(thumb(x))}') center 25%/cover` : ''};overflow:hidden"><span aria-hidden="true" style="position:absolute;inset:0;background:linear-gradient(transparent 20%,rgba(13,12,10,.92))"></span><span style="position:relative;display:grid;gap:2px"><b style="font-size:17px">${esc(g)}</b><small class="mono" style="font-size:11px;color:#cfc6b0">${n} ${n === 1 ? 'obra' : 'obras'}</small></span></a>`; }).join('')}</div></section>` : ''}
       ${rk.length ? `<section class="ob-sec ob-rank-section">${head('人気', 'Más leídas', `<span class="r2"><span class="mono" style="font-size:12px">${rkUse.lbl}</span><a class="r" href="/ranking?lista=leidas&periodo=${rkUse.per}">Ver ranking →</a>${arrows('ob-rank-car')}</span>`)}
-        <div class="ob-rank ob-anim" id="ob-rank-car" tabindex="0" role="region" aria-roledescription="carrusel" aria-label="Novelas más leídas">${rk.map((r, i) => { const s = byId[r.series_id]; return `<a class="ob-ritem" href="/serie/${s.slug}"><span class="n">${i + 1}</span><span class="c" style="background-image:${s.cover_path ? `url('${esc(thumb(s))}')` : 'none'}"></span><b>${esc(s.title)}</b><small>${Math.round(+r.score || 0).toLocaleString('es-MX')} ${rkUse.per === 'semana' ? 'lectores' : 'vistas'} · ${s.chapters?.[0]?.count || 0} cap.</small></a>`; }).join('')}</div><div class="ob-rank-count mono" data-rank-status aria-live="off"></div></section>` : ''}
+        <div class="ob-rank ob-anim" id="ob-rank-car" tabindex="0" role="region" aria-roledescription="carrusel" aria-label="Novelas más leídas">${rk.map((r, i) => { const s = byId[r.series_id]; return `<a class="ob-ritem" href="/serie/${s.slug}"><span class="n">${i + 1}</span><span class="c" style="background-image:${s.cover_path ? `url('${esc(thumb(s))}')` : 'none'}"></span><b>${esc(s.title)}</b>${creditsHTML(s, { esc, media, mode: 'carousel' })}<small>${Math.round(+r.score || 0).toLocaleString('es-MX')} ${rkUse.per === 'semana' ? 'lectores' : 'vistas'} · ${s.chapters?.[0]?.count || 0} cap.</small></a>`; }).join('')}</div><div class="ob-rank-count mono" data-rank-status aria-live="off"></div></section>` : ''}
       <div id="ob-s-trend"></div><div id="ob-s-rated"></div>
       ${teamsTop.length ? `<section class="ob-sec">${head('訳者', 'Lo más visto de cada equipo', '<span class="r2"><span class="mono" style="font-size:12px">esta semana</span></span>')}<div class="ob-tms">${teamsTop.map(tcar).join('')}</div></section>` : ''}
       ${done.length ? `<section class="ob-sec">${head('完結', 'Traducciones terminadas', `<span class="r2"><a class="r" href="/catalogo?tl=completed">Ver todas →</a>${arrows('ob-car-done')}</span>`)}<div class="ob-car" id="ob-car-done">${done.map(x => cc(x, (x.chapters?.[0]?.count || 0) + ' capítulos', 'COMPLETA')).join('')}</div></section>` : ''}
@@ -585,13 +589,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       <div class="ob-cov"><div class="f" style="${art ? `background-image:url('${esc(matchMedia('(max-width: 700px)').matches && !v ? thumb(s) : media(art))}')` : ''}"></div></div>
       <div class="ob-txt"><span class="ob-kick">${v ? '第' + KN(v.num) + '巻 · 新刊' : '第' + KN(lc?.num || 1) + '章' + (fresh ? ' · 新刊' : '')}</span><br>${v ? '' : heroTag(s)}<span class="ob-badge${v ? ' ob-badge-vol' : ''}">${v ? (fresh ? '¡NUEVO VOLUMEN! · VOL. ' : 'VOLUMEN DISPONIBLE · VOL. ') + v.num : fresh ? 'NUEVO · CAP. ' + (lc?.num || 1) : 'CAP. ' + (lc?.num || 1) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${v ? heroTag(s) : ''}${top[s.id] ? `<a class="rk-bdg" href="/ranking" style="margin:0 0 0 10px;vertical-align:middle"><b>#${top[s.id]}</b>Top de la semana</a>` : ''}
         <h1 data-len="${s.title.length > 70 ? 'xl' : s.title.length > 40 ? 'l' : ''}"><a class="ob-h1a" href="/serie/${s.slug}">${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}</a></h1>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn" style="white-space:pre-line">${esc(s.synopsis ? (synT.slice(tag.length).replace(/^\s+/, '').replace(/\n{3,}/g, '\n\n') || synT) : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), (s.chapters?.[0]?.count || 0) + ' capítulos en español'].filter(Boolean).join(' · ') + '.')}</p>
+        ${creditsHTML(s, { esc, media, mode: 'hero' })}
         <div class="ob-acts"><a class="a1" href="${v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + n}">${v ? 'Ver volumen ' + v.num : p ? 'Continuar capítulo ' + n : 'Leer capítulo ' + (lc?.num || 1)}</a>${v && (p || lc) ? `<a class="a2" href="/leer/${s.slug}/${n}">${p ? 'Continuar lectura' : 'Empezar a leer'}</a>` : `<a class="a2" href="/serie/${s.slug}">Ver la serie</a>`}</div></div>
       ${feat.length > 1 ? `<div class="ob-pager2" style="position:absolute;left:clamp(16px,4vw,56px);right:clamp(16px,4vw,56px);bottom:14px;z-index:2;display:flex;align-items:center;gap:10px"><button data-j="${(i - 1 + feat.length) % feat.length}" aria-label="Anterior" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">‹</button><span style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">${feat.map((f, j) => `<button data-j="${j}" aria-label="${esc(f.title)}" aria-current="${j === i}" style="height:10px;flex:${j === i ? '0 1 160px' : '0 0 10px'};min-width:10px;padding:0;border:none;cursor:pointer;position:relative;overflow:hidden;background:${j === i ? '#3d3628' : '#5a5244'}">${j === i ? `<i class="ob-hp" style="position:absolute;inset:0;background:var(--gold);transform-origin:left;transform:scaleX(${heroPaused ? 1 : 0});${heroPaused || matchMedia('(prefers-reduced-motion: reduce)').matches ? '' : 'animation:obHp 8s linear forwards'}"></i>` : ''}</button>`).join('')}</span><button data-hp aria-label="${heroPaused ? 'Reanudar' : 'Pausar'}" style="height:40px;padding:0 12px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">${heroPaused ? '▶ Reanudar' : 'Ⅱ Pausar'}</button><button data-j="${(i + 1) % feat.length}" aria-label="Siguiente" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">›</button></div>` : ''}`;
     el.querySelectorAll('[data-j]').forEach(b => b.onclick = () => heroSlide(feat, +b.dataset.j, prog, lastCh, top, newsBySeries));
     el.querySelector('[data-hp]')?.addEventListener('click', () => { heroPaused = !heroPaused; heroSlide(feat, i, prog, lastCh, top, newsBySeries); });
     if (feat.length > 1 && !heroPaused && !matchMedia('(prefers-reduced-motion: reduce)').matches) heroT = setTimeout(() => { if (document.body.contains(el)) heroSlide(feat, el.matches(':hover') ? i : (i + 1) % feat.length, prog, lastCh, top, newsBySeries); }, 8000);
   }
-  const card = (s, st, lc, p) => `<a class="ui-card" href="/serie/${s.slug}" data-id="${s.id}">${st ? `<span class="ui-st ${st[1]}">${esc(st[0])}</span>` : ''}${book(s, null, true)}${progBar(s, p)}<h3>${esc(s.title)}</h3><span class="meta">${pill(s.translation_status)}<span>${s.chapters?.[0]?.count ?? 0} cap.</span>${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</span>${lc ? `<span class="last">Último: cap. ${lc.num} · ${ago(lc.publish_at)}</span>` : ''}</a>`;
+  const card = (s, st, lc, p) => `<a class="ui-card" href="/serie/${s.slug}" data-id="${s.id}">${st ? `<span class="ui-st ${st[1]}">${esc(st[0])}</span>` : ''}${book(s, null, true)}${progBar(s, p)}<h3>${esc(s.title)}</h3>${creditsHTML(s, { esc, media, mode: 'carousel' })}<span class="meta">${pill(s.translation_status)}<span>${s.chapters?.[0]?.count ?? 0} cap.</span>${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</span>${lc ? `<span class="last">Último: cap. ${lc.num} · ${ago(lc.publish_at)}</span>` : ''}</a>`;
 
   // franja de avance en la serie: capítulo donde vas / capítulos publicados
   const progBar = (s, p) => { const t = s.chapters?.[0]?.count || 0; if (!p || !t) return ''; const f = Math.min(1, Math.max(0.02, (p.chapter_num - 1 + (p.pct || 0)) / t)); return `<span class="ui-prog" role="img" aria-label="Vas en el capítulo ${p.chapter_num} de ${t}"><i style="width:${(f * 100).toFixed(1)}%"></i></span>`; };
@@ -631,6 +636,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'semana'), sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'historico')]);
     const rkRows = (rkw || []).length ? rkw : (rkh || []), RK = Object.fromEntries(rkRows.map(r => [r.series_id, r.pos])), rkLbl = (rkw || []).length ? 'de la semana' : 'histórico';
     const all = (data || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) && (!hidS(s) || F.gin.some(g => (s.genres || []).includes(g))));
+    await attachPublicCredits(sb, all);
     const last = {}; (latest || []).forEach(c => { last[c.series_id] ||= c; });
     const fol = new Set((folR.data || []).map(r => r.series_id)), nCh = s => s.chapters?.[0]?.count || 0;
     const status = s => { const p = prog[s.id], lc = last[s.id];
@@ -724,7 +730,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
           <button class="ui-qx" aria-label="Cerrar">×</button>
           ${book(s)}
           <div><span class="ui-lbl">${esc(s.work_type || 'Novela ligera')}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}</span>
-            <h2 id="qv-t">${esc(s.title)}</h2>${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
+            <h2 id="qv-t">${esc(s.title)}</h2>${creditsHTML(s, { esc, media, mode: 'detail' })}${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
             <div class="ui-chips">${pill(s.translation_status)}${(s.genres || []).slice(0, 6).map(g => `<span class="ui-chip" style="cursor:default">${esc(g)}</span>`).join('')}${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</div>
             ${s.synopsis ? `<p class="syn">${esc(s.synopsis)}</p>` : '<p class="mono" style="margin:14px 0">Sin sinopsis todavía.</p>'}
             <p class="mono" style="margin:0 0 16px">${nCh(s)} capítulos${lc ? ' · último: cap. ' + lc.num + ' · ' + ago(lc.publish_at) : ''}${st ? ' · ' + esc(st[0]) : ''}</p>
@@ -781,6 +787,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const chs = [...(chs0 || [])], have = new Map(chs.map(c => [c.id, c]));
     (Array.isArray(LK) ? LK : []).forEach(l => { let c = have.get(l.id); if (!c) { c = { id: l.id, num: +l.num, vol: l.vol, volume_id: l.volume_id, title: l.title, publish_at: l.publish_at, series_id: l.series_id, volumes: l.vnum != null ? { num: +l.vnum, cover_path: l.vcover, deleted_at: null } : null }; chs.push(c); have.set(c.id, c); }
       c.pat = !!l.patron_only; c.locked = !l.can_read; if (!l.patron_only && l.open_at) { c.gen = true; c.early_at = c.publish_at; c.publish_at = l.open_at; } });
+    await attachPublicCredits(sb, ser || []);
     const byId = Object.fromEntries((ser || []).map(s => [s.id, s])), read = new Set((readR.data || []).map(r => r.chapter_id)), fol = new Set((folR.data || []).map(r => r.series_id));
     const seenKey = 'obi-rel-seen', seen = +localStorage.getItem(seenKey) || 0;
     const groups = []; const gi = {};
@@ -791,7 +798,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const ucov = g => { const c = g.list.filter(x => x.volumes?.cover_path && !x.volumes.deleted_at).sort((a, b) => (b.volumes.num ?? 0) - (a.volumes.num ?? 0))[0]; return c ? media(c.volumes.cover_path) : g.s.cover_path ? thumb(g.s) : ''; };
     const vnum = c => c.volumes?.num ?? c.vol, sameV = (a, b) => a.volume_id && b.volume_id ? a.volume_id === b.volume_id : a.vol === b.vol;
     const types = [...new Set(groups.map(g => g.s.work_type || 'Novela ligera'))].sort();
-    const teams = [...new Set(groups.map(g => g.s.teams?.name).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+    const teams = [...new Set(groups.flatMap(g => creditTeams(g.s).map(t => t.name)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
     let muted; try { muted = new Set(JSON.parse(localStorage.getItem('obi-rel-muted') || '[]')); } catch { muted = new Set(); }
     const saveMuted = () => localStorage.setItem('obi-rel-muted', JSON.stringify([...muted]));
     const DAY = 864e5, startOf = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return +x; }, today = startOf(Date.now());
@@ -818,15 +825,15 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       return `<article class="ui-rl" style="--c:${esc(color(s))};--d:${Math.min(i, 8) * 0.04}s">
         <a class="cv" href="/serie/${s.slug}" data-id="${s.id}" aria-label="Vista rápida de ${esc(s.title)}" style="${ucov(g) ? `background-image:url('${esc(ucov(g))}')` : ''}"></a>
         <div class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a>${utag(s)}
-          <span class="mt"><b>${vl}</b> · ${n === 1 ? '1 capítulo' : n + ' capítulos'} (cap. ${lo === hi ? lo : lo + '–' + hi}) · ${ago(top.publish_at)}${g.list.some(c => c.pat) ? ' · <span style="color:#f96854;font-weight:600">Solo mecenas</span>' : g.list.some(c => c.gen) ? ' · <span style="color:#a9d18e;font-weight:600">Lanzamiento general</span>' : ''}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}</span>
+          <span class="mt"><b>${vl}</b> · ${n === 1 ? '1 capítulo' : n + ' capítulos'} (cap. ${lo === hi ? lo : lo + '–' + hi}) · ${ago(top.publish_at)}${g.list.some(c => c.pat) ? ' · <span style="color:#f96854;font-weight:600">Solo mecenas</span>' : g.list.some(c => c.gen) ? ' · <span style="color:#a9d18e;font-weight:600">Lanzamiento general</span>' : ''}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}</span>${creditsHTML(s, { esc, media, mode: 'carousel' })}
           <div class="acts">${unread.length ? `<a class="btn" href="/leer/${s.slug}/${unread[0].num}">${unread.length === n ? 'Leer ' + vl.toLowerCase() : 'Seguir en cap. ' + unread[0].num}</a>` : '<span class="mono" style="align-self:center">✓ Ya lo leíste</span>'}<button class="btn ghost" data-fol="${s.id}">${fol.has(s.id) ? '✓ Siguiendo' : 'Seguir'}</button>${u && unread.length ? `<button class="btn ghost" data-rd="${s.id}" data-vk="${esc(g.key)}">Marcar volumen como leído</button>` : ''}<button class="btn ghost" data-mute="${s.id}" title="No mostrar esta serie en Lanzamientos">Silenciar</button></div></div></article>`; };
     const rowCard = (g, i) => { const s = g.s, top = g.list[0], nums = g.list.map(c => c.num), unread = g.list.filter(c => !read.has(c.id)).sort((a, b) => a.num - b.num);
       const what = R.by === 'vol' ? `${vnum(top) != null ? 'Vol. ' + vnum(top) : 'Capítulos sueltos'} · cap. ${Math.min(...nums) === Math.max(...nums) ? nums[0] : Math.min(...nums) + '–' + Math.max(...nums)}` : g.list.slice(0, 3).map(c => 'cap. ' + c.num + (read.has(c.id) ? ' ✓' : '')).join(', ');
       const n = R.by === 'vol' ? unread[0]?.num : (nextOf(s) ?? unread[0]?.num);
-      return `<article class="ui-rc" style="--c:${esc(color(s))}"><span class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a>${utag(s)}<span class="mt">${what}${pend[s.id] ? ` · <span class="pend">te ${pend[s.id] === 1 ? 'falta 1' : 'faltan ' + pend[s.id]}</span>` : ''}</span></span><span class="w">${ago(top.publish_at)}</span>${n ? `<a class="btn" href="/leer/${s.slug}/${n}">Leer cap. ${n}</a>` : '<span class="mono">✓ Leído</span>'}</article>`; };
+      return `<article class="ui-rc" style="--c:${esc(color(s))}"><span class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a>${utag(s)}${creditsHTML(s, { esc, media, mode: 'carousel' })}<span class="mt">${what}${pend[s.id] ? ` · <span class="pend">te ${pend[s.id] === 1 ? 'falta 1' : 'faltan ' + pend[s.id]}</span>` : ''}</span></span><span class="w">${ago(top.publish_at)}</span>${n ? `<a class="btn" href="/leer/${s.slug}/${n}">Leer cap. ${n}</a>` : '<span class="mono">✓ Leído</span>'}</article>`; };
     const draw = () => {
       const unit = n => R.by === 'vol' ? (n === 1 ? 'volumen' : 'volúmenes') : (n === 1 ? 'serie' : 'series');
-      const list = (R.by === 'vol' ? volGroups() : groups).filter(g => (!R.type || (g.s.work_type || 'Novela ligera') === R.type) && (!R.mine || fol.has(g.s.id)) && (!R.team || g.s.teams?.name === R.team) && !muted.has(g.s.id) && (!R.hide || g.list.some(c => !read.has(c.id))));
+      const list = (R.by === 'vol' ? volGroups() : groups).filter(g => (!R.type || (g.s.work_type || 'Novela ligera') === R.type) && (!R.mine || fol.has(g.s.id)) && (!R.team || creditTeams(g.s).some(t => t.name === R.team)) && !muted.has(g.s.id) && (!R.hide || g.list.some(c => !read.has(c.id))));
       const vis = list.slice(0, R.shown); let html = '', last = '';
       vis.forEach((g, i) => {
         const b = bucket(g.list[0].publish_at);
@@ -836,7 +843,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         const s = g.s, top = g.list[0], sameVol = g.list.filter(c => sameV(c, top) && new Date(top.publish_at) - new Date(c.publish_at) < DAY).length;
         html += `<article class="ui-rl" style="--c:${esc(color(s))};--d:${Math.min(i, 8) * 0.04}s">
           <a class="cv" href="/serie/${s.slug}" data-id="${s.id}" aria-label="Vista rápida de ${esc(s.title)}" style="${ucov(g) ? `background-image:url('${esc(ucov(g))}')` : ''}"></a>
-          <div class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a>${utag(s)}<span class="mt">${esc(s.work_type || 'Novela ligera')}${s.teams?.name ? ` · <b>${esc(s.teams.name)}</b>` : ''}${fol.has(s.id) ? ' · Siguiendo' : ''}${pend[s.id] ? ` · <span class="pend">te ${pend[s.id] === 1 ? 'falta 1 capítulo' : 'faltan ' + pend[s.id] + ' capítulos'}</span>` : ''}</span>
+          <div class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a>${utag(s)}<span class="mt">${esc(s.work_type || 'Novela ligera')}${s.teams?.name ? ` · <b>${esc(s.teams.name)}</b>` : ''}${fol.has(s.id) ? ' · Siguiendo' : ''}${pend[s.id] ? ` · <span class="pend">te ${pend[s.id] === 1 ? 'falta 1 capítulo' : 'faltan ' + pend[s.id] + ' capítulos'}</span>` : ''}</span>${creditsHTML(s, { esc, media, mode: 'carousel' })}
             <div class="its">${g.list.slice(0, 3).map(c => item(s, c)).join('')}${sameVol >= 3 ? `<a class="it vol" href="/serie/${s.slug}"><b>Vol. ${vnum(top)} completo</b><small>${sameVol} capítulos</small></a>` : ''}</div>${acts(g)}</div></article>`;
       });
       $('#rel').innerHTML = (html ? `<div class="ui-rlist${R.dense ? ' dense' : ''}">${html}</div>` : `<p class="mono">${R.mine ? 'Las series que sigues aún no tienen capítulos publicados.' : (R.hide ? 'Ya leíste todo lo publicado aquí. ' : '') + 'No hay lanzamientos con estos filtros.'}</p>`) + (list.length > R.shown ? `<button class="btn ghost ui-more" id="rel-more">Ver más · ${list.length - R.shown} ${unit(list.length - R.shown)}</button>` : '');
@@ -885,6 +892,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       if (PRE) { PRE.landing(pre, app, esc, media); PRE.bind(pre, app, sb, getUser, go, toast); return; }
       app.innerHTML = '<h1>Esta serie no está en el estante</h1><p><a href="/catalogo">Volver al catálogo</a></p>'; return;
     }
+    await attachPublicCredits(sb, [s]);
     const u = getUser();
     const [{ data: vols }, { data: chs }, prog, readR, folR, { data: dls }, { data: buys }, { data: pt }] = await Promise.all([
       sb.from('volumes').select('id,num,title,cover_path,synopsis,status,external_url,external_site,external_only').eq('series_id', s.id).is('deleted_at', null).order('num', { ascending: false }),
@@ -918,7 +926,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
           <div class="ui-facts">
             ${s.author ? `<div><span class="ui-lbl">Autor</span><b>${esc(s.author)}</b></div>` : ''}
             ${s.illustrator ? `<div><span class="ui-lbl">Ilustración</span><b>${esc(s.illustrator)}</b></div>` : ''}
-            <div><span class="ui-lbl">Traducción</span>${s.teams?.avatar_path ? `<a href="/equipo/${esc(s.teams.slug || '')}" title="${esc(s.teams.name)}" style="display:inline-flex;align-items:center;gap:10px;color:var(--paper);text-decoration:none;font-weight:600;font-size:14px"><img src="${esc(media(s.teams.avatar_path))}" alt="${esc(s.teams.name)}" style="height:44px;max-width:160px;object-fit:contain"></a>` : `<b>${s.teams?.slug ? `<a href="/equipo/${esc(s.teams.slug)}">${esc(s.teams.name)}</a>` : esc(s.teams?.name || '—')}</b>`}</div>
+            <div><span class="ui-lbl">Traducción</span>${creditsHTML(s, { esc, media, mode: 'detail' })}</div>
             ${s.original_status ? `<div><span class="ui-lbl">Obra original</span><b>${OR[s.original_status]}</b></div>` : ''}
             ${s.sequel_status ? `<div><span class="ui-lbl">Secuela</span><b>${SQ[s.sequel_status]}</b></div>` : ''}
             <div><span class="ui-lbl">Contenido</span><b>${(vols || []).length} vol. · ${(chs || []).length} cap.</b></div>
@@ -1060,10 +1068,12 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       if (!data?.length) { box.innerHTML = `<div class="ui-empty"><p><strong>${R.genre || R.status ? 'Ninguna obra con estos filtros entra en esta lista.' : RK_E[R.list] || 'Aún no hay lecturas en este periodo.'}</strong></p></div>`; return; }
       const { data: ss } = await sb.from('series').select(SERIES).in('id', data.map(r => r.series_id));
       if (my !== tk) return;
+      await attachPublicCredits(sb, ss || []);
+      if (my !== tk) return;
       const by = Object.fromEntries((ss || []).map(s => [s.id, s])), filtered = !!(R.genre || R.status), anyPrev = data.some(r => r.prev_pos != null);
       const mv = r => filtered ? '' : r.prev_pos == null ? (anyPrev ? '<span class="rk-mv new">Nuevo</span>' : '') : r.prev_pos > r.gpos ? `<span class="rk-mv up" title="Subió ${r.prev_pos - r.gpos} desde la última actualización">▲${r.prev_pos - r.gpos}</span>` : r.prev_pos < r.gpos ? `<span class="rk-mv dn" title="Bajó ${r.gpos - r.prev_pos} desde la última actualización">▼${r.gpos - r.prev_pos}</span>` : '<span class="rk-mv eq" title="Sin cambios">=</span>';
       const sc = r => ({ leidas: fmtN(r.score) + ' lecturas', tendencia: '+' + fmtN(r.score) + ' lecturas', calificadas: (+r.score).toFixed(1) + ' ★ · ' + r.votes + ' votos', terminadas: fmtN(r.score) + (+r.score === 1 ? ' lector' : ' lectores') + ' al día', novedades: fmtN(r.score) + ' lecturas' })[R.list];
-      box.innerHTML = `<div class="rk-grid">${data.filter(r => by[r.series_id]).map(r => { const s = by[r.series_id]; return `<a class="rk-c${r.pos <= 3 ? ' top' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${r.pos}">${r.pos}</span>${book(s, null, true)}<span class="rk-b"><b>${esc(s.title)}</b>${s.teams?.name ? `<small>${esc(s.teams.name)}</small>` : ''}<span class="rk-s">${sc(r)}${mv(r)}</span></span></a>`; }).join('')}</div>
+      box.innerHTML = `<div class="rk-grid">${data.filter(r => by[r.series_id]).map(r => { const s = by[r.series_id]; return `<a class="rk-c${r.pos <= 3 ? ' top' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${r.pos}">${r.pos}</span>${book(s, null, true)}<span class="rk-b"><b>${esc(s.title)}</b>${creditsHTML(s, { esc, media, mode: 'carousel' })}${s.teams?.name ? `<small>${esc(s.teams.name)}</small>` : ''}<span class="rk-s">${sc(r)}${mv(r)}</span></span></a>`; }).join('')}</div>
         <p class="mono rk-upd">Actualizado ${ago(data[0].computed_at)} · se recalcula cada 6 horas${filtered ? ' · con filtros no se muestra el movimiento' : ''}</p>`;
     };
     app.querySelectorAll('[data-rl]').forEach(b => b.onclick = () => { R.list = b.dataset.rl; draw(); });

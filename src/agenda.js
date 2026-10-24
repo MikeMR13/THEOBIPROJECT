@@ -1,4 +1,5 @@
 // Calendario: una sola vista con lo publicado (últimos 30 días), lo programado, lo bloqueado para mecenas,
+import { attachPublicCredits, creditTeams, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
 // las aperturas a todo público, los volúmenes y los aniversarios de los equipos. Vistas: Semana, Línea de tiempo y Mes.
 const COL = { pub: '#f2c230', pat: '#f96854', open: '#a9d18e', prog: '#8cc3f2', vol: '#c9a0e8', aniv: '#efe6d2' };
 const LEG = [['pub', 'Estreno público'], ['pat', 'Estreno para mecenas'], ['open', 'Apertura al público general'], ['prog', 'Programado'], ['vol', 'Volumen completo'], ['aniv', 'Aniversario de equipo']];
@@ -63,6 +64,7 @@ const CSS = `
 `;
 
 export async function agenda(ctx){
+  installCreditImageFallback();
   const { sb, app, esc, toast, go, getUser, url } = ctx;
   if (!document.getElementById('ag-css')) { const s = document.createElement('style'); s.id = 'ag-css'; s.textContent = CSS; document.head.appendChild(s); }
   if (location.pathname === '/lanzamientos') history.replaceState({}, '', '/calendario' + location.search);
@@ -93,6 +95,7 @@ export async function agenda(ctx){
     previews.forEach(r => { D.series[r.series_id] ||= { id: r.series_id, slug: r.slug, title: r.title, short: r.short, cover_path: r.cover_path, cover_thumb_path: r.cover_thumb_path, work_type: r.work_type, teams: { name: r.team_name, slug: r.team_slug } }; });
     const ids = [...new Set(D.rows.map(r => r.series_id).filter(id => !D.series[id] || !Object.hasOwn(D.series[id], 'team_id')))];
     for (let i = 0; i < ids.length; i += 150) { const { data } = await sb.from('series').select('id,slug,title,short,cover_path,cover_thumb_path,work_type,team_id,teams(name,slug)').in('id', ids.slice(i, i + 150)); (data || []).forEach(s => D.series[s.id] = s); }
+    await attachPublicCredits(sb, Object.values(D.series).filter(s => s.team_id));
     const tids = [...new Set(Object.values(D.series).map(s => s.team_id).filter(t => t && !(t in D.pat)))];
     if (tids.length) { const { data } = await sb.from('patreon_public').select('owner,url').in('owner', tids); tids.forEach(t => D.pat[t] = null); (data || []).forEach(p => { if (p.url) D.pat[p.owner] = JOIN(p.url); }); }
     if (u) {
@@ -187,7 +190,7 @@ export async function agenda(ctx){
   const passBase = g => {
     if (g.kind === 'aniv') return (!V.team || g.team.slug === V.team) && !V.type && (!V.mine || Object.values(D.series).some(s => s.team_id === g.team.team_id && D.fol.has(s.id)));
     if (V.mine && !D.fol.has(g.s.id)) return false;
-    if (V.team && g.s.teams?.slug !== V.team) return false;
+    if (V.team && !creditTeams(g.s).some(t => t.slug === V.team)) return false;
     if (V.type && (g.s.work_type || 'Novela ligera') !== V.type) return false;
     return true;
   };
@@ -228,7 +231,7 @@ export async function agenda(ctx){
       future && !compact ? `<a class="ag-btn" href="${esc(gcal(g))}" target="_blank" rel="noopener">＋ Google Calendar</a>` : ''].join('');
     return `<div class="ag-ev${compact ? ' c' : ''}" style="--c:${COL[g.c]}"><a href="/serie/${esc(s.slug)}" class="ag-cv" style="${cv ? `background-image:url('${esc(cv)}')` : ''}" aria-label="${esc(s.title)}"></a><div class="ag-bd">
       <span class="ag-tg2"><i></i>${!g.can && g.acc !== 'public' ? '🔒︎ ' : ''}${g.wholeVolume ? 'Volumen completo · ' : ''}${tag}</span><a class="ag-t" href="${hrefOf(g)}">${esc(s.title)}</a>
-      <span class="ag-m">${g.wholeVolume && g.volumeLabel ? esc(g.volumeLabel) + ' · ' : ''}${caps(g)}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}${compact ? '' : ' · ' + fdt(g.at, { hour: '2-digit', minute: '2-digit' })}</span>
+      <span class="ag-m">${g.wholeVolume && g.volumeLabel ? esc(g.volumeLabel) + ' · ' : ''}${caps(g)}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}${compact ? '' : ' · ' + fdt(g.at, { hour: '2-digit', minute: '2-digit' })}</span>${creditsHTML(s, { esc, media, mode: 'carousel' })}
       ${g.kind !== 'vol' && g.kind !== 'volp' ? `<span class="ag-m">Acceso: <b>${g.kind === 'open' ? 'Público desde esta fecha' : g.kind === 'pub' && g.patronFirst && g.open && new Date(g.open) <= Date.now() ? 'Estreno para mecenas · ahora público' : accL(g)}</b>${unread != null ? (unread ? ` · <span class="ur">${unread} sin leer</span>` : ' · <span class="rd">✓ Leído</span>') : ''}</span>` : ''}
       ${dates}${cd}${chapters}${acts ? `<div class="ag-acts">${acts}</div>` : ''}</div></div>`;
   }
@@ -278,7 +281,7 @@ export async function agenda(ctx){
     const periodScoped = scoped.filter(g => !V.f || g.f.has(V.f));
     const periodCount = { '': periodScoped.length, next: periodScoped.filter(g => new Date(g.at) > Date.now()).length, past: periodScoped.filter(g => new Date(g.at) <= Date.now()).length };
     const cnt = Object.fromEntries(FIL.map(([k]) => [k, k ? countable.filter(g => g.f.has(k)).length : countable.length]));
-    const teams = [...new Map(Object.values(D.series).filter(s => s.teams?.slug).map(s => [s.teams.slug, s.teams.name])).entries()].sort((x, y) => x[1].localeCompare(y[1], 'es'));
+    const teams = [...new Map(Object.values(D.series).flatMap(s => creditTeams(s).filter(t => t.slug).map(t => [t.slug, t.name]))).entries()].sort((x, y) => x[1].localeCompare(y[1], 'es'));
     const types = [...new Set(Object.values(D.series).map(s => s.work_type || 'Novela ligera'))].sort();
     app.innerHTML = `<div class="ag-h"><div><h1>Calendario de lanzamientos</h1><p>Estrenos para mecenas, aperturas al público y próximos volúmenes, sin anuncios repetidos.</p></div>${weekOpen ? `<button class="ag-cnt" data-f="open">${weekOpen} se ${weekOpen === 1 ? 'abre' : 'abren'} a todo público esta semana</button>` : ''}</div>
       <div class="ag-bar${V.opts ? ' open' : ''}">
