@@ -498,7 +498,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 .ob-hero .ob-badge-vol{display:inline-block;background:var(--gold);color:#0d0c0a;font-weight:800;font-size:clamp(14px,1.5vw,18px);letter-spacing:.07em;padding:8px 13px;margin-bottom:8px}
 /* Inicio — jerarquía de lanzamientos: volumen, aviso opcional y ranking. */
 /* Alinear la cubierta y el anuncio desde arriba, sin centrar la portada respecto a títulos extensos. */
-.ob-hero{align-items:start;column-gap:clamp(28px,3vw,48px);padding-bottom:clamp(90px,8vw,112px)}
+.ob-hero{align-items:start;column-gap:clamp(28px,3vw,48px);row-gap:clamp(20px,2.6vw,32px);padding-bottom:clamp(90px,8vw,112px)}
 .ob-hero .ob-cov{align-self:start}
 .ob-hero .ob-txt{min-width:0;max-width:860px;padding-inline-end:clamp(0px,2vw,24px)}
 .ob-hero .ob-txt .ob-kick{display:block;margin:0 0 9px;font-size:clamp(13px,1.15vw,16px);line-height:1.5}
