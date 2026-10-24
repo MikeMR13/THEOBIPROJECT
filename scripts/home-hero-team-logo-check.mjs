@@ -69,5 +69,23 @@ assert(ui.includes('.ob-hero .ob-hero-footer{flex:none;margin-top:auto'),
  'Los botones deben mantener su espacio incluso con titulares extensos');
 assert(qa.includes('el destacado excede la altura compacta') && qa.includes('footer invade controles'),
  'La QA responsive debe detectar regresiones de altura y botones ocultos');
+// En colaboraciones, agrandar solamente el PNG del propietario, no los
+// colaboradores ni el fallback con el nombre del equipo.
+assert(ui.includes('@media(min-width:1101px)') &&
+ ui.includes('width:clamp(170px,10.2vw,190px)') &&
+ ui.includes('padding-inline-end:clamp(186px,11.2vw,206px)') &&
+ ui.includes('.ob-hero .ob-hero-copy:has(.ob-hero-team-logo:not(.is-text))') &&
+ ui.includes('position:absolute;'),
+ 'Ampliar solo el PNG propietario a 170–190 px en escritorio sin empujar el título');
+assert(ui.includes('.ob-hero .ob-hero-team-logo.is-text{width:clamp(82px,7vw,100px)'),
+ 'Conservar el tamaño de respaldo textual en escritorio');
+assert(ui.includes("s.publicCredits?.some(c => !c.is_primary)") &&
+ ui.includes("creditsHTML({publicCredits:s.publicCredits.filter(c=>!c.is_primary)}, {esc,media,mode:'hero'})"),
+ 'Mantener los colaboradores aceptados separados del PNG del equipo principal');
+assert(ui.includes('.ob-hero .ob-hero-partners{display:block;max-height:30px;overflow:hidden}') &&
+ ui.includes('.ob-hero .ob-hero-partners img{max-height:26px;max-width:100px;object-fit:contain}'),
+ 'No alterar el tamaño ni la disposición de los colaboradores');
+assert(qa.includes('el fallback textual no debe crecer con el PNG de escritorio'),
+ 'La QA de escritorio debe diferenciar imagen principal y nombre de respaldo');
 assert(announcement.includes('chooseActiveEditorial'), 'El selector de anuncios sigue disponible');
 console.log('✓ Identidad del equipo: logo o texto excluyentes, mismo perfil y avisos intactos.');
