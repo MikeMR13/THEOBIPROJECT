@@ -9,6 +9,8 @@ const plain = v => String(v ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')
 const limit = (v, n) => plain(v).slice(0, n);
 const validSlug = v => /^[a-z0-9_-]{1,100}$/i.test(v || '');
 const validReader = v => /^[\p{L}\p{N}_.-]{1,60}$/u.test(v || '');
+const publishable = row => row?.access === 'public';
+const validPublishedTime = stamp => !stamp || (Number.isFinite(Date.parse(stamp)) && Date.parse(stamp) <= Date.now());
 const hostOrigin = () => process.env.VERCEL_ENV === 'production'
   ? 'https://elobidellector.com'
   : process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'https://elobidellector.com';
@@ -38,36 +40,36 @@ async function publicData(kind, slug, chapter, volume, origin) {
   const key = process.env.OBI_SUPABASE_PUBLISHABLE_KEY || '';
   if (kind === 'serie' || kind === 'leer') {
     if (!validSlug(slug)) return null;
-    const s = await query('series', { slug: 'eq.' + slug, published: 'eq.true', archived_at: 'is.null', select: 'id,slug,title,synopsis,cover_path,cover_thumb_path' }, backend, key);
+    const s = await query('series', { slug: 'eq.' + slug, published: 'eq.true', archived_at: 'is.null', access: 'eq.public', select: 'id,slug,title,synopsis,cover_path,cover_thumb_path,author,genres,access' }, backend, key);
     if (!s) return null;
-    const base = { title: s.title + ' — ' + SITE, description: limit(s.synopsis || ('Lee ' + s.title + ' en español latino.'), 170), image: media(s.cover_path || s.cover_thumb_path, backend, origin), heading: s.title };
+    const base = { type: 'Book', author: s.author || '', genres: s.genres || [], title: s.title + ' — ' + SITE, description: limit(s.synopsis || ('Lee ' + s.title + ' en español latino.'), 170), image: media(s.cover_path || s.cover_thumb_path, backend, origin), heading: s.title };
     if (kind === 'serie') {
       if (!volume) return base;
       if (!/^\d{1,3}$/.test(volume) || Number(volume) < 1) return null;
       const v = await query('volumes', {
         series_id: 'eq.' + s.id, num: 'eq.' + String(Number(volume)),
-        status: 'eq.published', deleted_at: 'is.null',
-        select: 'num,title,synopsis,cover_path'
+        status: 'eq.published', access: 'eq.public', deleted_at: 'is.null',
+        select: 'num,title,synopsis,cover_path,access,published_at'
       }, backend, key);
-      if (!v) return null;
+      if (!v || !publishable(v) || !validPublishedTime(v.published_at)) return null;
       const name = s.title + ' · Volumen ' + v.num;
-      return { title: name + ' — ' + SITE,
+      return { type: 'Book', author: s.author || '', genres: s.genres || [], title: name + ' — ' + SITE,
         description: limit(v.synopsis || ('Descubre el volumen ' + v.num + ' de ' + s.title + '.'), 170),
         image: media(v.cover_path || s.cover_path || s.cover_thumb_path, backend, origin),
         heading: name };
     }
     if (!/^\d{1,8}$/.test(chapter || '')) return null;
-    const c = await query('chapters', { series_id: 'eq.' + s.id, num: 'eq.' + String(Number(chapter)), deleted_at: 'is.null', select: 'num,title,teaser' }, backend, key);
-    if (!c) return null; // RLS debe ocultar cualquier capítulo no público.
-    return { ...base, title: s.title + ' · Capítulo ' + c.num + ' — ' + SITE,
+    const c = await query('chapters', { series_id: 'eq.' + s.id, num: 'eq.' + String(Number(chapter)), status: 'eq.published', access: 'eq.public', deleted_at: 'is.null', or: '(publish_at.is.null,publish_at.lte.' + new Date().toISOString() + ')', select: 'num,title,teaser,status,access,publish_at' }, backend, key);
+    if (!c || c.status !== 'published' || !publishable(c) || !validPublishedTime(c.publish_at)) return null; // RLS + estado público
+    return { ...base, type: 'Chapter', bookTitle: s.title, title: s.title + ' · Capítulo ' + c.num + ' — ' + SITE,
       description: limit((c.title ? c.title + '. ' : '') + (c.teaser || 'Lee este capítulo en El Obi del Lector.'), 170),
       heading: s.title + ' · Capítulo ' + c.num };
   }
   if (kind === 'equipo') {
     if (!validSlug(slug)) return null;
-    const t = await query('teams', { slug: 'eq.' + slug, select: 'slug,name,bio,banner_path,avatar_path' }, backend, key);
-    if (!t) return null;
-    return { title: t.name + ' — ' + SITE, description: limit(t.bio || ('Conoce las traducciones y novedades de ' + t.name + '.'), 170), image: media(t.banner_path || t.avatar_path, backend, origin), heading: t.name };
+    const t = await query('teams', { slug: 'eq.' + slug, status: 'neq.Proyecto privado', select: 'slug,name,bio,banner_path,avatar_path,status' }, backend, key);
+    if (!t || t.status === 'Proyecto privado') return null;
+    return { type: 'Organization', title: t.name + ' — ' + SITE, description: limit(t.bio || ('Conoce las traducciones y novedades de ' + t.name + '.'), 170), image: media(t.banner_path || t.avatar_path, backend, origin), heading: t.name };
   }
   if (kind === 'lector') {
     if (!validReader(slug)) return null;
@@ -86,11 +88,50 @@ async function publicData(kind, slug, chapter, volume, origin) {
     if (!r) return null;
     if (r.private) return { title: 'Carnet privado — ' + SITE, description: 'Perfil privado de lector.', image: origin + FALLBACK_IMAGE, heading: 'Carnet privado', noindex: true };
     const nickname = limit(r.username || slug, 60);
-    return { title: 'Carnet de ' + nickname + ' — ' + SITE,
+    return { type: 'ProfilePage', title: 'Carnet de ' + nickname + ' — ' + SITE,
       description: limit(r.bio || ('Conoce el carnet público de ' + nickname + ' en El Obi del Lector.'), 170),
       image: media(r.banner_url || r.avatar_url, backend, origin), heading: 'Carnet de ' + nickname };
   }
   return null;
+}
+function structuredData(data, canonical, kind, origin) {
+  const site = { '@type': 'Organization', '@id': origin + '/#organization', name: SITE, url: origin + '/' };
+  const trail = [{ '@type': 'ListItem', position: 1, name: 'Inicio', item: origin + '/' }];
+  if (kind === 'leer') trail.push({ '@type': 'ListItem', position: 2, name: data.bookTitle || data.heading, item: origin + canonical.match(/\/leer\/([^/]+)\//)[1].replace(/^/, '/serie/') });
+  const node = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      site,
+      {
+        '@type': 'WebPage', '@id': canonical + '#webpage', url: canonical, name: data.title,
+        description: data.description, inLanguage: 'es-419', isPartOf: { '@id': origin + '/#website' }
+      }
+    ]
+  };
+  // Book describe la obra, sin atribuir la autoría al grupo traductor ni prometer
+  // prestaciones especiales de Google Books.
+  if (data.type === 'Book') {
+    const book = { '@type': 'Book', '@id': canonical + '#book', name: data.heading, url: canonical,
+      inLanguage: 'es', description: data.description, image: data.image, isAccessibleForFree: true };
+    if (data.author) book.author = { '@type': 'Person', name: data.author };
+    if (data.genres?.length) book.genre = data.genres.slice(0,12);
+    node['@graph'].push(book);
+  } else if (data.type === 'Chapter') {
+    node['@graph'].push({ '@type': 'Chapter', '@id': canonical + '#chapter', name: data.heading,
+      url: canonical, inLanguage: 'es', isPartOf: { '@type': 'Book', name: data.bookTitle } });
+  } else if (data.type === 'Organization') {
+    node['@graph'].push({ '@type': 'Organization', '@id': canonical + '#team',
+      name: data.heading, url: canonical, description: data.description, image: data.image });
+  } else if (data.type === 'ProfilePage') {
+    node['@graph'].push({ '@type': 'ProfilePage', '@id': canonical + '#profile',
+      name: data.title, url: canonical, description: data.description });
+  }
+  trail.push({ '@type': 'ListItem', position: trail.length + 1, name: data.heading, item: canonical });
+  node['@graph'].push({ '@type': 'BreadcrumbList', itemListElement: trail });
+  // Evitar que una cadena inserte </script> en HTML.
+  return '<script type="application/ld+json">' +
+    JSON.stringify(node).replace(/</g, '\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026') +
+    '</script>';
 }
 function tags(data, canonical, origin, noindex) {
   const title = esc(data.title), desc = esc(data.description), image = esc(data.image || origin + FALLBACK_IMAGE);
@@ -130,7 +171,8 @@ export default async function handler(req, res) {
   let item = null, unavailable = false;
   try { item = await publicData(kind, slug, chapter, volume, origin); }
   catch (e) { unavailable = true; console.warn('SEO pública temporalmente indisponible:', e.message); }
-  const noindex = isDraft || (!item && !unavailable) || !!item?.noindex;
+  const preview = process.env.VERCEL_ENV !== 'production';
+  const noindex = preview || isDraft || (!item && !unavailable) || !!item?.noindex;
   const data = item || { title: SITE, description: DESC, image: origin + FALLBACK_IMAGE, heading: SITE };
   try {
     // Se solicita el HTML compilado, para conservar sellos de caché y todas las funciones SPA.
@@ -150,7 +192,7 @@ export default async function handler(req, res) {
     html = html.replace(/<meta\s+(?:property="og:[^"]+"|name="twitter:[^"]+")[^>]*>\s*/gi, '');
     html = html.replace(/<title>[\s\S]*?<\/title>/i, '<title>' + esc(data.title) + '</title>');
     html = html.replace(/<meta name="description"[^>]*>/i, '<meta name="description" content="' + esc(data.description) + '">');
-    html = html.replace('</head>', tags(data, canonical, origin, noindex) + '</head>');
+    html = html.replace('</head>', tags(data, canonical, origin, noindex) + (item && !noindex ? structuredData(data, canonical, kind, origin) : '') + '</head>');
     if (item && !noindex) {
       const teaser = '<section aria-label="Presentación pública" style="padding:24px;max-width:920px;margin:auto"><h1>' + esc(data.heading) + '</h1><p>' + esc(data.description) + '</p></section>';
       html = html.replace(/(<main id="app"[^>]*>)(<\/main>)/, '$1' + teaser + '$2');
