@@ -51,7 +51,6 @@ function entry(loc, lastmod) {
   return '<url><loc>' + xml(CANON + loc) + '</loc>' + (date ? '<lastmod>' + date + '</lastmod>' : '') + '</url>';
 }
 async function generate() {
-  const now = new Date().toISOString();
   // Consultar la identidad de la serie para validar RLS y evitar publicar slugs huérfanos.
   const [series, teams] = await Promise.all([
     getAll('series', { published: 'eq.true', archived_at: 'is.null', access: 'eq.public', adult: 'eq.false' },
@@ -69,9 +68,8 @@ async function generate() {
     const [volumes, chapters] = await Promise.all([
       getAll('volumes', { status: 'eq.published', deleted_at: 'is.null', access: 'eq.public' },
         'id,series_id,num,status,access,deleted_at,published_at'),
-      getAll('chapters', { status: 'eq.published', deleted_at: 'is.null', access: 'eq.public',
-        or: '(publish_at.is.null,publish_at.lte.' + now + ')' },
-        'id,series_id,num,status,access,deleted_at,publish_at,updated_at')
+      getAll('chapters', { status: 'eq.published', deleted_at: 'is.null', access: 'eq.public' },
+        'id,series_id,num,status,access,deleted_at,publish_at,public_at,updated_at')
     ]);
     for (const v of volumes) {
       const slug = safe.get(v.series_id);
@@ -81,7 +79,7 @@ async function generate() {
     for (const c of chapters) {
       const slug = safe.get(c.series_id);
       if (slug && validStatus(c) && Number.isInteger(c.num) && c.num >= 1 &&
-          validPublishedTime(c.publish_at)) add('/leer/' + encodeURIComponent(slug) + '/' + c.num, c.updated_at);
+          validPublishedTime(c.publish_at) && validPublishedTime(c.public_at)) add('/leer/' + encodeURIComponent(slug) + '/' + c.num, c.updated_at);
     }
   }
   if (links.size > MAX_URLS) throw new Error('Sitemap demasiado grande para un archivo');
