@@ -56,11 +56,24 @@ async function publicData(kind, slug, chapter, origin) {
   }
   if (kind === 'lector') {
     if (!validReader(slug)) return null;
-    const p = await query('rpc/reader_public', { }, backend, key).catch(() => null);
-    // El RPC de lectores requiere argumento por POST. Hasta disponer de una respuesta
-    // anónima verificable, nunca incluir datos ni indexar carnets desde el servidor.
-    void p;
-    return { title: 'Carnet de lector — ' + SITE, description: 'Carnet de lector en El Obi del Lector.', image: origin + FALLBACK_IMAGE, heading: 'Carnet de lector', noindex: true };
+    // Reutilizar exclusivamente el RPC público que respeta los ajustes del carnet.
+    const ctrl = new AbortController();
+    const stop = setTimeout(() => ctrl.abort(), 2200);
+    let r;
+    try {
+      const resp = await fetch(backend + '/rest/v1/rpc/reader_public', {
+        method: 'POST', headers: { apikey: key, Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_username: slug }), signal: ctrl.signal
+      });
+      if (!resp.ok) throw new Error('reader_public: ' + resp.status);
+      r = await resp.json();
+    } finally { clearTimeout(stop); }
+    if (!r) return null;
+    if (r.private) return { title: 'Carnet privado — ' + SITE, description: 'Perfil privado de lector.', image: origin + FALLBACK_IMAGE, heading: 'Carnet privado', noindex: true };
+    const nickname = limit(r.username || slug, 60);
+    return { title: 'Carnet de ' + nickname + ' — ' + SITE,
+      description: limit(r.bio || ('Conoce el carnet público de ' + nickname + ' en El Obi del Lector.'), 170),
+      image: media(r.banner_url || r.avatar_url, backend, origin), heading: 'Carnet de ' + nickname };
   }
   return null;
 }
