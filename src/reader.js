@@ -40,7 +40,13 @@ export function createReader(ctx){
       await attachPublicCredits(sb, [a.data]);
       const strip = l => (l || []).map(({ series, ...x }) => x);
       const m = { series: a.data, chapters: strip(b.data), vols: strip(c.data), at: Date.now() };
-      try { const j = JSON.stringify(m); if (j.length < 400000) localStorage.setItem(META_KEY(slug), j); } catch {}
+      try {
+        // No conservar créditos de colaboradores en caché: pueden revocarse.
+        const saved = { ...m, series: { ...m.series } };
+        delete saved.series.publicCredits;
+        const j = JSON.stringify(saved);
+        if (j.length < 400000) localStorage.setItem(META_KEY(slug), j);
+      } catch {}
       return m; });
   }
   const cachedMeta = slug => { try { return JSON.parse(localStorage.getItem(META_KEY(slug))); } catch { return null; } };
@@ -59,8 +65,8 @@ export function createReader(ctx){
     }
     if (!m?.series) return false;
     setSeries(m); const s = m.series;
-    // La copia local de metadatos puede contener créditos anteriores; refrescar tras abrir.
-    if (hit) await attachPublicCredits(sb, [s]);
+    // Eliminar créditos anteriores antes de refrescar: la colaboración puede estar revocada.
+    if (hit) { s.publicCredits = null; await attachPublicCredits(sb, [s]); }
     // calendario y glosario no bloquean la apertura: llegan después y se aplican solos
     S.extras = Promise.all([
       sb.from('schedule').select('at').eq('series_id', s.id).gte('at', new Date().toISOString()).order('at').limit(1).then(r => r.data?.[0]?.at || null, () => null),
