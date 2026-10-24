@@ -1,3 +1,4 @@
+import { initCollaborationTeamPicker } from './studio-collaboration-picker.js?v=1';
 // El editor y el importador cargan blocks.js al abrir sus pantallas.
 // Estudio del traductor: obras, volúmenes, publicación, editor con guardado atómico, importador EPUB/DOCX/PDF, multimedia, equipo y colaboraciones.
 document.addEventListener('click', e => { const i = e.target.closest?.('input[type=date],input[type=datetime-local]'); if (i && !i.disabled && !i.readOnly) try { i.showPicker(); } catch {} });
@@ -332,7 +333,7 @@ export function createStudio(ctx){
     const [{ data: vols }, { data: chs }, { data: cols }, { data: events }, { data: dls }, { data: buys }, { data: tch }, { data: tvol }] = await Promise.all([
       sb.from('volumes').select('*').eq('series_id', s.id).is('deleted_at', null).order('num'),
       readPages((from, to) => sb.from('chapters').select('id,num,vol,volume_id,title,status,section_type,publish_at,updated_at,stage').eq('series_id', s.id).is('deleted_at', null).order('num').range(from, to), { size: 250 }),
-      sb.from('collaborations').select('id,status,invited:teams!collaborations_invited_team_fkey(name,slug,color)').eq('series_id', s.id),
+      sb.from('collaborations').select('id,status,invited_team,invited:teams!collaborations_invited_team_fkey(name,slug,color)').eq('series_id', s.id),
       sb.from('publication_events').select('event,summary,created_at').eq('series_id', s.id).order('created_at', { ascending: false }).limit(10),
       sb.from('download_links').select('id,volume_id,vol').eq('series_id', s.id),
       sb.from('purchase_links').select('id,store,region,fmt,verified').eq('series_id', s.id),
@@ -388,7 +389,7 @@ export function createStudio(ctx){
           <a class="btn ghost sm" href="?tab=descargas" data-tab="descargas" style="justify-self:start">Gestionar compra y descargas</a></section>
         <section class="wk-box" style="border-top:4px solid #8cc3f2"><h2>Créditos compartidos</h2><small class="mono">Invita a otro grupo traductor. Al aceptar, la obra aparece en el catálogo y en el perfil de ambos equipos.</small>
           ${(cols || []).map(c => `<div class="wk-cb"><span class="wk-ini" style="background:${esc(c.invited?.color || '#8cc3f2')}">${esc((c.invited?.name || '?').slice(0, 2).toUpperCase())}</span><b>${esc(c.invited?.name || '')}</b><span class="mono">${{ pending: 'Pendiente', accepted: 'Aceptada', rejected: 'Rechazada', revoked: 'Revocada' }[c.status] || c.status}</span>${c.status !== 'revoked' && can('edit') ? `<button class="lnk danger" data-revoke="${c.id}">Revocar</button>` : '<span></span>'}</div>`).join('')}
-          ${can('edit') ? '<div class="wk-inv"><input id="inv" placeholder="@alias del equipo" aria-label="Alias del equipo a invitar"><button class="btn sm blue" id="invite">Invitar</button></div>' : ''}</section>
+          ${can('edit') ? '<div class="wk-inv-search"><div class="wk-inv"><input type="search" id="inv" placeholder="Buscar equipo por nombre o @alias" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="wk-inv-results" aria-label="Buscar equipo colaborador"><button type="button" class="btn sm blue" id="invite" disabled>Invitar</button></div><div class="wk-inv-results" id="wk-inv-results" role="listbox" aria-label="Equipos encontrados" hidden></div><small class="mono" id="wk-inv-state" role="status">Busca y selecciona un equipo.</small></div>' : ''}</section>
         <section class="wk-box" id="wk-lock" style="grid-column:1/-1"><h2>Mecenas y bloqueos</h2><small class="mono">Bloquea la obra completa o capítulos sueltos para mecenas de tu Patreon. Quien no es mecenas ve la ficha y los títulos con candado y un botón «Hazte mecenas». Los volúmenes se bloquean desde «Editar volumen».</small><div id="wk-lock-b"><p class="mono">Cargando…</p></div></section>
         <section class="wk-box" id="wk-rel"><h2>Obras relacionadas</h2><small class="mono">Precuelas, secuelas, spin-offs u obras del mismo universo. Se muestran en la ficha pública. Puedes enlazar obras de otros equipos.</small><div id="wk-rel-b"><p class="mono">Cargando…</p></div></section>
         <section class="wk-box"><h2>Historial de publicación</h2>${(events || []).map(e => `<p class="mono" style="margin:0">${fmtTz(e.created_at, { dateStyle: 'short', timeStyle: 'short' })} · ${esc(e.summary)}</p>`).join('') || '<p class="mono" style="margin:0">Sin eventos.</p>'}</section>
@@ -739,7 +740,7 @@ export function createStudio(ctx){
         const { error } = await sb.from('series').update(patch).eq('id', s.id); if (error) throw new Error(errMsg(error)); dirty = false; toast('Datos de la obra guardados'); again(); });
       const leave = e => { if (dirty && document.body.contains($('#wk-savebtn'))) { e.preventDefault(); e.returnValue = ''; } else removeEventListener('beforeunload', leave); }; addEventListener('beforeunload', leave);
     }
-    on('#invite', async () => { const alias = $('#inv').value.trim().replace(/^@/, '').toLowerCase(); const { data: t } = await sb.from('teams').select('id,name').eq('slug', alias).maybeSingle(); if (!t) throw new Error('No existe un equipo con ese alias'); if (t.id === T.team.id) throw new Error('Es tu propio equipo'); const { error } = await sb.from('collaborations').insert({ series_id: s.id, inviter_team: T.team.id, invited_team: t.id, status: 'pending' }); if (error) throw error; toast('Invitación enviada a ' + t.name); again(); });
+    if (can('edit')) initCollaborationTeamPicker({ sb, input: $('#inv'), list: $('#wk-inv-results'), status: $('#wk-inv-state'), invite: $('#invite'), ownTeamId: T.team.id, seriesId: s.id, collaborations: cols || [], media, toast, busy, onSuccess: again });
     on('[data-revoke]', async b => { const { error } = await sb.from('collaborations').update({ status: 'revoked' }).eq('id', b.dataset.revoke); if (error) throw error; again(); });
   }
 
