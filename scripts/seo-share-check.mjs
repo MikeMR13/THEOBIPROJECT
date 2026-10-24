@@ -19,7 +19,7 @@ const respond = (body, status = 200) => new Response(typeof body === 'string' ? 
 globalThis.fetch = async (url, opts = {}) => {
   const u = new URL(String(url));
   if (u.pathname === '/index.html') return respond(shell);
-  if (u.pathname.endsWith('/series')) return respond(u.searchParams.get('slug') === 'eq.desconocida' ? [] : [data.series]);
+  if (u.pathname.endsWith('/series')) { if (u.searchParams.get('slug') === 'eq.sin-servicio') throw new Error('Backend apagado'); return respond(u.searchParams.get('slug') === 'eq.desconocida' ? [] : [data.series]); }
   if (u.pathname.endsWith('/chapters')) return respond([data.chapters]);
   if (u.pathname.endsWith('/volumes')) return respond([data.volumes]);
   if (u.pathname.endsWith('/teams')) return respond([data.teams]);
@@ -71,6 +71,10 @@ try {
   r = await run('/api/public-meta?kind=serie&slug=desconocida');
   assert.equal(r.statusCode, 404);
   assert.match(r.headers['x-robots-tag'], /noindex/);
+  r = await run('/api/public-meta?kind=serie&slug=sin-servicio');
+  assert.equal(r.statusCode, 503);
+  assert.equal(r.headers['retry-after'], '60');
+  assert.doesNotMatch(r.body, /name="robots" content="noindex/);
   const cfg = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url)));
   assert.ok(cfg.rewrites.some(x => x.source === '/serie/:slug'));
   assert.ok(cfg.rewrites.some(x => x.source === '/equipo/:slug'));
