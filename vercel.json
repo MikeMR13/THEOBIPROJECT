@@ -104,5 +104,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/public-meta.js": {
+      "includeFiles": "dist/index.html"
+    }
+  }
 }
