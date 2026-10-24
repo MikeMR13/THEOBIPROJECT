@@ -48,7 +48,10 @@ try {
   assert.match(r.body, /<section aria-label="Presentación pública"/);
   assert.match(r.body, /application\/ld\+json/);
   assert.match(r.body, /BreadcrumbList/);
-  assert.ok(r.body.includes('\\u003cspecial\\u003e'));
+  const ld = r.body.match(/<script type="application\\/ld\\+json">([\\s\\S]*?)<\\/script>/)?.[1];
+  assert.ok(ld);
+  assert.equal(JSON.parse(ld)['@graph'].find(x => x['@type'] === 'Book').name, 'Obra <especial>');
+  assert.doesNotMatch(ld, /<special>/);
   assert.doesNotMatch(r.body, /<special>/);
   r = await run('/api/public-meta?kind=serie&slug=ejemplo&vol=2');
   assert.equal(r.statusCode, 200);
