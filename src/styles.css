@@ -459,3 +459,20 @@ main>p,main>h1+p{max-width:75ch}
 .ui-series-page .ui-ch-type{display:inline-block;margin-right:6px;padding:1px 6px;border:1px solid #765f32;border-radius:3px;color:#e4c983;background:#241e13;font:600 10px/1.6 'IBM Plex Mono',monospace;letter-spacing:.02em;vertical-align:middle;white-space:normal;overflow-wrap:anywhere}
 
 .dl-row{display:grid;grid-template-columns:64px minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:10px 16px;border-bottom:1px solid #221f18}.dl-f{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;padding:4px 0;text-align:center;border:1px solid #3d3628}.dl-row small a{color:#a89f8a}.dl-row .tm-a select{max-width:100%;min-width:0;font-size:12px;padding:7px 8px;border:1px solid #3d3628;background:#14120d;color:var(--paper)}.dl-row .tm-a select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* Identidad de traducción compartida: PNG completos, nunca recortados, y créditos legibles sin imagen. */
+.obi-credits{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;min-width:0;margin:8px 0}
+.obi-credit{display:inline-flex;align-items:center;justify-content:center;min-width:0;max-width:100%;color:var(--paper,#f3ecd9);text-decoration:none;font-size:13px;font-weight:600}
+.obi-credit img{display:block;object-fit:contain;object-position:center;width:auto;height:auto;max-width:min(160px,100%);max-height:44px}
+.obi-credit-text{display:inline-block;line-height:1.3;overflow-wrap:anywhere}
+a.obi-credit:hover{color:var(--gold,#f2c230)}a.obi-credit:hover img{opacity:.85}
+a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:3px}
+.obi-credits--detail{margin:7px 0 0;gap:10px 18px}
+.obi-credits--hero{margin:12px 0 0;gap:12px 20px}.obi-credits--hero img{max-height:48px;max-width:180px}
+.obi-credits--carousel{gap:6px 8px;margin:2px 0 0;min-height:24px;align-items:center}
+.obi-credits--carousel .obi-credit img{max-height:27px;max-width:82px}
+.obi-credits--carousel .obi-credit-text{font:500 10px/1.3 'IBM Plex Mono',monospace;color:#cfc6b0}
+.obi-credits--reader{width:100%;justify-content:center;gap:12px 24px;margin:0 auto 22px;max-width:min(100%,720px)}
+.obi-credits--reader .obi-credit img{max-height:64px;max-width:min(220px,60vw)}
+.obi-credits--reader .obi-credit-text{font:500 11px/1.4 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;text-align:center}
+@media(max-width:520px){.obi-credits--detail{gap:9px 12px}.obi-credits--reader{gap:12px 16px}.obi-credits--reader .obi-credit img{max-width:38vw;max-height:56px}.obi-credits--carousel .obi-credit img{max-height:24px;max-width:66px}}
