@@ -95,7 +95,9 @@ export async function agenda(ctx){
     previews.forEach(r => { D.series[r.series_id] ||= { id: r.series_id, slug: r.slug, title: r.title, short: r.short, cover_path: r.cover_path, cover_thumb_path: r.cover_thumb_path, work_type: r.work_type, teams: { name: r.team_name, slug: r.team_slug } }; });
     const ids = [...new Set(D.rows.map(r => r.series_id).filter(id => !D.series[id] || !Object.hasOwn(D.series[id], 'team_id')))];
     for (let i = 0; i < ids.length; i += 150) { const { data } = await sb.from('series').select('id,slug,title,short,cover_path,cover_thumb_path,work_type,team_id,teams(name,slug)').in('id', ids.slice(i, i + 150)); (data || []).forEach(s => D.series[s.id] = s); }
-    await attachPublicCredits(sb, Object.values(D.series).filter(s => s.team_id));
+    // Los preestrenos anunciados son públicos aunque su obra todavía no esté publicada.
+    // La RPC verifica announce_prelaunch y solo devuelve logos de equipos activos.
+    await attachPublicCredits(sb, Object.values(D.series).filter(s => s?.id));
     const tids = [...new Set(Object.values(D.series).map(s => s.team_id).filter(t => t && !(t in D.pat)))];
     if (tids.length) { const { data } = await sb.from('patreon_public').select('owner,url').in('owner', tids); tids.forEach(t => D.pat[t] = null); (data || []).forEach(p => { if (p.url) D.pat[p.owner] = JOIN(p.url); }); }
     if (u) {
