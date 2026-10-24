@@ -486,7 +486,7 @@ export function createStudio(ctx){
     const sel = (k, opts) => `<select data-d="${k}">${opts.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}" ${String(D[k]) === v ? 'selected' : ''}>${esc(l)}</option>`; }).join('')}</select>`;
     const inp = (k, l, a = '') => `<label>${l}<input data-d="${k}" value="${esc(D[k])}" ${a}></label>`;
     const datos = () => `<div class="wk-dat">
-      <section class="wk-box"><h2>Ficha</h2>${inp('title', 'Título en español', 'maxlength="200"')}${inp('short', 'Título corto (cinta y lomo)', 'maxlength="26"')}${inp('original', 'Título original', 'maxlength="300"')}${inp('title_romaji', 'Lectura / rōmaji del título', 'maxlength="300"')}${inp('publisher', 'Editorial', 'maxlength="120"')}
+      <section class="wk-box"><h2>Ficha</h2>${inp('title', 'Título en español', 'maxlength="500"')}${inp('short', 'Título corto (cinta y lomo)', 'maxlength="26"')}${inp('original', 'Título original', 'maxlength="300"')}${inp('title_romaji', 'Lectura / rōmaji del título', 'maxlength="300"')}${inp('publisher', 'Editorial', 'maxlength="120"')}
         <div class="wk-g2">${inp('author', 'Autor', 'maxlength="120"')}${inp('illustrator', 'Ilustración', 'maxlength="120"')}
           <label>Tipo${sel('work_type', WTYPES)}</label><label>Demografía${sel('demographic', WORK_DEMOGRAPHICS.map(([k,l]) => [k,l]))}<small class="mono" id="wk-dem-desc">${esc((WORK_DEMOGRAPHICS.find(x => x[0] === D.demographic) || WORK_DEMOGRAPHICS[0])[2])}</small></label>
           <label>Traducción${sel('translation_status', Object.entries(TLS).map(([k, v]) => [k, v[0]]))}</label><label>Obra original${sel('original_status', [['', 'Sin asignar'], ...OSL])}</label></div>

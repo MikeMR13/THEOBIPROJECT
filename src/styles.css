@@ -301,7 +301,21 @@ main>p,main>h1+p{max-width:75ch}
 
 /* Ficha pública de obras · fases editoriales 1–2: solo /serie/:slug. */
 .ui-series-hero{min-height:320px}
-.ui-series-hero h1{text-wrap:balance}
+/* Títulos editoriales extensos: tamaño proporcional sin limitar líneas ni cortar palabras.
+   Afecta solo a /serie/:slug, nunca al carrusel compacto de Inicio. */
+.ui-series-page .ui-series-hero>div{min-width:0}
+.ui-series-page .ui-series-hero h1{
+  display:block;min-width:0;max-width:100%;height:auto;max-height:none;
+  overflow:visible;white-space:normal;overflow-wrap:anywhere;word-break:normal;
+  text-overflow:clip;text-wrap:pretty;line-height:1.17;
+}
+.ui-series-page .ui-series-hero h1[data-title-size="l"]{font-size:clamp(27px,2.75vw,40px)}
+.ui-series-page .ui-series-hero h1[data-title-size="xl"]{font-size:clamp(24px,2.25vw,34px)}
+@media(max-width:720px){
+  .ui-series-page .ui-series-hero h1{font-size:clamp(25px,6vw,34px)}
+  .ui-series-page .ui-series-hero h1[data-title-size="l"]{font-size:clamp(23px,5.5vw,30px)}
+  .ui-series-page .ui-series-hero h1[data-title-size="xl"]{font-size:clamp(21px,5vw,27px)}
+}
 .ui-series-hero .ui-facts{gap:10px 18px;margin:20px 0}
 .ui-series-hero .ui-facts>div{padding:10px 12px;border-left:2px solid #4c3c21;background:rgba(12,10,8,.3)}
 .ui-series-actions{align-items:center}
