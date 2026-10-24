@@ -7,6 +7,7 @@ const shell = '<!doctype html><html><head><title>El Obi del Lector</title><meta 
 const data = {
   series: { id: 7, slug: 'ejemplo', title: 'Obra <especial>', synopsis: 'Una aventura original', cover_path: 'portadas/ejemplo.jpg' },
   chapters: { num: 12, title: 'Comienza el viaje', teaser: 'El capítulo doce' },
+  volumes: { num: 2, title: 'Viaje del Oeste', synopsis: 'Segundo volumen', cover_path: 'volumenes/dos.jpg' },
   teams: { name: 'Grupo Test', slug: 'grupo', bio: 'Traducciones originales', banner_path: 'equipos/grupo.jpg' },
   reader: { username: 'ana', bio: 'Me gusta leer novelas', avatar_url: '' }
 };
@@ -20,6 +21,7 @@ globalThis.fetch = async (url, opts = {}) => {
   if (u.pathname === '/index.html') return respond(shell);
   if (u.pathname.endsWith('/series')) return respond(u.searchParams.get('slug') === 'eq.desconocida' ? [] : [data.series]);
   if (u.pathname.endsWith('/chapters')) return respond([data.chapters]);
+  if (u.pathname.endsWith('/volumes')) return respond([data.volumes]);
   if (u.pathname.endsWith('/teams')) return respond([data.teams]);
   if (u.pathname.endsWith('/rpc/reader_public')) {
     assert.equal(opts.method, 'POST');
@@ -41,6 +43,14 @@ try {
   assert.match(r.body, /https:\/\/elobidellector.com\/serie\/ejemplo/);
   assert.doesNotMatch(r.body, /<title>Obra <especial>/);
   assert.match(r.body, /<section aria-label="Presentación pública"/);
+  r = await run('/api/public-meta?kind=serie&slug=ejemplo&vol=2');
+  assert.equal(r.statusCode, 200);
+  assert.match(r.body, /Volumen 2/);
+  assert.match(r.body, /canonical" href="https:\/\/elobidellector.com\/serie\/ejemplo\?vol=2"/);
+  assert.match(r.body, /volumenes\/dos.jpg/);
+  r = await run('/api/public-meta?kind=serie&slug=ejemplo&vol=9999');
+  assert.equal(r.statusCode, 404);
+  assert.match(r.headers['x-robots-tag'], /noindex/);
   r = await run('/api/public-meta?kind=leer&slug=ejemplo&chapter=12');
   assert.equal(r.statusCode, 200);
   assert.match(r.body, /Capítulo 12/);
