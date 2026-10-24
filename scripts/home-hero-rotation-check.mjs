@@ -18,38 +18,55 @@ const tick = ms => {
   }
   now = until;
 };
-const show = (hovered = false, paused = false) => clock.show({
-  next: () => { advances++; show(); }, canRotate: true, isHovered: hovered,
-  isPaused: paused, stateChanged: blocked => states.push(blocked)
+const show = (paused = false, canRotate = true, hovered = false) => clock.show({
+  next: () => { advances++; show(); }, canRotate,
+  isPaused: paused,
+  // Simula el estado anterior: incluso si el puntero está encima, no debe pausar.
+  isHovered: hovered,
+  stateChanged: blocked => states.push(blocked)
 });
-show();
-tick(3000);
-clock.hover(true);
-tick(16000);
-assert.equal(advances, 0, 'El cursor sobre el carrusel no debe repetir la diapositiva');
-assert.equal(timers.size, 0, 'El temporizador debe detenerse realmente al pasar el cursor');
-clock.hover(false);
+
+show(false, true, true); // Cursor encima antes del primer ciclo.
 tick(4999);
-assert.equal(advances, 0, 'Al salir se debe conservar el tiempo restante');
+assert.equal(advances, 0, 'No cambiar antes de los cinco segundos');
 tick(1);
-assert.equal(advances, 1, 'La diapositiva siguiente debe aparecer al terminar el tiempo restante');
-tick(8000);
-assert.equal(advances, 2, 'La rotación automática debe continuar');
-show(false, true);
-tick(16000);
-assert.equal(advances, 2, 'El botón de pausa debe detener la rotación');
-show();
-tick(8000);
-assert.equal(advances, 3, 'Reanudar debe iniciar un nuevo ciclo');
-assert(states.includes(true) && states.includes(false), 'El indicador debe reflejar las pausas');
+assert.equal(advances, 1, 'El carrusel debe avanzar a los 5 s incluso con cursor encima');
+tick(10000);
+assert.equal(advances, 3, 'Debe continuar avanzando automáticamente sin interacción');
+show(false, true, false); // Quitar el cursor no cambia las condiciones del reloj.
+tick(5000);
+assert.equal(advances, 4, 'Sin mouse también debe avanzar cada cinco segundos');
+assert.equal(timers.size, 1, 'Solo debe haber un temporizador activo a la vez');
+
+show(true);
+assert.equal(timers.size, 0, 'Pausar manualmente debe cancelar el temporizador');
+tick(20000);
+assert.equal(advances, 4, 'La pausa manual debe detener el carrusel');
+show(false);
+tick(4999);
+assert.equal(advances, 4, 'Reanudar debe respetar el ciclo completo');
+tick(1);
+assert.equal(advances, 5, 'El botón Reanudar debe restablecer el avance automático');
+
+show(false, false); // Modo de movimiento reducido o una sola obra.
+tick(15000);
+assert.equal(advances, 5, 'Movimiento reducido o una sola obra no deben forzar rotación');
+assert(states.includes(true) && states.includes(false), 'El progreso debe distinguir pausa y reproducción');
 clock.dispose();
-assert.equal(timers.size, 0, 'Salir de Inicio debe cancelar el temporizador');
+assert.equal(timers.size, 0, 'Salir de Inicio debe limpiar el temporizador');
 
 const ui = readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
-assert(ui.includes("createHeroRotationClock("), 'Inicio debe usar el reloj probado');
-assert(ui.includes('refreshHeroKeepingActive('), 'Las respuestas tardías deben conservar la portada activa');
-assert(ui.includes("heroClock?.dispose()"), 'Salir o reiniciar Inicio debe limpiar el reloj');
-assert(ui.includes("el.addEventListener('mouseenter'"), 'Hover debe suspender el reloj');
-assert(ui.includes("el.addEventListener('mouseleave'"), 'Salir del hover debe reanudarlo');
-assert(!ui.includes("el.matches(':hover') ? i : (i + 1)"), 'Prohibido repintar la misma diapositiva cada 8 segundos');
-console.log('✓ Carrusel: pausa real en hover, tiempo restante, rotación y actualización asíncrona sin reinicio.');
+const moduleSource = readFileSync(new URL('../src/home-hero-rotation.js', import.meta.url), 'utf8');
+assert(moduleSource.includes('duration = 5000'), 'El reloj debe usar 5 s de forma predeterminada');
+assert(ui.includes('animation:obHp 5s linear forwards'), 'La barra de progreso debe durar exactamente 5 s');
+assert(!ui.includes('animation:obHp 8s') && !moduleSource.includes('duration = 8000'), 'No debe quedar la rotación anterior de 8 s');
+assert(ui.includes('createHeroRotationClock('), 'Inicio debe usar el reloj probado');
+assert(ui.includes('refreshHeroKeepingActive('), 'Las consultas tardías deben conservar la portada activa');
+assert(ui.includes('heroClock?.dispose()'), 'Salir de Inicio debe limpiar el reloj');
+assert(!ui.includes("el.addEventListener('mouseenter'") && !ui.includes("el.addEventListener('mouseleave'"),
+  'El cursor no puede registrar eventos que detengan la rotación');
+assert(!ui.includes('isHovered:') && !moduleSource.includes('hovered'),
+  'El reloj no puede depender del estado del cursor');
+assert(ui.includes('isPaused: heroPaused') && ui.includes('canRotate: feat.length > 1'),
+  'Mantener pausa manual, varias diapositivas y accesibilidad');
+console.log('✓ Carrusel: autoplay cada 5 s con/sin mouse, barra sincronizada, pausa manual y movimiento reducido.');
