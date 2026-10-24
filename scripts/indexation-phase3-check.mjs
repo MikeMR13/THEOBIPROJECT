@@ -31,7 +31,8 @@ const fixtures = {
     { id:'c2',series_id:'serie-pub',num:2,status:'scheduled',access:'public',deleted_at:null },
     { id:'c3',series_id:'serie-pub',num:3,status:'published',access:'patreon',deleted_at:null },
     { id:'c4',series_id:'serie-arch',num:4,status:'published',access:'public',deleted_at:null },
-    { id:'c5',series_id:'serie-pub',num:5,status:'published',access:'public',deleted_at:null,publish_at:'2099-01-01T00:00:00Z' }
+    { id:'c5',series_id:'serie-pub',num:5,status:'published',access:'public',deleted_at:null,publish_at:'2099-01-01T00:00:00Z' },
+    { id:'c6',series_id:'serie-pub',num:6,status:'published',access:'public',deleted_at:null,public_at:'2099-01-01T00:00:00Z' }
   ]
 };
 let outage=false;
@@ -55,7 +56,7 @@ try {
   assert.equal(r.statusCode,200);
   assert.match(r.headers['content-type'],/application\/xml/);
   for(const item of ['https://elobidellector.com/serie/libro-a','https://elobidellector.com/serie/libro-a?vol=1','https://elobidellector.com/leer/libro-a/1','https://elobidellector.com/equipo/equipo-pub','https://elobidellector.com/catalogo']) assert.ok(r.body.includes(item),item);
-  for(const bad of ['/serie/borrador','/serie/adulto','/serie/patreon','/serie/archivado','/serie/libro-a?vol=2','/serie/libro-a?vol=3','/leer/libro-a/2','/leer/libro-a/3','/leer/libro-a/5','/equipo/equipo-secreto','/lector/']) assert.ok(!r.body.includes(bad),bad);
+  for(const bad of ['/serie/borrador','/serie/adulto','/serie/patreon','/serie/archivado','/serie/libro-a?vol=2','/serie/libro-a?vol=3','/leer/libro-a/2','/leer/libro-a/3','/leer/libro-a/5','/leer/libro-a/6','/equipo/equipo-secreto','/lector/']) assert.ok(!r.body.includes(bad),bad);
   assert.match(r.body,/<lastmod>2026-02-01T00:00:00.000Z<\/lastmod>/);
   assert.equal((r.body.match(/<loc>/g)||[]).length,new Set([...r.body.matchAll(/<loc>(.*?)<\/loc>/g)].map(m=>m[1])).size);
   const h=await run(sitemap,'HEAD');assert.equal(h.statusCode,200);assert.equal(h.body,'');
