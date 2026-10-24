@@ -71,8 +71,12 @@ assert(qa.includes('el destacado excede la altura compacta') && qa.includes('foo
  'La QA responsive debe detectar regresiones de altura y botones ocultos');
 // En colaboraciones, agrandar solamente el PNG del propietario, no los
 // colaboradores ni el fallback con el nombre del equipo.
-assert(ui.includes('@media(min-width:1101px)') && ui.includes('.ob-hero .ob-hero-team-logo:not(.is-text){width:clamp(116px,8vw,140px)}'),
- 'Ampliar el PNG propietario de 116 a 140 px solo en escritorio');
+assert(ui.includes('@media(min-width:1101px)') &&
+ ui.includes('width:clamp(170px,10.2vw,190px)') &&
+ ui.includes('padding-inline-end:clamp(186px,11.2vw,206px)') &&
+ ui.includes('.ob-hero .ob-hero-copy:has(.ob-hero-team-logo:not(.is-text))') &&
+ ui.includes('position:absolute;'),
+ 'Ampliar solo el PNG propietario a 170–190 px en escritorio sin empujar el título');
 assert(ui.includes('.ob-hero .ob-hero-team-logo.is-text{width:clamp(82px,7vw,100px)'),
  'Conservar el tamaño de respaldo textual en escritorio');
 assert(ui.includes("s.publicCredits?.some(c => !c.is_primary)") &&
