@@ -39,10 +39,15 @@ Antes de fusionar: comprobar en una Preview autenticada la apertura real de una 
 ### Sitemap
 - `/sitemap.xml` se genera en Vercel desde las lecturas anónimas de Supabase; se publica solo en Production.
 - Se incluyen Inicio, Catálogo, Calendario, Lanzamientos, Ranking, Apoyar y los slugs publicados de obras, volúmenes, capítulos y equipos públicos.
-- Se excluyen series no publicadas, archivadas, para adultos o con acceso distinto de `public`; volúmenes y capítulos no publicados, eliminados, programados/futuros o con acceso restringido; equipos con `status=Proyecto privado`.
+- Se excluyen series no publicadas, archivadas, para adultos o con acceso distinto de `public`; volúmenes y capítulos no publicados, eliminados, programados/futuros (incluido `public_at`) o con acceso restringido; equipos con `status=Proyecto privado`.
 - No se incluyen carnets de lectores automáticamente, ni siquiera los públicos: la descubribilidad individual requiere evaluación específica de privacidad. Un enlace directo al carnet público sigue teniendo metadatos propios.
 - Las fechas `lastmod` provienen de `chapters.updated_at` y `volumes.published_at`, si son válidas; no se inventan fechas para otras rutas.
 - Se controla la cantidad de URLs y el tamaño XML, y se devuelve HTTP 503 sin caché cuando falla Supabase. Si el catálogo crece más allá del límite de un único sitemap, se debe migrar a índice paginado.
+
+### Estados HTTP y errores
+- Las rutas públicas dinámicas inexistentes devuelven `404`; caídas transitorias de Supabase devuelven `503` y `Retry-After` sin desindexarlas.
+- La navegación SPA conocida conserva sus enlaces profundos; eliminamos el catch-all genérico que devolvía `200` a cualquier ruta inexistente.
+- Las obras etiquetadas +18 tienen `noindex` por defecto, sin alterar su contenido ni los accesos de la plataforma.
 
 ### Robots y ambientes
 - `/robots.txt` sirve reglas públicas en producción, con `Sitemap: https://elobidellector.com/sitemap.xml`.
