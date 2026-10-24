@@ -1,4 +1,4 @@
-// QA responsive del carrusel real: cinco tamaños con volumen, aviso y ranking.
+// QA responsive del carrusel real: seis tamaños, tres longitudes, anuncio, portada y ranking.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createServer} from 'node:http';
@@ -54,6 +54,8 @@ const checks=[
 "test(textRect.left>=metaRect.right-3&&rect('.ob-badge-vol').right<=textRect.left-6&&rect('.ob-utag-hero').right<=textRect.left-6&&rect('.ob-hero-rank').right<=textRect.left-6,'texto y aviso se superponen');",
 "test(textRect.bottom<=titleRect.top-6,'nombre se superpone al título');",
 "test(document.documentElement.scrollWidth<=max+tol,'nombre desborda el viewport');",
+"const H=get('.ob-txt h1'),HLink=H.querySelector('a');",
+"for(const [len,titleText] of [['','Sayonara Princess'],['l','Los secretos de la Bruja del Silencio — Volumen 2'],['xl','Para crear una organización que actuará en secreto desde las sombras, crié y entrené a unas chicas con los más altos conocimientos de asesinato, y terminaron convirtiéndose en una gran potencia — Volumen 1']]){H.dataset.len=len;HLink.textContent=titleText;const tr=H.getBoundingClientRect(),lr=rect('.ob-hero-team-logo'),pr=rect('.ob-pager2');test(tr.left>=-tol&&tr.right<=max+tol,'título '+len+' sale del ancho');test(lr.bottom<=tr.top-6,'logo se superpone al título '+len);test(rect('.ob-acts').bottom<=pr.top+tol,'acciones invaden controles con título '+len);test(document.documentElement.scrollWidth<=max+tol,'scroll horizontal con título '+len);}",
 "const result=get('#result');result.dataset.status=err.length?'fail':'pass';result.textContent=err.join(' | ')||'OK';"
 ].join('\n');
 const baseStyle=':root{--paper:#f3ecd9;--gold:#c25b28;--line:#3d3628;--mute:#ae9d81;--wrap:1160px}*{animation:none!important;transition:none!important}body{margin:0;min-width:0;background:#0d0c0a;color:var(--paper);font-family:Arial,sans-serif}';
