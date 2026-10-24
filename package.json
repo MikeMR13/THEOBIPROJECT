@@ -9,7 +9,7 @@
     "db-phase2-check": "node scripts/db-phase2-check.mjs",
     "phase3-check": "node scripts/phase3-check.mjs",
     "phase4-check": "node scripts/phase4-check.mjs",
-    "studio-functional-check": "node scripts/studio-functional-smoke.mjs && node scripts/studio-collaboration-picker.test.mjs",
+    "studio-functional-check": "node scripts/studio-functional-smoke.mjs && node scripts/studio-collaboration-picker.test.mjs && node scripts/public-collaboration-credits.test.mjs",
     "studio-browser-check": "node scripts/studio-browser-e2e.mjs",
     "preview-isolation-check": "node scripts/preview-isolation-check.mjs",
     "verify": "node scripts/stability-check.mjs && node scripts/visual-phase1-check.mjs && node scripts/visual-phase2-check.mjs && node scripts/visual-phase3-check.mjs && node scripts/visual-phase4-check.mjs",
