@@ -26,8 +26,10 @@ export async function attachPublicCredits(sb, works = []) {
       }
     }
   } catch (e) {
-    // Durante el despliegue previo de la migración no ocultar al traductor principal.
+    // Si falla la red/RPC, nunca mantener PNG de colaboradores de una respuesta anterior:
+    // pudieron rechazar o revocar el crédito después de la copia en memoria.
     console.warn('Créditos de colaboración no disponibles:', e?.message || e);
+    targets.forEach(s => { s.publicCredits = creditTeams({ ...s, publicCredits: null }); });
     return rows;
   }
   targets.forEach(s => {
