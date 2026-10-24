@@ -54,5 +54,20 @@ assert(ui.includes('.ob-hero .ob-hero-head+h1{margin-top:clamp(16px,1.5vw,20px)}
  'El título debe mantener una separación mínima del anuncio y ranking');
 assert(ui.includes('.ob-hero .ob-txt h1[data-len=xl]{font-size:clamp(26px,2.8vw,38px)}'),
  'Los títulos editoriales muy largos no deben dominar el carrusel');
+// Inicio compacto: dejar toda la descripción en el DOM, y reservar los controles.
+assert(ui.includes('class="ob-hero-copy"') && ui.includes('class="ob-hero-footer"'),
+ 'Separar contenido descriptivo y acciones para evitar que desaparezcan al abreviar textos');
+assert(ui.includes('height:clamp(480px,36vw,540px)') && ui.includes('grid-template-columns:minmax(180px,290px)'),
+ 'El carrusel de escritorio debe ser compacto y su portada no puede crecer indefinidamente');
+assert(ui.includes('height:auto;min-height:0;max-height:none') && ui.includes('@media(max-width:700px)'),
+ 'El móvil no debe aplicar una altura fija que oculte controles');
+assert(ui.includes('-webkit-line-clamp:3') && ui.includes('-webkit-line-clamp:2'),
+ 'Limitar visualmente títulos y sinopsis sin truncar sus datos');
+assert(ui.includes('title="${esc(s.title +'),
+ 'Conservar el título completo disponible al mantener el cursor sobre la novela');
+assert(ui.includes('.ob-hero .ob-hero-footer{flex:none;margin-top:auto'),
+ 'Los botones deben mantener su espacio incluso con titulares extensos');
+assert(qa.includes('el destacado excede la altura compacta') && qa.includes('footer invade controles'),
+ 'La QA responsive debe detectar regresiones de altura y botones ocultos');
 assert(announcement.includes('chooseActiveEditorial'), 'El selector de anuncios sigue disponible');
 console.log('✓ Identidad del equipo: logo o texto excluyentes, mismo perfil y avisos intactos.');
