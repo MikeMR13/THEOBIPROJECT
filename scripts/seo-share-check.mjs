@@ -86,6 +86,9 @@ try {
   assert.match(share, /wa\.me/);
   assert.match(share, /t\.me\/share\/url/);
   assert.match(share, /clipboard\.writeText/);
+  assert.match(share, /isRestrictedReader/);
+  assert.match(share, /isMissingPublic/);
+  assert.match(share, /data-vol-num/);
   const home = readFileSync(new URL('../src/index.html', import.meta.url), 'utf8');
   assert.match(home, /og:image/);
   console.log('seo-share: metadatos, noindex, privacidad, rutas y botones OK');
