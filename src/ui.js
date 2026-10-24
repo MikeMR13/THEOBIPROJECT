@@ -341,7 +341,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       q.innerHTML = `<div class="ui-qvc" role="dialog" aria-modal="true" aria-labelledby="gq-t" style="--c:${esc(color(s))}">
         <button class="ui-qx" aria-label="Cerrar">×</button>${book(s)}
         <div><span class="ui-lbl">${esc(s.work_type || 'Novela ligera')}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}</span>
-          <h2 id="gq-t">${esc(s.title)}</h2>${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
+          <h2 id="gq-t">${esc(s.title)}</h2>${creditsHTML(s, { esc, media, mode: 'detail' })}${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
           <div class="ui-chips">${pill(s.translation_status)}${(s.genres || []).slice(0, 6).map(g => `<span class="ui-chip" style="cursor:default">${esc(g)}</span>`).join('')}${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</div>
           ${s.synopsis ? `<p class="syn">${esc(s.synopsis)}</p>` : '<p class="mono" style="margin:14px 0">Sin sinopsis todavía.</p>'}
           <p class="mono" style="margin:0 0 16px">${s.chapters?.[0]?.count ?? 0} capítulos${lc ? ' · último: cap. ' + lc.num + ageTag(lc.publish_at) : ''}</p>
@@ -862,7 +862,7 @@ ${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読'
       if (fol.length) { const read = new Set((rc || []).map(r => r.chapter_id));
         const { data: chs } = await sb.from('chapters').select('id,num,series_id').eq('status', 'published').is('deleted_at', null).or('publish_at.is.null,publish_at.lte.' + new Date().toISOString()).in('series_id', fol).order('num');
         const P = fol.map(id => { const l = (chs || []).filter(c => c.series_id === id), un = l.filter(c => !read.has(c.id)); return { s: byId[id], un: un.length, next: un[0], last: lastCh[id]?.publish_at }; }).filter(x => x.un > 0 && !(x.s.translation_status === 'completed' && !prog[x.s.id])).sort((a, b) => new Date(b.last || 0) - new Date(a.last || 0)).slice(0, 12);
-        if (P.length && location.pathname === '/') fill('ob-s-pend', `<section class="ob-sec" data-from="ob-s-pend">${head('未読', 'Pendientes', `<span class="r2"><a class="r" href="/biblioteca?t=pendientes">Ver todas →</a>${arrows('ob-car-pend')}</span>`)}<div class="ob-car" id="ob-car-pend">${P.map(x => `<a class="ob-cc" href="/leer/${x.s.slug}/${x.next.num}">${cover(x.s, x.un + ' sin leer')}<b>${esc(x.s.title)}</b><small>Sigue en el cap. ${x.next.num}</small></a>`).join('')}</div></section>`); }
+        if (P.length && location.pathname === '/') fill('ob-s-pend', `<section class="ob-sec" data-from="ob-s-pend">${head('未読', 'Pendientes', `<span class="r2"><a class="r" href="/biblioteca?t=pendientes">Ver todas →</a>${arrows('ob-car-pend')}</span>`)}<div class="ob-car" id="ob-car-pend">${P.map(x => `<a class="ob-cc" href="/leer/${x.s.slug}/${x.next.num}">${cover(x.s, x.un + ' sin leer')}<b>${esc(x.s.title)}</b><small>Sigue en el cap. ${x.next.num}</small>${creditsHTML(x.s, { esc, media, mode: 'carousel' })}</a>`).join('')}</div></section>`); }
       const fav = (st?.genres || []).map(g => g.g);
       if (fav.length) { const wk = Object.fromEntries(rkWv.map(r => [r.series_id, +r.score]));
         const score = x => (x.genres || []).reduce((n, g) => n + (fav.length - Math.max(0, fav.indexOf(g))) * (fav.includes(g) ? 1 : 0), 0);
@@ -922,7 +922,7 @@ ${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読'
   const ficha = (s, st, lc, i, p) => `<a class="ui-fc" href="/serie/${s.slug}" data-id="${s.id}" style="--c:${esc(color(s))};--d:${Math.min(i, 8) * 0.05}s">
       <span class="cv" style="${s.cover_path ? `background-image:url('${esc(thumb(s))}')` : ''}"></span>
       <span class="bd"><span class="t">${esc(s.title)}</span>${s.original || s.author ? `<span class="o">${esc([s.original, s.author].filter(Boolean).join(' · '))}</span>` : ''}${s.synopsis ? `<span class="sy">${esc(s.synopsis)}</span>` : ''}
-        <span class="m">${s.chapters?.[0]?.count ?? 0} cap. · ${(TL[s.translation_status] || TL.active)[0]}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}${lc ? ' · último: cap. ' + lc.num + ageTag(lc.publish_at, ', ') : ''}${s.adult ? ' · <span class="x">+18</span>' : ''}</span>${progBar(s, p)}</span>
+        <span class="m">${s.chapters?.[0]?.count ?? 0} cap. · ${(TL[s.translation_status] || TL.active)[0]}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}${lc ? ' · último: cap. ' + lc.num + ageTag(lc.publish_at, ', ') : ''}${s.adult ? ' · <span class="x">+18</span>' : ''}</span>${creditsHTML(s, { esc, media, mode: 'carousel' })}${progBar(s, p)}</span>
       <span class="side">${st ? `<span class="ui-seal ${st[1]}">${esc(st[0])}</span>` : '<span></span>'}<span class="jp">第${KN(i + 1)}号</span></span></a>`;
 
   // ---------- Catálogo ----------
@@ -1049,7 +1049,7 @@ ${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読'
           <button class="ui-qx" aria-label="Cerrar">×</button>
           ${book(s)}
           <div><span class="ui-lbl">${esc(s.work_type || 'Novela ligera')}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}</span>
-            <h2 id="qv-t">${esc(s.title)}</h2>${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
+            <h2 id="qv-t">${esc(s.title)}</h2>${creditsHTML(s, { esc, media, mode: 'detail' })}${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
             <div class="ui-chips">${pill(s.translation_status)}${(s.genres || []).slice(0, 6).map(g => `<span class="ui-chip" style="cursor:default">${esc(g)}</span>`).join('')}${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</div>
             ${s.synopsis ? `<p class="syn">${esc(s.synopsis)}</p>` : '<p class="mono" style="margin:14px 0">Sin sinopsis todavía.</p>'}
             <p class="mono" style="margin:0 0 16px">${nCh(s)} capítulos${lc ? ' · último: cap. ' + lc.num + ageTag(lc.publish_at) : ''}${st ? ' · ' + esc(st[0]) : ''}</p>
