@@ -19,7 +19,7 @@ const respond = (body, status = 200) => new Response(typeof body === 'string' ? 
 globalThis.fetch = async (url, opts = {}) => {
   const u = new URL(String(url));
   if (u.pathname === '/index.html') return respond(shell);
-  if (u.pathname.endsWith('/series')) { if (u.searchParams.get('slug') === 'eq.sin-servicio') throw new Error('Backend apagado'); return respond(u.searchParams.get('slug') === 'eq.desconocida' ? [] : [data.series]); }
+  if (u.pathname.endsWith('/series')) { const slug=u.searchParams.get('slug'); if (slug === 'eq.sin-servicio') throw new Error('Backend apagado'); if (slug === 'eq.desconocida') return respond([]); return respond([{...data.series, adult: slug==='eq.adulta'}]); }
   if (u.pathname.endsWith('/chapters')) return respond([data.chapters]);
   if (u.pathname.endsWith('/volumes')) return respond([data.volumes]);
   if (u.pathname.endsWith('/teams')) return respond([data.teams]);
@@ -53,6 +53,10 @@ try {
   assert.equal(JSON.parse(ld)['@graph'].find(x => x['@type'] === 'Book').name, 'Obra <especial>');
   assert.doesNotMatch(ld, /<special>/);
   assert.doesNotMatch(r.body, /<special>/);
+  r = await run('/api/public-meta?kind=serie&slug=adulta');
+  assert.equal(r.statusCode,200);
+  assert.match(r.headers['x-robots-tag'],/noindex/);
+  assert.doesNotMatch(r.body, /<script type="application\/ld\+json">/);
   r = await run('/api/public-meta?kind=serie&slug=ejemplo&vol=2');
   assert.equal(r.statusCode, 200);
   assert.match(r.body, /Volumen 2/);
