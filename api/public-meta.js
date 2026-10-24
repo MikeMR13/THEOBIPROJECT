@@ -40,9 +40,9 @@ async function publicData(kind, slug, chapter, volume, origin) {
   const key = process.env.OBI_SUPABASE_PUBLISHABLE_KEY || '';
   if (kind === 'serie' || kind === 'leer') {
     if (!validSlug(slug)) return null;
-    const s = await query('series', { slug: 'eq.' + slug, published: 'eq.true', archived_at: 'is.null', access: 'eq.public', select: 'id,slug,title,synopsis,cover_path,cover_thumb_path,author,genres,access' }, backend, key);
+    const s = await query('series', { slug: 'eq.' + slug, published: 'eq.true', archived_at: 'is.null', access: 'eq.public', select: 'id,slug,title,synopsis,cover_path,cover_thumb_path,author,genres,access,adult' }, backend, key);
     if (!s) return null;
-    const base = { type: 'Book', author: s.author || '', genres: s.genres || [], title: s.title + ' — ' + SITE, description: limit(s.synopsis || ('Lee ' + s.title + ' en español latino.'), 170), image: media(s.cover_path || s.cover_thumb_path, backend, origin), heading: s.title };
+    const base = { type: 'Book', noindex: s.adult === true, author: s.author || '', genres: s.genres || [], title: s.title + ' — ' + SITE, description: limit(s.synopsis || ('Lee ' + s.title + ' en español latino.'), 170), image: media(s.cover_path || s.cover_thumb_path, backend, origin), heading: s.title };
     if (kind === 'serie') {
       if (!volume) return base;
       if (!/^\d{1,3}$/.test(volume) || Number(volume) < 1) return null;
@@ -59,8 +59,8 @@ async function publicData(kind, slug, chapter, volume, origin) {
         heading: name };
     }
     if (!/^\d{1,8}$/.test(chapter || '')) return null;
-    const c = await query('chapters', { series_id: 'eq.' + s.id, num: 'eq.' + String(Number(chapter)), status: 'eq.published', access: 'eq.public', deleted_at: 'is.null', or: '(publish_at.is.null,publish_at.lte.' + new Date().toISOString() + ')', select: 'num,title,teaser,status,access,publish_at' }, backend, key);
-    if (!c || c.status !== 'published' || !publishable(c) || !validPublishedTime(c.publish_at)) return null; // RLS + estado público
+    const c = await query('chapters', { series_id: 'eq.' + s.id, num: 'eq.' + String(Number(chapter)), status: 'eq.published', access: 'eq.public', deleted_at: 'is.null', or: '(publish_at.is.null,publish_at.lte.' + new Date().toISOString() + ')', select: 'num,title,teaser,status,access,publish_at,public_at' }, backend, key);
+    if (!c || c.status !== 'published' || !publishable(c) || !validPublishedTime(c.publish_at) || !validPublishedTime(c.public_at)) return null; // RLS + estado público
     return { ...base, type: 'Chapter', bookTitle: s.title, title: s.title + ' · Capítulo ' + c.num + ' — ' + SITE,
       description: limit((c.title ? c.title + '. ' : '') + (c.teaser || 'Lee este capítulo en El Obi del Lector.'), 170),
       heading: s.title + ' · Capítulo ' + c.num };
