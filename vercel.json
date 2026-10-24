@@ -27,7 +27,99 @@
       "destination": "/api/public-meta?kind=lector&slug=:slug"
     },
     {
-      "source": "/((?!.*\\.).*)",
+      "source": "/mi-equipo",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/catalogo",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/calendario",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/ranking",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/lanzamientos",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/biblioteca",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/apoyar",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/entrar",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/registro",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/restablecer",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/perfil",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/preferencias",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/buscar",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/solicitud",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/elige-nombre",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/privacidad",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/condiciones-servicio",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/invitacion",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/bibliotecario",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/descargas",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/anotaciones/:slug",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/estudio",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/estudio/:path*",
       "destination": "/index.html"
     }
   ],
