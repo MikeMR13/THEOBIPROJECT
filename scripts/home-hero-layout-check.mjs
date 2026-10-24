@@ -18,11 +18,11 @@ const homeCss=ui.slice(cssStart+1,cssEnd);
 assert(ui.includes('<div class="ob-hero-flags">') && ui.includes('<div class="ob-hero-rank">'),'El carrusel debe separar avisos y ranking');
 assert(ui.includes('ob-hero-flags .ob-utag-hero') && ui.includes('ob-txt h1[data-len=xl]'),'Faltan reglas responsive de etiquetas o títulos');
 
-const viewport=[320,390,768,1024,1440];
+const viewport=[320,390,768,1024,1440,1873];
 const checks=[
 "const get=s=>document.querySelector(s),rect=s=>get(s).getBoundingClientRect(),err=[];",
 "const test=(pass,text)=>{if(!pass)err.push(text)};",
-"const badge=rect('.ob-badge-vol'), custom=rect('.ob-utag-hero'),rank=rect('.ob-hero-rank'),title=rect('.ob-txt h1'),actions=rect('.ob-acts'),pager=rect('.ob-pager2'),logo=rect('.ob-hero-team-logo'),meta=rect('.ob-hero-meta');",
+"const badge=rect('.ob-badge-vol'), custom=rect('.ob-utag-hero'),rank=rect('.ob-hero-rank'),title=rect('.ob-txt h1'),actions=rect('.ob-acts'),pager=rect('.ob-pager2'),logo=rect('.ob-hero-team-logo'),meta=rect('.ob-hero-meta'),cover=rect('.ob-cov');",
 "const max=document.documentElement.clientWidth, tol=3;",
 "test(badge.height>20&&custom.height>15,'etiquetas sin altura');",
 "test(custom.top-badge.bottom>=8,'etiquetas pegadas/solapadas');",
@@ -33,7 +33,8 @@ const checks=[
 "test(logo.bottom<=title.top-6,'logo se superpone con el título');",
 "test(badge.right<=logo.left-6&&custom.right<=logo.left-6&&rank.right<=logo.left-6,'PNG solapa anuncio o ranking');",
 "test(getComputedStyle(get('.ob-hero-head')).display==='grid','logo sin rejilla de seguridad');",
-"const logoSize=rect('.ob-hero-team-logo img'),expected=innerWidth<=380?64:innerWidth<=600?80:innerWidth<=1100?Math.max(96,Math.min(112,innerWidth*.10)):Math.max(128,Math.min(140,innerWidth*.10));",
+"if(innerWidth>820){test(Math.abs(cover.top-meta.top)<=5,'portada desalineada con el anuncio');test(meta.left-cover.right>=24&&meta.left-cover.right<=55,'portada y texto demasiado separados');test(title.top-meta.top<160,'el logo o los márgenes empujan el título');test(getComputedStyle(get('.ob-hero')).alignItems==='start','el hero vuelve a centrar verticalmente la portada');}",
+"const logoSize=rect('.ob-hero-team-logo img'),expected=innerWidth<=380?64:innerWidth<=600?80:innerWidth<=1100?Math.max(78,Math.min(94,innerWidth*.08)):Math.max(82,Math.min(100,innerWidth*.07));",
 "test(Math.abs(logoSize.width-expected)<=2&&Math.abs(logoSize.height-expected)<=2,'tamaño responsive del logo incorrecto: '+logoSize.width+' vs '+expected);",
 "test(getComputedStyle(get('.ob-hero-team-logo img')).objectFit==='contain','imagen del equipo deformada o recortada');",
 "test(badge.right<=max+tol&&custom.right<=max+tol&&rank.right<=max+tol,'avisos fuera del viewport');",
@@ -43,7 +44,7 @@ const checks=[
 "const over=[...document.querySelectorAll('.ob-hero *')].filter(n=>n.getBoundingClientRect().right>max+tol).slice(0,3).map(n=>n.className||n.tagName).join(',');",
 "test(document.documentElement.scrollWidth<=max+tol,'scroll horizontal: contenido '+document.documentElement.scrollWidth+' viewport '+max+' ['+over+']');",
 "test(parseFloat(getComputedStyle(get('.ob-utag-hero')).fontSize)<=16,'aviso secundario desproporcionado');",
-"test(parseFloat(getComputedStyle(get('.ob-txt h1')).fontSize)<=59,'título desproporcionado');",
+"test(parseFloat(getComputedStyle(get('.ob-txt h1')).fontSize)<=50,'título desproporcionado');",
 "const link=get('.ob-hero-team-logo'), img=link.querySelector('img'), href=link.getAttribute('href');",
 "test(!!img&&!link.querySelector('span'),'PNG y nombre aparecen al mismo tiempo');",
 "const name=document.createElement('span');name.textContent='Equipo de traducción de prueba con nombre muy largo';link.classList.add('is-text');img.replaceWith(name);",
@@ -57,7 +58,7 @@ const checks=[
 ].join('\n');
 const baseStyle=':root{--paper:#f3ecd9;--gold:#c25b28;--line:#3d3628;--mute:#ae9d81;--wrap:1160px}*{animation:none!important;transition:none!important}body{margin:0;min-width:0;background:#0d0c0a;color:var(--paper);font-family:Arial,sans-serif}';
 const page='<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+css2+'\n'+homeCss+'\n'+baseStyle+'</style></head><body><main class="ob-page"><section class="ob-hero"><span class="ob-vk" aria-hidden="true">新刊案内</span><div class="ob-cov"><div class="f"></div></div><div class="ob-txt"><div class="ob-hero-head"><div class="ob-hero-meta"><span class="ob-kick">第二巻 · 新刊</span><div class="ob-hero-flags"><span class="ob-badge ob-badge-vol">¡NUEVO VOLUMEN! · VOL. 2</span><span class="ob-utag-hero" style="background:rgba(13,12,10,.6);color:#c25b28;border:2px solid #c25b28">¡NUEVO SECRETO! EDICIÓN ESPECIAL</span></div><div class="ob-hero-rank"><a class="rk-bdg" href="/ranking"><b>#2</b>Top de la semana</a></div></div><a class="ob-hero-team-logo" href="/equipo/ejemplo" aria-label="Visitar equipo de traducción de ejemplo"><img alt="" width="104" height="104" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL5WQAAAABJRU5ErkJggg=="></a></div><h1 data-len="xl"><a class="ob-h1a" href="/serie/secretos">Los secretos de la bruja del silencio y el misterio de una noche eterna — Volumen 2</a></h1><p class="ob-syn">Una sinopsis suficientemente larga para comprobar la distribución del texto en dispositivos pequeños y en pantallas de escritorio de diferentes anchuras.</p><div class="ob-acts"><a class="a1" href="/serie/secretos">Ver volumen 2</a><a class="a2" href="/leer/secretos/1">Empezar a leer</a></div></div><div class="ob-pager2" style="position:absolute;left:clamp(16px,4vw,56px);right:clamp(16px,4vw,56px);bottom:14px;z-index:2;display:flex;align-items:center;gap:10px"><button data-j="0" style="width:40px;height:40px">‹</button><span style="display:flex;flex:1;gap:6px"><button data-j="0" style="height:10px;min-width:10px"></button></span><button data-hp aria-label="Pausar" style="height:40px">Ⅱ Pausar</button><button data-j="1" style="width:40px;height:40px">›</button></div></section></main><p id="result" data-status="running"></p><script>'+checks+'</script></body></html>';
-const parent='<!doctype html><html><body><p id="qa" data-status="running">RUNNING</p>'+viewport.map(w=>'<iframe title="QA '+w+'" width="'+w+'" height="800" src="/case" style="border:0"></iframe>').join('')+'<script>let count=0,errors=[];document.querySelectorAll("iframe").forEach(f=>f.addEventListener("load",()=>{const q=f.contentDocument.querySelector("#result");if(q?.dataset.status!=="pass")errors.push(f.width+": "+(q?.textContent||"sin resultado"));if(++count===5){const qa=document.querySelector("#qa");qa.dataset.status=errors.length?"fail":"pass";qa.textContent=errors.join(" | ")||"Carrusel: 320, 390, 768, 1024 y 1440 px OK";}}));</script></body></html>';
+const parent='<!doctype html><html><body><p id="qa" data-status="running">RUNNING</p>'+viewport.map(w=>'<iframe title="QA '+w+'" width="'+w+'" height="800" src="/case" style="border:0"></iframe>').join('')+'<script>let count=0,errors=[];document.querySelectorAll("iframe").forEach(f=>f.addEventListener("load",()=>{const q=f.contentDocument.querySelector("#result");if(q?.dataset.status!=="pass")errors.push(f.width+": "+(q?.textContent||"sin resultado"));if(++count===6){const qa=document.querySelector("#qa");qa.dataset.status=errors.length?"fail":"pass";qa.textContent=errors.join(" | ")||"Carrusel: 320, 390, 768, 1024, 1440 y 1873 px OK";}}));</script></body></html>';
 const server=createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');res.setHeader('Content-Security-Policy',"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; frame-src 'self'");res.end(req.url==='/case'?page:parent)});
 const bin=process.env.QA_CHROME||['chromium','google-chrome','google-chrome-stable','chromium-browser'].map(x=>{try{return execFileSync('which',[x],{encoding:'utf8'}).trim()}catch{return''}}).find(Boolean);
 assert(bin,'Chromium no disponible');
