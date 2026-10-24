@@ -34,9 +34,9 @@ cpSync('src', 'dist', { recursive: true }); cpSync('public', 'dist', { recursive
 if (isPreview) {
   const indexPath = 'dist/index.html';
   const html = readFileSync(indexPath, 'utf8').replace(/<link\s+rel="preconnect"\s+href="https:\/\/qfllthjpjuaztppvpsrk\.supabase\.co"[^>]*>\s*/g, '');
-  writeFileSync(indexPath, html);
+  writeFileSync(indexPath, html.replace('</head>', '<meta name="robots" content="noindex,nofollow"></head>'));
 }
-writeFileSync('dist/config.js', 'window.OBI_CONFIG=' + JSON.stringify({ url, key, turnstile, build: new Date().toISOString() }) + ';');
+writeFileSync('dist/config.js', 'window.OBI_CONFIG=' + JSON.stringify({ url, key, turnstile, preview: isPreview, build: new Date().toISOString() }) + ';');
 
 // 0. supabase-js empaquetado en un solo archivo propio (evita ~20 descargas encadenadas desde esm.sh). Si falla, se queda el puente a esm.sh.
 if (esbuild) {
