@@ -33,7 +33,7 @@ async function query(table, params, backend, key) {
     return Array.isArray(rows) ? rows[0] || null : rows;
   } finally { clearTimeout(stop); }
 }
-async function publicData(kind, slug, chapter, origin) {
+async function publicData(kind, slug, chapter, volume, origin) {
   const backend = (process.env.OBI_SUPABASE_URL || '').replace(/\/+$/, '');
   const key = process.env.OBI_SUPABASE_PUBLISHABLE_KEY || '';
   if (kind === 'serie' || kind === 'leer') {
@@ -41,7 +41,21 @@ async function publicData(kind, slug, chapter, origin) {
     const s = await query('series', { slug: 'eq.' + slug, published: 'eq.true', archived_at: 'is.null', select: 'id,slug,title,synopsis,cover_path,cover_thumb_path' }, backend, key);
     if (!s) return null;
     const base = { title: s.title + ' — ' + SITE, description: limit(s.synopsis || ('Lee ' + s.title + ' en español latino.'), 170), image: media(s.cover_path || s.cover_thumb_path, backend, origin), heading: s.title };
-    if (kind === 'serie') return base;
+    if (kind === 'serie') {
+      if (!volume) return base;
+      if (!/^\d{1,3}$/.test(volume) || Number(volume) < 1) return null;
+      const v = await query('volumes', {
+        series_id: 'eq.' + s.id, num: 'eq.' + String(Number(volume)),
+        status: 'eq.published', deleted_at: 'is.null',
+        select: 'num,title,synopsis,cover_path'
+      }, backend, key);
+      if (!v) return null;
+      const name = s.title + ' · Volumen ' + v.num;
+      return { title: name + ' — ' + SITE,
+        description: limit(v.synopsis || ('Descubre el volumen ' + v.num + ' de ' + s.title + '.'), 170),
+        image: media(v.cover_path || s.cover_path || s.cover_thumb_path, backend, origin),
+        heading: name };
+    }
     if (!/^\d{1,8}$/.test(chapter || '')) return null;
     const c = await query('chapters', { series_id: 'eq.' + s.id, num: 'eq.' + String(Number(chapter)), deleted_at: 'is.null', select: 'num,title,teaser' }, backend, key);
     if (!c) return null; // RLS debe ocultar cualquier capítulo no público.
@@ -103,6 +117,7 @@ export default async function handler(req, res) {
   const kind = String(q.get('kind') || '');
   const slug = String(q.get('slug') || '');
   const chapter = String(q.get('chapter') || '');
+  const volume = String(q.get('vol') || '');
   const isDraft = q.has('vista');
   let path = '/';
   if (kind === 'serie') path = '/serie/' + encodeURIComponent(slug);
@@ -110,9 +125,10 @@ export default async function handler(req, res) {
   else if (kind === 'equipo') path = '/equipo/' + encodeURIComponent(slug);
   else if (kind === 'lector') path = '/lector/' + encodeURIComponent(slug);
   else return res.status(404).end();
-  const canonical = origin + path;
+  const volumeKey = kind === 'serie' && /^\d{1,3}$/.test(volume) && Number(volume) > 0 ? String(Number(volume)) : '';
+  const canonical = origin + path + (volumeKey ? '?vol=' + volumeKey : '');
   let item = null, unavailable = false;
-  try { item = await publicData(kind, slug, chapter, origin); }
+  try { item = await publicData(kind, slug, chapter, volume, origin); }
   catch (e) { unavailable = true; console.warn('SEO pública temporalmente indisponible:', e.message); }
   const noindex = isDraft || !item || !!item.noindex || unavailable;
   const data = item || { title: SITE, description: DESC, image: origin + FALLBACK_IMAGE, heading: SITE };
