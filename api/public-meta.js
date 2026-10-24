@@ -144,6 +144,10 @@ export default async function handler(req, res) {
       if (!shell.ok) throw new Error('HTML público: ' + shell.status);
       html = await shell.text();
     }
+    // El shell contiene las etiquetas por defecto del Inicio: eliminarlas antes
+    // de insertar las específicas para evitar dos canonicals u Open Graph.
+    html = html.replace(/<link\s+rel="canonical"[^>]*>\s*/gi, '');
+    html = html.replace(/<meta\s+(?:property="og:[^"]+"|name="twitter:[^"]+")[^>]*>\s*/gi, '');
     html = html.replace(/<title>[\s\S]*?<\/title>/i, '<title>' + esc(data.title) + '</title>');
     html = html.replace(/<meta name="description"[^>]*>/i, '<meta name="description" content="' + esc(data.description) + '">');
     html = html.replace('</head>', tags(data, canonical, origin, noindex) + '</head>');
