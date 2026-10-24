@@ -14,6 +14,8 @@ assert.match(accessSql, /CREATE POLICY "collab decide"[\s\S]*?private\.can_edit_
 assert.match(accessSql, /CREATE POLICY "collab revoke sender"[\s\S]*?private\.can_edit_team\(inviter_team\)/, 'El remitente solo puede revocar');
 assert.match(accessSql, /status IN \('active', 'declined'\)/, 'Las decisiones solo pueden generar estados válidos');
 assert.match(accessSql, /status = 'revoked'/, 'La revocación debe tener un estado propio');
+assert.match(accessSql, /REVOKE UPDATE, DELETE, TRUNCATE ON public\.collaborations FROM anon, authenticated/, 'Revocar privilegios generales que permiten reasignar equipos u omitir RLS');
+assert.match(accessSql, /GRANT UPDATE \(status\) ON public\.collaborations TO authenticated/, 'Restringir las actualizaciones del cliente al estado de la invitación');
 const studioSource = readFileSync(new URL('../src/studio.js', import.meta.url), 'utf8');
 assert.match(studioSource, /\.eq\('status', COLLABORATION_STATUS\.active\)/, 'Las colaboraciones activas deben aparecer en Mis obras');
 assert.match(studioSource, /response = b\.dataset\.acc \? COLLABORATION_STATUS\.active : COLLABORATION_STATUS\.declined/, 'Aceptar y rechazar deben usar estados válidos');
