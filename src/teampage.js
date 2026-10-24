@@ -1,3 +1,4 @@
+import { attachPublicCredits, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
 import { SEASONS, PARTS, ANIMS, INTENS, DENS, activeSeason, ornURL, motifURL, stripURL, CSS as ACSS } from './anim.js?v=8';
 export { SEASONS, PARTS, ANIMS, INTENS, DENS, activeSeason };
 // Página pública del equipo: diseño compartido entre el sitio y el editor de Preferencias (vista previa idéntica).
@@ -256,7 +257,23 @@ export async function loadTeamData(sb, slug){
   }));
   // El feed solo consulta publicaciones de obras públicas; un error no bloquea el perfil.
   const recent = await import('./team-updates.js?v=1').then(m => m.loadTeamUpdates(sb, works || [])).catch(e => { console.warn('team updates', e); return []; });
-  return { t, works: works || [], mem: members, next: next?.[0] || null, recent };
+  // Mostrar únicamente obras públicas con colaboración aceptada.
+  let collaborations = [];
+  try {
+    const { data: accepted, error } = await sb.rpc('team_public_collaboration_series', { p_team_id: t.id });
+    if (error) throw error;
+    const ids = [...new Set((accepted || []).map(row => row.series_id).filter(Boolean))].slice(0, 200);
+    if (ids.length) {
+      const { data: shared, error: sharedError } = await sb.from('series')
+        .select('id,team_id,slug,title,short,synopsis,cover_path,translation_status,views,chapters(count),teams(name,slug,avatar_path)')
+        .in('id', ids).eq('published', true).is('archived_at', null).order('title');
+      if (sharedError) throw sharedError;
+      collaborations = (shared || []).filter(w => !(works || []).some(o => o.id === w.id));
+      await attachPublicCredits(sb, collaborations);
+    }
+  } catch (e) { console.warn('Créditos públicos de colaboración no disponibles:', e?.message || e); }
+  installCreditImageFallback();
+  return { t, works: works || [], collaborations, mem: members, next: next?.[0] || null, recent };
 }
 
 // Diseño con el tema de temporada aplicado (si hay uno vigente). sim = clave para simular en la vista previa.
@@ -272,16 +289,16 @@ export function render(D, design, h){
   const { esc, media } = h, d = effective(design, D.t.color, h.sim), t = D.t, S = t.settings || {}, on = k => S[k] !== false, L = d.layout;
   const LG = { ja: 'japonés', ko: 'coreano', zh: 'chino', en: 'inglés' }, langs = (t.langs || []).map(l => LG[l]).filter(Boolean);
   const LK = [['website', 'Sitio web'], ['patreon', 'Patreon'], ['kofi', 'Ko-fi'], ['discord', 'Discord'], ['twitter', 'X / Twitter']].filter(([k]) => /^https:\/\//.test(S[k] || ''));
-  const W = D.works, E = d.editorial, C = d.community, caps = W.reduce((a, w) => a + (w.chapters?.[0]?.count || 0), 0);
+  const W = D.works, SHARED = D.collaborations || [], E = d.editorial, C = d.community, caps = [...W,...SHARED].reduce((a, w) => a + (w.chapters?.[0]?.count || 0), 0);
   const featList = (d.featured.length ? d.featured : [S.featured_works]).map(sl => W.find(w => w.slug === sl)).filter(Boolean);
   const ban = t.banner_path ? `background-image:url('${esc(media(t.banner_path))}')` : '';
   const logo = `<span class="tp2-logo">${t.avatar_path ? `<img src="${esc(media(t.avatar_path))}" alt="">` : `<b>${esc(t.name.slice(0, 2).toUpperCase())}</b>`}</span>`;
-  const meta = [langs.length ? 'Traducimos del ' + langs.join(', ') : '', W.length + (W.length === 1 ? ' obra' : ' obras'), t.status && t.status !== 'Activo' ? t.status : ''].filter(Boolean).join(' · ');
+  const meta = [langs.length ? 'Traducimos del ' + langs.join(', ') : '', (W.length + SHARED.length) + (W.length + SHARED.length === 1 ? ' obra' : ' obras'), t.status && t.status !== 'Activo' ? t.status : ''].filter(Boolean).join(' · ');
   const SN0 = d.season && SEASONS[d.season], stamp0 = SN0 && d.seasons.deco !== 'min' ? `<span class="tp2-stamp"><i></i>${esc(SN0.l.toUpperCase())}</span>` : '';
   const name = `<h1 class="tp2-name">${esc(t.name)}</h1>${d.motto ? `<p class="tp2-motto">${esc(d.motto)}</p>` : ''}${L.showMeta ? `<p class="tp2-meta">${esc(meta)}</p>` : ''}${stamp0}`;
   const links = L.showLinks ? `<div class="tp2-links"><span class="tp2-fslot"></span>${LK.map(([k, l]) => `<a class="tp2-btn" href="${esc(S[k])}" target="_blank" rel="noopener">${l} ↗</a>`).join('')}</div>` : '<div class="tp2-links"><span class="tp2-fslot"></span></div>';
   const cover = w => `<span class="tp2-cv"${w.cover_path ? ` style="background-image:url('${esc(media(w.cover_path))}')"` : ''}>${w.cover_path ? '' : `<i>${esc(w.short || w.title)}</i>`}<span class="tp2-obi" aria-hidden="true"><b>${esc(w.short || w.title)}</b><small>${w.chapters?.[0]?.count || 0} cap.</small></span></span>`;
-  const stats = on('show_stats') ? `<div class="tp2-stats">${[[W.length, 'obras'], [caps, 'capítulos']].map(([v, k]) => `<span><b>${(+v).toLocaleString('es-MX')}</b><small>${k}</small></span>`).join('')}<span><b data-follow-count>—</b><small>seguidores</small></span><span><b>${D.mem.length.toLocaleString('es-MX')}</b><small>integrantes públicos</small></span></div>` : '';
+  const stats = on('show_stats') ? `<div class="tp2-stats">${[[(W.length + SHARED.length), 'obras'], [caps, 'capítulos']].map(([v, k]) => `<span><b>${(+v).toLocaleString('es-MX')}</b><small>${k}</small></span>`).join('')}<span><b data-follow-count>—</b><small>seguidores</small></span><span><b>${D.mem.length.toLocaleString('es-MX')}</b><small>integrantes públicos</small></span></div>` : '';
   const nextWork = D.next && W.find(w => w.slug === D.next.series?.slug);
   const nx = D.next ? `<a class="tp2-next${E.nextStyle === 'destacado' ? ' tp2-next-feature' : ''}" id="grupo-lanzamientos" data-at="${esc(D.next.at)}" href="/serie/${esc(D.next.series.slug)}">${E.nextStyle === 'destacado' && nextWork ? `<span class="tp2-next-cv">${cover(nextWork)}</span>` : ''}<span class="tp2-next-copy"><small>PRÓXIMO LANZAMIENTO</small><b>${esc(D.next.series.title)}${D.next.label ? ' · ' + esc(D.next.label) : ''}</b><span>${new Date(D.next.at).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</span></span></a>` : '';
   const featCard = f => `<a class="tp2-feat" href="/serie/${esc(f.slug)}">${cover(f)}<span><b>${esc(f.title)}</b><span class="tp2-syn">${esc(f.synopsis || '')}</span><span class="tp2-btn solid">Empezar a leer</span></span></a>`;
@@ -290,6 +307,7 @@ export function render(D, design, h){
   const ann = (A.title || A.text) && (!A.until || A.until >= today) ? `<aside class="tp2-ann tp2-ann-${C.announceStyle}" id="grupo-anuncios" aria-label="Aviso del equipo"><small>AVISO DEL EQUIPO</small>${A.title ? `<b>${esc(A.title)}</b>` : ''}${A.text ? `<p>${esc(A.text)}</p>` : ''}${A.until ? `<time datetime="${esc(A.until)}">Visible hasta el ${new Date(A.until + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</time>` : ''}${A.url ? `<a class="tp2-btn" href="${esc(A.url)}"${/^https/.test(A.url) ? ' target="_blank" rel="noopener"' : ''}>${esc(A.label || 'Ver más')}${/^https/.test(A.url) ? ' ↗' : ''}</a>` : ''}</aside>` : '';
   const grid = on('show_works') && W.length ? `<section class="tp2-sec" id="grupo-obras"><h2>Obras</h2><div class="tp2-works">${W.map(w => `<a href="/serie/${esc(w.slug)}" class="tp2-w">${cover(w)}<b>${esc(w.short || w.title)}</b><small>${w.chapters?.[0]?.count || 0} cap. · ${TLS[w.translation_status] || TLS.active}</small></a>`).join('')}</div></section>` : '';
   const list = on('show_works') && W.length ? `<section class="tp2-sec" id="grupo-obras"><h2>Obras</h2><div class="tp2-list">${W.map(w => `<a href="/serie/${esc(w.slug)}" class="tp2-li">${cover(w)}<span><b>${esc(w.title)}</b><small>${w.chapters?.[0]?.count || 0} capítulos · ${TLS[w.translation_status] || TLS.active}</small><span class="tp2-syn">${esc(w.synopsis || '')}</span></span></a>`).join('')}</div></section>` : '';
+  const sharedBlock = on('show_works') && SHARED.length ? `<section class="tp2-sec tp2-collab" id="grupo-colaboraciones"><h2>Obras en colaboración</h2><p class="tp2-syn">Obras en las que participa este equipo junto a otros traductores.</p><div class="tp2-works">${SHARED.map(w => `<a href="/serie/${esc(w.slug)}" class="tp2-w">${cover(w)}<b>${esc(w.short || w.title)}</b><small>${w.chapters?.[0]?.count || 0} cap. · ${TLS[w.translation_status] || TLS.active}</small>${creditsHTML(w, { esc, media, mode: 'carousel' })}</a>`).join('')}</div></section>` : '';
   const memberCard = m => {
     const username = String(m.profiles?.username || 'Integrante').trim();
     const role = m.role === 'owner' ? 'Propietario' : String(m.team_roles?.name || 'Integrante');
@@ -321,7 +339,7 @@ export function render(D, design, h){
   const composition = `<div class="tp2-composition" data-columns="${d.composition.columns}" data-mobile-order="${d.mobile.orderMode}">${orderedContent}</div>`;
   const closeText = C.ctaText || COMMUNITY_DEFAULT.ctaText;
   const closeCta = C.showCta ? `<aside class="tp2-community-cta" aria-label="Seguir al equipo"><div class="tp2-community-note"><small>COMUNIDAD DEL GRUPO</small><h2>${esc(closeText)}</h2><p>Sigue a ${esc(t.name)} para mantenerte al día de sus publicaciones.</p></div><span class="tp2-fslot3"></span></aside>` : '';
-  const flow = greet + composition + closeCta;
+  const flow = greet + composition + sharedBlock + closeCta;
   const tabItems = [
     ['grupo-inicio', 'Inicio', true],
     ['grupo-obras', 'Obras', L.navWorks && on('show_works') && W.length > 0 && !d.hidden.includes('works')],
