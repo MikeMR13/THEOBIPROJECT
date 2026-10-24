@@ -1,5 +1,6 @@
 import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=1';
 import { initCollaborationTeamPicker, COLLABORATION_STATUS } from './studio-collaboration-picker.js?v=1';
+import { seriesPublicationHTML, bindSeriesPublication } from './studio-series-publication.js?v=1';
 import { SECTION_TYPES } from './section-types.js?v=1';
 import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
 import { askEditorialAnnouncement, saveEditorialRecord, chooseActiveEditorial } from './editorial-announcements.js?v=1';
@@ -21,7 +22,7 @@ export function createStudio(ctx){
   const T = { userId: null, teams: [], team: null, perms: {}, works: null };
   const can = a => !!T.perms[a];
   const TZS = [['America/Mexico_City','Ciudad de México'],['America/Monterrey','Monterrey'],['America/Tijuana','Tijuana'],['America/Bogota','Bogotá'],['America/Lima','Lima'],['America/Caracas','Caracas'],['America/Santiago','Santiago de Chile'],['America/Argentina/Buenos_Aires','Buenos Aires'],['America/Montevideo','Montevideo'],['America/Guatemala','Centroamérica'],['America/Santo_Domingo','Santo Domingo'],['America/New_York','Nueva York · Miami'],['America/Los_Angeles','Los Ángeles'],['Europe/Madrid','Madrid'],['Asia/Tokyo','Tokio'],['UTC','UTC']];
-  // por defecto: hora del dispositivo; cada quien puede cambiar a la hora del equipo
+  // Zona del dispositivo por defecto; se puede usar la del equipo.
   const devTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   const tzPick = () => localStorage.getItem('obi-tz-pick') || (localStorage.getItem('obi-tz-mode') === 'team' ? 'team' : 'device');
   const tz = () => { const k = tzPick(); return k === 'team' ? (T.tz || devTz()) : k === 'device' ? devTz() : k; };
@@ -43,7 +44,7 @@ export function createStudio(ctx){
   const ROLE_L = { owner: 'Propietario', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
   const NAV = [['/estudio','総','Resumen'],['/estudio/anuncios','告','Anuncios'],['/estudio/obras','作','Obras'],['/estudio/glosario','語','Glosario'],['/estudio/importar','入','Importar'],['/estudio/multimedia','画','Multimedia'],['/estudio/flujo','流','Flujo de trabajo'],['/estudio/comunidad','評','Comunidad'],['/estudio/estadisticas','統','Estadísticas'],['/estudio/descargas','落','Descargas'],['/estudio/perfil','顔','Página del equipo'],['/estudio/preferencias','彩','Preferencias'],['/estudio/equipo','班','Equipo'],['/estudio/bitacora','録','Bitácora','log']];
   const CRUMB = { '/estudio': 'RESUMEN', '/estudio/obras': 'OBRAS', '/estudio/nueva': 'NUEVA OBRA', '/estudio/glosario': 'GLOSARIO', '/estudio/importar': 'IMPORTAR', '/estudio/multimedia': 'MULTIMEDIA', '/estudio/equipo': 'EQUIPO', '/estudio/flujo': 'FLUJO DE TRABAJO', '/estudio/preferencias': 'PREFERENCIAS', '/estudio/anuncios': 'ANUNCIOS', '/estudio/perfil': 'PÁGINA DEL EQUIPO', '/estudio/bitacora': 'BITÁCORA', '/estudio/comunidad': 'COMUNIDAD', '/estudio/estadisticas': 'ESTADÍSTICAS', '/estudio/descargas': 'DESCARGAS', '/estudio/obra': 'OBRAS · FICHA' };
-  // Las agrupaciones son visuales: las rutas y los permisos siguen definidos en NAV.
+  // Grupos visuales; NAV conserva rutas y permisos.
   const NAV_GROUPS = [
     ['PUBLICACIONES Y CONTENIDO', ['/estudio','/estudio/obras','/estudio/importar','/estudio/multimedia','/estudio/glosario','/estudio/flujo']],
     ['DIFUSIÓN Y SEGUIMIENTO', ['/estudio/anuncios','/estudio/comunidad','/estudio/estadisticas','/estudio/descargas']],
@@ -114,7 +115,7 @@ export function createStudio(ctx){
       <div class="s2-bellw"><button type="button" class="s2-bell" id="st-bell" aria-label="Avisos" aria-controls="st-bell-list" aria-expanded="false"><span aria-hidden="true">鈴</span><em id="st-bell-n" hidden></em></button><div class="s2-pop" id="st-bell-list" hidden></div></div>
       <div class="s2-srch"><input id="st-q" type="search" placeholder="Buscar en el Estudio…" autocomplete="off" aria-label="Buscar en el Estudio" aria-controls="st-q-res" aria-expanded="false"><div class="s2-pop" id="st-q-res" hidden></div></div>
     </div>`; };
-  // el mismo menú de cuenta que en el sitio (foto, Mi perfil, Preferencias, Salir…), copiado del encabezado público
+  // Menú de cuenta compartido con el sitio.
   const mountMe = () => { const slot = document.getElementById('st-me'), src = document.querySelector('#session .ob-user'); if (!slot || !src || slot.dataset.ok) return; slot.dataset.ok = '1';
     const d = src.cloneNode(true); d.open = false; const out = d.querySelector('#out'); if (out) { out.removeAttribute('id'); out.onclick = () => document.getElementById('out')?.click(); }
     d.querySelector('.ob-menu')?.addEventListener('click', e => { if (e.target.closest('a')) d.open = false; });
@@ -294,7 +295,7 @@ export function createStudio(ctx){
   // original al crear obras manualmente, sin cargar el importador completo.
   const slugify = s => (s || 'obra').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
 
-  // ---------- nueva obra: misma ficha que el importador, sin publicar automáticamente ----------
+  // Nueva obra: ficha privada compatible con el importador
   async function newWork(){
     if (!(await ensure())) return;
     const TAB = '/estudio/obras';
@@ -485,7 +486,7 @@ export function createStudio(ctx){
     const D = { title: s.title || '', short: s.short || '', original: s.original || '', title_romaji: s.title_romaji || '', publisher: s.publisher || '', author: s.author || '', illustrator: s.illustrator || '', work_type: s.work_type || 'Novela ligera', demographic: s.demographic || '', translation_status: s.translation_status || 'active', original_status: s.original_status || '', synopsis: s.synopsis || '', adult: !!s.adult, genres: [...(s.genres || [])], tags: [...(s.tags || [])] };
     const sel = (k, opts) => `<select data-d="${k}">${opts.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}" ${String(D[k]) === v ? 'selected' : ''}>${esc(l)}</option>`; }).join('')}</select>`;
     const inp = (k, l, a = '') => `<label>${l}<input data-d="${k}" value="${esc(D[k])}" ${a}></label>`;
-    const datos = () => `<div class="wk-dat">
+    const datos = () => `<div class="wk-dat">${seriesPublicationHTML(s, V, can, esc, toLocal, tzHint)}
       <section class="wk-box"><h2>Ficha</h2>${inp('title', 'Título en español', 'maxlength="500"')}${inp('short', 'Título corto (cinta y lomo)', 'maxlength="26"')}${inp('original', 'Título original', 'maxlength="300"')}${inp('title_romaji', 'Lectura / rōmaji del título', 'maxlength="300"')}${inp('publisher', 'Editorial', 'maxlength="120"')}
         <div class="wk-g2">${inp('author', 'Autor', 'maxlength="120"')}${inp('illustrator', 'Ilustración', 'maxlength="120"')}
           <label>Tipo${sel('work_type', WTYPES)}</label><label>Demografía${sel('demographic', WORK_DEMOGRAPHICS.map(([k,l]) => [k,l]))}<small class="mono" id="wk-dem-desc">${esc((WORK_DEMOGRAPHICS.find(x => x[0] === D.demographic) || WORK_DEMOGRAPHICS[0])[2])}</small></label>
@@ -528,6 +529,7 @@ export function createStudio(ctx){
     if (tab === 'descargas') renderDownloads(s.id, app.querySelector('#wk-downloads'));
     const on = (sel2, fn) => app.querySelectorAll(sel2).forEach(b => b.onclick = e => { e.preventDefault(); busy(b, () => fn(b)); });
     const again = () => work(slug);
+    if (tab === 'datos') bindSeriesPublication({ app, sb, series: s, can, fromLocal, fmtTz, busy, toast, refresh: again });
     app.querySelectorAll('[data-tab]').forEach(a => a.onclick = e => { e.preventDefault(); history.replaceState({}, '', a.dataset.tab === 'caps' ? location.pathname : location.pathname + '?tab=' + a.dataset.tab); again(); });
     app.querySelectorAll('[data-tog]').forEach(b => b.onclick = () => { const id = b.dataset.tog; open.has(id) ? open.delete(id) : open.add(id); again(); });
     on('#wk-new', async () => { const v = V[V.length - 1]; if (!v) throw new Error('Crea primero un volumen'); const num = Math.max(0, ...allNums) + 1; const { data, error } = await sb.from('chapters').insert({ series_id: s.id, volume_id: v.id, vol: v.num, num, title: 'Capítulo ' + num, body: [], status: 'draft', section_type: 'Capítulo' }).select('id').single(); if (error) throw error; go('/estudio/editar/' + data.id); });
@@ -1136,7 +1138,7 @@ export function createStudio(ctx){
     };
   }
 
-  // ---------- equipo: integrantes, roles a medida, tablero, bitácora y página del equipo ----------
+  // Equipo: roles, tablero, bitácora y perfil
   const PERMS = [['view','Ver el Estudio','Siempre activo'],['edit','Editar texto','Editor, títulos y ajustes del capítulo'],['create','Crear','Obras, volúmenes y capítulos'],['import','Importar','EPUB, DOCX y PDF'],['publish','Publicar y retirar','Incluye publicar ahora'],['schedule','Programar','Fechas de lanzamiento'],['delete','Borrar','Capítulos, volúmenes y archivos'],['review','Aprobar revisiones','Cuando el equipo exige aprobación'],['board','Mover tarjetas','Tablero de trabajo y asignaciones'],['members','Gestionar integrantes y roles','Solo lo concede el propietario'],['profile','Editar la página del equipo','Nombre, logo, colores y enlaces'],['log','Ver la bitácora','Historial de acciones del equipo']];
   const SWATCH = ['#f2c230','#d9922b','#f59e7a','#c9a8f2','#8cc3f2','#a9d18e','#a89f8a'];
   const ini = s => (s || '?').replace(/^@/, '').slice(0, 2).toUpperCase();
@@ -1595,7 +1597,7 @@ export function createStudio(ctx){
     draw();
   }
 
-  // ---------- Preferencias: diseño de la página pública del equipo ----------
+  // Preferencias: diseño de página de equipo
   async function prefs(){
     if (!(await ensure())) return;
     const TAB = '/estudio/preferencias';
@@ -1748,7 +1750,7 @@ export function createStudio(ctx){
           </div>
           <span class="pf-note" role="status">La simulación no altera el borrador ni el tema publicado.</span>
         </div><div class="pf-pvbar"><span class="mono" id="pf-pvl">VISTA PREVIA DEL BORRADOR</span><button type="button" class="ed-btn" id="pf-cmp" aria-pressed="false">Comparar con lo publicado</button><select id="pf-sim" aria-label="Simular temporada" class="pf-simsel"><option value="auto">Temporada: según la fecha</option><option value="">Sin temporada</option>${Object.entries(AN.SEASONS).map(([k, s]) => `<option value="${k}">Simular ${s.l}</option>`).join('')}</select><span class="pf-seg"><button type="button" data-dev="desk">Escritorio</button><button type="button" data-dev="mobile">Móvil</button></span></div><div class="pf-frame" id="pf-frame"></div></div></div></div>`;
-    // La edición de la lectura del equipo es independiente de la vista previa visual.
+    // Lectura de equipo independiente de vista previa.
     const teamDefaultsUser = getUser()?.id, teamDefaultsTeam = T.team.id;
     void mountTeamReaderDefaults({ app, sb, teamId: teamDefaultsTeam, esc, notify: toast,
       allowed: () => getUser()?.id === teamDefaultsUser && T.team?.id === teamDefaultsTeam && can('profile')
