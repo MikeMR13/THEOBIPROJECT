@@ -44,3 +44,25 @@ GRANT EXECUTE ON FUNCTION public.series_public_credits(uuid[]) TO anon, authenti
 
 -- Comprobar: una obra no publicada no debe devolver ninguna fila.
 -- La invitación pending de Saitou tampoco debe devolver crédito hasta que se acepte.
+
+-- Listado inverso para la página pública del equipo colaborador.
+-- Solo identificadores de obras publicadas con colaboración activa, nunca invitaciones.
+CREATE OR REPLACE FUNCTION public.team_public_collaboration_series(p_team_id uuid)
+RETURNS TABLE(series_id uuid)
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+  SELECT DISTINCT s.id
+  FROM public.collaborations c
+  JOIN public.series s ON s.id = c.series_id
+  WHERE c.invited_team = p_team_id
+    AND c.status = 'active'
+    AND s.team_id <> p_team_id
+    AND s.published IS TRUE
+    AND s.archived_at IS NULL
+    AND s.translation_status NOT IN ('abandoned','withdrawn')
+$function$;
+
+REVOKE ALL ON FUNCTION public.team_public_collaboration_series(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.team_public_collaboration_series(uuid) TO anon, authenticated;
