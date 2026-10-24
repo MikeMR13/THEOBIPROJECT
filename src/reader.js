@@ -1,11 +1,13 @@
 // Lector de El Obi del Lector: por capítulo o continuo, fuentes EPUB, progreso exacto, leídos, historial, sin conexión y anotaciones.
 const OFF_CACHE = 'obi-offline-v1', OFF_INDEX = 'obi-offline-index', PREF_KEY = 'obi-reader-prefs';
 import { cleanInline, renderBlock, warningsHTML, teaserHTML } from './blocks.js?v=2';
+import { attachPublicCredits, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
 const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true };
 const COLORS = { gold: '#f2c230', rose: '#f29bb0', sky: '#8cc3f2', mint: '#9fdcb0' };
 const SEC_LABEL = { 'Capítulo': 'Cap.', 'Prólogo': 'Prólogo', 'Interludio': 'Interludio', 'Epílogo': 'Epílogo', 'Afterword': 'Epílogo del autor', 'Extra': 'Extra' };
 
 export function createReader(ctx){
+  installCreditImageFallback();
   const { sb, app, $, esc, toast, go, getUser, url } = ctx;
   const media = p => p ? (/^https?:/.test(p) ? p : `${url}/storage/v1/object/public/obi-media/${encodeURI(p)}`) : '';
   const S = { series: null, chapters: [], vols: [], bodies: new Map(), prefs: null, remote: null, mounted: [], active: null, annots: [], saveT: 0, readMarked: new Set(), historyLogged: new Set() };
@@ -34,7 +36,8 @@ export function createReader(ctx){
       sb.from('series').select('id,slug,title,team_id,teams(name,slug,status,avatar_path,settings,reader_defaults)').eq('slug', slug).maybeSingle(),
       sb.from('chapters').select(CH_COLS + ',series!inner(slug)').eq('series.slug', slug).is('deleted_at', null).order('num'),
       sb.from('volumes').select('id,num,title,epub_fonts,series!inner(slug)').eq('series.slug', slug).is('deleted_at', null).order('num')
-    ]).then(([a, b, c]) => { const e = a.error || b.error || c.error; if (e) throw e; if (!a.data) return null;
+    ]).then(async ([a, b, c]) => { const e = a.error || b.error || c.error; if (e) throw e; if (!a.data) return null;
+      await attachPublicCredits(sb, [a.data]);
       const strip = l => (l || []).map(({ series, ...x }) => x);
       const m = { series: a.data, chapters: strip(b.data), vols: strip(c.data), at: Date.now() };
       try { const j = JSON.stringify(m); if (j.length < 400000) localStorage.setItem(META_KEY(slug), j); } catch {}
@@ -56,6 +59,8 @@ export function createReader(ctx){
     }
     if (!m?.series) return false;
     setSeries(m); const s = m.series;
+    // La copia local de metadatos puede contener créditos anteriores; refrescar tras abrir.
+    if (hit) await attachPublicCredits(sb, [s]);
     // calendario y glosario no bloquean la apertura: llegan después y se aplican solos
     S.extras = Promise.all([
       sb.from('schedule').select('at').eq('series_id', s.id).gte('at', new Date().toISOString()).order('at').limit(1).then(r => r.data?.[0]?.at || null, () => null),
@@ -130,15 +135,11 @@ export function createReader(ctx){
   // ---------- render de bloques ----------
   const block = (b, i, p) => renderBlock(b, i, { media, illus: p.illus });
   const nextWhen = () => S.nextAt ? new Date(S.nextAt).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
-  // crédito del equipo arriba del capítulo: su PNG (si lo subió y no lo desactivó) o el nombre, enlazando a su página
+  // Créditos equivalentes para el traductor principal y todos los equipos aceptados.
+  // La lista pública procede únicamente de colaboraciones activas; el lector respeta show_reader_logo.
   function teamHTML(){
-    const t = S.series?.teams; if (!t?.name) return '';
-    const href = t.slug && (!t.status || /^(active|activo)$/i.test(t.status)) ? `/equipo/${esc(t.slug)}` : null, logo = t.avatar_path && t.settings?.show_reader_logo !== false ? media(t.avatar_path) : '';
-    const inner = logo ? `<img src="${esc(logo)}" alt="Traducido por ${esc(t.name)}" decoding="async">` : `<span class="mono">Traducido por ${esc(t.name)}</span>`;
-    return href ? `<a class="rd-team${logo ? ' has-logo' : ''}" href="${href}" title="Ver la página de ${esc(t.name)}">${inner}</a>` : `<span class="rd-team${logo ? ' has-logo' : ''}">${inner}</span>`;
+    return creditsHTML(S.series, { esc, media, mode: 'reader' });
   }
-  // si el PNG no carga, queda el crédito en texto
-  document.addEventListener('error', e => { const i = e.target; if (i?.matches?.('.rd-team img')) { i.parentElement.classList.remove('has-logo'); i.replaceWith(Object.assign(document.createElement('span'), { className: 'mono', textContent: i.alt })); } }, true);
   function chapterHTML(ch, blocks, p){
     const vol = volOf(ch); ensureFonts(vol);
     const label = (SEC_LABEL[ch.section_type] || 'Cap.') + (ch.section_type === 'Capítulo' || !ch.section_type ? ' ' + ch.num : '');
