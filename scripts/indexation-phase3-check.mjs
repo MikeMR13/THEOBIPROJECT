@@ -62,7 +62,7 @@ try {
   r=await run(robots);
   assert.equal(r.statusCode,200);
   assert.match(r.body,/Sitemap: https:\/\/elobidellector.com\/sitemap.xml/);
-  assert.match(r.body,/Disallow: \/\*\\?vista=/);
+  assert.ok(r.body.includes('Disallow: /*?vista='));
   assert.match(r.body,/Disallow: \/estudio/);
   assert.doesNotMatch(r.body,/Disallow: \/serie/);
   r=await run(robots,'POST');assert.equal(r.statusCode,405);
