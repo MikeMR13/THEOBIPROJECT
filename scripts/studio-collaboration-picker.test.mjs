@@ -16,6 +16,11 @@ assert.match(accessSql, /status IN \('active', 'declined'\)/, 'Las decisiones so
 assert.match(accessSql, /status = 'revoked'/, 'La revocación debe tener un estado propio');
 assert.match(accessSql, /REVOKE UPDATE, DELETE, TRUNCATE ON public\.collaborations FROM anon, authenticated/, 'Revocar privilegios generales que permiten reasignar equipos u omitir RLS');
 assert.match(accessSql, /GRANT UPDATE \(status\) ON public\.collaborations TO authenticated/, 'Restringir las actualizaciones del cliente al estado de la invitación');
+const memberSql = readFileSync(new URL('../sql/collaborations-explicit-team-membership.sql', import.meta.url), 'utf8');
+assert.match(memberSql, /CREATE POLICY "collab decide"[\s\S]*?private\.team_role_of\(invited_team\) IS NOT NULL/, 'Aceptar exige ser miembro del equipo invitado, incluso para administradores de plataforma');
+assert.match(memberSql, /CREATE POLICY "collab revoke sender"[\s\S]*?private\.team_role_of\(inviter_team\) IS NOT NULL/, 'Revocar exige ser miembro del equipo remitente');
+assert.equal((memberSql.match(/private\.team_role_of\(invited_team\) IS NOT NULL/g) || []).length, 2, 'Validar rol de invitado tanto en USING como en WITH CHECK');
+assert.equal((memberSql.match(/private\.team_role_of\(inviter_team\) IS NOT NULL/g) || []).length, 2, 'Validar rol de remitente tanto en USING como en WITH CHECK');
 const studioSource = readFileSync(new URL('../src/studio.js', import.meta.url), 'utf8');
 assert.match(studioSource, /\.eq\('status', COLLABORATION_STATUS\.active\)/, 'Las colaboraciones activas deben aparecer en Mis obras');
 assert.match(studioSource, /response = b\.dataset\.acc \? COLLABORATION_STATUS\.active : COLLABORATION_STATUS\.declined/, 'Aceptar y rechazar deben usar estados válidos');
