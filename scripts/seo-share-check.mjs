@@ -5,10 +5,10 @@ import handler from '../api/public-meta.js';
 
 const shell = '<!doctype html><html><head><title>El Obi del Lector</title><link rel="canonical" href="https://elobidellector.com/"><meta property="og:title" content="Inicio"><meta name="twitter:card" content="summary_large_image"><meta name="description" content="Antigua"></head><body><main id="app" tabindex="-1" aria-live="polite"></main></body></html>';
 const data = {
-  series: { id: 7, slug: 'ejemplo', title: 'Obra <especial>', synopsis: 'Una aventura original', cover_path: 'portadas/ejemplo.jpg' },
-  chapters: { num: 12, title: 'Comienza el viaje', teaser: 'El capítulo doce' },
-  volumes: { num: 2, title: 'Viaje del Oeste', synopsis: 'Segundo volumen', cover_path: 'volumenes/dos.jpg' },
-  teams: { name: 'Grupo Test', slug: 'grupo', bio: 'Traducciones originales', banner_path: 'equipos/grupo.jpg' },
+  series: { id: 7, slug: 'ejemplo', title: 'Obra <especial>', synopsis: 'Una aventura original', cover_path: 'portadas/ejemplo.jpg', access: 'public', author: 'Autora de prueba', genres: ['Fantasía'] },
+  chapters: { num: 12, title: 'Comienza el viaje', teaser: 'El capítulo doce', access: 'public', status: 'published', publish_at: '2026-01-01T00:00:00Z' },
+  volumes: { num: 2, title: 'Viaje del Oeste', synopsis: 'Segundo volumen', cover_path: 'volumenes/dos.jpg', access: 'public', published_at: '2026-01-01T00:00:00Z' },
+  teams: { name: 'Grupo Test', slug: 'grupo', bio: 'Traducciones originales', banner_path: 'equipos/grupo.jpg', status: 'Activo' },
   reader: { username: 'ana', bio: 'Me gusta leer novelas', avatar_url: '' }
 };
 const originalFetch = globalThis.fetch, oldEnv = { ...process.env };
@@ -46,6 +46,10 @@ try {
   assert.match(r.body, /https:\/\/elobidellector.com\/serie\/ejemplo/);
   assert.doesNotMatch(r.body, /<title>Obra <especial>/);
   assert.match(r.body, /<section aria-label="Presentación pública"/);
+  assert.match(r.body, /application\/ld\+json/);
+  assert.match(r.body, /BreadcrumbList/);
+  assert.match(r.body, /\\u003cspecial\\u003e/);
+  assert.doesNotMatch(r.body, /<special>/);
   r = await run('/api/public-meta?kind=serie&slug=ejemplo&vol=2');
   assert.equal(r.statusCode, 200);
   assert.match(r.body, /Volumen 2/);
