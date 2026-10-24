@@ -84,6 +84,8 @@ try {
   assert.ok(conf.rewrites.some(x=>x.source==='/robots.txt'));
   assert.ok(conf.rewrites.some(x=>x.source==='/sitemap.xml'));
   assert.ok(conf.functions?.['api/sitemap.js']);
+  assert.ok(!conf.rewrites.some(x=>x.source === '/((?!.*\\\\.).*)'));
+  for (const path of ['/catalogo', '/calendario', '/perfil', '/estudio', '/estudio/:path*', '/anotaciones/:slug']) assert.ok(conf.rewrites.some(x=>x.source === path),path);
   const html=readFileSync(new URL('../src/index.html',import.meta.url),'utf8');
   assert.match(html,/\"@type\":\"WebSite\"/);
   console.log('fase3-seo: sitemap, robots, privacidad, XML, estados y JSON-LD OK');
