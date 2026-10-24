@@ -1,5 +1,7 @@
 // Selector seguro de equipos para los créditos compartidos de una obra.
 // El texto escrito nunca se usa como destinatario: siempre se invita al ID seleccionado.
+// Estados alineados con public.collaborations_status_check en Supabase.
+export const COLLABORATION_STATUS = Object.freeze({ pending: 'pending', active: 'active', declined: 'declined', revoked: 'revoked' });
 export function normalizeCollaboratorQuery(value) {
   return String(value || '').trim().replace(/^@/, '').replace(/[%_\\]/g, '').trim().slice(0, 80);
 }
@@ -156,7 +158,7 @@ export function initCollaborationTeamPicker({ sb, input, list, status, invite, o
         throw new Error('Ya existe una invitación para este equipo y esta obra');
       }
       const { error } = await sb.from('collaborations').insert({
-        series_id: seriesId, inviter_team: ownTeamId, invited_team: team.id, status: 'pending'
+        series_id: seriesId, inviter_team: ownTeamId, invited_team: team.id, status: COLLABORATION_STATUS.pending
       });
       if (error) throw error.code === '23505' ? new Error('Ya existe una invitación para este equipo y esta obra') : error;
       toast('Invitación enviada a ' + team.name);
