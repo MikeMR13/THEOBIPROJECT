@@ -55,6 +55,14 @@ assert.match(safe,/&lt;img/);
 const fallback={id:'offline',team_id:'t-owner',teams:{name:'Principal',slug:'principal',avatar_path:'principal.png'}};
 await attachPublicCredits({rpc:async()=>({data:null,error:{message:'RPC no instalada'}})},[fallback]);
 assert.equal(creditTeams(fallback).length,1);
+const stale={id:'revoked',team_id:'t-owner',
+  teams:{name:'Principal',slug:'principal',avatar_path:'principal.png'},
+  publicCredits:[{team_id:'t-owner',name:'Principal',slug:'principal',is_primary:true},
+    {team_id:'t-old',name:'Revocada',slug:'revocada',avatar_path:'stale.png'}]};
+await attachPublicCredits({rpc:async()=>({data:null,error:{message:'sin conexión'}})},[stale]);
+assert.equal(creditTeams(stale).length,1,'No conservar PNGs sin poder confirmar colaboradores');
+assert.doesNotMatch(creditsHTML(stale,{esc,media,mode:'detail'}),/stale\.png/);
+
 
 // Contrato público: obras publicadas y únicamente estado active.
 const sql=readFileSync(new URL('../sql/public-accepted-collaborator-credits.sql',import.meta.url),'utf8');
@@ -66,6 +74,17 @@ assert.doesNotMatch(sql,/(?:c\.status = 'pending'|c\.status IN \('pending')/);
 const ui=readFileSync(new URL('../src/ui.js',import.meta.url),'utf8');
 const rd=readFileSync(new URL('../src/reader.js',import.meta.url),'utf8');
 assert.match(ui,/await attachPublicCredits\(sb, list\)/);
+assert.match(ui,/await attachPublicCredits\(sb, ser \|\| \[\]\)/, 'Lanzamientos deben mostrar colaboradores aceptados');
+assert.match(ui,/creditTeams\(g\.s\)\.some\(t => t\.name === R\.team\)/, 'Filtrar lanzamientos por equipo colaborador');
+const calendar=readFileSync(new URL('../src/agenda.js',import.meta.url),'utf8');
+assert.match(calendar,/await attachPublicCredits\(sb, Object\.values\(D\.series\)/, 'El calendario debe resolver logos de colaboradores');
+assert.match(calendar,/creditTeams\(g\.s\)\.some\(t => t\.slug === V\.team\)/, 'Filtrar calendario por colaboradores');
+const teamPage=readFileSync(new URL('../src/teampage.js',import.meta.url),'utf8');
+assert.match(teamPage,/team_public_collaboration_series/, 'La página de equipo muestra obras compartidas');
+assert.match(teamPage,/Obras en colaboración/);
+assert.match(teamPage,/creditsHTML\(w, \{ esc, media, mode: 'carousel' \}\)/);
+assert.match(sql,/CREATE OR REPLACE FUNCTION public\.team_public_collaboration_series/);
+assert.match(sql,/REVOKE ALL ON FUNCTION public\.team_public_collaboration_series\(uuid\) FROM PUBLIC/);
 assert.match(ui,/mode: 'carousel'/);
 assert.match(ui,/mode: 'detail'/);
 assert.match(rd,/creditsHTML\(S\.series, \{ esc, media, mode: 'reader' \}\)/);
