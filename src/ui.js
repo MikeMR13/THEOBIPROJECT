@@ -401,6 +401,11 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 @media(min-width:601px) and (max-width:1100px){
  .ob-hero .ob-hero-team-logo{width:clamp(78px,8vw,94px)}
 }
+/* Solo el PNG del equipo propietario crece en escritorio; mantener tamaño y
+   reglas de los logos de colaboradores (.ob-hero-partners) y fallback de texto. */
+@media(min-width:1101px){
+ .ob-hero .ob-hero-team-logo:not(.is-text){width:clamp(116px,8vw,140px)}
+}
 .ob-fest{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:22px 0 0;padding:12px 16px;border:1px solid var(--fc);border-left:4px solid var(--fc);background:color-mix(in srgb,var(--fc) 9%,#16140f);color:var(--paper);text-decoration:none}
 .ob-fest:hover{color:var(--paper);background:color-mix(in srgb,var(--fc) 15%,#16140f)}.ob-fest b{font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:18px}.ob-fest span{font-size:13px;color:var(--mute)}.ob-fest em{margin-left:auto;font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--fc)}
 .ob-tick a:hover{text-decoration:underline!important;text-underline-offset:3px}.ob-tick:hover .ob-track{animation-play-state:paused}
