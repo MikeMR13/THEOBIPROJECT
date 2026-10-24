@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 // Metadatos públicos renderizados en la respuesta HTTP para bots y navegadores.
 // La aplicación SPA original sigue siendo la encargada de la navegación y la lectura.
 const SITE = 'El Obi del Lector';
@@ -117,9 +118,16 @@ export default async function handler(req, res) {
   const data = item || { title: SITE, description: DESC, image: origin + FALLBACK_IMAGE, heading: SITE };
   try {
     // Se solicita el HTML compilado, para conservar sellos de caché y todas las funciones SPA.
-    const shell = await fetch(origin + '/index.html', { headers: { Accept: 'text/html' }, signal: AbortSignal.timeout(3500) });
-    if (!shell.ok) throw new Error('HTML público: ' + shell.status);
-    let html = await shell.text();
+    let html;
+    try {
+      // Este archivo viaja dentro de la función Vercel: funciona también tras SSO.
+      html = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
+    } catch {
+      // Alternativa útil en desarrollo local; no se usa en deploy normal.
+      const shell = await fetch(origin + '/index.html', { headers: { Accept: 'text/html' }, signal: AbortSignal.timeout(3500) });
+      if (!shell.ok) throw new Error('HTML público: ' + shell.status);
+      html = await shell.text();
+    }
     html = html.replace(/<title>[\s\S]*?<\/title>/i, '<title>' + esc(data.title) + '</title>');
     html = html.replace(/<meta name="description"[^>]*>/i, '<meta name="description" content="' + esc(data.description) + '">');
     html = html.replace('</head>', tags(data, canonical, origin, noindex) + '</head>');
