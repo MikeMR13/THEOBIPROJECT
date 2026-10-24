@@ -384,7 +384,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 .ob-hero .ob-hero-team-logo.is-text span{display:block;width:100%;max-width:100%;font:600 12px/1.4 'IBM Plex Mono',monospace;overflow-wrap:anywhere;text-wrap:balance}
 .ob-hero .ob-hero-team-logo:hover,.ob-hero .ob-hero-team-logo:focus-visible{color:var(--gold)}
 .ob-hero .ob-hero-team-logo:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
-.ob-hero .ob-hero-head+h1{margin-top:clamp(12px,1.25vw,18px)}
+.ob-hero .ob-hero-head+h1{margin-top:clamp(16px,1.5vw,20px)}
 @media(max-width:600px){
  .ob-hero .ob-hero-head{column-gap:10px}
  .ob-hero .ob-hero-team-logo{width:80px}
