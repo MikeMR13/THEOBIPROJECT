@@ -1,6 +1,15 @@
 // Pruebas sin credenciales ni red: resultados, selección explícita y bloqueo de duplicados.
 import assert from 'node:assert/strict';
-import { normalizeCollaboratorQuery, unavailableCollaboratorReason, rankCollaboratorTeams, initCollaborationTeamPicker } from '../src/studio-collaboration-picker.js';
+import { readFileSync } from 'node:fs';
+import { normalizeCollaboratorQuery, unavailableCollaboratorReason, rankCollaboratorTeams, initCollaborationTeamPicker, COLLABORATION_STATUS } from '../src/studio-collaboration-picker.js';
+
+// Los valores que envía Estudio deben coincidir con collaborations_status_check.
+assert.deepEqual(Object.values(COLLABORATION_STATUS), ['pending', 'active', 'declined', 'revoked']);
+const studioSource = readFileSync(new URL('../src/studio.js', import.meta.url), 'utf8');
+assert.match(studioSource, /\.eq\('status', COLLABORATION_STATUS\.active\)/, 'Las colaboraciones activas deben aparecer en Mis obras');
+assert.match(studioSource, /response = b\.dataset\.acc \? COLLABORATION_STATUS\.active : COLLABORATION_STATUS\.declined/, 'Aceptar y rechazar deben usar estados válidos');
+assert.match(studioSource, /\.eq\('status', COLLABORATION_STATUS\.pending\)\.select\('id'\)\.maybeSingle\(\)/, 'No se deben confirmar respuestas sin un cambio en la base');
+assert.doesNotMatch(studioSource, /\.eq\('status', 'accepted'\)|status: b\.dataset\.acc \? 'accepted' : 'rejected'/, 'No se deben guardar estados rechazados por el CHECK');
 
 assert.equal(normalizeCollaboratorQuery(' @Equipo%_\\ '), 'Equipo');
 assert.equal(normalizeCollaboratorQuery('  @nombre con espacios '), 'nombre con espacios');
@@ -107,7 +116,7 @@ const chosen = list.children.find(x => !x.disabled && x.children[1].children[1].
 await chosen.fire('click');
 await invite.fire('click');
 assert.equal(sent.length, 1);
-assert.deepEqual(sent[0], { series_id: 'series-1', inviter_team: 't-own', invited_team: 't-new', status: 'pending' });
+assert.deepEqual(sent[0], { series_id: 'series-1', inviter_team: 't-own', invited_team: 't-new', status: COLLABORATION_STATUS.pending });
 assert.equal(refreshes, 1);
 assert.match(notices[0], /Otro Grupo/);
 await invite.fire('click');
