@@ -17,11 +17,10 @@ function currentURL() {
   // No propagar tokens de vista previa ni parámetros de preferencias/usuario.
   return location.origin + location.pathname;
 }
-function menu() {
-  const url = currentURL(), title = currentTitle();
+function menu(url = currentURL(), title = currentTitle()) {
   const msg = encodeURIComponent(title + '\n' + url);
   const tg = encodeURIComponent(url);
-  return '<details class="obi-share"><summary aria-label="Opciones para compartir esta página">↗ Compartir</summary>' +
+  return '<details class="obi-share" data-share-url="' + esc(url) + '" data-share-title="' + esc(title) + '"><summary aria-label="Opciones para compartir esta página">↗ Compartir</summary>' +
     '<div class="obi-share-menu"><button type="button" data-obi-share="native">Compartir…</button>' +
     '<button type="button" data-obi-share="copy">Copiar enlace</button>' +
     '<a rel="noopener noreferrer" target="_blank" href="https://wa.me/?text=' + msg + '">WhatsApp</a>' +
@@ -49,12 +48,29 @@ function insertMenu() {
   if (p.startsWith('/equipo/')) { el.dataset.placement = 'team'; target.prepend(el); }
   else if (p.startsWith('/leer/')) target.append(el);
   else target.append(el);
+  if (p.startsWith('/serie/')) {
+    document.querySelectorAll('.ui-series-page .ui-vol-book[data-vol-num]').forEach(book => {
+      if (book.dataset.lock === '1') return;
+      const vol = Number(book.dataset.volNum);
+      if (!Number.isInteger(vol) || vol < 1 || vol > 999) return;
+      const title = (book.querySelector('h3')?.textContent || 'Volumen ' + vol).trim();
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = menu(currentURL() + '?vol=' + vol, title);
+      book.querySelector('.ui-v-heading')?.append(wrapper.firstElementChild);
+    });
+    const chosen = Number(new URLSearchParams(location.search).get('vol'));
+    if (Number.isInteger(chosen) && chosen > 0 && chosen < 1000) {
+      document.getElementById('serie-tab-vols')?.click();
+      document.querySelector('.ui-vol-book[data-vol-num="' + chosen + '"]')?.scrollIntoView({ block: 'start' });
+    }
+  }
 }
 function headMeta() {
   const p = location.pathname;
   const can = document.querySelector('link[rel="canonical"]') || document.createElement('link');
   if (!can.isConnected) { can.rel = 'canonical'; document.head.append(can); }
-  can.href = location.origin + p;
+  const requestedVol = p.startsWith('/serie/') ? Number(new URLSearchParams(location.search).get('vol')) : 0;
+  can.href = location.origin + p + (Number.isInteger(requestedVol) && requestedVol > 0 && requestedVol < 1000 ? '?vol=' + requestedVol : '');
   const isDraft = p.startsWith('/equipo/') && new URLSearchParams(location.search).has('vista');
   const isPrivate = /^\/(?:estudio|bibliotecario|admin|perfil|preferencias|biblioteca|descargas|entrar|registro|anotaciones|invitacion|solicitud)(?:\/|$)/.test(p);
   let robots = document.querySelector('meta[name="robots"]');
@@ -88,8 +104,9 @@ export function installPublicShare() {
         if (!e.target.closest('.obi-share')) document.querySelectorAll('.obi-share[open]').forEach(x => { x.open = false; });
         return;
       }
-      const url = currentURL(), title = currentTitle();
-      const status = btn.closest('.obi-share')?.querySelector('.obi-share-status');
+      const container = btn.closest('.obi-share');
+      const url = container?.dataset.shareUrl || currentURL(), title = container?.dataset.shareTitle || currentTitle();
+      const status = container?.querySelector('.obi-share-status');
       const say = text => { if (status) status.textContent = text; };
       if (btn.dataset.obiShare === 'native' && navigator.share) {
         try { await navigator.share({ title, url }); say('Compartido'); }
