@@ -1358,7 +1358,7 @@ ${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読'
       <section class="ui-sh ui-series-hero" id="serie-portada" style="--c:${esc(color(s))};--bg:${s.cover_path ? `url('${esc(thumb(s))}')` : 'none'}">
         ${book(s)}
         <div><span class="ui-lbl">${esc(s.work_type || 'Novela ligera')}${s.demographic ? ' · ' + esc(s.demographic) : ''}</span>
-          <h1>${esc(s.title)}</h1>${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
+          <h1 data-title-size="${s.title.length > 120 ? 'xl' : s.title.length > 65 ? 'l' : 'normal'}">${esc(s.title)}</h1>${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
           <div class="ui-chips">${pill(s.translation_status)}${(s.genres || []).map(g => `<a class="ui-chip" href="/catalogo?g=${encodeURIComponent(g)}">${esc(g)}</a>`).join('')}${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</div>
           <p class="mono" id="serie-loading-status" role="status" style="margin:20px 0;color:var(--mute)">Preparando capítulos, volúmenes y descargas…</p>
         </div>
@@ -1408,7 +1408,7 @@ ${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読'
       <section class="ui-sh ui-series-hero" id="serie-portada" style="--c:${esc(color(s))};--bg:${s.cover_path ? `url('${esc(thumb(s))}')` : 'none'}">
         ${book(s)}
         <div><span class="ui-lbl">${esc(s.work_type || 'Novela ligera')}${s.demographic ? ' · ' + esc(s.demographic) : ''}</span>
-          <h1>${esc(s.title)}</h1>${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
+          <h1 data-title-size="${s.title.length > 120 ? 'xl' : s.title.length > 65 ? 'l' : 'normal'}">${esc(s.title)}</h1>${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
           <div class="ui-chips">${pill(s.translation_status)}${(s.genres || []).map(g => `<a class="ui-chip" href="/catalogo?g=${encodeURIComponent(g)}">${esc(g)}</a>`).join('')}${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</div>
           <div class="rk-bdgs" id="rk-bdg"></div><div class="rk-rate" id="rk-rate"></div>
           <div class="acts ui-series-actions" style="display:flex;gap:10px;flex-wrap:wrap">${first ? `<a class="btn" href="/leer/${s.slug}/${p?.chapter_num || first.num}">${p ? 'Seguir donde ibas · Cap. ' + p.chapter_num + (p.pct > .02 && p.pct < .95 ? ' · ' + Math.round(p.pct * 100) + '%' : '') : (first.locked ? '🔒︎ Empezar a leer · solo mecenas' : 'Empezar a leer')}</a>` : ''}${p && nextUnread && nextUnread.num !== p.chapter_num ? `<a class="btn ghost" href="/leer/${s.slug}/${nextUnread.num}">Siguiente sin leer · Cap. ${nextUnread.num}</a>` : ''}<button class="btn ghost" id="follow">${following ? '✓ Siguiendo' : 'Seguir serie'}</button><a class="btn ghost" href="/anotaciones/${esc(s.slug)}">Mis anotaciones</a><a class="btn ghost ui-jump" href="#serie-vols">Explorar volúmenes ↓</a></div>
