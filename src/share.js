@@ -78,7 +78,7 @@ function headMeta() {
     (p.startsWith('/equipo/') && !document.querySelector('.tp2-page .tp2'));
   const isMissingVolume = p.startsWith('/serie/') && requestedVol > 0 &&
     !document.querySelector('.ui-vol-book[data-vol-num="' + requestedVol + '"]');
-  const isPrivate = /^\/(?:estudio|bibliotecario|admin|perfil|preferencias|biblioteca|descargas|entrar|registro|anotaciones|invitacion|solicitud)(?:\/|$)/.test(p) ||
+  const isPrivate = window.OBI_CONFIG?.preview === true || /^\/(?:estudio|bibliotecario|admin|perfil|preferencias|biblioteca|descargas|entrar|registro|anotaciones|invitacion|solicitud)(?:\/|$)/.test(p) ||
     isRestrictedReader || isMissingPublic || isMissingVolume;
   let robots = document.querySelector('meta[name="robots"]');
   if ((isPrivate || isDraft) && !robots) {
