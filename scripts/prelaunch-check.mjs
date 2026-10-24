@@ -84,4 +84,45 @@ assert.equal(releaseGroups([announced, chapter('c1', 1, releaseTime, 'another-vo
 assert.equal(releaseGroups([announced]).length, 1, 'private series with only an announcement remains valid');
 console.log('✓ Calendario: preestreno, capítulos, horarios y recordatorios verificados (funcional aislado).');
 
+// Regresión: la novela programada usa el PNG del equipo, igual que una obra publicada.
+const previewCreditsSQL = read('sql/prelaunch-announced-active-credits.sql');
+assert.match(previewCreditsSQL, /s\\.published IS TRUE OR EXISTS/, 'No excluir obras inéditas con anuncio público');
+for (const p of [/v\\.announce_prelaunch IS TRUE/, /v\\.status = 'scheduled'/,
+  /v\\.deleted_at IS NULL/, /v\\.published_at > now\\(\\)/, /s\\.archived_at IS NULL/,
+  /c\\.status = 'active'/]) assert.match(previewCreditsSQL, p, 'Conservar la restricción de privacidad de preestrenos');
+assert.doesNotMatch(previewCreditsSQL, /from public\\.chapters\\b/i, 'No filtrar contenido de capítulos');
+assert.match(ui, /await attachPublicCredits\\(sb, previews\\)/, 'Hero debe cargar los logos reales de anuncios');
+assert.match(ui, /await attachPublicCredits\\(sb, \\[pre\\.series\\]\\)/, 'Primer vistazo debe cargar logos reales');
+assert.match(agenda, /attachPublicCredits\\(sb, Object\\.values\\(D\\.series\\)\\.filter\\(s => s\\?\\.id\\)\\)/,
+  'Calendario incluye obras anunciadas sin serie pública');
+assert.match(preview, /creditsHTML\\(translated/, 'Ficha programada comparte render de logos PNG');
+
+const { landing } = await import('../src/prelaunch.js');
+const oldDoc=globalThis.document, oldWindow=globalThis.window;
+try {
+  globalThis.document={getElementById:()=>null,head:{appendChild(){}},
+    createElement:()=>({}),addEventListener(){}};
+  globalThis.window={obiTZ:()=> 'America/Monterrey'};
+  const escText = value => String(value??'').replace(/[&<>"']/g,c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+  const app={innerHTML:''};
+  const testPreview={series:{
+    id:'series-prelaunch',title:'Obra programada',team_name:'Equipo principal',team_slug:'principal',
+    publicCredits:[
+      {team_id:'main',name:'Equipo principal',slug:'principal',avatar_path:'equipo/logo.png',is_primary:true},
+      {team_id:'active',name:'Equipo aceptado',slug:'aceptado',avatar_path:'aceptado/logo.png',is_primary:false}
+    ]
+  },volumes:[{id:'v1',num:1,published_at:'2026-11-05T12:00:00Z'}]};
+  landing(testPreview,app,escText,x=>'https://cdn.example/'+x);
+  assert.match(app.innerHTML,/src="https:\\/\\/cdn\\.example\\/equipo\\/logo\\.png"/, 'Traductor principal muestra PNG');
+  assert.match(app.innerHTML,/src="https:\\/\\/cdn\\.example\\/aceptado\\/logo\\.png"/, 'Colaborador aceptado muestra PNG');
+  assert.match(app.innerHTML,/href="\\/equipo\\/principal"/);
+  assert.doesNotMatch(app.innerHTML,/Traducción: Equipo principal/, 'No reemplazar PNG válido por crédito de texto');
+  const noPNG={series:{title:'Obra sin imagen',team_name:'Equipo sin logo',team_slug:'sin-logo'},
+    volumes:[{id:'v2',num:1,published_at:'2026-11-05T12:00:00Z'}]};
+  landing(noPNG,app,escText,x=>'https://cdn.example/'+x);
+  assert.match(app.innerHTML,/>Equipo sin logo<\\/span>/, 'Sin PNG, sí presentar nombre como alternativa');
+} finally { globalThis.document=oldDoc; globalThis.window=oldWindow; }
+
 console.log('✓ Preestrenos: contratos, permisos y sintaxis JS verificados (estático).');
