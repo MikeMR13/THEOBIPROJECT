@@ -72,7 +72,14 @@ function headMeta() {
   const requestedVol = p.startsWith('/serie/') ? Number(new URLSearchParams(location.search).get('vol')) : 0;
   can.href = location.origin + p + (Number.isInteger(requestedVol) && requestedVol > 0 && requestedVol < 1000 ? '?vol=' + requestedVol : '');
   const isDraft = p.startsWith('/equipo/') && new URLSearchParams(location.search).has('vista');
-  const isPrivate = /^\/(?:estudio|bibliotecario|admin|perfil|preferencias|biblioteca|descargas|entrar|registro|anotaciones|invitacion|solicitud)(?:\/|$)/.test(p);
+  const isRestrictedReader = p.startsWith('/lector/') && !document.querySelector('.lc-public');
+  const isMissingPublic = (p.startsWith('/serie/') && !document.querySelector('.ui-series-page')) ||
+    (p.startsWith('/leer/') && !document.querySelector('.rd')) ||
+    (p.startsWith('/equipo/') && !document.querySelector('.tp2-page .tp2'));
+  const isMissingVolume = p.startsWith('/serie/') && requestedVol > 0 &&
+    !document.querySelector('.ui-vol-book[data-vol-num="' + requestedVol + '"]');
+  const isPrivate = /^\/(?:estudio|bibliotecario|admin|perfil|preferencias|biblioteca|descargas|entrar|registro|anotaciones|invitacion|solicitud)(?:\/|$)/.test(p) ||
+    isRestrictedReader || isMissingPublic || isMissingVolume;
   let robots = document.querySelector('meta[name="robots"]');
   if ((isPrivate || isDraft) && !robots) {
     robots = document.createElement('meta');
