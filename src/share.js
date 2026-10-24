@@ -51,22 +51,32 @@ function insertMenu() {
   else target.append(el);
 }
 function headMeta() {
-  const p = location.pathname, can = document.querySelector('link[rel="canonical"]') || document.createElement('link');
+  const p = location.pathname;
+  const can = document.querySelector('link[rel="canonical"]') || document.createElement('link');
   if (!can.isConnected) { can.rel = 'canonical'; document.head.append(can); }
-  if (publicPath()) can.href = currentURL();
-  else if (!p.startsWith('/estudio/') && p !== '/estudio') can.href = location.origin + p;
-  else can.remove();
-  if (!publicPath() && p !== '/' && !document.querySelector('meta[name="robots"]')) {
-    if (/^\/(?:estudio|bibliotecario|admin|perfil|preferencias|biblioteca|descargas|entrar|registro|anotaciones|invitacion)(?:\/|$)/.test(p)) {
-      const r = document.createElement('meta'); r.name = 'robots'; r.content = 'noindex,nofollow'; document.head.append(r);
-    }
+  can.href = location.origin + p;
+  const isDraft = p.startsWith('/equipo/') && new URLSearchParams(location.search).has('vista');
+  const isPrivate = /^\/(?:estudio|bibliotecario|admin|perfil|preferencias|biblioteca|descargas|entrar|registro|anotaciones|invitacion|solicitud)(?:\/|$)/.test(p);
+  let robots = document.querySelector('meta[name="robots"]');
+  if ((isPrivate || isDraft) && !robots) {
+    robots = document.createElement('meta');
+    robots.name = 'robots';
+    document.head.append(robots);
   }
-  // La vista previa de diseño nunca es indexable aunque conserve el enlace público.
-  const d = p.startsWith('/equipo/') && new URLSearchParams(location.search).has('vista');
-  let r = document.querySelector('meta[name="robots"]');
-  if (d && !r) { r = document.createElement('meta'); r.name = 'robots'; document.head.append(r); }
-  if (d) r.content = 'noindex,nofollow';
-  if (r && !d && publicPath()) r.remove();
+  if (isPrivate || isDraft) robots.content = 'noindex,nofollow';
+  else robots?.remove();
+
+  const title = p === '/' ? BASE_TITLE + ' — Novelas ligeras en español latino'
+    : p === '/catalogo' ? 'Catálogo de novelas ligeras — ' + BASE_TITLE
+    : p === '/calendario' ? 'Calendario de lanzamientos — ' + BASE_TITLE
+    : p === '/ranking' ? 'Más leídas y ranking — ' + BASE_TITLE
+    : publicPath() ? currentTitle() + ' — ' + BASE_TITLE
+    : p.startsWith('/lector/') ? (document.querySelector('.lc-name-row h1')?.textContent || 'Carnet de lector') + ' — ' + BASE_TITLE
+    : BASE_TITLE;
+  document.title = title.slice(0, 200);
+  const d = document.querySelector('meta[name="description"]');
+  const syn = p.startsWith('/serie/') ? document.querySelector('.ui-syn') : null;
+  if (d && (syn?.textContent || p === '/')) d.content = (syn?.textContent || 'Biblioteca de novelas ligeras traducidas al español latino por grupos de fans.').trim().slice(0, 170);
 }
 export function installPublicShare() {
   setupCSS();
