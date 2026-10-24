@@ -52,7 +52,8 @@ export function createWorkData(seed = {}) {
   };
 }
 export function workPayload(data) {
-  const title = String(data.title || '').trim().slice(0,200);
+  const title = String(data.title || '').trim();
+  if (title.length > 500) throw new Error('El título no puede superar los 500 caracteres');
   if (!title) throw new Error('Escribe el título de la obra');
   if ((data.genres || []).length > 4) throw new Error('Máximo 4 géneros');
   if ((data.tags || []).length > 20) throw new Error('Máximo 20 etiquetas');
@@ -82,7 +83,7 @@ export function renderWorkFields(data, esc, related = []) {
   const dem = WORK_DEMOGRAPHICS.find(x => x[0] === data.demographic) || WORK_DEMOGRAPHICS[0];
   return '<div class="wf-form">' +
     '<section class="wk-box wf-section"><h2>Ficha editorial</h2>' +
-    input('title','Título en español *') + input('short','Título corto (cinta y lomo)',26) +
+    input('title','Título en español *',500) + input('short','Título corto (cinta y lomo)',26) +
     input('original','Título original',300) + input('title_romaji','Lectura / rōmaji del título',300) +
     '<div class="wf-two">' + input('author','Autor',120) + input('illustrator','Ilustración',120) + input('publisher','Editorial',120) +
     select('work_type','Tipo',WORK_TYPES.map(x => [x,x])) + '</div>' +
