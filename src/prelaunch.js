@@ -1,3 +1,4 @@
+import { creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
 // Primer vistazo: esta vista nunca consulta ni expone capítulos borrador.
 const css = '.pre-card{display:grid;grid-template-columns:90px minmax(0,1fr);gap:16px;padding:16px;background:#16140f;border:1px solid #3d3628;margin:12px 0}.pre-cover{aspect-ratio:2/3;background:#29251d center/cover no-repeat}.pre-info{display:grid;gap:9px;align-content:start}.pre-info h3{margin:0}.pre-timer{color:#8cc3f2;font:700 15px monospace}.pre-lock{color:#cfc6b0;font:12px monospace}@media(max-width:560px){.pre-card{grid-template-columns:65px minmax(0,1fr);gap:10px;padding:10px}}';
 function style(){if(document.getElementById('pre-css'))return;const s=document.createElement('style');s.id='pre-css';s.textContent=css;document.head.appendChild(s);}
@@ -11,8 +12,11 @@ export function cards(pre, esc, media){
  }).join('');
 }
 export function landing(pre, app, esc, media){
- style();const s=pre.series,cover=s.cover_path||pre.volumes[0]?.cover_path;
- app.innerHTML=`<div class="ui-wrap"><section class="ui-sh" style="--c:#8cc3f2;--bg:none"><span class="ui-book" style="${cover?`background-image:url('${esc(media(cover))}')`:''}"></span><div><span class="ui-lbl" style="color:#8cc3f2">PRÓXIMO ESTRENO · PRIMER VISTAZO</span><h1>${esc(s.title)}</h1><p>${esc(s.work_type||'Novela ligera')}${Array.isArray(s.genres)&&s.genres.length?' · '+s.genres.map(esc).join(' · '):''}${s.adult?' · +18':''}</p><p class="ui-syn">${esc(s.synopsis||'Descubre esta obra próximamente.')}</p><p class="mono">${s.author?'Autor: '+esc(s.author)+' · ':''}${s.illustrator?'Ilustración: '+esc(s.illustrator)+' · ':''}Traducción: ${esc(s.team_name)}</p><p class="mono">Ficha pública de anuncio. La lectura aún está bloqueada.</p></div></section><section><div class="ui-h2"><h2>Volúmenes anunciados</h2></div>${cards(pre,esc,media)}</section></div>`;
+ style();installCreditImageFallback();
+ const s=pre.series,cover=s.cover_path||pre.volumes[0]?.cover_path;
+ const translated={...s,teams:s.teams||{name:s.team_name,slug:s.team_slug}};
+ const translator=creditsHTML(translated,{esc,media,mode:'detail'});
+ app.innerHTML=`<div class="ui-wrap"><section class="ui-sh" style="--c:#8cc3f2;--bg:none"><span class="ui-book" style="${cover?`background-image:url('${esc(media(cover))}')`:''}"></span><div><span class="ui-lbl" style="color:#8cc3f2">PRÓXIMO ESTRENO · PRIMER VISTAZO</span><h1>${esc(s.title)}</h1><p>${esc(s.work_type||'Novela ligera')}${Array.isArray(s.genres)&&s.genres.length?' · '+s.genres.map(esc).join(' · '):''}${s.adult?' · +18':''}</p><p class="ui-syn">${esc(s.synopsis||'Descubre esta obra próximamente.')}</p><p class="mono">${s.author?'Autor: '+esc(s.author)+' · ':''}${s.illustrator?'Ilustración: '+esc(s.illustrator)+' · ':''}</p><div class="pre-credits"><span class="ui-lbl">Traducción</span>${translator}</div><p class="mono">Ficha pública de anuncio. La lectura aún está bloqueada.</p></div></section><section><div class="ui-h2"><h2>Volúmenes anunciados</h2></div>${cards(pre,esc,media)}</section></div>`;
 }
 export function bind(pre,app,sb,getUser,go,toast){
  if(!pre?.volumes?.length)return;
