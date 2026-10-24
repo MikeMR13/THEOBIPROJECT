@@ -10,6 +10,10 @@ assert.match(accessSql, /CREATE OR REPLACE FUNCTION private\.collab_team\(s uuid
 assert.match(accessSql, /c\.status = 'active'/, 'El acceso a volúmenes debe reconocer el estado vigente active');
 assert.match(accessSql, /m\.user_id = auth\.uid\(\)/, 'La función de acceso debe limitarse a integrantes del equipo invitado');
 assert.match(accessSql, /SECURITY DEFINER\s+SET search_path TO ''/, 'Preservar la definición protegida de la función');
+assert.match(accessSql, /CREATE POLICY "collab decide"[\s\S]*?private\.can_edit_team\(invited_team\)/, 'Solo el equipo invitado debe aceptar o rechazar');
+assert.match(accessSql, /CREATE POLICY "collab revoke sender"[\s\S]*?private\.can_edit_team\(inviter_team\)/, 'El remitente solo puede revocar');
+assert.match(accessSql, /status IN \('active', 'declined'\)/, 'Las decisiones solo pueden generar estados válidos');
+assert.match(accessSql, /status = 'revoked'/, 'La revocación debe tener un estado propio');
 const studioSource = readFileSync(new URL('../src/studio.js', import.meta.url), 'utf8');
 assert.match(studioSource, /\.eq\('status', COLLABORATION_STATUS\.active\)/, 'Las colaboraciones activas deben aparecer en Mis obras');
 assert.match(studioSource, /response = b\.dataset\.acc \? COLLABORATION_STATUS\.active : COLLABORATION_STATUS\.declined/, 'Aceptar y rechazar deben usar estados válidos');
