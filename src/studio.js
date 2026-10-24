@@ -1,10 +1,9 @@
 import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=1';
+import { initCollaborationTeamPicker, COLLABORATION_STATUS } from './studio-collaboration-picker.js?v=1';
 import { SECTION_TYPES } from './section-types.js?v=1';
 import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
 import { askEditorialAnnouncement, saveEditorialRecord, chooseActiveEditorial } from './editorial-announcements.js?v=1';
 import { WORK_GENRES, WORK_DEMOGRAPHICS, createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
-// El editor y el importador cargan blocks.js al abrir sus pantallas.
-// Estudio del traductor: obras, volúmenes, publicación, editor con guardado atómico, importador EPUB/DOCX/PDF, multimedia, equipo y colaboraciones.
 document.addEventListener('click', e => { const i = e.target.closest?.('input[type=date],input[type=datetime-local]'); if (i && !i.disabled && !i.readOnly) try { i.showPicker(); } catch {} });
 const LIMITS = { file: 80 * 1024 * 1024, entries: 15000, unzipped: 300 * 1024 * 1024, image: 8 * 1024 * 1024 };
 const ACTIONS = [['view','Ver'],['edit','Editar'],['create','Crear'],['import','Importar'],['publish','Publicar'],['schedule','Programar'],['delete','Borrar'],['review','Revisar']];
@@ -14,7 +13,6 @@ const SEC = SECTION_TYPES;
 const GT = ['Personaje','Lugar','Organización','Honorífico','Cargo o título','Magia','Hechizo','Habilidad','Objeto','Arma','Criatura','Raza o especie','Comida','Bebida','Festival','Moneda','Unidad de medida','Referencia cultural','Modismo','Onomatopeya','Tabú','Otro'];
 const BT = [['paragraph','Párrafo'],['heading','Título'],['quote','Cita'],['note','Nota del traductor'],['image','Ilustración'],['separator','Separador'],['ruby','Furigana']];
 
-// La hoja de estilos de Studio se carga como recurso independiente.
 export function createStudio(ctx){
   const { sb, app, $, esc, toast, go, getUser, getMe, url } = ctx;
   const PUB = `${url}/storage/v1/object/public/obi-media/`;
@@ -22,7 +20,6 @@ export function createStudio(ctx){
   const pathOf = u => u && u.startsWith(PUB) ? decodeURI(u.slice(PUB.length)) : null;
   const T = { userId: null, teams: [], team: null, perms: {}, works: null };
   const can = a => !!T.perms[a];
-  // zona horaria del equipo: las fechas se muestran y se capturan en la hora del equipo
   const TZS = [['America/Mexico_City','Ciudad de México'],['America/Monterrey','Monterrey'],['America/Tijuana','Tijuana'],['America/Bogota','Bogotá'],['America/Lima','Lima'],['America/Caracas','Caracas'],['America/Santiago','Santiago de Chile'],['America/Argentina/Buenos_Aires','Buenos Aires'],['America/Montevideo','Montevideo'],['America/Guatemala','Centroamérica'],['America/Santo_Domingo','Santo Domingo'],['America/New_York','Nueva York · Miami'],['America/Los_Angeles','Los Ángeles'],['Europe/Madrid','Madrid'],['Asia/Tokyo','Tokio'],['UTC','UTC']];
   // por defecto: hora del dispositivo; cada quien puede cambiar a la hora del equipo
   const devTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -386,8 +383,8 @@ export function createStudio(ctx){
     if (!(await ensure())) return;
     app.innerHTML = shell('Mis obras', '<p class="mono">Cargando obras…</p>', '/estudio/obras'); bindPicker(works);
     const [{ works: list, chs, sched }, { data: inv }, { data: collab }, { data: selectedFeature }] = await Promise.all([teamData(),
-      sb.from('collaborations').select('id,status,series(title),inviter:teams!collaborations_inviter_team_fkey(name)').eq('invited_team', T.team.id).eq('status', 'pending'),
-      sb.from('collaborations').select('series(slug,title,teams(name))').eq('invited_team', T.team.id).eq('status', 'accepted'),
+      sb.from('collaborations').select('id,status,series(title),inviter:teams!collaborations_inviter_team_fkey(name)').eq('invited_team', T.team.id).eq('status', COLLABORATION_STATUS.pending),
+      sb.from('collaborations').select('series(slug,title,teams(name))').eq('invited_team', T.team.id).eq('status', COLLABORATION_STATUS.active),
       sb.from('team_featured_series').select('series_id,updated_at').eq('team_id', T.team.id).maybeSingle().then(r=>r,()=>({data:null}))]);
     const featuredSeriesId=selectedFeature?.series_id||null;
     const featuredExpiresAt=selectedFeature?.updated_at ? new Date(new Date(selectedFeature.updated_at).getTime()+7*864e5) : null;
@@ -430,7 +427,7 @@ export function createStudio(ctx){
       works();
     }));
     app.querySelectorAll('[data-new]').forEach(b => b.onclick = () => busy(b, () => newChapter(list.find(w => w.id === b.dataset.new))));
-    app.querySelectorAll('[data-acc],[data-rej]').forEach(b => b.onclick = () => busy(b, async () => { const { error } = await sb.from('collaborations').update({ status: b.dataset.acc ? 'accepted' : 'rejected' }).eq('id', b.dataset.acc || b.dataset.rej); if (error) throw error; toast('Respuesta enviada'); works(); }));
+    app.querySelectorAll('[data-acc],[data-rej]').forEach(b => b.onclick = () => busy(b, async () => { const response = b.dataset.acc ? COLLABORATION_STATUS.active : COLLABORATION_STATUS.declined; const { data: updated, error } = await sb.from('collaborations').update({ status: response }).eq('id', b.dataset.acc || b.dataset.rej).eq('status', COLLABORATION_STATUS.pending).select('id').maybeSingle(); if (error) throw error; if (!updated) throw new Error('La invitación ya fue respondida o no tienes permiso para cambiarla'); toast(b.dataset.acc ? 'Colaboración aceptada' : 'Invitación rechazada'); works(); }));
   }
 
 
@@ -447,7 +444,7 @@ export function createStudio(ctx){
     const [{ data: vols }, { data: chs }, { data: cols }, { data: events }, { data: dls }, { data: buys }, { data: tch }, { data: tvol }] = await Promise.all([
       sb.from('volumes').select('*').eq('series_id', s.id).is('deleted_at', null).order('num'),
       readPages((from, to) => sb.from('chapters').select('id,num,vol,volume_id,title,status,section_type,publish_at,updated_at,stage').eq('series_id', s.id).is('deleted_at', null).order('num').range(from, to), { size: 250 }),
-      sb.from('collaborations').select('id,status,invited:teams!collaborations_invited_team_fkey(name,slug,color)').eq('series_id', s.id),
+      sb.from('collaborations').select('id,status,invited_team,invited:teams!collaborations_invited_team_fkey(name,slug,color)').eq('series_id', s.id),
       sb.from('publication_events').select('event,summary,created_at').eq('series_id', s.id).order('created_at', { ascending: false }).limit(10),
       sb.from('download_links').select('id,volume_id,vol').eq('series_id', s.id),
       sb.from('purchase_links').select('id,store,region,fmt,verified').eq('series_id', s.id),
@@ -502,8 +499,8 @@ export function createStudio(ctx){
           <div class="ed-chips">${(buys || []).map(b => `<span class="wk-buy" style="border-color:${b.verified ? '#a9d18e' : '#3d3628'};color:${b.verified ? '#a9d18e' : '#a89f8a'}">${b.verified ? '✓' : '◷'} ${esc(b.store)}${b.region ? ' · ' + esc(b.region) : ''}</span>`).join('') || '<span class="mono">Aún sin enlaces.</span>'}</div>
           <a class="btn ghost sm" href="?tab=descargas" data-tab="descargas" style="justify-self:start">Gestionar compra y descargas</a></section>
         <section class="wk-box" style="border-top:4px solid #8cc3f2"><h2>Créditos compartidos</h2><small class="mono">Invita a otro grupo traductor. Al aceptar, la obra aparece en el catálogo y en el perfil de ambos equipos.</small>
-          ${(cols || []).map(c => `<div class="wk-cb"><span class="wk-ini" style="background:${esc(c.invited?.color || '#8cc3f2')}">${esc((c.invited?.name || '?').slice(0, 2).toUpperCase())}</span><b>${esc(c.invited?.name || '')}</b><span class="mono">${{ pending: 'Pendiente', accepted: 'Aceptada', rejected: 'Rechazada', revoked: 'Revocada' }[c.status] || c.status}</span>${c.status !== 'revoked' && can('edit') ? `<button class="lnk danger" data-revoke="${c.id}">Revocar</button>` : '<span></span>'}</div>`).join('')}
-          ${can('edit') ? '<div class="wk-inv"><input id="inv" placeholder="@alias del equipo" aria-label="Alias del equipo a invitar"><button class="btn sm blue" id="invite">Invitar</button></div>' : ''}</section>
+          ${(cols || []).map(c => `<div class="wk-cb"><span class="wk-ini" style="background:${esc(c.invited?.color || '#8cc3f2')}">${esc((c.invited?.name || '?').slice(0, 2).toUpperCase())}</span><b>${esc(c.invited?.name || '')}</b><span class="mono">${{ pending: 'Pendiente', active: 'Aceptada', declined: 'Rechazada', revoked: 'Revocada' }[c.status] || c.status}</span>${c.status !== 'revoked' && can('edit') ? `<button class="lnk danger" data-revoke="${c.id}">Revocar</button>` : '<span></span>'}</div>`).join('')}
+          ${can('edit') ? '<div class="wk-inv-search"><div class="wk-inv"><input type="search" id="inv" placeholder="Buscar equipo por nombre o @alias" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="wk-inv-results" aria-label="Buscar equipo colaborador"><button type="button" class="btn sm blue" id="invite" disabled>Invitar</button></div><div class="wk-inv-results" id="wk-inv-results" role="listbox" aria-label="Equipos encontrados" hidden></div><small class="mono" id="wk-inv-state" role="status">Busca y selecciona un equipo.</small></div>' : ''}</section>
         <section class="wk-box" id="wk-rel"><h2>Obras relacionadas</h2><small class="mono">Precuelas, secuelas, spin-offs u obras del mismo universo. Se muestran en la ficha pública. Puedes enlazar obras de otros equipos.</small><div id="wk-rel-b"><p class="mono">Cargando…</p></div></section>
         <section class="wk-box"><h2>Historial de publicación</h2>${(events || []).map(e => `<p class="mono" style="margin:0">${fmtTz(e.created_at, { dateStyle: 'short', timeStyle: 'short' })} · ${esc(e.summary)}</p>`).join('') || '<p class="mono" style="margin:0">Sin eventos.</p>'}</section>
       </div>
@@ -1023,8 +1020,8 @@ export function createStudio(ctx){
         const { error } = await sb.from('series').update(patch).eq('id', s.id); if (error) throw new Error(errMsg(error)); dirty = false; toast('Datos de la obra guardados'); again(); });
       const leave = e => { if (dirty && document.body.contains($('#wk-savebtn'))) { e.preventDefault(); e.returnValue = ''; } else removeEventListener('beforeunload', leave); }; addEventListener('beforeunload', leave);
     }
-    on('#invite', async () => { const alias = $('#inv').value.trim().replace(/^@/, '').toLowerCase(); const { data: t } = await sb.from('teams').select('id,name').eq('slug', alias).maybeSingle(); if (!t) throw new Error('No existe un equipo con ese alias'); if (t.id === T.team.id) throw new Error('Es tu propio equipo'); const { error } = await sb.from('collaborations').insert({ series_id: s.id, inviter_team: T.team.id, invited_team: t.id, status: 'pending' }); if (error) throw error; toast('Invitación enviada a ' + t.name); again(); });
-    on('[data-revoke]', async b => { const { error } = await sb.from('collaborations').update({ status: 'revoked' }).eq('id', b.dataset.revoke); if (error) throw error; again(); });
+    if (can('edit')) initCollaborationTeamPicker({ sb, input: $('#inv'), list: $('#wk-inv-results'), status: $('#wk-inv-state'), invite: $('#invite'), ownTeamId: T.team.id, seriesId: s.id, collaborations: cols || [], media, toast, busy, onSuccess: again });
+    on('[data-revoke]', async b => { const { error } = await sb.from('collaborations').update({ status: COLLABORATION_STATUS.revoked }).eq('id', b.dataset.revoke); if (error) throw error; again(); });
   }
 
   // borrar con limpieza de multimedia referenciada

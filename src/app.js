@@ -1,7 +1,8 @@
 // Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
 import { createClient } from '/supabase.js?v=1';
-import { createReader } from '/reader.js?v=18';
-import { createUI } from '/ui.js?v=52';
+import { createReader } from '/reader.js?v=19';
+import { createUI } from '/ui.js?v=53';
+import { attachPublicCredits, creditsHTML, installCreditImageFallback } from '/public-collaboration-credits.js?v=1';
 import { reportHomeRead } from '/home-metrics.js?v=1';
 import { sameReaderAccount, readingProgressPrefix, readerProgressKeys } from '/reader-pref-cache.js?v=1';
 const { url, key } = window.OBI_CONFIG;
@@ -16,7 +17,7 @@ const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () 
 let LG; const lg = async () => LG ||= await import('/legal.js?v=1');
 let PF; const pf = async () => PF ||= await import('/profile.js?v=10');
 const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, email: user.email, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
-let ST; const st = async () => ST ||= (await import('/studio.js?v=46')).createStudio(CTX());
+let ST; const st = async () => ST ||= (await import('/studio.js?v=47')).createStudio(CTX());
 let AG; const ag = async () => AG ||= await import('/agenda.js?v=1');
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=10')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
@@ -270,7 +271,7 @@ const LB_CSS = `
 const lbCss = () => { if (document.getElementById('lb-css')) return; const s = document.createElement('style'); s.id = 'lb-css'; s.textContent = LB_CSS; document.head.appendChild(s); };
 async function library(){
 if (!user) return go(new URLSearchParams(location.search).get('t') === 'offline' ? '/descargas' : '/entrar');
-lbCss(); app.innerHTML = '<p class="mono">Cargando tu biblioteca…</p>';
+lbCss(); installCreditImageFallback(); app.innerHTML = '<p class="mono">Cargando tu biblioteca…</p>';
 const TABS = [['leyendo', 'Leyendo'], ['pendientes', 'Pendientes'], ['terminadas', 'Terminadas'], ['avisos', 'Avisos'], ['offline', 'Sin conexión'], ['historial', 'Historial']];
 const tab = TABS.some(t => t[0] === new URLSearchParams(location.search).get('t')) ? new URLSearchParams(location.search).get('t') : 'leyendo';
 const [{ data: prog }, { data: fol }, { data: rc }] = await Promise.all([
@@ -279,8 +280,9 @@ const [{ data: prog }, { data: fol }, { data: rc }] = await Promise.all([
   sb.from('read_chapters').select('chapter_id').eq('user_id', user.id)]);
 const ids = [...new Set([...(prog || []), ...(fol || [])].map(r => r.series_id))];
 const [{ data: ser }, { data: chs }] = ids.length ? await Promise.all([
-  sb.from('series').select('id,slug,title,short,cover_path,translation_status,theme,teams(color)').in('id', ids),
+  sb.from('series').select('id,team_id,slug,title,short,cover_path,translation_status,theme,teams(name,slug,color,avatar_path)').in('id', ids),
   sb.from('chapters').select('id,num,series_id,publish_at').eq('status', 'published').is('deleted_at', null).in('series_id', ids).order('num')]) : [{ data: [] }, { data: [] }];
+await attachPublicCredits(sb, ser || []);
 const read = new Set((rc || []).map(r => r.chapter_id)), P = Object.fromEntries((prog || []).map(r => [r.series_id, r])), F = new Set((fol || []).map(r => r.series_id));
 const now = Date.now(), by = {}; (chs || []).forEach(c => { if (c.publish_at && new Date(c.publish_at) > now) return; (by[c.series_id] ||= []).push(c); });
 const W = (ser || []).map(s => { const list = by[s.id] || [], nr = list.filter(c => read.has(c.id)).length, nu = list.find(c => !read.has(c.id));
@@ -293,7 +295,7 @@ const cv = (w, badge) => { const c = w.s.theme?.color || w.s.teams?.color || '#f
 const card = (w, k) => { const href = k === 'pendientes' && w.nextU ? `/leer/${w.s.slug}/${w.nextU.num}` : k === 'leyendo' ? `/leer/${w.s.slug}/${w.p.chapter_num}` : `/serie/${w.s.slug}`;
   const badge = k === 'pendientes' ? `<em>${w.unread} sin leer</em>` : k === 'terminadas' ? '<em class="ok">✓ Completa</em>' : '';
   const sub = k === 'leyendo' ? `Cap. ${w.p.chapter_num}${w.p.pct > .02 && w.p.pct < .95 ? ' · ' + Math.round(w.p.pct * 100) + '%' : ''} · ${w.nr}/${w.tot}` : k === 'pendientes' ? (w.nextU ? 'Sigue en el cap. ' + w.nextU.num : '') : w.tot + ' capítulos';
-  return `<a class="lb-c" href="${href}">${cv(w, badge)}${w.tot ? `<span class="bar"><i style="width:${Math.round(w.nr / w.tot * 100)}%"></i></span>` : ''}<b>${esc(w.s.title)}</b><small>${sub}</small></a>`; };
+  return `<a class="lb-c" href="${href}">${cv(w, badge)}${w.tot ? `<span class="bar"><i style="width:${Math.round(w.nr / w.tot * 100)}%"></i></span>` : ''}<b>${esc(w.s.title)}</b>${creditsHTML(w.s, { esc, media: MED, mode: 'carousel' })}<small>${sub}</small></a>`; };
 const HID = new Set(profile?.hidden_series || []);
 const cardW = (w, k) => `<div style="display:grid;gap:4px;align-content:start">${card(w, k)}<button type="button" class="ui-lnk" data-hide="${w.s.id}" style="justify-self:start;font-size:12px;color:#a89f8a;min-height:32px">${HID.has(w.s.id) ? 'Mostrar en mi perfil' : 'Ocultar del perfil'}</button></div>`;
 const EMPTY = { leyendo: 'Abre cualquier capítulo y aparecerá aquí.', pendientes: 'Sigue una obra desde su ficha: cuando salga un capítulo que no has leído, aparecerá aquí.', terminadas: 'Aquí aparecen las obras completas que leíste de principio a fin.' };
