@@ -36,17 +36,23 @@ assert(ui.includes('.ob-hero-team-logo img{') && ui.includes('object-fit:contain
  'No deformar ni recortar PNG transparentes');
 assert(ui.includes('@media(max-width:380px)') && ui.includes('width:64px'),
  'En móvil estrecho la imagen debe medir 64 px');
-assert(ui.includes('width:clamp(128px,10vw,140px)') && ui.includes('width:80px'),
- 'El logo debe crecer en escritorio y en móvil común');
-assert(ui.includes('@media(min-width:601px) and (max-width:1100px)') && ui.includes('width:clamp(96px,10vw,112px)'),
- 'Conservar el tamaño intermedio en tablets');
+assert(ui.includes('width:clamp(82px,7vw,100px)') && ui.includes('width:80px'),
+ 'El logo debe mantenerse compacto en escritorio y legible en móvil');
+assert(ui.includes('@media(min-width:601px) and (max-width:1100px)') && ui.includes('width:clamp(78px,8vw,94px)'),
+ 'Mantener un tamaño de logo compacto en tablets');
 assert(ui.includes('aspect-ratio:1;object-fit:contain') && ui.includes('width="140" height="140"'),
  'No deformar la imagen y reservar dimensiones al renderizarla');
 assert(ui.includes(':not(.ob-hero-team-logo)'),
  'Ir al perfil del equipo no debe contar falsamente como clic en la novela');
-for(const token of ['320,390,768,1024,1440','logo se superpone','PNG solapa anuncio','texto y aviso',
+for(const token of ['320,390,768,1024,1440,1873','logo se superpone','PNG solapa anuncio','texto y aviso',
   'ob-hero-team-logo','ob-utag-hero','ob-hero-rank']) {
   assert(qa.includes(token),'La QA responsive debe cubrir: '+token);
 }
+assert(ui.includes('.ob-hero{align-items:start;column-gap:clamp(28px,3vw,48px);row-gap:clamp(20px,2.6vw,32px)'),
+ 'La portada debe alinearse con el anuncio y conservar huecos moderados en escritorio/móvil');
+assert(ui.includes('.ob-hero .ob-hero-head+h1{margin-top:clamp(16px,1.5vw,20px)}'),
+ 'El título debe mantener una separación mínima del anuncio y ranking');
+assert(ui.includes('.ob-hero .ob-txt h1[data-len=xl]{font-size:clamp(26px,2.8vw,38px)}'),
+ 'Los títulos editoriales muy largos no deben dominar el carrusel');
 assert(announcement.includes('chooseActiveEditorial'), 'El selector de anuncios sigue disponible');
 console.log('✓ Identidad del equipo: logo o texto excluyentes, mismo perfil y avisos intactos.');
