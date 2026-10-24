@@ -97,11 +97,15 @@ async function publicData(kind, slug, chapter, volume, origin) {
 function structuredData(data, canonical, kind, origin) {
   const site = { '@type': 'Organization', '@id': origin + '/#organization', name: SITE, url: origin + '/' };
   const trail = [{ '@type': 'ListItem', position: 1, name: 'Inicio', item: origin + '/' }];
-  if (kind === 'leer') trail.push({ '@type': 'ListItem', position: 2, name: data.bookTitle || data.heading, item: origin + canonical.match(/\/leer\/([^/]+)\//)[1].replace(/^/, '/serie/') });
+  if (kind === 'leer') {
+    const parts = canonical.match(/\/leer\/([^/]+)\/\d+$/);
+    if (parts) trail.push({ '@type': 'ListItem', position: 2, name: data.bookTitle || data.heading, item: origin + '/serie/' + parts[1] });
+  }
   const node = {
     '@context': 'https://schema.org',
     '@graph': [
       site,
+      { '@type': 'WebSite', '@id': origin + '/#website', name: SITE, url: origin + '/', inLanguage: 'es-419', publisher: { '@id': origin + '/#organization' } },
       {
         '@type': 'WebPage', '@id': canonical + '#webpage', url: canonical, name: data.title,
         description: data.description, inLanguage: 'es-419', isPartOf: { '@id': origin + '/#website' }
@@ -188,6 +192,7 @@ export default async function handler(req, res) {
     }
     // El shell contiene las etiquetas por defecto del Inicio: eliminarlas antes
     // de insertar las específicas para evitar dos canonicals u Open Graph.
+    html = html.replace(/<script\s+type="application\/ld\+json">[\s\S]*?<\/script>\s*/gi, '');
     html = html.replace(/<link\s+rel="canonical"[^>]*>\s*/gi, '');
     html = html.replace(/<meta\s+(?:property="og:[^"]+"|name="twitter:[^"]+")[^>]*>\s*/gi, '');
     html = html.replace(/<title>[\s\S]*?<\/title>/i, '<title>' + esc(data.title) + '</title>');
