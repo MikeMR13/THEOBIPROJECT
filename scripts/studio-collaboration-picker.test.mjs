@@ -6,10 +6,10 @@ import { normalizeCollaboratorQuery, unavailableCollaboratorReason, rankCollabor
 // Los valores que envía Estudio deben coincidir con collaborations_status_check.
 assert.deepEqual(Object.values(COLLABORATION_STATUS), ['pending', 'active', 'declined', 'revoked']);
 const accessSql = readFileSync(new URL('../sql/collaborations-active-volume-access.sql', import.meta.url), 'utf8');
-assert.match(accessSql, /CREATE OR REPLACE FUNCTION private\\.collab_team\\(s uuid\\)/, 'Debe conservarse la función de permisos de volúmenes');
-assert.match(accessSql, /c\\.status = 'active'/, 'El acceso a volúmenes debe reconocer el estado vigente active');
-assert.match(accessSql, /m\\.user_id = auth\\.uid\\(\\)/, 'La función de acceso debe limitarse a integrantes del equipo invitado');
-assert.match(accessSql, /SECURITY DEFINER\\s+SET search_path TO ''/, 'Preservar la definición protegida de la función');
+assert.match(accessSql, /CREATE OR REPLACE FUNCTION private\.collab_team\(s uuid\)/, 'Debe conservarse la función de permisos de volúmenes');
+assert.match(accessSql, /c\.status = 'active'/, 'El acceso a volúmenes debe reconocer el estado vigente active');
+assert.match(accessSql, /m\.user_id = auth\.uid\(\)/, 'La función de acceso debe limitarse a integrantes del equipo invitado');
+assert.match(accessSql, /SECURITY DEFINER\s+SET search_path TO ''/, 'Preservar la definición protegida de la función');
 const studioSource = readFileSync(new URL('../src/studio.js', import.meta.url), 'utf8');
 assert.match(studioSource, /\.eq\('status', COLLABORATION_STATUS\.active\)/, 'Las colaboraciones activas deben aparecer en Mis obras');
 assert.match(studioSource, /response = b\.dataset\.acc \? COLLABORATION_STATUS\.active : COLLABORATION_STATUS\.declined/, 'Aceptar y rechazar deben usar estados válidos');
