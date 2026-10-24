@@ -48,7 +48,7 @@ try {
   assert.match(r.body, /<section aria-label="Presentación pública"/);
   assert.match(r.body, /application\/ld\+json/);
   assert.match(r.body, /BreadcrumbList/);
-  const ld = r.body.match(/<script type="application\\/ld\\+json">([\\s\\S]*?)<\\/script>/)?.[1];
+  const ld = r.body.split('<script type="application/ld+json">')[1]?.split('</script>')[0];
   assert.ok(ld);
   assert.equal(JSON.parse(ld)['@graph'].find(x => x['@type'] === 'Book').name, 'Obra <especial>');
   assert.doesNotMatch(ld, /<special>/);
