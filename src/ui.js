@@ -375,16 +375,16 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   const HOME_CSS = `
 /* Logo del equipo en una columna propia: el anuncio editorial configurado al
    publicar/programar y el ranking permanecen juntos sin solaparse. */
-.ob-hero .ob-hero-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:clamp(12px,2.2vw,26px);min-width:0;max-width:100%}
+.ob-hero .ob-hero-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:clamp(10px,1.4vw,18px);min-width:0;max-width:100%}
 .ob-hero .ob-hero-meta{min-width:0;max-width:100%}
 .ob-hero .ob-hero-head:not(:has(.ob-hero-team-logo)){display:block}
-.ob-hero .ob-hero-team-logo{box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:7px;min-width:0;width:clamp(128px,10vw,140px);color:var(--paper);text-align:center;text-decoration:none}
+.ob-hero .ob-hero-team-logo{box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:7px;min-width:0;width:clamp(82px,7vw,100px);color:var(--paper);text-align:center;text-decoration:none}
 .ob-hero .ob-hero-team-logo img{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:contain;border:none;filter:drop-shadow(0 4px 8px rgba(0,0,0,.55))}
-.ob-hero .ob-hero-team-logo.is-text{width:clamp(92px,11vw,140px);min-height:44px;justify-content:center;padding:8px 6px;border:1px solid var(--line);background:rgba(13,12,10,.42)}
+.ob-hero .ob-hero-team-logo.is-text{width:clamp(82px,7vw,100px);min-height:44px;justify-content:center;padding:8px 6px;border:1px solid var(--line);background:rgba(13,12,10,.42)}
 .ob-hero .ob-hero-team-logo.is-text span{display:block;width:100%;max-width:100%;font:600 12px/1.4 'IBM Plex Mono',monospace;overflow-wrap:anywhere;text-wrap:balance}
 .ob-hero .ob-hero-team-logo:hover,.ob-hero .ob-hero-team-logo:focus-visible{color:var(--gold)}
 .ob-hero .ob-hero-team-logo:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
-.ob-hero .ob-hero-head+h1{margin-top:clamp(18px,2.2vw,28px)}
+.ob-hero .ob-hero-head+h1{margin-top:clamp(12px,1.25vw,18px)}
 @media(max-width:600px){
  .ob-hero .ob-hero-head{column-gap:10px}
  .ob-hero .ob-hero-team-logo{width:80px}
@@ -399,7 +399,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
  .ob-hero .ob-hero-team-logo.is-text span{font-size:9px}
 }
 @media(min-width:601px) and (max-width:1100px){
- .ob-hero .ob-hero-team-logo{width:clamp(96px,10vw,112px)}
+ .ob-hero .ob-hero-team-logo{width:clamp(78px,8vw,94px)}
 }
 .ob-fest{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:22px 0 0;padding:12px 16px;border:1px solid var(--fc);border-left:4px solid var(--fc);background:color-mix(in srgb,var(--fc) 9%,#16140f);color:var(--paper);text-decoration:none}
 .ob-fest:hover{color:var(--paper);background:color-mix(in srgb,var(--fc) 15%,#16140f)}.ob-fest b{font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:18px}.ob-fest span{font-size:13px;color:var(--mute)}.ob-fest em{margin-left:auto;font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--fc)}
@@ -497,19 +497,21 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
 .ob-urow.is-volume time{align-self:start}
 .ob-hero .ob-badge-vol{display:inline-block;background:var(--gold);color:#0d0c0a;font-weight:800;font-size:clamp(14px,1.5vw,18px);letter-spacing:.07em;padding:8px 13px;margin-bottom:8px}
 /* Inicio — jerarquía de lanzamientos: volumen, aviso opcional y ranking. */
-.ob-hero{padding-bottom:clamp(90px,8vw,112px)}
+/* Alinear la cubierta y el anuncio desde arriba, sin centrar la portada respecto a títulos extensos. */
+.ob-hero{align-items:start;column-gap:clamp(28px,3vw,48px);padding-bottom:clamp(90px,8vw,112px)}
+.ob-hero .ob-cov{align-self:start}
 .ob-hero .ob-txt{min-width:0;max-width:860px;padding-inline-end:clamp(0px,2vw,24px)}
-.ob-hero .ob-txt .ob-kick{display:block;margin:0 0 14px;font-size:clamp(13px,1.15vw,16px);line-height:1.5}
-.ob-hero .ob-hero-flags{display:flex;flex-direction:column;align-items:flex-start;gap:12px;max-width:100%;margin:0;min-width:0}
+.ob-hero .ob-txt .ob-kick{display:block;margin:0 0 9px;font-size:clamp(13px,1.15vw,16px);line-height:1.5}
+.ob-hero .ob-hero-flags{display:flex;flex-direction:column;align-items:flex-start;gap:9px;max-width:100%;margin:0;min-width:0}
 .ob-hero .ob-hero-flags .ob-badge{display:inline-flex;align-items:center;max-width:100%;min-width:0;box-sizing:border-box;margin:0;padding:8px 13px;font-size:clamp(12px,1.1vw,16px);line-height:1.3;letter-spacing:.055em;white-space:normal;overflow-wrap:anywhere}
 .ob-hero .ob-hero-flags .ob-badge-vol{font-weight:800;background:var(--gold);color:#0d0c0a}
 .ob-hero .ob-hero-flags .ob-utag-hero{display:inline-flex;align-items:center;align-self:flex-start;max-width:100%;min-width:0;box-sizing:border-box;padding:6px 11px;font:700 clamp(12px,1vw,15px)/1.35 'IBM Plex Mono',monospace;letter-spacing:.04em;text-transform:uppercase;white-space:normal;overflow-wrap:anywhere}
 .ob-hero .ob-hero-rank{display:flex;align-items:center;min-width:0;margin:14px 0 0}
 .ob-hero .ob-hero-rank .rk-bdg{margin:0;min-height:30px;font-size:12px}
 .ob-hero .ob-hero-flags+h1,.ob-hero .ob-hero-rank+h1{margin-top:clamp(18px,2.2vw,28px)}
-.ob-hero .ob-txt h1{max-width:100%;font-size:clamp(30px,4.1vw,58px);line-height:1.11;text-wrap:balance;overflow-wrap:break-word}
-.ob-hero .ob-txt h1[data-len=l]{font-size:clamp(28px,3.65vw,49px)}
-.ob-hero .ob-txt h1[data-len=xl]{font-size:clamp(26px,3.1vw,42px)}
+.ob-hero .ob-txt h1{max-width:100%;font-size:clamp(30px,3.4vw,50px);line-height:1.13;text-wrap:balance;overflow-wrap:break-word}
+.ob-hero .ob-txt h1[data-len=l]{font-size:clamp(28px,3.4vw,45px)}
+.ob-hero .ob-txt h1[data-len=xl]{font-size:clamp(26px,2.8vw,38px)}
 .ob-hero .ob-txt .ob-tag{margin:12px 0 0;line-height:1.4}
 .ob-hero .ob-txt .ob-syn{margin:14px 0 0;max-width:64ch;-webkit-line-clamp:4}
 .ob-hero .ob-txt .ob-acts{margin-top:20px}
