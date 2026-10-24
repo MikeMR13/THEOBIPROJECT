@@ -130,7 +130,7 @@ export default async function handler(req, res) {
   let item = null, unavailable = false;
   try { item = await publicData(kind, slug, chapter, volume, origin); }
   catch (e) { unavailable = true; console.warn('SEO pública temporalmente indisponible:', e.message); }
-  const noindex = isDraft || !item || !!item.noindex || unavailable;
+  const noindex = isDraft || (!item && !unavailable) || !!item?.noindex;
   const data = item || { title: SITE, description: DESC, image: origin + FALLBACK_IMAGE, heading: SITE };
   try {
     // Se solicita el HTML compilado, para conservar sellos de caché y todas las funciones SPA.
@@ -156,10 +156,11 @@ export default async function handler(req, res) {
       html = html.replace(/(<main id="app"[^>]*>)(<\/main>)/, '$1' + teaser + '$2');
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', noindex ? 'private, no-store' : 'public, s-maxage=120, stale-while-revalidate=300');
+    res.setHeader('Cache-Control', noindex || unavailable ? 'private, no-store' : 'public, s-maxage=120, stale-while-revalidate=300');
+    if (unavailable) res.setHeader('Retry-After', '60');
     if (noindex) res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     // Sólo una página inexistente confirmada es 404. Un backend caído no produce falsas bajas.
-    return res.status(!item && !unavailable ? 404 : 200).send(req.method === 'HEAD' ? '' : html);
+    return res.status(unavailable ? 503 : !item ? 404 : 200).send(req.method === 'HEAD' ? '' : html);
   } catch (e) {
     console.error('No se pudo componer el HTML SEO', e.message);
     res.setHeader('Cache-Control', 'no-store');
