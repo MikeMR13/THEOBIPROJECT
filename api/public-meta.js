@@ -83,9 +83,11 @@ async function publicData(kind, slug, chapter, volume, origin) {
   }
   if (kind === 'equipo') {
     if (!validSlug(slug)) return null;
-    const t = await query('teams', { slug: 'eq.' + slug, status: 'neq.Proyecto privado', select: 'slug,name,bio,banner_path,avatar_path,status' }, backend, key);
+    const t = await query('teams', { slug: 'eq.' + slug, status: 'neq.Proyecto privado', select: 'id,slug,name,bio,banner_path,avatar_path,status,settings' }, backend, key);
     if (!t || t.status === 'Proyecto privado') return null;
-    return { type: 'Organization', title: t.name + ' — ' + SITE, description: limit(t.bio || ('Conoce las traducciones y novedades de ' + t.name + '.'), 170), image: media(t.banner_path || t.avatar_path, backend, origin), heading: t.name };
+    const base = { type: 'Organization', title: t.name + ' — ' + SITE, description: limit(t.bio || ('Conoce las traducciones y novedades de ' + t.name + '.'), 170), image: media(t.banner_path || t.avatar_path, backend, origin), heading: t.name };
+    return applySeo(base,t.settings?.seo,{allowedImages:[t.banner_path,t.avatar_path].filter(p => typeof p === 'string' && p.startsWith(t.id+'/')),
+      media:p => media(p,backend,origin)});
   }
   if (kind === 'lector') {
     if (!validReader(slug)) return null;
