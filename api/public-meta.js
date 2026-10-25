@@ -174,7 +174,7 @@ export default async function handler(req, res) {
   const canonical = origin + path + (volumeKey ? '?vol=' + volumeKey : '');
   let item = null, unavailable = false;
   try { item = await publicData(kind, slug, chapter, volume, origin); }
-  catch (e) { unavailable = true; console.warn('SEO pública temporalmente indisponible:', e.message); }
+  catch (e) { unavailable = true; console.warn('SEO pública temporalmente indisponible:', e.message, 'code:', e.cause?.code || e.code || 'unknown'); }
   const preview = process.env.VERCEL_ENV !== 'production';
   const noindex = preview || isDraft || (!item && !unavailable) || !!item?.noindex;
   const data = item || { title: SITE, description: DESC, image: origin + FALLBACK_IMAGE, heading: SITE };
