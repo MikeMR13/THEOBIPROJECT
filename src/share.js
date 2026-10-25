@@ -1,7 +1,12 @@
+import {updateClientSeo} from './seo.js?v=1';
 // Menú unificado para enlaces públicos; no altera el sistema de citas ni los carnets.
 const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 const BASE_TITLE = 'El Obi del Lector';
 let wired = false;
+// No sobrescribir la decisión de indexación del SSR en la ruta inicial.
+const ENTRY_PATH=location.pathname, ENTRY_URL=location.pathname+location.search;
+const ENTRY_NOINDEX=/noindex/i.test(document.querySelector('meta[name="robots"]')?.content||'');
+let clientNavigated=false;
 function publicPath() {
   const p = location.pathname;
   return /^\/serie\/[\w-]+$/.test(p) || /^\/leer\/[\w-]+\/\d+$/.test(p) || /^\/equipo\/[\w-]+$/.test(p);
@@ -78,15 +83,15 @@ function headMeta() {
     (p.startsWith('/equipo/') && !document.querySelector('.tp2-page .tp2'));
   const isMissingVolume = p.startsWith('/serie/') && requestedVol > 0 &&
     !document.querySelector('.ui-vol-book[data-vol-num="' + requestedVol + '"]');
-  const isPrivate = window.OBI_CONFIG?.preview === true || /^\/(?:estudio|bibliotecario|admin|perfil|preferencias|biblioteca|descargas|entrar|registro|anotaciones|invitacion|solicitud)(?:\/|$)/.test(p) ||
+  const isPrivate = window.OBI_CONFIG?.preview === true || /^\/(?:estudio|bibliotecario|admin|perfil|preferencias|biblioteca|descargas|entrar|registro|restablecer|buscar|mi-equipo|elige-nombre|anotaciones|invitacion|solicitud)(?:\/|$)/.test(p) ||
     isRestrictedReader || isMissingPublic || isMissingVolume;
   let robots = document.querySelector('meta[name="robots"]');
-  if ((isPrivate || isDraft) && !robots) {
+  if ((isPrivate || isDraft || (ENTRY_NOINDEX && p===ENTRY_PATH)) && !robots) {
     robots = document.createElement('meta');
     robots.name = 'robots';
     document.head.append(robots);
   }
-  if (isPrivate || isDraft) robots.content = 'noindex,nofollow';
+  if (isPrivate || isDraft || (ENTRY_NOINDEX && p===ENTRY_PATH)) robots.content = 'noindex,nofollow';
   else robots?.remove();
 
   const title = p === '/' ? BASE_TITLE + ' — Novelas ligeras en español latino'
@@ -100,6 +105,11 @@ function headMeta() {
   const d = document.querySelector('meta[name="description"]');
   const syn = p.startsWith('/serie/') ? document.querySelector('.ui-syn') : null;
   if (d && (syn?.textContent || p === '/')) d.content = (syn?.textContent || 'Biblioteca de novelas ligeras traducidas al español latino por grupos de fans.').trim().slice(0, 170);
+  // El SSR sigue siendo la fuente de verdad al entrar directamente desde
+  // WhatsApp/Google. Actualizar el head solo tras navegación SPA real.
+  if(location.pathname+location.search!==ENTRY_URL) clientNavigated=true;
+  if(clientNavigated) updateClientSeo({blocked:isPrivate||isDraft||isMissingPublic||
+    (ENTRY_NOINDEX && p===ENTRY_PATH)});
 }
 export function installPublicShare() {
   setupCSS();
