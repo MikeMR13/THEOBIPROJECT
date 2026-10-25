@@ -37,6 +37,47 @@ async function query(table, params, backend, key) {
     return Array.isArray(rows) ? rows[0] || null : rows;
   } finally { clearTimeout(stop); }
 }
+async function rpc(name, data, backend, key) {
+  if (!backend || !key) throw new Error('Falta configuración pública de Supabase');
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 2200);
+  try {
+    const r = await fetch(backend + '/rest/v1/rpc/' + name, {
+      method: 'POST', headers: { apikey: key, Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(data), signal: ctrl.signal
+    });
+    if (!r.ok) throw new Error('RPC pública ' + name + ': ' + r.status);
+    return await r.json();
+  } finally { clearTimeout(timer); }
+}
+// Solo equipos de traducción autorizados para mostrarse públicamente.
+// Los logos respetan la preferencia show_reader_logo y el bucket del equipo.
+async function socialCredits(id, teamId, backupName, backend, key, origin) {
+  let rows = [];
+  try {
+    const result = await rpc('series_public_credits', {p_series_ids:[id]}, backend, key);
+    if (Array.isArray(result)) rows = result;
+  } catch (e) { console.warn('Créditos de traductores temporalmente indisponibles:', e.message); }
+  const credits = rows.filter(r => r && r.series_id === id && r.status !== 'Proyecto privado')
+    .sort((a,b) => Number(!!b.is_primary) - Number(!!a.is_primary))
+    .slice(0,3)
+    .map(r => ({
+      name: limit(r.name,42),
+      logo: r.show_reader_logo !== false && typeof r.avatar_path === 'string'
+        && r.avatar_path.startsWith(r.team_id + '/') ? media(r.avatar_path,backend,origin) : '',
+      primary: !!r.is_primary
+    })).filter(r => r.name);
+  if (!credits.length && backupName) credits.push({name:limit(backupName,42),logo:'',primary:true});
+  if (!credits.length && teamId) {
+    try {
+      const t = await query('teams',{id:'eq.'+teamId,status:'neq.Proyecto privado',
+        select:'id,name,avatar_path,settings'},backend,key);
+      if (t?.name) credits.push({name:limit(t.name,42),
+        logo:t.settings?.show_reader_logo !== false && typeof t.avatar_path === 'string'
+          && t.avatar_path.startsWith(t.id+'/') ? media(t.avatar_path,backend,origin) : '',primary:true});
+    } catch { /* nunca impedir la ficha pública por ausencia de créditos */ }
+  }
+  return credits;
+}
 export async function publicData(kind, slug, chapter, volume, origin) {
   const backend = (process.env.OBI_SUPABASE_URL || '').replace(/\/+$/, '');
   const key = process.env.OBI_SUPABASE_PUBLISHABLE_KEY || '';
@@ -57,9 +98,22 @@ export async function publicData(kind, slug, chapter, volume, origin) {
   if (kind === 'serie' || kind === 'leer') {
     if (!validSlug(slug)) return null;
     const s = await query('series', { slug: 'eq.' + slug, published: 'eq.true', archived_at: 'is.null', access: 'eq.public', select: 'id,slug,title,synopsis,cover_path,cover_thumb_path,author,genres,access,adult,theme,media,team_id' }, backend, key);
-    if (!s) return null;
+    if (!s) {
+      // Solo la ficha base, nunca un volumen ni un capítulo, admite preestreno.
+      if (kind !== 'serie' || volume) return null;
+      const p = await rpc('public_prelaunch_social', {p_slug:slug}, backend, key);
+      if (!p?.id || p.slug !== slug) return null;
+      const raw = {type:'Book',prelaunch:true,noindex:false,author:p.author||'',genres:p.genres||[],
+        title:p.title+' — Próximamente en '+SITE,
+        description:limit('Próximo estreno. '+(p.synopsis||('Descubre '+p.title+'.')),170),
+        image:media(p.cover_path||p.cover_thumb_path,backend,origin),heading:p.title};
+      const base = applySeo(raw,p.seo,{allowedImages:[p.cover_path,p.cover_thumb_path].filter(Boolean),
+        media:path=>media(path,backend,origin)});
+      return {...base,prelaunch:true,credits:await socialCredits(p.id,p.team_id,p.team_name,backend,key,origin)};
+    }
     const raw = { type: 'Book', noindex: s.adult === true, author: s.author || '', genres: s.genres || [], title: s.title + ' — ' + SITE, description: limit(s.synopsis || ('Lee ' + s.title + ' en español latino.'), 170), image: media(s.cover_path || s.cover_thumb_path, backend, origin), heading: s.title };
-    const base = applySeo(raw, s.theme?.seo, {allowedImages: editImages(s), media: p => media(p, backend, origin)});
+    const base = {...applySeo(raw, s.theme?.seo, {allowedImages: editImages(s), media: p => media(p, backend, origin)}),
+      credits: await socialCredits(s.id,s.team_id,'',backend,key,origin)};
     if (kind === 'serie') {
       if (!volume) return base;
       if (!/^\d{1,3}$/.test(volume) || Number(volume) < 1) return null;
@@ -165,7 +219,7 @@ function tags(data, canonical, origin, noindex, {kind,slug,chapter,volume,isDraf
   const eligible = publicItem && socialKinds.has(kind) && !isDraft && !data.noindex && (kind === 'home' || !!slug);
   const key = createHash('sha256').update(JSON.stringify([
     data.title,data.description,data.socialTitle,data.socialDescription,data.image,
-    data.heading,kind,slug,chapter,volume
+    data.heading,data.prelaunch,data.credits,kind,slug,chapter,volume
   ])).digest('hex').slice(0,12);
   const qs = new URLSearchParams({kind});
   if(slug) qs.set('slug',slug);
