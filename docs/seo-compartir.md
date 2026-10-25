@@ -184,3 +184,23 @@ Se incorporaron dos workflows en el PR #105. Las comprobaciones de compilación 
 - Las suites de fases 1–3 se mantienen. `scripts/phase4-check.mjs` del proyecto también comprueba que `studio.js` no exceda su límite de modularidad, por lo que los controles SEO se extrajeron a `studio-seo.js`.
 - **NO hay aprobación de QA funcional**: el backend de Preview sigue apuntando a un dominio `.invalid`, el check HTTP E2E exige secretos del entorno protegido `seo-qa` y las reglas globales que interceptan rutas aún no se promueven.
 - No se tocaron datos reales, ni DNS, ni ramas productivas, ni se ejecutaron migraciones.
+
+## Tarjetas Open Graph automáticas — 1200 × 630 px
+
+**Implementadas en código y validadas con PNG real. Pendientes de integración E2E de QA.**
+
+- Endpoint público: `GET /api/og-image?kind=home`, `?kind=serie&slug=:slug`, `?kind=leer&slug=:slug&chapter=:num`, `?kind=equipo&slug=:slug` y opcional `vol` para volumen publicado. La ruta devuelve `image/png` con **1200 × 630 px**, `Content-Length` y `X-Content-Type-Options: nosniff`.
+- Compositor `lib/social-card.js` con **sharp 0.35.5**, usa el fondo negro `#0d0c0a`, marfil `#f3ecd9`, dorado `#f2c230`, sello 帯, jerarquía editorial, banda dorada y portada original adaptada con `fit: contain`, sin recortarla ni distorsionarla.
+- Reutiliza `publicData()` de `api/public-meta.js`: solo series públicas/publicadas/no archivadas, capítulos abiertos y publicados, equipos públicos. No permite imágenes personalizadas de lectores, borradores, Patreon, contenido +18 o páginas `noindex`. Tampoco URLs externas arbitrarias ni imágenes de Supabase distintas del bucket público `obi-media` del backend configurado.
+- Portadas remotas: solicita únicamente HTTPS del backend configurado, MIME PNG/JPEG/WebP, 4 MB y hasta 24 MP de entrada. Desactiva redirecciones, con timeout; un fallo de imagen utiliza el icono institucional local sin filtrar datos.
+- La imagen siempre se consulta con política **`Cache-Control: private, no-store`**: despublicar una obra no deja una tarjeta previamente cacheada por el servidor. La caché externa propia de cada red social no está bajo nuestro control.
+- `api/public-meta.js` añade `og:image`, `og:image:type`, `og:image:width`, `og:image:height`, `og:image:alt`, `twitter:image` y `twitter:image:alt`, con URL absoluta del propio despliegue y `v=<hash>` sobre título, sinopsis e imagen. Borradores, +18, noindex y tarjetas de lectores conservan imagen genérica.
+- El shell estático de Inicio `src/index.html` también anuncia `https://elobidellector.com/api/og-image?kind=home`, para que el enlace a la tarjeta no dependa del rewrite pendiente de `/`.
+- Test: `npm run seo-social-image-check` incluido en `npm run build`. Comprueba PNG binario **real** 1200 × 630, capítulos, equipos, Inicio, rutas de imagen seguras, filtros de acceso/Patreon/+18/noindex, JSON y cabeceras.
+- La compuerta `scripts/seo-preview-http-check.mjs` comprueba, cuando exista QA real, **las cuatro imágenes** en HTTPS con firma PNG, MIME, dimensiones y privacidad.
+
+### Estado de infraestructura
+
+- En Preview Vercel se verificó `GET /api/og-image?kind=home`: HTTP 200, `Content-Type: image/png` y dimensiones correctas (cabecera PNG). `GET /api/public-meta?kind=home` devuelve la URL OG correspondiente.
+- Las tarjetas dinámicas de obras/equipos requieren **Supabase QA real** para una prueba HTTP completa. Mientras siga `.invalid`, esos endpoints devuelven 503, no una tarjeta ficticia. El código y las pruebas deterministas sí las validan con imágenes de QA sintéticas.
+- En producción no se han activado estas funciones: PR #105 sigue en borrador, sin merge, sin migración SQL y sin promover las reglas de enrutamiento de staging. Cuando se integre, las plataformas sociales podrán rastrear las imágenes por HTTPS.
