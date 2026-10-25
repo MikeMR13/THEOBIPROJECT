@@ -2,6 +2,7 @@ import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=
 import { initCollaborationTeamPicker, COLLABORATION_STATUS } from './studio-collaboration-picker.js?v=1';
 import { seriesPublicationHTML, bindSeriesPublication } from './studio-series-publication.js?v=1';
 import { bindSeriesSeo } from './studio-seo.js?v=1';
+import { cleanSeo } from './seo-settings.js?v=1';
 import { SECTION_TYPES } from './section-types.js?v=1';
 import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
 import { askEditorialAnnouncement, saveEditorialRecord, chooseActiveEditorial } from './editorial-announcements.js?v=1';
@@ -1309,7 +1310,8 @@ export function createStudio(ctx){
     const edit = can('profile'), S0 = t.settings || {};
     const D = { name: t.name, slug: t.slug, bio: t.bio || '', aniv: t.anniversary || '', anivMsg: t.anniversary_msg || '', color: t.color || '#f2c230', langs: [...(t.langs || [])], avatar: t.avatar_path, banner: t.banner_path,
       feat: S0.featured_works || '', links: Object.fromEntries(LINKS.map(([k]) => [k, S0[k] || ''])), sect: Object.fromEntries(SECTS.map(([k]) => [k, S0[k] !== false])),
-      logoUpd: S0.show_team_logo !== false, logoReader: S0.show_reader_logo !== false, tz: S0.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone };
+      logoUpd: S0.show_team_logo !== false, logoReader: S0.show_reader_logo !== false, tz: S0.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      seo: cleanSeo(S0.seo,{allowedImages:[t.avatar_path,t.banner_path].filter(Boolean)}) };
     const cnt = {}; if (works?.length) { const { data: cc } = await sb.from('chapters').select('series_id').in('series_id', works.map(w => w.id)).eq('status', 'published').is('deleted_at', null).limit(5000); (cc || []).forEach(c => cnt[c.series_id] = (cnt[c.series_id] || 0) + 1); }
     const dis = edit ? '' : 'disabled';
     app.innerHTML = shell('Página del equipo', `<div class="pfx">
@@ -1329,6 +1331,16 @@ export function createStudio(ctx){
         <label>Zona horaria del equipo<select name="tz" ${dis}>${[...TZS, ...(TZS.some(x => x[0] === D.tz) ? [] : [[D.tz, D.tz.replace(/_/g, ' ')]])].map(([k, l]) => `<option value="${k}" ${k === D.tz ? 'selected' : ''}>${l} · ${new Date().toLocaleTimeString('es-MX', { timeZone: k, hour: '2-digit', minute: '2-digit' })}</option>`).join('')}</select><small class="mono">Es la hora de referencia del equipo. Cada integrante programa con la hora de su dispositivo y, junto al campo de fecha, puede cambiar a esta. Los lectores ven cada lanzamiento en su propia hora.</small></label>
         <label>Obra destacada<select name="feat" ${dis}><option value="">Ninguna</option>${(works || []).map(w => `<option value="${w.slug}" ${D.feat === w.slug ? 'selected' : ''}>${esc(w.short || w.title)}</option>`).join('')}</select></label>
         <div class="pf-g"><span class="pf-l">Secciones visibles</span>${SECTS.map(([k, l]) => `<label class="tb-inl"><input type="checkbox" data-sect="${k}" ${D.sect[k] ? 'checked' : ''} ${dis}> ${l}</label>`).join('')}</div>
+        <fieldset style="display:grid;gap:12px;border:1px solid #54452b;padding:16px"><legend>SEO y tarjetas del equipo</legend>
+          <p class="mono" style="margin:0">Campos opcionales. No modifican tu URL ni hacen públicos los borradores del equipo.</p>
+          <label>Título SEO<input data-tseo="title" maxlength="70" value="${esc(D.seo.title)}" ${dis}></label>
+          <label>Descripción SEO<textarea data-tseo="description" rows="3" maxlength="170" ${dis}>${esc(D.seo.description)}</textarea></label>
+          <label>Título para compartir<input data-tseo="socialTitle" maxlength="90" value="${esc(D.seo.socialTitle)}" ${dis}></label>
+          <label>Descripción para compartir<textarea data-tseo="socialDescription" rows="3" maxlength="200" ${dis}>${esc(D.seo.socialDescription)}</textarea></label>
+          <label>Imagen de la tarjeta<select data-tseo="imagePath" ${dis}><option value="">Banner o logo automático</option>
+            ${[D.banner,D.avatar].filter(Boolean).map((p,i)=>'<option value="'+esc(p)+'" '+(D.seo.imagePath===p?'selected':'')+'>'+ (i?'Logo':'Banner') +'</option>').join('')}</select></label>
+          <label class="tb-inl"><input data-tseo="noindex" type="checkbox" ${D.seo.noindex?'checked':''} ${dis}> Ocultar en buscadores (sin cambiar visibilidad)</label>
+        </fieldset>
         <div class="pf-g"><span class="pf-l">Redes y apoyo</span>${LINKS.map(([k, l, ph]) => `<label class="pf-link">${l}<input type="url" data-link="${k}" value="${esc(D.links[k])}" placeholder="${ph}" ${dis}></label>`).join('')}</div>
         <div class="pf-g" id="pt-team"></div>
         ${edit ? '<span class="pf-save"><span class="mono" id="pfstate"></span><button class="btn" id="pfsave">Guardar página</button></span>' : ''}
@@ -1366,6 +1378,7 @@ export function createStudio(ctx){
     f.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { const k = b.dataset.lang, on = !D.langs.includes(k); D.langs = on ? [...D.langs, k] : D.langs.filter(x => x !== k); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); touch(); });
     f.querySelectorAll('[data-sect]').forEach(i => i.onchange = () => { D.sect[i.dataset.sect] = i.checked; touch(); });
     f.querySelectorAll('[data-link]').forEach(i => i.oninput = () => { D.links[i.dataset.link] = i.value.trim(); touch(); });
+    f.querySelectorAll('[data-tseo]').forEach(i => i[i.type === 'checkbox'||i.tagName==='SELECT'?'onchange':'oninput'] = () => { D.seo[i.dataset.tseo] = i.type === 'checkbox' ? i.checked : i.value; touch(); });
     $('#lu').onchange = e => { D.logoUpd = e.target.checked; touch(); };
     $('#lr').onchange = e => { D.logoReader = e.target.checked; touch(); };
     const up = async (file, kind, max) => {
@@ -1384,7 +1397,7 @@ export function createStudio(ctx){
       if (D.name.trim().length < 2) throw new Error('El nombre es muy corto');
       const bad = LINKS.find(([k]) => D.links[k] && !/^https:\/\//.test(D.links[k])); if (bad) throw new Error(bad[1] + ': el enlace debe empezar con https://');
       if (D.slug !== t.slug && !confirm(`¿Cambiar la dirección a obi.lat/equipo/${D.slug}? Los enlaces viejos dejarán de funcionar.`)) return;
-      const settings = { ...S0, ...D.links, ...D.sect, featured_works: D.feat, show_team_logo: D.logoUpd, show_reader_logo: D.logoReader, timezone: D.tz };
+      const settings = { ...S0, ...D.links, ...D.sect, featured_works: D.feat, show_team_logo: D.logoUpd, show_reader_logo: D.logoReader, timezone: D.tz, seo: cleanSeo(D.seo,{allowedImages:[D.banner,D.avatar].filter(Boolean)}) };
       const { error } = await sb.from('teams').update({ name: D.name.trim(), slug: D.slug, bio: D.bio.trim() || null, color: D.color, langs: D.langs, avatar_path: D.avatar, banner_path: D.banner, settings, anniversary: D.aniv || null, anniversary_msg: D.anivMsg.trim() || null }).eq('id', T.team.id);
       if (error) throw new Error(/teams_slug_key/.test(error.message) ? 'Esa dirección ya la usa otro equipo' : /teams_profile_checks/.test(error.message) ? 'Revisa el nombre, la dirección y la presentación' : errMsg(error));
       Object.assign(t, { slug: D.slug }); Object.assign(T.team, { name: D.name.trim(), color: D.color, slug: D.slug }); T.tz = D.tz; dirty = false;
