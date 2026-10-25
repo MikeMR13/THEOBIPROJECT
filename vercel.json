@@ -221,7 +221,7 @@
     },
     "api/og-image.js": {
       "maxDuration": 10,
-      "includeFiles": "public/icon-512.png"
+      "includeFiles": "public/icon-512.png,node_modules/@fontsource/ibm-plex-sans/files/*.woff"
     }
   }
 }
