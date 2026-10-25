@@ -152,7 +152,7 @@ try {
   const src=readFileSync(new URL('../src/index.html',import.meta.url),'utf8');
   assert.match(src,/api\/og-image\?kind=home/);
   const vercel=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
-  assert.match(vercel.functions['api/og-image.js'].includeFiles,/ibm-plex-sans/);
+  assert.match(vercel.functions['api/og-image.js'].includeFiles,/@ibm\/plex-sans-variable/);
   assert.match(readFileSync(new URL('../supabase/migrations/20261024_public_prelaunch_social.sql',import.meta.url),'utf8'),/announce_prelaunch is true/,'Preestreno exige anuncio explícito');
   console.log('seo-social-image: PNG 1200×630 real, portada grande, traductor y logo reales, fuentes, preestreno sin lectura, privacidad y SSR OK');
 }finally{
