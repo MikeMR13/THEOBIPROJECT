@@ -12,7 +12,7 @@ const iso = v => {
   return Number.isNaN(date.valueOf()) || date.valueOf() > Date.now() ? '' : date.toISOString();
 };
 const validSeries = s => s && goodSlug(s.slug) && s.published === true && s.archived_at === null &&
-  s.access === 'public' && s.adult !== true;
+  s.access === 'public' && s.adult !== true && s.theme?.seo?.noindex !== true;
 const validStatus = s => s && s.status === 'published' && s.access === 'public' && s.deleted_at === null;
 const validPublishedTime = v => !v || (Number.isFinite(Date.parse(v)) && Date.parse(v) <= Date.now());
 function client() {
@@ -54,7 +54,7 @@ async function generate() {
   // Consultar la identidad de la serie para validar RLS y evitar publicar slugs huérfanos.
   const [series, teams] = await Promise.all([
     getAll('series', { published: 'eq.true', archived_at: 'is.null', access: 'eq.public', adult: 'eq.false' },
-      'id,slug,published,archived_at,access,adult'),
+      'id,slug,published,archived_at,access,adult,theme'),
     getAll('teams', { status: 'neq.Proyecto privado' }, 'id,slug,status')
   ]);
   const safe = new Map(series.filter(validSeries).map(s => [s.id, s.slug]));
