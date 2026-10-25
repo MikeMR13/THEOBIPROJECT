@@ -95,7 +95,8 @@ try {
   // Fase 4: una sola navegación activa; controles emergentes accesibles
   // y cierre sin búsquedas tardías que vuelvan a desplegar resultados.
   const navItems=[...app.querySelectorAll('.s2-nav a')];
-  ok(navItems.length===13 && !navItems.some(a=>a.getAttribute('href')==='/estudio/bitacora'),'Los permisos del mock deben ocultar la Bitácora sin permiso log');
+  ok(navItems.length===14 && !navItems.some(a=>a.getAttribute('href')==='/estudio/bitacora'),'Los permisos del mock deben ocultar la Bitácora sin permiso log y conservar Difusión');
+  ok(navItems.some(a=>a.getAttribute('href')==='/estudio/difusion'),'Falta Difusión en la navegación del equipo');
   ok(navItems.filter(a=>a.getAttribute('aria-current')==='page').length===1,'Debe haber exactamente una sección activa');
   ok(navItems.every(a=>a.getAttribute('href')?.startsWith('/estudio')),'Ruta inesperada en el menú');
   checks++;
