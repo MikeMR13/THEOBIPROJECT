@@ -35,7 +35,7 @@ select set_config('request.jwt.claim.sub','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 select set_config('request.jwt.claim.is_admin','false',false);
 set role authenticated;
 do $qa$
-declare id uuid; perms jsonb; denied boolean:=false;
+declare created_id uuid; perms jsonb; denied boolean:=false;
 begin
  if (select count(*) from public.diffusion_connections)<>1
  or (select count(*) from public.diffusion_rules)<>1
@@ -44,16 +44,16 @@ begin
  perms:=public.my_team_permissions('11111111-1111-4111-8111-111111111111');
  if perms->>'diffusion_manage'<>'true' or perms->>'diffusion_publish'<>'true'
  then raise exception 'Dueño A sin permisos de Difusión'; end if;
- id:=public.diffusion_rule_save('11111111-1111-4111-8111-111111111111',null,
+ created_id:=public.diffusion_rule_save('11111111-1111-4111-8111-111111111111',null,
    'Mi estreno A','volume.public','automatic',15);
- if not exists(select 1 from public.diffusion_rules where diffusion_rules.id=id and enabled=false)
+ if not exists(select 1 from public.diffusion_rules where diffusion_rules.id=created_id and enabled=false)
  then raise exception 'Regla propia no creada o activada sin autorización'; end if;
- id:=public.diffusion_campaign_draft_save('11111111-1111-4111-8111-111111111111',
+ created_id:=public.diffusion_campaign_draft_save('11111111-1111-4111-8111-111111111111',
    null,'Campaña libre A','Publicación interna libre');
- if not exists(select 1 from public.diffusion_campaigns where diffusion_campaigns.id=id and status='draft')
+ if not exists(select 1 from public.diffusion_campaigns where diffusion_campaigns.id=created_id and status='draft')
  then raise exception 'Campaña no quedó en borrador'; end if;
- perform public.diffusion_draft_delete('11111111-1111-4111-8111-111111111111','campaign',id);
- if exists(select 1 from public.diffusion_campaigns where diffusion_campaigns.id=id)
+ perform public.diffusion_draft_delete('11111111-1111-4111-8111-111111111111','campaign',created_id);
+ if exists(select 1 from public.diffusion_campaigns where diffusion_campaigns.id=created_id)
  then raise exception 'No se puede borrar borrador propio'; end if;
  begin
   perform public.diffusion_rule_save('22222222-2222-4222-8222-222222222222',
