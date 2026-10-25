@@ -1,0 +1,78 @@
+name: SEO · Preview HTTP y Chromium
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seo-preview-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  seo-preview:
+    name: SEO / HTTP y navegador QA
+    # Evita forks, otras ramas, y un workflow_dispatch desde main/producción.
+    if: >-
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.head_ref == 'feat/seo-compartir-publico-20261024') ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == 'refs/heads/feat/seo-compartir-publico-20261024')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # IMPORTANTE: configurar seo-qa con required reviewers y secrets
+    # ANTES de habilitar el acceso; jamás exponer secretos al PR sin revisión.
+    environment: seo-qa
+    env:
+      SEO_EXPECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      VERCEL_PROJECT_ID: prj_yzvyel9CrBbYs3m8WVNWDbmZAtOJ
+      VERCEL_ORG_ID: team_daXpZclzwjAIP7UzDBpk7aHq
+      SEO_REQUIRE_FIXTURES: '1'
+      SEO_PUBLIC_SERIES_SLUG: ${{ vars.SEO_PUBLIC_SERIES_SLUG }}
+      SEO_PUBLIC_CHAPTER_NUM: ${{ vars.SEO_PUBLIC_CHAPTER_NUM }}
+      SEO_PUBLIC_TEAM_SLUG: ${{ vars.SEO_PUBLIC_TEAM_SLUG }}
+    steps:
+      - name: Checkout del commit exacto sin credenciales persistentes
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Verificar disponibilidad de configuración QA protegida
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_TOKEN" || { echo "::error::Configura VERCEL_TOKEN en el entorno protegido seo-qa"; exit 1; }
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET" || { echo "::error::Configura VERCEL_AUTOMATION_BYPASS_SECRET en seo-qa"; exit 1; }
+          test -n "$SEO_PUBLIC_SERIES_SLUG" || { echo "::error::Falta SEO_PUBLIC_SERIES_SLUG en seo-qa"; exit 1; }
+          test -n "$SEO_PUBLIC_CHAPTER_NUM" || { echo "::error::Falta SEO_PUBLIC_CHAPTER_NUM en seo-qa"; exit 1; }
+          test -n "$SEO_PUBLIC_TEAM_SLUG" || { echo "::error::Falta SEO_PUBLIC_TEAM_SLUG en seo-qa"; exit 1; }
+      - name: Verificar deploy Vercel Preview del SHA exacto
+        id: preview
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node scripts/ci/seo-wait-preview.mjs
+      - name: HTTP público, canonicals, privacidad y rutas reales
+        env:
+          SEO_PREVIEW_URL: ${{ steps.preview.outputs.preview_url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: npm run seo-preview-check
+      - name: Instalar Chromium para pruebas QA
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Chromium responsive, lectura y compartir
+        env:
+          SEO_PREVIEW_URL: ${{ steps.preview.outputs.preview_url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: node scripts/seo-preview-browser-check.mjs

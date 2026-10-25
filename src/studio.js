@@ -1,6 +1,8 @@
 import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=1';
 import { initCollaborationTeamPicker, COLLABORATION_STATUS } from './studio-collaboration-picker.js?v=1';
 import { seriesPublicationHTML, bindSeriesPublication } from './studio-series-publication.js?v=1';
+import { bindSeriesSeo, teamSeoProfileHTML } from './studio-seo.js?v=1';
+import { cleanSeo } from './seo-settings.js?v=1';
 import { SECTION_TYPES } from './section-types.js?v=1';
 import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
 import { askEditorialAnnouncement, saveEditorialRecord, chooseActiveEditorial } from './editorial-announcements.js?v=1';
@@ -440,7 +442,7 @@ export function createStudio(ctx){
     if (!(await ensure())) return;
     const { data: s } = await sb.from('series').select('*').eq('slug', slug).maybeSingle();
     if (!s) return go('/estudio');
-    const tab = ({ datos: 'datos', accesos: 'accesos', avisos: 'avisos', media: 'media', descargas: 'descargas' })[new URLSearchParams(location.search).get('tab')] || 'caps';
+    const tab = ({ datos: 'datos', seo: 'seo', accesos: 'accesos', avisos: 'avisos', media: 'media', descargas: 'descargas' })[new URLSearchParams(location.search).get('tab')] || 'caps';
     const { readPages } = await import('/paging.js?v=1');
     const [{ data: vols }, { data: chs }, { data: cols }, { data: events }, { data: dls }, { data: buys }, { data: tch }, { data: tvol }] = await Promise.all([
       sb.from('volumes').select('*').eq('series_id', s.id).is('deleted_at', null).order('num'),
@@ -523,13 +525,14 @@ export function createStudio(ctx){
     app.innerHTML = shell(esc(s.title), `<div class="wk">
       <div class="wk-top"><div class="wk-summary"><span class="pl" style="--p:${st[1]}">${st[0]}</span><span class="mono">${V.length} ${V.length === 1 ? 'volumen' : 'volúmenes'} · ${n('published')} publicados · ${n('scheduled')} programados · ${n('draft')} borradores</span></div>
         <span class="wk-acts">${can('create') ? '<button class="btn sm" id="wk-new">＋ Nuevo capítulo</button>' : ''}${can('import') ? '<a class="btn ghost sm" href="/estudio/importar">Importar volumen</a>' : ''}<a class="btn ghost sm" href="?tab=datos" data-tab="datos">Editar datos</a><a class="lnk" href="/serie/${esc(s.slug)}">Ver en el sitio ↗</a></span></div>
-      <div class="wk-tabs" role="tablist">${[['caps', 'Volúmenes y capítulos'], ['datos', 'Datos de la obra'], ['accesos', 'Acceso y Patreon'], ['avisos', 'Avisos'], ['media', 'Anime y galería'], ['descargas', 'Descargas']].map(([k, l]) => `<a role="tab" aria-selected="${tab === k}" class="${tab === k ? 'on' : ''}" href="${k === 'caps' ? location.pathname : '?tab=' + k}" data-tab="${k}">${l}</a>`).join('')}</div>
-      ${tab === 'caps' ? `${filterBar()}${V.map(volHTML).join('') || '<p class="tb-empty">Esta obra aún no tiene volúmenes.</p>'}${can('create') ? '<button class="wk-addv" id="addvol"><span>＋</span>Nuevo volumen</button>' : ''}${trashHTML()}<div id="wk-bulkw"></div>` : tab === 'avisos' ? avisos() : tab === 'media' ? '<div id="wk-media"><p class="mono">Cargando…</p></div>' : tab === 'descargas' ? '<div id="wk-downloads"><p class="mono">Cargando enlaces…</p></div>' : tab === 'accesos' ? accesos() : datos()}</div>`, '/estudio/obra');
+      <div class="wk-tabs" role="tablist">${[['caps', 'Volúmenes y capítulos'], ['datos', 'Datos de la obra'], ['seo', 'SEO y compartir'], ['accesos', 'Acceso y Patreon'], ['avisos', 'Avisos'], ['media', 'Anime y galería'], ['descargas', 'Descargas']].map(([k, l]) => `<a role="tab" aria-selected="${tab === k}" class="${tab === k ? 'on' : ''}" href="${k === 'caps' ? location.pathname : '?tab=' + k}" data-tab="${k}">${l}</a>`).join('')}</div>
+      ${tab === 'caps' ? `${filterBar()}${V.map(volHTML).join('') || '<p class="tb-empty">Esta obra aún no tiene volúmenes.</p>'}${can('create') ? '<button class="wk-addv" id="addvol"><span>＋</span>Nuevo volumen</button>' : ''}${trashHTML()}<div id="wk-bulkw"></div>` : tab === 'avisos' ? avisos() : tab === 'media' ? '<div id="wk-media"><p class="mono">Cargando…</p></div>' : tab === 'seo' ? '<div id="wk-seo-form"></div>' : tab === 'descargas' ? '<div id="wk-downloads"><p class="mono">Cargando enlaces…</p></div>' : tab === 'accesos' ? accesos() : datos()}</div>`, '/estudio/obra');
     bindPicker(home);
     if (tab === 'descargas') renderDownloads(s.id, app.querySelector('#wk-downloads'));
     const on = (sel2, fn) => app.querySelectorAll(sel2).forEach(b => b.onclick = e => { e.preventDefault(); busy(b, () => fn(b)); });
     const again = () => work(slug);
     if (tab === 'datos') bindSeriesPublication({ app, sb, series: s, can, fromLocal, fmtTz, busy, toast, refresh: again });
+    if (tab === 'seo') bindSeriesSeo({ app, sb, series: s, volumes: V, canEdit: can('edit'), media, busy, toast, refresh: again });
     app.querySelectorAll('[data-tab]').forEach(a => a.onclick = e => { e.preventDefault(); history.replaceState({}, '', a.dataset.tab === 'caps' ? location.pathname : location.pathname + '?tab=' + a.dataset.tab); again(); });
     app.querySelectorAll('[data-tog]').forEach(b => b.onclick = () => { const id = b.dataset.tog; open.has(id) ? open.delete(id) : open.add(id); again(); });
     on('#wk-new', async () => { const v = V[V.length - 1]; if (!v) throw new Error('Crea primero un volumen'); const num = Math.max(0, ...allNums) + 1; const { data, error } = await sb.from('chapters').insert({ series_id: s.id, volume_id: v.id, vol: v.num, num, title: 'Capítulo ' + num, body: [], status: 'draft', section_type: 'Capítulo' }).select('id').single(); if (error) throw error; go('/estudio/editar/' + data.id); });
@@ -1307,7 +1310,8 @@ export function createStudio(ctx){
     const edit = can('profile'), S0 = t.settings || {};
     const D = { name: t.name, slug: t.slug, bio: t.bio || '', aniv: t.anniversary || '', anivMsg: t.anniversary_msg || '', color: t.color || '#f2c230', langs: [...(t.langs || [])], avatar: t.avatar_path, banner: t.banner_path,
       feat: S0.featured_works || '', links: Object.fromEntries(LINKS.map(([k]) => [k, S0[k] || ''])), sect: Object.fromEntries(SECTS.map(([k]) => [k, S0[k] !== false])),
-      logoUpd: S0.show_team_logo !== false, logoReader: S0.show_reader_logo !== false, tz: S0.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone };
+      logoUpd: S0.show_team_logo !== false, logoReader: S0.show_reader_logo !== false, tz: S0.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      seo: cleanSeo(S0.seo,{allowedImages:[t.avatar_path,t.banner_path].filter(Boolean)}) };
     const cnt = {}; if (works?.length) { const { data: cc } = await sb.from('chapters').select('series_id').in('series_id', works.map(w => w.id)).eq('status', 'published').is('deleted_at', null).limit(5000); (cc || []).forEach(c => cnt[c.series_id] = (cnt[c.series_id] || 0) + 1); }
     const dis = edit ? '' : 'disabled';
     app.innerHTML = shell('Página del equipo', `<div class="pfx">
@@ -1324,9 +1328,7 @@ export function createStudio(ctx){
         <div class="pf-g"><span class="pf-l">Logo</span><span class="pf-up"><span class="pf-logo" id="logobox"></span><span style="display:grid;gap:6px"><label class="btn ghost pf-file">${D.avatar ? 'Cambiar logo' : 'Subir logo'}<input type="file" id="flogo" accept="image/png,image/webp,image/jpeg" hidden ${dis}></label><small class="mono">PNG transparente · mínimo 512×512 · hasta 1 MB</small>${D.avatar && edit ? '<button type="button" class="lnk danger" id="nologo">Quitar logo</button>' : ''}</span></span>
           <label class="tb-inl"><input type="checkbox" id="lu" ${D.logoUpd ? 'checked' : ''} ${dis}> En la lista de actualizaciones</label><label class="tb-inl"><input type="checkbox" id="lr" ${D.logoReader ? 'checked' : ''} ${dis}> Al inicio de cada capítulo, en lugar de «Traducido por…»</label></div>
         <div class="pf-g"><span class="pf-l">Portada del perfil</span><span class="pf-up"><label class="btn ghost pf-file">${D.banner ? 'Cambiar portada' : 'Subir portada'}<input type="file" id="fban" accept="image/png,image/jpeg,image/webp" hidden ${dis}></label><small class="mono">1600×400 recomendado · hasta 3 MB. Sin portada se usa el color del equipo.</small>${D.banner && edit ? '<button type="button" class="lnk danger" id="noban">Quitar</button>' : ''}</span></div>
-        <label>Zona horaria del equipo<select name="tz" ${dis}>${[...TZS, ...(TZS.some(x => x[0] === D.tz) ? [] : [[D.tz, D.tz.replace(/_/g, ' ')]])].map(([k, l]) => `<option value="${k}" ${k === D.tz ? 'selected' : ''}>${l} · ${new Date().toLocaleTimeString('es-MX', { timeZone: k, hour: '2-digit', minute: '2-digit' })}</option>`).join('')}</select><small class="mono">Es la hora de referencia del equipo. Cada integrante programa con la hora de su dispositivo y, junto al campo de fecha, puede cambiar a esta. Los lectores ven cada lanzamiento en su propia hora.</small></label>
-        <label>Obra destacada<select name="feat" ${dis}><option value="">Ninguna</option>${(works || []).map(w => `<option value="${w.slug}" ${D.feat === w.slug ? 'selected' : ''}>${esc(w.short || w.title)}</option>`).join('')}</select></label>
-        <div class="pf-g"><span class="pf-l">Secciones visibles</span>${SECTS.map(([k, l]) => `<label class="tb-inl"><input type="checkbox" data-sect="${k}" ${D.sect[k] ? 'checked' : ''} ${dis}> ${l}</label>`).join('')}</div>
+        ${teamSeoProfileHTML(D, dis, esc, TZS, works, SECTS)}
         <div class="pf-g"><span class="pf-l">Redes y apoyo</span>${LINKS.map(([k, l, ph]) => `<label class="pf-link">${l}<input type="url" data-link="${k}" value="${esc(D.links[k])}" placeholder="${ph}" ${dis}></label>`).join('')}</div>
         <div class="pf-g" id="pt-team"></div>
         ${edit ? '<span class="pf-save"><span class="mono" id="pfstate"></span><button class="btn" id="pfsave">Guardar página</button></span>' : ''}
@@ -1364,6 +1366,7 @@ export function createStudio(ctx){
     f.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { const k = b.dataset.lang, on = !D.langs.includes(k); D.langs = on ? [...D.langs, k] : D.langs.filter(x => x !== k); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); touch(); });
     f.querySelectorAll('[data-sect]').forEach(i => i.onchange = () => { D.sect[i.dataset.sect] = i.checked; touch(); });
     f.querySelectorAll('[data-link]').forEach(i => i.oninput = () => { D.links[i.dataset.link] = i.value.trim(); touch(); });
+    f.querySelectorAll('[data-tseo]').forEach(i => i[i.type === 'checkbox'||i.tagName==='SELECT'?'onchange':'oninput'] = () => { D.seo[i.dataset.tseo] = i.type === 'checkbox' ? i.checked : i.value; touch(); });
     $('#lu').onchange = e => { D.logoUpd = e.target.checked; touch(); };
     $('#lr').onchange = e => { D.logoReader = e.target.checked; touch(); };
     const up = async (file, kind, max) => {
@@ -1382,7 +1385,7 @@ export function createStudio(ctx){
       if (D.name.trim().length < 2) throw new Error('El nombre es muy corto');
       const bad = LINKS.find(([k]) => D.links[k] && !/^https:\/\//.test(D.links[k])); if (bad) throw new Error(bad[1] + ': el enlace debe empezar con https://');
       if (D.slug !== t.slug && !confirm(`¿Cambiar la dirección a obi.lat/equipo/${D.slug}? Los enlaces viejos dejarán de funcionar.`)) return;
-      const settings = { ...S0, ...D.links, ...D.sect, featured_works: D.feat, show_team_logo: D.logoUpd, show_reader_logo: D.logoReader, timezone: D.tz };
+      const settings = { ...S0, ...D.links, ...D.sect, featured_works: D.feat, show_team_logo: D.logoUpd, show_reader_logo: D.logoReader, timezone: D.tz, seo: cleanSeo(D.seo,{allowedImages:[D.banner,D.avatar].filter(Boolean)}) };
       const { error } = await sb.from('teams').update({ name: D.name.trim(), slug: D.slug, bio: D.bio.trim() || null, color: D.color, langs: D.langs, avatar_path: D.avatar, banner_path: D.banner, settings, anniversary: D.aniv || null, anniversary_msg: D.anivMsg.trim() || null }).eq('id', T.team.id);
       if (error) throw new Error(/teams_slug_key/.test(error.message) ? 'Esa dirección ya la usa otro equipo' : /teams_profile_checks/.test(error.message) ? 'Revisa el nombre, la dirección y la presentación' : errMsg(error));
       Object.assign(t, { slug: D.slug }); Object.assign(T.team, { name: D.name.trim(), color: D.color, slug: D.slug }); T.tz = D.tz; dirty = false;

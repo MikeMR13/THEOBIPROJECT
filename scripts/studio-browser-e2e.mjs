@@ -10,6 +10,8 @@ import { spawn, execFileSync } from 'node:child_process';
 const root = process.cwd();
 const whitelist = new Map([
  ['/studio.js','src/studio.js'],
+ ['/studio-seo.js','src/studio-seo.js'],
+ ['/seo-settings.js','src/seo-settings.js'],
  ['/studio-collaboration-picker.js','src/studio-collaboration-picker.js'],
  ['/studio-series-publication.js','src/studio-series-publication.js'],
  ['/studio-preview-share.js','src/studio-preview-share.js'],

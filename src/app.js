@@ -1,3 +1,4 @@
+import { installPublicShare } from './share.js?v=1';
 // Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
 import { createClient } from '/supabase.js?v=1';
 import { createReader } from '/reader.js?v=19';
@@ -181,7 +182,7 @@ function render(){
   // En la lectura offline no iniciar cargas decorativas ni peticiones a Supabase.
   if (navigator.onLine) seasons().then(S => { S.clear(); S.load(sb); }).catch(() => {});
   return render0().catch(e => { if (!navigator.onLine || /Failed to fetch|NetworkError|Load failed|network/i.test(e?.message || '')) return offlinePage(); throw e; })
-    .then(r => { if (navigator.onLine) { contBtn(); return afterRender(r); } return r; });
+    .then(r => { installPublicShare(); if (navigator.onLine) { contBtn(); return afterRender(r); } return r; });
 }
 // ---------- sin conexión ----------
 function offlinePage(){

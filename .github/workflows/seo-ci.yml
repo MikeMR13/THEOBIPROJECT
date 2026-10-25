@@ -1,0 +1,48 @@
+name: SEO · contratos y build
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seo-ci-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  seo-contracts:
+    name: SEO / build y privacidad
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Datos ficticios, no secretos. No se conecta a Supabase producción.
+      VERCEL_ENV: preview
+      OBI_SUPABASE_URL: https://obi-qa-backend.invalid
+      OBI_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_fake_do_not_use
+    steps:
+      - name: Checkout sin persistir credenciales
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+      - name: Verificar sintaxis general
+        run: npm run check
+      - name: Verificar sintaxis de scripts de integración HTTP y Chromium
+        run: node --check scripts/seo-preview-http-check.mjs && node --check scripts/ci/seo-wait-preview.mjs && node --check scripts/seo-preview-browser-check.mjs
+      - name: Contrato HTML, Open Graph, enlaces y JSON-LD
+        run: npm run seo-share-check
+      - name: Contrato sitemap, robots y estados de privacidad
+        run: npm run seo-indexacion-check
+      - name: Compilar Preview sin acceso a producción
+        run: npm run build
+      - name: Comprobar aislamiento de Preview
+        run: npm run preview-isolation-check

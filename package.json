@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/home-hero-team-logo-check.mjs && node scripts/home-hero-rotation-check.mjs && node scripts/series-title-responsive-check.mjs && node scripts/carousel-metrics-security-check.mjs && node scripts/home-analytics-check.mjs && node scripts/home-curation-check.mjs && node scripts/home-loading-check.mjs && node scripts/publication-runner-check.mjs && node scripts/prelaunch-check.mjs && node scripts/series-publication-check.mjs && node scripts/admin-supervision-check.mjs && node scripts/team-invitations-check.mjs && node scripts/patreon-scope-check.mjs && node scripts/patreon-publication-check.mjs && node scripts/team-profile-phase1-check.mjs && node scripts/team-profile-phase2-check.mjs && node scripts/team-profile-phase3-check.mjs && node scripts/team-profile-phase4-check.mjs && node scripts/team-profile-phase5-check.mjs && node scripts/team-profile-phase6-check.mjs && node scripts/build.mjs",
+    "build": "node scripts/home-hero-team-logo-check.mjs && node scripts/home-hero-rotation-check.mjs && node scripts/series-title-responsive-check.mjs && node scripts/carousel-metrics-security-check.mjs && node scripts/home-analytics-check.mjs && node scripts/home-curation-check.mjs && node scripts/home-loading-check.mjs && node scripts/publication-runner-check.mjs && node scripts/prelaunch-check.mjs && node scripts/series-publication-check.mjs && node scripts/admin-supervision-check.mjs && node scripts/team-invitations-check.mjs && node scripts/patreon-scope-check.mjs && node scripts/patreon-publication-check.mjs && node scripts/team-profile-phase1-check.mjs && node scripts/team-profile-phase2-check.mjs && node scripts/team-profile-phase3-check.mjs && node scripts/team-profile-phase4-check.mjs && node scripts/team-profile-phase5-check.mjs && node scripts/team-profile-phase6-check.mjs && node scripts/seo-share-check.mjs && node scripts/indexation-phase3-check.mjs && node scripts/seo-phase4-check.mjs && node scripts/seo-social-image-check.mjs && node scripts/build.mjs",
     "check": "node scripts/build.mjs --check",
     "optimize-check": "node scripts/optimization-check.mjs",
     "db-phase2-check": "node scripts/db-phase2-check.mjs",
@@ -49,10 +49,18 @@
     "home-hero-team-logo-check": "node scripts/home-hero-team-logo-check.mjs",
     "home-hero-rotation-check": "node scripts/home-hero-rotation-check.mjs",
     "series-title-responsive-check": "node scripts/series-title-responsive-check.mjs",
-    "series-publication-check": "node scripts/series-publication-check.mjs"
+    "series-publication-check": "node scripts/series-publication-check.mjs",
+    "seo-share-check": "node scripts/seo-share-check.mjs",
+    "seo-indexacion-check": "node scripts/indexation-phase3-check.mjs",
+    "seo-preview-check": "node scripts/seo-preview-http-check.mjs",
+    "seo-fase4-check": "node scripts/seo-phase4-check.mjs",
+    "seo-social-image-check": "node scripts/seo-social-image-check.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
     "esbuild": "^0.24.0"
+  },
+  "dependencies": {
+    "sharp": "0.35.5"
   }
 }
