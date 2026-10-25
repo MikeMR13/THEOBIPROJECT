@@ -219,7 +219,7 @@ function tags(data, canonical, origin, noindex, {kind,slug,chapter,volume,isDraf
   const eligible = publicItem && socialKinds.has(kind) && !isDraft && !data.noindex && (kind === 'home' || !!slug);
   const key = createHash('sha256').update(JSON.stringify([
     data.title,data.description,data.socialTitle,data.socialDescription,data.image,
-    data.heading,data.prelaunch,data.credits,kind,slug,chapter,volume
+    'obi-social-editorial-v2',data.heading,data.prelaunch,data.credits,kind,slug,chapter,volume
   ])).digest('hex').slice(0,12);
   const qs = new URLSearchParams({kind});
   if(slug) qs.set('slug',slug);
