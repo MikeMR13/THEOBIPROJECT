@@ -184,7 +184,7 @@ try {
   assert.match(html.body,/og:image:height" content="630"/);
   assert.match(html.body,/api\/og-image\?kind=serie&amp;slug=novela&amp;v=/);
   assert.match(html.body,/twitter:image:alt/);
-  assert.match(readFileSync(new URL('../api/public-meta.js',import.meta.url),'utf8'),/obi-site-brand-logo-exclusive-v3/,'Renovar versión por nuevo diseño y logo');
+  assert.match(readFileSync(new URL('../api/public-meta.js',import.meta.url),'utf8'),/obi-social-minimal-four-v4/,'Renovar versión por nuevo diseño y logo');
   backendDown=true;
   const outage=await run(pageHandler,'/api/public-meta?kind=serie&slug=novela');
   assert.equal(outage.statusCode,503,'Fallo del backend debe devolver 503');
