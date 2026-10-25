@@ -32,6 +32,7 @@ globalThis.fetch=async raw=>{
   const u=new URL(String(raw));
   if(u.pathname==='/index.html')return new Response('<!doctype html><html><head><title>Inicio</title><meta name="description" content="Auto"><link rel="canonical" href="https://elobidellector.com/"></head><body><main id="app"></main></body></html>');
   if(u.pathname.endsWith('/series'))return resp([novel]);
+  if(u.pathname.endsWith('/teams'))return resp([{id:'team1',slug:'equipo',name:'Equipo',bio:'Equipo de traducción',status:'Activo',banner_path:'team1/profile/banner.png',avatar_path:'team1/profile/avatar.png',settings:{seo:{title:'Equipo SEO',socialTitle:'Compartir equipo',description:'Equipo visible',imagePath:'team1/profile/banner.png',noindex:false}}}]);
   if(u.pathname.endsWith('/platform_settings'))return resp([{seo:{
     title:'Inicio configurable',description:'Descripción administrada',socialTitle:'Obi en redes',
     socialDescription:'Una nueva tarjeta para compartir' }}]);
@@ -57,6 +58,11 @@ try{
   assert.match(res.headers['x-robots-tag'],/noindex/);
   assert.doesNotMatch(res.body,/application\/ld\+json/);
   novel.theme.seo.noindex=false;
+  res=await run('/api/public-meta?kind=equipo&slug=equipo');
+  assert.equal(res.statusCode,200);
+  assert.match(res.body,/<title>Equipo SEO<\/title>/);
+  assert.match(res.body,/property="og:title" content="Compartir equipo"/);
+  assert.match(res.body,/team1\/profile\/banner.png/);
   res=await run('/api/public-meta?kind=home');
   assert.equal(res.statusCode,200);
   assert.match(res.body,/<title>Inicio configurable<\/title>/);
@@ -69,6 +75,8 @@ try{
   const studioSeo=readFileSync(new URL('../src/studio-seo.js',import.meta.url),'utf8');
   const adminSeo=readFileSync(new URL('../src/admin-seo.js',import.meta.url),'utf8');
   assert.match(studio,/bindSeriesSeo/);
+  assert.match(studio,/data-tseo/);
+  assert.match(studio,/seo: cleanSeo\(D\.seo/);
   assert.match(studio,/\['seo', 'SEO y compartir'\]/);
   assert.match(studioSeo,/canEdit:?\s*[=,]/);
   assert.match(studioSeo,/\.select\('theme,team_id'\)/);
