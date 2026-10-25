@@ -65,6 +65,7 @@ Deno.serve(async (req: Request) => {
   try {
     const discord = await fetch(secret.data+'?wait=true',{
       method:'POST',
+      redirect:'error',
       headers:{'content-type':'application/json'},
       body: JSON.stringify({
         content:'🧪 Prueba de conexión · El Obi del Lector\nEste mensaje fue enviado manualmente desde el Centro de Difusión. No activa publicaciones automáticas.',
