@@ -53,3 +53,14 @@ insert into public.team_members(team_id,user_id,role,role_id,overrides) values
 ('11111111-1111-4111-8111-111111111111','cccccccc-cccc-4ccc-8ccc-cccccccccccc','collaborator','11111111-0000-4000-8000-000000000002','{}'),
 ('22222222-2222-4222-8222-222222222222','dddddddd-dddd-4ddd-8ddd-dddddddddddd','owner',null,'{}'),
 ('11111111-1111-4111-8111-111111111111','ffffffff-ffff-4fff-8fff-ffffffffffff','proofreader','11111111-0000-4000-8000-000000000003','{"diffusion_compose":false}');
+
+-- Vault API simulado SOLO en PostgreSQL QA. Sin cifrado real ni secretos reales.
+create schema vault;
+create table vault.secrets(id uuid primary key default gen_random_uuid(),secret text not null);
+create view vault.decrypted_secrets as select id,secret as decrypted_secret from vault.secrets;
+create function vault.create_secret(new_secret text,new_name text default null,new_description text default null,new_key_id uuid default null)
+ returns uuid language plpgsql security definer set search_path='' as $$
+ declare sid uuid;
+ begin insert into vault.secrets(secret) values(new_secret) returning id into sid; return sid; end $$;
+revoke all on schema vault from public,anon,authenticated,service_role;
+revoke all on table vault.secrets from public,anon,authenticated,service_role;
