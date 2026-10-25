@@ -144,13 +144,17 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
 
   async function panel(me){
     app.innerHTML = `<div class="bb"><div class="bb-top"><div class="bb-heading"><span class="bb-kicker">EL OBI DEL LECTOR · ADMINISTRACIÓN GENERAL</span><h1>Mostrador del <em>Bibliotecario</em></h1><p class="bb-sub">Supervisión global · Independencia editorial de los equipos</p></div><div class="bb-headside"><span class="bb-admin-tag">◆ ${esc(me.username)}<small>Autoridad de plataforma</small></span><button class="btn ghost" id="bbout">Cerrar sesión</button></div></div>
-      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['invitaciones','Invitaciones'],['solicitudes','Solicitudes'],['supervision','Supervisión'],['compras','Enlaces de compra'],['inicio','Inicio'],['metricas','Métricas Inicio'],['resenas','Reseñas'],['temporadas','Temporadas'],['seo','SEO y compartir'],['apoyar','Botón Apoyar'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
+      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['invitaciones','Invitaciones'],['solicitudes','Solicitudes'],['supervision','Supervisión'],['compras','Enlaces de compra'],['inicio','Inicio'],['metricas','Métricas Inicio'],['resenas','Reseñas'],['temporadas','Temporadas'],['seo','SEO y compartir'],['difusion','Difusión'],['apoyar','Botón Apoyar'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
     $('#bbout').onclick = async () => { await sb.auth.signOut(); location.href = '/'; };
     app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; panel(me); });
-    try { await ({ resumen, usuarios, equipos, invitaciones, solicitudes, supervision, compras, inicio, metricas, resenas, temporadas, seo, apoyar, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
+    try { await ({ resumen, usuarios, equipos, invitaciones, solicitudes, supervision, compras, inicio, metricas, resenas, temporadas, seo, difusion, apoyar, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
   }
   const view = () => $('#bbv');
   async function seo(){ await renderAdminSeo({sb,view,toast}); }
+  async function difusion(){
+    const { renderAdminDiffusion } = await import('./admin-diffusion.js?v=1');
+    await renderAdminDiffusion({sb,root:view(),team:null,esc,toast});
+  }
 
 
   // Solo los Bibliotecarios pueden consultar estos contadores. El servidor

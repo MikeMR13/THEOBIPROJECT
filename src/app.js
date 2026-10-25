@@ -18,9 +18,9 @@ const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () 
 let LG; const lg = async () => LG ||= await import('/legal.js?v=1');
 let PF; const pf = async () => PF ||= await import('/profile.js?v=10');
 const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, email: user.email, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
-let ST; const st = async () => ST ||= (await import('/studio.js?v=47')).createStudio(CTX());
+let ST; const st = async () => ST ||= (await import('/studio.js?v=48')).createStudio(CTX());
 let AG; const ag = async () => AG ||= await import('/agenda.js?v=1');
-let AD; const ad = async () => AD ||= (await import('/admin.js?v=10')).createAdmin(CTX());
+let AD; const ad = async () => AD ||= (await import('/admin.js?v=11')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
 let U; const ui = () => U ||= createUI(CTX());
 
@@ -250,6 +250,7 @@ if (p === '/estudio/perfil') return (await st()).profile();
 if (p === '/estudio/preferencias') return (await st()).prefs();
 if (p === '/estudio/anuncios') return (await st()).announcements();
 if (p === '/estudio/comunidad') return (await st()).community();
+if (p === '/estudio/difusion') return (await st()).diffusion();
 if (p === '/estudio/estadisticas') return (await st()).stats();
 if (p === '/estudio/descargas') return (await st()).downloads();
 if ((m = p.match(/^\/estudio\/glosario(?:\/([\w-]+))?$/))) return (await st()).glossary(m[1]);
