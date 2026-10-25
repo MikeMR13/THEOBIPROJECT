@@ -17,7 +17,7 @@ for(const url of [
  null, {url:good}, 'https://discord.com:443/api/webhooks/123456789012345678/'+'A'.repeat(64)
 ]) assert(!valid(url),'Invalid Discord URL accepted');
 const edge=readFileSync('supabase/functions/diffusion-discord/index.ts','utf8');
-const sql=readFileSync('supabase/migrations/20261025230000_diffusion_discord_manual.sql','utf8');
+const sql=readFileSync('supabase/migrations/20261025232432_diffusion_discord_manual_controlled_20261025.sql','utf8');
 assert.match(edge,/auth\.getUser\(jwt\)/);
 assert.match(edge,/diffusion_discord_test_claim/);
 assert.match(edge,/diffusion_discord_secret_resolve/);

@@ -3,8 +3,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/diffusion-isolated-db.yml'
-      - 'supabase/migrations/20261025220000_diffusion_phase1.sql'
-      - 'supabase/migrations/20261025230000_diffusion_discord_manual.sql'
+      - 'supabase/migrations/20261025232409_diffusion_phase1_controlled_20261025.sql'
+      - 'supabase/migrations/20261025232432_diffusion_discord_manual_controlled_20261025.sql'
       - 'supabase/tests/diffusion_discord_rls.sql'
       - 'supabase/functions/diffusion-discord/**'
       - 'scripts/diffusion-discord-check.mjs'
@@ -16,8 +16,8 @@ on:
       - feat/difusion-hibrida-equipos-autonomos-20261025
     paths:
       - '.github/workflows/diffusion-isolated-db.yml'
-      - 'supabase/migrations/20261025220000_diffusion_phase1.sql'
-      - 'supabase/migrations/20261025230000_diffusion_discord_manual.sql'
+      - 'supabase/migrations/20261025232409_diffusion_phase1_controlled_20261025.sql'
+      - 'supabase/migrations/20261025232432_diffusion_discord_manual_controlled_20261025.sql'
       - 'supabase/tests/diffusion_discord_rls.sql'
       - 'supabase/functions/diffusion-discord/**'
       - 'scripts/diffusion-discord-check.mjs'
@@ -68,11 +68,11 @@ jobs:
           echo '1/3 - Esquema sintético Auth, roles y dos equipos ficticios'
           psql_qa supabase/tests/fixtures/diffusion_postgres_fixture.sql
           echo '2/3 - Aplicar la migración ORIGINAL de Difusión'
-          psql_qa supabase/migrations/20261025220000_diffusion_phase1.sql
+          psql_qa supabase/migrations/20261025232409_diffusion_phase1_controlled_20261025.sql
           echo '3/3 - Permisos por equipo, Bibliotecario separado, anon y RPC'
           psql_qa supabase/tests/diffusion_phase1_rls.sql
           echo '4/5 - Migración Discord: Vault API simulada solo en QA de PostgreSQL'
-          psql_qa supabase/migrations/20261025230000_diffusion_discord_manual.sql
+          psql_qa supabase/migrations/20261025232432_diffusion_discord_manual_controlled_20261025.sql
           echo '5/5 - Privilegios, conexión y revocación Discord'
           psql_qa supabase/tests/diffusion_discord_rls.sql
           echo 'Difusión QA aprobado, sin servicios alojados ni envío de publicaciones'

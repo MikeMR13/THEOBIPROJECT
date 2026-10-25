@@ -5,7 +5,7 @@ Esta prueba utiliza PostgreSQL 17 temporal en GitHub Actions. No crea ramas aloj
 ## Alcance
 
 - Se crean roles Auth, dos equipos y usuarios ficticios con el contrato mínimo de permisos existente.
-- Se aplica **la migración original** `supabase/migrations/20261025220000_diffusion_phase1.sql`.
+- Se aplica **la migración original** `supabase/migrations/20261025232409_diffusion_phase1_controlled_20261025.sql`.
 - Se ejecutan aserciones de RLS, privilegios, RPC de borradores y reglas, overrides, aislamiento entre equipos y ámbito institucional.
 - Se comprueba que todos los envíos siguen desactivados; no hay cron, conexiones externas ni tokens.
 - Se ejecuta automáticamente en la PR y admite ejecución manual desde GitHub Actions.

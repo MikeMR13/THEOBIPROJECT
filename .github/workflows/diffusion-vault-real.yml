@@ -7,8 +7,8 @@ on:
       - 'supabase/tests/fixtures/diffusion_postgres_fixture.sql'
       - 'supabase/tests/diffusion_phase1_rls.sql'
       - 'supabase/tests/diffusion_discord_rls.sql'
-      - 'supabase/migrations/20261025220000_diffusion_phase1.sql'
-      - 'supabase/migrations/20261025230000_diffusion_discord_manual.sql'
+      - 'supabase/migrations/20261025232409_diffusion_phase1_controlled_20261025.sql'
+      - 'supabase/migrations/20261025232432_diffusion_discord_manual_controlled_20261025.sql'
   workflow_dispatch:
 
 permissions:
@@ -52,8 +52,8 @@ jobs:
           }
           node scripts/diffusion-local-fixture.mjs "$RUNNER_TEMP/diffusion-local-fixture.sql"
           psql_local "$RUNNER_TEMP/diffusion-local-fixture.sql" > "$RUNNER_TEMP/diffusion-fixture.log"
-          psql_local supabase/migrations/20261025220000_diffusion_phase1.sql > "$RUNNER_TEMP/diffusion-phase1.log"
-          psql_local supabase/migrations/20261025230000_diffusion_discord_manual.sql > "$RUNNER_TEMP/diffusion-discord.log"
+          psql_local supabase/migrations/20261025232409_diffusion_phase1_controlled_20261025.sql > "$RUNNER_TEMP/diffusion-phase1.log"
+          psql_local supabase/migrations/20261025232432_diffusion_discord_manual_controlled_20261025.sql > "$RUNNER_TEMP/diffusion-discord.log"
           psql_local supabase/tests/diffusion_phase1_rls.sql > "$RUNNER_TEMP/diffusion-perms.log"
           psql_local supabase/tests/diffusion_discord_rls.sql > "$RUNNER_TEMP/diffusion-discord-perms.log"
           psql_local supabase/tests/diffusion_vault_encryption.sql > "$RUNNER_TEMP/diffusion-vault-check.log"
