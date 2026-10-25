@@ -6,7 +6,7 @@
 .df-title p{margin:0;color:var(--mute,#a89f8a)}
 .df-stage{border:1px solid #795e23;color:#f2c230;background:#262012;padding:8px 10px;font-size:11px;font-weight:700}
 .df-tabs{display:flex;gap:2px;overflow-x:auto;border-bottom:2px solid #80651d;scrollbar-width:thin}
-.df-tabs button{flex:none;min-height:44px;padding:10px 12px;background:transparent;border:0;color:#cfc6b0;font:600 13px inherit;cursor:pointer;white-space:nowrap}
+.df-tabs button{flex:none;min-height:44px;padding:10px 12px;background:transparent;border:0;color:#cfc6b0;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer;white-space:nowrap}
 .df-tabs button.on{background:#f2c230;color:#100e0a}
 .df-note{padding:13px 15px;border-left:3px solid #f2c230;background:#242013;color:#eee0bf;margin:0;font-size:13px;line-height:1.6}
 .df-muted,.df-empty{font-size:13px;color:#b5aa90;line-height:1.65}
