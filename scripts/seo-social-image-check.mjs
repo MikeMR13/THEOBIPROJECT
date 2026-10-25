@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import sharp from 'sharp';
 import {Resvg} from '@resvg/resvg-js';
 import imageHandler from '../api/og-image.js';
-import pageHandler from '../api/public-meta.js';
+import pageHandler,{publicData} from '../api/public-meta.js';
 import {safeSocialAsset,safeTranslatorAsset,cardTitle,titleLayout,overlaySVG,prepareTranslatorLogo,creditGeometry,socialFontOptions,CARD_WIDTH,CARD_HEIGHT} from '../lib/social-card.js';
 
 const old={...process.env}, originalFetch=globalThis.fetch;
@@ -21,7 +21,7 @@ const wordmark=Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="570" 
 const paddedLogo=await sharp({create:{width:1060,height:640,channels:4,background:'#00000000'}})
   .composite([{input:wordmark,left:245,top:265}]).png().toBuffer();
 const legacy='https://hfbpsizgwzvvznrktiuq.supabase.co/storage/v1/object/public/nlobi-media/teams/4a354d87-cf97-4edd-9c72-0be569db5077/profile/reader-logo-1791692334590.png';
-let imageRequests=0, backendDown=false, prelaunchEnabled=false, allowLogo=true, useReaderLogo=false;
+let imageRequests=0, backendDown=false, prelaunchEnabled=false, allowLogo=true, useReaderLogo=false, hideCredits=false;
 let legacyRequests=0;
 const series={id:'one',team_id:'team1',slug:'novela',title:'La biblioteca de los nueve libros y una joven extraordinaria',synopsis:'Lee la historia en español.',
   author:'Autora',genres:['Fantasía'],access:'public',published:true,adult:false,
@@ -42,7 +42,7 @@ globalThis.fetch=async (raw,opts={})=>{
   }
   if(u.pathname.endsWith('/rpc/series_public_credits')){
     const ids=JSON.parse(opts.body||'{}').p_series_ids||[];
-    return payload(ids.includes(series.id)?[{series_id:series.id,team_id:team.id,name:team.name,
+    return payload(!hideCredits&&ids.includes(series.id)?[{series_id:series.id,team_id:team.id,name:team.name,
       status:team.status,show_reader_logo:allowLogo,avatar_path:team.avatar_path,is_primary:true}]:[]);
   }
   if(u.pathname.endsWith('/series'))return payload(u.searchParams.get('slug')==='eq.inexistente' || (u.searchParams.has('access') && u.searchParams.get('access')!=='eq.'+series.access) || (u.searchParams.has('published') && !series.published) ? [] : [series]);
@@ -121,11 +121,19 @@ try {
   const withLogo=await run(imageHandler,'/api/og-image?kind=serie&slug=novela');
   await okPNG(withLogo,'Con logo real y recortado');
   useReaderLogo=true;
+  const fromPublic=await publicData('serie','novela',null,null,'https://theobiproject-qa.vercel.app');
+  assert.equal(fromPublic.credits[0].logo,legacy,'La preferencia reader_logo_url domina el avatar general');
   const actualReader=await run(imageHandler,'/api/og-image?kind=serie&slug=novela');
   await okPNG(actualReader,'Logo oficial del lector (no avatar genérico)');
   assert.ok(legacyRequests>0,'La tarjeta utiliza reader_logo_url real del perfil');
+  hideCredits=true;
+  const primary=await publicData('serie','novela',null,null,'https://theobiproject-qa.vercel.app');
+  assert.equal(primary.credits[0].name,team.name,'Sin filas RPC usar equipo público principal');
+  hideCredits=false;
   useReaderLogo=false;
   allowLogo=false;
+  const textOnly=await publicData('serie','novela',null,null,'https://theobiproject-qa.vercel.app');
+  assert.equal(textOnly.credits[0].logo,'','show_reader_logo=false prohíbe PNG');
   const noLogo=await run(imageHandler,'/api/og-image?kind=serie&slug=novela');
   await okPNG(noLogo,'Novela sin logo');
   const tile=creditGeometry(1,0,true).tile;
