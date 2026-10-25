@@ -57,8 +57,8 @@
 - [x] `api/public-meta.js`: conservar créditos públicos de volúmenes liberados.
 - [x] Renovación del hash OG de la imagen para minimizar que WhatsApp reutilice un PNG anterior.
 - [x] `scripts/seo-social-image-check.mjs`: tests visuales en píxeles y miniatura.
-- [x] Preview automática compilada (READY) con las pruebas de diseño.
-- [ ] CI general y checks finales de PR tras abrirlo.
+- [x] Preview automática compilada (READY) con las pruebas de diseño; HTTP Inicio PNG 200, 1200×630. El resto requiere QA aislado.
+- [x] CI general **PASS** para código `56cad9c1` (GitHub Actions `ci`, run `40161497440`); SEO build PASS. El último cambio de este checklist es solo documental.
 - [ ] Revisión manual de los PNG públicos reales tras autorización de publicación.
 - [ ] Fusionar a `main` cuando se apruebe el PR.
 - [ ] Confirmar el nuevo deployment de producción.
