@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import sharp from 'sharp';
 import imageHandler from '../api/og-image.js';
 import pageHandler from '../api/public-meta.js';
-import {safeSocialAsset,CARD_WIDTH,CARD_HEIGHT} from '../lib/social-card.js';
+import {safeSocialAsset,cardTitle,CARD_WIDTH,CARD_HEIGHT} from '../lib/social-card.js';
 
 const old={...process.env}, originalFetch=globalThis.fetch;
 process.env.VERCEL_ENV='preview';
@@ -50,6 +50,9 @@ const okPNG=async (res,label)=>{
   assert.ok(res.body.length<6_000_000,'No exceder 6 MB');
 };
 try {
+  assert.equal(cardTitle({heading:'Título de la novela',socialTitle:'Compartir novela'},'serie'),'Compartir novela');
+  assert.match(cardTitle({heading:'Obra · Capítulo 36',bookTitle:'Obra'},'leer'),/Capítulo 36/);
+  assert.equal(cardTitle({title:'El Obi del Lector — Novelas ligeras en español latino'},'home'),'Novelas ligeras en español latino');
   assert.equal(safeSocialAsset(imageURL,{backend,origin:'https://theobiproject-qa.vercel.app'}),true);
   for(const url of ['https://evil.example/photo.jpg','https://qa-only.supabase.co@evil.example/photo.jpg',
     'https://qa-only.supabase.co/rest/v1/series','http://qa-only.supabase.co/storage/v1/object/public/obi-media/a.png',
