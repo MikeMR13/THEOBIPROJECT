@@ -51,19 +51,31 @@ if (!source) {
       assert.ok(/noindex/i.test(found.headers.get('x-robots-tag') || found.text), path + ': falta noindex');
     }
     const slug = process.env.SEO_PUBLIC_SERIES_SLUG;
+    const chapter = process.env.SEO_PUBLIC_CHAPTER_NUM;
+    const team = process.env.SEO_PUBLIC_TEAM_SLUG;
+    if (process.env.SEO_REQUIRE_FIXTURES === '1') {
+      assert.ok(slug && chapter && team, 'Faltan tres fixtures QA: SEO_PUBLIC_SERIES_SLUG, SEO_PUBLIC_CHAPTER_NUM y SEO_PUBLIC_TEAM_SLUG');
+    }
     if (slug) {
       if (!/^[a-z0-9_-]+$/i.test(slug)) throw new Error('SEO_PUBLIC_SERIES_SLUG inválido');
       const series = await load('/serie/' + slug);
       assert.equal(series.status, 200, 'Ficha pública real');
       assert.match(series.text, /property="og:title"/);
       assert.match(series.text, /application\/ld\+json/);
-      const chapter = process.env.SEO_PUBLIC_CHAPTER_NUM;
+      assert.ok(series.headers.get('x-robots-tag')?.includes('noindex'), 'Preview debe mantener noindex');
       if (chapter) {
         if (!/^\d+$/.test(chapter)) throw new Error('SEO_PUBLIC_CHAPTER_NUM inválido');
         const ch = await load('/leer/' + slug + '/' + chapter);
         assert.equal(ch.status, 200, 'Capítulo público real');
         assert.match(ch.text, /property="og:title"/);
       }
+    }
+    if (team) {
+      assert.match(team, /^[a-z0-9_-]+$/i);
+      const t = await load('/equipo/' + team);
+      assert.equal(t.status, 200, 'Equipo publico QA');
+      assert.match(t.text, /property="og:title"/);
+      assert.match(t.text, /application\/ld\+json/);
     }
     console.log('SEO Preview HTTP: PASS. Enrutamiento, Supabase QA, privacidad y HTML verificados.');
   } catch (e) {
