@@ -215,5 +215,15 @@
     "api/robots.js": {
       "maxDuration": 10
     }
-  }
+  },
+  "routes": [
+    {
+      "src": "^/serie/([^/]+)$",
+      "dest": "/api/public-meta?kind=serie&slug=$1"
+    },
+    {
+      "src": "^/leer/([^/]+)/([0-9]+)$",
+      "dest": "/api/public-meta?kind=leer&slug=$1&chapter=$2"
+    }
+  ]
 }
