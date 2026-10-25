@@ -34,8 +34,10 @@ jobs:
           node-version: '22'
       - name: Instalar dependencias
         run: npm install --no-audit --no-fund
-      - name: Verificar sintaxis
+      - name: Verificar sintaxis general
         run: npm run check
+      - name: Verificar sintaxis de scripts de integración HTTP y Chromium
+        run: node --check scripts/seo-preview-http-check.mjs && node --check scripts/ci/seo-wait-preview.mjs && node --check scripts/seo-preview-browser-check.mjs
       - name: Contrato HTML, Open Graph, enlaces y JSON-LD
         run: npm run seo-share-check
       - name: Contrato sitemap, robots y estados de privacidad
