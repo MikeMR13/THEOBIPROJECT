@@ -1,0 +1,31 @@
+/* Difusión: estilos de ambos paneles, componentes responsivos y áreas táctiles. */
+.df{display:grid;gap:18px;min-width:0;color:var(--paper,#f3ecd9)}
+.df-title{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.df-title small{font:600 11px 'IBM Plex Mono',monospace;letter-spacing:.1em;color:var(--gold,#f2c230)}
+.df-title h2{font-family:'Shippori Mincho B1',serif;font-size:clamp(24px,3vw,34px);margin:5px 0}
+.df-title p{margin:0;color:var(--mute,#a89f8a)}
+.df-stage{border:1px solid #795e23;color:#f2c230;background:#262012;padding:8px 10px;font-size:11px;font-weight:700}
+.df-tabs{display:flex;gap:2px;overflow-x:auto;border-bottom:2px solid #80651d;scrollbar-width:thin}
+.df-tabs button{flex:none;min-height:44px;padding:10px 12px;background:transparent;border:0;color:#cfc6b0;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer;white-space:nowrap}
+.df-tabs button.on{background:#f2c230;color:#100e0a}
+.df-note{padding:13px 15px;border-left:3px solid #f2c230;background:#242013;color:#eee0bf;margin:0;font-size:13px;line-height:1.6}
+.df-muted,.df-empty{font-size:13px;color:#b5aa90;line-height:1.65}
+.df-empty{padding:14px;background:#191710;border:1px dashed #51452b}
+.df-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,155px),1fr));gap:10px}
+.df-card{padding:15px;background:#19160f;border-top:3px solid #d5ae31;display:grid;gap:8px}
+.df-card small{color:#b5aa90;font-size:12px}.df-card strong{font-size:29px;font-weight:700}
+.df-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.df-box{padding:18px;border:1px solid #453a26;background:#17150f;display:grid;gap:12px;min-width:0}
+.df-box h3{margin:0;font-family:'Shippori Mincho B1',serif;font-size:21px;font-weight:500}
+.df-box h4{margin:10px 0 0;font-size:15px}.df-box p{margin:0;line-height:1.6;font-size:13px;color:#c8bea7}
+.df-link{background:none;border:0;padding:4px 0;text-align:left;color:#f2c230;font-weight:700;cursor:pointer}
+.df-list{display:grid;gap:8px}.df-list article{padding:12px;border:1px solid #403725;display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap}
+.df-list article>div{display:grid;gap:5px;min-width:0}.df-list strong{font-size:14px}.df-list small{display:block;color:#b5aa90;font-size:12px}
+.df-form{display:grid;gap:12px;padding-top:12px;border-top:1px solid #403725}
+.df-form label{display:grid;gap:6px;color:#eee3cc;font-size:13px;font-weight:600}
+.df-form input,.df-form textarea,.df-form select{width:100%;box-sizing:border-box;min-height:44px;padding:10px;border:1px solid #7f6b46;background:#13110d;color:#f3ecd9;font:inherit}
+.df-form textarea{resize:vertical}.df-form .btn{justify-self:start;min-height:44px}
+.df-danger{border:1px solid #ba6f51;background:transparent;color:#ffb28d;padding:9px 11px;min-height:44px;cursor:pointer}
+.df-providers{display:flex;gap:6px;flex-wrap:wrap}.df-providers span{padding:6px 9px;border:1px solid #54462c;color:#e9d4a8;font-size:12px}
+.df button:focus-visible,.df input:focus-visible,.df textarea:focus-visible,.df select:focus-visible{outline:2px solid #f2c230;outline-offset:3px}
+@media(max-width:700px){.df-grid{grid-template-columns:1fr}.df-box{padding:14px}.df-title{align-items:start}}

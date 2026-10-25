@@ -250,6 +250,7 @@ if (p === '/estudio/perfil') return (await st()).profile();
 if (p === '/estudio/preferencias') return (await st()).prefs();
 if (p === '/estudio/anuncios') return (await st()).announcements();
 if (p === '/estudio/comunidad') return (await st()).community();
+if (p === '/estudio/difusion') return (await st()).diffusion();
 if (p === '/estudio/estadisticas') return (await st()).stats();
 if (p === '/estudio/descargas') return (await st()).downloads();
 if ((m = p.match(/^\/estudio\/glosario(?:\/([\w-]+))?$/))) return (await st()).glossary(m[1]);

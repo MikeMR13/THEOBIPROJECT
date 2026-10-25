@@ -1,3 +1,4 @@
+import { STUDIO_TEAM_PERMS } from './studio-team-permissions.js?v=1';
 import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=1';
 import { initCollaborationTeamPicker, COLLABORATION_STATUS } from './studio-collaboration-picker.js?v=1';
 import { seriesPublicationHTML, bindSeriesPublication } from './studio-series-publication.js?v=1';
@@ -44,12 +45,12 @@ export function createStudio(ctx){
     toast('Las fechas que programes se tomarán en ' + (tz() === devTz() ? 'la hora de tu dispositivo' : 'la hora del equipo') + ' (' + tzName() + ')'); });
   const busy = async (btn, fn) => { if (btn?.disabled) return; if (btn) { btn.disabled = true; btn.dataset.l = btn.textContent; btn.textContent = 'Un momento…'; } try { return await fn(); } catch (e) { toast(e.hint || e.message || 'Error'); } finally { if (btn) { btn.disabled = false; btn.textContent = btn.dataset.l; } } };
   const ROLE_L = { owner: 'Propietario', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
-  const NAV = [['/estudio','総','Resumen'],['/estudio/anuncios','告','Anuncios'],['/estudio/obras','作','Obras'],['/estudio/glosario','語','Glosario'],['/estudio/importar','入','Importar'],['/estudio/multimedia','画','Multimedia'],['/estudio/flujo','流','Flujo de trabajo'],['/estudio/comunidad','評','Comunidad'],['/estudio/estadisticas','統','Estadísticas'],['/estudio/descargas','落','Descargas'],['/estudio/perfil','顔','Página del equipo'],['/estudio/preferencias','彩','Preferencias'],['/estudio/equipo','班','Equipo'],['/estudio/bitacora','録','Bitácora','log']];
-  const CRUMB = { '/estudio': 'RESUMEN', '/estudio/obras': 'OBRAS', '/estudio/nueva': 'NUEVA OBRA', '/estudio/glosario': 'GLOSARIO', '/estudio/importar': 'IMPORTAR', '/estudio/multimedia': 'MULTIMEDIA', '/estudio/equipo': 'EQUIPO', '/estudio/flujo': 'FLUJO DE TRABAJO', '/estudio/preferencias': 'PREFERENCIAS', '/estudio/anuncios': 'ANUNCIOS', '/estudio/perfil': 'PÁGINA DEL EQUIPO', '/estudio/bitacora': 'BITÁCORA', '/estudio/comunidad': 'COMUNIDAD', '/estudio/estadisticas': 'ESTADÍSTICAS', '/estudio/descargas': 'DESCARGAS', '/estudio/obra': 'OBRAS · FICHA' };
+  const NAV = [['/estudio','総','Resumen'],['/estudio/anuncios','告','Anuncios'],['/estudio/obras','作','Obras'],['/estudio/glosario','語','Glosario'],['/estudio/importar','入','Importar'],['/estudio/multimedia','画','Multimedia'],['/estudio/flujo','流','Flujo de trabajo'],['/estudio/comunidad','評','Comunidad'],['/estudio/difusion','拡','Difusión'],['/estudio/estadisticas','統','Estadísticas'],['/estudio/descargas','落','Descargas'],['/estudio/perfil','顔','Página del equipo'],['/estudio/preferencias','彩','Preferencias'],['/estudio/equipo','班','Equipo'],['/estudio/bitacora','録','Bitácora','log']];
+  const CRUMB = { '/estudio': 'RESUMEN', '/estudio/obras': 'OBRAS', '/estudio/nueva': 'NUEVA OBRA', '/estudio/glosario': 'GLOSARIO', '/estudio/importar': 'IMPORTAR', '/estudio/multimedia': 'MULTIMEDIA', '/estudio/equipo': 'EQUIPO', '/estudio/flujo': 'FLUJO DE TRABAJO', '/estudio/preferencias': 'PREFERENCIAS', '/estudio/anuncios': 'ANUNCIOS', '/estudio/perfil': 'PÁGINA DEL EQUIPO', '/estudio/bitacora': 'BITÁCORA', '/estudio/comunidad': 'COMUNIDAD', '/estudio/difusion': 'DIFUSIÓN', '/estudio/estadisticas': 'ESTADÍSTICAS', '/estudio/descargas': 'DESCARGAS', '/estudio/obra': 'OBRAS · FICHA' };
   // Grupos visuales; NAV conserva rutas y permisos.
   const NAV_GROUPS = [
     ['PUBLICACIONES Y CONTENIDO', ['/estudio','/estudio/obras','/estudio/importar','/estudio/multimedia','/estudio/glosario','/estudio/flujo']],
-    ['DIFUSIÓN Y SEGUIMIENTO', ['/estudio/anuncios','/estudio/comunidad','/estudio/estadisticas','/estudio/descargas']],
+    ['DIFUSIÓN Y SEGUIMIENTO', ['/estudio/anuncios','/estudio/difusion','/estudio/comunidad','/estudio/estadisticas','/estudio/descargas']],
     ['IDENTIDAD Y GESTIÓN', ['/estudio/perfil','/estudio/preferencias','/estudio/equipo','/estudio/bitacora']]
   ];
   const studioNav = t => NAV_GROUPS.map(([name, paths]) => {
@@ -1142,7 +1143,7 @@ export function createStudio(ctx){
   }
 
   // Equipo: roles, tablero, bitácora y perfil
-  const PERMS = [['view','Ver el Estudio','Siempre activo'],['edit','Editar texto','Editor, títulos y ajustes del capítulo'],['create','Crear','Obras, volúmenes y capítulos'],['import','Importar','EPUB, DOCX y PDF'],['publish','Publicar y retirar','Incluye publicar ahora'],['schedule','Programar','Fechas de lanzamiento'],['delete','Borrar','Capítulos, volúmenes y archivos'],['review','Aprobar revisiones','Cuando el equipo exige aprobación'],['board','Mover tarjetas','Tablero de trabajo y asignaciones'],['members','Gestionar integrantes y roles','Solo lo concede el propietario'],['profile','Editar la página del equipo','Nombre, logo, colores y enlaces'],['log','Ver la bitácora','Historial de acciones del equipo']];
+  const PERMS = STUDIO_TEAM_PERMS;
   const SWATCH = ['#f2c230','#d9922b','#f59e7a','#c9a8f2','#8cc3f2','#a9d18e','#a89f8a'];
   const ini = s => (s || '?').replace(/^@/, '').slice(0, 2).toUpperCase();
   const fmtAt = d => fmtTz(d, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -1950,5 +1951,16 @@ export function createStudio(ctx){
     $('#pf-share').onclick = e => busy(e.currentTarget, async () => { const shared = await previewShareLink({ origin: location.origin, slug: T.team.slug, token, savedDesign, currentDesign: JSON.stringify(d), queued: !!saveT, saving, generateToken: () => rpc('team_design_new_token', { p_team: T.team.id }) }); token = shared.token; try { await navigator.clipboard.writeText(shared.link); toast('Enlace copiado · cualquiera con él ve el borrador guardado'); } catch { prompt('Copia este enlace:', shared.link); } });
   }
 
-  return { home, works, newWork, work, editor, importer, library: () => library(), team, board, log, profile, prefs, announcements, community, stats, downloads, glossary, isMember: async () => { const u = getUser(); if (!u) return false; const { count } = await sb.from('team_members').select('*', { count: 'exact', head: true }).eq('user_id', u.id); return count > 0; } };
+  async function diffusion(){
+    if (!(await ensure())) return;
+    const selected = T.team;
+    app.innerHTML = shell('Difusión', '<div id="df-root"><p class="mono">Cargando Difusión…</p></div>', '/estudio/difusion');
+    bindPicker(diffusion);
+    const { renderStudioDiffusion } = await import('./studio-diffusion.js?v=1');
+    const root = app.querySelector('#df-root');
+    if (!root || T.team?.id !== selected.id) return;
+    await renderStudioDiffusion({sb,root,team:selected,permissions:T.perms,esc,toast});
+  }
+
+  return { diffusion, home, works, newWork, work, editor, importer, library: () => library(), team, board, log, profile, prefs, announcements, community, stats, downloads, glossary, isMember: async () => { const u = getUser(); if (!u) return false; const { count } = await sb.from('team_members').select('*', { count: 'exact', head: true }).eq('user_id', u.id); return count > 0; } };
 }
