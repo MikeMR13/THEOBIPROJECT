@@ -15,6 +15,9 @@ const rules = [
   'Disallow: /invitacion',
   'Disallow: /anotaciones',
   'Disallow: /solicitud',
+  // Las imágenes sociales deben ser rastreables sin abrir el resto de la API.
+  // La regla más específica Allow gana a Disallow en robots compatibles.
+  'Allow: /api/og-image',
   'Disallow: /api/',
   'Disallow: /*?vista=',
   'Disallow: /*&vista=',
