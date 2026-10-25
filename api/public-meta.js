@@ -205,6 +205,11 @@ function structuredData(data, canonical, kind, origin) {
       }
     ]
   };
+  // Búsqueda funcional /buscar?q=..., presente en la app. Integrar sin
+  // reemplazar la entidad Organization ni los metadatos sociales existentes.
+  if(kind==='home')node['@graph'][1].potentialAction={
+    '@type':'SearchAction',target:origin+'/buscar?q={q}','query-input':'required name=q'
+  };
   // Book describe la obra, sin atribuir la autoría al grupo traductor ni prometer
   // prestaciones especiales de Google Books.
   if (data.type === 'Book') {
