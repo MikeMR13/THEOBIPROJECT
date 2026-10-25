@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const read=p=>readFileSync(p,'utf8');
-const sql=read('supabase/migrations/20261025_diffusion_phase1.sql');
+const sql=read('supabase/migrations/20261025220000_diffusion_phase1.sql');
 const studio=read('src/studio.js'),admin=read('src/admin.js'),app=read('src/app.js');
 const shared=read('src/diffusion-panel.js');
 for(const file of ['src/diffusion.css','src/studio-diffusion.js','src/admin-diffusion.js'])
