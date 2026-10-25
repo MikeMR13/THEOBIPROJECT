@@ -50,6 +50,10 @@ assert.match(share,/t\.me\/share\/url/);
 assert.match(share,/navigator\.share/);
 assert.match(share,/if \(!navigator\.share\) el\.querySelector/,'No mostrar botón nativo redundante en escritorio');
 assert.match(share,/clipboard\.writeText/);
+assert.match(share,/document\.getElementById\('toast'\)/,'Copiar notifica con el toast global');
+assert.match(share,/floatingPanel\?\.contains\(btn\) \? floatingPanel : container/,
+  'Sin toast global, usar el panel real montado en body para la confirmación');
+assert.match(share,/toast\.style\.zIndex = '9100'/,'El toast debe superar el menú flotante');
 assert.match(share,/if \(!publicPath\(\) \|\| document\.querySelector\('\.tp2-draft'\)\) return/,'No publicar menú en vistas privadas');
 assert.match(share,/book\.dataset\.lock === '1'/,'No añadir compartir a volúmenes bloqueados');
 
