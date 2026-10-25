@@ -86,3 +86,22 @@ export function bindSeriesSeo({app,sb,series,volumes=[],canEdit=false,media,toas
   }else wrap.append(field('p',{className:'mono'},'Necesitas permiso de edición para cambiar los metadatos.'));
   update();
 }
+
+// Fragmento de identidad y SEO extraído para mantener Studio bajo el límite de modularidad.
+export function teamSeoProfileHTML(D, dis, esc, TZS, works, SECTS) {
+  return `
+        <label>Zona horaria del equipo<select name="tz" ${dis}>${[...TZS, ...(TZS.some(x => x[0] === D.tz) ? [] : [[D.tz, D.tz.replace(/_/g, ' ')]])].map(([k, l]) => `<option value="${k}" ${k === D.tz ? 'selected' : ''}>${l} · ${new Date().toLocaleTimeString('es-MX', { timeZone: k, hour: '2-digit', minute: '2-digit' })}</option>`).join('')}</select><small class="mono">Es la hora de referencia del equipo. Cada integrante programa con la hora de su dispositivo y, junto al campo de fecha, puede cambiar a esta. Los lectores ven cada lanzamiento en su propia hora.</small></label>
+        <label>Obra destacada<select name="feat" ${dis}><option value="">Ninguna</option>${(works || []).map(w => `<option value="${w.slug}" ${D.feat === w.slug ? 'selected' : ''}>${esc(w.short || w.title)}</option>`).join('')}</select></label>
+        <div class="pf-g"><span class="pf-l">Secciones visibles</span>${SECTS.map(([k, l]) => `<label class="tb-inl"><input type="checkbox" data-sect="${k}" ${D.sect[k] ? 'checked' : ''} ${dis}> ${l}</label>`).join('')}</div>
+        <fieldset style="display:grid;gap:12px;border:1px solid #54452b;padding:16px"><legend>SEO y tarjetas del equipo</legend>
+          <p class="mono" style="margin:0">Campos opcionales. No modifican tu URL ni hacen públicos los borradores del equipo.</p>
+          <label>Título SEO<input data-tseo="title" maxlength="70" value="${esc(D.seo.title)}" ${dis}></label>
+          <label>Descripción SEO<textarea data-tseo="description" rows="3" maxlength="170" ${dis}>${esc(D.seo.description)}</textarea></label>
+          <label>Título para compartir<input data-tseo="socialTitle" maxlength="90" value="${esc(D.seo.socialTitle)}" ${dis}></label>
+          <label>Descripción para compartir<textarea data-tseo="socialDescription" rows="3" maxlength="200" ${dis}>${esc(D.seo.socialDescription)}</textarea></label>
+          <label>Imagen de la tarjeta<select data-tseo="imagePath" ${dis}><option value="">Banner o logo automático</option>
+            ${[D.banner,D.avatar].filter(Boolean).map((p,i)=>'<option value="'+esc(p)+'" '+(D.seo.imagePath===p?'selected':'')+'>'+ (i?'Logo':'Banner') +'</option>').join('')}</select></label>
+          <label class="tb-inl"><input data-tseo="noindex" type="checkbox" ${D.seo.noindex?'checked':''} ${dis}> Ocultar en buscadores (sin cambiar visibilidad)</label>
+        </fieldset>
+`;
+}
