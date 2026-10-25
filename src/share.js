@@ -121,6 +121,8 @@ function insertMenu() {
   const slot = document.createElement('div');
   slot.innerHTML = menu();
   const el = slot.firstElementChild;
+  // En escritorio, sin Web Share API, evitar una opción redundante que solo copiaba el enlace.
+  if (!navigator.share) el.querySelector('[data-obi-share="native"]')?.remove();
   bindFloatingMenu(el);
   if (p.startsWith('/serie/')) el.dataset.placement='series';
   if (p.startsWith('/equipo/')) { el.dataset.placement = 'team'; target.prepend(el); }
@@ -135,6 +137,7 @@ function insertMenu() {
       const wrapper = document.createElement('div');
       wrapper.innerHTML = menu(currentURL() + '?vol=' + vol, title);
       const volumeShare=wrapper.firstElementChild;
+      if (!navigator.share) volumeShare.querySelector('[data-obi-share="native"]')?.remove();
       if (book.querySelector('.ui-v-heading')) { bindFloatingMenu(volumeShare); book.querySelector('.ui-v-heading').append(volumeShare); }
     });
     const chosen = Number(new URLSearchParams(location.search).get('vol'));
