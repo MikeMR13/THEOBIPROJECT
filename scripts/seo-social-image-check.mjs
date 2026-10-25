@@ -137,6 +137,7 @@ try {
   assert.match(html.body,/og:image:height" content="630"/);
   assert.match(html.body,/api\/og-image\?kind=serie&amp;slug=novela&amp;v=/);
   assert.match(html.body,/twitter:image:alt/);
+  assert.match(readFileSync(new URL('../api/public-meta.js',import.meta.url),'utf8'),/obi-social-editorial-v2/,'Cambiar versión del diseño para invalidar cachés de redes');
   backendDown=true;
   const outage=await run(pageHandler,'/api/public-meta?kind=serie&slug=novela');
   assert.equal(outage.statusCode,503,'Fallo del backend debe devolver 503');
