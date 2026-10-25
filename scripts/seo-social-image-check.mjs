@@ -107,7 +107,8 @@ try {
     socialDescription:'EXTRACTO_SECRETO',author:'AUTOR_DE_PRUEBA',
     genres:['GENERO_DE_PRUEBA'],prelaunch:true
   },'serie',editorial.credits,true,[true]);
-  assert.match(minimum,/La prueba minimalista/,'Dibujar el título');
+  assert.match(minimum,/>La prueba<\/text>/,'Dibujar primera línea del título');
+  assert.match(minimum,/>minimalista<\/text>/,'Dibujar segunda línea del título');
   for(const forbidden of ['SINOPSIS_SECRETA','EXTRACTO_SECRETO','AUTOR_DE_PRUEBA',
     'GENERO_DE_PRUEBA','PRÓXIMAMENTE','NOVELA LIGERA','TRADUCCIÓN',
     'ELOBIDELLECTOR.COM','El Obi del Lector']){
