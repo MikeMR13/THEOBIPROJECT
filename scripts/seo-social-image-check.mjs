@@ -15,7 +15,7 @@ const backend=process.env.OBI_SUPABASE_URL;
 const imagePath='team1/obras/novela/portada.png';
 const imageURL=backend+'/storage/v1/object/public/obi-media/'+imagePath;
 const image=await sharp({create:{width:540,height:760,channels:4,background:'#a45131'}}).png().toBuffer();
-let imageRequests=0;
+let imageRequests=0, backendDown=false;
 const series={id:'one',team_id:'team1',slug:'novela',title:'La biblioteca de los nueve libros y una joven extraordinaria',synopsis:'Lee la historia en español.',
   author:'Autora',genres:['Fantasía'],access:'public',published:true,adult:false,
   cover_path:imagePath,cover_thumb_path:null,theme:{seo:{socialTitle:'Gran descubrimiento',socialDescription:'Una nueva historia',noindex:false}},media:{gallery:[]}};
@@ -25,6 +25,7 @@ const chapter={num:36,title:'El camino de los sueños',teaser:'La aventura conti
 const payload=(obj,status=200)=>new Response(JSON.stringify(obj),{status,headers:{'content-type':'application/json'}});
 globalThis.fetch=async (raw,opts={})=>{
   const u=new URL(String(raw));
+  if(u.pathname.endsWith('/series') && backendDown)return payload({message:'QA database unreachable'},503);
   if(u.pathname.endsWith('/series'))return payload(u.searchParams.get('slug')==='eq.inexistente' || (u.searchParams.has('access') && u.searchParams.get('access')!=='eq.'+series.access) || (u.searchParams.has('published') && !series.published) ? [] : [series]);
   if(u.pathname.endsWith('/chapters'))return payload([chapter]);
   if(u.pathname.endsWith('/teams'))return payload([team]);
@@ -70,6 +71,13 @@ try {
   assert.match(html.body,/og:image:height" content="630"/);
   assert.match(html.body,/api\/og-image\?kind=serie&amp;slug=novela&amp;v=/);
   assert.match(html.body,/twitter:image:alt/);
+  backendDown=true;
+  const outage=await run(pageHandler,'/api/public-meta?kind=serie&slug=novela');
+  assert.equal(outage.statusCode,503,'Fallo del backend debe devolver 503');
+  assert.doesNotMatch(outage.body,/og:image" content="[^"]*\/api\/og-image/,
+    'Ante un 503 no se puede anunciar una imagen que también fallará');
+  assert.match(outage.body,/icon-512\.png/,'Recurso genérico seguro');
+  backendDown=false;
   const head=await run(imageHandler,'/api/og-image?kind=serie&slug=novela','HEAD');
   assert.equal(head.statusCode,200);
   assert.equal(head.body,null);
