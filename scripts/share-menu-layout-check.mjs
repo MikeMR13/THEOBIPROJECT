@@ -33,7 +33,7 @@ assert.ok(compact.maxHeight>=0 && compact.maxHeight<400);
 
 // Contrato de integración: el menú debe salir del .ui-sh (overflow:hidden)
 // y el botón debe vivir en la misma fila que leer, seguir, anotaciones, etc.
-assert.match(css,/\.ui-sh\{[^}]*overflow:hidden/,'La causa original sigue presente');
+assert.match(ui,/\.ui-sh\{[^}]*overflow:hidden/,'La causa original sigue presente');
 assert.match(ui,/class="acts ui-series-actions"/,'La ficha conserva su fila de acciones');
 assert.match(share,/p\.startsWith\('\/serie\/'\) \? document\.querySelector\('\.ui-series-page \.ui-series-actions'\)/);
 assert.doesNotMatch(share,/\.ui-series-hero > div:last-child/,'No volver a colocar compartir fuera de la fila');
