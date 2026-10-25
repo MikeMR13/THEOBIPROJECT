@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import {applySeo, cleanSiteSeo, editImages} from '../src/seo-settings.js';
 // Metadatos públicos renderizados en la respuesta HTTP para bots y navegadores.
 // La aplicación SPA original sigue siendo la encargada de la navegación y la lectura.
 const SITE = 'El Obi del Lector';
@@ -38,11 +39,26 @@ async function query(table, params, backend, key) {
 async function publicData(kind, slug, chapter, volume, origin) {
   const backend = (process.env.OBI_SUPABASE_URL || '').replace(/\/+$/, '');
   const key = process.env.OBI_SUPABASE_PUBLISHABLE_KEY || '';
+  if (kind === 'home') {
+    const basic = { type: 'WebSite', title: 'El Obi del Lector — Novelas ligeras en español latino',
+      description: DESC, image: origin + FALLBACK_IMAGE, heading: SITE };
+    // Home falla abierto al HTML predeterminado: una base QA ausente no causa
+    // caída de la página de Inicio. No se modifican permisos ni se publica nada.
+    try {
+      const row = await query('platform_settings', { id: 'eq.1',
+        select: 'seo' }, backend, key);
+      const cfg = cleanSiteSeo(row?.seo);
+      return { ...basic, title: cfg.title || basic.title, description: cfg.description || basic.description,
+        socialTitle: cfg.socialTitle || cfg.title || basic.title,
+        socialDescription: cfg.socialDescription || cfg.description || basic.description };
+    } catch { return basic; }
+  }
   if (kind === 'serie' || kind === 'leer') {
     if (!validSlug(slug)) return null;
-    const s = await query('series', { slug: 'eq.' + slug, published: 'eq.true', archived_at: 'is.null', access: 'eq.public', select: 'id,slug,title,synopsis,cover_path,cover_thumb_path,author,genres,access,adult' }, backend, key);
+    const s = await query('series', { slug: 'eq.' + slug, published: 'eq.true', archived_at: 'is.null', access: 'eq.public', select: 'id,slug,title,synopsis,cover_path,cover_thumb_path,author,genres,access,adult,theme,media,team_id' }, backend, key);
     if (!s) return null;
-    const base = { type: 'Book', noindex: s.adult === true, author: s.author || '', genres: s.genres || [], title: s.title + ' — ' + SITE, description: limit(s.synopsis || ('Lee ' + s.title + ' en español latino.'), 170), image: media(s.cover_path || s.cover_thumb_path, backend, origin), heading: s.title };
+    const raw = { type: 'Book', noindex: s.adult === true, author: s.author || '', genres: s.genres || [], title: s.title + ' — ' + SITE, description: limit(s.synopsis || ('Lee ' + s.title + ' en español latino.'), 170), image: media(s.cover_path || s.cover_thumb_path, backend, origin), heading: s.title };
+    const base = applySeo(raw, s.theme?.seo, {allowedImages: editImages(s), media: p => media(p, backend, origin)});
     if (kind === 'serie') {
       if (!volume) return base;
       if (!/^\d{1,3}$/.test(volume) || Number(volume) < 1) return null;
@@ -53,7 +69,7 @@ async function publicData(kind, slug, chapter, volume, origin) {
       }, backend, key);
       if (!v || !publishable(v) || !validPublishedTime(v.published_at)) return null;
       const name = s.title + ' · Volumen ' + v.num;
-      return { type: 'Book', author: s.author || '', genres: s.genres || [], title: name + ' — ' + SITE,
+      return { type: 'Book', noindex: base.noindex, author: s.author || '', genres: s.genres || [], title: name + ' — ' + SITE,
         description: limit(v.synopsis || ('Descubre el volumen ' + v.num + ' de ' + s.title + '.'), 170),
         image: media(v.cover_path || s.cover_path || s.cover_thumb_path, backend, origin),
         heading: name };
@@ -61,7 +77,7 @@ async function publicData(kind, slug, chapter, volume, origin) {
     if (!/^\d{1,8}$/.test(chapter || '')) return null;
     const c = await query('chapters', { series_id: 'eq.' + s.id, num: 'eq.' + String(Number(chapter)), status: 'eq.published', access: 'eq.public', deleted_at: 'is.null', or: '(publish_at.is.null,publish_at.lte.' + new Date().toISOString() + ')', select: 'num,title,teaser,status,access,publish_at,public_at' }, backend, key);
     if (!c || c.status !== 'published' || !publishable(c) || !validPublishedTime(c.publish_at) || !validPublishedTime(c.public_at)) return null; // RLS + estado público
-    return { ...base, type: 'Chapter', bookTitle: s.title, title: s.title + ' · Capítulo ' + c.num + ' — ' + SITE,
+    return { ...base, type: 'Chapter', socialTitle: '', socialDescription: '', bookTitle: s.title, title: s.title + ' · Capítulo ' + c.num + ' — ' + SITE,
       description: limit((c.title ? c.title + '. ' : '') + (c.teaser || 'Lee este capítulo en El Obi del Lector.'), 170),
       heading: s.title + ' · Capítulo ' + c.num };
   }
@@ -139,18 +155,19 @@ function structuredData(data, canonical, kind, origin) {
 }
 function tags(data, canonical, origin, noindex) {
   const title = esc(data.title), desc = esc(data.description), image = esc(data.image || origin + FALLBACK_IMAGE);
+  const socialTitle = esc(data.socialTitle || data.title), socialDesc = esc(data.socialDescription || data.description);
   return [
     '<link rel="canonical" href="' + esc(canonical) + '">',
     '<meta property="og:type" content="website">',
     '<meta property="og:site_name" content="' + SITE + '">',
     '<meta property="og:locale" content="es_419">',
-    '<meta property="og:title" content="' + title + '">',
-    '<meta property="og:description" content="' + desc + '">',
+    '<meta property="og:title" content="' + socialTitle + '">',
+    '<meta property="og:description" content="' + socialDesc + '">',
     '<meta property="og:url" content="' + esc(canonical) + '">',
     '<meta property="og:image" content="' + image + '">',
     '<meta name="twitter:card" content="summary_large_image">',
-    '<meta name="twitter:title" content="' + title + '">',
-    '<meta name="twitter:description" content="' + desc + '">',
+    '<meta name="twitter:title" content="' + socialTitle + '">',
+    '<meta name="twitter:description" content="' + socialDesc + '">',
     '<meta name="twitter:image" content="' + image + '">',
     noindex ? '<meta name="robots" content="noindex,nofollow">' : ''
   ].join('\n');
@@ -165,7 +182,8 @@ export default async function handler(req, res) {
   const volume = String(q.get('vol') || '');
   const isDraft = q.has('vista');
   let path = '/';
-  if (kind === 'serie') path = '/serie/' + encodeURIComponent(slug);
+  if (kind === 'home') path = '/';
+  else if (kind === 'serie') path = '/serie/' + encodeURIComponent(slug);
   else if (kind === 'leer') path = '/leer/' + encodeURIComponent(slug) + '/' + encodeURIComponent(chapter);
   else if (kind === 'equipo') path = '/equipo/' + encodeURIComponent(slug);
   else if (kind === 'lector') path = '/lector/' + encodeURIComponent(slug);
@@ -198,7 +216,7 @@ export default async function handler(req, res) {
     html = html.replace(/<title>[\s\S]*?<\/title>/i, '<title>' + esc(data.title) + '</title>');
     html = html.replace(/<meta name="description"[^>]*>/i, '<meta name="description" content="' + esc(data.description) + '">');
     html = html.replace('</head>', tags(data, canonical, origin, noindex) + (item && !noindex ? structuredData(data, canonical, kind, origin) : '') + '</head>');
-    if (item && !noindex) {
+    if (item && !noindex && kind !== 'home') {
       const teaser = '<section aria-label="Presentación pública" style="padding:24px;max-width:920px;margin:auto"><h1>' + esc(data.heading) + '</h1><p>' + esc(data.description) + '</p></section>';
       html = html.replace(/(<main id="app"[^>]*>)(<\/main>)/, '$1' + teaser + '$2');
     }
