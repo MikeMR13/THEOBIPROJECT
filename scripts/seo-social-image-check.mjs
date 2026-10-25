@@ -167,8 +167,16 @@ try {
   const regionWith=await sharp(withLogo.body).extract(box).raw().toBuffer();
   const regionWithout=await sharp(noLogo.body).extract(box).raw().toBuffer();
   assert.notDeepEqual(regionWith,regionWithout,'El logo debe producir píxeles visibles en la tarjeta');
-  const meanLightness=regionWith.reduce((total,v)=>total+v,0)/regionWith.length;
-  assert.ok(meanLightness>110,'Bloque del logo suficientemente contrastado para WhatsApp');
+  // Logos claros necesitan fondo oscuro, logos oscuros necesitan marfil.
+  // La media global de brillo no demuestra contraste: comparar píxeles reales.
+  let changed=0;
+  for(let i=0;i<regionWith.length;i+=4){
+    if(Math.abs(regionWith[i]-regionWithout[i])+
+       Math.abs(regionWith[i+1]-regionWithout[i+1])+
+       Math.abs(regionWith[i+2]-regionWithout[i+2])>36)changed++;
+  }
+  assert.ok(changed>box.width*box.height*.15,
+    'El logo debe ocupar una superficie visual apreciable en la tarjeta');
   allowLogo=true;
   const html=await run(pageHandler,'/api/public-meta?kind=serie&slug=novela');
   assert.equal(html.statusCode,200);
