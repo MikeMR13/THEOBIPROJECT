@@ -80,3 +80,38 @@ Antes de fusionar: comprobar en una Preview autenticada la apertura real de una 
 - Añadir Search Console con verificación real del propietario tras producción y automatizar reportes si se conecta la cuenta.
 - Exponer ajustes opcionales de metadatos desde el Bibliotecario/Studio manteniendo los permisos existentes.
 - Verificar la indexación real en Google y las tarjetas sociales en los validadores de redes.
+
+## Auditoría HTTP de la Preview — bloqueo del 24-10-2026
+
+Se verificaron las respuestas HTTP reales de una Preview con el acceso de Vercel. **La compilación y las pruebas unitarias pasan, pero la validación HTTP integrada NO pasa**.
+
+| Ruta | Resultado real |
+|---|---|
+| `/` | 200, metadatos del Inicio |
+| `/robots.txt` | 200, `Disallow: /`, noindex |
+| `/sitemap.xml` | 404, correcto en Preview |
+| Ruta desconocida | 404, correcto |
+| `/serie/prueba` | 200 con el HTML de Inicio, incorrecto |
+| `/leer/prueba/1` | 200 con el HTML de Inicio, incorrecto |
+| `/equipo/prueba` | 503, backend QA no disponible |
+| `/api/public-meta?kind=serie&slug=prueba` | 503, backend QA no disponible |
+
+### Regla global de proyecto Vercel
+
+La regla global `Obi SPA client navigation` (`65961c4a-fa11-433c-bbf0-bc7021c1ad84`) sobrescribe las rutas `/serie` y `/leer` con `/index.html`, por encima de los rewrites de `vercel.json`.
+
+Se preparó una corrección **solamente en staging de Vercel** (versión `c1bad33b-f696-4d41-be48-6412a54075c8`). Esta versión conserva las rutas de sesión y catálogo, y retira las de novelas y capítulos para que las controle el repositorio. La versión live sigue siendo `4e5688bc-d6b7-4e41-8c9f-a5c51312f532`. No se ha promovido ni modificado producción.
+
+**Publicación futura:** coordinar la activación de la ruta corregida con la fusión del código SSR. Activar el cambio global antes de disponer del código nuevo en producción puede afectar los enlaces profundos.
+
+### Backend de Preview intencionadamente ficticio
+
+El `config.js` de la Preview expone un backend `https://obi-qa-backend.invalid`, dirección no resoluble que sirve para mantener el aislamiento. Por tanto, ninguna ficha dinámica puede pasar la prueba con datos reales. No se debe apuntar la Preview a la base de producción: la compilación bloquea explícitamente ese uso.
+
+La validación exige una instancia QA **aislada**, con datos ficticios publicados, políticas RLS comprobadas y acceso HTTPS configurado en las variables de entorno de Preview.
+
+### Puerta de aprobación
+
+Junto con la compilación, ejecutar `SEO_PREVIEW_URL=https://<preview>.vercel.app npm run seo-preview-check` desde un entorno con acceso autenticado a la Preview. Se admiten `SEO_PUBLIC_SERIES_SLUG` y `SEO_PUBLIC_CHAPTER_NUM` para probar contenido real. Solo considerar aprobada la validación si devuelve `SEO Preview HTTP: PASS` y la revisión visual/manual es satisfactoria.
+
+**La fase 4 queda retenida hasta superar ambos bloqueos.**
