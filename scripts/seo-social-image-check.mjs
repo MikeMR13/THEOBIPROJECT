@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import sharp from 'sharp';
+import {Resvg} from '@resvg/resvg-js';
 import imageHandler from '../api/og-image.js';
 import pageHandler from '../api/public-meta.js';
-import {safeSocialAsset,cardTitle,CARD_WIDTH,CARD_HEIGHT} from '../lib/social-card.js';
+import {safeSocialAsset,cardTitle,titleLayout,overlaySVG,socialFontOptions,CARD_WIDTH,CARD_HEIGHT} from '../lib/social-card.js';
 
 const old={...process.env}, originalFetch=globalThis.fetch;
 process.env.VERCEL_ENV='preview';
@@ -15,7 +16,7 @@ const backend=process.env.OBI_SUPABASE_URL;
 const imagePath='team1/obras/novela/portada.png';
 const imageURL=backend+'/storage/v1/object/public/obi-media/'+imagePath;
 const image=await sharp({create:{width:540,height:760,channels:4,background:'#a45131'}}).png().toBuffer();
-let imageRequests=0, backendDown=false;
+let imageRequests=0, backendDown=false, prelaunchEnabled=false, allowLogo=true;
 const series={id:'one',team_id:'team1',slug:'novela',title:'La biblioteca de los nueve libros y una joven extraordinaria',synopsis:'Lee la historia en español.',
   author:'Autora',genres:['Fantasía'],access:'public',published:true,adult:false,
   cover_path:imagePath,cover_thumb_path:null,theme:{seo:{socialTitle:'Gran descubrimiento',socialDescription:'Una nueva historia',noindex:false}},media:{gallery:[]}};
@@ -26,6 +27,18 @@ const payload=(obj,status=200)=>new Response(JSON.stringify(obj),{status,headers
 globalThis.fetch=async (raw,opts={})=>{
   const u=new URL(String(raw));
   if(u.pathname.endsWith('/series') && backendDown)return payload({message:'QA database unreachable'},503);
+  if(u.pathname.endsWith('/rpc/public_prelaunch_social')){
+    const slug=JSON.parse(opts.body||'{}').p_slug;
+    if(!prelaunchEnabled||series.published||series.access!=='public'||series.adult||slug!==series.slug)return payload(null);
+    return payload({id:series.id,team_id:series.team_id,slug:series.slug,title:series.title,
+      synopsis:series.synopsis,cover_path:series.cover_path,cover_thumb_path:series.cover_thumb_path,
+      author:series.author,genres:series.genres,seo:series.theme.seo,team_name:team.name});
+  }
+  if(u.pathname.endsWith('/rpc/series_public_credits')){
+    const ids=JSON.parse(opts.body||'{}').p_series_ids||[];
+    return payload(ids.includes(series.id)?[{series_id:series.id,team_id:team.id,name:team.name,
+      status:team.status,show_reader_logo:allowLogo,avatar_path:team.avatar_path,is_primary:true}]:[]);
+  }
   if(u.pathname.endsWith('/series'))return payload(u.searchParams.get('slug')==='eq.inexistente' || (u.searchParams.has('access') && u.searchParams.get('access')!=='eq.'+series.access) || (u.searchParams.has('published') && !series.published) ? [] : [series]);
   if(u.pathname.endsWith('/chapters'))return payload([chapter]);
   if(u.pathname.endsWith('/teams'))return payload([team]);
@@ -64,7 +77,24 @@ try {
   await okPNG(await run(imageHandler,'/api/og-image?kind=serie&slug=novela'),'Novela');
   await okPNG(await run(imageHandler,'/api/og-image?kind=leer&slug=novela&chapter=36'),'Capítulo');
   await okPNG(await run(imageHandler,'/api/og-image?kind=equipo&slug=equipo'),'Equipo');
-  assert.ok(imageRequests>=2,'Usar imágenes reales del bucket permitido');
+  assert.ok(imageRequests>=3,'Usar portada y logo reales del bucket permitido');
+  const editorial={heading:series.title,description:series.synopsis,credits:[{name:team.name,logo:imageURL}]};
+  const visual=overlaySVG(editorial,'serie',editorial.credits,true,[true]);
+  // Compare SVG glyph shapes, not just an SVG string: this catches font
+  // fallbacks that render every accented letter as the same missing-glyph box.
+  const raster=title=>new Resvg(overlaySVG({heading:title,description:'Prueba visual'},'serie'),{
+    font:socialFontOptions}).render().asPng();
+  assert.notDeepEqual(raster('AAAA'),raster('BBBB'),'El render debe dibujar letras distintas');
+  assert.notDeepEqual(raster('AAAA'),raster('ÁÁÁÁ'),'Tildes españolas con glifos reales');
+  assert.match(visual,/Grupo de traducción/,'Se muestra el equipo real en la tarjeta');
+  assert.match(visual,/EL OBI DEL LECTOR/,'El diseño tiene sello editorial');
+  assert.ok(titleLayout(editorial,'serie').lines.length<=4,'Título ocupa como máximo 4 líneas');
+  assert.doesNotMatch(visual,/NekoTL|LunaScans|Kitsune/,'No inventar traductores');
+  const withoutLogo=overlaySVG(editorial,'serie',editorial.credits,true,[false]);
+  assert.match(withoutLogo,/Grupo de traducción/,'Sin PNG permanece el nombre real');
+  allowLogo=false;
+  await okPNG(await run(imageHandler,'/api/og-image?kind=serie&slug=novela'),'Novela sin logo');
+  allowLogo=true;
   const html=await run(pageHandler,'/api/public-meta?kind=serie&slug=novela');
   assert.equal(html.statusCode,200);
   assert.match(html.body,/og:image:width" content="1200"/);
@@ -78,6 +108,19 @@ try {
     'Ante un 503 no se puede anunciar una imagen que también fallará');
   assert.match(outage.body,/icon-512\.png/,'Recurso genérico seguro');
   backendDown=false;
+  series.published=false;prelaunchEnabled=true;
+  const advance=await run(pageHandler,'/api/public-meta?kind=serie&slug=novela');
+  assert.equal(advance.statusCode,200,'La ficha de preestreno anunciada debe compartirse');
+  assert.match(advance.body,/Próximo estreno/,'Metadatos de preestreno');
+  assert.match(advance.body,/api\/og-image\?kind=serie/);
+  await okPNG(await run(imageHandler,'/api/og-image?kind=serie&slug=novela'),'Preestreno sin liberar');
+  assert.equal((await run(imageHandler,'/api/og-image?kind=leer&slug=novela&chapter=36')).statusCode,404,'No liberar capítulos');
+  assert.equal((await run(imageHandler,'/api/og-image?kind=serie&slug=novela&vol=1')).statusCode,404,'No liberar volumen');
+  prelaunchEnabled=false;
+  assert.equal((await run(imageHandler,'/api/og-image?kind=serie&slug=novela')).statusCode,404,'Borrador privado sin anuncio');
+  prelaunchEnabled=true;series.access='tier';
+  assert.equal((await run(imageHandler,'/api/og-image?kind=serie&slug=novela')).statusCode,404,'Preestreno restringido');
+  series.access='public';series.published=true;prelaunchEnabled=false;
   const head=await run(imageHandler,'/api/og-image?kind=serie&slug=novela','HEAD');
   assert.equal(head.statusCode,200);
   assert.equal(head.body,null);
@@ -109,8 +152,9 @@ try {
   const src=readFileSync(new URL('../src/index.html',import.meta.url),'utf8');
   assert.match(src,/api\/og-image\?kind=home/);
   const vercel=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
-  assert.equal(vercel.functions['api/og-image.js'].includeFiles,'public/icon-512.png');
-  console.log('seo-social-image: PNG 1200×630 real, portada, Inicio, capítulo, equipo, privacidad, SSR y tipos OK');
+  assert.match(vercel.functions['api/og-image.js'].includeFiles,/@ibm\/plex-sans-variable/);
+  assert.match(readFileSync(new URL('../supabase/migrations/20261024_public_prelaunch_social.sql',import.meta.url),'utf8'),/announce_prelaunch is true/,'Preestreno exige anuncio explícito');
+  console.log('seo-social-image: PNG 1200×630 real, portada grande, traductor y logo reales, fuentes, preestreno sin lectura, privacidad y SSR OK');
 }finally{
   globalThis.fetch=originalFetch;
   process.env=old;
