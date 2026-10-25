@@ -93,6 +93,11 @@ try {
   assert.equal((await run(imageHandler,'/api/og-image?kind=serie&slug=inexistente')).statusCode,404,'Obra no existe');
   assert.equal((await run(imageHandler,'/api/og-image?kind=serie&slug=novela&vista=1')).statusCode,404,'Bloquear vistas privadas');
   assert.equal((await run(imageHandler,'/api/og-image?kind=home','POST')).statusCode,405);
+  const editor=readFileSync(new URL('../src/studio-seo.js',import.meta.url),'utf8');
+  const bibliotecario=readFileSync(new URL('../src/admin-seo.js',import.meta.url),'utf8');
+  assert.match(editor,/Ver tarjeta final PNG/,'Studio enlaza a la imagen real');
+  assert.match(editor,/Ver tarjeta PNG del equipo/,'Equipo enlaza a la imagen real');
+  assert.match(bibliotecario,/Ver tarjeta social PNG/,'Bibliotecario enlaza a la imagen real');
   const src=readFileSync(new URL('../src/index.html',import.meta.url),'utf8');
   assert.match(src,/api\/og-image\?kind=home/);
   const vercel=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
