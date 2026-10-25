@@ -116,6 +116,15 @@ try {
   await okPNG(noLogo,'Novela sin logo');
   const tile=creditGeometry(1,0,true).tile;
   const box={left:tile.x,top:tile.y,width:tile.width,height:tile.height};
+  // Visual miniatura: WhatsApp puede dibujar a ~360px de ancho.
+  const thumbnail=await sharp(withLogo.body).resize({width:360}).png().toBuffer();
+  const previewMeta=await sharp(thumbnail).metadata();
+  assert.equal(previewMeta.width,360);
+  assert.equal(previewMeta.height,189);
+  const titleRegion=await sharp(thumbnail).extract({left:18,top:55,width:197,height:66}).stats();
+  assert.ok(titleRegion.channels[0].stdev>9,'En miniatura el título no debe ser una zona plana');
+  const creditsRegion=await sharp(thumbnail).extract({left:19,top:151,width:198,height:25}).stats();
+  assert.ok(creditsRegion.channels[0].stdev>12,'El área de traductores debe tener contraste visible incluso a 360 px');
   const regionWith=await sharp(withLogo.body).extract(box).raw().toBuffer();
   const regionWithout=await sharp(noLogo.body).extract(box).raw().toBuffer();
   assert.notDeepEqual(regionWith,regionWithout,'El logo debe producir píxeles visibles en la tarjeta');
