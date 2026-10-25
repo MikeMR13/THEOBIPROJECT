@@ -4,6 +4,10 @@ on:
     paths:
       - '.github/workflows/diffusion-isolated-db.yml'
       - 'supabase/migrations/20261025220000_diffusion_phase1.sql'
+      - 'supabase/migrations/20261025230000_diffusion_discord_manual.sql'
+      - 'supabase/tests/diffusion_discord_rls.sql'
+      - 'supabase/functions/diffusion-discord/**'
+      - 'scripts/diffusion-discord-check.mjs'
       - 'supabase/tests/fixtures/diffusion_postgres_fixture.sql'
       - 'supabase/tests/diffusion_phase1_rls.sql'
       - 'scripts/diffusion-phase1-check.mjs'
@@ -13,6 +17,10 @@ on:
     paths:
       - '.github/workflows/diffusion-isolated-db.yml'
       - 'supabase/migrations/20261025220000_diffusion_phase1.sql'
+      - 'supabase/migrations/20261025230000_diffusion_discord_manual.sql'
+      - 'supabase/tests/diffusion_discord_rls.sql'
+      - 'supabase/functions/diffusion-discord/**'
+      - 'scripts/diffusion-discord-check.mjs'
       - 'supabase/tests/fixtures/diffusion_postgres_fixture.sql'
       - 'supabase/tests/diffusion_phase1_rls.sql'
   workflow_dispatch:
@@ -63,4 +71,8 @@ jobs:
           psql_qa supabase/migrations/20261025220000_diffusion_phase1.sql
           echo '3/3 - Permisos por equipo, Bibliotecario separado, anon y RPC'
           psql_qa supabase/tests/diffusion_phase1_rls.sql
+          echo '4/5 - Migración Discord: Vault API simulada solo en QA de PostgreSQL'
+          psql_qa supabase/migrations/20261025230000_diffusion_discord_manual.sql
+          echo '5/5 - Privilegios, conexión y revocación Discord'
+          psql_qa supabase/tests/diffusion_discord_rls.sql
           echo 'Difusión QA aprobado, sin servicios alojados ni envío de publicaciones'
