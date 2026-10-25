@@ -1,7 +1,7 @@
 import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=1';
 import { initCollaborationTeamPicker, COLLABORATION_STATUS } from './studio-collaboration-picker.js?v=1';
 import { seriesPublicationHTML, bindSeriesPublication } from './studio-series-publication.js?v=1';
-import { bindSeriesSeo } from './studio-seo.js?v=1';
+import { bindSeriesSeo, teamSeoProfileHTML } from './studio-seo.js?v=1';
 import { cleanSeo } from './seo-settings.js?v=1';
 import { SECTION_TYPES } from './section-types.js?v=1';
 import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
@@ -1328,19 +1328,7 @@ export function createStudio(ctx){
         <div class="pf-g"><span class="pf-l">Logo</span><span class="pf-up"><span class="pf-logo" id="logobox"></span><span style="display:grid;gap:6px"><label class="btn ghost pf-file">${D.avatar ? 'Cambiar logo' : 'Subir logo'}<input type="file" id="flogo" accept="image/png,image/webp,image/jpeg" hidden ${dis}></label><small class="mono">PNG transparente · mínimo 512×512 · hasta 1 MB</small>${D.avatar && edit ? '<button type="button" class="lnk danger" id="nologo">Quitar logo</button>' : ''}</span></span>
           <label class="tb-inl"><input type="checkbox" id="lu" ${D.logoUpd ? 'checked' : ''} ${dis}> En la lista de actualizaciones</label><label class="tb-inl"><input type="checkbox" id="lr" ${D.logoReader ? 'checked' : ''} ${dis}> Al inicio de cada capítulo, en lugar de «Traducido por…»</label></div>
         <div class="pf-g"><span class="pf-l">Portada del perfil</span><span class="pf-up"><label class="btn ghost pf-file">${D.banner ? 'Cambiar portada' : 'Subir portada'}<input type="file" id="fban" accept="image/png,image/jpeg,image/webp" hidden ${dis}></label><small class="mono">1600×400 recomendado · hasta 3 MB. Sin portada se usa el color del equipo.</small>${D.banner && edit ? '<button type="button" class="lnk danger" id="noban">Quitar</button>' : ''}</span></div>
-        <label>Zona horaria del equipo<select name="tz" ${dis}>${[...TZS, ...(TZS.some(x => x[0] === D.tz) ? [] : [[D.tz, D.tz.replace(/_/g, ' ')]])].map(([k, l]) => `<option value="${k}" ${k === D.tz ? 'selected' : ''}>${l} · ${new Date().toLocaleTimeString('es-MX', { timeZone: k, hour: '2-digit', minute: '2-digit' })}</option>`).join('')}</select><small class="mono">Es la hora de referencia del equipo. Cada integrante programa con la hora de su dispositivo y, junto al campo de fecha, puede cambiar a esta. Los lectores ven cada lanzamiento en su propia hora.</small></label>
-        <label>Obra destacada<select name="feat" ${dis}><option value="">Ninguna</option>${(works || []).map(w => `<option value="${w.slug}" ${D.feat === w.slug ? 'selected' : ''}>${esc(w.short || w.title)}</option>`).join('')}</select></label>
-        <div class="pf-g"><span class="pf-l">Secciones visibles</span>${SECTS.map(([k, l]) => `<label class="tb-inl"><input type="checkbox" data-sect="${k}" ${D.sect[k] ? 'checked' : ''} ${dis}> ${l}</label>`).join('')}</div>
-        <fieldset style="display:grid;gap:12px;border:1px solid #54452b;padding:16px"><legend>SEO y tarjetas del equipo</legend>
-          <p class="mono" style="margin:0">Campos opcionales. No modifican tu URL ni hacen públicos los borradores del equipo.</p>
-          <label>Título SEO<input data-tseo="title" maxlength="70" value="${esc(D.seo.title)}" ${dis}></label>
-          <label>Descripción SEO<textarea data-tseo="description" rows="3" maxlength="170" ${dis}>${esc(D.seo.description)}</textarea></label>
-          <label>Título para compartir<input data-tseo="socialTitle" maxlength="90" value="${esc(D.seo.socialTitle)}" ${dis}></label>
-          <label>Descripción para compartir<textarea data-tseo="socialDescription" rows="3" maxlength="200" ${dis}>${esc(D.seo.socialDescription)}</textarea></label>
-          <label>Imagen de la tarjeta<select data-tseo="imagePath" ${dis}><option value="">Banner o logo automático</option>
-            ${[D.banner,D.avatar].filter(Boolean).map((p,i)=>'<option value="'+esc(p)+'" '+(D.seo.imagePath===p?'selected':'')+'>'+ (i?'Logo':'Banner') +'</option>').join('')}</select></label>
-          <label class="tb-inl"><input data-tseo="noindex" type="checkbox" ${D.seo.noindex?'checked':''} ${dis}> Ocultar en buscadores (sin cambiar visibilidad)</label>
-        </fieldset>
+        ${teamSeoProfileHTML(D, dis, esc, TZS, works, SECTS)}
         <div class="pf-g"><span class="pf-l">Redes y apoyo</span>${LINKS.map(([k, l, ph]) => `<label class="pf-link">${l}<input type="url" data-link="${k}" value="${esc(D.links[k])}" placeholder="${ph}" ${dis}></label>`).join('')}</div>
         <div class="pf-g" id="pt-team"></div>
         ${edit ? '<span class="pf-save"><span class="mono" id="pfstate"></span><button class="btn" id="pfsave">Guardar página</button></span>' : ''}
