@@ -45,6 +45,13 @@ globalThis.fetch=async (raw,opts={})=>{
     return payload(!hideCredits&&ids.includes(series.id)?[{series_id:series.id,team_id:team.id,name:team.name,
       status:team.status,show_reader_logo:allowLogo,avatar_path:team.avatar_path,is_primary:true}]:[]);
   }
+  if(u.pathname.endsWith('/series')){
+    assert.equal(u.searchParams.get('volumes.status'),'eq.published','Conteo sin borradores');
+    assert.equal(u.searchParams.get('volumes.access'),'eq.public','Conteo sin Patreon');
+    assert.equal(u.searchParams.get('volumes.deleted_at'),'is.null','Conteo sin eliminados');
+    assert.match(u.searchParams.get('volumes.or')||'',/published_at\.is\.null,published_at\.lte\./,
+      'Conteo sin volúmenes todavía programados');
+  }
   if(u.pathname.endsWith('/series'))return payload(u.searchParams.get('slug')==='eq.inexistente' || (u.searchParams.has('access') && u.searchParams.get('access')!=='eq.'+series.access) || (u.searchParams.has('published') && !series.published) ? [] : [series]);
   if(u.pathname.endsWith('/chapters'))return payload([chapter]);
   if(u.pathname.endsWith('/teams'))return payload([{...team,settings:{
