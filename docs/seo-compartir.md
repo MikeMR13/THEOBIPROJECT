@@ -115,3 +115,39 @@ La validación exige una instancia QA **aislada**, con datos ficticios publicado
 Junto con la compilación, ejecutar `SEO_PREVIEW_URL=https://<preview>.vercel.app npm run seo-preview-check` desde un entorno con acceso autenticado a la Preview. Se admiten `SEO_PUBLIC_SERIES_SLUG` y `SEO_PUBLIC_CHAPTER_NUM` para probar contenido real. Solo considerar aprobada la validación si devuelve `SEO Preview HTTP: PASS` y la revisión visual/manual es satisfactoria.
 
 **La fase 4 queda retenida hasta superar ambos bloqueos.**
+
+## GitHub Actions — compuertas para continuar a fase 4
+
+Se incorporaron dos workflows en el PR #105. Las comprobaciones de compilación NO se confunden con la verificación real de la Preview.
+
+### 1. `SEO · contratos y build` — sin secretos
+
+- Archivo: `.github/workflows/seo-ci.yml`.
+- Se ejecuta al abrir/actualizar un PR contra `main` y admite ejecución manual.
+- En un entorno aislado con URL `.invalid` y clave ficticia valida sintaxis, Open Graph, JSON-LD, sitemap, robots, rutas, privacidad, build y aislamiento Preview.
+- Debe terminar en PASS sin conectar Supabase ni Vercel externos.
+
+### 2. `SEO · Preview HTTP y Chromium` — secreto y QA protegidos
+
+- Archivo: `.github/workflows/seo-preview-e2e.yml`.
+- Se inicia automáticamente al abrir/actualizar el PR **solo desde la rama** `feat/seo-compartir-publico-20261024` dentro del mismo repositorio; también admite ejecución manual en esa rama.
+- Usa el entorno GitHub `seo-qa` para requerir aprobación humana del commit exacto antes de permitir acceso a secretos. **Configurar Required Reviewers y la restricción de ramas antes de cargar secretos**. Si el plan de GitHub no permite proteger el entorno, no añadir secretos y no habilitar este trabajo hasta tener un mecanismo equivalente.
+- Verifica por la API de Vercel que una Preview del proyecto y equipo correctos está `READY`, corresponde al SHA exacto y no es producción. Se niega a usar el URL como confiable solo porque aparezca en un comentario o variable no verificada.
+- Valida los códigos HTTP reales, que las rutas inexistentes sean 404, metadatos por obra/capítulo/equipo, noindex/robots, backend QA aislado y sitemap de Preview no visible.
+- Finalmente ejecuta Chromium con Playwright en 390 px y 1366 px, abre Catálogo, novela, capítulo, equipo y menú Compartir. El bypass de SSO solo se usa contra el origen verificado; la cookie se conserva en memoria, sin capturas ni archivos de autenticación.
+- Un fallo de infraestructura debe aparecer como **FAIL**, nunca como aprobado u omitido.
+
+### Configurar en GitHub (no colocar valores en código ni en el chat)
+
+1. Settings → Environments → crear `seo-qa`. Establecer **Required reviewers** y limitar las ramas permitidas para deploys de QA.
+2. En los secretos del entorno `seo-qa` guardar `VERCEL_TOKEN` (acceso de lectura al deployment del proyecto `theobiproject`) y `VERCEL_AUTOMATION_BYPASS_SECRET` (Vercel → Deployment Protection → Protection Bypass for Automation). No almacenar secretos en variables normales ni exponerlos en logs.
+3. En las variables (no secretas) del mismo entorno configurar `SEO_PUBLIC_SERIES_SLUG`, `SEO_PUBLIC_CHAPTER_NUM` y `SEO_PUBLIC_TEAM_SLUG` con slugs/números ficticios **existentes y públicos** en el backend QA.
+4. En Vercel Preview configurar `OBI_SUPABASE_URL` y `OBI_SUPABASE_PUBLISHABLE_KEY` apuntando a una **instancia QA accesible e independiente**. La configuración actual `https://obi-qa-backend.invalid` no permite superar las pruebas.
+5. Comprobar que la regla global de Vercel no intercepte `/serie` y `/leer` en el proyecto de QA. La corrección de la regla global está preparada en staging y **no debe promoverse a producción antes de un release coordinado**.
+6. Reejecutar el workflow y verificar los resultados de ambos checks. Solo entonces decidir el inicio de fase 4. La protección de `main` (Settings → Branches / Rulesets) puede requerir los contextos `SEO / build y privacidad` y `SEO / HTTP y navegador QA`; eso requiere permisos administrativos y no se activó automáticamente.
+
+### Resultado inicial observado
+
+- La primera ejecución real de `SEO · contratos y build` se completó con éxito.
+- La primera ejecución real del E2E se detuvo en preflight con **`Configura VERCEL_TOKEN en el entorno protegido seo-qa`**. La ausencia de configuración es un bloqueo real, no un test aprobado.
+- No se han creado ni solicitado tokens secretos, ni se ha usado Supabase de producción.
