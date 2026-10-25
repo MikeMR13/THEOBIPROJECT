@@ -124,7 +124,7 @@ export async function publicData(kind, slug, chapter, volume, origin) {
       }, backend, key);
       if (!v || !publishable(v) || !validPublishedTime(v.published_at)) return null;
       const name = s.title + ' · Volumen ' + v.num;
-      return { type: 'Book', noindex: base.noindex, author: s.author || '', genres: s.genres || [], title: name + ' — ' + SITE,
+      return { type: 'Book', noindex: base.noindex, credits: base.credits, author: s.author || '', genres: s.genres || [], title: name + ' — ' + SITE,
         description: limit(v.synopsis || ('Descubre el volumen ' + v.num + ' de ' + s.title + '.'), 170),
         image: media(v.cover_path || s.cover_path || s.cover_thumb_path, backend, origin),
         heading: name };
@@ -219,7 +219,7 @@ function tags(data, canonical, origin, noindex, {kind,slug,chapter,volume,isDraf
   const eligible = publicItem && socialKinds.has(kind) && !isDraft && !data.noindex && (kind === 'home' || !!slug);
   const key = createHash('sha256').update(JSON.stringify([
     data.title,data.description,data.socialTitle,data.socialDescription,data.image,
-    data.heading,data.prelaunch,data.credits,kind,slug,chapter,volume
+    'obi-social-editorial-v2',data.heading,data.prelaunch,data.credits,kind,slug,chapter,volume
   ])).digest('hex').slice(0,12);
   const qs = new URLSearchParams({kind});
   if(slug) qs.set('slug',slug);

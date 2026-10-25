@@ -5,7 +5,7 @@ import sharp from 'sharp';
 import {Resvg} from '@resvg/resvg-js';
 import imageHandler from '../api/og-image.js';
 import pageHandler from '../api/public-meta.js';
-import {safeSocialAsset,cardTitle,titleLayout,overlaySVG,socialFontOptions,CARD_WIDTH,CARD_HEIGHT} from '../lib/social-card.js';
+import {safeSocialAsset,cardTitle,titleLayout,overlaySVG,prepareTranslatorLogo,creditGeometry,socialFontOptions,CARD_WIDTH,CARD_HEIGHT} from '../lib/social-card.js';
 
 const old={...process.env}, originalFetch=globalThis.fetch;
 process.env.VERCEL_ENV='preview';
@@ -16,6 +16,10 @@ const backend=process.env.OBI_SUPABASE_URL;
 const imagePath='team1/obras/novela/portada.png';
 const imageURL=backend+'/storage/v1/object/public/obi-media/'+imagePath;
 const image=await sharp({create:{width:540,height:760,channels:4,background:'#a45131'}}).png().toBuffer();
+// Caso realista: un wordmark muy horizontal, oscuro y con mucho margen transparente.
+const wordmark=Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="570" height="65"><rect width="570" height="65" rx="8" fill="#171514"/><text x="16" y="45" font-size="35" fill="#f8f8f8" font-family="sans-serif">OX-MR TRADUCCIONES</text></svg>');
+const paddedLogo=await sharp({create:{width:1060,height:640,channels:4,background:'#00000000'}})
+  .composite([{input:wordmark,left:245,top:265}]).png().toBuffer();
 let imageRequests=0, backendDown=false, prelaunchEnabled=false, allowLogo=true;
 const series={id:'one',team_id:'team1',slug:'novela',title:'La biblioteca de los nueve libros y una joven extraordinaria',synopsis:'Lee la historia en español.',
   author:'Autora',genres:['Fantasía'],access:'public',published:true,adult:false,
@@ -44,7 +48,7 @@ globalThis.fetch=async (raw,opts={})=>{
   if(u.pathname.endsWith('/teams'))return payload([team]);
   if(u.pathname.endsWith('/platform_settings'))return payload([{seo:{title:'El Obi del Lector',socialTitle:'Descubre historias'}}]);
   if(u.pathname.endsWith('/obi-media/'+imagePath)){imageRequests++;return new Response(image,{headers:{'content-type':'image/png','content-length':String(image.length)}});}
-  if(u.pathname.endsWith('/obi-media/team1/profile/logo.png')){imageRequests++;return new Response(image,{headers:{'content-type':'image/png'}});}
+  if(u.pathname.endsWith('/obi-media/team1/profile/logo.png')){imageRequests++;return new Response(paddedLogo,{headers:{'content-type':'image/png'}});}
   if(u.pathname==='/index.html')return new Response('<!doctype html><html><head><title>Inicio</title><meta name="description" content="Inicio"></head><body><main id="app"></main></body></html>');
   throw new Error('Solicitud inesperada: '+u.href);
 };
@@ -88,12 +92,44 @@ try {
   assert.notDeepEqual(raster('AAAA'),raster('ÁÁÁÁ'),'Tildes españolas con glifos reales');
   assert.match(visual,/Grupo de traducción/,'Se muestra el equipo real en la tarjeta');
   assert.match(visual,/EL OBI DEL LECTOR/,'El diseño tiene sello editorial');
-  assert.ok(titleLayout(editorial,'serie').lines.length<=4,'Título ocupa como máximo 4 líneas');
+  assert.ok(titleLayout(editorial,'serie').lines.length<=3,'Título ocupa como máximo 3 líneas');
+  assert.equal(cardTitle({heading:'¡No existe una gyaru que no termine cayendo por un otaku! Consideración: ◎, sinceridad: ◎'},'serie'),
+    '¡No existe una gyaru que no termine cayendo por un otaku!','Extraer título editorial sin subtítulo repetido');
+  assert.equal(cardTitle({heading:'Clasificación ◎ y ○ con △ y ×'},'serie'),
+    'Clasificación excelente y buena con regular y baja','Normalizar glifos en imagen, nunca en BD');
+  const trimmed=await prepareTranslatorLogo(paddedLogo,146,58);
+  const trimmedMeta=await sharp(trimmed).metadata();
+  assert.ok(trimmedMeta.width>=95,'El PNG ancho recorta márgenes y utiliza todo el espacio de logo');
+  assert.ok(trimmedMeta.height>=9&&trimmedMeta.height<=46,'El logo conserva proporción');
+  const g1=creditGeometry(1,0,true),g2=creditGeometry(2,1,true),g3=creditGeometry(3,2,true);
+  assert.ok(g1.tile.width>g2.tile.width&&g2.tile.width>g3.tile.width,'Lógo más grande con un solo traductor');
+  assert.ok(g1.textX>g1.tile.x+g1.tile.width,'Nombre junto al logo, sin superposición');
+  assert.ok(g2.textX+g2.textWidth<745&&g3.textX+g3.textWidth<745,'Chips de hasta 3 equipos no invaden la portada');
   assert.doesNotMatch(visual,/NekoTL|LunaScans|Kitsune/,'No inventar traductores');
   const withoutLogo=overlaySVG(editorial,'serie',editorial.credits,true,[false]);
   assert.match(withoutLogo,/Grupo de traducción/,'Sin PNG permanece el nombre real');
+  // Comparación de regiones rasterizadas: no basta con que una URL de logo exista.
+  const withLogo=await run(imageHandler,'/api/og-image?kind=serie&slug=novela');
+  await okPNG(withLogo,'Con logo real y recortado');
   allowLogo=false;
-  await okPNG(await run(imageHandler,'/api/og-image?kind=serie&slug=novela'),'Novela sin logo');
+  const noLogo=await run(imageHandler,'/api/og-image?kind=serie&slug=novela');
+  await okPNG(noLogo,'Novela sin logo');
+  const tile=creditGeometry(1,0,true).tile;
+  const box={left:tile.x,top:tile.y,width:tile.width,height:tile.height};
+  // Visual miniatura: WhatsApp puede dibujar a ~360px de ancho.
+  const thumbnail=await sharp(withLogo.body).resize({width:360}).png().toBuffer();
+  const previewMeta=await sharp(thumbnail).metadata();
+  assert.equal(previewMeta.width,360);
+  assert.equal(previewMeta.height,189);
+  const titleRegion=await sharp(thumbnail).extract({left:18,top:55,width:197,height:66}).stats();
+  assert.ok(titleRegion.channels[0].stdev>9,'En miniatura el título no debe ser una zona plana');
+  const creditsRegion=await sharp(thumbnail).extract({left:19,top:151,width:198,height:25}).stats();
+  assert.ok(creditsRegion.channels[0].stdev>12,'El área de traductores debe tener contraste visible incluso a 360 px');
+  const regionWith=await sharp(withLogo.body).extract(box).raw().toBuffer();
+  const regionWithout=await sharp(noLogo.body).extract(box).raw().toBuffer();
+  assert.notDeepEqual(regionWith,regionWithout,'El logo debe producir píxeles visibles en la tarjeta');
+  const meanLightness=regionWith.reduce((total,v)=>total+v,0)/regionWith.length;
+  assert.ok(meanLightness>110,'Bloque del logo suficientemente contrastado para WhatsApp');
   allowLogo=true;
   const html=await run(pageHandler,'/api/public-meta?kind=serie&slug=novela');
   assert.equal(html.statusCode,200);
@@ -101,6 +137,7 @@ try {
   assert.match(html.body,/og:image:height" content="630"/);
   assert.match(html.body,/api\/og-image\?kind=serie&amp;slug=novela&amp;v=/);
   assert.match(html.body,/twitter:image:alt/);
+  assert.match(readFileSync(new URL('../api/public-meta.js',import.meta.url),'utf8'),/obi-social-editorial-v2/,'Cambiar versión del diseño para invalidar cachés de redes');
   backendDown=true;
   const outage=await run(pageHandler,'/api/public-meta?kind=serie&slug=novela');
   assert.equal(outage.statusCode,503,'Fallo del backend debe devolver 503');
@@ -154,7 +191,7 @@ try {
   const vercel=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
   assert.match(vercel.functions['api/og-image.js'].includeFiles,/@ibm\/plex-sans-variable/);
   assert.match(readFileSync(new URL('../supabase/migrations/20261024_public_prelaunch_social.sql',import.meta.url),'utf8'),/announce_prelaunch is true/,'Preestreno exige anuncio explícito');
-  console.log('seo-social-image: PNG 1200×630 real, portada grande, traductor y logo reales, fuentes, preestreno sin lectura, privacidad y SSR OK');
+  console.log('seo-social-image: PNG 1200×630, títulos <=3 líneas, logos recortados y contraste de píxeles, autores, preestreno y privacidad OK');
 }finally{
   globalThis.fetch=originalFetch;
   process.env=old;
