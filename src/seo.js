@@ -63,6 +63,7 @@ export function updateClientSeo({doc=globalThis.document,loc=globalThis.location
   if(!doc||!loc)return false;
   // Las rutas privadas nunca heredan textos o portadas sociales de la ficha previa.
   if(blocked){
+    ensureMeta(doc,'name','description').content=DESC;
     ensureMeta(doc,'property','og:title').content=BRAND;
     ensureMeta(doc,'property','og:description').content='';
     ensureMeta(doc,'property','og:image').content=ROOT+'/icon-512.png';
