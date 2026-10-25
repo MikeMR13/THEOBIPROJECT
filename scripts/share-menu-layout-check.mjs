@@ -48,6 +48,7 @@ assert.match(share,/floatingPanel\?\.contains\(btn\) \? floatingOwner/,'Copiar f
 assert.match(share,/wa\.me\/\?text=/);
 assert.match(share,/t\.me\/share\/url/);
 assert.match(share,/navigator\.share/);
+assert.match(share,/if \(!navigator\.share\) el\.querySelector/,'No mostrar botón nativo redundante en escritorio');
 assert.match(share,/clipboard\.writeText/);
 assert.match(share,/if \(!publicPath\(\) \|\| document\.querySelector\('\.tp2-draft'\)\) return/,'No publicar menú en vistas privadas');
 assert.match(share,/book\.dataset\.lock === '1'/,'No añadir compartir a volúmenes bloqueados');
