@@ -86,7 +86,7 @@ function headMeta() {
   const isPrivate = window.OBI_CONFIG?.preview === true || /^\/(?:estudio|bibliotecario|admin|perfil|preferencias|biblioteca|descargas|entrar|registro|restablecer|buscar|mi-equipo|elige-nombre|anotaciones|invitacion|solicitud)(?:\/|$)/.test(p) ||
     isRestrictedReader || isMissingPublic || isMissingVolume;
   let robots = document.querySelector('meta[name="robots"]');
-  if ((isPrivate || isDraft) && !robots) {
+  if ((isPrivate || isDraft || (ENTRY_NOINDEX && p===ENTRY_PATH)) && !robots) {
     robots = document.createElement('meta');
     robots.name = 'robots';
     document.head.append(robots);
