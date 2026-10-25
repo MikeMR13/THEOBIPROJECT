@@ -45,6 +45,13 @@ export function bindSeriesSeo({app,sb,series,volumes=[],canEdit=false,media,toas
   idx.append(noindex,field('span',{},'Ocultar en buscadores (noindex; la página sigue siendo accesible)'));wrap.append(idx);
   const preview=field('div',{className:'wk-seo-preview','aria-live':'polite'});wrap.append(field('h3',{},'Vista previa aproximada'),preview);
   wrap.append(field('small',{},'Enlace canónico fijo: https://elobidellector.com/serie/'+series.slug));
+  if(series.published && series.access==='public' && !series.adult && !old.noindex){
+    const link=field('a',{href:'/api/og-image?kind=serie&slug='+encodeURIComponent(series.slug),
+      target:'_blank',rel:'noopener noreferrer',className:'btn ghost'},
+      'Ver tarjeta final PNG (último guardado) ↗');
+    link.style.justifySelf='start';
+    wrap.append(link,field('small',{},'La tarjeta final se genera desde los datos públicos guardados. La vista anterior muestra tus cambios actuales aún sin guardar.'));
+  }
   let dirty=false;
   const values=()=>Object.fromEntries(Object.entries(controls).filter(([key])=>!key.endsWith('Note')).map(([key,el])=>[key,el.type==='checkbox'?el.checked:el.value]));
   const update=()=>{
@@ -102,6 +109,7 @@ export function teamSeoProfileHTML(D, dis, esc, TZS, works, SECTS) {
           <label>Imagen de la tarjeta<select data-tseo="imagePath" ${dis}><option value="">Banner o logo automático</option>
             ${[D.banner,D.avatar].filter(Boolean).map((p,i)=>'<option value="'+esc(p)+'" '+(D.seo.imagePath===p?'selected':'')+'>'+ (i?'Logo':'Banner') +'</option>').join('')}</select></label>
           <label class="tb-inl"><input data-tseo="noindex" type="checkbox" ${D.seo.noindex?'checked':''} ${dis}> Ocultar en buscadores (sin cambiar visibilidad)</label>
+          <a class="btn ghost" style="justify-self:start" target="_blank" rel="noopener noreferrer" href="/api/og-image?kind=equipo&slug=${encodeURIComponent(D.slug)}">Ver tarjeta PNG del equipo (último guardado) ↗</a>
         </fieldset>
 `;
 }
