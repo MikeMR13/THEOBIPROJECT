@@ -50,9 +50,10 @@
 - [x] `api/public-meta.js`: versión de imagen social nueva, SEO textual preservado.
 - [x] Test actualizado `scripts/seo-social-image-check.mjs` en pipeline de build.
 - [x] Preview de Vercel validada con build/test del PNG sintético.
-- [ ] CI general completo de GitHub confirmado para último commit.
-- [ ] Revisión humana del PNG real de OX-MR y de su fallback en un entorno con datos de la obra.
-- [ ] Fusionar PR a `main` y validar Vercel producción (requiere aprobación de despliegue).
+- [x] CI general GitHub **PASS** y contratos SEO/build **PASS** para el commit de PR `10ad0e87`.
+- [ ] Revisión humana de la apariencia exacta del PNG auténtico de OX-MR y del fallback. Los endpoints productivos respondieron 200, pero HTTP no equivale a inspección visual.
+- [x] PR #110 fusionado a `main` (`bc4076b3`) y despliegue Vercel producción **READY**; PNG públicos de novela y preestreno HTTP 200, capítulos no liberados 404.
 - [ ] Confirmar tarjetas dentro de WhatsApp/otras redes; Cloudflare podría impedir su rastreo.
 
 **Importante:** las casillas `[x]` certifican implementación y pruebas deterministas, no acreditan por sí solas la revisión visual en WhatsApp ni el acceso por Cloudflare. No se alteraron Supabase ni el estado editorial de novelas o capítulos.
+
