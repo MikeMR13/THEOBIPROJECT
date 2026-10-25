@@ -156,13 +156,13 @@ function structuredData(data, canonical, kind, origin) {
     JSON.stringify(node).replace(/</g, '\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026') +
     '</script>';
 }
-function tags(data, canonical, origin, noindex, {kind,slug,chapter,volume,isDraft}={}) {
+function tags(data, canonical, origin, noindex, {kind,slug,chapter,volume,isDraft,publicItem=false}={}) {
   const title = esc(data.title), desc = esc(data.description);
   const socialTitle = esc(data.socialTitle || data.title), socialDesc = esc(data.socialDescription || data.description);
   // La URL solo incorpora parámetros verificables. Un cambio editorial
   // altera el hash y evita una imagen antigua en las cachés de redes.
   const socialKinds = new Set(['home','serie','leer','equipo']);
-  const eligible = socialKinds.has(kind) && !isDraft && !data.noindex && (kind === 'home' || !!slug);
+  const eligible = publicItem && socialKinds.has(kind) && !isDraft && !data.noindex && (kind === 'home' || !!slug);
   const key = createHash('sha256').update(JSON.stringify([
     data.title,data.description,data.socialTitle,data.socialDescription,data.image,
     data.heading,kind,slug,chapter,volume
@@ -240,7 +240,7 @@ export default async function handler(req, res) {
     html = html.replace(/<meta\s+(?:property="og:[^"]+"|name="twitter:[^"]+")[^>]*>\s*/gi, '');
     html = html.replace(/<title>[\s\S]*?<\/title>/i, '<title>' + esc(data.title) + '</title>');
     html = html.replace(/<meta name="description"[^>]*>/i, '<meta name="description" content="' + esc(data.description) + '">');
-    html = html.replace('</head>', tags(data, canonical, origin, noindex, {kind,slug,chapter,volume:volumeKey,isDraft}) + (item && !noindex ? structuredData(data, canonical, kind, origin) : '') + '</head>');
+    html = html.replace('</head>', tags(data, canonical, origin, noindex, {kind,slug,chapter,volume:volumeKey,isDraft,publicItem:!!item}) + (item && !noindex ? structuredData(data, canonical, kind, origin) : '') + '</head>');
     if (item && !noindex && kind !== 'home') {
       const teaser = '<section aria-label="Presentación pública" style="padding:24px;max-width:920px;margin:auto"><h1>' + esc(data.heading) + '</h1><p>' + esc(data.description) + '</p></section>';
       html = html.replace(/(<main id="app"[^>]*>)(<\/main>)/, '$1' + teaser + '$2');
