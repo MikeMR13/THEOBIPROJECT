@@ -69,6 +69,16 @@
 - [ ] Resolver de manera acotada el acceso de rastreadores legítimos a las fichas e imágenes OG en Cloudflare, sin desactivar las protecciones generales.
 - [ ] Revalidar WhatsApp con nueva URL si conserva una caché antigua.
 
+## Corrección posterior de identidad y créditos · PR #109
+
+- [x] PR #109 fusionado a `main` (`3813810b`): diseño nuevo marfil/negro/dorado inspirado en las fichas reales del sitio, sin reutilizar el layout anterior.
+- [x] Logo institucional tomado de `public/icon-512.png`, no de un dibujo simulado.
+- [x] Preferencia de OX-MR verificada: PNG público específico del lector en `teams.settings.reader_logo_url`, con prioridad frente al avatar; permisos `show_reader_logo` respetados.
+- [x] Regla estricta **PNG O nombre**, sin duplicar la identidad en la imagen. Alternativa textual verificada cuando se deshabilita el logo.
+- [x] Pruebas unitarias/SEO de las tres variantes, URL legacy segura, CI general PASS y Vercel producción READY.
+- [x] Verificación HTTP directa en producción: fichas gyaru y preestreno 200, PNG 200 (`image/png`), equipo 200, lectura de preestreno 404 y robots 200.
+- [ ] Verificación humana del resultado exacto en WhatsApp; Cloudflare todavía puede devolver 403 desde algunas regiones/rastreadores.
+
 ## Evidencia de control
 - Fuente de verdad: GitHub Actions, build de Vercel y pruebas de `scripts/seo-social-image-check.mjs`.
 - El test incluye: PNG binario, geometría, logo opaco sobre claro, título principal corto, símbolos normalizados, miniatura y permisos.
