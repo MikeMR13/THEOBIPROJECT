@@ -16,7 +16,7 @@ const field = (tag, props={}, text='') => {
 export function bindSeriesSeo({app,sb,series,volumes=[],canEdit=false,media,toast,busy,refresh}) {
   const root=app.querySelector('#wk-seo-form'); if(!root)return;
   if(!document.getElementById('wk-seo-css'))document.head.append(field('style',{id:'wk-seo-css'},css));
-  const images=editImages(series,volumes), old=cleanSeo(series.theme?.seo,{allowedImages:images});
+  const images=editImages(series), old=cleanSeo(series.theme?.seo,{allowedImages:images});
   const wrap=field('section',{className:'wk-box wk-seo'});root.append(wrap);
   wrap.append(field('span',{className:'mono'},'DIFUSIÓN · SEO'),field('h2',{},'Tarjeta de tu obra al compartir'),field('p',{className:'mono'},'Estos ajustes solo cambian metadatos de las fichas públicas. No publican borradores ni desbloquean contenido.'));
   const controls={};
