@@ -19,14 +19,15 @@ const slice=(src,start,end)=>{
 const paths=text=>[...text.matchAll(/'(\/estudio(?:\/[a-z]+)?)'/g)].map(m=>m[1]);
 const nav=paths(slice(studio,'const NAV = ','const CRUMB = '));
 const groups=paths(slice(studio,'const NAV_GROUPS = ','const studioNav = '));
-assert.equal(nav.length,14,'Estudio debe conservar sus 14 destinos');
+assert.equal(nav.length,15,'Estudio debe conservar los 14 destinos anteriores y añadir Difusión');
 assert.equal(new Set(nav).size,nav.length,'Rutas repetidas en navegación');
+assert(nav.includes('/estudio/difusion'),'Difusión debe tener navegación propia');
 assert.deepEqual([...nav].sort(),[...groups].sort(),'Grupos de navegación incompletos o con rutas duplicadas');
 const special=new Map([['/estudio/glosario','glossary']]);
 const methods={
   '/estudio':'home','/estudio/anuncios':'announcements','/estudio/obras':'works',
   '/estudio/glosario':'glossary','/estudio/importar':'importer','/estudio/multimedia':'library',
-  '/estudio/flujo':'board','/estudio/comunidad':'community',
+  '/estudio/flujo':'board','/estudio/comunidad':'community','/estudio/difusion':'diffusion',
   '/estudio/estadisticas':'stats','/estudio/descargas':'downloads',
   '/estudio/perfil':'profile','/estudio/preferencias':'prefs','/estudio/equipo':'team','/estudio/bitacora':'log'
 };
