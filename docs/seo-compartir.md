@@ -206,3 +206,14 @@ Se incorporaron dos workflows en el PR #105. Las comprobaciones de compilación 
 - En Preview Vercel se verificó `GET /api/og-image?kind=home`: HTTP 200, `Content-Type: image/png` y dimensiones correctas (cabecera PNG). `GET /api/public-meta?kind=home` devuelve la URL OG correspondiente.
 - Las tarjetas dinámicas de obras/equipos requieren **Supabase QA real** para una prueba HTTP completa. Mientras siga `.invalid`, esos endpoints devuelven 503, no una tarjeta ficticia. El código y las pruebas deterministas sí las validan con imágenes de QA sintéticas.
 - En producción no se han activado estas funciones: PR #105 sigue en borrador, sin merge, sin migración SQL y sin promover las reglas de enrutamiento de staging. Cuando se integre, las plataformas sociales podrán rastrear las imágenes por HTTPS.
+
+
+## Tarjeta social editorial legible y preestrenos (octubre 2026)
+
+- Diseño PNG **1200×630 real**, basado en la identidad de El Obi: marco dorado, fondo negro, tipografía IBM Plex Sans, título grande en 2–4 líneas y portada vertical protagonista sin deformación. La tipografía se rasteriza con **TrueType propia**, no con fuentes opcionales de Vercel.
+- Los logos y nombres mostrados son exclusivamente de equipos acreditados por el RPC ya existente `series_public_credits` (equipo titular y colaboraciones activas), respetando `show_reader_logo`. Si el logo está ausente, inválido o oculto, **se muestra el nombre real en texto**, jamás un logo ni nombre ficticio.
+- Un título editorial largo se recorta en la composición con puntos suspensivos; el metadato Open Graph conserva su texto configurable en la medida admitida por la plataforma.
+- **Ficha de preestreno**: una obra `published=false` puede anunciarse en redes solo cuando `public_prelaunch_social(p_slug)` confirme un volumen público `scheduled` con `announce_prelaunch=true` y fecha futura. El RPC ofrece título, sinopsis, portada, SEO y equipo sin revelar capítulos ni borradores. Bloquea `adult`, `access != public`, retirada, archivo y equipo privado. No hace públicos los volúmenes ni habilita URLs `/leer`.
+- Cambio de BD: `supabase/migrations/20261024_public_prelaunch_social.sql` agrega solo un RPC público de salida restringida; no cambia `series.published`, volúmenes, capítulos ni políticas RLS existentes.
+- Pruebas: `scripts/seo-social-image-check.mjs` valida PNG binario, contenido editorial y créditos, ausencia de nombres inventados, renderizado **pixel a pixel** de glifos distintos y tildes, modo sin logo, preestreno y denegaciones de lectura.
+- Para WhatsApp y otras plataformas, sigue siendo necesario que Cloudflare permita a sus rastreadores acceder al HTML de `/serie/:slug` y a `/api/og-image`; las reglas geográficas y Bot Fight Mode pueden bloquearlos, independientemente del render PNG.
