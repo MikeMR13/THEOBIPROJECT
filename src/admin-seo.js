@@ -45,7 +45,8 @@ export async function renderAdminSeo({sb,view,toast}) {
   const reset=element('button','Restaurar valores automáticos',{className:'btn ghost'});
   reset.type='button';
   const status=element('span','',{role:'status',className:'mono'});
-  actions.append(save,reset,status);box.append(actions);
+  const previewLink=element('a','Ver tarjeta social PNG (último guardado) ↗',{href:'/api/og-image?kind=home',target:'_blank',rel:'noopener noreferrer',className:'btn ghost'});
+  actions.append(save,reset,previewLink,status);box.append(actions);
   let dirty=false;
   const read=()=>cleanSiteSeo(Object.fromEntries(Object.entries(fields).map(([k,control])=>[k,control.value])));
   const refresh=()=>{
