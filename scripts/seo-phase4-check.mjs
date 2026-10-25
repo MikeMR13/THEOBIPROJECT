@@ -75,7 +75,8 @@ try{
   const studioSeo=readFileSync(new URL('../src/studio-seo.js',import.meta.url),'utf8');
   const adminSeo=readFileSync(new URL('../src/admin-seo.js',import.meta.url),'utf8');
   assert.match(studio,/bindSeriesSeo/);
-  assert.match(studio,/data-tseo/);
+  assert.match(studio,/teamSeoProfileHTML/);
+  assert.match(studioSeo,/data-tseo/);
   assert.match(studio,/seo: cleanSeo\(D\.seo/);
   assert.match(studio,/\['seo', 'SEO y compartir'\]/);
   assert.match(studioSeo,/canEdit:?\s*[=,]/);
