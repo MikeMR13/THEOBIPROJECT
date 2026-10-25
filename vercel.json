@@ -218,6 +218,10 @@
     },
     "api/robots.js": {
       "maxDuration": 10
+    },
+    "api/og-image.js": {
+      "maxDuration": 10,
+      "includeFiles": "public/icon-512.png"
     }
   }
 }
