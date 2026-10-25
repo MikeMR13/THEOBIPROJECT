@@ -16,7 +16,7 @@ if (!source) {
     const load = async path => {
       const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 8000);
       try {
-        const headers = process.env.VERCEL_OIDC_TOKEN ? { 'x-vercel-trusted-oidc-idp-token': process.env.VERCEL_OIDC_TOKEN } : {};
+        const headers = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET } : process.env.VERCEL_OIDC_TOKEN ? { 'x-vercel-trusted-oidc-idp-token': process.env.VERCEL_OIDC_TOKEN } : {};
         const response = await fetch(new URL(path, base), { redirect: 'manual', headers, signal: ctrl.signal });
         return { status: response.status, text: await response.text(), headers: response.headers };
       } finally { clearTimeout(timer); }
@@ -25,6 +25,7 @@ if (!source) {
     assert.equal(config.status, 200, 'config.js debe servirse públicamente');
     const found = config.text.match(/\burl\s*:\s*["']([^"']+)["']/);
     assert.ok(found, 'La Preview debe declarar su backend público');
+    assert.match(config.text, /\bpreview\s*:\s*(?:true|!0)\b/, 'Solo se acepta la configuración Preview');
     const backend = new URL(found[1]);
     assert.ok(!backend.hostname.endsWith('.invalid'), 'BLOQUEO: la Preview usa un backend simulado .invalid');
     assert.notEqual(backend.hostname, 'qfllthjpjuaztppvpsrk.supabase.co', 'BLOQUEO: una Preview no puede usar Supabase de producción');
