@@ -1,0 +1,67 @@
+name: Difusion - Supabase CLI con Vault real
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/diffusion-vault-real.yml'
+      - 'scripts/diffusion-local-fixture.mjs'
+      - 'supabase/tests/fixtures/diffusion_postgres_fixture.sql'
+      - 'supabase/tests/diffusion_phase1_rls.sql'
+      - 'supabase/tests/diffusion_discord_rls.sql'
+      - 'supabase/migrations/20261025220000_diffusion_phase1.sql'
+      - 'supabase/migrations/20261025230000_diffusion_discord_manual.sql'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vault-real:
+    name: Supabase CLI Vault real + migraciones + RLS
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Iniciar Supabase CLI estrictamente local
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/obi-diffusion-vault"
+          mkdir -p "$work"
+          cd "$work"
+          supabase init
+          supabase start -x studio,realtime,storage-api,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor > "$RUNNER_TEMP/obi-diffusion-vault-start.log" 2>&1 || {
+            tail -n 90 "$RUNNER_TEMP/obi-diffusion-vault-start.log"
+            exit 1
+          }
+          cd "$GITHUB_WORKSPACE"
+      - name: Validar migraciones, cifrado y ACL de Vault real
+        shell: bash
+        run: |
+          set -euo pipefail
+          db="$(docker ps --format '{{.ID}} {{.Names}}' | awk '$2 ~ /^supabase_db_/ {print $1;exit}')"
+          test -n "$db"
+          psql_local() {
+            docker exec -i -e PGPASSWORD=postgres "$db" \
+              psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < "$1"
+          }
+          node scripts/diffusion-local-fixture.mjs "$RUNNER_TEMP/diffusion-local-fixture.sql"
+          psql_local "$RUNNER_TEMP/diffusion-local-fixture.sql" > "$RUNNER_TEMP/diffusion-fixture.log"
+          psql_local supabase/migrations/20261025220000_diffusion_phase1.sql > "$RUNNER_TEMP/diffusion-phase1.log"
+          psql_local supabase/migrations/20261025230000_diffusion_discord_manual.sql > "$RUNNER_TEMP/diffusion-discord.log"
+          psql_local supabase/tests/diffusion_phase1_rls.sql > "$RUNNER_TEMP/diffusion-perms.log"
+          psql_local supabase/tests/diffusion_discord_rls.sql > "$RUNNER_TEMP/diffusion-discord-perms.log"
+          psql_local supabase/tests/diffusion_vault_encryption.sql > "$RUNNER_TEMP/diffusion-vault-check.log"
+          echo 'Supabase Vault real: migraciones, permisos y cifrado PASS'
+      - name: Apagar Supabase local y limpiar archivos efímeros
+        if: always()
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP/obi-diffusion-vault" || exit 0
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          rm -f "$RUNNER_TEMP/diffusion-local-fixture.sql"
