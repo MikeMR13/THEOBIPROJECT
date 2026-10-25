@@ -117,7 +117,13 @@ export async function publicData(kind, slug, chapter, volume, origin) {
   }
   if (kind === 'serie' || kind === 'leer') {
     if (!validSlug(slug)) return null;
-    const s = await query('series', { slug: 'eq.' + slug, published: 'eq.true', archived_at: 'is.null', access: 'eq.public', select: 'id,slug,title,synopsis,cover_path,cover_thumb_path,author,genres,access,adult,theme,media,team_id' }, backend, key);
+    const s = await query('series', { slug: 'eq.' + slug, published: 'eq.true', archived_at: 'is.null', access: 'eq.public',
+      // El recuento de la faja es público: nunca incluir borradores ni volúmenes
+      // de Patreon, programados o eliminados, aunque la RLS permita ver metadatos.
+      'volumes.status': 'eq.published', 'volumes.access': 'eq.public',
+      'volumes.deleted_at': 'is.null',
+      'volumes.or': '(published_at.is.null,published_at.lte.' + new Date().toISOString() + ')',
+      select: 'id,slug,title,synopsis,cover_path,cover_thumb_path,author,genres,access,adult,theme,media,team_id,volumes(count)' }, backend, key);
     if (!s) {
       // Solo la ficha base, nunca un volumen ni un capítulo, admite preestreno.
       if (kind !== 'serie' || volume) return null;
@@ -132,8 +138,10 @@ export async function publicData(kind, slug, chapter, volume, origin) {
       return {...base,prelaunch:true,credits:await socialCredits(p.id,p.team_id,p.team_name,backend,key,origin)};
     }
     const raw = { type: 'Book', noindex: s.adult === true, author: s.author || '', genres: s.genres || [], title: s.title + ' — ' + SITE, description: limit(s.synopsis || ('Lee ' + s.title + ' en español latino.'), 170), image: media(s.cover_path || s.cover_thumb_path, backend, origin), heading: s.title };
+    const nv = s.volumes?.[0]?.count || 0;
     const base = {...applySeo(raw, s.theme?.seo, {allowedImages: editImages(s), media: p => media(p, backend, origin)}),
-      credits: await socialCredits(s.id,s.team_id,'',backend,key,origin)};
+      credits: await socialCredits(s.id,s.team_id,'',backend,key,origin),
+      cardKicker: 'Novela ligera' + (nv ? ' · ' + nv + (nv === 1 ? ' volumen' : ' volúmenes') : '')};
     if (kind === 'serie') {
       if (!volume) return base;
       if (!/^\d{1,3}$/.test(volume) || Number(volume) < 1) return null;
@@ -144,15 +152,19 @@ export async function publicData(kind, slug, chapter, volume, origin) {
       }, backend, key);
       if (!v || !publishable(v) || !validPublishedTime(v.published_at)) return null;
       const name = s.title + ' · Volumen ' + v.num;
-      return { type: 'Book', noindex: base.noindex, credits: base.credits, author: s.author || '', genres: s.genres || [], title: name + ' — ' + SITE,
+      return { type: 'Book', noindex: base.noindex, credits: base.credits, cardTitle: s.title,
+        cardKicker: 'Volumen ' + v.num, cardSub: v.title && !/^(vol(umen)?\.?\s*)?\d+$/i.test(String(v.title).trim()) ? plain(v.title) : '', author: s.author || '', genres: s.genres || [], title: name + ' — ' + SITE,
         description: limit(v.synopsis || ('Descubre el volumen ' + v.num + ' de ' + s.title + '.'), 170),
         image: media(v.cover_path || s.cover_path || s.cover_thumb_path, backend, origin),
         heading: name };
     }
     if (!/^\d{1,8}$/.test(chapter || '')) return null;
-    const c = await query('chapters', { series_id: 'eq.' + s.id, num: 'eq.' + String(Number(chapter)), status: 'eq.published', access: 'eq.public', deleted_at: 'is.null', or: '(publish_at.is.null,publish_at.lte.' + new Date().toISOString() + ')', select: 'num,title,teaser,status,access,publish_at,public_at' }, backend, key);
+    const c = await query('chapters', { series_id: 'eq.' + s.id, num: 'eq.' + String(Number(chapter)), status: 'eq.published', access: 'eq.public', deleted_at: 'is.null', or: '(publish_at.is.null,publish_at.lte.' + new Date().toISOString() + ')', select: 'num,vol,title,teaser,status,access,publish_at,public_at' }, backend, key);
     if (!c || c.status !== 'published' || !publishable(c) || !validPublishedTime(c.publish_at) || !validPublishedTime(c.public_at)) return null; // RLS + estado público
-    return { ...base, type: 'Chapter', socialTitle: '', socialDescription: '', bookTitle: s.title, title: s.title + ' · Capítulo ' + c.num + ' — ' + SITE,
+    // Título real del capítulo (p. ej. «Capítulo 6: La Bruja Rodante»); el número interno solo si no hay título.
+    const chName = plain(c.title) || ('Capítulo ' + c.num);
+    return { ...base, type: 'Chapter', socialTitle: '', socialDescription: '', bookTitle: s.title, title: chName + ' · ' + s.title + ' — ' + SITE,
+      cardTitle: s.title, cardSub: plain(c.title), cardKicker: (c.vol ? 'Volumen ' + c.vol + ' · ' : '') + 'Nuevo capítulo',
       description: limit((c.title ? c.title + '. ' : '') + (c.teaser || 'Lee este capítulo en El Obi del Lector.'), 170),
       heading: s.title + ' · Capítulo ' + c.num };
   }
@@ -237,14 +249,14 @@ function structuredData(data, canonical, kind, origin) {
 }
 function tags(data, canonical, origin, noindex, {kind,slug,chapter,volume,isDraft,publicItem=false}={}) {
   const title = esc(data.title), desc = esc(data.description);
-  const socialTitle = esc(data.socialTitle || data.title), socialDesc = esc(data.socialDescription || data.description);
+  const socialTitle = esc(String(data.socialTitle || data.title).replace(/\s+[—–-]\s+El Obi del Lector$/, '')), socialDesc = esc(data.socialDescription || data.description);
   // La URL solo incorpora parámetros verificables. Un cambio editorial
   // altera el hash y evita una imagen antigua en las cachés de redes.
   const socialKinds = new Set(['home','serie','leer','equipo']);
   const eligible = publicItem && socialKinds.has(kind) && !isDraft && !data.noindex && (kind === 'home' || !!slug);
   const key = createHash('sha256').update(JSON.stringify([
     data.title,data.description,data.socialTitle,data.socialDescription,data.image,
-    'obi-social-minimal-four-v4',data.heading,data.prelaunch,data.credits,kind,slug,chapter,volume
+    'obi-social-obi-subrayado-v5',data.heading,data.prelaunch,data.credits,kind,slug,chapter,volume
   ])).digest('hex').slice(0,12);
   const qs = new URLSearchParams({kind});
   if(slug) qs.set('slug',slug);

@@ -25,10 +25,10 @@ let imageRequests=0, backendDown=false, prelaunchEnabled=false, allowLogo=true, 
 let legacyRequests=0;
 const series={id:'one',team_id:'team1',slug:'novela',title:'La biblioteca de los nueve libros y una joven extraordinaria',synopsis:'Lee la historia en español.',
   author:'Autora',genres:['Fantasía'],access:'public',published:true,adult:false,
-  cover_path:imagePath,cover_thumb_path:null,theme:{seo:{socialTitle:'Gran descubrimiento',socialDescription:'Una nueva historia',noindex:false}},media:{gallery:[]}};
+  cover_path:imagePath,cover_thumb_path:null,theme:{seo:{socialTitle:'Gran descubrimiento',socialDescription:'Una nueva historia',noindex:false}},media:{gallery:[]},volumes:[{count:3}]};
 const team={id:'team1',slug:'equipo',name:'Grupo de traducción',bio:'Traducciones a español',status:'Activo',
   avatar_path:'team1/profile/logo.png',banner_path:null,settings:{seo:{noindex:false}}};
-const chapter={num:36,title:'El camino de los sueños',teaser:'La aventura continúa',status:'published',access:'public',publish_at:null,public_at:null};
+const chapter={num:36,vol:2,title:'El camino de los sueños',teaser:'La aventura continúa',status:'published',access:'public',publish_at:null,public_at:null};
 const payload=(obj,status=200)=>new Response(JSON.stringify(obj),{status,headers:{'content-type':'application/json'}});
 globalThis.fetch=async (raw,opts={})=>{
   const u=new URL(String(raw));
@@ -44,6 +44,13 @@ globalThis.fetch=async (raw,opts={})=>{
     const ids=JSON.parse(opts.body||'{}').p_series_ids||[];
     return payload(!hideCredits&&ids.includes(series.id)?[{series_id:series.id,team_id:team.id,name:team.name,
       status:team.status,show_reader_logo:allowLogo,avatar_path:team.avatar_path,is_primary:true}]:[]);
+  }
+  if(u.pathname.endsWith('/series')){
+    assert.equal(u.searchParams.get('volumes.status'),'eq.published','Conteo sin borradores');
+    assert.equal(u.searchParams.get('volumes.access'),'eq.public','Conteo sin Patreon');
+    assert.equal(u.searchParams.get('volumes.deleted_at'),'is.null','Conteo sin eliminados');
+    assert.match(u.searchParams.get('volumes.or')||'',/published_at\.is\.null,published_at\.lte\./,
+      'Conteo sin volúmenes todavía programados');
   }
   if(u.pathname.endsWith('/series'))return payload(u.searchParams.get('slug')==='eq.inexistente' || (u.searchParams.has('access') && u.searchParams.get('access')!=='eq.'+series.access) || (u.searchParams.has('published') && !series.published) ? [] : [series]);
   if(u.pathname.endsWith('/chapters'))return payload([chapter]);
@@ -100,17 +107,26 @@ try {
   assert.notDeepEqual(raster('AAAA'),raster('BBBB'),'El render debe dibujar letras distintas');
   assert.notDeepEqual(raster('AAAA'),raster('ÁÁÁÁ'),'Tildes españolas con glifos reales');
   assert.doesNotMatch(visual,/Grupo de traducción/,'PNG visible EXCLUYE nombre duplicado');
-  // Contrato minimalista: solo marca como PNG, título, portada y traductor.
+  assert.match(visual,/NOVELA LIGERA/,'La faja editorial identifica la obra');
+  assert.match(visual,/<rect x="168" y="76" width="588" height="58"/,'La faja no invade la portada');
+  assert.match(visual,/<rect x="56" y="[0-9.]+" width="[0-9.]+" height="[0-9.]+" fill="#f2c230"/,
+    'El subrayado dorado se dibuja detrás del título');
+  assert.equal(cardTitle({cardTitle:'OX-MR TRADUCCIONES',heading:'Capítulo 36'},'leer'),
+    'OX-MR TRADUCCIONES','El título explícito tiene prioridad en tarjeta de capítulo');
+  assert.match(overlaySVG({cardKicker:'Volumen 2 · Nuevo capítulo',cardTitle:'Obra'},'leer'),
+    /VOLUMEN 2 · NUEVO CAPÍTULO/,'Faja editorial para capítulos de volúmenes');
+  // Se conserva la tarjeta de cuatro elementos principales y se añade la faja editorial.
   // Cualquier texto de SEO continúa en el HTML, pero no se dibuja en el PNG.
   const minimum=overlaySVG({
     heading:'La prueba minimalista',description:'SINOPSIS_SECRETA',
     socialDescription:'EXTRACTO_SECRETO',author:'AUTOR_DE_PRUEBA',
     genres:['GENERO_DE_PRUEBA'],prelaunch:true
   },'serie',editorial.credits,true,[true]);
+  assert.match(minimum,/PRÓXIMO ESTRENO/,'La faja se adapta al preestreno público');
   assert.match(minimum,/>La prueba<\/text>/,'Dibujar primera línea del título');
   assert.match(minimum,/>minimalista<\/text>/,'Dibujar segunda línea del título');
   for(const forbidden of ['SINOPSIS_SECRETA','EXTRACTO_SECRETO','AUTOR_DE_PRUEBA',
-    'GENERO_DE_PRUEBA','PRÓXIMAMENTE','NOVELA LIGERA','TRADUCCIÓN',
+    'GENERO_DE_PRUEBA','PRÓXIMAMENTE','TRADUCCIÓN',
     'ELOBIDELLECTOR.COM','El Obi del Lector']){
     assert.ok(!minimum.includes(forbidden),'No dibujar texto accesorio '+forbidden);
   }
@@ -140,6 +156,11 @@ try {
   useReaderLogo=true;
   const fromPublic=await publicData('serie','novela',null,null,'https://theobiproject-qa.vercel.app');
   assert.equal(fromPublic.credits[0].logo,legacy,'La preferencia reader_logo_url domina el avatar general');
+  assert.equal(fromPublic.cardKicker,'Novela ligera · 3 volúmenes','Se usan los volúmenes del catálogo visible');
+  const chapterData=await publicData('leer','novela','36',null,'https://theobiproject-qa.vercel.app');
+  assert.equal(chapterData.cardKicker,'Volumen 2 · Nuevo capítulo');
+  assert.equal(chapterData.cardTitle,series.title,'Capítulo destaca el nombre de la obra');
+  assert.match(chapterData.title,/^El camino de los sueños · /,'El HTML utiliza el título real del capítulo');
   const actualReader=await run(imageHandler,'/api/og-image?kind=serie&slug=novela');
   await okPNG(actualReader,'Logo oficial del lector (no avatar genérico)');
   assert.ok(legacyRequests>0,'La tarjeta utiliza reader_logo_url real del perfil');
@@ -184,7 +205,12 @@ try {
   assert.match(html.body,/og:image:height" content="630"/);
   assert.match(html.body,/api\/og-image\?kind=serie&amp;slug=novela&amp;v=/);
   assert.match(html.body,/twitter:image:alt/);
-  assert.match(readFileSync(new URL('../api/public-meta.js',import.meta.url),'utf8'),/obi-social-minimal-four-v4/,'Renovar versión por nuevo diseño y logo');
+  const chHtml=await run(pageHandler,'/api/public-meta?kind=leer&slug=novela&chapter=36');
+  assert.match(chHtml.body,/<meta property="og:title" content="El camino de los sueños · /,
+    'Las redes reciben el título real del capítulo');
+  assert.doesNotMatch(chHtml.body,/<meta property="og:title" content="[^"]* — El Obi del Lector"/,
+    'Solo el title HTML conserva el sufijo institucional');
+  assert.match(readFileSync(new URL('../api/public-meta.js',import.meta.url),'utf8'),/obi-social-obi-subrayado-v5/,'Renovar hash por nueva faja y subrayado');
   backendDown=true;
   const outage=await run(pageHandler,'/api/public-meta?kind=serie&slug=novela');
   assert.equal(outage.statusCode,503,'Fallo del backend debe devolver 503');
