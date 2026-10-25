@@ -1,6 +1,6 @@
 # Checklist verificable · Tarjetas sociales editoriales v2
 
-**Base:** El Obi del Lector · 1200 × 630 px · PR #108 fusionado a `main` (`381ab220`).
+**Base:** El Obi del Lector · 1200 × 630 px · corrección de diseño y regla PNG O texto sobre la v2 publicada. La v2 de PR #108 permanece como histórico.
 
 **Regla:** `[x]` significa implementado y cubierto por el build/regresión aislada; `[ ]` significa pendiente de revisión visual manual o de infraestructura, nunca un PASS implícito.
 
@@ -26,11 +26,14 @@
 - [x] Respetar la selección de equipos públicos y `show_reader_logo`.
 - [x] Descarga segura HTTPS/MIME/tamaño desde el bucket público permitido.
 - [x] **Recorte del margen uniforme/transparente** antes de escalar logos o wordmarks.
-- [x] Logo sobre una baldosa marfil contrastada con borde dorado.
+- [x] PNG del lector original `teams.settings.reader_logo_url` como primera opción, avatar público de equipo como alternativa cuando no se configuró logo del lector. Acceso a bucket legado limitado por host/ruta seguros.
+- [x] Marca PNG original del sitio `public/icon-512.png` en vez de dibujar un isotipo distinto.
+- [x] Rediseño basado en las fichas del catálogo: panel marfil, tipografía negra, barra negra, cinta dorada y portada en área independiente.
+- [x] Logo sobre una baldosa de contraste elegida según los píxeles de la imagen, sin texto repetido.
 - [x] Dimensión de la baldosa adaptada a 1, 2 o 3 equipos; el equipo único recibe más espacio.
-- [x] Nombre real visible junto al logo y fallback exclusivo a nombre cuando falte/esté oculto.
+- [x] Regla EXCLUYENTE comprobada: con PNG visible se muestra solo PNG; si no hay PNG autorizado/descargable, solo nombre, sin duplicación.
 - [x] Prueba rasterizada que verifica que el logo añade píxeles y el fondo sigue siendo contrastado.
-- [ ] Inspección manual de los PNG reales del equipo OX-MR y colaboradores en la tarjeta resultante.
+- [ ] Comprobar visualmente el PNG **real del lector de OX-MR** y el fallback en producción con una obra pública: una prueba sintética no equivale a imagen de producción.
 
 ## 4 · Publicación y privacidad
 - [x] Mantener fichas públicas y tarjetas de preestrenos anunciados.
@@ -45,7 +48,7 @@
 - [x] Título largo tipo «¡No existe una gyaru…!» abreviado sin borrar el metadato original.
 - [x] Simulación de logo horizontal con transparencia extensa y recorte automático.
 - [x] Casos de logo visible, oculto y múltiples equipos, sin invasión de portada.
-- [x] Contraste en píxeles del bloque de traductores.
+- [x] Contraste en píxeles del bloque de traductores y de su alternativa textual; prueba con lector legado, logo ordinario y logo ausente.
 - [x] Prueba adicional de **miniatura de 360 × 189**, semejante al tamaño en WhatsApp.
 - [x] Regresión aislada de preestreno, filtros 404 y fichas SEO.
 - [x] Build Vercel con ejecución de `seo-social-image-check`.
