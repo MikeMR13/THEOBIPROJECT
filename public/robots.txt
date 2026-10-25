@@ -1,8 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /api/
-Disallow: /estudio
-Disallow: /bibliotecario
-Disallow: /admin
-
-Sitemap: https://elobidellector.com/sitemap.xml
