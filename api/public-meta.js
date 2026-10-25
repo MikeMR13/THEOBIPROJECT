@@ -49,34 +49,43 @@ async function rpc(name, data, backend, key) {
     return await r.json();
   } finally { clearTimeout(timer); }
 }
-// Solo equipos de traducción autorizados para mostrarse públicamente.
-// Los logos respetan la preferencia show_reader_logo y el bucket del equipo.
+// Reproducir la preferencia que ya utiliza el lector de la plataforma:
+// reader_logo_url (PNG del lector) > avatar de equipo > SOLO nombre.
+const LEGACY_READER = /^https:\/\/hfbpsizgwzvvznrktiuq\.supabase\.co\/storage\/v1\/object\/public\/nlobi-media\/teams\/[a-f0-9-]{36}\/profile\/reader-logo-[0-9]+\.(?:png|webp|jpe?g)$/i;
+function chosenReaderLogo(team, credit, backend, origin) {
+  if (credit.show_reader_logo === false || team?.settings?.show_reader_logo === false) return '';
+  const selected = team?.settings?.reader_logo_url;
+  if (typeof selected === 'string' && LEGACY_READER.test(selected)) return selected;
+  const candidate = typeof credit.avatar_path === 'string' ? credit.avatar_path : team?.avatar_path;
+  const owner = credit.team_id || team?.id;
+  return typeof candidate === 'string' && owner && candidate.startsWith(owner + '/') &&
+    !candidate.includes('..') && !/[?#]/.test(candidate) ? media(candidate,backend,origin) : '';
+}
 async function socialCredits(id, teamId, backupName, backend, key, origin) {
   let rows = [];
   try {
     const result = await rpc('series_public_credits', {p_series_ids:[id]}, backend, key);
     if (Array.isArray(result)) rows = result;
-  } catch (e) { console.warn('Créditos de traductores temporalmente indisponibles:', e.message); }
-  const credits = rows.filter(r => r && r.series_id === id && r.status !== 'Proyecto privado')
-    .sort((a,b) => Number(!!b.is_primary) - Number(!!a.is_primary))
-    .slice(0,3)
-    .map(r => ({
-      name: limit(r.name,42),
-      logo: r.show_reader_logo !== false && typeof r.avatar_path === 'string'
-        && r.avatar_path.startsWith(r.team_id + '/') ? media(r.avatar_path,backend,origin) : '',
-      primary: !!r.is_primary
-    })).filter(r => r.name);
-  if (!credits.length && backupName) credits.push({name:limit(backupName,42),logo:'',primary:true});
-  if (!credits.length && teamId) {
+  } catch (e) { console.warn('Créditos públicos no disponibles:',e.message); }
+  const visible = rows.filter(r=>r && r.series_id===id && r.status!=='Proyecto privado' && r.name)
+    .sort((a,b)=>Number(!!b.is_primary)-Number(!!a.is_primary)).slice(0,3);
+  if (!visible.length && backupName && teamId)
+    visible.push({team_id:teamId,name:backupName,is_primary:true,show_reader_logo:true});
+  // Solo consultamos equipos que el RPC confirmó públicos; los datos de
+  // preferencias son públicos pero no se permite ninguna URL arbitraria.
+  const credits = await Promise.all(visible.map(async r=>{
+    let team = null;
     try {
-      const t = await query('teams',{id:'eq.'+teamId,status:'neq.Proyecto privado',
+      team = await query('teams',{id:'eq.'+r.team_id,status:'neq.Proyecto privado',
         select:'id,name,avatar_path,settings'},backend,key);
-      if (t?.name) credits.push({name:limit(t.name,42),
-        logo:t.settings?.show_reader_logo !== false && typeof t.avatar_path === 'string'
-          && t.avatar_path.startsWith(t.id+'/') ? media(t.avatar_path,backend,origin) : '',primary:true});
-    } catch { /* nunca impedir la ficha pública por ausencia de créditos */ }
-  }
-  return credits;
+    } catch {/* degradar siempre a nombre sin exponer borradores */}
+    return {name:limit(r.name,42),
+      logo:chosenReaderLogo(team,r,backend,origin),
+      primary:!!r.is_primary};
+  }));
+  if (!credits.length && backupName)
+    credits.push({name:limit(backupName,42),logo:'',primary:true});
+  return credits.filter(c=>c.name);
 }
 export async function publicData(kind, slug, chapter, volume, origin) {
   const backend = (process.env.OBI_SUPABASE_URL || '').replace(/\/+$/, '');
@@ -219,7 +228,7 @@ function tags(data, canonical, origin, noindex, {kind,slug,chapter,volume,isDraf
   const eligible = publicItem && socialKinds.has(kind) && !isDraft && !data.noindex && (kind === 'home' || !!slug);
   const key = createHash('sha256').update(JSON.stringify([
     data.title,data.description,data.socialTitle,data.socialDescription,data.image,
-    'obi-social-editorial-v2',data.heading,data.prelaunch,data.credits,kind,slug,chapter,volume
+    'obi-site-brand-logo-exclusive-v3',data.heading,data.prelaunch,data.credits,kind,slug,chapter,volume
   ])).digest('hex').slice(0,12);
   const qs = new URLSearchParams({kind});
   if(slug) qs.set('slug',slug);
