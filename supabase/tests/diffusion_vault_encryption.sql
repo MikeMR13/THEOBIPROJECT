@@ -3,9 +3,9 @@
 \set ON_ERROR_STOP on
 do $qa$
 declare cid uuid;
-declare tid uuid := '11111111-1111-4111-8111-111111111111';
-declare webhook text := 'https://discord.com/api/webhooks/123456789012345678/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-declare sealed text;
+tid uuid := '11111111-1111-4111-8111-111111111111';
+webhook text := 'https://discord.com/api/webhooks/123456789012345678/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+sealed text;
 begin
   if not exists(select 1 from pg_extension where extname='supabase_vault')
   then raise exception 'No está activa la extensión real Supabase Vault'; end if;
