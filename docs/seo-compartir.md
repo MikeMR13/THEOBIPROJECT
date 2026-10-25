@@ -199,6 +199,8 @@ Se incorporaron dos workflows en el PR #105. Las comprobaciones de compilación 
 - Test: `npm run seo-social-image-check` incluido en `npm run build`. Comprueba PNG binario **real** 1200 × 630, capítulos, equipos, Inicio, rutas de imagen seguras, filtros de acceso/Patreon/+18/noindex, JSON y cabeceras.
 - La compuerta `scripts/seo-preview-http-check.mjs` comprueba, cuando exista QA real, **las cuatro imágenes** en HTTPS con firma PNG, MIME, dimensiones y privacidad.
 
+- En Studio › SEO y compartir y Página del equipo, así como en Bibliotecario › SEO y compartir, el enlace **Ver tarjeta PNG (último guardado)** permite inspeccionar el render final del servidor. La vista previa inmediata de los formularios puede contener cambios aún sin guardar.
+
 ### Estado de infraestructura
 
 - En Preview Vercel se verificó `GET /api/og-image?kind=home`: HTTP 200, `Content-Type: image/png` y dimensiones correctas (cabecera PNG). `GET /api/public-meta?kind=home` devuelve la URL OG correspondiente.
