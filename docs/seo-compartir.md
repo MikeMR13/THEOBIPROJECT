@@ -78,7 +78,7 @@ Antes de fusionar: comprobar en una Preview autenticada la apertura real de una 
 
 - Crear imágenes sociales horizontales 1200×630 dedicadas y mejorar las composiciones de portada.
 - Añadir Search Console con verificación real del propietario tras producción y automatizar reportes si se conecta la cuenta.
-- Exponer ajustes opcionales de metadatos desde el Bibliotecario/Studio manteniendo los permisos existentes.
+- Validar funcionalmente en QA los editores SEO de Bibliotecario, obras y equipos antes de promover a producción.
 - Verificar la indexación real en Google y las tarjetas sociales en los validadores de redes.
 
 ## Auditoría HTTP de la Preview — bloqueo del 24-10-2026
@@ -114,7 +114,7 @@ La validación exige una instancia QA **aislada**, con datos ficticios publicado
 
 Junto con la compilación, ejecutar `SEO_PREVIEW_URL=https://<preview>.vercel.app npm run seo-preview-check` desde un entorno con acceso autenticado a la Preview. Se admiten `SEO_PUBLIC_SERIES_SLUG` y `SEO_PUBLIC_CHAPTER_NUM` para probar contenido real. Solo considerar aprobada la validación si devuelve `SEO Preview HTTP: PASS` y la revisión visual/manual es satisfactoria.
 
-**La fase 4 queda retenida hasta superar ambos bloqueos.**
+**La fase 4 está implementada en código pero su aceptación e integración siguen retenidas hasta superar ambos bloqueos.**
 
 ## GitHub Actions — compuertas para continuar a fase 4
 
@@ -144,10 +144,43 @@ Se incorporaron dos workflows en el PR #105. Las comprobaciones de compilación 
 3. En las variables (no secretas) del mismo entorno configurar `SEO_PUBLIC_SERIES_SLUG`, `SEO_PUBLIC_CHAPTER_NUM` y `SEO_PUBLIC_TEAM_SLUG` con slugs/números ficticios **existentes y públicos** en el backend QA.
 4. En Vercel Preview configurar `OBI_SUPABASE_URL` y `OBI_SUPABASE_PUBLISHABLE_KEY` apuntando a una **instancia QA accesible e independiente**. La configuración actual `https://obi-qa-backend.invalid` no permite superar las pruebas.
 5. Comprobar que la regla global de Vercel no intercepte `/serie` y `/leer` en el proyecto de QA. La corrección de la regla global está preparada en staging y **no debe promoverse a producción antes de un release coordinado**.
-6. Reejecutar el workflow y verificar los resultados de ambos checks. Solo entonces decidir el inicio de fase 4. La protección de `main` (Settings → Branches / Rulesets) puede requerir los contextos `SEO / build y privacidad` y `SEO / HTTP y navegador QA`; eso requiere permisos administrativos y no se activó automáticamente.
+6. Reejecutar el workflow y verificar los resultados de ambos checks. Solo entonces aprobar el despliegue de las fases 1–4; el código de la fase 4 ya existe en este PR de pruebas. La protección de `main` (Settings → Branches / Rulesets) puede requerir los contextos `SEO / build y privacidad` y `SEO / HTTP y navegador QA`; eso requiere permisos administrativos y no se activó automáticamente.
 
 ### Resultado inicial observado
 
 - La primera ejecución real de `SEO · contratos y build` se completó con éxito.
 - La primera ejecución real del E2E se detuvo en preflight con **`Configura VERCEL_TOKEN en el entorno protegido seo-qa`**. La ausencia de configuración es un bloqueo real, no un test aprobado.
 - No se han creado ni solicitado tokens secretos, ni se ha usado Supabase de producción.
+
+## Fase 4 — Metadatos editables de SEO y compartir
+
+### Studio: obra
+
+- Ruta: `/estudio/obra/:slug?tab=seo` (se accede desde la pestaña **SEO y compartir** de cada obra).
+- Campos opcionales: título SEO, descripción SEO, título y descripción de la tarjeta social, selección de imagen entre la portada/galería **existente y del equipo**, y `noindex` editorial.
+- Vista previa aproximada con actualización inmediata de texto e imagen. Guardar requiere el permiso `edit` ya existente del equipo; la política RLS de `series` sigue decidiendo si el usuario puede escribir.
+- Se guarda en `series.theme.seo` y se fusiona con la versión actual de `theme`, preservando otros atributos (aviso de actualización, colores, etc.). No modifica el estado de publicación ni los accesos Patreon.
+- `api/public-meta.js` valida y escapa las cadenas; respeta el canonical fijo y nunca elimina un `noindex` por privacidad, contenido adulto o borrador. El sitemap excluye obras con `noindex` y sus enlaces hijos.
+
+### Studio: página del equipo
+
+- Ruta: `/estudio/perfil` → formulario **SEO y tarjetas del equipo**.
+- Guarda los textos, imagen entre banner/logo existentes y el `noindex` en `teams.settings.seo`. No requiere migración de esquema.
+- Solo un integrante con el permiso de perfil `profile` puede cambiar los ajustes, igual que en el resto de la página del equipo. No se altera el estado `Proyecto privado` ni la visibilidad real de la página.
+- La función SEO de equipo y el sitemap leen los campos de forma anónima y excluyen del sitemap los perfiles grupales con `noindex`.
+
+### Bibliotecario: Inicio
+
+- Ruta `/bibliotecario` → pestaña **SEO y compartir**.
+- Título y descripción SEO, título y descripción social; campos opcionales y vista previa. Canonical fijo a `https://elobidellector.com/`, sin URLs arbitrarias ni controles de acceso adicionales.
+- Requiere la migración **sin aplicar** `supabase/migrations/20261024_seo_fase4.sql`: nueva columna `platform_settings.seo` JSONB con validaciones y las políticas RLS ya existentes (`UPDATE` exclusivamente para Administrador/Bibliotecario). **No ejecutar en producción antes de QA y aprobación.**
+- El HTML dinámico de Inicio está implementado en `/api/public-meta?kind=home`. Sin embargo, el dominio `/` actualmente continúa sirviendo `index.html` estático antes de aplicar los rewrites. Por ello, aún **no** se puede considerar activa la personalización SEO del Inicio en su URL pública.
+- Se preparó una nueva regla en el enrutamiento **staging** del proyecto Vercel, `Obi SEO dynamic home` (`4e68ef7f-5300-4ecf-a08f-f6ddfcc11e96`), que enviará `/` a la función. Esta regla **NO** está publicada. Staging Vercel ID: `185bfb79-e2b2-4112-b4f9-26b43f50ccde`; versión LIVE anterior: `4e5688bc-d6b7-4e41-8c9f-a5c51312f532`.
+- La regla anterior de `/serie` y `/leer` también permanece corregida solo en la configuración staging; deberán promocionarse coordinadamente con el código y las migraciones después de validar QA.
+
+### Verificación y criterios de salida
+
+- `npm run seo-fase4-check` (incluido en `npm run build`) prueba limpieza de texto, imágenes propias, noindex, metadatos HTTP simulados de novela/equipo/Inicio, rutas y permisos del editor.
+- Las suites de fases 1–3 se mantienen. `scripts/phase4-check.mjs` del proyecto también comprueba que `studio.js` no exceda su límite de modularidad, por lo que los controles SEO se extrajeron a `studio-seo.js`.
+- **NO hay aprobación de QA funcional**: el backend de Preview sigue apuntando a un dominio `.invalid`, el check HTTP E2E exige secretos del entorno protegido `seo-qa` y las reglas globales que interceptan rutas aún no se promueven.
+- No se tocaron datos reales, ni DNS, ni ramas productivas, ni se ejecutaron migraciones.
