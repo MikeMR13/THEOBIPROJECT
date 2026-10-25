@@ -13,7 +13,7 @@ const html=`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta nam
 .ui-series-actions .btn{padding:10px 12px;min-height:44px;background:#19160e;color:#f3ecd9;border:2px solid #51432d}</style></head><body>
 <div class="ui-series-page"><section class="ui-series-hero"><div><h1>Los secretos de la Bruja del Silencio</h1>
 <div class="ui-series-actions"><a class="btn" href="#a">Seguir leyendo</a><a class="btn" href="#b">Mis anotaciones</a><a class="btn ui-jump" href="#serie-vols">Explorar volúmenes</a></div>
-</div></section></div><output id="qa" data-result="running">RUNNING</output>
+</div></section></div><div id="toast" role="status" style="display:none;position:fixed;bottom:24px;left:50%"> </div><output id="qa" data-result="running">RUNNING</output>
 <script type="module">
 import {installPublicShare} from '/share.js';
 const delay=()=>new Promise(r=>setTimeout(r,100)),check=(value,reason)=>{if(!value)throw Error(reason)};
@@ -33,7 +33,36 @@ try{
   check(panel.dataset.direction==='above','La apertura debería ser superior cerca del borde inferior');
   check(panel.querySelector('a[href*="wa.me"]')&&panel.querySelector('a[href*="t.me"]'),
     'Opciones WhatsApp y Telegram ausentes');
-  check(panel.querySelector('[data-obi-share="copy"]'),'Copiar enlace ausente');
+  const copy=panel.querySelector('[data-obi-share="copy"]');
+  check(copy,'Copiar enlace ausente');
+  // El click real usa un portapapeles simulado, sin pedir permisos ni salir a la red.
+  Object.defineProperty(navigator,'clipboard',{configurable:true,value:{
+    writeText:async url=>{window.__copiedURL=url;}
+  }});
+  copy.click();await delay();
+  const toast=document.getElementById('toast');
+  check(window.__copiedURL===location.origin+location.pathname,'Copió un enlace distinto a la obra pública');
+  check(toast.textContent==='Enlace copiado'&&toast.style.display==='block',
+    'Falta el aviso visible después de copiar el enlace');
+  check(Number(toast.style.zIndex)>9000,'El menú flotante puede tapar el aviso');
+  check(toast.getAttribute('role')==='status','El mensaje no es accesible al lector de pantalla');
+  // Fallo de clipboard: jamás decir que se copió cuando solo se abrió el prompt.
+  window.__promptURL='';
+  window.prompt=(message,url)=>{window.__promptURL=url;return url;};
+  Object.defineProperty(navigator,'clipboard',{configurable:true,value:{
+    writeText:async()=>{throw Error('portapapeles bloqueado');}
+  }});
+  copy.click();await delay();
+  check(window.__promptURL===location.origin+location.pathname,'No muestra el enlace para copiar manualmente');
+  check(toast.textContent==='Enlace listo para copiar','El aviso debe distinguir el fallo del copiado real');
+  // Compatibilidad: el estado del menú sigue funcionando si no existe el toast global.
+  toast.remove();
+  Object.defineProperty(navigator,'clipboard',{configurable:true,value:{
+    writeText:async url=>{window.__copiedURL=url;}
+  }});
+  copy.click();await delay();
+  check(panel.querySelector('.obi-share-status')?.textContent==='Enlace copiado',
+    'Sin toast global el aviso debe mostrarse en el panel flotante');
   document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
   await delay();check(!box.open,'Escape no cierra');
   check(!document.body.querySelector(':scope > .obi-share-menu.is-floating'),'Panel huérfano en body');
@@ -89,5 +118,5 @@ try{
   await new Promise((ok,fail)=>{server.once('error',fail);server.listen(0,'127.0.0.1',ok)});
   const port=server.address().port,bin=chromeBinary();
   for(const size of ['1280,800','390,700'])await run(bin,port,size);
-  console.log('share-browser: menú interactivo fuera de overflow, móvil, Escape y enlaces OK');
+  console.log('share-browser: aviso de copiado, fallback, menú flotante, móvil, Escape y enlaces OK');
 }finally{await new Promise(ok=>server.close(ok))}
