@@ -3,6 +3,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/",
+      "destination": "/api/public-meta?kind=home"
+    },
+    {
       "source": "/sitemap.xml",
       "destination": "/api/sitemap"
     },
