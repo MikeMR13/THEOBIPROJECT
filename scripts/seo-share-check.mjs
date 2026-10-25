@@ -20,6 +20,10 @@ globalThis.fetch = async (url, opts = {}) => {
   const u = new URL(String(url));
   if (u.pathname === '/index.html') return respond(shell);
   if (u.pathname.endsWith('/series')) { const slug=u.searchParams.get('slug'); if (slug === 'eq.sin-servicio') throw new Error('Backend apagado'); if (slug === 'eq.desconocida') return respond([]); return respond([{...data.series, adult: slug==='eq.adulta'}]); }
+  if (u.pathname.endsWith('/rpc/public_prelaunch_social')) return respond(null);
+  if (u.pathname.endsWith('/rpc/series_public_credits')) return respond([
+    {series_id:7,team_id:'team1',name:'Grupo Test',avatar_path:'',status:'Activo',is_primary:true,show_reader_logo:true}
+  ]);
   if (u.pathname.endsWith('/chapters')) return respond([data.chapters]);
   if (u.pathname.endsWith('/volumes')) return respond([data.volumes]);
   if (u.pathname.endsWith('/teams')) return respond([data.teams]);
