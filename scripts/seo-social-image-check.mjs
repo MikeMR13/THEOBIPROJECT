@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import sharp from 'sharp';
+import {Resvg} from '@resvg/resvg-js';
 import imageHandler from '../api/og-image.js';
 import pageHandler from '../api/public-meta.js';
-import {safeSocialAsset,cardTitle,titleLayout,overlaySVG,CARD_WIDTH,CARD_HEIGHT} from '../lib/social-card.js';
+import {safeSocialAsset,cardTitle,titleLayout,overlaySVG,socialFontOptions,CARD_WIDTH,CARD_HEIGHT} from '../lib/social-card.js';
 
 const old={...process.env}, originalFetch=globalThis.fetch;
 process.env.VERCEL_ENV='preview';
@@ -79,6 +80,12 @@ try {
   assert.ok(imageRequests>=3,'Usar portada y logo reales del bucket permitido');
   const editorial={heading:series.title,description:series.synopsis,credits:[{name:team.name,logo:imageURL}]};
   const visual=overlaySVG(editorial,'serie',editorial.credits,true,[true]);
+  // Compare SVG glyph shapes, not just an SVG string: this catches font
+  // fallbacks that render every accented letter as the same missing-glyph box.
+  const raster=title=>new Resvg(overlaySVG({heading:title,description:'Prueba visual'},'serie'),{
+    font:socialFontOptions}).render().asPng();
+  assert.notDeepEqual(raster('AAAA'),raster('BBBB'),'El render debe dibujar letras distintas');
+  assert.notDeepEqual(raster('AAAA'),raster('ÁÁÁÁ'),'Tildes españolas con glifos reales');
   assert.match(visual,/Grupo de traducción/,'Se muestra el equipo real en la tarjeta');
   assert.match(visual,/EL OBI DEL LECTOR/,'El diseño tiene sello editorial');
   assert.ok(titleLayout(editorial,'serie').lines.length<=4,'Título ocupa como máximo 4 líneas');
