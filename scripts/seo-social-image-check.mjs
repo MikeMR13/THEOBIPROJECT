@@ -5,7 +5,7 @@ import sharp from 'sharp';
 import {Resvg} from '@resvg/resvg-js';
 import imageHandler from '../api/og-image.js';
 import pageHandler from '../api/public-meta.js';
-import {safeSocialAsset,cardTitle,titleLayout,overlaySVG,prepareTranslatorLogo,creditGeometry,socialFontOptions,CARD_WIDTH,CARD_HEIGHT} from '../lib/social-card.js';
+import {safeSocialAsset,safeTranslatorAsset,cardTitle,titleLayout,overlaySVG,prepareTranslatorLogo,creditGeometry,socialFontOptions,CARD_WIDTH,CARD_HEIGHT} from '../lib/social-card.js';
 
 const old={...process.env}, originalFetch=globalThis.fetch;
 process.env.VERCEL_ENV='preview';
@@ -20,7 +20,9 @@ const image=await sharp({create:{width:540,height:760,channels:4,background:'#a4
 const wordmark=Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="570" height="65"><rect width="570" height="65" rx="8" fill="#171514"/><text x="16" y="45" font-size="35" fill="#f8f8f8" font-family="sans-serif">OX-MR TRADUCCIONES</text></svg>');
 const paddedLogo=await sharp({create:{width:1060,height:640,channels:4,background:'#00000000'}})
   .composite([{input:wordmark,left:245,top:265}]).png().toBuffer();
-let imageRequests=0, backendDown=false, prelaunchEnabled=false, allowLogo=true;
+const legacy='https://hfbpsizgwzvvznrktiuq.supabase.co/storage/v1/object/public/nlobi-media/teams/4a354d87-cf97-4edd-9c72-0be569db5077/profile/reader-logo-1791692334590.png';
+let imageRequests=0, backendDown=false, prelaunchEnabled=false, allowLogo=true, useReaderLogo=false;
+let legacyRequests=0;
 const series={id:'one',team_id:'team1',slug:'novela',title:'La biblioteca de los nueve libros y una joven extraordinaria',synopsis:'Lee la historia en español.',
   author:'Autora',genres:['Fantasía'],access:'public',published:true,adult:false,
   cover_path:imagePath,cover_thumb_path:null,theme:{seo:{socialTitle:'Gran descubrimiento',socialDescription:'Una nueva historia',noindex:false}},media:{gallery:[]}};
@@ -45,9 +47,12 @@ globalThis.fetch=async (raw,opts={})=>{
   }
   if(u.pathname.endsWith('/series'))return payload(u.searchParams.get('slug')==='eq.inexistente' || (u.searchParams.has('access') && u.searchParams.get('access')!=='eq.'+series.access) || (u.searchParams.has('published') && !series.published) ? [] : [series]);
   if(u.pathname.endsWith('/chapters'))return payload([chapter]);
-  if(u.pathname.endsWith('/teams'))return payload([team]);
+  if(u.pathname.endsWith('/teams'))return payload([{...team,settings:{
+    ...team.settings,show_reader_logo:allowLogo,reader_logo_url:useReaderLogo?legacy:''
+  }}]);
   if(u.pathname.endsWith('/platform_settings'))return payload([{seo:{title:'El Obi del Lector',socialTitle:'Descubre historias'}}]);
   if(u.pathname.endsWith('/obi-media/'+imagePath)){imageRequests++;return new Response(image,{headers:{'content-type':'image/png','content-length':String(image.length)}});}
+  if(u.href===legacy){legacyRequests++;return new Response(paddedLogo,{headers:{'content-type':'image/png'}});}
   if(u.pathname.endsWith('/obi-media/team1/profile/logo.png')){imageRequests++;return new Response(paddedLogo,{headers:{'content-type':'image/png'}});}
   if(u.pathname==='/index.html')return new Response('<!doctype html><html><head><title>Inicio</title><meta name="description" content="Inicio"></head><body><main id="app"></main></body></html>');
   throw new Error('Solicitud inesperada: '+u.href);
@@ -72,6 +77,10 @@ try {
   assert.match(cardTitle({heading:'Obra · Capítulo 36',bookTitle:'Obra'},'leer'),/Capítulo 36/);
   assert.equal(cardTitle({title:'El Obi del Lector — Novelas ligeras en español latino'},'home'),'Novelas ligeras en español latino');
   assert.equal(safeSocialAsset(imageURL,{backend,origin:'https://theobiproject-qa.vercel.app'}),true);
+  assert.equal(safeSocialAsset(legacy,{backend,origin:'https://theobiproject-qa.vercel.app'}),false,'Cover no permite origen legacy');
+  assert.equal(safeTranslatorAsset(legacy,{backend,origin:'https://theobiproject-qa.vercel.app'}),true,'Logo reader nativo sí permitido');
+  assert.equal(safeTranslatorAsset('https://evil.test/storage/v1/object/public/nlobi-media/teams/x/profile/a.png',
+    {backend,origin:'https://theobiproject-qa.vercel.app'}),false);
   for(const url of ['https://evil.example/photo.jpg','https://qa-only.supabase.co@evil.example/photo.jpg',
     'https://qa-only.supabase.co/rest/v1/series','http://qa-only.supabase.co/storage/v1/object/public/obi-media/a.png',
     'https://qa-only.supabase.co/storage/v1/object/public/obi-media/x.png?token=PRIVATE']){
@@ -90,7 +99,7 @@ try {
     font:socialFontOptions}).render().asPng();
   assert.notDeepEqual(raster('AAAA'),raster('BBBB'),'El render debe dibujar letras distintas');
   assert.notDeepEqual(raster('AAAA'),raster('ÁÁÁÁ'),'Tildes españolas con glifos reales');
-  assert.match(visual,/Grupo de traducción/,'Se muestra el equipo real en la tarjeta');
+  assert.doesNotMatch(visual,/Grupo de traducción/,'PNG visible EXCLUYE nombre duplicado');
   assert.match(visual,/EL OBI DEL LECTOR/,'El diseño tiene sello editorial');
   assert.ok(titleLayout(editorial,'serie').lines.length<=3,'Título ocupa como máximo 3 líneas');
   assert.equal(cardTitle({heading:'¡No existe una gyaru que no termine cayendo por un otaku! Consideración: ◎, sinceridad: ◎'},'serie'),
@@ -102,15 +111,20 @@ try {
   assert.ok(trimmedMeta.width>=95,'El PNG ancho recorta márgenes y utiliza todo el espacio de logo');
   assert.ok(trimmedMeta.height>=9&&trimmedMeta.height<=46,'El logo conserva proporción');
   const g1=creditGeometry(1,0,true),g2=creditGeometry(2,1,true),g3=creditGeometry(3,2,true);
-  assert.ok(g1.tile.width>g2.tile.width&&g2.tile.width>g3.tile.width,'Lógo más grande con un solo traductor');
-  assert.ok(g1.textX>g1.tile.x+g1.tile.width,'Nombre junto al logo, sin superposición');
+  assert.ok(g1.tile.width>g2.tile.width&&g2.tile.width>g3.tile.width,'Logo más grande con un solo traductor');
+  assert.ok(g1.textX<g1.tile.x+g1.tile.width,'El texto SOLO ocupa el mismo espacio cuando no hay logo');
   assert.ok(g2.textX+g2.textWidth<745&&g3.textX+g3.textWidth<745,'Chips de hasta 3 equipos no invaden la portada');
   assert.doesNotMatch(visual,/NekoTL|LunaScans|Kitsune/,'No inventar traductores');
   const withoutLogo=overlaySVG(editorial,'serie',editorial.credits,true,[false]);
-  assert.match(withoutLogo,/Grupo de traducción/,'Sin PNG permanece el nombre real');
+  assert.match(withoutLogo,/Grupo de traducción/,'Sin PNG permanece SOLO el nombre real');
   // Comparación de regiones rasterizadas: no basta con que una URL de logo exista.
   const withLogo=await run(imageHandler,'/api/og-image?kind=serie&slug=novela');
   await okPNG(withLogo,'Con logo real y recortado');
+  useReaderLogo=true;
+  const actualReader=await run(imageHandler,'/api/og-image?kind=serie&slug=novela');
+  await okPNG(actualReader,'Logo oficial del lector (no avatar genérico)');
+  assert.ok(legacyRequests>0,'La tarjeta utiliza reader_logo_url real del perfil');
+  useReaderLogo=false;
   allowLogo=false;
   const noLogo=await run(imageHandler,'/api/og-image?kind=serie&slug=novela');
   await okPNG(noLogo,'Novela sin logo');
@@ -137,7 +151,7 @@ try {
   assert.match(html.body,/og:image:height" content="630"/);
   assert.match(html.body,/api\/og-image\?kind=serie&amp;slug=novela&amp;v=/);
   assert.match(html.body,/twitter:image:alt/);
-  assert.match(readFileSync(new URL('../api/public-meta.js',import.meta.url),'utf8'),/obi-social-editorial-v2/,'Cambiar versión del diseño para invalidar cachés de redes');
+  assert.match(readFileSync(new URL('../api/public-meta.js',import.meta.url),'utf8'),/obi-site-brand-logo-exclusive-v3/,'Renovar versión por nuevo diseño y logo');
   backendDown=true;
   const outage=await run(pageHandler,'/api/public-meta?kind=serie&slug=novela');
   assert.equal(outage.statusCode,503,'Fallo del backend debe devolver 503');
@@ -191,7 +205,7 @@ try {
   const vercel=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
   assert.match(vercel.functions['api/og-image.js'].includeFiles,/@ibm\/plex-sans-variable/);
   assert.match(readFileSync(new URL('../supabase/migrations/20261024_public_prelaunch_social.sql',import.meta.url),'utf8'),/announce_prelaunch is true/,'Preestreno exige anuncio explícito');
-  console.log('seo-social-image: PNG 1200×630, títulos <=3 líneas, logos recortados y contraste de píxeles, autores, preestreno y privacidad OK');
+  console.log('seo-social-image: PNG o texto excluyentes, reader_logo_url auténtico, marca PNG del sitio, privacidad y 1200x630 OK');
 }finally{
   globalThis.fetch=originalFetch;
   process.env=old;
