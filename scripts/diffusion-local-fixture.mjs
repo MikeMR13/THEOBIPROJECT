@@ -9,7 +9,7 @@ const header = [
  'create schema if not exists private;',
  'grant usage on schema private to authenticated;',
  'grant usage on schema public to authenticated, anon;',
- "create function private.is_admin() returns boolean language sql stable set search_path=\'\' as $ select coalesce(nullif(current_setting(\'request.jwt.claim.is_admin\',true),\'\')::boolean,false) $;",
+ "create function private.is_admin() returns boolean language sql stable set search_path=\'\' as $fn$ select coalesce(nullif(current_setting(\'request.jwt.claim.is_admin\',true),\'\')::boolean,false) $fn$;",
  '-- Auth nativo: conservamos sus funciones y permisos originales.',
 ].join('\n');
 const sql=header+'\n'+source.slice(start,stop)+'\n';
