@@ -1,3 +1,4 @@
+import { STUDIO_TEAM_PERMS } from './studio-team-permissions.js?v=1';
 import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=1';
 import { initCollaborationTeamPicker, COLLABORATION_STATUS } from './studio-collaboration-picker.js?v=1';
 import { seriesPublicationHTML, bindSeriesPublication } from './studio-series-publication.js?v=1';
@@ -1142,7 +1143,7 @@ export function createStudio(ctx){
   }
 
   // Equipo: roles, tablero, bitácora y perfil
-  const PERMS = [['view','Ver el Estudio','Siempre activo'],['edit','Editar texto','Editor, títulos y ajustes del capítulo'],['create','Crear','Obras, volúmenes y capítulos'],['import','Importar','EPUB, DOCX y PDF'],['publish','Publicar y retirar','Incluye publicar ahora'],['schedule','Programar','Fechas de lanzamiento'],['delete','Borrar','Capítulos, volúmenes y archivos'],['review','Aprobar revisiones','Cuando el equipo exige aprobación'],['board','Mover tarjetas','Tablero de trabajo y asignaciones'],['members','Gestionar integrantes y roles','Solo lo concede el propietario'],['profile','Editar la página del equipo','Nombre, logo, colores y enlaces'],['log','Ver la bitácora','Historial de acciones del equipo'],['diffusion_view','Ver Difusión','Cuentas, campañas y reglas propias'],['diffusion_compose','Redactar difusión','Crear borradores sociales'],['diffusion_schedule','Programar difusión','Calendario de publicaciones sociales'],['diffusion_publish','Publicar en redes','Envíos con cuentas autorizadas'],['diffusion_manage','Gestionar difusión','Reglas, cuentas y webhooks del equipo'],['diffusion_logs','Ver registros de difusión','Resultados técnicos de las publicaciones']];
+  const PERMS = STUDIO_TEAM_PERMS;
   const SWATCH = ['#f2c230','#d9922b','#f59e7a','#c9a8f2','#8cc3f2','#a9d18e','#a89f8a'];
   const ini = s => (s || '?').replace(/^@/, '').slice(0, 2).toUpperCase();
   const fmtAt = d => fmtTz(d, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
