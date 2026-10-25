@@ -51,7 +51,8 @@
     "series-title-responsive-check": "node scripts/series-title-responsive-check.mjs",
     "series-publication-check": "node scripts/series-publication-check.mjs",
     "seo-share-check": "node scripts/seo-share-check.mjs",
-    "seo-indexacion-check": "node scripts/indexation-phase3-check.mjs"
+    "seo-indexacion-check": "node scripts/indexation-phase3-check.mjs",
+    "seo-preview-check": "node scripts/seo-preview-http-check.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
