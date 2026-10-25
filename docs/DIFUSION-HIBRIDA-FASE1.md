@@ -1,33 +1,36 @@
-# Difusión híbrida — entrega inicial (Fase 1)
+# Difusión híbrida — Fase 1 y activación de backend
 
-Estado: código en rama de trabajo. **NO desplegado ni aplicado a Supabase de producción.**
+**Estado (25 de octubre de 2026):** SQL de Fase 1 y Discord manual instalado en Supabase de producción, con pruebas locales de Vault real satisfactorias. La interfaz de Estudio/Bibliotecario sigue en la rama de la **PR #116 en borrador**, no fusionada en `main` ni desplegada a Vercel de producción.
 
 ## Decisión editorial
 
-Los equipos traductores son autónomos para publicar en **sus propias** redes. No hay paso de aprobación del Bibliotecario. La eventual revisión corresponde al equipo y depende de su configuración interna. El Bibliotecario administra exclusivamente las redes oficiales de El Obi y puede supervisar datos autorizados.
+Los equipos traductores gestionan sus **propias** redes de manera autónoma y sin aprobación del Bibliotecario. Las revisiones opcionales son internas. El Bibliotecario administra solo redes oficiales de El Obi.
 
-## Alcance de esta entrega
+## Alcance operativo actual
 
-- Ruta `/estudio/difusion` en Estudio, respetando equipo seleccionado y permisos.
-- Pestaña Difusión en Bibliotecario, de ámbito institucional.
-- Permisos por rol: ver, redactar, programar, publicar, gestionar y consultar registros.
-- Migración aditiva: conexiones (metadatos sin tokens), reglas inactivas, campañas en borrador, eventos, cola, intentos, RLS y RPC de guardado.
-- Formularios operativos para **borradores de campañas** y **reglas desactivadas** una vez aplicada la migración en QA.
-- No hay todavía envío automático, OAuth, secretos, cron ni publicación externa: las reglas permanecen desactivadas a propósito.
-- Ningún cambio sobre el flujo editorial de capítulos, volúmenes o mecenas.
+- Backend con permisos por rol (ver, redactar, programar, publicar, gestionar, logs), RLS y RPC.
+- Reglas inicialmente desactivadas, borradores, eventos y estructura de cola **sin despachador activo**.
+- Integración Discord manual: secretos en Supabase Vault, formulario de conexión en el código de la rama, prueba explícita y desconexión.
+- Ninguna conexión social, regla activa ni trabajo de envío registrada en el momento de instalar las migraciones.
+- El sistema **no** publica automáticamente capítulos ni volúmenes, ni envía a Telegram/Meta.
+- No modifica el flujo de publicación editorial, Patreon ni lectores existentes.
 
-## Iteraciones siguientes
+## Migraciones instaladas
 
-1. QA de migración (roles históricos, rol personalizado, propietario, editor, no miembro y Bibliotecario).
-2. Guardar secretos de conexiones en almacén privado; OAuth y prueba segura de Discord / Telegram / HTTPS firmado.
-3. Despachador idempotente y de trabajos con fecha, reintentos y resultados.
-4. Generador de eventos post-commit que verifique visibilidad y acceso público.
-5. Conectores de Meta, Bluesky y otras API según requisitos del proveedor.
-6. Integración institucional, auditoría, CI y despliegue por banderas.
+- `supabase/migrations/20261025232409_diffusion_phase1_controlled_20261025.sql`
+- `supabase/migrations/20261025232432_diffusion_discord_manual_controlled_20261025.sql`
 
-## Riesgos y validación
+Los nombres de archivo reflejan las versiones registradas en el historial de producción, para evitar duplicación cuando se fusione el código.
 
-- Esta migración redefine `private.perm_keys`, `private.clean_perms` y `public.my_team_permissions`: revisar conflictos con migraciones aplicadas después de esta rama.
-- Verificar que `private.log` acepta los argumentos previstos en la base QA.
-- Si falta la migración, la interfaz muestra aviso de configuración en lugar de fallar.
-- No aplicar a producción ni habilitar conectores hasta tener pruebas de RLS y regresión.
+## Próximas iteraciones
+
+1. Vista previa y validación de la UI sin fusionar inmediatamente a `main`.
+2. Primera conexión y mensaje de prueba de Discord iniciados por el responsable del canal.
+3. Integración HTTP autenticada completa y cobertura de QA adicional.
+4. Telegram y webhooks firmados con permisos equivalentes.
+5. Cola idempotente, programación, eventos post-commit y controles de acceso público de capítulos.
+6. Integraciones sociales posteriores y despliegue por fases.
+
+## Seguridad
+
+Las funciones `SECURITY DEFINER` comprueban permisos internos y restringen `EXECUTE`; la tabla privada de referencias Vault tiene RLS sin políticas de acceso por usuario. No existe aprobación del Bibliotecario para redes de equipos. Antes de habilitar un despachador futuro, revisar nuevamente las políticas, idempotencia y visibilidad editorial.

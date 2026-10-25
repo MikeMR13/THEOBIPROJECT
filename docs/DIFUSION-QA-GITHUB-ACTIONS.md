@@ -1,19 +1,19 @@
-# Difusión — QA aislado en GitHub Actions
+# Difusión — pruebas aisladas en GitHub Actions
 
-Esta prueba utiliza PostgreSQL 17 temporal en GitHub Actions. No crea ramas alojadas en Supabase, no accede al proyecto productivo y no requiere credenciales reales.
+Los workflows usan contenedores temporales sin conectar con el Supabase alojado, sin ramas pagadas, sin datos ni credenciales reales.
 
-## Alcance
+## PostgreSQL 17 mínimo
 
-- Se crean roles Auth, dos equipos y usuarios ficticios con el contrato mínimo de permisos existente.
-- Se aplica **la migración original** `supabase/migrations/20261025232409_diffusion_phase1_controlled_20261025.sql`.
-- Se ejecutan aserciones de RLS, privilegios, RPC de borradores y reglas, overrides, aislamiento entre equipos y ámbito institucional.
-- Se comprueba que todos los envíos siguen desactivados; no hay cron, conexiones externas ni tokens.
-- Se ejecuta automáticamente en la PR y admite ejecución manual desde GitHub Actions.
+`diffusion-isolated-db.yml` aplica los archivos SQL de Difusión en un esquema sintético de Auth, roles y dos equipos. Comprueba RLS, privilegios, RPC y separación de equipos con un adaptador de firmas Vault **simulado**.
 
-## Límite importante
+## Supabase CLI con Vault real
 
-Este entorno reproduce **el esquema mínimo necesario**, no todo el historial de migraciones de Supabase ni Auth HTTP/PostgREST. Una futura etapa debe validar la pila completa con Supabase CLI local y pruebas de los conectores. Este CI no demuestra publicación social real.
+`diffusion-vault-real.yml` crea una pila Supabase completamente local. Aplica las migraciones `20261025232409_diffusion_phase1_controlled_20261025.sql` y `20261025232432_diffusion_discord_manual_controlled_20261025.sql`, prueba dos equipos, Bibliotecario y anónimo, verifica cifrado auténtico Vault y confirma borrado del secreto al revocar.
+
+**Limitaciones:** el fixture recrea solo los contratos relevantes y no todos los esquemas históricos; las pruebas SQL no equivalen a pruebas HTTP con usuarios reales ni confirman una publicación externa en Discord.
 
 ## Regla editorial
 
-Cada equipo traductor gestiona sus redes sin autorización del Bibliotecario. Las aprobaciones opcionales serán internas; las cuentas institucionales de El Obi sí pertenecen al Bibliotecario.
+Equipos traductores autónomos sin autorización del Bibliotecario. Revisión opcional interna de equipo; redes oficiales exclusivas del Bibliotecario.
+
+Los nombres actuales de migración coinciden con las versiones ya aplicadas en el historial de Supabase, evitando intentos de instalación duplicada en futuras sincronizaciones.
