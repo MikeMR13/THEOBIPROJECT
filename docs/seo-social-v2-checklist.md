@@ -55,6 +55,7 @@
 ## 6 · Integración / despliegue
 - [x] `lib/social-card.js`: nueva composición editorial, normalización visual y logos.
 - [x] `api/public-meta.js`: conservar créditos públicos de volúmenes liberados.
+- [x] Renovación del hash OG de la imagen para minimizar que WhatsApp reutilice un PNG anterior.
 - [x] `scripts/seo-social-image-check.mjs`: tests visuales en píxeles y miniatura.
 - [x] Preview automática compilada (READY) con las pruebas de diseño.
 - [ ] CI general y checks finales de PR tras abrirlo.
