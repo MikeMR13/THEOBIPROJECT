@@ -1,6 +1,6 @@
 # Checklist verificable · Tarjetas sociales editoriales v2
 
-**Base:** El Obi del Lector · 1200 × 630 px · rama `feat/seo-social-editorial-visual-v2-20261024`.
+**Base:** El Obi del Lector · 1200 × 630 px · PR #108 fusionado a `main` (`381ab220`).
 
 **Regla:** `[x]` significa implementado y cubierto por el build/regresión aislada; `[ ]` significa pendiente de revisión visual manual o de infraestructura, nunca un PASS implícito.
 
@@ -58,14 +58,15 @@
 - [x] Renovación del hash OG de la imagen para minimizar que WhatsApp reutilice un PNG anterior.
 - [x] `scripts/seo-social-image-check.mjs`: tests visuales en píxeles y miniatura.
 - [x] Preview automática compilada (READY) con las pruebas de diseño; HTTP Inicio PNG 200, 1200×630. El resto requiere QA aislado.
-- [x] CI general **PASS** para código `56cad9c1` (GitHub Actions `ci`, run `40161497440`); SEO build PASS. El último cambio de este checklist es solo documental.
+- [x] CI general **PASS** para commit PR `baeab342` (GitHub Actions `ci`, run `40161645810`); contratos SEO/build PASS. Producción `381ab220` READY y pruebas HTTP directas PASS.
 - [ ] Revisión manual de los PNG públicos reales tras autorización de publicación.
-- [ ] Fusionar a `main` cuando se apruebe el PR.
-- [ ] Confirmar el nuevo deployment de producción.
-- [ ] Revisar acceso de bots sociales por Cloudflare: el geobloqueo y Bot Fight Mode siguen siendo externos al generador.
+- [x] PR #108 fusionado a `main` (squash `381ab220d90d2cd69033277259f0d574cdb80790`) por autorización del usuario.
+- [x] Production Vercel `381ab220` READY. Gyaru, preestreno y equipo OX-MR: ficha 200 + PNG 200; capítulo y volumen de preestreno: 404; obra inexistente: 404.
+- [x] Comprobado el acceso público desde un origen externo: Cloudflare devuelve **HTTP 403** a la ficha y PNG del dominio; no es un PASS de WhatsApp.
+- [ ] Resolver de manera acotada el acceso de rastreadores legítimos a las fichas e imágenes OG en Cloudflare, sin desactivar las protecciones generales.
 - [ ] Revalidar WhatsApp con nueva URL si conserva una caché antigua.
 
 ## Evidencia de control
 - Fuente de verdad: GitHub Actions, build de Vercel y pruebas de `scripts/seo-social-image-check.mjs`.
 - El test incluye: PNG binario, geometría, logo opaco sobre claro, título principal corto, símbolos normalizados, miniatura y permisos.
-- **No equivale a una validación de WhatsApp real**. No se cambia la configuración regional de Cloudflare ni se apunta una Preview al backend de producción para simular QA.
+- **No equivale a una validación de WhatsApp real**. Desde el conector de Vercel, `elobidellector.com` devuelve 403 Cloudflare para la ficha gyaru y su PNG; desde el deployment productivo directo ambos devuelven 200. No se cambian reglas regionales ni se apunta Preview a producción para simular QA.
