@@ -25,7 +25,7 @@ const chapter={num:36,title:'El camino de los sueños',teaser:'La aventura conti
 const payload=(obj,status=200)=>new Response(JSON.stringify(obj),{status,headers:{'content-type':'application/json'}});
 globalThis.fetch=async (raw,opts={})=>{
   const u=new URL(String(raw));
-  if(u.pathname.endsWith('/series'))return payload(u.searchParams.get('slug')==='eq.inexistente'?[]:[series]);
+  if(u.pathname.endsWith('/series'))return payload(u.searchParams.get('slug')==='eq.inexistente' || (u.searchParams.has('access') && u.searchParams.get('access')!=='eq.'+series.access) || (u.searchParams.has('published') && !series.published) ? [] : [series]);
   if(u.pathname.endsWith('/chapters'))return payload([chapter]);
   if(u.pathname.endsWith('/teams'))return payload([team]);
   if(u.pathname.endsWith('/platform_settings'))return payload([{seo:{title:'El Obi del Lector',socialTitle:'Descubre historias'}}]);
