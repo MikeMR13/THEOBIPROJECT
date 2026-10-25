@@ -83,6 +83,17 @@ async function socialCredits(id, teamId, backupName, backend, key, origin) {
       logo:chosenReaderLogo(team,r,backend,origin),
       primary:!!r.is_primary};
   }));
+  // Respaldo: si el RPC de créditos está temporalmente vacío, la ficha
+  // pública conserva el nombre/logo de su equipo principal, nunca queda vacía.
+  if (!credits.length && teamId) {
+    try {
+      const t = await query('teams',{id:'eq.'+teamId,status:'neq.Proyecto privado',
+        select:'id,name,avatar_path,settings'},backend,key);
+      if (t?.name) credits.push({name:limit(t.name,42),
+        logo:chosenReaderLogo(t,{team_id:teamId,avatar_path:t.avatar_path,
+          show_reader_logo:t.settings?.show_reader_logo},backend,origin),primary:true});
+    } catch {/* no desactivar HTML por créditos no disponibles */}
+  }
   if (!credits.length && backupName)
     credits.push({name:limit(backupName,42),logo:'',primary:true});
   return credits.filter(c=>c.name);
