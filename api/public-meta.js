@@ -124,7 +124,7 @@ export async function publicData(kind, slug, chapter, volume, origin) {
       }, backend, key);
       if (!v || !publishable(v) || !validPublishedTime(v.published_at)) return null;
       const name = s.title + ' · Volumen ' + v.num;
-      return { type: 'Book', noindex: base.noindex, author: s.author || '', genres: s.genres || [], title: name + ' — ' + SITE,
+      return { type: 'Book', noindex: base.noindex, credits: base.credits, author: s.author || '', genres: s.genres || [], title: name + ' — ' + SITE,
         description: limit(v.synopsis || ('Descubre el volumen ' + v.num + ' de ' + s.title + '.'), 170),
         image: media(v.cover_path || s.cover_path || s.cover_thumb_path, backend, origin),
         heading: name };
