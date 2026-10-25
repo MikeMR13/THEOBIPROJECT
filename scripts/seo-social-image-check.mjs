@@ -100,16 +100,33 @@ try {
   assert.notDeepEqual(raster('AAAA'),raster('BBBB'),'El render debe dibujar letras distintas');
   assert.notDeepEqual(raster('AAAA'),raster('ÁÁÁÁ'),'Tildes españolas con glifos reales');
   assert.doesNotMatch(visual,/Grupo de traducción/,'PNG visible EXCLUYE nombre duplicado');
-  assert.match(visual,/El Obi del Lector/,'El diseño usa la marca de la web');
+  // Contrato minimalista: solo marca como PNG, título, portada y traductor.
+  // Cualquier texto de SEO continúa en el HTML, pero no se dibuja en el PNG.
+  const minimum=overlaySVG({
+    heading:'La prueba minimalista',description:'SINOPSIS_SECRETA',
+    socialDescription:'EXTRACTO_SECRETO',author:'AUTOR_DE_PRUEBA',
+    genres:['GENERO_DE_PRUEBA'],prelaunch:true
+  },'serie',editorial.credits,true,[true]);
+  assert.match(minimum,/>La prueba<\/text>/,'Dibujar primera línea del título');
+  assert.match(minimum,/>minimalista<\/text>/,'Dibujar segunda línea del título');
+  for(const forbidden of ['SINOPSIS_SECRETA','EXTRACTO_SECRETO','AUTOR_DE_PRUEBA',
+    'GENERO_DE_PRUEBA','PRÓXIMAMENTE','NOVELA LIGERA','TRADUCCIÓN',
+    'ELOBIDELLECTOR.COM','El Obi del Lector']){
+    assert.ok(!minimum.includes(forbidden),'No dibujar texto accesorio '+forbidden);
+  }
+  assert.ok(!/font-size="(?:1[0-9]|2[0-9])"[^>]*>La prueba/.test(minimum),
+    'El título no debe aparecer pequeño');
+  assert.match(minimum,/<rect x="21" y="22"[^>]*fill="#f3ecd9"/,
+    'Usar panel marfil de la web');
   assert.ok(titleLayout(editorial,'serie').lines.length<=3,'Título ocupa como máximo 3 líneas');
   assert.equal(cardTitle({heading:'¡No existe una gyaru que no termine cayendo por un otaku! Consideración: ◎, sinceridad: ◎'},'serie'),
     '¡No existe una gyaru que no termine cayendo por un otaku!','Extraer título editorial sin subtítulo repetido');
   assert.equal(cardTitle({heading:'Clasificación ◎ y ○ con △ y ×'},'serie'),
     'Clasificación excelente y buena con regular y baja','Normalizar glifos en imagen, nunca en BD');
-  const trimmed=await prepareTranslatorLogo(paddedLogo,146,58);
+  const trimmed=await prepareTranslatorLogo(paddedLogo,creditGeometry(1,0,true).tile.width,creditGeometry(1,0,true).tile.height);
   const trimmedMeta=await sharp(trimmed).metadata();
   assert.ok(trimmedMeta.width>=95,'El PNG ancho recorta márgenes y utiliza todo el espacio de logo');
-  assert.ok(trimmedMeta.height>=9&&trimmedMeta.height<=46,'El logo conserva proporción');
+  assert.ok(trimmedMeta.height>=9&&trimmedMeta.height<=creditGeometry(1,0,true).tile.height,'El logo conserva proporción');
   const g1=creditGeometry(1,0,true),g2=creditGeometry(2,1,true),g3=creditGeometry(3,2,true);
   assert.ok(g1.tile.width>g2.tile.width&&g2.tile.width>g3.tile.width,'Logo más grande con un solo traductor');
   assert.ok(g1.textX<g1.tile.x+g1.tile.width,'El texto SOLO ocupa el mismo espacio cuando no hay logo');
@@ -143,15 +160,23 @@ try {
   const previewMeta=await sharp(thumbnail).metadata();
   assert.equal(previewMeta.width,360);
   assert.equal(previewMeta.height,189);
-  const titleRegion=await sharp(thumbnail).extract({left:18,top:55,width:197,height:66}).stats();
+  const titleRegion=await sharp(thumbnail).extract({left:19,top:72,width:202,height:68}).stats();
   assert.ok(titleRegion.channels[0].stdev>9,'En miniatura el título no debe ser una zona plana');
-  const creditsRegion=await sharp(thumbnail).extract({left:19,top:151,width:198,height:25}).stats();
+  const creditsRegion=await sharp(thumbnail).extract({left:20,top:141,width:201,height:36}).stats();
   assert.ok(creditsRegion.channels[0].stdev>12,'El área de traductores debe tener contraste visible incluso a 360 px');
   const regionWith=await sharp(withLogo.body).extract(box).raw().toBuffer();
   const regionWithout=await sharp(noLogo.body).extract(box).raw().toBuffer();
   assert.notDeepEqual(regionWith,regionWithout,'El logo debe producir píxeles visibles en la tarjeta');
-  const meanLightness=regionWith.reduce((total,v)=>total+v,0)/regionWith.length;
-  assert.ok(meanLightness>110,'Bloque del logo suficientemente contrastado para WhatsApp');
+  // Logos claros necesitan fondo oscuro, logos oscuros necesitan marfil.
+  // La media global de brillo no demuestra contraste: comparar píxeles reales.
+  let changed=0;
+  for(let i=0;i<regionWith.length;i+=4){
+    if(Math.abs(regionWith[i]-regionWithout[i])+
+       Math.abs(regionWith[i+1]-regionWithout[i+1])+
+       Math.abs(regionWith[i+2]-regionWithout[i+2])>36)changed++;
+  }
+  assert.ok(changed>box.width*box.height*.15,
+    'El logo debe ocupar una superficie visual apreciable en la tarjeta');
   allowLogo=true;
   const html=await run(pageHandler,'/api/public-meta?kind=serie&slug=novela');
   assert.equal(html.statusCode,200);
@@ -159,7 +184,7 @@ try {
   assert.match(html.body,/og:image:height" content="630"/);
   assert.match(html.body,/api\/og-image\?kind=serie&amp;slug=novela&amp;v=/);
   assert.match(html.body,/twitter:image:alt/);
-  assert.match(readFileSync(new URL('../api/public-meta.js',import.meta.url),'utf8'),/obi-site-brand-logo-exclusive-v3/,'Renovar versión por nuevo diseño y logo');
+  assert.match(readFileSync(new URL('../api/public-meta.js',import.meta.url),'utf8'),/obi-social-minimal-four-v4/,'Renovar versión por nuevo diseño y logo');
   backendDown=true;
   const outage=await run(pageHandler,'/api/public-meta?kind=serie&slug=novela');
   assert.equal(outage.statusCode,503,'Fallo del backend debe devolver 503');
@@ -213,7 +238,7 @@ try {
   const vercel=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
   assert.match(vercel.functions['api/og-image.js'].includeFiles,/@ibm\/plex-sans-variable/);
   assert.match(readFileSync(new URL('../supabase/migrations/20261024_public_prelaunch_social.sql',import.meta.url),'utf8'),/announce_prelaunch is true/,'Preestreno exige anuncio explícito');
-  console.log('seo-social-image: PNG o texto excluyentes, reader_logo_url auténtico, marca PNG del sitio, privacidad y 1200x630 OK');
+  console.log('seo-social-image: minimalista de 4 elementos, sin textos accesorios, PNG O nombre, seguridad y 1200x630 OK');
 }finally{
   globalThis.fetch=originalFetch;
   process.env=old;
