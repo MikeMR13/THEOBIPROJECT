@@ -100,16 +100,32 @@ try {
   assert.notDeepEqual(raster('AAAA'),raster('BBBB'),'El render debe dibujar letras distintas');
   assert.notDeepEqual(raster('AAAA'),raster('ÁÁÁÁ'),'Tildes españolas con glifos reales');
   assert.doesNotMatch(visual,/Grupo de traducción/,'PNG visible EXCLUYE nombre duplicado');
-  assert.match(visual,/El Obi del Lector/,'El diseño usa la marca de la web');
+  // Contrato minimalista: solo marca como PNG, título, portada y traductor.
+  // Cualquier texto de SEO continúa en el HTML, pero no se dibuja en el PNG.
+  const minimum=overlaySVG({
+    heading:'La prueba minimalista',description:'SINOPSIS_SECRETA',
+    socialDescription:'EXTRACTO_SECRETO',author:'AUTOR_DE_PRUEBA',
+    genres:['GENERO_DE_PRUEBA'],prelaunch:true
+  },'serie',editorial.credits,true,[true]);
+  assert.match(minimum,/La prueba minimalista/,'Dibujar el título');
+  for(const forbidden of ['SINOPSIS_SECRETA','EXTRACTO_SECRETO','AUTOR_DE_PRUEBA',
+    'GENERO_DE_PRUEBA','PRÓXIMAMENTE','NOVELA LIGERA','TRADUCCIÓN',
+    'ELOBIDELLECTOR.COM','El Obi del Lector']){
+    assert.ok(!minimum.includes(forbidden),'No dibujar texto accesorio '+forbidden);
+  }
+  assert.ok(!/font-size="(?:1[0-9]|2[0-9])"[^>]*>La prueba/.test(minimum),
+    'El título no debe aparecer pequeño');
+  assert.match(minimum,/<rect x="21" y="22"[^>]*fill="#f3ecd9"/,
+    'Usar panel marfil de la web');
   assert.ok(titleLayout(editorial,'serie').lines.length<=3,'Título ocupa como máximo 3 líneas');
   assert.equal(cardTitle({heading:'¡No existe una gyaru que no termine cayendo por un otaku! Consideración: ◎, sinceridad: ◎'},'serie'),
     '¡No existe una gyaru que no termine cayendo por un otaku!','Extraer título editorial sin subtítulo repetido');
   assert.equal(cardTitle({heading:'Clasificación ◎ y ○ con △ y ×'},'serie'),
     'Clasificación excelente y buena con regular y baja','Normalizar glifos en imagen, nunca en BD');
-  const trimmed=await prepareTranslatorLogo(paddedLogo,146,58);
+  const trimmed=await prepareTranslatorLogo(paddedLogo,creditGeometry(1,0,true).tile.width,creditGeometry(1,0,true).tile.height);
   const trimmedMeta=await sharp(trimmed).metadata();
   assert.ok(trimmedMeta.width>=95,'El PNG ancho recorta márgenes y utiliza todo el espacio de logo');
-  assert.ok(trimmedMeta.height>=9&&trimmedMeta.height<=46,'El logo conserva proporción');
+  assert.ok(trimmedMeta.height>=9&&trimmedMeta.height<=creditGeometry(1,0,true).tile.height,'El logo conserva proporción');
   const g1=creditGeometry(1,0,true),g2=creditGeometry(2,1,true),g3=creditGeometry(3,2,true);
   assert.ok(g1.tile.width>g2.tile.width&&g2.tile.width>g3.tile.width,'Logo más grande con un solo traductor');
   assert.ok(g1.textX<g1.tile.x+g1.tile.width,'El texto SOLO ocupa el mismo espacio cuando no hay logo');
@@ -143,9 +159,9 @@ try {
   const previewMeta=await sharp(thumbnail).metadata();
   assert.equal(previewMeta.width,360);
   assert.equal(previewMeta.height,189);
-  const titleRegion=await sharp(thumbnail).extract({left:18,top:55,width:197,height:66}).stats();
+  const titleRegion=await sharp(thumbnail).extract({left:19,top:72,width:202,height:68}).stats();
   assert.ok(titleRegion.channels[0].stdev>9,'En miniatura el título no debe ser una zona plana');
-  const creditsRegion=await sharp(thumbnail).extract({left:19,top:151,width:198,height:25}).stats();
+  const creditsRegion=await sharp(thumbnail).extract({left:20,top:141,width:201,height:36}).stats();
   assert.ok(creditsRegion.channels[0].stdev>12,'El área de traductores debe tener contraste visible incluso a 360 px');
   const regionWith=await sharp(withLogo.body).extract(box).raw().toBuffer();
   const regionWithout=await sharp(noLogo.body).extract(box).raw().toBuffer();
@@ -213,7 +229,7 @@ try {
   const vercel=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
   assert.match(vercel.functions['api/og-image.js'].includeFiles,/@ibm\/plex-sans-variable/);
   assert.match(readFileSync(new URL('../supabase/migrations/20261024_public_prelaunch_social.sql',import.meta.url),'utf8'),/announce_prelaunch is true/,'Preestreno exige anuncio explícito');
-  console.log('seo-social-image: PNG o texto excluyentes, reader_logo_url auténtico, marca PNG del sitio, privacidad y 1200x630 OK');
+  console.log('seo-social-image: minimalista de 4 elementos, sin textos accesorios, PNG O nombre, seguridad y 1200x630 OK');
 }finally{
   globalThis.fetch=originalFetch;
   process.env=old;
