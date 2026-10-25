@@ -5,6 +5,28 @@ const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').
 const BASE_TITLE = 'El Obi del Lector';
 let wired = false;
 let floatingOwner = null, floatingPanel = null;
+let shareToastTimer = null;
+// Reutiliza la notificación global del sitio; el panel Compartir se mueve a body
+// cuando está abierto, por lo que su estado no siempre es hijo del <details>.
+function shareNotice(message, fallbackPanel) {
+  const toast = document.getElementById('toast');
+  if (toast) {
+    toast.textContent = message;
+    toast.style.display = 'block';
+    // El menú flotante tiene z-index:9000 y podría tapar el aviso.
+    toast.style.zIndex = '9100';
+    clearTimeout(shareToastTimer);
+    shareToastTimer = setTimeout(() => {
+      if (toast.textContent !== message) return;
+      toast.style.display = 'none';
+      toast.style.removeProperty('z-index');
+    }, 2800);
+  } else {
+    // Protección para páginas que reutilicen Compartir sin el contenedor #toast.
+    const status = fallbackPanel?.querySelector('.obi-share-status');
+    if (status) status.textContent = message;
+  }
+}
 // No sobrescribir la decisión de indexación del SSR en la ruta inicial.
 const ENTRY_PATH=location.pathname, ENTRY_URL=location.pathname+location.search;
 const ENTRY_NOINDEX=/noindex/i.test(document.querySelector('meta[name="robots"]')?.content||'');
@@ -203,8 +225,8 @@ export function installPublicShare() {
       const container=btn.closest('.obi-share') ||
         (floatingPanel?.contains(btn) ? floatingOwner : null);
       const url = container?.dataset.shareUrl || currentURL(), title = container?.dataset.shareTitle || currentTitle();
-      const status = container?.querySelector('.obi-share-status');
-      const say = text => { if (status) status.textContent = text; };
+      const panel = floatingPanel?.contains(btn) ? floatingPanel : container;
+      const say = text => shareNotice(text, panel);
       if (btn.dataset.obiShare === 'native' && navigator.share) {
         try { await navigator.share({ title, url }); say('Compartido'); }
         catch (err) { if (err?.name !== 'AbortError') say('No se pudo compartir. Prueba copiar el enlace.'); }
