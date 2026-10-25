@@ -65,6 +65,10 @@ try {
   assert.match(r.body,/Sitemap: https:\/\/elobidellector.com\/sitemap.xml/);
   assert.ok(r.body.includes('Disallow: /*?vista='));
   assert.match(r.body,/Disallow: \/estudio/);
+  assert.match(r.body,/Allow: \/api\/og-image/);
+  assert.match(r.body,/Disallow: \/api\//);
+  assert.ok(r.body.indexOf('Allow: /api/og-image') < r.body.indexOf('Disallow: /api/'));
+  assert.doesNotMatch(r.body,/Allow: \/api\/$/m);
   assert.doesNotMatch(r.body,/Disallow: \/serie/);
   r=await run(robots,'POST');assert.equal(r.statusCode,405);
   process.env.VERCEL_ENV='preview';
