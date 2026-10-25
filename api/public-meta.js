@@ -117,7 +117,13 @@ export async function publicData(kind, slug, chapter, volume, origin) {
   }
   if (kind === 'serie' || kind === 'leer') {
     if (!validSlug(slug)) return null;
-    const s = await query('series', { slug: 'eq.' + slug, published: 'eq.true', archived_at: 'is.null', access: 'eq.public', select: 'id,slug,title,synopsis,cover_path,cover_thumb_path,author,genres,access,adult,theme,media,team_id,volumes(count)' }, backend, key);
+    const s = await query('series', { slug: 'eq.' + slug, published: 'eq.true', archived_at: 'is.null', access: 'eq.public',
+      // El recuento de la faja es público: nunca incluir borradores ni volúmenes
+      // de Patreon, programados o eliminados, aunque la RLS permita ver metadatos.
+      'volumes.status': 'eq.published', 'volumes.access': 'eq.public',
+      'volumes.deleted_at': 'is.null',
+      'volumes.or': '(published_at.is.null,published_at.lte.' + new Date().toISOString() + ')',
+      select: 'id,slug,title,synopsis,cover_path,cover_thumb_path,author,genres,access,adult,theme,media,team_id,volumes(count)' }, backend, key);
     if (!s) {
       // Solo la ficha base, nunca un volumen ni un capítulo, admite preestreno.
       if (kind !== 'serie' || volume) return null;
