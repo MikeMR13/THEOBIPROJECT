@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import {applySeo, cleanSiteSeo, editImages} from '../src/seo-settings.js';
 // Metadatos públicos renderizados en la respuesta HTTP para bots y navegadores.
 // La aplicación SPA original sigue siendo la encargada de la navegación y la lectura.
@@ -12,7 +13,7 @@ const validSlug = v => /^[a-z0-9_-]{1,100}$/i.test(v || '');
 const validReader = v => /^[\p{L}\p{N}_.-]{1,60}$/u.test(v || '');
 const publishable = row => row?.access === 'public';
 const validPublishedTime = stamp => !stamp || (Number.isFinite(Date.parse(stamp)) && Date.parse(stamp) <= Date.now());
-const hostOrigin = () => process.env.VERCEL_ENV === 'production'
+export const hostOrigin = () => process.env.VERCEL_ENV === 'production'
   ? 'https://elobidellector.com'
   : process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'https://elobidellector.com';
 function media(path, backend, origin) {
@@ -36,7 +37,7 @@ async function query(table, params, backend, key) {
     return Array.isArray(rows) ? rows[0] || null : rows;
   } finally { clearTimeout(stop); }
 }
-async function publicData(kind, slug, chapter, volume, origin) {
+export async function publicData(kind, slug, chapter, volume, origin) {
   const backend = (process.env.OBI_SUPABASE_URL || '').replace(/\/+$/, '');
   const key = process.env.OBI_SUPABASE_PUBLISHABLE_KEY || '';
   if (kind === 'home') {
@@ -155,9 +156,24 @@ function structuredData(data, canonical, kind, origin) {
     JSON.stringify(node).replace(/</g, '\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026') +
     '</script>';
 }
-function tags(data, canonical, origin, noindex) {
-  const title = esc(data.title), desc = esc(data.description), image = esc(data.image || origin + FALLBACK_IMAGE);
+function tags(data, canonical, origin, noindex, {kind,slug,chapter,volume,isDraft}={}) {
+  const title = esc(data.title), desc = esc(data.description);
   const socialTitle = esc(data.socialTitle || data.title), socialDesc = esc(data.socialDescription || data.description);
+  // La URL solo incorpora parámetros verificables. Un cambio editorial
+  // altera el hash y evita una imagen antigua en las cachés de redes.
+  const socialKinds = new Set(['home','serie','leer','equipo']);
+  const eligible = socialKinds.has(kind) && !isDraft && !data.noindex && (kind === 'home' || !!slug);
+  const key = createHash('sha256').update(JSON.stringify([
+    data.title,data.description,data.socialTitle,data.socialDescription,data.image,
+    data.heading,kind,slug,chapter,volume
+  ])).digest('hex').slice(0,12);
+  const qs = new URLSearchParams({kind});
+  if(slug) qs.set('slug',slug);
+  if(chapter)qs.set('chapter',chapter);
+  if(volume)qs.set('vol',volume);
+  qs.set('v',key);
+  const rawImage = eligible ? origin+'/api/og-image?'+qs.toString() : origin+FALLBACK_IMAGE;
+  const image = esc(rawImage);
   return [
     '<link rel="canonical" href="' + esc(canonical) + '">',
     '<meta property="og:type" content="website">',
@@ -167,10 +183,17 @@ function tags(data, canonical, origin, noindex) {
     '<meta property="og:description" content="' + socialDesc + '">',
     '<meta property="og:url" content="' + esc(canonical) + '">',
     '<meta property="og:image" content="' + image + '">',
+    ...(eligible ? [
+      '<meta property="og:image:type" content="image/png">',
+      '<meta property="og:image:width" content="1200">',
+      '<meta property="og:image:height" content="630">',
+      '<meta property="og:image:alt" content="' + esc('Tarjeta editorial de '+(data.heading||SITE)) + '">'
+    ] : []),
     '<meta name="twitter:card" content="summary_large_image">',
     '<meta name="twitter:title" content="' + socialTitle + '">',
     '<meta name="twitter:description" content="' + socialDesc + '">',
     '<meta name="twitter:image" content="' + image + '">',
+    ...(eligible ? ['<meta name="twitter:image:alt" content="' + esc('Tarjeta editorial de '+(data.heading||SITE)) + '">'] : []),
     noindex ? '<meta name="robots" content="noindex,nofollow">' : ''
   ].join('\n');
 }
@@ -217,7 +240,7 @@ export default async function handler(req, res) {
     html = html.replace(/<meta\s+(?:property="og:[^"]+"|name="twitter:[^"]+")[^>]*>\s*/gi, '');
     html = html.replace(/<title>[\s\S]*?<\/title>/i, '<title>' + esc(data.title) + '</title>');
     html = html.replace(/<meta name="description"[^>]*>/i, '<meta name="description" content="' + esc(data.description) + '">');
-    html = html.replace('</head>', tags(data, canonical, origin, noindex) + (item && !noindex ? structuredData(data, canonical, kind, origin) : '') + '</head>');
+    html = html.replace('</head>', tags(data, canonical, origin, noindex, {kind,slug,chapter,volume:volumeKey,isDraft}) + (item && !noindex ? structuredData(data, canonical, kind, origin) : '') + '</head>');
     if (item && !noindex && kind !== 'home') {
       const teaser = '<section aria-label="Presentación pública" style="padding:24px;max-width:920px;margin:auto"><h1>' + esc(data.heading) + '</h1><p>' + esc(data.description) + '</p></section>';
       html = html.replace(/(<main id="app"[^>]*>)(<\/main>)/, '$1' + teaser + '$2');
