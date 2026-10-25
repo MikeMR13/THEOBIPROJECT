@@ -100,7 +100,7 @@ try {
   assert.notDeepEqual(raster('AAAA'),raster('BBBB'),'El render debe dibujar letras distintas');
   assert.notDeepEqual(raster('AAAA'),raster('ÁÁÁÁ'),'Tildes españolas con glifos reales');
   assert.doesNotMatch(visual,/Grupo de traducción/,'PNG visible EXCLUYE nombre duplicado');
-  assert.match(visual,/EL OBI DEL LECTOR/,'El diseño tiene sello editorial');
+  assert.match(visual,/El Obi del Lector/,'El diseño usa la marca de la web');
   assert.ok(titleLayout(editorial,'serie').lines.length<=3,'Título ocupa como máximo 3 líneas');
   assert.equal(cardTitle({heading:'¡No existe una gyaru que no termine cayendo por un otaku! Consideración: ◎, sinceridad: ◎'},'serie'),
     '¡No existe una gyaru que no termine cayendo por un otaku!','Extraer título editorial sin subtítulo repetido');
