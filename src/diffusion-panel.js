@@ -1,4 +1,4 @@
-// Centro de Difusión compartido. Fase 1: configuracion y borradores, SIN envios externos.
+// Centro de Difusión compartido. Discord Fase 2a: enlace seguro y prueba MANUAL; sin automatizaciones activas.
 const EVENTS = [
   ['chapter.public', 'Capítulo público'],
   ['volume.public', 'Volumen completo'],
@@ -37,8 +37,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     ['campanas','Borradores'], ['calendario','Calendario'], ['historial','Historial'],
     ['webhooks','Webhooks']
   ];
-  const message = 'Esta primera fase guarda reglas inactivas y campañas como borradores. '
-    + 'No envía mensajes, no vincula tokens ni ejecuta publicaciones programadas.';
+  const message = 'Las reglas permanecen inactivas y las campañas como borradores. '
+    + 'Discord solo envía el mensaje de prueba cuando pulsas «Enviar prueba»; aún no hay publicaciones automáticas.';
   root.innerHTML = '<div class="df" aria-live="polite"><p class="df-empty">Cargando Difusión…</p></div>';
   try {
     [connections,rules,campaigns,jobs] = await Promise.all([
@@ -56,7 +56,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     return;
   }
   const header = () => '<div class="df-title"><div><small>DIFUSIÓN · ' + (official ? 'BIBLIOTECARIO' : 'ESTUDIO') + '</small>'
-    + '<h2>Centro de Difusión</h2><p>' + safe(scope) + '</p></div><span class="df-stage">FASE 1 · SIN ENVÍOS</span></div>'
+    + '<h2>Centro de Difusión</h2><p>' + safe(scope) + '</p></div><span class="df-stage">DISCORD · PRUEBA MANUAL</span></div>'
     + '<nav class="df-tabs" aria-label="Secciones de Difusión">'
     + tabs.map(([id,name])=>'<button type="button" data-dtab="' + id + '" class="' + (tab===id?'on':'')
       + '" aria-current="' + (tab===id?'page':'false') + '">' + name + '</button>').join('') + '</nav>'
@@ -64,11 +64,21 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const cards = () => '<div class="df-cards">'
     + [['Conexiones',connections.length],['Reglas preparadas',rules.length],['Borradores',campaigns.length],['Envíos externos',0]]
       .map(([name,n])=>'<div class="df-card"><small>'+safe(name)+'</small><strong>'+n+'</strong></div>').join('')+'</div>';
-  const connectionsView = () => '<section class="df-box"><h3>Conexiones sociales</h3><p>Para conectar cuentas reales usaremos autorización oficial o un webhook firmado. Nunca guardaremos tokens en el navegador.</p>'
-    + (connections.length ? '<div class="df-list">' + connections.map(c=>'<article><strong>'+safe(c.label)+'</strong>'
-      + '<small>'+safe(c.provider)+' · '+safe(c.status)+'</small></article>').join('')+'</div>' : empty('Aún no hay cuentas conectadas.'))
+  const connectionsView = () => '<section class="df-box"><h3>Conexiones sociales</h3>'
+    + '<p>Discord utiliza una URL secreta cifrada en Supabase Vault. No la compartas por chat ni la publiques en GitHub; introdúcela únicamente en esta pantalla cuando esté habilitada.</p>'
+    + (connections.filter(c=>c.status!=='revoked').length ? '<div class="df-list">' + connections.filter(c=>c.status!=='revoked').map(c=>'<article><div><strong>'+safe(c.label)+'</strong>'
+      + '<small>'+safe(c.provider)+' · '+safe(c.status==='active'?'Prueba correcta':'Pendiente de prueba')+'</small></div>'
+      + (canManage&&c.provider==='discord'?'<div><button type="button" class="btn" data-test-discord="'+safe(c.id)+'">Enviar prueba</button> '
+      + '<button type="button" class="df-danger" data-revoke-discord="'+safe(c.id)+'">Desconectar</button></div>':'')
+      + '</article>').join('')+'</div>' : empty('Aún no hay cuentas conectadas.'))
+    + (canManage ? '<form id="df-discord-form" class="df-form" autocomplete="off"><h4>Conectar Discord</h4>'
+      + '<label>Nombre de la conexión<input name="label" minlength="2" maxlength="100" required placeholder="Ej. Canal de novedades"></label>'
+      + '<label>URL privada del webhook<input name="webhook" type="password" required autocomplete="off" spellcheck="false" inputmode="url" placeholder="https://discord.com/api/webhooks/…"></label>'
+      + '<p class="df-muted">El enlace se envía una sola vez al servidor por HTTPS y se guarda cifrado en Vault. No se muestra otra vez. Una prueba solo se envía al pulsar el botón.</p>'
+      + '<button type="submit" class="btn">Guardar conexión segura</button></form>'
+      : '<p class="df-muted">Necesitas «Gestionar difusión» para conectar tu Discord.</p>')
     + '<h4>Proveedores previstos</h4><div class="df-providers">'+TYPES.map(n=>'<span>'+safe(n)+'</span>').join('')+'</div>'
-    + '<p class="df-muted">Vinculación de cuentas: próxima fase. No hace falta autorización del Bibliotecario para las redes propias de un equipo.</p></section>';
+    + '<p class="df-muted">La conexión de tu equipo no necesita autorización del Bibliotecario.</p></section>';
   const rulesView = () => '<section class="df-box"><h3>Automatizaciones del ' + (official?'Bibliotecario':'equipo') + '</h3>'
     + '<p>Las reglas guardadas permanecerán desactivadas hasta disponer de conectores seguros.</p>'
     + (rules.length ? '<div class="df-list">' + rules.map(r=>'<article><div><strong>'+safe(r.name)+'</strong>'
@@ -130,6 +140,44 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       catch (e) { toast(e.message || 'Error de Difusión'); }
       finally { button.disabled = false; }
     };
+    root.querySelector('#df-discord-form')?.addEventListener('submit', e => {
+      e.preventDefault();
+      const f=e.currentTarget, data=new FormData(f);
+      const url=String(data.get('webhook')||'');
+      // Nunca registrar la URL o incluirla en mensajes de error.
+      busy(f.querySelector('button'), async()=>{
+        const {error}=await sb.rpc('diffusion_discord_connect',{
+          p_team:teamId,p_label:String(data.get('label')||''),p_url:url
+        });
+        if(error) throw new Error('No se pudo guardar la conexión. Comprueba que sea una URL válida de Discord y que tengas permisos.');
+        f.reset();
+        connections=await q('diffusion_connections','id,provider,label,status,created_at');
+        toast('Discord guardado de forma segura. Usa «Enviar prueba» para verificarlo.');
+        draw();
+      });
+    });
+    root.querySelectorAll('[data-test-discord]').forEach(b=>b.onclick=()=>{
+      if(!confirm('¿Enviar un único mensaje de prueba a este canal de Discord?')) return;
+      busy(b,async()=>{
+        const {data,error}=await sb.functions.invoke('diffusion-discord',{
+          body:{connection_id:b.dataset.testDiscord}
+        });
+        if(error||!data?.ok) throw new Error('Discord no recibió la prueba. Revisa permisos, conexión y espera un minuto antes de reintentar.');
+        connections=await q('diffusion_connections','id,provider,label,status,created_at');
+        toast('Mensaje de prueba enviado a Discord');draw();
+      });
+    });
+    root.querySelectorAll('[data-revoke-discord]').forEach(b=>b.onclick=()=>{
+      if(!confirm('¿Desconectar este webhook y borrar su secreto almacenado?'))return;
+      busy(b,async()=>{
+        const {error}=await sb.rpc('diffusion_discord_disconnect',{
+          p_team:teamId,p_id:b.dataset.revokeDiscord
+        });
+        if(error)throw new Error('No se pudo revocar la conexión.');
+        connections=await q('diffusion_connections','id,provider,label,status,created_at');
+        toast('Conexión de Discord revocada');draw();
+      });
+    });
     root.querySelector('#df-rule-form')?.addEventListener('submit', e => {
       e.preventDefault();
       const f = e.currentTarget, data = new FormData(f);
