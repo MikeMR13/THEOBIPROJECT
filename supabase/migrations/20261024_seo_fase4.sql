@@ -1,5 +1,6 @@
 -- Fase 4 · metadatos públicos configurables por Bibliotecario
--- SOLO para ejecutar en Supabase QA aislado antes de aplicar al entorno de producción.
+-- Migración aditiva. Aprobada para publicación por solicitud explícita del propietario.
+-- No cambia datos existentes ni permisos de acceso. Ejecutar antes del despliegue de la fase 4.
 -- Se reutilizan las políticas RLS existentes de platform_settings: lectura pública
 -- y UPDATE exclusivo de private.is_admin() (Bibliotecario).
 alter table public.platform_settings
