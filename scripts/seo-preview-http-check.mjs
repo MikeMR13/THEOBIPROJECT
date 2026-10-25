@@ -16,7 +16,8 @@ if (!source) {
     const load = async path => {
       const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 8000);
       try {
-        const response = await fetch(new URL(path, base), { redirect: 'manual', signal: ctrl.signal });
+        const headers = process.env.VERCEL_OIDC_TOKEN ? { 'x-vercel-trusted-oidc-idp-token': process.env.VERCEL_OIDC_TOKEN } : {};
+        const response = await fetch(new URL(path, base), { redirect: 'manual', headers, signal: ctrl.signal });
         return { status: response.status, text: await response.text(), headers: response.headers };
       } finally { clearTimeout(timer); }
     };
