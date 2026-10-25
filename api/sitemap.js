@@ -55,14 +55,14 @@ async function generate() {
   const [series, teams] = await Promise.all([
     getAll('series', { published: 'eq.true', archived_at: 'is.null', access: 'eq.public', adult: 'eq.false' },
       'id,slug,published,archived_at,access,adult,theme'),
-    getAll('teams', { status: 'neq.Proyecto privado' }, 'id,slug,status')
+    getAll('teams', { status: 'neq.Proyecto privado' }, 'id,slug,status,settings')
   ]);
   const safe = new Map(series.filter(validSeries).map(s => [s.id, s.slug]));
   const links = new Map();
   const add = (path, changed = null) => { if (!links.has(path)) links.set(path, entry(path,changed)); };
   for (const path of ['/', '/catalogo', '/calendario', '/lanzamientos', '/ranking', '/apoyar']) add(path);
   for (const s of series) if (safe.has(s.id)) add('/serie/' + encodeURIComponent(s.slug));
-  for (const t of teams) if (goodSlug(t.slug) && t.status !== 'Proyecto privado')
+  for (const t of teams) if (goodSlug(t.slug) && t.status !== 'Proyecto privado' && t.settings?.seo?.noindex !== true)
     add('/equipo/' + encodeURIComponent(t.slug));
   if (safe.size) {
     const [volumes, chapters] = await Promise.all([
