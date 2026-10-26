@@ -20,8 +20,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const official = !team, scope = official ? 'cuentas oficiales de El Obi' : 'redes de ' + team.name;
   const p = k => official || !!permissions[k];
   const canManage = p('diffusion_manage'), canCompose = p('diffusion_compose');
-  const canLogs = p('diffusion_logs');
+  const canLogs = p('diffusion_logs'), canAnnounce = p('diffusion_publish');
   let tab = 'resumen', rules = [], campaigns = [], connections = [], jobs = [];
+  let annWorks=[],annItems=[],annLoaded=false,annWork='',annSource='',annConnection='',annKind='series',annPreview=null;
   const scoped = q => team ? q.eq('team_id', team.id) : q.is('team_id', null);
   const q = async (table, cols, sort = 'created_at') => {
     const { data, error } = await scoped(sb.from(table).select(cols).order(sort, { ascending: false }).limit(50));
@@ -33,7 +34,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const empty = description => '<p class="df-empty">' + safe(description) + '</p>';
   const shortName = e => EVENTS.find(x => x[0] === e)?.[1] || e;
   const tabs = [
-    ['resumen','Resumen'], ['conexiones','Conexiones'], ['reglas','Automatizaciones'],
+    ['resumen','Resumen'], ['conexiones','Conexiones'], ['anuncios','Anunciar'], ['reglas','Automatizaciones'],
     ['campanas','Borradores'], ['calendario','Calendario'], ['historial','Historial'],
     ['webhooks','Webhooks']
   ];
@@ -111,8 +112,60 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       + '<small>'+when(j.scheduled_at)+'</small><p>'+safe(j.last_error||'')+'</p></article>').join('')+'</div>'
       : empty('Todavía no hay envíos registrados.')) : empty('Tu rol no permite ver los registros técnicos.'))
     + '</section>';
+
+  const annSource = () => annKind==='series' ? annWork : annSource;
+  const annConnections = () => connections.filter(c=>c.provider==='discord'&&c.status==='active');
+  const annOptions = () => annKind==='series' ? [] : annItems.filter(x=>x.status==='published');
+  const annSelected = (items,id,label) => items.map(x=>'<option value="'+safe(x.id)+'"'+(x.id===id?' selected':'')+'>'+safe(label(x))+'</option>').join('');
+  const annView = () => '<section class="df-box"><h3>Anunciar contenido en Discord</h3>'
+    + '<p>Selecciona una obra, volumen o capítulo publicado. Verás el mensaje antes de enviarlo. No se publica automáticamente.</p>'
+    + (!canAnnounce ? empty('Necesitas el permiso «Publicar difusión».')
+      : !annConnections().length ? empty('Primero conecta Discord y envía la prueba desde «Conexiones».')
+      : '<div class="df-form">'
+        + '<label>Canal de Discord<select id="df-ann-conn">'+annSelected(annConnections(),annConnection,x=>x.label)+'</select></label>'
+        + '<label>Tipo de anuncio<select id="df-ann-kind">'
+          + [['series','Nueva obra'],['volume','Nuevo volumen'],['chapter','Nuevo capítulo']]
+            .map(([k,v])=>'<option value="'+k+'"'+(annKind===k?' selected':'')+'>'+v+'</option>').join('')+'</select></label>'
+        + '<label>Obra<select id="df-ann-work">'+annSelected(annWorks,annWork,x=>x.title)+'</select></label>'
+        + (annKind==='series'?'':'<label>'+(annKind==='volume'?'Volumen':'Capítulo')
+          + '<select id="df-ann-source">'+annSelected(annOptions(),annSource,x=>annKind==='volume'?'Volumen '+x.num+(x.title?' — '+x.title:''):'Capítulo '+x.num+(x.title?' — '+x.title:''))+'</select></label>')
+        + (!annWorks.length ? empty('No hay obras públicas disponibles en este ámbito.')
+           : annKind!=='series'&&!annOptions().length ? empty('No hay contenidos publicados de ese tipo para esta obra.')
+           : '<button type="button" class="btn" id="df-ann-preview">Crear vista previa</button>')
+        + '</div>'
+        + (annPreview ? '<div class="df-box"><h4>Vista previa (todavía no enviada)</h4>'
+          + '<p><strong>'+safe(annPreview.title)+'</strong></p>'
+          + '<p>'+safe(annPreview.description||'')+'</p>'
+          + '<p><a href="'+safe(annPreview.url)+'" target="_blank" rel="noopener noreferrer">'+safe(annPreview.url)+'</a></p>'
+          + '<label>Texto del anuncio<textarea id="df-ann-text" maxlength="700" rows="3">'+safe(annPreview.message)+'</textarea></label>'
+          + '<p class="df-muted">Solo se permite un anuncio por contenido y canal. No se reintentará automáticamente ante fallos inciertos.</p>'
+          + '<button type="button" class="btn" id="df-ann-send">Confirmar y enviar a Discord</button></div>' : '')
+       )+'</section>';
+  const loadAnnItems = async () => {
+    annItems=[];annSource='';annPreview=null;
+    if(annKind==='series'||!annWork)return;
+    const table=annKind==='volume'?'volumes':'chapters';
+    const cols=annKind==='volume'?'id,num,title,status,published_at':'id,num,title,status,publish_at';
+    const {data,error}=await sb.from(table).select(cols).eq('series_id',annWork)
+      .eq('status','published').is('deleted_at',null).order('num',{ascending:false}).limit(150);
+    if(error)throw error;
+    annItems=data||[];annSource=annItems[0]?.id||'';
+  };
+  const loadAnnWorks = async () => {
+    let req=sb.from('series').select('id,title,slug').eq('published',true)
+      .is('archived_at',null).order('title').limit(150);
+    if(team)req=req.eq('team_id',team.id);
+    const {data,error}=await req;
+    if(error)throw error;
+    annWorks=data||[];annLoaded=true;annWork=annWorks[0]?.id||'';
+    const allowed=annConnections();
+    annConnection=allowed[0]?.id||'';
+    await loadAnnItems();
+  };
+
   function page() {
     if (tab==='conexiones') return connectionsView();
+    if (tab==='anuncios') return annView();
     if (tab==='reglas') return rulesView();
     if (tab==='campanas') return campaignsView();
     if (tab==='calendario') return '<section class="df-box"><h3>Calendario social</h3>'
@@ -132,8 +185,12 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   function draw() {
     if (!root.isConnected) return;
     root.innerHTML = '<div class="df">' + header() + page() + '</div>';
-    root.querySelectorAll('[data-dtab],[data-goto]').forEach(b => b.onclick = () => {
-      tab = b.dataset.dtab || b.dataset.goto; draw();
+    root.querySelectorAll('[data-dtab],[data-goto]').forEach(b => b.onclick = async () => {
+      tab = b.dataset.dtab || b.dataset.goto;
+      if(tab==='anuncios'&&!annLoaded) {
+        try{await loadAnnWorks();}catch(e){toast('No se pudo cargar el catálogo para anuncios.');}
+      }
+      draw();
     });
     const busy = async (button, work) => {
       button.disabled = true;
@@ -157,6 +214,48 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         draw();
       });
     });
+
+    root.querySelector('#df-ann-conn')?.addEventListener('change',e=>{
+      annConnection=e.target.value;annPreview=null;draw();
+    });
+    root.querySelector('#df-ann-kind')?.addEventListener('change',e=>{
+      annKind=e.target.value;annPreview=null;
+      loadAnnItems().then(draw).catch(()=>toast('No se pudieron cargar los contenidos.'));
+    });
+    root.querySelector('#df-ann-work')?.addEventListener('change',e=>{
+      annWork=e.target.value;annPreview=null;
+      loadAnnItems().then(draw).catch(()=>toast('No se pudieron cargar los contenidos.'));
+    });
+    root.querySelector('#df-ann-source')?.addEventListener('change',e=>{
+      annSource=e.target.value;annPreview=null;draw();
+    });
+    root.querySelector('#df-ann-preview')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
+      if(!annConnection||!annSource())return;
+      const {data,error}=await sb.rpc('diffusion_discord_announcement_preview',{
+        p_connection:annConnection,p_kind:annKind,p_source:annSource()
+      });
+      if(error||!data?.url)throw new Error('Este contenido no está disponible públicamente o no tienes permiso para anunciarlo.');
+      annPreview=data;draw();
+    }));
+    root.querySelector('#df-ann-send')?.addEventListener('click',e=>{
+      const content=root.querySelector('#df-ann-text')?.value.trim();
+      if(!content){toast('Escribe un mensaje antes de enviarlo.');return;}
+      if(!confirm('¿Publicar ahora este anuncio en el canal Discord seleccionado? No se podrá repetir para el mismo contenido.'))return;
+      busy(e.currentTarget,async()=>{
+        const {data,error}=await sb.functions.invoke('diffusion-announcement',{body:{
+          connection_id:annConnection,kind:annKind,source_id:annSource(),message:content
+        }});
+        const status=error?.context?.status;
+        if(status===409||data?.error==='already_announced')
+          throw new Error('Este contenido ya fue anunciado en ese canal de Discord.');
+        if(status===429||data?.error==='rate_limited')
+          throw new Error('Espera 15 segundos antes de anunciar otro contenido.');
+        if(status===403)throw new Error('El contenido ya no es público o no tienes permisos.');
+        if(error||!data?.ok)throw new Error('El resultado del envío no está confirmado. No lo repitas: revisa Discord o el historial.');
+        annPreview=null;toast('Anuncio enviado a Discord');draw();
+      });
+    });
+
     root.querySelectorAll('[data-test-discord]').forEach(b=>b.onclick=()=>{
       if(!confirm('¿Enviar un único mensaje de prueba a este canal de Discord?')) return;
       busy(b,async()=>{
