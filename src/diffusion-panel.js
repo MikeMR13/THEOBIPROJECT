@@ -6,7 +6,13 @@ const EVENTS = [
   ['content.unlocked', 'Apertura a todo público'],
   ['announcement.published', 'Anuncio editorial']
 ];
-const TYPES = ['discord','telegram','facebook','instagram','threads','bluesky','mastodon','x','tiktok','webhook'];
+const EDITORIAL_TEMPLATES = [
+  {id:'series',label:'Estreno de obra',body:'📚 ¡Nueva obra disponible en El Obi del Lector! Descubre esta historia y comienza a leerla.'},
+  {id:'volume',label:'Nuevo volumen',body:'📖 ¡Un nuevo volumen está disponible! Continúa la aventura desde la página de lectura.'},
+  {id:'chapter',label:'Nuevo capítulo',body:'✨ ¡Nuevo capítulo publicado! Sigue la historia en El Obi del Lector.'},
+  {id:'brief',label:'Aviso breve',body:'📢 ¡Ya puedes leer la nueva publicación en El Obi del Lector!'}
+];
+const editorialTemplate = id => EDITORIAL_TEMPLATES.find(x=>x.id===id)?.body||'';
 const TELEGRAM_BOT_TOKEN = /^[0-9]{5,15}:[A-Za-z0-9_-]{30,80}$/;
 const TELEGRAM_CHANNEL = /^(@[A-Za-z][A-Za-z0-9_]{4,31}|-[1-9][0-9]{4,18})$/;
 const telegramChannelValue = input => {
@@ -29,7 +35,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const canManage = p('diffusion_manage'), canCompose = p('diffusion_compose');
   const canLogs = p('diffusion_logs'), canAnnounce = p('diffusion_publish');
   let tab = 'resumen', rules = [], campaigns = [], connections = [], jobs = [];
-  let telegramFeedback = '';
+  let telegramFeedback = '', editingCampaignId = '', annDraftMessage = '', annDraftTitle = '', annFeedback = '';
   const deep = new URLSearchParams(location.search);
   const deepKind = ({o:'series',v:'volume',c:'chapter'})[deep.get('k')] || (['series','volume','chapter'].includes(deep.get('kind')) ? deep.get('kind') : '');
   const deepSource = /^[0-9a-f-]{36}$/i.test(deep.get('id')||deep.get('source')||'') ? (deep.get('id')||deep.get('source')) : '';
@@ -48,11 +54,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const shortName = e => EVENTS.find(x => x[0] === e)?.[1] || e;
   const tabs = [
     ['resumen','Resumen'], ['conexiones','Conexiones'], ['anuncios','Anunciar'], ['reglas','Automatizaciones'],
-    ['campanas','Borradores'], ['calendario','Calendario'], ['historial','Historial'],
-    ['webhooks','Webhooks']
+    ['campanas','Borradores'], ['calendario','Calendario'], ['historial','Historial']
   ];
-  const message = 'Las reglas permanecen inactivas y las campañas como borradores. '
-    + 'Discord y Telegram permiten pruebas y anuncios individuales confirmados por ti; no hay publicaciones automáticas.';
+  const message = 'Solo Discord y Telegram. Los borradores no se publican solos: selecciona el contenido, revisa portada y enlace y confirma cada envío. Las automatizaciones están inactivas.';
   root.innerHTML = '<div class="df" aria-live="polite"><p class="df-empty">Cargando Difusión…</p></div>';
   try {
     [connections,rules,campaigns,jobs] = await Promise.all([
@@ -76,9 +80,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       + '" aria-current="' + (tab===id?'page':'false') + '">' + name + '</button>').join('') + '</nav>'
     + '<p class="df-note">' + safe(message) + '</p>';
   const cards = () => '<div class="df-cards">'
-    + [['Conexiones',connections.length],['Reglas preparadas',rules.length],['Borradores',campaigns.length],['Envíos externos',0]]
+    + [['Conexiones activas',connections.filter(c=>['discord','telegram'].includes(c.provider)&&c.status==='active').length],['Reglas inactivas',rules.filter(r=>!r.enabled).length],['Borradores',campaigns.filter(c=>c.status==='draft').length],['Registros recientes',canLogs?jobs.length:'—']]
       .map(([name,n])=>'<div class="df-card"><small>'+safe(name)+'</small><strong>'+n+'</strong></div>').join('')+'</div>';
-  const connectionsView = () => '<section class="df-box"><h3>Conexiones sociales</h3>'
+  const connectionsView = () => '<section class="df-box"><h3>Conexiones de Discord y Telegram</h3>'
     + '<p>Discord guarda el webhook y Telegram el token de bot cifrados en Supabase Vault. No compartas ninguno por chat ni GitHub.</p>'
     + (connections.filter(c=>c.status!=='revoked').length ? '<div class="df-list">' + connections.filter(c=>c.status!=='revoked').map(c=>'<article><div><strong>'+safe(c.label)+'</strong>'
       + '<small>'+safe(c.provider)+' · '+safe(c.status==='active'?'Prueba correcta':'Pendiente de prueba')+'</small></div>'
@@ -100,11 +104,10 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         + '<p class="df-muted">Los canales y supergrupos públicos usan @usuario o t.me/usuario. Para un grupo privado se necesita su ID numérico negativo; un enlace de invitación t.me/+… no funciona.</p>'
         + '<p class="df-muted">El token se cifra en Vault. El botón «Enviar prueba» comprueba que el bot pueda enviar mensajes al grupo o canal. No se publicará nada automáticamente.</p>'
         + '<button type="submit" class="btn">Guardar Telegram de forma segura</button></form>' : '')
-    + '<h4>Proveedores previstos</h4><div class="df-providers">'+TYPES.map(n=>'<span>'+safe(n)+'</span>').join('')+'</div>'
     + '<p class="df-muted">Solo se permite una prueba por conexión cada 60 segundos.</p>'
     + '<p class="df-muted">La conexión de tu equipo no necesita autorización del Bibliotecario.</p></section>';
   const rulesView = () => '<section class="df-box"><h3>Automatizaciones del ' + (official?'Bibliotecario':'equipo') + '</h3>'
-    + '<p>Las reglas guardadas permanecerán desactivadas hasta disponer de conectores seguros.</p>'
+    + '<p>Las reglas que prepares aquí permanecen inactivas. La programación y ejecución automática se abordarán en una fase posterior, sin publicaciones autónomas por ahora.</p>'
     + (rules.length ? '<div class="df-list">' + rules.map(r=>'<article><div><strong>'+safe(r.name)+'</strong>'
       + '<small>'+safe(shortName(r.event_kind))+' · '+(r.mode==='team_review'?'Revisión interna':'Automática')
       + ' · Retraso: '+r.delay_minutes+' min · '+(r.enabled?'Activa':'Preparada, sin activar')+'</small></div>'
@@ -118,17 +121,30 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
        + '<label>Retraso en minutos<input type="number" name="delay" min="0" max="10080" value="0" required></label>'
        + '<button type="submit" class="btn">Guardar regla inactiva</button></form>'
        : '<p class="df-muted">Necesitas el permiso «Gestionar difusión» para crear reglas.</p>')+'</section>';
-  const campaignsView = () => '<section class="df-box"><h3>Borradores de publicaciones</h3>'
-    + (campaigns.length ? '<div class="df-list">' + campaigns.map(c=>'<article><div><strong>'+safe(c.title)+'</strong>'
-      + '<small>'+safe(c.status)+' · '+when(c.created_at)+'</small>'
-      + '<p>'+safe(c.body).slice(0,350)+'</p></div>'
-      + (canCompose&&c.status==='draft'?'<button type="button" data-del-campaign="'+safe(c.id)+'" class="df-danger">Eliminar</button>':'')
-      + '</article>').join('')+'</div>' : empty('No hay borradores.'))
-    + (canCompose ? '<form id="df-campaign-form" class="df-form"><h4>Nuevo borrador</h4>'
-       + '<label>Título<input name="title" minlength="2" maxlength="140" required placeholder="Ej. Estreno del volumen 3"></label>'
-       + '<label>Mensaje<textarea name="body" maxlength="2000" rows="4" placeholder="Presenta la novedad a tus lectores"></textarea></label>'
-       + '<button type="submit" class="btn">Guardar borrador</button></form>'
-       : '<p class="df-muted">Necesitas el permiso «Redactar difusión».</p>')+'</section>';
+  const editingCampaign = () => campaigns.find(c=>c.id===editingCampaignId&&c.status==='draft');
+  const templateOptions = () => '<option value="">Seleccionar plantilla (opcional)</option>'
+    + EDITORIAL_TEMPLATES.map(t=>'<option value="'+safe(t.id)+'">'+safe(t.label)+'</option>').join('');
+  const campaignsView = () => '<section class="df-box"><h3>Borradores editoriales</h3>'
+    + '<p>Guarda textos reutilizables y revísalos antes de enviarlos. Cada anuncio exige seleccionar el contenido publicado y confirmar manualmente.</p>'
+    + (campaigns.filter(c=>c.status==='draft').length ? '<div class="df-list">'
+      + campaigns.filter(c=>c.status==='draft').map(c=>'<article><div><strong>'+safe(c.title)+'</strong>'
+        + '<small>Sin publicar · '+when(c.created_at)+'</small>'
+        + '<p>'+safe((c.body||'').slice(0,350))+'</p></div><div>'
+        + (canAnnounce?'<button type="button" class="btn" data-use-campaign="'+safe(c.id)+'">Preparar anuncio</button> ':'')
+        + (canCompose?'<button type="button" class="btn" data-edit-campaign="'+safe(c.id)+'">Editar</button> '
+          + '<button type="button" class="df-danger" data-del-campaign="'+safe(c.id)+'">Eliminar</button>':'')
+        + '</div></article>').join('')+'</div>'
+      : empty('No hay borradores.'))
+    + (canCompose ? '<form id="df-campaign-form" class="df-form"><h4>'
+      + (editingCampaign()?'Editar borrador':'Nuevo borrador')+'</h4>'
+      + '<label>Título<input name="title" minlength="2" maxlength="140" required placeholder="Ej. Estreno del volumen 3" value="'+safe(editingCampaign()?.title||'')+'"></label>'
+      + '<label>Plantilla rápida<select id="df-campaign-template">'+templateOptions()+'</select></label>'
+      + '<label>Mensaje<textarea name="body" maxlength="2000" rows="4" placeholder="Presenta la novedad a tus lectores">'+safe(editingCampaign()?.body||'')+'</textarea></label>'
+      + '<p class="df-muted">Los anuncios admiten mensajes de hasta 700 caracteres. El Obi añade el título del contenido, su enlace y la portada verificada.</p>'
+      + '<button type="submit" class="btn">'+(editingCampaign()?'Guardar cambios':'Guardar borrador')+'</button>'
+      + (editingCampaign()?'<button type="button" class="df-link" id="df-campaign-cancel">Cancelar edición</button>':'')
+      + '</form>' : '<p class="df-muted">Necesitas «Redactar difusión» para crear o editar borradores.</p>')
+    + '</section>';
   const historyView = () => '<section class="df-box"><h3>Historial de envíos</h3>'
     + (canLogs ? (jobs.length ? '<div class="df-list">'+jobs.map(j=>'<article><strong>'+safe(j.status)+'</strong>'
       + '<small>'+when(j.scheduled_at)+'</small><p>'+safe(j.last_error||'')+'</p></article>').join('')+'</div>'
@@ -168,9 +184,16 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           + '<p><strong>'+safe(annPreview.title)+'</strong></p>'
           + '<p>'+safe(annPreview.description||'')+'</p>'
           + '<p><a href="'+safe(annPreview.url)+'" target="_blank" rel="noopener noreferrer">'+safe(annPreview.url)+'</a></p>'
+          + (annDraftTitle?'<p class="df-muted">Texto del borrador: '+safe(annDraftTitle)+'</p>':'')
+          + '<label>Plantilla para el texto<select id="df-ann-template"><option value="">'
+          + (annDraftTitle?'Usar borrador seleccionado':'Texto sugerido por El Obi')+'</option>'
+          + EDITORIAL_TEMPLATES.map(t=>'<option value="'+safe(t.id)+'">'+safe(t.label)+'</option>').join('')+'</select></label>'
           + '<label>Texto del anuncio<textarea id="df-ann-text" maxlength="700" rows="3">'+safe(annPreview.message)+'</textarea></label>'
           + '<p class="df-muted">Solo se permite un anuncio por contenido y canal. No se reintentará automáticamente ante fallos inciertos.</p>'
-          + '<button type="button" class="btn" id="df-ann-send">Confirmar y enviar a Discord</button></div>' : '')
+          + (canCompose?'<button type="button" class="df-link" id="df-ann-save-draft">Guardar texto como borrador</button> ':'')
+          + '<button type="button" class="btn" id="df-ann-send">Confirmar y enviar a '
+          + (annProvider()==='telegram'?'Telegram':'Discord')+'</button></div>' : '')
+       + '<div class="df-note" role="alert" id="df-ann-feedback">'+safe(annFeedback)+'</div>'
        )+'</section>';
   const loadAnnItems = async () => {
     annItems=[];annSource='';annPreview=null;
@@ -201,18 +224,15 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     if (tab==='anuncios') return annView();
     if (tab==='reglas') return rulesView();
     if (tab==='campanas') return campaignsView();
-    if (tab==='calendario') return '<section class="df-box"><h3>Calendario social</h3>'
-      + empty('Se habilitará cuando el despachador y los conectores estén disponibles. No equivale al calendario de capítulos.')+'</section>';
+    if (tab==='calendario') return '<section class="df-box"><h3>Calendario de difusión</h3>'
+      + empty('La programación está pendiente de la fase de automatización. Por ahora los anuncios se envían solo mediante confirmación manual.')+'</section>';
     if (tab==='historial') return historyView();
-    if (tab==='webhooks') return '<section class="df-box"><h3>Webhooks avanzados</h3>'
-      + '<p>Se preparan integraciones salientes con Make, n8n y endpoints HTTPS autorizados. Las URL y firmas serán secretas y validadas en servidor.</p>'
-      + empty('Creación de destinos y pruebas firmadas: próxima fase.')+'</section>';
     return cards() + '<div class="df-grid">'
       + '<section class="df-box"><h3>Autonomía editorial</h3><p>'
       + (official?'Administra aquí únicamente las cuentas oficiales de El Obi. Las publicaciones de los equipos no necesitan tu aprobación.'
         :'Tu equipo decide cuándo y dónde publicar en sus redes. No necesita aprobación del Bibliotecario.')
       + '</p><button type="button" class="df-link" data-goto="reglas">Preparar automatización →</button></section>'
-      + '<section class="df-box"><h3>Campañas</h3><p>Redacta mensajes para un futuro envío en las redes vinculadas.</p>'
+      + '<section class="df-box"><h3>Borradores editoriales</h3><p>Prepara, edita y reutiliza mensajes en envíos manuales a Discord o Telegram.</p>'
       + '<button type="button" class="df-link" data-goto="campanas">Crear borrador →</button></section></div>';
   }
   function draw() {
@@ -249,18 +269,18 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     });
 
     root.querySelector('#df-ann-conn')?.addEventListener('change',e=>{
-      annConnection=e.target.value;annPreview=null;draw();
+      annConnection=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annFeedback='';draw();
     });
     root.querySelector('#df-ann-kind')?.addEventListener('change',e=>{
-      annKind=e.target.value;annPreview=null;
+      annKind=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annFeedback='';
       loadAnnItems().then(draw).catch(()=>toast('No se pudieron cargar los contenidos.'));
     });
     root.querySelector('#df-ann-work')?.addEventListener('change',e=>{
-      annWork=e.target.value;annPreview=null;
+      annWork=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annFeedback='';
       loadAnnItems().then(draw).catch(()=>toast('No se pudieron cargar los contenidos.'));
     });
     root.querySelector('#df-ann-source')?.addEventListener('change',e=>{
-      annSource=e.target.value;annPreview=null;draw();
+      annSource=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annFeedback='';draw();
     });
     root.querySelector('#df-ann-preview')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
       if(!annConnection||!chosenAnnouncementId())return;
@@ -274,28 +294,55 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       if(error?.message==='invalid_cover_path')
         throw new Error('La ruta de la portada no es válida para compartir. Corrige la imagen y vuelve a intentarlo.');
       if(error||!data?.url)throw new Error('Este contenido no está disponible públicamente o no tienes permiso para anunciarlo.');
-      annPreview=data;draw();
+      annPreview={...data,message:annDraftMessage||data.message};annFeedback='';draw();
+    }));
+    root.querySelector('#df-ann-template')?.addEventListener('change',e=>{
+      const area=root.querySelector('#df-ann-text');
+      if(area&&annPreview)area.value=editorialTemplate(e.target.value)||annPreview.message;
+    });
+    root.querySelector('#df-ann-save-draft')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
+      const body=root.querySelector('#df-ann-text')?.value.trim()||'';
+      if(!body||body.length>700)throw new Error('El texto debe tener entre 1 y 700 caracteres.');
+      if(!annPreview?.title)throw new Error('Prepara una vista previa antes de guardar.');
+      const title=('Anuncio: '+annPreview.title).slice(0,140);
+      const {error}=await sb.rpc('diffusion_campaign_draft_save',{
+        p_team:teamId,p_id:null,p_title:title,p_body:body
+      });
+      if(error)throw new Error('No se pudo guardar este borrador.');
+      campaigns=await q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at');
+      toast('Texto guardado como borrador, sin publicar');
     }));
     root.querySelector('#df-ann-send')?.addEventListener('click',e=>{
       const content=root.querySelector('#df-ann-text')?.value.trim();
-      if(!content){toast('Escribe un mensaje antes de enviarlo.');return;}
-      if(!confirm('¿Publicar ahora este anuncio en el canal seleccionado? No se podrá repetir para el mismo contenido.'))return;
+      if(!content||content.length>700){
+        annFeedback='Escribe un mensaje de 1 a 700 caracteres antes de enviarlo.';
+        const note=root.querySelector('#df-ann-feedback');if(note)note.textContent=annFeedback;
+        return;
+      }
+      if(!confirm('¿Publicar ahora este anuncio en '+(annProvider()==='telegram'?'Telegram':'Discord')+'? No se podrá repetir para el mismo contenido.'))return;
       busy(e.currentTarget,async()=>{
-        const provider=annProvider();
-        const {data,error}=await sb.functions.invoke(provider==='telegram'?'diffusion-telegram':'diffusion-announcement',{body:{
-          action:'announce',connection_id:annConnection,kind:annKind,source_id:chosenAnnouncementId(),message:content
-        }});
-        const status=error?.context?.status;
-        if(status===409||data?.error==='already_announced')
-          throw new Error('Este contenido ya fue anunciado en ese canal.');
-        if(status===429||data?.error==='rate_limited')
-          throw new Error('Espera 15 segundos antes de anunciar otro contenido.');
-        if(status===403)throw new Error('El contenido ya no es público o no tienes permisos.');
-        if(error||!data?.ok)throw new Error('El resultado del envío no está confirmado. No lo repitas: revisa el canal o el historial.');
-        annPreview=null;toast('Anuncio enviado a '+(annProvider()==='telegram'?'Telegram':'Discord'));draw();
+        try{
+          const provider=annProvider();
+          const {data,error}=await sb.functions.invoke(provider==='telegram'?'diffusion-telegram':'diffusion-announcement',{body:{
+            action:'announce',connection_id:annConnection,kind:annKind,source_id:chosenAnnouncementId(),message:content
+          }});
+          const status=error?.context?.status;
+          if(status===409||data?.error==='already_announced')
+            throw new Error('Este contenido ya fue anunciado en ese destino.');
+          if(status===429||data?.error==='rate_limited')
+            throw new Error('Espera 15 segundos antes de anunciar otro contenido.');
+          if(status===403)throw new Error('El contenido ya no es público o no tienes permisos.');
+          if(error||!data?.ok)
+            throw new Error('El envío no está confirmado. No lo repitas: comprueba el destino y el historial para evitar duplicados.');
+          annPreview=null;annDraftMessage='';annDraftTitle='';
+          annFeedback='Envío confirmado por '+(provider==='telegram'?'Telegram':'Discord')+'.';
+          draw();
+        }catch(err){
+          annFeedback=err?.message||'No se pudo confirmar el envío.';
+          const note=root.querySelector('#df-ann-feedback');if(note)note.textContent=annFeedback;
+        }
       });
     });
-
 
     root.querySelector('#df-telegram-form')?.addEventListener('submit',e=>{
       e.preventDefault();
@@ -412,17 +459,45 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         toast('Regla guardada sin activar'); draw();
       });
     });
+    root.querySelector('#df-campaign-template')?.addEventListener('change',e=>{
+      const area=root.querySelector('#df-campaign-form textarea[name="body"]');
+      const selected=editorialTemplate(e.target.value);
+      if(area&&selected)area.value=selected;
+    });
+    root.querySelectorAll('[data-edit-campaign]').forEach(b=>b.onclick=()=>{
+      if(!canCompose)return;
+      const item=campaigns.find(c=>c.id===b.dataset.editCampaign&&c.status==='draft');
+      if(!item)return;
+      editingCampaignId=item.id;tab='campanas';draw();
+    });
+    root.querySelector('#df-campaign-cancel')?.addEventListener('click',()=>{
+      editingCampaignId='';draw();
+    });
+    root.querySelectorAll('[data-use-campaign]').forEach(b=>b.onclick=()=>{
+      if(!canAnnounce)return;
+      busy(b,async()=>{
+        const item=campaigns.find(c=>c.id===b.dataset.useCampaign&&c.status==='draft');
+        if(!item)throw new Error('Este borrador ya no está disponible.');
+        const body=String(item.body||'').trim();
+        if(body.length<1||body.length>700)
+          throw new Error('Para preparar el anuncio, edita el borrador y deja un mensaje de 1 a 700 caracteres.');
+        if(!annLoaded)await loadAnnWorks();
+        annDraftMessage=body;annDraftTitle=item.title;annPreview=null;annFeedback='';
+        tab='anuncios';draw();
+      });
+    });
     root.querySelector('#df-campaign-form')?.addEventListener('submit', e => {
       e.preventDefault();
       const f=e.currentTarget, data=new FormData(f);
       busy(f.querySelector('button'), async () => {
         const { error } = await sb.rpc('diffusion_campaign_draft_save', {
-          p_team:teamId,p_id:null,p_title:String(data.get('title')||''),
+          p_team:teamId,p_id:editingCampaignId||null,p_title:String(data.get('title')||''),
           p_body:String(data.get('body')||'')
         });
-        if (error) throw error;
+        if (error) throw new Error('No se pudo guardar el borrador. Comprueba tus permisos y que siga editable.');
+        editingCampaignId='';
         campaigns = await q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at');
-        toast('Borrador guardado');draw();
+        toast('Borrador guardado sin publicar');draw();
       });
     });
     root.querySelectorAll('[data-del-rule],[data-del-campaign]').forEach(b => b.onclick = () => {
@@ -431,7 +506,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       busy(b, async()=>{
         const {error}=await sb.rpc('diffusion_draft_delete',{p_team:teamId,p_type:isRule?'rule':'campaign',p_id:id});
         if(error) throw error;
-        if(isRule) rules=rules.filter(r=>r.id!==id); else campaigns=campaigns.filter(c=>c.id!==id);
+        if(isRule) rules=rules.filter(r=>r.id!==id);
+        else { campaigns=campaigns.filter(c=>c.id!==id);if(editingCampaignId===id)editingCampaignId=''; }
         toast('Borrador eliminado');draw();
       });
     });

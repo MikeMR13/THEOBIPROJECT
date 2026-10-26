@@ -1,0 +1,33 @@
+// Contratos del Centro de Difusión solo Discord + Telegram. Sin conexión a redes.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { transformSync } from 'esbuild';
+const ui=readFileSync('src/diffusion-panel.js','utf8');
+const sql=readFileSync('supabase/migrations/20261025232409_diffusion_phase1_controlled_20261025.sql','utf8');
+assert.ok(transformSync(ui,{loader:'js',format:'esm'}).code.includes('renderDiffusionPanel'));
+assert.doesNotMatch(ui,/\['webhooks','Webhooks'\]/);
+assert.doesNotMatch(ui,/Webhooks avanzados|Proveedores previstos|\bMake, n8n\b/);
+assert.doesNotMatch(ui,/\['facebook','instagram'|const TYPES =/);
+assert.match(ui,/\['discord','telegram'\]\.includes\(c\.provider\)/);
+assert.match(ui,/const EDITORIAL_TEMPLATES = \[/);
+for(const word of ["Estreno de obra","Nuevo volumen","Nuevo capítulo","Aviso breve"])
+  assert.ok(ui.includes(word),'Plantilla editorial ausente: '+word);
+assert.match(ui,/editorialTemplate\(e\.target\.value\)/);
+assert.match(ui,/data-use-campaign/);
+assert.match(ui,/data-edit-campaign/);
+assert.match(ui,/id="df-campaign-cancel"/);
+assert.match(ui,/p_id:editingCampaignId\|\|null/);
+assert.match(ui,/diffusion_campaign_draft_save/);
+assert.match(ui,/annDraftMessage=body/);
+assert.match(ui,/annPreview=\{\.\.\.data,message:annDraftMessage\|\|data\.message\}/);
+assert.match(ui,/if\(body\.length<1\|\|body\.length>700\)/);
+assert.match(ui,/if\(!confirm\('¿Publicar ahora este anuncio/);
+assert.match(ui,/role="alert" id="df-ann-feedback"/);
+assert.match(ui,/No lo repitas: comprueba el destino y el historial/);
+assert.match(ui,/Confirmar y enviar a /);
+assert.match(ui,/annProvider\(\)==='telegram'\?'Telegram':'Discord'/);
+assert.match(sql,/private\.diffusion_scope_ok\(p_team,'diffusion_compose'\)/);
+assert.match(sql,/and status='draft' returning id into result_id/);
+assert.match(sql,/status='draft'\s*;/);
+assert.doesNotMatch(ui,/cron\.schedule\(|setInterval\(|setTimeout\(/);
+console.log('Difusión editorial: borradores, plantillas, confirmación y alcance Discord/Telegram PASS (sin envíos)');
