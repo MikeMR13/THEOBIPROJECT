@@ -16,7 +16,7 @@ for(const val of ["delivery_mode text not null default 'manual'","p_delivery tex
  "diffusion_4b_consume_ticket","extensions.gen_random_bytes(32)","diffusion_4b_complete",
  "not (coalesce(se.access,'public')='public'"]) assert.ok(sql.includes(val),'Contrato SQL ausente: '+val);
 for(const val of ["id=\"df-ann-delivery\"","value=\"manual\"","value=\"automatic\"",
- "p_delivery:delivery","Entrega incierta: revisar antes de reenviar"]) assert.ok(ui.includes(val),'UI sin contrato: '+val);
+ "p_delivery:pending.delivery","Entrega incierta: revisar antes de reenviar"]) assert.ok(ui.includes(val),'UI sin contrato: '+val);
 assert.match(edge,/allowed_mentions:\{parse:\[\]\}/,'Discord sin menciones masivas');
 assert.match(edge,/if\(!\/\^\[a-f0-9\]\{64\}\$\/\.test\(ticket\)\)/,
  'Fail-closed: la solicitud anónima se rechaza sin ticket');
