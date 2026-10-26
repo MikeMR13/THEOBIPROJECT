@@ -34,3 +34,15 @@ assert.match(ui,/enlace de invitación privado/);
 assert.match(ui,/El token del bot no tiene un formato válido/);
 assert.match(ui,/Tu cuenta no tiene permiso/);
 console.log('Telegram: validación de campos y errores específicos PASS');
+
+assert.match(ts,/telegram_group_not_supported/);
+assert.match(ts,/telegram_bot_no_post_permission/);
+assert.match(ts,/telegram_token_invalid/);
+assert.match(ts,/telegram_channel_unavailable/);
+assert.match(ts,/telegram_bot_not_member/);
+assert.match(ts,/telegram_bot_blocked/);
+assert.match(ts,/class TelegramRequestError extends Error/);
+assert.match(ui,/error\.context\.json\(\)/);
+assert.match(ui,/Ese @ corresponde a un grupo/);
+assert.match(ui,/El bot está en el canal pero no tiene activado el permiso/);
+console.log('Telegram: motivos de fallo específicos sin exponer secretos, PASS');

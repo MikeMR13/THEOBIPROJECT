@@ -330,9 +330,27 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         const {data,error}=await sb.functions.invoke('diffusion-telegram',{
           body:{action:'test',connection_id:b.dataset.testTelegram}
         });
-        if(error?.context?.status===429||data?.error==='rate_limited')
+        let reason=data?.error||null;
+        if(!reason&&error?.context?.json){
+          try{reason=(await error.context.json())?.error||null;}catch{}
+        }
+        if(error?.context?.status===429||reason==='rate_limited')
           throw new Error('Espera 60 segundos entre pruebas de Telegram.');
-        if(error||!data?.ok)throw new Error('No llegó la prueba. Verifica que el bot sea administrador del canal y pueda publicar.');
+        const hints={
+          telegram_group_not_supported:'Ese @ corresponde a un grupo. La conexión actual requiere un canal de Telegram, no un grupo de conversación.',
+          telegram_not_channel:'El destino no es un canal de anuncios de Telegram.',
+          telegram_token_invalid:'Telegram rechazó el token del bot. Revisa el token en @BotFather.',
+          telegram_channel_unavailable:'No se encontró el canal o el bot no puede acceder. Revisa el @ del canal y añade el bot como administrador.',
+          telegram_bot_not_member:'El bot no figura como administrador de ese canal. Agrégalo desde los administradores del canal.',
+          telegram_bot_no_post_permission:'El bot está en el canal pero no tiene activado el permiso «Publicar mensajes».',
+          telegram_bot_blocked:'Telegram impidió publicar al bot. Revisa que siga siendo administrador.',
+          telegram_cannot_send:'Telegram rechazó el mensaje de prueba. Comprueba los permisos y la configuración del canal.',
+          telegram_api_rate_limited:'Telegram está limitando las solicitudes. Inténtalo más tarde.',
+          telegram_api_unreachable:'No se pudo contactar a Telegram. Inténtalo después, sin crear otra conexión.',
+          telegram_credential_unavailable:'No se pudieron validar los datos guardados. Desconecta y vuelve a vincular el canal solo si persiste.',
+          telegram_api_error:'Telegram no confirmó la prueba. Comprueba el token y los permisos del canal.'
+        };
+        if(error||!data?.ok)throw new Error(hints[reason]||'Telegram no confirmó la prueba. Comprueba que el destino sea un canal y el bot pueda publicar.');
         connections=await q('diffusion_connections','id,provider,label,status,created_at');
         toast('Telegram recibió la prueba');draw();
       });

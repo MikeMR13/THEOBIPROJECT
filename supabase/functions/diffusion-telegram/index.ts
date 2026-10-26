@@ -22,14 +22,38 @@ function photoUrl(input:unknown):string|null{
  return supa+'/storage/v1/object/public/obi-media/'
    +input.split('/').map(encodeURIComponent).join('/');
 }
+// Códigos controlados: nunca devolver las URLs privadas del bot, respuesta ni token.
+class TelegramRequestError extends Error {
+ code:string;
+ constructor(code:string){super(code);this.code=code;}
+}
 async function telegram(token:string,method:string,body:Record<string,unknown>){
- // Origin fijo: la credencial nunca llega a URL controlada por navegador.
- const response=await fetch('https://api.telegram.org/bot'+token+'/'+method,{
-  method:'POST',redirect:'error',headers:{'content-type':'application/json'},
-  body:JSON.stringify(body),signal:AbortSignal.timeout(8000)
- });
+ let response:Response;
+ try {
+  response=await fetch('https://api.telegram.org/bot'+token+'/'+method,{
+   method:'POST',redirect:'error',headers:{'content-type':'application/json'},
+   body:JSON.stringify(body),signal:AbortSignal.timeout(8000)
+  });
+ }catch{throw new TelegramRequestError('telegram_api_unreachable');}
  const parsed=await response.json().catch(()=>null);
- return response.ok&&parsed?.ok===true?parsed?.result:null;
+ if(!response.ok||parsed?.ok!==true){
+  let code='telegram_api_error';
+  if(response.status===429)code='telegram_api_rate_limited';
+  else if(method==='getMe'&&(response.status===401||response.status===404))
+   code='telegram_token_invalid';
+  else if(method==='getChat'&&(response.status===400||response.status===403))
+   code='telegram_channel_unavailable';
+  else if(method==='getChatMember'&&(response.status===400||response.status===403))
+   code='telegram_bot_not_member';
+  else if(method==='sendMessage'&&response.status===403)
+   code='telegram_bot_blocked';
+  else if(method==='sendMessage'&&response.status===400)
+   code='telegram_cannot_send';
+  else if(method==='sendPhoto'&&response.status===400)
+   code='telegram_photo_unavailable';
+  throw new TelegramRequestError(code);
+ }
+ return parsed.result;
 }
 Deno.serve(async(req:Request)=>{
  const origin=req.headers.get('origin');
@@ -73,23 +97,31 @@ Deno.serve(async(req:Request)=>{
  const valid=!secret.error&&typeof token==='string'&&tokenValid.test(token)
    &&typeof chat==='string'&&chatValid.test(chat);
  let sent=false,messageId:string|null=null;
+ let failure='telegram_delivery_failed';
+ if(!valid)failure='telegram_credential_unavailable';
  if(valid){
   try{
    if(isTest){
     const bot=await telegram(token,'getMe',{});
-    const destination=bot?.id?await telegram(token,'getChat',{chat_id:chat}):null;
-    const member=destination?.type==='channel'
-      ?await telegram(token,'getChatMember',{chat_id:chat,user_id:bot.id}):null;
-    const canPost=member?.status==='creator'
-      ||(member?.status==='administrator'&&member?.can_post_messages===true);
-    if(canPost){
-     const res=await telegram(token,'sendMessage',{
-      chat_id:chat,
-      text:'🧪 Prueba de conexión · El Obi del Lector\nMensaje enviado manualmente. No activa publicaciones automáticas.',
-      link_preview_options:{is_disabled:true}
-     });
-     sent=typeof res?.message_id==='number';
-    }
+    if(!bot?.id)throw new TelegramRequestError('telegram_token_invalid');
+    const destination=await telegram(token,'getChat',{chat_id:chat});
+    if(!destination)throw new TelegramRequestError('telegram_channel_unavailable');
+    if(destination.type==='group'||destination.type==='supergroup')
+      throw new TelegramRequestError('telegram_group_not_supported');
+    if(destination.type!=='channel')
+      throw new TelegramRequestError('telegram_not_channel');
+    const member=await telegram(token,'getChatMember',{chat_id:chat,user_id:bot.id});
+    if(!member)throw new TelegramRequestError('telegram_bot_not_member');
+    const canPost=member.status==='creator'
+      ||(member.status==='administrator'&&member.can_post_messages===true);
+    if(!canPost)throw new TelegramRequestError('telegram_bot_no_post_permission');
+    const res=await telegram(token,'sendMessage',{
+     chat_id:chat,
+     text:'🧪 Prueba de conexión · El Obi del Lector\nMensaje enviado manualmente. No activa publicaciones automáticas.',
+     link_preview_options:{is_disabled:true}
+    });
+    sent=typeof res?.message_id==='number';
+    if(!sent)failure='telegram_delivery_failed';
    }else{
     const payload=claim.data as Record<string,unknown>;
     const cover=photoUrl(payload.cover_path);
@@ -105,12 +137,15 @@ Deno.serve(async(req:Request)=>{
      if(sent)messageId=String(res.message_id);
     }
    }
-  }catch{sent=false;}
+  }catch(e){
+   sent=false;
+   failure=e instanceof TelegramRequestError?e.code:'telegram_api_unreachable';
+  }
  }
  if(isTest){
   const result=await server.rpc('diffusion_telegram_mark_test',{p_id:input.connection_id,p_success:sent});
   if(result.error)return answer({error:'state_update_failed'},503,origin);
-  return sent?answer({ok:true},200,origin):answer({error:'telegram_delivery_failed'},502,origin);
+  return sent?answer({ok:true},200,origin):answer({error:failure},502,origin);
  }
  const complete=await server.rpc('diffusion_telegram_announcement_complete',{
   p_job:claim.data.job_id,p_success:sent,p_post_id:messageId
