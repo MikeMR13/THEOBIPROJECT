@@ -50,7 +50,7 @@ reset role;
 
 -- Simulate that both dates have passed; one series withdrawn before sending.
 update public.diffusion_scheduled_announcements set scheduled_at=now()-interval '3 minutes'
- where id in (current_setting('diffusion.qa.plan')::uuid,current_setting('diffusion.qa.block')::uuid);
+ where id=current_setting('diffusion.qa.plan')::uuid;
 update public.series set published=false where id='70000000-0000-4000-8000-000000000002';
 
 do $test$
