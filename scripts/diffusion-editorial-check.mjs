@@ -21,7 +21,7 @@ assert.match(ui,/diffusion_campaign_draft_save/);
 assert.match(ui,/annDraftMessage=body/);
 assert.match(ui,/annPreview=\{\.\.\.data,message:annDraftMessage\|\|data\.message\}/);
 assert.match(ui,/if\(body\.length<1\|\|body\.length>700\)/);
-assert.match(ui,/if\(!confirm\('¿Publicar ahora este anuncio/);
+assert.match(ui,/if\(!confirm\('¿Enviar AHORA a '/);
 assert.match(ui,/role="alert" id="df-ann-feedback"/);
 assert.match(ui,/No lo repitas: comprueba el destino y el historial/);
 assert.match(ui,/Confirmar y enviar a /);
