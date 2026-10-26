@@ -66,3 +66,17 @@ El archivo **no es todavía una migración desplegada**. En ausencia de Supabase
 `sql/home-snapshot-row-level-rollback.sql` restaura los tres triggers originales por sentencia. Como medida provisional de seguridad, se puede revertir el cambio sin tocar ninguna función ni borrar datos. Registrar el motivo, validar el estado del cron y revisar `built_at`.
 
 **Estado:** preparado para revisión; no ejecutado contra la base productiva.
+
+
+## Validación sin costo adicional — 26 de octubre de 2026
+
+Se ejecutó una prueba de integración con **PostgreSQL 16 aislado** en un runner estándar de GitHub Actions, sin crear proyectos ni ramas de Supabase ni utilizar recursos de producción. [Ejecución QA aprobada](https://github.com/MikeMR13/THEOBIPROJECT/actions/runs/40274823344).
+
+El conjunto reproduce el problema con triggers por sentencia, aplica el SQL candidato, verifica que un UPDATE que afecta cero filas no invalida la caché, confirma que INSERT/UPDATE/DELETE reales siguen invalidándola y prueba el script de reversión. La compilación y el CI general del commit también se aprobaron.
+
+**Restricciones de costo y liberación:**
+
+- No crear ramas de Supabase, nuevos proyectos ni servicios de pago para probar este ajuste.
+- Utilizar exclusivamente runners estándar del repositorio público para las pruebas de PostgreSQL.
+- El ensayo es de triggers en PostgreSQL: no demuestra por sí solo todas las rutas de publicación, RLS ni el rendimiento de producción.
+- Mantener el PR en borrador y no aplicar DDL productivo hasta completar las comprobaciones de compatibilidad, una migración versionada y el plan de reversión.
