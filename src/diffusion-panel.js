@@ -7,6 +7,13 @@ const EVENTS = [
   ['announcement.published', 'Anuncio editorial']
 ];
 const TYPES = ['discord','telegram','facebook','instagram','threads','bluesky','mastodon','x','tiktok','webhook'];
+const TELEGRAM_BOT_TOKEN = /^[0-9]{5,15}:[A-Za-z0-9_-]{30,80}$/;
+const TELEGRAM_CHANNEL = /^(@[A-Za-z][A-Za-z0-9_]{4,31}|-100[0-9]{6,16})$/;
+const telegramChannelValue = input => {
+  const raw=String(input||'').trim();
+  const publicLink=raw.match(/^(?:https?:\/\/)?(?:www\.)?t\.me\/([A-Za-z][A-Za-z0-9_]{4,31})\/?$/i);
+  return publicLink?'@'+publicLink[1]:raw;
+};
 const when = value => value ? new Date(value).toLocaleString('es-MX', { dateStyle:'medium',timeStyle:'short' }) : '—';
 function stylesheet() {
   if (document.getElementById('df-css')) return;
@@ -87,7 +94,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         + '<p>Crea un bot con @BotFather y añádelo como administrador de tu canal, con permiso para publicar. Aquí solo se admiten canales; nunca pegues el token en chats.</p>'
         + '<label>Nombre de la conexión<input name="label" minlength="2" maxlength="100" required placeholder="Ej. Novedades en Telegram"></label>'
         + '<label>Token privado del bot<input name="token" type="password" required autocomplete="off" spellcheck="false" placeholder="Token entregado por @BotFather"></label>'
-        + '<label>Canal de Telegram<input name="chat" required autocomplete="off" spellcheck="false" placeholder="@CanalPublico o -1001234567890"></label>'
+        + '<label>Usuario o enlace público del canal<input name="chat" required autocomplete="off" spellcheck="false" placeholder="@MiCanal o https://t.me/MiCanal"></label>'
+        + '<p class="df-muted">Un canal público tiene enlace t.me/NombreDelCanal. Si es privado, necesitas su ID numérico -100…; los enlaces de invitación t.me/+… no sirven. Solo se admiten canales, no grupos.</p>'
         + '<p class="df-muted">El token se cifra en Vault. El botón «Enviar prueba» verifica el canal y los permisos del bot. No se publicará nada automáticamente.</p>'
         + '<button type="submit" class="btn">Guardar Telegram de forma segura</button></form>' : '')
     + '<h4>Proveedores previstos</h4><div class="df-providers">'+TYPES.map(n=>'<span>'+safe(n)+'</span>').join('')+'</div>'
@@ -290,14 +298,27 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     root.querySelector('#df-telegram-form')?.addEventListener('submit',e=>{
       e.preventDefault();
       const form=e.currentTarget,values=new FormData(form);
-      const token=String(values.get('token')||'');
-      const chat=String(values.get('chat')||'').trim();
+      const token=String(values.get('token')||'').trim();
+      const chat=telegramChannelValue(values.get('chat'));
+      const label=String(values.get('label')||'').trim();
       busy(form.querySelector('button'),async()=>{
+        if(label.length<2||label.length>100)
+          throw new Error('El nombre de la conexión debe tener entre 2 y 100 caracteres.');
+        if(!TELEGRAM_BOT_TOKEN.test(token))
+          throw new Error('El token del bot no tiene un formato válido. Cópialo completo desde @BotFather; no pegues una URL.');
+        if(!TELEGRAM_CHANNEL.test(chat)){
+          if(/(?:t\.me\/\+|t\.me\/joinchat\/|telegram\.me\/joinchat\/)/i.test(chat))
+            throw new Error('Ese es un enlace de invitación privado. Necesitas el ID numérico -100… del canal o un canal con @usuario público.');
+          throw new Error('El canal debe ser @NombreDelCanal, un enlace público t.me/NombreDelCanal o un ID numérico -100… (no un grupo).');
+        }
         const {error}=await sb.rpc('diffusion_telegram_connect',{
-          p_team:teamId,p_label:String(values.get('label')||'').trim(),
-          p_token:token,p_chat:chat
+          p_team:teamId,p_label:label,p_token:token,p_chat:chat
         });
-        if(error)throw new Error('No se pudo conectar Telegram: comprueba el token, canal y tus permisos.');
+        if(error?.message==='invalid_telegram_connection')
+          throw new Error('Telegram rechazó el formato del token o canal. Revisa los datos de @BotFather y el enlace público del canal.');
+        if(error?.message==='forbidden')
+          throw new Error('Tu cuenta no tiene permiso para gestionar conexiones de este equipo.');
+        if(error)throw new Error('No se pudo guardar Telegram. Actualiza la página y verifica tus permisos.');
         form.reset();
         connections=await q('diffusion_connections','id,provider,label,status,created_at');
         toast('Telegram guardado de forma segura. Envía una prueba para activarlo.');draw();

@@ -25,3 +25,12 @@ assert.match(ui,/diffusion_telegram_disconnect/);
 assert.match(ui,/diffusion_'\+annProvider\(\)\+'_announcement_preview/);
 assert.ok(transformSync(ts,{loader:'ts',format:'esm'}).code.includes('Deno.serve('));
 console.log('TELEGRAM 2c: contratos OK (sin envíos reales)');
+
+assert.match(ui,/const TELEGRAM_BOT_TOKEN = \/\^/);
+assert.match(ui,/const TELEGRAM_CHANNEL = \/\^/);
+assert.match(ui,/const telegramChannelValue = input =>/);
+assert.match(ui,/t\.me\//);
+assert.match(ui,/enlace de invitación privado/);
+assert.match(ui,/El token del bot no tiene un formato válido/);
+assert.match(ui,/Tu cuenta no tiene permiso/);
+console.log('Telegram: validación de campos y errores específicos PASS');
