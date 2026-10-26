@@ -19,9 +19,9 @@ assert.match(edge,/redirect:'error'/);
 assert.match(edge,/allowed_mentions:\{parse:\[\]\}/);
 assert.match(edge,/diffusion_discord_announcement_complete/);
 assert.doesNotMatch(edge,/cron|setInterval|SUPABASE_SERVICE_ROLE_KEY.*?console\.log/i);
-assert.match(ui,/Confirmar y enviar a /);
-assert.match(ui,/annProvider\(\)==='telegram'\?'Telegram':'Discord'/);
-assert.match(ui,/diffusion_['\"]?\+annProvider\(\)\+'?\_announcement_preview|diffusion_'\+annProvider\(\)\+'_announcement_preview/);
+assert.match(ui,/Confirmar y enviar ahora a /);
+assert.match(ui,/target.provider==='telegram'\?'diffusion-telegram':'diffusion-announcement'/);
+assert.match(ui,/diffusion_'\+target.provider\+'_announcement_preview/);
 assert.match(ui,/chosenAnnouncementId\(\)/);
 console.log('Anuncios manuales Discord: contratos y privilegios verificados (sin enviar)');
 
