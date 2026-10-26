@@ -45,6 +45,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   let draftWorks = [], draftWorksLoaded = false, draftWorkId = '', draftPresentation = defaultDraftPresentation();
   let annDraftPresentation = null;
   let annConfirm = null, annSending = false, annResults = [];
+  let annDraftId = '';
   const deep = new URLSearchParams(location.search);
   const deepKind = ({o:'series',v:'volume',c:'chapter'})[deep.get('k')] || (['series','volume','chapter'].includes(deep.get('kind')) ? deep.get('kind') : '');
   const deepSource = /^[0-9a-f-]{36}$/i.test(deep.get('id')||deep.get('source')||'') ? (deep.get('id')||deep.get('source')) : '';
@@ -71,7 +72,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   try {
     [connections,rules,campaigns,jobs,scheduled] = await Promise.all([
       q('diffusion_connections','id,provider,label,status,created_at'),
-      q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,connection_ids,enabled_at,created_at'),
+      q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,connection_ids,template_campaign_id,enabled_at,created_at'),
       q('diffusion_campaigns','id,title,body,presentation,status,scheduled_at,created_at'),
       canLogs ? q('diffusion_jobs','id,status,scheduled_at,last_error,created_at') : Promise.resolve([]),
       q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at')
@@ -117,9 +118,12 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         + '<button type="submit" class="btn">Guardar Telegram de forma segura</button></form>' : '')
     + '<p class="df-muted">Solo se permite una prueba por conexión cada 60 segundos.</p>'
     + '<p class="df-muted">La conexión de tu equipo no necesita autorización del Bibliotecario.</p></section>';
+  const availableDrafts = () => campaigns.filter(c=>c.status==='draft'&&String(c.body||'').trim());
+  const savedDraftOptions = chosen => '<option value="">Mensaje predeterminado de El Obi</option>'
+    +availableDrafts().map(c=>'<option value="'+safe(c.id)+'"'+(chosen===c.id?' selected':'')+'>'+safe(c.title)+'</option>').join('');
   const rulesView = () => '<section class="df-box"><h3>Automatizaciones del ' + (official?'Bibliotecario':'equipo') + '</h3>'
     + '<p>Configura una regla y pulsa <strong>Activar</strong> para que los próximos anuncios de obras, publicaciones de capítulos o volúmenes se comuniquen en los canales seleccionados. Cada canal recibe un anuncio independiente, sin duplicados ni retropublicaciones.</p>'
-    + '<p class="df-muted">Elige «Automática» para publicar sin intervención o «Revisión interna» para que el anuncio aparezca en Calendario y el equipo lo confirme. Los retrasos se aplican desde la publicación. Puedes pausar cualquier regla para cambiar sus canales.</p>'
+    + '<p class="df-muted">Elige «Automática» para publicar sin intervención o «Revisión interna» para confirmar en Calendario. Puedes asociar un borrador a cada regla. Solo se aplica a acontecimientos futuros. Pausa la regla antes de cambiar su mensaje.</p>'
     + (rules.length ? '<div class="df-list">' + rules.map(r=>{
        const destinations=connections.filter(c=>c.status==='active'&&['discord','telegram'].includes(c.provider));
        const supported=['chapter.public','volume.public','prelaunch.announced'].includes(r.event_kind);
@@ -130,8 +134,14 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
        + ' · Retraso: '+r.delay_minutes+' min · '+(r.enabled?'Activa':'Inactiva')
        + (selected.length?' · '+safe(selected.map(c=>c.provider.toUpperCase()+' · '+c.label).join(' / ')):' · Sin canales seleccionados')+'</small>'
        + (!supported?'<small>Este evento aún no admite activación automática; puedes eliminar y crear una regla de capítulo o volumen.</small>':'')
+       + '<small>Mensaje: '+safe(campaigns.find(c=>c.id===r.template_campaign_id)?.title||'Predeterminado de El Obi')+'</small>'
        + '</div>'
        + (canManage?'<div>'
+          + (!r.enabled
+            ? '<label>Usar borrador guardado<select data-rule-draft="'+safe(r.id)+'">'
+              +savedDraftOptions(r.template_campaign_id||'')+'</select></label>'
+              +'<button type="button" class="df-link" data-rule-draft-save="'+safe(r.id)+'">Guardar mensaje de esta regla</button>'
+            : '<small>Pausa la regla para cambiar su borrador. Los avisos ya programados no se modifican.</small>')
           + (r.enabled?'<button type="button" class="df-danger" data-rule-pause="'+safe(r.id)+'">Pausar regla</button>'
            :supported&&destinations.length?'<fieldset class="df-destination-group" aria-label="Canales para esta automatización"><legend>Canales de difusión (puedes elegir varios)</legend>'
                 + destinations.map(c=>'<label class="df-destination-option"><input type="checkbox" data-rule-destination="'+safe(r.id)+'" value="'+safe(c.id)+'" '
@@ -148,6 +158,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
        + '<option value="volume.public">Volumen publicado</option><option value="prelaunch.announced">Nueva obra anunciada (preestreno)</option></select></label>'
        + '<label>Modalidad<select name="mode"><option value="automatic">Publicación automática</option>'
        + '<option value="team_review">Con revisión interna del equipo</option></select></label>'
+       + '<label>Usar borrador guardado<select name="template_id">'+savedDraftOptions('')+'</select></label>'
+       + '<p class="df-muted">Se copia el texto del borrador al vincularlo con la regla. Podrás cambiarlo mientras esté pausada. Se aplica solo a futuras publicaciones.</p>'
        + '<label>Retraso en minutos<input type="number" name="delay" min="0" max="10080" value="0" required></label>'
        + '<button type="submit" class="btn">Guardar regla</button>'
        + '<p class="df-muted">Se guarda inactiva para que puedas elegir el destino y pulsar «Activar regla» expresamente.</p></form>'
@@ -260,6 +272,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         + '<label>Obra<select id="df-ann-work">'+annSelected(annWorks,annWork,x=>x.title)+'</select></label>'
         + (annKind==='series'?'':'<label>'+(annKind==='volume'?'Volumen':'Capítulo')
           + '<select id="df-ann-source">'+annSelected(annOptions(),annSource,x=>annKind==='volume'?'Volumen '+x.num+(x.title?' — '+x.title:''):'Capítulo '+x.num+(x.title?' — '+x.title:''))+'</select></label>')
+        + '<label>Usar borrador guardado<select id="df-ann-draft">'
+          +savedDraftOptions(annDraftId)+'</select></label>'
+        + '<p class="df-muted">Elige un borrador y pulsa «Crear vista previa» con la obra seleccionada. Puedes modificar el texto antes de enviarlo o programarlo.</p>'
         + (!annWorks.length ? empty('No hay obras públicas disponibles en este ámbito.')
            : annKind!=='series'&&!annOptions().length ? empty('No hay contenidos publicados de ese tipo para esta obra.')
            : '<button type="button" class="btn" id="df-ann-preview">Crear vista previa</button>')
@@ -440,6 +455,14 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       annPreview=null;annScheduledId='';annFeedback='';
       draw();
     }));
+    root.querySelector('#df-ann-draft')?.addEventListener('change',e=>{
+      annDraftId=e.target.value;
+      const selected=availableDrafts().find(c=>c.id===annDraftId);
+      annDraftMessage=selected?String(selected.body||'').trim():'';
+      annDraftTitle=selected?.title||'';
+      annDraftPresentation=selected?normalizeDraftPresentation(selected.presentation):null;
+      annPreview=null;annFeedback='';annScheduledId='';draw();
+    });
     root.querySelector('#df-ann-kind')?.addEventListener('change',e=>{
       annKind=e.target.value;annPreview=null;annScheduledId='';annFeedback='';
       loadAnnItems().then(draw).catch(()=>toast('No se pudieron cargar los contenidos.'));
@@ -811,15 +834,37 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       e.preventDefault();
       const f = e.currentTarget, data = new FormData(f);
       busy(f.querySelector('button'), async () => {
-        const { error } = await sb.rpc('diffusion_rule_save', {
+        const {data:ruleId,error} = await sb.rpc('diffusion_rule_save', {
           p_team:teamId, p_id:null, p_name:String(data.get('name')||''),
           p_event:String(data.get('event')||''),p_mode:String(data.get('mode')||'automatic'),
           p_delay:Number(data.get('delay'))
         });
         if (error) throw error;
-        rules = await q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,connection_ids,enabled_at,created_at');
+        const campaign=String(data.get('template_id')||'');
+        if(campaign){
+          const {error:linkError}=await sb.rpc('diffusion_rule_template_set',{
+            p_team:teamId,p_rule:ruleId,p_campaign:campaign
+          });
+          if(linkError){
+            rules=await q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,connection_ids,template_campaign_id,enabled_at,created_at');
+            toast('La regla quedó inactiva, pero no se pudo vincular el borrador. Selecciónalo antes de activarla.');draw();return;
+          }
+        }
+        rules = await q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,connection_ids,template_campaign_id,enabled_at,created_at');
         toast('Regla guardada. Selecciona un destino y pulsa Activar regla.'); draw();
       });
+    });
+    root.querySelectorAll('[data-rule-draft-save]').forEach(button=>{
+      button.addEventListener('click',()=>busy(button,async()=>{
+        const id=button.dataset.ruleDraftSave;
+        const campaign=root.querySelector('[data-rule-draft="'+id+'"]')?.value||null;
+        const {error}=await sb.rpc('diffusion_rule_template_set',{
+          p_team:teamId,p_rule:id,p_campaign:campaign
+        });
+        if(error)throw new Error('No se pudo vincular el borrador. Pausa la regla y utiliza un borrador de este equipo.');
+        rules=await q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,connection_ids,template_campaign_id,enabled_at,created_at');
+        toast('Mensaje guardado para publicaciones futuras. La regla no se ha activado.');draw();
+      }));
     });
     root.querySelectorAll('[data-rule-activate],[data-rule-pause]').forEach(button=>{
       button.addEventListener('click',()=>busy(button,async()=>{
@@ -836,7 +881,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           :error.message==='destination_unavailable'?'Una conexión no está activa o no corresponde a este equipo.'
           :error.message==='invalid_destinations'?'Selecciona entre 1 y 8 conexiones distintas.'
           :'No se pudo cambiar la regla: revisa los permisos de Difusión.');
-        rules=await q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,connection_ids,enabled_at,created_at');
+        rules=await q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,connection_ids,template_campaign_id,enabled_at,created_at');
         scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
         toast(activate?'Regla activada para '+chosen.length+' canales de difusión.':'Regla pausada; anuncios pendientes cancelados.');
         draw();
@@ -880,7 +925,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         const body=String(item.body||'').trim();
         if(body.length<1||body.length>2000)throw new Error('Revisa la longitud del borrador (máximo 2000 caracteres).');
         if(!annLoaded)await loadAnnWorks();
-        annDraftMessage=body;annDraftTitle=item.title;annDraftPresentation=normalizeDraftPresentation(item.presentation);annPreview=null;annFeedback='';
+        annDraftId=item.id;annDraftMessage=body;annDraftTitle=item.title;annDraftPresentation=normalizeDraftPresentation(item.presentation);annPreview=null;annFeedback='';
         tab='anuncios';draw();
       });
     });

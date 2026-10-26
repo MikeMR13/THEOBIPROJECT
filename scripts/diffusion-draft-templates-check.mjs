@@ -23,4 +23,7 @@ assert.match(sql,/not private\.diffusion_scope_ok\(p_team,'diffusion_compose'\)/
 assert.match(sql,/team_id is not distinct from p_team and status='draft'/);
 assert.match(sql,/grant execute on function public\.diffusion_campaign_draft_save\(uuid,uuid,text,text,jsonb\)/);
 assert.doesNotMatch(sql,/insert into public\.diffusion_jobs|pg_net|http_post/i);
-console.log('PASS: plantillas con variables, opciones y vista previa sin envíos');
+for(const token of ['df-ann-draft','data-rule-draft-save','diffusion_rule_template_set',
+ 'template_campaign_id','savedDraftOptions(annDraftId)','annDraftId=item.id'])
+ assert.ok(ui.includes(token),'Falta selector de borradores: '+token);
+console.log('PASS: borradores disponibles en Anunciar y Automatizaciones, sin envíos');
