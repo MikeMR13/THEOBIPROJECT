@@ -8,7 +8,7 @@ const EVENTS = [
 ];
 const TYPES = ['discord','telegram','facebook','instagram','threads','bluesky','mastodon','x','tiktok','webhook'];
 const TELEGRAM_BOT_TOKEN = /^[0-9]{5,15}:[A-Za-z0-9_-]{30,80}$/;
-const TELEGRAM_CHANNEL = /^(@[A-Za-z][A-Za-z0-9_]{4,31}|-100[0-9]{6,16})$/;
+const TELEGRAM_CHANNEL = /^(@[A-Za-z][A-Za-z0-9_]{4,31}|-[1-9][0-9]{4,18})$/;
 const telegramChannelValue = input => {
   const raw=String(input||'').trim();
   const publicLink=raw.match(/^(?:https?:\/\/)?(?:www\.)?t\.me\/([A-Za-z][A-Za-z0-9_]{4,31})\/?$/i);
@@ -29,6 +29,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const canManage = p('diffusion_manage'), canCompose = p('diffusion_compose');
   const canLogs = p('diffusion_logs'), canAnnounce = p('diffusion_publish');
   let tab = 'resumen', rules = [], campaigns = [], connections = [], jobs = [];
+  let telegramFeedback = '';
   const deep = new URLSearchParams(location.search);
   const deepKind = ({o:'series',v:'volume',c:'chapter'})[deep.get('k')] || (['series','volume','chapter'].includes(deep.get('kind')) ? deep.get('kind') : '');
   const deepSource = /^[0-9a-f-]{36}$/i.test(deep.get('id')||deep.get('source')||'') ? (deep.get('id')||deep.get('source')) : '';
@@ -84,19 +85,20 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       + (canManage&&(c.provider==='discord'||c.provider==='telegram')?'<div><button type="button" class="btn" data-test-'+safe(c.provider)+'="'+safe(c.id)+'">Enviar prueba</button> '
       + '<button type="button" class="df-danger" data-revoke-'+safe(c.provider)+'="'+safe(c.id)+'">Desconectar</button></div>':'')
       + '</article>').join('')+'</div>' : empty('Aún no hay cuentas conectadas.'))
+    + '<div id="df-telegram-feedback" class="df-note" role="alert" aria-live="assertive">'+safe(telegramFeedback)+'</div>'
     + (canManage ? '<form id="df-discord-form" class="df-form" autocomplete="off"><h4>Conectar Discord</h4>'
       + '<label>Nombre de la conexión<input name="label" minlength="2" maxlength="100" required placeholder="Ej. Canal de novedades"></label>'
       + '<label>URL privada del webhook<input name="webhook" type="password" required autocomplete="off" spellcheck="false" inputmode="url" placeholder="https://discord.com/api/webhooks/…"></label>'
       + '<p class="df-muted">El enlace se envía una sola vez al servidor por HTTPS y se guarda cifrado en Vault. No se muestra otra vez. Una prueba solo se envía al pulsar el botón.</p>'
       + '<button type="submit" class="btn">Guardar conexión segura</button></form>'
       : '<p class="df-muted">Necesitas «Gestionar difusión» para conectar redes.</p>')
-      + (canManage ? '<form id="df-telegram-form" class="df-form" autocomplete="off"><h4>Conectar canal de Telegram</h4>'
-        + '<p>Crea un bot con @BotFather y añádelo como administrador de tu canal, con permiso para publicar. Aquí solo se admiten canales; nunca pegues el token en chats.</p>'
+      + (canManage ? '<form id="df-telegram-form" class="df-form" autocomplete="off"><h4>Conectar canal o grupo de Telegram</h4>'
+        + '<p>Crea un bot con @BotFather y añádelo a tu grupo o canal, con permiso para publicar. Nunca pegues el token en chats.</p>'
         + '<label>Nombre de la conexión<input name="label" minlength="2" maxlength="100" required placeholder="Ej. Novedades en Telegram"></label>'
         + '<label>Token privado del bot<input name="token" type="password" required autocomplete="off" spellcheck="false" placeholder="Token entregado por @BotFather"></label>'
-        + '<label>Usuario o enlace público del canal<input name="chat" required autocomplete="off" spellcheck="false" placeholder="@MiCanal o https://t.me/MiCanal"></label>'
-        + '<p class="df-muted">Un canal público tiene enlace t.me/NombreDelCanal. Si es privado, necesitas su ID numérico -100…; los enlaces de invitación t.me/+… no sirven. Solo se admiten canales, no grupos.</p>'
-        + '<p class="df-muted">El token se cifra en Vault. El botón «Enviar prueba» verifica el canal y los permisos del bot. No se publicará nada automáticamente.</p>'
+        + '<label>Usuario o enlace público del grupo o canal<input name="chat" required autocomplete="off" spellcheck="false" placeholder="@MiCanal o https://t.me/MiCanal"></label>'
+        + '<p class="df-muted">Los canales y supergrupos públicos usan @usuario o t.me/usuario. Para un grupo privado se necesita su ID numérico negativo; un enlace de invitación t.me/+… no funciona.</p>'
+        + '<p class="df-muted">El token se cifra en Vault. El botón «Enviar prueba» comprueba que el bot pueda enviar mensajes al grupo o canal. No se publicará nada automáticamente.</p>'
         + '<button type="submit" class="btn">Guardar Telegram de forma segura</button></form>' : '')
     + '<h4>Proveedores previstos</h4><div class="df-providers">'+TYPES.map(n=>'<span>'+safe(n)+'</span>').join('')+'</div>'
     + '<p class="df-muted">Solo se permite una prueba por conexión cada 60 segundos.</p>'
@@ -308,14 +310,14 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           throw new Error('El token del bot no tiene un formato válido. Cópialo completo desde @BotFather; no pegues una URL.');
         if(!TELEGRAM_CHANNEL.test(chat)){
           if(/(?:t\.me\/\+|t\.me\/joinchat\/|telegram\.me\/joinchat\/)/i.test(chat))
-            throw new Error('Ese es un enlace de invitación privado. Necesitas el ID numérico -100… del canal o un canal con @usuario público.');
-          throw new Error('El canal debe ser @NombreDelCanal, un enlace público t.me/NombreDelCanal o un ID numérico -100… (no un grupo).');
+            throw new Error('Ese es un enlace de invitación privado. Necesitas el ID numérico negativo del grupo o canal o un @usuario público.');
+          throw new Error('El destino debe ser @NombrePublico, un enlace t.me/NombrePublico o un ID numérico negativo.');
         }
         const {error}=await sb.rpc('diffusion_telegram_connect',{
           p_team:teamId,p_label:label,p_token:token,p_chat:chat
         });
         if(error?.message==='invalid_telegram_connection')
-          throw new Error('Telegram rechazó el formato del token o canal. Revisa los datos de @BotFather y el enlace público del canal.');
+          throw new Error('Telegram rechazó el formato del token o destino. Revisa @BotFather y el identificador del grupo o canal.');
         if(error?.message==='forbidden')
           throw new Error('Tu cuenta no tiene permiso para gestionar conexiones de este equipo.');
         if(error)throw new Error('No se pudo guardar Telegram. Actualiza la página y verifica tus permisos.');
@@ -325,34 +327,41 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       });
     });
     root.querySelectorAll('[data-test-telegram]').forEach(b=>b.onclick=()=>{
-      if(!confirm('¿Enviar una única prueba manual al canal de Telegram seleccionado?'))return;
+      if(!confirm('¿Enviar una única prueba al grupo o canal de Telegram seleccionado?'))return;
+      telegramFeedback='Comprobando el grupo o canal de Telegram…';
+      const note=root.querySelector('#df-telegram-feedback');
+      if(note)note.textContent=telegramFeedback;
       busy(b,async()=>{
-        const {data,error}=await sb.functions.invoke('diffusion-telegram',{
-          body:{action:'test',connection_id:b.dataset.testTelegram}
-        });
-        let reason=data?.error||null;
-        if(!reason&&error?.context?.json){
-          try{reason=(await error.context.json())?.error||null;}catch{}
+        try{
+          const {data,error}=await sb.functions.invoke('diffusion-telegram',{
+            body:{action:'test',connection_id:b.dataset.testTelegram}
+          });
+          let reason=data?.error||null;
+          if(!reason&&error?.context?.json){
+            try{reason=(await error.context.json())?.error||null;}catch{}
+          }
+          if(error?.context?.status===429||reason==='rate_limited')
+            throw new Error('Espera 60 segundos entre pruebas de Telegram.');
+          const reasons={
+            telegram_not_chat:'El destino no es un grupo ni un canal de Telegram.',
+            telegram_chat_unavailable:'El bot no encuentra el grupo o canal. Revisa el @ o ID y que esté añadido.',
+            telegram_token_invalid:'Telegram rechazó el token. Revísalo en @BotFather.',
+            telegram_bot_not_member:'Telegram no detecta al bot en ese grupo o canal. Agrégalo como miembro o administrador.',
+            telegram_bot_no_post_permission:'El bot no puede publicar en ese grupo o canal. Dale permiso para enviar mensajes y fotos.',
+            telegram_bot_blocked:'Telegram bloqueó al bot. Revisa su pertenencia y permisos.',
+            telegram_cannot_send:'Telegram no permitió el mensaje. Revisa los permisos del grupo o canal.',
+            telegram_api_rate_limited:'Telegram limita las solicitudes. Inténtalo más tarde.',
+            telegram_api_unreachable:'No se pudo contactar con Telegram. Inténtalo más tarde.',
+            telegram_credential_unavailable:'No se pudo validar la conexión guardada.',
+            telegram_api_error:'Telegram rechazó la prueba. Comprueba los permisos.'
+          };
+          if(error||!data?.ok)throw new Error(reasons[reason]||'No se confirmó el envío. Verifica que el bot pueda publicar en el grupo o canal.');
+          connections=await q('diffusion_connections','id,provider,label,status,created_at');
+          telegramFeedback='Prueba recibida por Telegram. Conexión verificada.';
+        }catch(e){
+          telegramFeedback=e?.message||'La prueba de Telegram no pudo completarse.';
         }
-        if(error?.context?.status===429||reason==='rate_limited')
-          throw new Error('Espera 60 segundos entre pruebas de Telegram.');
-        const hints={
-          telegram_group_not_supported:'Ese @ corresponde a un grupo. La conexión actual requiere un canal de Telegram, no un grupo de conversación.',
-          telegram_not_channel:'El destino no es un canal de anuncios de Telegram.',
-          telegram_token_invalid:'Telegram rechazó el token del bot. Revisa el token en @BotFather.',
-          telegram_channel_unavailable:'No se encontró el canal o el bot no puede acceder. Revisa el @ del canal y añade el bot como administrador.',
-          telegram_bot_not_member:'El bot no figura como administrador de ese canal. Agrégalo desde los administradores del canal.',
-          telegram_bot_no_post_permission:'El bot está en el canal pero no tiene activado el permiso «Publicar mensajes».',
-          telegram_bot_blocked:'Telegram impidió publicar al bot. Revisa que siga siendo administrador.',
-          telegram_cannot_send:'Telegram rechazó el mensaje de prueba. Comprueba los permisos y la configuración del canal.',
-          telegram_api_rate_limited:'Telegram está limitando las solicitudes. Inténtalo más tarde.',
-          telegram_api_unreachable:'No se pudo contactar a Telegram. Inténtalo después, sin crear otra conexión.',
-          telegram_credential_unavailable:'No se pudieron validar los datos guardados. Desconecta y vuelve a vincular el canal solo si persiste.',
-          telegram_api_error:'Telegram no confirmó la prueba. Comprueba el token y los permisos del canal.'
-        };
-        if(error||!data?.ok)throw new Error(hints[reason]||'Telegram no confirmó la prueba. Comprueba que el destino sea un canal y el bot pueda publicar.');
-        connections=await q('diffusion_connections','id,provider,label,status,created_at');
-        toast('Telegram recibió la prueba');draw();
+        draw();
       });
     });
     root.querySelectorAll('[data-revoke-telegram]').forEach(b=>b.onclick=()=>{
