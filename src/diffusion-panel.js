@@ -25,7 +25,7 @@ const when = value => value ? new Date(value).toLocaleString('es-MX', { dateStyl
 function stylesheet() {
   if (document.getElementById('df-css')) return;
   const l = document.createElement('link');
-  l.id = 'df-css'; l.rel = 'stylesheet'; l.href = '/diffusion.css?v=2';
+  l.id = 'df-css'; l.rel = 'stylesheet'; l.href = '/diffusion.css?v=3';
   document.head.appendChild(l);
 }
 export async function renderDiffusionPanel({ sb, root, team = null, permissions = {}, esc, toast }) {
