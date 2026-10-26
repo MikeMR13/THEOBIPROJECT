@@ -314,24 +314,35 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     }));
     root.querySelector('#df-ann-send')?.addEventListener('click',e=>{
       const content=root.querySelector('#df-ann-text')?.value.trim();
-      if(!content){toast('Escribe un mensaje antes de enviarlo.');return;}
-      if(!confirm('¿Publicar ahora este anuncio en el canal seleccionado? No se podrá repetir para el mismo contenido.'))return;
+      if(!content||content.length>700){
+        annFeedback='Escribe un mensaje de 1 a 700 caracteres antes de enviarlo.';
+        const note=root.querySelector('#df-ann-feedback');if(note)note.textContent=annFeedback;
+        return;
+      }
+      if(!confirm('¿Publicar ahora este anuncio en '+(annProvider()==='telegram'?'Telegram':'Discord')+'? No se podrá repetir para el mismo contenido.'))return;
       busy(e.currentTarget,async()=>{
-        const provider=annProvider();
-        const {data,error}=await sb.functions.invoke(provider==='telegram'?'diffusion-telegram':'diffusion-announcement',{body:{
-          action:'announce',connection_id:annConnection,kind:annKind,source_id:chosenAnnouncementId(),message:content
-        }});
-        const status=error?.context?.status;
-        if(status===409||data?.error==='already_announced')
-          throw new Error('Este contenido ya fue anunciado en ese canal.');
-        if(status===429||data?.error==='rate_limited')
-          throw new Error('Espera 15 segundos antes de anunciar otro contenido.');
-        if(status===403)throw new Error('El contenido ya no es público o no tienes permisos.');
-        if(error||!data?.ok)throw new Error('El resultado del envío no está confirmado. No lo repitas: revisa el canal o el historial.');
-        annPreview=null;toast('Anuncio enviado a '+(annProvider()==='telegram'?'Telegram':'Discord'));draw();
+        try{
+          const provider=annProvider();
+          const {data,error}=await sb.functions.invoke(provider==='telegram'?'diffusion-telegram':'diffusion-announcement',{body:{
+            action:'announce',connection_id:annConnection,kind:annKind,source_id:chosenAnnouncementId(),message:content
+          }});
+          const status=error?.context?.status;
+          if(status===409||data?.error==='already_announced')
+            throw new Error('Este contenido ya fue anunciado en ese destino.');
+          if(status===429||data?.error==='rate_limited')
+            throw new Error('Espera 15 segundos antes de anunciar otro contenido.');
+          if(status===403)throw new Error('El contenido ya no es público o no tienes permisos.');
+          if(error||!data?.ok)
+            throw new Error('El envío no está confirmado. No lo repitas: comprueba el destino y el historial para evitar duplicados.');
+          annPreview=null;annDraftMessage='';annDraftTitle='';
+          annFeedback='Envío confirmado por '+(provider==='telegram'?'Telegram':'Discord')+'.';
+          draw();
+        }catch(err){
+          annFeedback=err?.message||'No se pudo confirmar el envío.';
+          const note=root.querySelector('#df-ann-feedback');if(note)note.textContent=annFeedback;
+        }
       });
     });
-
 
     root.querySelector('#df-telegram-form')?.addEventListener('submit',e=>{
       e.preventDefault();
