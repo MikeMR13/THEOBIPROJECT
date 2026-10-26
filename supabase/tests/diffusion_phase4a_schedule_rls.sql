@@ -11,6 +11,11 @@ do $qa$ begin
  then raise exception 'Agenda sin RLS o ACL'; end if;
 end $qa$;
 
+-- El test previo envió un claim sintético en la misma conexión;
+-- respetar el rate limit de producción y desplazar únicamente el reloj del fixture.
+update public.diffusion_connections set last_announcement_at=now()-interval '20 seconds'
+ where team_id='11111111-1111-4111-8111-111111111111'
+   and provider='discord' and label='Anuncios A';
 -- Propietario de equipo A: creación futura, no despacho.
 select set_config('request.jwt.claim.sub','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',false);
 set role authenticated;
