@@ -74,6 +74,25 @@ do $qa$ begin
  then raise exception 'Duplicate outbound plans'; end if;
 end $qa$;
 
+-- Both editorial-review destinations must be independently approvable.
+select set_config('request.jwt.claim.sub','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',false);
+set role authenticated;
+do $qa$
+declare x record;
+begin
+ for x in select id from public.diffusion_scheduled_announcements
+  where rule_id=current_setting('diffusion.multi.preview')::uuid
+    and delivery_mode='manual' and status='planned'
+ loop
+  if not public.diffusion_prelaunch_approve(x.id) then raise exception 'Review approval failed'; end if;
+ end loop;
+ if (select count(*) from public.diffusion_scheduled_announcements
+   where rule_id=current_setting('diffusion.multi.preview')::uuid
+    and delivery_mode='automatic' and status='planned')<>2
+ then raise exception 'Each selected channel requires independent review approval'; end if;
+end $qa$;
+reset role;
+
 -- Try activation from a different identity / team.
 select set_config('request.jwt.claim.sub','dddddddd-dddd-4ddd-8ddd-dddddddddddd',false);
 set role authenticated;
