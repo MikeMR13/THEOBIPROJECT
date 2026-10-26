@@ -387,6 +387,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     root.innerHTML = '<div class="df">' + header() + page() + '</div>';
     root.querySelectorAll('[data-dtab],[data-goto]').forEach(b => b.onclick = async () => {
       tab = b.dataset.dtab || b.dataset.goto;
+      if(tab==='campanas'&&!draftWorksLoaded){try{await loadDraftWorks();}catch{toast('No se pudieron cargar obras para la vista previa.');}}
       if(tab==='anuncios'&&!annLoaded) {
         try{await loadAnnWorks();}catch(e){toast('No se pudo cargar el catálogo para anuncios.');}
       }
@@ -462,7 +463,15 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       if(previews.some(x=>x.data.url!==data.url||x.data.title!==data.title||
           x.data.cover_path!==data.cover_path))
         throw new Error('La obra o su portada no coinciden entre canales. No se enviará el anuncio.');
-      annPreview={...data,message:annDraftMessage||data.message};annFeedback='';draw();
+      let finalMessage=annDraftMessage||data.message;
+      if(annDraftTitle){
+        const dataForWork=annWorks.find(w=>w.id===annWork);
+        const resolved=renderDraftTemplate(finalMessage,draftContext(dataForWork));
+        if(resolved.errors.length)throw new Error('Corrige las variables: '+resolved.errors.join(' '));
+        finalMessage=resolved.text;
+        if(!finalMessage.trim())throw new Error('El anuncio queda vacío.');
+      }
+      annPreview={...data,message:finalMessage};annFeedback='';draw();
     }));
     root.querySelector('#df-ann-template')?.addEventListener('change',e=>{
       const area=root.querySelector('#df-ann-text');
@@ -819,16 +828,32 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     root.querySelector('#df-campaign-template')?.addEventListener('change',e=>{
       const area=root.querySelector('#df-campaign-form textarea[name="body"]');
       const selected=editorialTemplate(e.target.value);
-      if(area&&selected)area.value=selected;
+      if(area&&selected){area.value=selected;refreshDraftPreview();}
     });
+    const refreshDraftPreview=()=>{
+      const area=root.querySelector('#df-campaign-form textarea[name="body"]');
+      const live=root.querySelector('#df-campaign-live');
+      if(area&&live)live.innerHTML=draftLivePreview(area.value,draftWorkId,draftPresentation);
+    };
+    root.querySelector('#df-campaign-form textarea[name="body"]')?.addEventListener('input',refreshDraftPreview);
+    root.querySelector('#df-campaign-work')?.addEventListener('change',e=>{draftWorkId=e.target.value;refreshDraftPreview();});
+    root.querySelectorAll('[data-draft-option]').forEach(input=>input.addEventListener('change',()=>{
+      draftPresentation={...draftPresentation,[input.dataset.draftOption]:input.checked};refreshDraftPreview();
+    }));
+    root.querySelectorAll('[data-draft-variable]').forEach(button=>button.addEventListener('click',()=>{
+      const area=root.querySelector('#df-campaign-form textarea[name="body"]');
+      if(!area)return;
+      area.setRangeText('{{'+button.dataset.draftVariable+'}}',area.selectionStart,area.selectionEnd,'end');
+      area.focus();refreshDraftPreview();
+    }));
     root.querySelectorAll('[data-edit-campaign]').forEach(b=>b.onclick=()=>{
       if(!canCompose)return;
       const item=campaigns.find(c=>c.id===b.dataset.editCampaign&&c.status==='draft');
       if(!item)return;
-      editingCampaignId=item.id;tab='campanas';draw();
+      editingCampaignId=item.id;draftPresentation=normalizeDraftPresentation(item.presentation);tab='campanas';draw();
     });
     root.querySelector('#df-campaign-cancel')?.addEventListener('click',()=>{
-      editingCampaignId='';draw();
+      editingCampaignId='';draftPresentation=defaultDraftPresentation();draw();
     });
     root.querySelectorAll('[data-use-campaign]').forEach(b=>b.onclick=()=>{
       if(!canAnnounce)return;
@@ -836,10 +861,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         const item=campaigns.find(c=>c.id===b.dataset.useCampaign&&c.status==='draft');
         if(!item)throw new Error('Este borrador ya no está disponible.');
         const body=String(item.body||'').trim();
-        if(body.length<1||body.length>700)
-          throw new Error('Para preparar el anuncio, edita el borrador y deja un mensaje de 1 a 700 caracteres.');
+        if(body.length<1||body.length>2000)throw new Error('Revisa la longitud del borrador (máximo 2000 caracteres).');
         if(!annLoaded)await loadAnnWorks();
-        annDraftMessage=body;annDraftTitle=item.title;annPreview=null;annFeedback='';
+        annDraftMessage=body;annDraftTitle=item.title;annDraftPresentation=normalizeDraftPresentation(item.presentation);annPreview=null;annFeedback='';
         tab='anuncios';draw();
       });
     });
@@ -849,10 +873,10 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       busy(f.querySelector('button'), async () => {
         const { error } = await sb.rpc('diffusion_campaign_draft_save', {
           p_team:teamId,p_id:editingCampaignId||null,p_title:String(data.get('title')||''),
-          p_body:String(data.get('body')||'')
+          p_body:String(data.get('body')||''),p_presentation:normalizeDraftPresentation(draftPresentation)
         });
         if (error) throw new Error('No se pudo guardar el borrador. Comprueba tus permisos y que siga editable.');
-        editingCampaignId='';
+        editingCampaignId='';draftPresentation=defaultDraftPresentation();
         campaigns = await q('diffusion_campaigns','id,title,body,presentation,status,scheduled_at,created_at');
         toast('Borrador guardado sin publicar');draw();
       });
