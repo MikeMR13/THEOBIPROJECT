@@ -15,7 +15,7 @@ end $qa$;
 select set_config('request.jwt.claim.sub','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',false);
 set role authenticated;
 do $qa$
-declare conn uuid:=current_setting('diffusion.announce_cid')::uuid;
+declare conn uuid:=(select id from public.diffusion_connections where team_id='11111111-1111-4111-8111-111111111111' and label='Anuncios A' and provider='discord' and status='active' limit 1);
  plan_id uuid; cancel_id uuid; deny bool; job jsonb; j uuid;
 begin
  plan_id:=public.diffusion_schedule_create(conn,'series','10000000-0000-4000-8000-000000000001',
