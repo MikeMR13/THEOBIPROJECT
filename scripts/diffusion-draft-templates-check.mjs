@@ -8,6 +8,7 @@ assert.deepEqual(normalizeDraftPresentation({showTitle:false,showTeam:false,show
 assert.equal(renderDraftTemplate('¡Les presentamos {{novela}} por {{equipo_traductor}}!',ctx).text,
   '¡Les presentamos La biblioteca del eclipse por Equipo Aurora!');
 assert.equal(renderDraftTemplate('{{equpo traductor}}',ctx).text,'Equipo Aurora');
+assert.equal(renderDraftTemplate('{{equipo_productor}}',ctx).text,'Equipo Aurora');
 assert.equal(renderDraftTemplate('{{sinopsis}} · {{autor}}',ctx).text,'Un misterio. · A. Ejemplo');
 assert.ok(renderDraftTemplate('{{secreto}}',ctx).errors.length);
 assert.ok(renderDraftTemplate('{{novela}}',{}).errors.length);

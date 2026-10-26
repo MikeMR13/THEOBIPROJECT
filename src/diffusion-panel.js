@@ -208,11 +208,11 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       +'<label>Plantilla rápida<select id="df-campaign-template">'+templateOptions()+'</select></label>'
       +'<label>Mensaje con variables<textarea name="body" maxlength="2000" rows="5" placeholder="¡Les presentamos {{novela}} por {{equipo_traductor}}!">'+safe(editingCampaign()?.body||'')+'</textarea></label>'
       +'<div class="df-draft-variables" role="group" aria-label="Insertar variables">'
-      +[['novela','Novela'],['equipo_traductor','Equipo traductor'],['sinopsis','Sinopsis'],['autor','Autor']].map(([key,label])=>'<button type="button" class="df-link" data-draft-variable="'+key+'">＋ '+label+'</button>').join('')+'</div>'
+      +[['novela','Novela'],['equipo_traductor','Equipo productor / traductor'],['sinopsis','Sinopsis'],['autor','Autor']].map(([key,label])=>'<button type="button" class="df-link" data-draft-variable="'+key+'">＋ '+label+'</button>').join('')+'</div>'
       +'<label>Obra para la vista previa<select id="df-campaign-work">'
       +(draftWorks.length?draftWorks.map(w=>'<option value="'+safe(w.id)+'"'+(draftWorkId===w.id?' selected':'')+'>'+safe(w.title)+'</option>').join(''):'<option value="">No hay obras disponibles</option>')+'</select></label>'
       +'<fieldset class="df-draft-options"><legend>Campos en la tarjeta de muestra</legend>'
-      +[['showTitle','Nombre de la obra'],['showTeam','Equipo traductor'],['showSynopsis','Sinopsis'],['showCover','Portada']].map(([key,label])=>'<label><input type="checkbox" data-draft-option="'+key+'"'+(draftPresentation[key]?' checked':'')+'> '+label+'</label>').join('')+'</fieldset>'
+      +[['showTitle','Nombre de la obra'],['showTeam','Equipo productor / traductor'],['showSynopsis','Sinopsis'],['showCover','Portada']].map(([key,label])=>'<label><input type="checkbox" data-draft-option="'+key+'"'+(draftPresentation[key]?' checked':'')+'> '+label+'</label>').join('')+'</fieldset>'
       +'<div id="df-campaign-live">'+draftLivePreview(editingCampaign()?.body||'',draftWorkId,draftPresentation)+'</div>'
       +'<p class="df-muted">Máximo de 700 caracteres para enviar, después de sustituir las variables. La portada y el enlace real se validan en el servidor.</p>'
       +'<button type="submit" class="btn">'+(editingCampaign()?'Guardar cambios':'Guardar borrador')+'</button>'
@@ -441,15 +441,15 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       draw();
     }));
     root.querySelector('#df-ann-kind')?.addEventListener('change',e=>{
-      annKind=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';annFeedback='';
+      annKind=e.target.value;annPreview=null;annScheduledId='';annFeedback='';
       loadAnnItems().then(draw).catch(()=>toast('No se pudieron cargar los contenidos.'));
     });
     root.querySelector('#df-ann-work')?.addEventListener('change',e=>{
-      annWork=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';annFeedback='';
+      annWork=e.target.value;annPreview=null;annScheduledId='';annFeedback='';
       loadAnnItems().then(draw).catch(()=>toast('No se pudieron cargar los contenidos.'));
     });
     root.querySelector('#df-ann-source')?.addEventListener('change',e=>{
-      annSource=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';annFeedback='';draw();
+      annSource=e.target.value;annPreview=null;annScheduledId='';annFeedback='';draw();
     });
     root.querySelector('#df-ann-preview')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
       const targets=annTargets();

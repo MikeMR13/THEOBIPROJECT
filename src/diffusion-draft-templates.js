@@ -7,7 +7,7 @@ export function normalizeDraftPresentation(raw){
   return base;
 }
 const aliases=Object.freeze({novela:'novela',equipo_traductor:'equipo_traductor',
-  'equipo traductor':'equipo_traductor','equpo traductor':'equipo_traductor',
+  'equipo traductor':'equipo_traductor',equipo_productor:'equipo_traductor','equpo traductor':'equipo_traductor',
   sinopsis:'sinopsis',autor:'autor'});
 export function renderDraftTemplate(input,context={}){
   const errors=[];
