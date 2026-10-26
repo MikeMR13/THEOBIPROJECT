@@ -54,6 +54,35 @@ insert into public.team_members(team_id,user_id,role,role_id,overrides) values
 ('22222222-2222-4222-8222-222222222222','dddddddd-dddd-4ddd-8ddd-dddddddddddd','owner',null,'{}'),
 ('11111111-1111-4111-8111-111111111111','ffffffff-ffff-4fff-8fff-ffffffffffff','proofreader','11111111-0000-4000-8000-000000000003','{"diffusion_compose":false}');
 
+-- Contenido editorial FICTICIO para probar permisos y accesibilidad pública.
+create table public.series (
+ id uuid primary key,team_id uuid references public.teams(id),slug text,title text,
+ synopsis text,cover_path text,published boolean,archived_at timestamptz,
+ translation_status text,access text,access_until timestamptz
+);
+create table public.volumes (
+ id uuid primary key,series_id uuid references public.series(id),num integer,
+ title text,synopsis text,synopsis_spoiler boolean,cover_path text,status text,
+ deleted_at timestamptz,published_at timestamptz,access text,access_until timestamptz
+);
+create table public.chapters (
+ id uuid primary key,series_id uuid references public.series(id),
+ volume_id uuid,vol integer,num integer,title text,status text,
+ deleted_at timestamptz,publish_at timestamptz,access text,access_until timestamptz
+);
+insert into public.series(id,team_id,slug,title,synopsis,published,translation_status,access) values
+ ('10000000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','obra-a','Obra A','Una obra abierta',true,'ongoing','public'),
+ ('10000000-0000-4000-8000-000000000002','22222222-2222-4222-8222-222222222222','obra-b','Obra B','Una obra del equipo B',true,'ongoing','public'),
+ ('10000000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','obra-mecenas','Obra mecenas','Exclusiva',true,'ongoing','donors');
+insert into public.volumes(id,series_id,num,title,status,access) values
+ ('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001',1,'Volumen A','published','public'),
+ ('20000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001',2,'Futuro','scheduled','public'),
+ ('20000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000001',3,'Mecenas','published','donors');
+insert into public.chapters(id,series_id,volume_id,vol,num,title,status,access) values
+ ('30000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001',1,1,'Capítulo público','published','public'),
+ ('30000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001',1,2,'Capítulo mecenas','published','donors'),
+ ('30000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000002',2,3,'Programado','scheduled','public');
+
 -- Vault API simulado SOLO en PostgreSQL QA. Sin cifrado real ni secretos reales.
 create schema vault;
 create table vault.secrets(id uuid primary key default gen_random_uuid(),secret text not null);
