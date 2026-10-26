@@ -39,7 +39,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     ['webhooks','Webhooks']
   ];
   const message = 'Las reglas permanecen inactivas y las campañas como borradores. '
-    + 'Discord solo envía el mensaje de prueba cuando pulsas «Enviar prueba»; aún no hay publicaciones automáticas.';
+    + 'Discord permite pruebas y anuncios individuales confirmados por ti; aún no hay publicaciones automáticas.';
   root.innerHTML = '<div class="df" aria-live="polite"><p class="df-empty">Cargando Difusión…</p></div>';
   try {
     [connections,rules,campaigns,jobs] = await Promise.all([
@@ -57,7 +57,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     return;
   }
   const header = () => '<div class="df-title"><div><small>DIFUSIÓN · ' + (official ? 'BIBLIOTECARIO' : 'ESTUDIO') + '</small>'
-    + '<h2>Centro de Difusión</h2><p>' + safe(scope) + '</p></div><span class="df-stage">DISCORD · PRUEBA MANUAL</span></div>'
+    + '<h2>Centro de Difusión</h2><p>' + safe(scope) + '</p></div><span class="df-stage">DISCORD · ANUNCIOS MANUALES</span></div>'
     + '<nav class="df-tabs" aria-label="Secciones de Difusión">'
     + tabs.map(([id,name])=>'<button type="button" data-dtab="' + id + '" class="' + (tab===id?'on':'')
       + '" aria-current="' + (tab===id?'page':'false') + '">' + name + '</button>').join('') + '</nav>'
@@ -113,7 +113,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       : empty('Todavía no hay envíos registrados.')) : empty('Tu rol no permite ver los registros técnicos.'))
     + '</section>';
 
-  const annSource = () => annKind==='series' ? annWork : annSource;
+  const chosenAnnouncementId = () => annKind==='series' ? annWork : annSource;
   const annConnections = () => connections.filter(c=>c.provider==='discord'&&c.status==='active');
   const annOptions = () => annKind==='series' ? [] : annItems.filter(x=>x.status==='published');
   const annSelected = (items,id,label) => items.map(x=>'<option value="'+safe(x.id)+'"'+(x.id===id?' selected':'')+'>'+safe(label(x))+'</option>').join('');
@@ -230,9 +230,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       annSource=e.target.value;annPreview=null;draw();
     });
     root.querySelector('#df-ann-preview')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
-      if(!annConnection||!annSource())return;
+      if(!annConnection||!chosenAnnouncementId())return;
       const {data,error}=await sb.rpc('diffusion_discord_announcement_preview',{
-        p_connection:annConnection,p_kind:annKind,p_source:annSource()
+        p_connection:annConnection,p_kind:annKind,p_source:chosenAnnouncementId()
       });
       if(error||!data?.url)throw new Error('Este contenido no está disponible públicamente o no tienes permiso para anunciarlo.');
       annPreview=data;draw();
@@ -243,7 +243,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       if(!confirm('¿Publicar ahora este anuncio en el canal Discord seleccionado? No se podrá repetir para el mismo contenido.'))return;
       busy(e.currentTarget,async()=>{
         const {data,error}=await sb.functions.invoke('diffusion-announcement',{body:{
-          connection_id:annConnection,kind:annKind,source_id:annSource(),message:content
+          connection_id:annConnection,kind:annKind,source_id:chosenAnnouncementId(),message:content
         }});
         const status=error?.context?.status;
         if(status===409||data?.error==='already_announced')
