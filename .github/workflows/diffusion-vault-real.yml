@@ -11,6 +11,9 @@ on:
       - 'supabase/migrations/20261025232432_diffusion_discord_manual_controlled_20261025.sql'
       - 'supabase/migrations/20261026010751_diffusion_discord_announcements_manual_20261025.sql'
       - 'supabase/tests/diffusion_discord_announcement_rls.sql'
+      - 'supabase/migrations/20261026012634_diffusion_discord_cover_by_publication_level_20261025.sql'
+      - 'supabase/migrations/20261026021155_diffusion_telegram_manual_phase2c_20261025.sql'
+      - 'supabase/tests/diffusion_telegram_rls.sql'
   workflow_dispatch:
 
 permissions:
@@ -61,6 +64,9 @@ jobs:
           psql_local supabase/tests/diffusion_vault_encryption.sql > "$RUNNER_TEMP/diffusion-vault-check.log"
           psql_local supabase/migrations/20261026010751_diffusion_discord_announcements_manual_20261025.sql > "$RUNNER_TEMP/diffusion-announcements.log"
           psql_local supabase/tests/diffusion_discord_announcement_rls.sql > "$RUNNER_TEMP/diffusion-announcements-rls.log"
+          psql_local supabase/migrations/20261026012634_diffusion_discord_cover_by_publication_level_20261025.sql > "$RUNNER_TEMP/diffusion-cover-strict.log"
+          psql_local supabase/migrations/20261026021155_diffusion_telegram_manual_phase2c_20261025.sql > "$RUNNER_TEMP/diffusion-telegram.log"
+          psql_local supabase/tests/diffusion_telegram_rls.sql > "$RUNNER_TEMP/diffusion-telegram-rls.log"
           echo 'Supabase Vault real: migraciones, permisos y cifrado PASS'
       - name: Apagar Supabase local y limpiar archivos efímeros
         if: always()

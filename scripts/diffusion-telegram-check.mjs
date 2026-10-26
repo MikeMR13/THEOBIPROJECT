@@ -1,0 +1,27 @@
+// Contratos estáticos y parseo TypeScript. No usa tokens ni conexiones.
+import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+import { transformSync } from 'esbuild';
+const sql=readFileSync('supabase/migrations/20261026021155_diffusion_telegram_manual_phase2c_20261025.sql','utf8');
+const ts=readFileSync('supabase/functions/diffusion-telegram/index.ts','utf8');
+const ui=readFileSync('src/diffusion-panel.js','utf8');
+assert.match(sql,/vault\.create_secret\(p_token/);
+assert.match(sql,/private\.diffusion_telegram_secrets/);
+assert.match(sql,/private\.diffusion_manual_telegram_data/);
+assert.match(sql,/provider='telegram'/);
+assert.match(sql,/diffusion_telegram_announcement_claim/);
+assert.match(sql,/missing_volume_cover/);
+assert.match(sql,/grant execute on function public\.diffusion_telegram_secret_resolve\(uuid\),[\s\S]*?to service_role;/);
+assert.doesNotMatch(sql,/cron\.schedule/);
+assert.match(ts,/auth\.getUser/);
+assert.match(ts,/getChatMember/);
+assert.match(ts,/sendPhoto/);
+assert.match(ts,/sendMessage/);
+assert.match(ts,/redirect:'error'/);
+assert.doesNotMatch(ts,/setInterval|setTimeout|https:\/\/.*evil\.test/);
+assert.match(ui,/diffusion_telegram_connect/);
+assert.match(ui,/diffusion-telegram/);
+assert.match(ui,/diffusion_telegram_disconnect/);
+assert.match(ui,/diffusion_'\+annProvider\(\)\+'_announcement_preview/);
+assert.ok(transformSync(ts,{loader:'ts',format:'esm'}).code.includes('Deno.serve('));
+console.log('TELEGRAM 2c: contratos OK (sin envíos reales)');
