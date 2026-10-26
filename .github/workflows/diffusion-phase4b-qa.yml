@@ -11,6 +11,8 @@ on:
       - 'src/diffusion-panel.js'
       - 'supabase/migrations/20261026224217_diffusion_draft_presentation.sql'
       - 'supabase/tests/diffusion_draft_presentation_rls.sql'
+      - 'supabase/migrations/20261026232244_diffusion_rule_draft_templates.sql'
+      - 'supabase/tests/diffusion_rule_templates_rls.sql'
       - 'sql/diffusion-4c-*'
       - 'sql/diffusion-prelaunch-rule-candidate.sql'
       - 'sql/diffusion-multichannel-rules-candidate.sql'
@@ -86,6 +88,8 @@ jobs:
           echo 'Borradores con preferencias por equipo: migración + privilegios'
           qa supabase/migrations/20261026224217_diffusion_draft_presentation.sql
           qa supabase/tests/diffusion_draft_presentation_rls.sql
+          qa supabase/migrations/20261026232244_diffusion_rule_draft_templates.sql
+          qa supabase/tests/diffusion_rule_templates_rls.sql
       - name: Edge Function simulada sin red ni tokens
         run: |
           node --check supabase/functions/diffusion-dispatch/handler.mjs

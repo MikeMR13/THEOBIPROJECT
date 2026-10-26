@@ -70,3 +70,8 @@
 .df-draft-card-content strong{color:#f4deb1}
 .df-draft-card-content small{font-size:11px;color:#baa987}
 @media(max-width:520px){.df-draft-card img{width:65px}.df-draft-options{display:grid}}
+
+/* Selector visible de plantilla para reglas existentes. */
+.df [data-rule-draft]{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:10px;border:1px solid #a68a52;background:#13110d;color:#f3ecd9;font:inherit}
+.df [data-rule-draft]:focus-visible{outline:2px solid #f2c230;outline-offset:2px}
+.df [data-rule-draft-save]{min-height:44px}

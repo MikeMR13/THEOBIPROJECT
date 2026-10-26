@@ -16,7 +16,7 @@ assert.equal((sql.match(/cross join lateral unnest\(rule\.connection_ids\)/g)||[
 assert.match(ui,/type="checkbox" data-rule-destination=/,'Use accessible native multi-checkbox selection');
 assert.match(ui,/\.querySelectorAll\('\[data-rule-destination=/,'Collect multiple checked values');
 assert.match(ui,/diffusion_rule_toggle_multi/,'Use atomic multi-channel rule RPC');
-assert.match(ui,/connection_ids,enabled_at/,'Display previously chosen targets');
+assert.match(ui,/connection_ids,template_campaign_id,enabled_at/,'Display previously chosen targets');
 assert.match(ui,/Selecciona entre 1 y 8 canales/,'Do not activate empty selection');
 assert.match(ui,/selected\.map\(c=>c\.provider/,'Show all selected channels per rule');
 console.log('Difusión multicanal: contrato de UI, permisos, fan-out, dedupe y desactivación — PASS');
