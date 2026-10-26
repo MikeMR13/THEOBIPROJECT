@@ -3,11 +3,11 @@
 create table public.diffusion_scheduled_announcements (
   id uuid primary key default gen_random_uuid(),
   team_id uuid references public.teams(id) on delete cascade,
-  connection_id uuid not null references public.diffusion_connections(id) on delete restrict,
+  connection_id uuid not null references public.diffusion_connections(id) on delete cascade,
   provider text not null check (provider in ('discord','telegram')),
   source_type text not null check (source_type in ('series','volume','chapter')),
   source_id uuid not null,
-  series_id uuid not null references public.series(id) on delete restrict,
+  series_id uuid not null references public.series(id) on delete cascade,
   title_snapshot text not null check (length(title_snapshot) between 1 and 256),
   message text not null check (length(btrim(message)) between 1 and 700),
   scheduled_at timestamptz not null,
