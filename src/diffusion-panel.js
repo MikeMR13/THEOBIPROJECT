@@ -63,7 +63,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   try {
     [connections,rules,campaigns,jobs,scheduled] = await Promise.all([
       q('diffusion_connections','id,provider,label,status,created_at'),
-      q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,enabled_at,created_at'),
+      q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,connection_ids,enabled_at,created_at'),
       q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at'),
       canLogs ? q('diffusion_jobs','id,status,scheduled_at,last_error,created_at') : Promise.resolve([]),
       q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at')
@@ -110,23 +110,25 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     + '<p class="df-muted">Solo se permite una prueba por conexión cada 60 segundos.</p>'
     + '<p class="df-muted">La conexión de tu equipo no necesita autorización del Bibliotecario.</p></section>';
   const rulesView = () => '<section class="df-box"><h3>Automatizaciones del ' + (official?'Bibliotecario':'equipo') + '</h3>'
-    + '<p>Configura una regla y pulsa <strong>Activar</strong> para que los próximos anuncios de obras, publicaciones de capítulos o volúmenes se comuniquen en la conexión elegida. Las publicaciones anteriores no se reenvían.</p>'
-    + '<p class="df-muted">Elige «Automática» para publicar sin intervención o «Revisión interna» para que el anuncio aparezca en Calendario y el equipo lo confirme. Los retrasos se aplican desde la publicación. Puedes pausar cualquier regla.</p>'
+    + '<p>Configura una regla y pulsa <strong>Activar</strong> para que los próximos anuncios de obras, publicaciones de capítulos o volúmenes se comuniquen en los canales seleccionados. Cada canal recibe un anuncio independiente, sin duplicados ni retropublicaciones.</p>'
+    + '<p class="df-muted">Elige «Automática» para publicar sin intervención o «Revisión interna» para que el anuncio aparezca en Calendario y el equipo lo confirme. Los retrasos se aplican desde la publicación. Puedes pausar cualquier regla para cambiar sus canales.</p>'
     + (rules.length ? '<div class="df-list">' + rules.map(r=>{
        const destinations=connections.filter(c=>c.status==='active'&&['discord','telegram'].includes(c.provider));
        const supported=['chapter.public','volume.public','prelaunch.announced'].includes(r.event_kind);
-       const current=connections.find(c=>c.id===r.connection_id);
+       const selectedIds=Array.isArray(r.connection_ids)&&r.connection_ids.length?r.connection_ids:(r.connection_id?[r.connection_id]:[]);
+       const selected=connections.filter(c=>selectedIds.includes(c.id));
        return '<article><div><strong>'+safe(r.name)+'</strong>'
        + '<small>'+safe(shortName(r.event_kind))+' · '+(r.mode==='team_review'?'Revisión interna':'Automática')
        + ' · Retraso: '+r.delay_minutes+' min · '+(r.enabled?'Activa':'Inactiva')
-       + (current?' · '+safe(current.provider+' · '+current.label):'')+'</small>'
+       + (selected.length?' · '+safe(selected.map(c=>c.provider.toUpperCase()+' · '+c.label).join(' / ')):' · Sin canales seleccionados')+'</small>'
        + (!supported?'<small>Este evento aún no admite activación automática; puedes eliminar y crear una regla de capítulo o volumen.</small>':'')
        + '</div>'
        + (canManage?'<div>'
           + (r.enabled?'<button type="button" class="df-danger" data-rule-pause="'+safe(r.id)+'">Pausar regla</button>'
-           :supported&&destinations.length?'<label>Destino<select data-rule-destination="'+safe(r.id)+'">'
-                + destinations.map(c=>'<option value="'+safe(c.id)+'" '+(c.id===r.connection_id?'selected':'')+'>'
-                   + safe(c.provider.toUpperCase()+' · '+c.label)+'</option>').join('')+'</select></label>'
+           :supported&&destinations.length?'<fieldset class="df-destination-group" aria-label="Canales para esta automatización"><legend>Canales de difusión (puedes elegir varios)</legend>'
+                + destinations.map(c=>'<label class="df-destination-option"><input type="checkbox" data-rule-destination="'+safe(r.id)+'" value="'+safe(c.id)+'" '
+                    +(selectedIds.includes(c.id)?'checked':'')+'><span>'+safe(c.provider.toUpperCase()+' · '+c.label)+'</span></label>').join('')
+                + '<small>Hasta 8 conexiones activas del equipo. Cada una tendrá su propio envío y estado.</small></fieldset>'
                 + '<button type="button" class="btn" data-rule-activate="'+safe(r.id)+'">Activar regla</button>'
              :'<small>Conecta y verifica un destino antes de activar.</small>')
           + (!r.enabled?'<button type="button" data-del-rule="'+safe(r.id)+'" class="df-danger">Eliminar</button>':'')
@@ -598,7 +600,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           p_delay:Number(data.get('delay'))
         });
         if (error) throw error;
-        rules = await q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,enabled_at,created_at');
+        rules = await q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,connection_ids,enabled_at,created_at');
         toast('Regla guardada. Selecciona un destino y pulsa Activar regla.'); draw();
       });
     });
@@ -606,19 +608,20 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       button.addEventListener('click',()=>busy(button,async()=>{
         const id=button.dataset.ruleActivate||button.dataset.rulePause;
         const activate=Boolean(button.dataset.ruleActivate);
-        const chosen=activate?root.querySelector('[data-rule-destination="'+id+'"]')?.value:null;
-        if(activate&&!chosen)throw new Error('Selecciona una conexión activa de Discord o Telegram.');
-        if(activate&&!confirm('¿Activar esta regla para las próximas publicaciones? No anunciará contenidos históricos.'))return;
-        const {error}=await sb.rpc('diffusion_rule_toggle',{
-          p_team:teamId,p_id:id,p_enabled:activate,p_connection:chosen
+        const chosen=activate?[...root.querySelectorAll('[data-rule-destination="'+id+'"]:checked')].map(el=>el.value):null;
+        if(activate&&(!chosen.length||chosen.length>8))throw new Error('Selecciona entre 1 y 8 canales de difusión activos.');
+        if(activate&&!confirm('¿Activar esta regla en '+chosen.length+' canal(es)? Se anunciarán solo publicaciones futuras.'))return;
+        const {error}=await sb.rpc('diffusion_rule_toggle_multi',{
+          p_team:teamId,p_id:id,p_enabled:activate,p_connections:chosen
         });
         if(error)throw new Error(error.message==='event_not_automatable_yet'
           ?'El evento seleccionado no admite automatización todavía.'
-          :error.message==='destination_unavailable'?'La conexión no está activa.'
+          :error.message==='destination_unavailable'?'Una conexión no está activa o no corresponde a este equipo.'
+          :error.message==='invalid_destinations'?'Selecciona entre 1 y 8 conexiones distintas.'
           :'No se pudo cambiar la regla: revisa los permisos de Difusión.');
-        rules=await q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,enabled_at,created_at');
+        rules=await q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,connection_ids,enabled_at,created_at');
         scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
-        toast(activate?'Regla activada: escuchando nuevas publicaciones.':'Regla pausada; anuncios pendientes cancelados.');
+        toast(activate?'Regla activada para '+chosen.length+' canales de difusión.':'Regla pausada; anuncios pendientes cancelados.');
         draw();
       }));
     });
