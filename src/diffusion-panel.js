@@ -78,6 +78,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       + '<button type="submit" class="btn">Guardar conexión segura</button></form>'
       : '<p class="df-muted">Necesitas «Gestionar difusión» para conectar tu Discord.</p>')
     + '<h4>Proveedores previstos</h4><div class="df-providers">'+TYPES.map(n=>'<span>'+safe(n)+'</span>').join('')+'</div>'
+    + '<p class="df-muted">Solo se permite una prueba por conexión cada 60 segundos.</p>'
     + '<p class="df-muted">La conexión de tu equipo no necesita autorización del Bibliotecario.</p></section>';
   const rulesView = () => '<section class="df-box"><h3>Automatizaciones del ' + (official?'Bibliotecario':'equipo') + '</h3>'
     + '<p>Las reglas guardadas permanecerán desactivadas hasta disponer de conectores seguros.</p>'
@@ -162,7 +163,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         const {data,error}=await sb.functions.invoke('diffusion-discord',{
           body:{connection_id:b.dataset.testDiscord}
         });
-        if(error||!data?.ok) throw new Error('Discord no recibió la prueba. Revisa permisos, conexión y espera un minuto antes de reintentar.');
+        if(error?.context?.status===429 || data?.error==='rate_limited')
+          throw new Error('Espera 60 segundos entre pruebas de Discord antes de volver a intentarlo.');
+        if(error||!data?.ok) throw new Error('Discord no recibió la prueba. Revisa los permisos y la conexión.');
         connections=await q('diffusion_connections','id,provider,label,status,created_at');
         toast('Mensaje de prueba enviado a Discord');draw();
       });
