@@ -1,5 +1,6 @@
 import { manualTargets, manualChannelBatch, batchFeedback } from './diffusion-manual-batch.js';
 import { immediateDeliveryNotice, automaticDeliveryNotice } from './diffusion-delivery-notices.js';
+import { defaultDraftPresentation, normalizeDraftPresentation, renderDraftTemplate } from './diffusion-draft-templates.js?v=1';
 // Centro de Difusión: anuncios manuales y agenda 4B opt-in, sin reglas automáticas globales.
 const EVENTS = [
   ['chapter.public', 'Capítulo público'],
@@ -10,6 +11,8 @@ const EVENTS = [
 ];
 const EDITORIAL_TEMPLATES = [
   {id:'series',label:'Estreno de obra',body:'📚 ¡Nueva obra disponible en El Obi del Lector! Descubre esta historia y comienza a leerla.'},
+  {id:'introduccion',label:'Presentación de nueva obra',body:'📚 ¡Les presentamos una nueva obra! {{novela}}, por {{equipo_traductor}}. ¡Descúbrela en El Obi del Lector!'},
+  {id:'preestreno',label:'Próximo estreno',body:'✨ Próximamente: {{novela}}, traducida por {{equipo_traductor}}. ¡Conoce el primer vistazo!'},
   {id:'volume',label:'Nuevo volumen',body:'📖 ¡Un nuevo volumen está disponible! Continúa la aventura desde la página de lectura.'},
   {id:'chapter',label:'Nuevo capítulo',body:'✨ ¡Nuevo capítulo publicado! Sigue la historia en El Obi del Lector.'},
   {id:'brief',label:'Aviso breve',body:'📢 ¡Ya puedes leer la nueva publicación en El Obi del Lector!'}
@@ -39,6 +42,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const canSchedule = p('diffusion_schedule') && canAnnounce;
   let tab = 'resumen', rules = [], campaigns = [], connections = [], jobs = [], scheduled = [];
   let telegramFeedback = '', editingCampaignId = '', annDraftMessage = '', annDraftTitle = '', annFeedback = '';
+  let draftWorks = [], draftWorksLoaded = false, draftWorkId = '', draftPresentation = defaultDraftPresentation();
+  let annDraftPresentation = null;
   let annConfirm = null, annSending = false, annResults = [];
   const deep = new URLSearchParams(location.search);
   const deepKind = ({o:'series',v:'volume',c:'chapter'})[deep.get('k')] || (['series','volume','chapter'].includes(deep.get('kind')) ? deep.get('kind') : '');
@@ -67,7 +72,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     [connections,rules,campaigns,jobs,scheduled] = await Promise.all([
       q('diffusion_connections','id,provider,label,status,created_at'),
       q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,connection_ids,enabled_at,created_at'),
-      q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at'),
+      q('diffusion_campaigns','id,title,body,presentation,status,scheduled_at,created_at'),
       canLogs ? q('diffusion_jobs','id,status,scheduled_at,last_error,created_at') : Promise.resolve([]),
       q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at')
     ]);
@@ -150,27 +155,70 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const editingCampaign = () => campaigns.find(c=>c.id===editingCampaignId&&c.status==='draft');
   const templateOptions = () => '<option value="">Seleccionar plantilla (opcional)</option>'
     + EDITORIAL_TEMPLATES.map(t=>'<option value="'+safe(t.id)+'">'+safe(t.label)+'</option>').join('');
+
+  const draftContext = work => ({
+    novela:work?.title||'',equipo_traductor:team?.name||'El Obi del Lector',
+    sinopsis:work?.synopsis||'',autor:work?.author||''
+  });
+  const validatedDraftMessage = raw => {
+    const result=renderDraftTemplate(raw,draftContext(annWorks.find(w=>w.id===annWork)));
+    if(result.errors.length)throw new Error('Corrige las variables del texto: '+result.errors.join(' '));
+    if(!result.text.trim())throw new Error('El mensaje no puede estar vacío.');
+    return result.text.trim();
+  };
+  const loadDraftWorks = async () => {
+    if(draftWorksLoaded)return;
+    draftWorks=await q('series','id,title,slug,synopsis,author,cover_path,team_id','title');
+    draftWorksLoaded=true;
+    if(!draftWorkId&&draftWorks.length)draftWorkId=draftWorks[0].id;
+  };
+  const draftCard = (work,config) => {
+    if(!work)return '<p class="df-muted">Selecciona una obra de tu equipo para mostrar su información real. No se enviará nada.</p>';
+    const opts=normalizeDraftPresentation(config);
+    return '<div class="df-draft-card">'
+      +(opts.showCover&&annCover(work.cover_path)?'<img alt="Portada" loading="lazy" src="'+safe(annCover(work.cover_path))+'">':'')
+      +'<div class="df-draft-card-content">'
+      +(opts.showTitle?'<strong>'+safe(work.title)+'</strong>':'')
+      +(opts.showTeam?'<span>Traducción: '+safe(team?.name||'El Obi del Lector')+'</span>':'')
+      +(opts.showSynopsis&&work.synopsis?'<p>'+safe(work.synopsis.slice(0,300))+'</p>':'')
+      +'<small>elobidellector.com/serie/'+safe(work.slug||'')+'</small></div></div>';
+  };
+  const draftLivePreview = (body,workId,config) => {
+    const work=draftWorks.find(w=>w.id===workId);
+    const rendered=renderDraftTemplate(body,draftContext(work));
+    return '<section class="df-draft-preview" aria-live="polite"><h4>Vista previa del mensaje y la tarjeta</h4>'
+      +'<p class="df-muted">Esta tarjeta es una simulación editorial. No cambia el SEO público ni las portadas obligatorias de Discord y Telegram.</p>'
+      +(rendered.errors.length?'<p role="status" class="df-warning-heading">'+safe(rendered.errors.join(' '))+'</p>':'')
+      +'<div class="df-draft-message">'+safe(rendered.text||'Escribe un mensaje para visualizarlo.')+'</div>'
+      +'<small class="df-muted">'+rendered.text.length+'/700 caracteres después de sustituir las variables.</small>'
+      +draftCard(work,config)+'</section>';
+  };
   const campaignsView = () => '<section class="df-box"><h3>Borradores editoriales</h3>'
-    + '<p>Guarda textos reutilizables y revísalos antes de enviarlos. Cada anuncio exige seleccionar el contenido publicado y confirmar manualmente.</p>'
-    + (campaigns.filter(c=>c.status==='draft').length ? '<div class="df-list">'
-      + campaigns.filter(c=>c.status==='draft').map(c=>'<article><div><strong>'+safe(c.title)+'</strong>'
-        + '<small>Sin publicar · '+when(c.created_at)+'</small>'
-        + '<p>'+safe((c.body||'').slice(0,350))+'</p></div><div>'
-        + (canAnnounce?'<button type="button" class="btn" data-use-campaign="'+safe(c.id)+'">Preparar anuncio</button> ':'')
-        + (canCompose?'<button type="button" class="btn" data-edit-campaign="'+safe(c.id)+'">Editar</button> '
-          + '<button type="button" class="df-danger" data-del-campaign="'+safe(c.id)+'">Eliminar</button>':'')
-        + '</div></article>').join('')+'</div>'
-      : empty('No hay borradores.'))
-    + (canCompose ? '<form id="df-campaign-form" class="df-form"><h4>'
-      + (editingCampaign()?'Editar borrador':'Nuevo borrador')+'</h4>'
-      + '<label>Título<input name="title" minlength="2" maxlength="140" required placeholder="Ej. Estreno del volumen 3" value="'+safe(editingCampaign()?.title||'')+'"></label>'
-      + '<label>Plantilla rápida<select id="df-campaign-template">'+templateOptions()+'</select></label>'
-      + '<label>Mensaje<textarea name="body" maxlength="2000" rows="4" placeholder="Presenta la novedad a tus lectores">'+safe(editingCampaign()?.body||'')+'</textarea></label>'
-      + '<p class="df-muted">Los anuncios admiten mensajes de hasta 700 caracteres. El Obi añade el título del contenido, su enlace y la portada verificada.</p>'
-      + '<button type="submit" class="btn">'+(editingCampaign()?'Guardar cambios':'Guardar borrador')+'</button>'
-      + (editingCampaign()?'<button type="button" class="df-link" id="df-campaign-cancel">Cancelar edición</button>':'')
-      + '</form>' : '<p class="df-muted">Necesitas «Redactar difusión» para crear o editar borradores.</p>')
-    + '</section>';
+    +'<p>Crea textos reutilizables, inserta variables y elige los datos de la tarjeta simulada. No se envía ningún mensaje hasta confirmarlo.</p>'
+    +(campaigns.filter(c=>c.status==='draft').length?'<div class="df-list">'
+      +campaigns.filter(c=>c.status==='draft').map(c=>'<article><div><strong>'+safe(c.title)+'</strong>'
+        +'<small>Sin publicar · '+when(c.created_at)+'</small>'
+        +'<p>'+safe((c.body||'').slice(0,350))+'</p></div><div>'
+        +(canAnnounce?'<button type="button" class="btn" data-use-campaign="'+safe(c.id)+'">Preparar anuncio</button> ':'')
+        +(canCompose?'<button type="button" class="btn" data-edit-campaign="'+safe(c.id)+'">Editar</button> '
+          +'<button type="button" class="df-danger" data-del-campaign="'+safe(c.id)+'">Eliminar</button>':'')
+        +'</div></article>').join('')+'</div>':empty('No hay borradores.'))
+    +(canCompose?'<form id="df-campaign-form" class="df-form"><h4>'+(editingCampaign()?'Editar borrador':'Nuevo borrador')+'</h4>'
+      +'<label>Título interno<input name="title" minlength="2" maxlength="140" required placeholder="Ej. Presentación de una obra" value="'+safe(editingCampaign()?.title||'')+'"></label>'
+      +'<label>Plantilla rápida<select id="df-campaign-template">'+templateOptions()+'</select></label>'
+      +'<label>Mensaje con variables<textarea name="body" maxlength="2000" rows="5" placeholder="¡Les presentamos {{novela}} por {{equipo_traductor}}!">'+safe(editingCampaign()?.body||'')+'</textarea></label>'
+      +'<div class="df-draft-variables" role="group" aria-label="Insertar variables">'
+      +[['novela','Novela'],['equipo_traductor','Equipo productor / traductor'],['sinopsis','Sinopsis'],['autor','Autor']].map(([key,label])=>'<button type="button" class="df-link" data-draft-variable="'+key+'">＋ '+label+'</button>').join('')+'</div>'
+      +'<label>Obra para la vista previa<select id="df-campaign-work">'
+      +(draftWorks.length?draftWorks.map(w=>'<option value="'+safe(w.id)+'"'+(draftWorkId===w.id?' selected':'')+'>'+safe(w.title)+'</option>').join(''):'<option value="">No hay obras disponibles</option>')+'</select></label>'
+      +'<fieldset class="df-draft-options"><legend>Campos en la tarjeta de muestra</legend>'
+      +[['showTitle','Nombre de la obra'],['showTeam','Equipo productor / traductor'],['showSynopsis','Sinopsis'],['showCover','Portada']].map(([key,label])=>'<label><input type="checkbox" data-draft-option="'+key+'"'+(draftPresentation[key]?' checked':'')+'> '+label+'</label>').join('')+'</fieldset>'
+      +'<div id="df-campaign-live">'+draftLivePreview(editingCampaign()?.body||'',draftWorkId,draftPresentation)+'</div>'
+      +'<p class="df-muted">Máximo de 700 caracteres para enviar, después de sustituir las variables. La portada y el enlace real se validan en el servidor.</p>'
+      +'<button type="submit" class="btn">'+(editingCampaign()?'Guardar cambios':'Guardar borrador')+'</button>'
+      +(editingCampaign()?'<button type="button" class="df-link" id="df-campaign-cancel">Cancelar edición</button>':'')
+      +'</form>':'<p class="df-muted">Necesitas «Redactar difusión» para crear o editar borradores.</p>')
+    +'</section>';
   const historyView = () => '<section class="df-box"><h3>Historial de envíos</h3>'
     + (canLogs ? (jobs.length ? '<div class="df-list">'+jobs.map(j=>'<article><strong>'+safe(j.status)+'</strong>'
       + '<small>'+when(j.scheduled_at)+'</small><p>'+safe(j.last_error||'')+'</p></article>').join('')+'</div>'
@@ -217,9 +265,15 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
            : '<button type="button" class="btn" id="df-ann-preview">Crear vista previa</button>')
         + '</div>'
         + (annPreview ? '<div class="df-box"><h4>Vista previa (todavía no enviada)</h4>'
-          + (annCover(annPreview.cover_path)?'<img loading="lazy" alt="Portada del anuncio" src="'+safe(annCover(annPreview.cover_path))+'" style="max-width:112px;height:auto;float:right;margin:0 0 12px 12px;border-radius:6px">':'')
-          + '<p><strong>'+safe(annPreview.title)+'</strong></p>'
-          + '<p>'+safe(annPreview.description||'')+'</p>'
+          + (annDraftPresentation
+            ? '<p class="df-muted">Tarjeta de muestra: el SEO público y los campos que exige el proveedor no cambian.</p>'
+              + draftCard({
+                title:annPreview.title,synopsis:annPreview.description,cover_path:annPreview.cover_path,
+                slug:annWorks.find(w=>w.id===annWork)?.slug||''
+              },annDraftPresentation)
+            : (annCover(annPreview.cover_path)?'<img loading="lazy" alt="Portada del anuncio" src="'+safe(annCover(annPreview.cover_path))+'" style="max-width:112px;height:auto;float:right;margin:0 0 12px 12px;border-radius:6px">':'')
+              + '<p><strong>'+safe(annPreview.title)+'</strong></p>'
+              + '<p>'+safe(annPreview.description||'')+'</p>')
           + '<p><a href="'+safe(annPreview.url)+'" target="_blank" rel="noopener noreferrer">'+safe(annPreview.url)+'</a></p>'
           + (annDraftTitle?'<p class="df-muted">Texto del borrador: '+safe(annDraftTitle)+'</p>':'')
           + '<label>Plantilla para el texto<select id="df-ann-template"><option value="">'
@@ -263,7 +317,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     annSource=(deepPending&&annItems.some(x=>x.id===deepSource)?deepSource:annItems[0]?.id)||'';
   };
   const loadAnnWorks = async () => {
-    let req=sb.from('series').select('id,title,slug').eq('published',true)
+    let req=sb.from('series').select('id,title,slug,synopsis,author').eq('published',true)
       .is('archived_at',null).order('title').limit(150);
     if(team)req=req.eq('team_id',team.id);
     const {data,error}=await req;
@@ -345,6 +399,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     root.innerHTML = '<div class="df">' + header() + page() + '</div>';
     root.querySelectorAll('[data-dtab],[data-goto]').forEach(b => b.onclick = async () => {
       tab = b.dataset.dtab || b.dataset.goto;
+      if(tab==='campanas'&&!draftWorksLoaded){try{await loadDraftWorks();}catch{toast('No se pudieron cargar obras para la vista previa.');}}
       if(tab==='anuncios'&&!annLoaded) {
         try{await loadAnnWorks();}catch(e){toast('No se pudo cargar el catálogo para anuncios.');}
       }
@@ -386,15 +441,15 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       draw();
     }));
     root.querySelector('#df-ann-kind')?.addEventListener('change',e=>{
-      annKind=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';annFeedback='';
+      annKind=e.target.value;annPreview=null;annScheduledId='';annFeedback='';
       loadAnnItems().then(draw).catch(()=>toast('No se pudieron cargar los contenidos.'));
     });
     root.querySelector('#df-ann-work')?.addEventListener('change',e=>{
-      annWork=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';annFeedback='';
+      annWork=e.target.value;annPreview=null;annScheduledId='';annFeedback='';
       loadAnnItems().then(draw).catch(()=>toast('No se pudieron cargar los contenidos.'));
     });
     root.querySelector('#df-ann-source')?.addEventListener('change',e=>{
-      annSource=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';annFeedback='';draw();
+      annSource=e.target.value;annPreview=null;annScheduledId='';annFeedback='';draw();
     });
     root.querySelector('#df-ann-preview')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
       const targets=annTargets();
@@ -420,29 +475,40 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       if(previews.some(x=>x.data.url!==data.url||x.data.title!==data.title||
           x.data.cover_path!==data.cover_path))
         throw new Error('La obra o su portada no coinciden entre canales. No se enviará el anuncio.');
-      annPreview={...data,message:annDraftMessage||data.message};annFeedback='';draw();
+      let finalMessage=annDraftMessage||data.message;
+      if(annDraftTitle){
+        const dataForWork=annWorks.find(w=>w.id===annWork);
+        const resolved=renderDraftTemplate(finalMessage,draftContext(dataForWork));
+        if(resolved.errors.length)throw new Error('Corrige las variables: '+resolved.errors.join(' '));
+        finalMessage=resolved.text;
+        if(!finalMessage.trim())throw new Error('El anuncio queda vacío.');
+      }
+      annPreview={...data,message:finalMessage};annFeedback='';draw();
     }));
     root.querySelector('#df-ann-template')?.addEventListener('change',e=>{
       const area=root.querySelector('#df-ann-text');
-      if(area&&annPreview)area.value=editorialTemplate(e.target.value)||annPreview.message;
+      if(area&&annPreview){
+        const raw=editorialTemplate(e.target.value)||annPreview.message;
+        try{area.value=validatedDraftMessage(raw);}catch(e){toast(e.message);}
+      }
     });
     root.querySelector('#df-ann-save-draft')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
-      const body=root.querySelector('#df-ann-text')?.value.trim()||'';
-      if(!body||body.length>700)throw new Error('El texto debe tener entre 1 y 700 caracteres.');
+      const body=validatedDraftMessage(root.querySelector('#df-ann-text')?.value||'');
       if(!annPreview?.title)throw new Error('Prepara una vista previa antes de guardar.');
       const title=('Anuncio: '+annPreview.title).slice(0,140);
       const {error}=await sb.rpc('diffusion_campaign_draft_save',{
-        p_team:teamId,p_id:null,p_title:title,p_body:body
+        p_team:teamId,p_id:null,p_title:title,p_body:body,
+        p_presentation:normalizeDraftPresentation(annDraftPresentation)
       });
       if(error)throw new Error('No se pudo guardar este borrador.');
-      campaigns=await q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at');
+      campaigns=await q('diffusion_campaigns','id,title,body,presentation,status,scheduled_at,created_at');
       toast('Texto guardado como borrador, sin publicar');
     }));
     root.querySelector('#df-ann-schedule')?.addEventListener('click',()=>{
       if(scheduleSaving||scheduleConfirm||annSending)return;
       try{
         const raw=root.querySelector('#df-ann-schedule-at')?.value||'';
-        const message=root.querySelector('#df-ann-text')?.value.trim()||'';
+        const message=validatedDraftMessage(root.querySelector('#df-ann-text')?.value||'');
         const whenMs=raw?new Date(raw).getTime():NaN;
         const targets=annTargets();
         if(!annPreview?.url||!chosenAnnouncementId())throw new Error('Prepara la vista previa del contenido antes de agendarlo.');
@@ -544,7 +610,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     });
     root.querySelector('#df-ann-send')?.addEventListener('click',()=>{
       if(annSending||annConfirm)return;
-      const content=root.querySelector('#df-ann-text')?.value.trim();
+      let content='';
+      try{content=validatedDraftMessage(root.querySelector('#df-ann-text')?.value||'');}
+      catch(e){annFeedback=e.message;const note=root.querySelector('#df-ann-feedback');if(note)note.textContent=annFeedback;return;}
       if(!content||content.length>700){
         annFeedback='Escribe un mensaje de 1 a 700 caracteres antes de enviarlo.';
         const note=root.querySelector('#df-ann-feedback');if(note)note.textContent=annFeedback;
@@ -777,16 +845,32 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     root.querySelector('#df-campaign-template')?.addEventListener('change',e=>{
       const area=root.querySelector('#df-campaign-form textarea[name="body"]');
       const selected=editorialTemplate(e.target.value);
-      if(area&&selected)area.value=selected;
+      if(area&&selected){area.value=selected;refreshDraftPreview();}
     });
+    const refreshDraftPreview=()=>{
+      const area=root.querySelector('#df-campaign-form textarea[name="body"]');
+      const live=root.querySelector('#df-campaign-live');
+      if(area&&live)live.innerHTML=draftLivePreview(area.value,draftWorkId,draftPresentation);
+    };
+    root.querySelector('#df-campaign-form textarea[name="body"]')?.addEventListener('input',refreshDraftPreview);
+    root.querySelector('#df-campaign-work')?.addEventListener('change',e=>{draftWorkId=e.target.value;refreshDraftPreview();});
+    root.querySelectorAll('[data-draft-option]').forEach(input=>input.addEventListener('change',()=>{
+      draftPresentation={...draftPresentation,[input.dataset.draftOption]:input.checked};refreshDraftPreview();
+    }));
+    root.querySelectorAll('[data-draft-variable]').forEach(button=>button.addEventListener('click',()=>{
+      const area=root.querySelector('#df-campaign-form textarea[name="body"]');
+      if(!area)return;
+      area.setRangeText('{{'+button.dataset.draftVariable+'}}',area.selectionStart,area.selectionEnd,'end');
+      area.focus();refreshDraftPreview();
+    }));
     root.querySelectorAll('[data-edit-campaign]').forEach(b=>b.onclick=()=>{
       if(!canCompose)return;
       const item=campaigns.find(c=>c.id===b.dataset.editCampaign&&c.status==='draft');
       if(!item)return;
-      editingCampaignId=item.id;tab='campanas';draw();
+      editingCampaignId=item.id;draftPresentation=normalizeDraftPresentation(item.presentation);tab='campanas';draw();
     });
     root.querySelector('#df-campaign-cancel')?.addEventListener('click',()=>{
-      editingCampaignId='';draw();
+      editingCampaignId='';draftPresentation=defaultDraftPresentation();draw();
     });
     root.querySelectorAll('[data-use-campaign]').forEach(b=>b.onclick=()=>{
       if(!canAnnounce)return;
@@ -794,10 +878,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         const item=campaigns.find(c=>c.id===b.dataset.useCampaign&&c.status==='draft');
         if(!item)throw new Error('Este borrador ya no está disponible.');
         const body=String(item.body||'').trim();
-        if(body.length<1||body.length>700)
-          throw new Error('Para preparar el anuncio, edita el borrador y deja un mensaje de 1 a 700 caracteres.');
+        if(body.length<1||body.length>2000)throw new Error('Revisa la longitud del borrador (máximo 2000 caracteres).');
         if(!annLoaded)await loadAnnWorks();
-        annDraftMessage=body;annDraftTitle=item.title;annPreview=null;annFeedback='';
+        annDraftMessage=body;annDraftTitle=item.title;annDraftPresentation=normalizeDraftPresentation(item.presentation);annPreview=null;annFeedback='';
         tab='anuncios';draw();
       });
     });
@@ -807,11 +890,11 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       busy(f.querySelector('button'), async () => {
         const { error } = await sb.rpc('diffusion_campaign_draft_save', {
           p_team:teamId,p_id:editingCampaignId||null,p_title:String(data.get('title')||''),
-          p_body:String(data.get('body')||'')
+          p_body:String(data.get('body')||''),p_presentation:normalizeDraftPresentation(draftPresentation)
         });
         if (error) throw new Error('No se pudo guardar el borrador. Comprueba tus permisos y que siga editable.');
-        editingCampaignId='';
-        campaigns = await q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at');
+        editingCampaignId='';draftPresentation=defaultDraftPresentation();
+        campaigns = await q('diffusion_campaigns','id,title,body,presentation,status,scheduled_at,created_at');
         toast('Borrador guardado sin publicar');draw();
       });
     });
