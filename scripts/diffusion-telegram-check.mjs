@@ -47,7 +47,7 @@ assert.match(ui,/Comprobando el grupo o canal de Telegram/);
 assert.match(ui,/El bot no puede publicar en ese grupo o canal/);
 console.log('Telegram: motivos de fallo específicos sin exponer secretos, PASS');
 
-const groupSql=readFileSync('supabase/migrations/20261026041000_diffusion_telegram_grupos_prueba.sql','utf8');
+const groupSql=readFileSync('supabase/migrations/20261026032956_diffusion_telegram_grupos_prueba_20261025.sql','utf8');
 assert.match(groupSql, /chat_id ~ /);
 assert.match(groupSql, /diffusion_telegram_connect/);
 assert.match(groupSql, /-\[1-9\]/);

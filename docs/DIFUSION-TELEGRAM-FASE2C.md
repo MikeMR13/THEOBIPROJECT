@@ -19,3 +19,5 @@
 - Los destinos se aceptan por @usuario público o ID numérico negativo (incluye supergrupos -100...).
 - Los enlaces de invitación no identifican un destino para Bot API. El token sigue cifrado en Vault.
 - El estado de la prueba se muestra de forma persistente. No existe ningún envío automático, son pruebas y anuncios por acción explícita.
+
+- Migración en Supabase producción: `20261026032956_diffusion_telegram_grupos_prueba_20261025.sql`.
