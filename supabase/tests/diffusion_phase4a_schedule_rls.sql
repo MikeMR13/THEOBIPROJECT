@@ -16,11 +16,11 @@ select set_config('request.jwt.claim.sub','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 set role authenticated;
 do $qa$
 declare conn uuid:=current_setting('diffusion.announce_cid')::uuid;
- id uuid; cancel_id uuid; deny bool; job jsonb; j uuid;
+ plan_id uuid; cancel_id uuid; deny bool; job jsonb; j uuid;
 begin
- id:=public.diffusion_schedule_create(conn,'series','10000000-0000-4000-8000-000000000001',
+ plan_id:=public.diffusion_schedule_create(conn,'series','10000000-0000-4000-8000-000000000001',
    'Novedad editorial prevista',now()+interval '1 day');
- perform set_config('diffusion.schedule_cid',id::text,false);
+ perform set_config('diffusion.schedule_cid',plan_id::text,false);
  if (select count(*) from public.diffusion_scheduled_announcements where status='planned')<>1
  then raise exception 'El plan no existe o cruzó equipos'; end if;
  if exists(select 1 from public.diffusion_jobs where status='pending')
@@ -44,12 +44,12 @@ begin
  exception when raise_exception then if sqlerrm='not_public' then deny:=true; else raise; end if; end;
  if not deny then raise exception 'Se agendó contenido no público'; end if;
  deny:=false;
- begin perform public.diffusion_schedule_finalize(id);
+ begin perform public.diffusion_schedule_finalize(plan_id);
  exception when raise_exception then if sqlerrm='not_confirmed' then deny:=true; else raise; end if; end;
  if not deny then raise exception 'Marcó entrega sin envío confirmado'; end if;
- if not public.diffusion_schedule_reschedule(id,now()+interval '3 days')
+ if not public.diffusion_schedule_reschedule(plan_id,now()+interval '3 days')
  then raise exception 'No se pudo cambiar fecha'; end if;
- if not exists(select 1 from public.diffusion_scheduled_announcements where public.diffusion_scheduled_announcements.id=id and scheduled_at>now()+interval '2 days')
+ if not exists(select 1 from public.diffusion_scheduled_announcements where public.diffusion_scheduled_announcements.id=plan_id and scheduled_at>now()+interval '2 days')
  then raise exception 'No se cambió la fecha'; end if;
  cancel_id:=public.diffusion_schedule_create(conn,'volume','20000000-0000-4000-8000-000000000001',
    'Plan cancelable',now()+interval '1 day');
