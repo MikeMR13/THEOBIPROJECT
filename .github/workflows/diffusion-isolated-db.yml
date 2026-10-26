@@ -11,7 +11,7 @@ on:
       - 'supabase/tests/fixtures/diffusion_postgres_fixture.sql'
       - 'supabase/tests/diffusion_phase1_rls.sql'
       - 'scripts/diffusion-phase1-check.mjs'
-      - 'supabase/migrations/20261026002000_diffusion_discord_announcements_manual.sql'
+      - 'supabase/migrations/20261026010751_diffusion_discord_announcements_manual_20261025.sql'
       - 'supabase/tests/diffusion_discord_announcement_rls.sql'
   push:
     branches:
@@ -78,6 +78,6 @@ jobs:
           echo '5/5 - Privilegios, conexión y revocación Discord'
           psql_qa supabase/tests/diffusion_discord_rls.sql
           echo '6/6 - Anuncios manuales: migración y visibilidad pública'
-          psql_qa supabase/migrations/20261026002000_diffusion_discord_announcements_manual.sql
+          psql_qa supabase/migrations/20261026010751_diffusion_discord_announcements_manual_20261025.sql
           psql_qa supabase/tests/diffusion_discord_announcement_rls.sql
           echo 'Difusión QA aprobado, sin servicios alojados ni envío de publicaciones'

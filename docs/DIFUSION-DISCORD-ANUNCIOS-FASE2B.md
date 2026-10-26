@@ -11,7 +11,7 @@
 - No hay jobs periódicos, herramientas de terceros nuevas, ni programación automática.
 
 ## Despliegue pendiente de aprobación
-1. Validar migración `supabase/migrations/20261026002000_diffusion_discord_announcements_manual.sql` en Supabase local y con roles ficticios.
+1. Validar migración `supabase/migrations/20261026010751_diffusion_discord_announcements_manual_20261025.sql` en Supabase local y con roles ficticios.
 2. Aplicar SQL aditivo al Supabase existente.
 3. Desplegar **nueva** función `diffusion-announcement` con JWT obligatorio; no cambiar `diffusion-discord` (prueba ya operativa).
 4. Integrar frontend mediante PR y utilizar despliegue normal de Vercel existente.

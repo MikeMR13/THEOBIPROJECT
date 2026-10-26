@@ -1,7 +1,8 @@
+import { transformSync } from 'esbuild';
 // Contractos offline, sin secrets ni llamadas HTTP.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-const sql=readFileSync('supabase/migrations/20261026002000_diffusion_discord_announcements_manual.sql','utf8');
+const sql=readFileSync('supabase/migrations/20261026010751_diffusion_discord_announcements_manual_20261025.sql','utf8');
 const edge=readFileSync('supabase/functions/diffusion-announcement/index.ts','utf8');
 const ui=readFileSync('src/diffusion-panel.js','utf8');
 assert.match(sql,/diffusion_discord_announcement_claim/);
@@ -22,3 +23,7 @@ assert.match(ui,/Confirmar y enviar a Discord/);
 assert.match(ui,/diffusion_discord_announcement_preview/);
 assert.match(ui,/chosenAnnouncementId\(\)/);
 console.log('Anuncios manuales Discord: contratos y privilegios verificados (sin enviar)');
+
+// La compilación de Deno/TypeScript valida la sintaxis que Node no interpreta.
+const transformed=transformSync(edge,{loader:'ts',format:'esm'});
+assert.ok(transformed.code.includes('Deno.serve('),'Edge Function TypeScript inválida');

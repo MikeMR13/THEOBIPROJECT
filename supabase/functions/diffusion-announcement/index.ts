@@ -18,7 +18,7 @@ function answer(body:Record<string,unknown>,status:number,origin:string|null) {
 }
 function cover(path:unknown):string|null {
  if(typeof path!=='string'||!path||path.length>450||path.includes('..')
-    ||path.startsWith('/')||!^[A-Za-z0-9_./-]+$/.test(path))return null;
+    ||path.startsWith('/')||!/^[A-Za-z0-9_./-]+$/.test(path))return null;
  return url+'/storage/v1/object/public/obi-media/'
    +path.split('/').map(encodeURIComponent).join('/');
 }
