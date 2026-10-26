@@ -22,3 +22,5 @@ Esta primera parte de la Fase 4 permite crear, listar, reprogramar y cancelar fe
 
 ## Siguiente tramo
 Fase 4B: diseñar despachador seguro (revalidación antes de envío, límites de frecuencia, permisos de activación y controles de fallos). Requiere aprobación explícita de activar el primer envío programado real, de modo que esta etapa no lo inicia.
+
+Migración productiva registrada: `20261026045625_diffusion_phase4a_manual_schedule_20261025.sql`. Sin reglas ni cron nuevos.

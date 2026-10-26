@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { transformSync } from 'esbuild';
-const sql=readFileSync('supabase/migrations/20261026050000_diffusion_phase4a_manual_schedule.sql','utf8');
+const sql=readFileSync('supabase/migrations/20261026045625_diffusion_phase4a_manual_schedule_20261025.sql','utf8');
 const ui=readFileSync('src/diffusion-panel.js','utf8');
 const qa=readFileSync('supabase/tests/diffusion_phase4a_schedule_rls.sql','utf8');
 assert.ok(transformSync(ui,{loader:'js',format:'esm'}).code.includes('renderDiffusionPanel'));
