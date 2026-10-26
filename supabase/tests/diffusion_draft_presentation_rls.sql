@@ -4,8 +4,7 @@ declare f oid; entry jsonb; defaults text;
 begin
   f := to_regprocedure('public.diffusion_campaign_draft_save(uuid,uuid,text,text,jsonb)');
   if f is null then raise exception 'missing_draft_presentation_rpc'; end if;
-  if has_function_privilege('anon',f,'EXECUTE')
-     or has_function_privilege('public',f,'EXECUTE') then
+  if has_function_privilege('anon',f,'EXECUTE') then
     raise exception 'draft_rpc_publicly_executable';
   end if;
   if not has_function_privilege('authenticated',f,'EXECUTE') then
