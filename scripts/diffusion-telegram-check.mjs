@@ -22,7 +22,7 @@ assert.doesNotMatch(ts,/setInterval|setTimeout|https:\/\/.*evil\.test/);
 assert.match(ui,/diffusion_telegram_connect/);
 assert.match(ui,/diffusion-telegram/);
 assert.match(ui,/diffusion_telegram_disconnect/);
-assert.match(ui,/diffusion_'\+annProvider\(\)\+'_announcement_preview/);
+assert.match(ui,/diffusion_'\+target.provider\+'_announcement_preview/);
 assert.ok(transformSync(ts,{loader:'ts',format:'esm'}).code.includes('Deno.serve('));
 console.log('TELEGRAM 2c: contratos OK (sin envíos reales)');
 
