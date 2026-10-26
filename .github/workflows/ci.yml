@@ -20,6 +20,8 @@ jobs:
       - name: Validar TOML de Supabase
         run: python3 -c "import tomllib; tomllib.load(open('supabase/config.toml','rb'))"
       - run: npm run check && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run studio-fields-check && npm run integration-check
+      - name: Difusión — Chromium confirmación multicanal sin envíos externos
+        run: npm run diffusion-confirmation-browser-check
       - name: PWA sin conexión — arranque íntegro y descargas sin pérdidas
         run: npm run pwa-offline-check
       - name: PWA sin conexión — lectura local sin espera de red
