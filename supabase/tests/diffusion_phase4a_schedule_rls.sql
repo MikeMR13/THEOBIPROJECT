@@ -88,10 +88,10 @@ reset role;
 select set_config('request.jwt.claim.sub','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',false);
 set role authenticated;
 do $qa$
-declare id uuid:=current_setting('diffusion.schedule_cid')::uuid;
+declare plan_id uuid:=current_setting('diffusion.schedule_cid')::uuid;
 begin
- if not public.diffusion_schedule_finalize(id) then raise exception 'No finalizó'; end if;
- if not exists(select 1 from public.diffusion_scheduled_announcements where diffusion_scheduled_announcements.id=id and status='sent')
+ if not public.diffusion_schedule_finalize(plan_id) then raise exception 'No finalizó'; end if;
+ if not exists(select 1 from public.diffusion_scheduled_announcements where diffusion_scheduled_announcements.id=plan_id and status='sent')
  then raise exception 'No registró entrega confirmada'; end if;
 end $qa$;
 reset role;
