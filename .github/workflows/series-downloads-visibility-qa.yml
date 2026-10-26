@@ -1,0 +1,54 @@
+name: Metadatos de descargas · QA PostgreSQL gratuito
+on:
+  pull_request:
+    paths:
+      - 'sql/series-downloads-publication-visibility-*.sql'
+      - 'scripts/series-downloads-qa-*.sql'
+      - '.github/workflows/series-downloads-visibility-qa.yml'
+  push:
+    branches: [fix/series-downloads-publication-visibility-20261026]
+    paths:
+      - 'sql/series-downloads-publication-visibility-*.sql'
+      - 'scripts/series-downloads-qa-*.sql'
+      - '.github/workflows/series-downloads-visibility-qa.yml'
+permissions:
+  contents: read
+jobs:
+  postgres-isolated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: qa-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: qa-only
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preparar psql
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y postgresql-client
+          fi
+      - name: Reproducción, filtrado, acceso editor y reversión
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f scripts/series-downloads-qa-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f scripts/series-downloads-qa-before.sql
+          psql -X -v ON_ERROR_STOP=1 -f sql/series-downloads-publication-visibility-20261026.sql
+          psql -X -v ON_ERROR_STOP=1 -f scripts/series-downloads-qa-after.sql
+          psql -X -v ON_ERROR_STOP=1 -f sql/series-downloads-publication-visibility-rollback.sql
+          psql -X -v ON_ERROR_STOP=1 -f scripts/series-downloads-qa-rollback.sql

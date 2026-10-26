@@ -1,0 +1,69 @@
+name: Seguridad cron · QA PostgreSQL aislado
+on:
+  pull_request:
+    paths:
+      - 'sql/cron-administrative-execute-*.sql'
+      - 'scripts/cron-execute-qa-*.sql'
+      - '.github/workflows/cron-function-permissions-qa.yml'
+  push:
+    branches: [security/cron-function-execute-minimum-20261025]
+    paths:
+      - 'sql/cron-administrative-execute-*.sql'
+      - 'scripts/cron-execute-qa-*.sql'
+      - '.github/workflows/cron-function-permissions-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: qa-only-not-a-secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: qa-only-not-a-secret
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar cliente PostgreSQL si no está disponible
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y postgresql-client
+          fi
+      - name: Reproducir grants por defecto y aplicar SQL candidato
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f scripts/cron-execute-qa-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f sql/cron-administrative-execute-20261025.sql
+          psql -X -v ON_ERROR_STOP=1 -f scripts/cron-execute-qa-assertions.sql
+      - name: Bloquear llamadas no autorizadas incluso con USAGE del esquema
+        run: |
+          set -euo pipefail
+          if psql -X -v ON_ERROR_STOP=1 -c "set role anon; select private.run_publications();" >/dev/null 2>&1; then
+            echo 'FAIL: anon ejecutó el runner'; exit 1
+          fi
+          if psql -X -v ON_ERROR_STOP=1 -c "set role authenticated; select private.purge_deleted_accounts();" >/dev/null 2>&1; then
+            echo 'FAIL: authenticated ejecutó purga'; exit 1
+          fi
+          psql -X -v ON_ERROR_STOP=1 -c "set role anon; select public.home_feed();"
+          psql -X -v ON_ERROR_STOP=1 -c "select private.run_publications();"
+      - name: Validar rollback de privilegios
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f sql/cron-administrative-execute-rollback.sql
+          psql -X -v ON_ERROR_STOP=1 -f scripts/cron-execute-qa-rollback.sql
