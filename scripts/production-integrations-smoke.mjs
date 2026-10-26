@@ -28,8 +28,8 @@ const configSource=await (await request(ORIGIN+'/config.js',{label:'Configuraci�
 
 // El build de Vercel publica únicamente una clave anon/publishable en config.js.
 // Nunca imprimir ni persistir el valor; la regex contempla JSON y JS minificado.
-const readProp=(name)=>configSource.match(new RegExp('(?:["\\']?'+name+'["\\']?)\\s*:\\s*["\\']([^"\\']+)["\\']'))?.[1];
-const supabaseUrl=readProp('url'), publishable=readProp('key');
+const supabaseUrl=configSource.match(/\\burl\\s*:\\s*"([^"]+)"/)?.[1];
+const publishable=configSource.match(/\\bkey\\s*:\\s*"([^"]+)"/)?.[1];
 assert.equal(new URL(supabaseUrl||'https://invalid.example').hostname,'qfllthjpjuaztppvpsrk.supabase.co',
  'La configuración pública de producción debe apuntar al proyecto Supabase esperado');
 assert.ok(publishable && publishable.length>20 && !/^sb_secret_|service_role/i.test(publishable),
