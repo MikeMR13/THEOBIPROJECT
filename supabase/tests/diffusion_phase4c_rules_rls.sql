@@ -27,7 +27,7 @@ begin
  rid:=public.diffusion_rule_save('11111111-1111-4111-8111-111111111111',
   null,'Nuevo volumen','volume.public','automatic',0);
  if (select enabled from public.diffusion_rules where id=rid) then raise exception 'Must start disabled'; end if;
- perform set_config('diffusion.4c.rule',rid::text,false);
+ perform set_config('diffusion.qa4c.rule',rid::text,false);
  -- No historical backfill: the next event triggers it, never the activation itself.
  if not public.diffusion_rule_toggle('11111111-1111-4111-8111-111111111111',rid,true,conn)
  then raise exception 'Activation failed'; end if;
@@ -37,7 +37,7 @@ begin
  then raise exception 'Old posts were scheduled'; end if;
  review_id:=public.diffusion_rule_save('11111111-1111-4111-8111-111111111111',
   null,'Nuevo capítulo a revisar','chapter.public','team_review',0);
- perform set_config('diffusion.4c.review',review_id::text,false);
+ perform set_config('diffusion.qa4c.review',review_id::text,false);
  perform public.diffusion_rule_toggle('11111111-1111-4111-8111-111111111111',review_id,true,conn);
  bad_id:=public.diffusion_rule_save('11111111-1111-4111-8111-111111111111',
   null,'Preestreno pendiente','prelaunch.announced','automatic',0);
@@ -57,7 +57,7 @@ do $qa$
 declare denied bool:=false;
 begin
  begin perform public.diffusion_rule_toggle('11111111-1111-4111-8111-111111111111',
-   current_setting('diffusion.4c.rule')::uuid,false,null);
+   current_setting('diffusion.qa4c.rule')::uuid,false,null);
  exception when raise_exception then
   if sqlerrm='forbidden' then denied:=true; else raise; end if; end;
  if not denied then raise exception 'BOLA: Team B paused Team A'; end if;
@@ -79,9 +79,9 @@ update public.chapters set status='published'
 
 do $qa$
 begin
- if (select count(*) from public.diffusion_scheduled_announcements where rule_id=current_setting('diffusion.4c.rule')::uuid
+ if (select count(*) from public.diffusion_scheduled_announcements where rule_id=current_setting('diffusion.qa4c.rule')::uuid
   and status='planned' and delivery_mode='automatic')<>1 then raise exception 'Volume automatic plan not created'; end if;
- if (select count(*) from public.diffusion_scheduled_announcements where rule_id=current_setting('diffusion.4c.review')::uuid
+ if (select count(*) from public.diffusion_scheduled_announcements where rule_id=current_setting('diffusion.qa4c.review')::uuid
   and status='planned' and delivery_mode='manual')<>1 then raise exception 'Chapter review plan not created'; end if;
  if (select count(*) from private.diffusion_rule_occurrences)<>2 then raise exception 'Occurrences count mismatch'; end if;
 end $qa$;
@@ -97,8 +97,8 @@ end $qa$;
 -- Pausar cancela todo lo pendiente (sin disparar proveedores).
 select set_config('request.jwt.claim.sub','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',false);
 set role authenticated;
-select public.diffusion_rule_toggle('11111111-1111-4111-8111-111111111111',current_setting('diffusion.4c.rule')::uuid,false,null);
-select public.diffusion_rule_toggle('11111111-1111-4111-8111-111111111111',current_setting('diffusion.4c.review')::uuid,false,null);
+select public.diffusion_rule_toggle('11111111-1111-4111-8111-111111111111',current_setting('diffusion.qa4c.rule')::uuid,false,null);
+select public.diffusion_rule_toggle('11111111-1111-4111-8111-111111111111',current_setting('diffusion.qa4c.review')::uuid,false,null);
 reset role;
 do $qa$
 begin
