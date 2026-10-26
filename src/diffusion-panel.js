@@ -160,6 +160,12 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     novela:work?.title||'',equipo_traductor:team?.name||'El Obi del Lector',
     sinopsis:work?.synopsis||'',autor:work?.author||''
   });
+  const validatedDraftMessage = raw => {
+    const result=renderDraftTemplate(raw,draftContext(annWorks.find(w=>w.id===annWork)));
+    if(result.errors.length)throw new Error('Corrige las variables del texto: '+result.errors.join(' '));
+    if(!result.text.trim())throw new Error('El mensaje no puede estar vacío.');
+    return result.text.trim();
+  };
   const loadDraftWorks = async () => {
     if(draftWorksLoaded)return;
     draftWorks=await q('series','id,title,slug,synopsis,author,cover_path,team_id','title');
@@ -481,15 +487,18 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     }));
     root.querySelector('#df-ann-template')?.addEventListener('change',e=>{
       const area=root.querySelector('#df-ann-text');
-      if(area&&annPreview)area.value=editorialTemplate(e.target.value)||annPreview.message;
+      if(area&&annPreview){
+        const raw=editorialTemplate(e.target.value)||annPreview.message;
+        try{area.value=validatedDraftMessage(raw);}catch(e){toast(e.message);}
+      }
     });
     root.querySelector('#df-ann-save-draft')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
-      const body=root.querySelector('#df-ann-text')?.value.trim()||'';
-      if(!body||body.length>700)throw new Error('El texto debe tener entre 1 y 700 caracteres.');
+      const body=validatedDraftMessage(root.querySelector('#df-ann-text')?.value||'');
       if(!annPreview?.title)throw new Error('Prepara una vista previa antes de guardar.');
       const title=('Anuncio: '+annPreview.title).slice(0,140);
       const {error}=await sb.rpc('diffusion_campaign_draft_save',{
-        p_team:teamId,p_id:null,p_title:title,p_body:body
+        p_team:teamId,p_id:null,p_title:title,p_body:body,
+        p_presentation:normalizeDraftPresentation(annDraftPresentation)
       });
       if(error)throw new Error('No se pudo guardar este borrador.');
       campaigns=await q('diffusion_campaigns','id,title,body,presentation,status,scheduled_at,created_at');
@@ -499,7 +508,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       if(scheduleSaving||scheduleConfirm||annSending)return;
       try{
         const raw=root.querySelector('#df-ann-schedule-at')?.value||'';
-        const message=root.querySelector('#df-ann-text')?.value.trim()||'';
+        const message=validatedDraftMessage(root.querySelector('#df-ann-text')?.value||'');
         const whenMs=raw?new Date(raw).getTime():NaN;
         const targets=annTargets();
         if(!annPreview?.url||!chosenAnnouncementId())throw new Error('Prepara la vista previa del contenido antes de agendarlo.');
@@ -601,7 +610,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     });
     root.querySelector('#df-ann-send')?.addEventListener('click',()=>{
       if(annSending||annConfirm)return;
-      const content=root.querySelector('#df-ann-text')?.value.trim();
+      let content='';
+      try{content=validatedDraftMessage(root.querySelector('#df-ann-text')?.value||'');}
+      catch(e){annFeedback=e.message;const note=root.querySelector('#df-ann-feedback');if(note)note.textContent=annFeedback;return;}
       if(!content||content.length>700){
         annFeedback='Escribe un mensaje de 1 a 700 caracteres antes de enviarlo.';
         const note=root.querySelector('#df-ann-feedback');if(note)note.textContent=annFeedback;

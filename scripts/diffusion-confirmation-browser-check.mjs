@@ -6,6 +6,7 @@ const html="<!doctype html><html lang=\"es\"><head><meta charset=\"utf-8\"><meta
 const routes={'/diffusion-panel.js':'src/diffusion-panel.js',
  '/diffusion-manual-batch.js':'src/diffusion-manual-batch.js',
  '/diffusion-delivery-notices.js':'src/diffusion-delivery-notices.js',
+  '/diffusion-draft-templates.js':'src/diffusion-draft-templates.js',
  '/diffusion.css':'src/diffusion.css'};
 const server=createServer((req,res)=>{
  const path=(req.url||'').split('?')[0];
