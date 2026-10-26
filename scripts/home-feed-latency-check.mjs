@@ -14,7 +14,7 @@ const volumes=at("sb.from('volumes').select(");
 const waits=at('const [FD, pr, VR] = await Promise.all([');
 assert(load<credits && credits<waits && waits<volumes,
  'Los créditos deben comenzar a solicitarse antes de terminar de cargar volúmenes');
-assert.match(hero,/visible = \(fd\?\.series \|\| \[\]\)\.filter\(s =>[\s\S]*?\(!s\.adult \|\| adult\?\.data === true\) && !hidS\(s\)/,
+assert.match(home,/visible = \(fd\?\.series \|\| \[\]\)\.filter\(s =>[\s\S]*?\(!s\.adult \|\| adult\?\.data === true\) && !hidS\(s\)/,
  'Filtrar títulos +18 y preferencias antes de solicitar logos/créditos');
 assert.match(home,/await creditsRequest;/,'Conservar los créditos antes de dibujar sus logos');
 assert.doesNotMatch(home,/await attachPublicCredits\(sb, list\)/,
@@ -23,9 +23,9 @@ assert.doesNotMatch(home,/s\.cover_path\s*=\s*v\.cover_path/,
  'No reemplazar la portada de obra por un volumen');
 assert.doesNotMatch(home,/s\.cover_thumb_path\s*=\s*null/,
  'No descartar miniaturas WebP existentes');
-assert.match(home,/v\?\.cover_path \|\| s\.cover_path/,
+assert.match(hero,/v\?\.cover_path \|\| s\.cover_path/,
  'Conservar portada propia del volumen en hero y sus lanzamientos');
-assert.match(home,/coverUrl = v\?\.cover_path[\s\S]*? : thumb\(s\)/,
+assert.match(hero,/coverUrl = v\?\.cover_path[\s\S]*? : thumb\(s\)/,
  'Conservar portada específica de novedades y miniatura de obra en fallback');
 assert.match(home,/loading="lazy" decoding="async"/,
  'No descargar todas las miniaturas fuera de pantalla inmediatamente');
