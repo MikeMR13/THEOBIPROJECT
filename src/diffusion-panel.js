@@ -1,5 +1,6 @@
 import { manualTargets, manualChannelBatch, batchFeedback } from './diffusion-manual-batch.js';
 import { immediateDeliveryNotice, automaticDeliveryNotice } from './diffusion-delivery-notices.js';
+import { defaultDraftPresentation, normalizeDraftPresentation, renderDraftTemplate } from './diffusion-draft-templates.js?v=1';
 // Centro de Difusión: anuncios manuales y agenda 4B opt-in, sin reglas automáticas globales.
 const EVENTS = [
   ['chapter.public', 'Capítulo público'],
@@ -10,6 +11,8 @@ const EVENTS = [
 ];
 const EDITORIAL_TEMPLATES = [
   {id:'series',label:'Estreno de obra',body:'📚 ¡Nueva obra disponible en El Obi del Lector! Descubre esta historia y comienza a leerla.'},
+  {id:'introduccion',label:'Presentación de nueva obra',body:'📚 ¡Les presentamos una nueva obra! {{novela}}, por {{equipo_traductor}}. ¡Descúbrela en El Obi del Lector!'},
+  {id:'preestreno',label:'Próximo estreno',body:'✨ Próximamente: {{novela}}, traducida por {{equipo_traductor}}. ¡Conoce el primer vistazo!'},
   {id:'volume',label:'Nuevo volumen',body:'📖 ¡Un nuevo volumen está disponible! Continúa la aventura desde la página de lectura.'},
   {id:'chapter',label:'Nuevo capítulo',body:'✨ ¡Nuevo capítulo publicado! Sigue la historia en El Obi del Lector.'},
   {id:'brief',label:'Aviso breve',body:'📢 ¡Ya puedes leer la nueva publicación en El Obi del Lector!'}
@@ -39,6 +42,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const canSchedule = p('diffusion_schedule') && canAnnounce;
   let tab = 'resumen', rules = [], campaigns = [], connections = [], jobs = [], scheduled = [];
   let telegramFeedback = '', editingCampaignId = '', annDraftMessage = '', annDraftTitle = '', annFeedback = '';
+  let draftWorks = [], draftWorksLoaded = false, draftWorkId = '', draftPresentation = defaultDraftPresentation();
+  let annDraftPresentation = null;
   let annConfirm = null, annSending = false, annResults = [];
   const deep = new URLSearchParams(location.search);
   const deepKind = ({o:'series',v:'volume',c:'chapter'})[deep.get('k')] || (['series','volume','chapter'].includes(deep.get('kind')) ? deep.get('kind') : '');
@@ -67,7 +72,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     [connections,rules,campaigns,jobs,scheduled] = await Promise.all([
       q('diffusion_connections','id,provider,label,status,created_at'),
       q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,connection_ids,enabled_at,created_at'),
-      q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at'),
+      q('diffusion_campaigns','id,title,body,presentation,status,scheduled_at,created_at'),
       canLogs ? q('diffusion_jobs','id,status,scheduled_at,last_error,created_at') : Promise.resolve([]),
       q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at')
     ]);
@@ -150,27 +155,64 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const editingCampaign = () => campaigns.find(c=>c.id===editingCampaignId&&c.status==='draft');
   const templateOptions = () => '<option value="">Seleccionar plantilla (opcional)</option>'
     + EDITORIAL_TEMPLATES.map(t=>'<option value="'+safe(t.id)+'">'+safe(t.label)+'</option>').join('');
+
+  const draftContext = work => ({
+    novela:work?.title||'',equipo_traductor:team?.name||'El Obi del Lector',
+    sinopsis:work?.synopsis||'',autor:work?.author||''
+  });
+  const loadDraftWorks = async () => {
+    if(draftWorksLoaded)return;
+    draftWorks=await q('series','id,title,slug,synopsis,author,cover_path,team_id','title');
+    draftWorksLoaded=true;
+    if(!draftWorkId&&draftWorks.length)draftWorkId=draftWorks[0].id;
+  };
+  const draftCard = (work,config) => {
+    if(!work)return '<p class="df-muted">Selecciona una obra de tu equipo para mostrar su información real. No se enviará nada.</p>';
+    const opts=normalizeDraftPresentation(config);
+    return '<div class="df-draft-card">'
+      +(opts.showCover&&annCover(work.cover_path)?'<img alt="Portada" loading="lazy" src="'+safe(annCover(work.cover_path))+'">':'')
+      +'<div class="df-draft-card-content">'
+      +(opts.showTitle?'<strong>'+safe(work.title)+'</strong>':'')
+      +(opts.showTeam?'<span>Traducción: '+safe(team?.name||'El Obi del Lector')+'</span>':'')
+      +(opts.showSynopsis&&work.synopsis?'<p>'+safe(work.synopsis.slice(0,300))+'</p>':'')
+      +'<small>elobidellector.com/serie/'+safe(work.slug||'')+'</small></div></div>';
+  };
+  const draftLivePreview = (body,workId,config) => {
+    const work=draftWorks.find(w=>w.id===workId);
+    const rendered=renderDraftTemplate(body,draftContext(work));
+    return '<section class="df-draft-preview" aria-live="polite"><h4>Vista previa del mensaje y la tarjeta</h4>'
+      +'<p class="df-muted">Esta tarjeta es una simulación editorial. No cambia el SEO público ni las portadas obligatorias de Discord y Telegram.</p>'
+      +(rendered.errors.length?'<p role="status" class="df-warning-heading">'+safe(rendered.errors.join(' '))+'</p>':'')
+      +'<div class="df-draft-message">'+safe(rendered.text||'Escribe un mensaje para visualizarlo.')+'</div>'
+      +'<small class="df-muted">'+rendered.text.length+'/700 caracteres después de sustituir las variables.</small>'
+      +draftCard(work,config)+'</section>';
+  };
   const campaignsView = () => '<section class="df-box"><h3>Borradores editoriales</h3>'
-    + '<p>Guarda textos reutilizables y revísalos antes de enviarlos. Cada anuncio exige seleccionar el contenido publicado y confirmar manualmente.</p>'
-    + (campaigns.filter(c=>c.status==='draft').length ? '<div class="df-list">'
-      + campaigns.filter(c=>c.status==='draft').map(c=>'<article><div><strong>'+safe(c.title)+'</strong>'
-        + '<small>Sin publicar · '+when(c.created_at)+'</small>'
-        + '<p>'+safe((c.body||'').slice(0,350))+'</p></div><div>'
-        + (canAnnounce?'<button type="button" class="btn" data-use-campaign="'+safe(c.id)+'">Preparar anuncio</button> ':'')
-        + (canCompose?'<button type="button" class="btn" data-edit-campaign="'+safe(c.id)+'">Editar</button> '
-          + '<button type="button" class="df-danger" data-del-campaign="'+safe(c.id)+'">Eliminar</button>':'')
-        + '</div></article>').join('')+'</div>'
-      : empty('No hay borradores.'))
-    + (canCompose ? '<form id="df-campaign-form" class="df-form"><h4>'
-      + (editingCampaign()?'Editar borrador':'Nuevo borrador')+'</h4>'
-      + '<label>Título<input name="title" minlength="2" maxlength="140" required placeholder="Ej. Estreno del volumen 3" value="'+safe(editingCampaign()?.title||'')+'"></label>'
-      + '<label>Plantilla rápida<select id="df-campaign-template">'+templateOptions()+'</select></label>'
-      + '<label>Mensaje<textarea name="body" maxlength="2000" rows="4" placeholder="Presenta la novedad a tus lectores">'+safe(editingCampaign()?.body||'')+'</textarea></label>'
-      + '<p class="df-muted">Los anuncios admiten mensajes de hasta 700 caracteres. El Obi añade el título del contenido, su enlace y la portada verificada.</p>'
-      + '<button type="submit" class="btn">'+(editingCampaign()?'Guardar cambios':'Guardar borrador')+'</button>'
-      + (editingCampaign()?'<button type="button" class="df-link" id="df-campaign-cancel">Cancelar edición</button>':'')
-      + '</form>' : '<p class="df-muted">Necesitas «Redactar difusión» para crear o editar borradores.</p>')
-    + '</section>';
+    +'<p>Crea textos reutilizables, inserta variables y elige los datos de la tarjeta simulada. No se envía ningún mensaje hasta confirmarlo.</p>'
+    +(campaigns.filter(c=>c.status==='draft').length?'<div class="df-list">'
+      +campaigns.filter(c=>c.status==='draft').map(c=>'<article><div><strong>'+safe(c.title)+'</strong>'
+        +'<small>Sin publicar · '+when(c.created_at)+'</small>'
+        +'<p>'+safe((c.body||'').slice(0,350))+'</p></div><div>'
+        +(canAnnounce?'<button type="button" class="btn" data-use-campaign="'+safe(c.id)+'">Preparar anuncio</button> ':'')
+        +(canCompose?'<button type="button" class="btn" data-edit-campaign="'+safe(c.id)+'">Editar</button> '
+          +'<button type="button" class="df-danger" data-del-campaign="'+safe(c.id)+'">Eliminar</button>':'')
+        +'</div></article>').join('')+'</div>':empty('No hay borradores.'))
+    +(canCompose?'<form id="df-campaign-form" class="df-form"><h4>'+(editingCampaign()?'Editar borrador':'Nuevo borrador')+'</h4>'
+      +'<label>Título interno<input name="title" minlength="2" maxlength="140" required placeholder="Ej. Presentación de una obra" value="'+safe(editingCampaign()?.title||'')+'"></label>'
+      +'<label>Plantilla rápida<select id="df-campaign-template">'+templateOptions()+'</select></label>'
+      +'<label>Mensaje con variables<textarea name="body" maxlength="2000" rows="5" placeholder="¡Les presentamos {{novela}} por {{equipo_traductor}}!">'+safe(editingCampaign()?.body||'')+'</textarea></label>'
+      +'<div class="df-draft-variables" role="group" aria-label="Insertar variables">'
+      +[['novela','Novela'],['equipo_traductor','Equipo traductor'],['sinopsis','Sinopsis'],['autor','Autor']].map(([key,label])=>'<button type="button" class="df-link" data-draft-variable="'+key+'">＋ '+label+'</button>').join('')+'</div>'
+      +'<label>Obra para la vista previa<select id="df-campaign-work">'
+      +(draftWorks.length?draftWorks.map(w=>'<option value="'+safe(w.id)+'"'+(draftWorkId===w.id?' selected':'')+'>'+safe(w.title)+'</option>').join(''):'<option value="">No hay obras disponibles</option>')+'</select></label>'
+      +'<fieldset class="df-draft-options"><legend>Campos en la tarjeta de muestra</legend>'
+      +[['showTitle','Nombre de la obra'],['showTeam','Equipo traductor'],['showSynopsis','Sinopsis'],['showCover','Portada']].map(([key,label])=>'<label><input type="checkbox" data-draft-option="'+key+'"'+(draftPresentation[key]?' checked':'')+'> '+label+'</label>').join('')+'</fieldset>'
+      +'<div id="df-campaign-live">'+draftLivePreview(editingCampaign()?.body||'',draftWorkId,draftPresentation)+'</div>'
+      +'<p class="df-muted">Máximo de 700 caracteres para enviar, después de sustituir las variables. La portada y el enlace real se validan en el servidor.</p>'
+      +'<button type="submit" class="btn">'+(editingCampaign()?'Guardar cambios':'Guardar borrador')+'</button>'
+      +(editingCampaign()?'<button type="button" class="df-link" id="df-campaign-cancel">Cancelar edición</button>':'')
+      +'</form>':'<p class="df-muted">Necesitas «Redactar difusión» para crear o editar borradores.</p>')
+    +'</section>';
   const historyView = () => '<section class="df-box"><h3>Historial de envíos</h3>'
     + (canLogs ? (jobs.length ? '<div class="df-list">'+jobs.map(j=>'<article><strong>'+safe(j.status)+'</strong>'
       + '<small>'+when(j.scheduled_at)+'</small><p>'+safe(j.last_error||'')+'</p></article>').join('')+'</div>'
@@ -263,7 +305,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     annSource=(deepPending&&annItems.some(x=>x.id===deepSource)?deepSource:annItems[0]?.id)||'';
   };
   const loadAnnWorks = async () => {
-    let req=sb.from('series').select('id,title,slug').eq('published',true)
+    let req=sb.from('series').select('id,title,slug,synopsis,author').eq('published',true)
       .is('archived_at',null).order('title').limit(150);
     if(team)req=req.eq('team_id',team.id);
     const {data,error}=await req;
@@ -435,7 +477,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         p_team:teamId,p_id:null,p_title:title,p_body:body
       });
       if(error)throw new Error('No se pudo guardar este borrador.');
-      campaigns=await q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at');
+      campaigns=await q('diffusion_campaigns','id,title,body,presentation,status,scheduled_at,created_at');
       toast('Texto guardado como borrador, sin publicar');
     }));
     root.querySelector('#df-ann-schedule')?.addEventListener('click',()=>{
@@ -811,7 +853,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         });
         if (error) throw new Error('No se pudo guardar el borrador. Comprueba tus permisos y que siga editable.');
         editingCampaignId='';
-        campaigns = await q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at');
+        campaigns = await q('diffusion_campaigns','id,title,body,presentation,status,scheduled_at,created_at');
         toast('Borrador guardado sin publicar');draw();
       });
     });
