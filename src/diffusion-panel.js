@@ -1,3 +1,4 @@
+import { manualTargets, manualChannelBatch, batchFeedback } from './diffusion-manual-batch.js';
 // Centro de Difusión: anuncios manuales y agenda 4B opt-in, sin reglas automáticas globales.
 const EVENTS = [
   ['chapter.public', 'Capítulo público'],
@@ -42,7 +43,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const deepSource = /^[0-9a-f-]{36}$/i.test(deep.get('id')||deep.get('source')||'') ? (deep.get('id')||deep.get('source')) : '';
   const deepSeries = /^[0-9a-f-]{36}$/i.test(deep.get('s')||deep.get('series')||'') ? (deep.get('s')||deep.get('series')) : '';
   let deepPending = !!(deepKind && deepSource);
-  let annWorks=[],annItems=[],annLoaded=false,annWork='',annSource='',annConnection='',annKind=deepKind||'series',annPreview=null,annScheduledId='';
+  let annWorks=[],annItems=[],annLoaded=false,annWork='',annSource='',annConnection='',annConnectionIds=[],annKind=deepKind||'series',annPreview=null,annScheduledId='';
   let scheduleFeedback = '', scheduleChangingId = '';
   const scoped = q => team ? q.eq('team_id', team.id) : q.is('team_id', null);
   const q = async (table, cols, sort = 'created_at') => {
@@ -182,16 +183,19 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       +value.split('/').map(encodeURIComponent).join('/');
   };
   const annConnections = () => connections.filter(c=>['discord','telegram'].includes(c.provider)&&c.status==='active');
-  const annProvider = () => connections.find(c=>c.id===annConnection)?.provider||'discord';
+  const annTargets = () => manualTargets(annConnections(),annConnectionIds);
   const annOptions = () => annKind==='series' ? [] : annItems.filter(x=>x.status==='published');
   const annSelected = (items,id,label) => items.map(x=>'<option value="'+safe(x.id)+'"'+(x.id===id?' selected':'')+'>'+safe(label(x))+'</option>').join('');
   const annView = () => '<section class="df-box"><h3>Anunciar contenido en Discord o Telegram</h3>'
-    + '<p>Selecciona una obra, volumen o capítulo publicado. Verás el mensaje antes de enviarlo. No se publica automáticamente.</p>'
+    + '<p>Selecciona una obra, volumen o capítulo publicado y uno o varios canales. Revisa el mensaje y confirma antes de enviarlo; cada canal recibe su propia publicación.</p>'
     + '<p>Una obra se anuncia con su portada general. Los volúmenes y capítulos usan siempre la portada del volumen correspondiente. Si falta esa imagen, no se enviará el anuncio.</p>'
     + (!canAnnounce ? empty('Necesitas el permiso «Publicar difusión».')
       : !annConnections().length ? empty('Primero conecta Discord o Telegram y envía una prueba desde «Conexiones».')
       : '<div class="df-form">'
-        + '<label>Canal de difusión<select id="df-ann-conn">'+annSelected(annConnections(),annConnection,x=>x.provider.toUpperCase()+' · '+x.label)+'</select></label>'
+        + '<fieldset class="df-destination-group" id="df-ann-targets"><legend>Canales de difusión (puedes elegir varios)</legend>'
+        + annConnections().map(c=>'<label class="df-destination-option"><input type="checkbox" data-ann-target value="'+safe(c.id)+'" '
+             +(annConnectionIds.includes(c.id)?'checked':'')+'><span>'+safe(c.provider.toUpperCase()+' · '+c.label)+'</span></label>').join('')
+        + '<small>Entre 1 y 8 conexiones activas. Cada canal tendrá su propio resultado; no se reintentan envíos inciertos.</small></fieldset>'
         + '<label>Tipo de anuncio<select id="df-ann-kind">'
           + [['series','Nueva obra'],['volume','Nuevo volumen'],['chapter','Nuevo capítulo']]
             .map(([k,v])=>'<option value="'+k+'"'+(annKind===k?' selected':'')+'>'+v+'</option>').join('')+'</select></label>'
@@ -212,15 +216,14 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           + (annDraftTitle?'Usar borrador seleccionado':'Texto sugerido por El Obi')+'</option>'
           + EDITORIAL_TEMPLATES.map(t=>'<option value="'+safe(t.id)+'">'+safe(t.label)+'</option>').join('')+'</select></label>'
           + '<label>Texto del anuncio<textarea id="df-ann-text" maxlength="700" rows="3">'+safe(annPreview.message)+'</textarea></label>'
-          + '<p class="df-muted">Solo se permite un anuncio por contenido y canal. No se reintentará automáticamente ante fallos inciertos.</p>'
+          + '<p class="df-muted">Enviarás el mismo texto únicamente a los canales marcados. Cada conexión tiene un límite de un anuncio por contenido y no se reintentan entregas inciertas.</p>'
           + (canSchedule?'<div class="df-form"><label>Fecha y hora de difusión (hora local de tu dispositivo)'
           + '<input type="datetime-local" id="df-ann-schedule-at" step="60"></label>'
           + '<label>Modo de entrega<select id="df-ann-delivery"><option value="manual">Manual: confirmar el envío al llegar la fecha</option><option value="automatic">Automático: enviar cuando llegue la fecha</option></select></label>'
           + '<p class="df-muted">Entre 2 minutos y 90 días. El automático solo se activa al elegirlo explícitamente; los fallos inciertos nunca se reintentan solos.</p>'
           + '<button type="button" class="btn" id="df-ann-schedule">Agregar al calendario</button></div>':'')
           + (canCompose?'<button type="button" class="df-link" id="df-ann-save-draft">Guardar texto como borrador</button> ':'')
-          + '<button type="button" class="btn" id="df-ann-send">Confirmar y enviar a '
-          + (annProvider()==='telegram'?'Telegram':'Discord')+'</button></div>' : '')
+          + '<button type="button" class="btn" id="df-ann-send">Confirmar y enviar ahora a '+annConnectionIds.length+' canal(es)</button></div>' : '')
        + '<div class="df-note" role="alert" id="df-ann-feedback">'+safe(annFeedback)+'</div>'
        )+'</section>';
   const loadAnnItems = async () => {
@@ -243,7 +246,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     annWorks=data||[];annLoaded=true;
     annWork=annWorks.find(x=>x.id===(deepSeries||(annKind==='series'?deepSource:'')))?.id||annWorks[0]?.id||'';
     const allowed=annConnections();
-    annConnection=allowed[0]?.id||'';
+    annConnectionIds=annConnectionIds.filter(id=>allowed.some(c=>c.id===id));
+    if(!annConnectionIds.length&&allowed.length)annConnectionIds=[allowed[0].id];
+    annConnection=annConnectionIds[0]||'';
     await loadAnnItems();deepPending=false;
   };
 
@@ -326,9 +331,12 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       });
     });
 
-    root.querySelector('#df-ann-conn')?.addEventListener('change',e=>{
-      annConnection=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';annFeedback='';draw();
-    });
+    root.querySelectorAll('[data-ann-target]').forEach(input=>input.addEventListener('change',()=>{
+      annConnectionIds=[...root.querySelectorAll('[data-ann-target]:checked')].map(el=>el.value);
+      annConnection=annConnectionIds[0]||'';
+      annPreview=null;annScheduledId='';annFeedback='';
+      draw();
+    }));
     root.querySelector('#df-ann-kind')?.addEventListener('change',e=>{
       annKind=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';annFeedback='';
       loadAnnItems().then(draw).catch(()=>toast('No se pudieron cargar los contenidos.'));
@@ -341,17 +349,29 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       annSource=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';annFeedback='';draw();
     });
     root.querySelector('#df-ann-preview')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
-      if(!annConnection||!chosenAnnouncementId())return;
-      const {data,error}=await sb.rpc('diffusion_'+annProvider()+'_announcement_preview',{
-        p_connection:annConnection,p_kind:annKind,p_source:chosenAnnouncementId()
-      });
+      const targets=annTargets();
+      if(!chosenAnnouncementId())throw new Error('Selecciona un contenido publicado.');
+      const previews=await Promise.all(targets.map(async target=>{
+        const {data,error}=await sb.rpc('diffusion_'+target.provider+'_announcement_preview',{
+          p_connection:target.id,p_kind:annKind,p_source:chosenAnnouncementId()
+        });
+        if(error)return {data:null,error};
+        return {data,error:null};
+      }));
+      const failed=previews.find(x=>x.error||!x.data?.url);
+      const error=failed?.error;
+      const data=previews[0]?.data;
       if(error?.message==='missing_volume_cover')
         throw new Error('Este volumen no tiene portada propia. Añade la portada del volumen antes de anunciarlo o anunciar uno de sus capítulos.');
       if(error?.message==='missing_work_cover')
         throw new Error('Esta obra no tiene portada general. Añádela antes de anunciarla.');
       if(error?.message==='invalid_cover_path')
         throw new Error('La ruta de la portada no es válida para compartir. Corrige la imagen y vuelve a intentarlo.');
-      if(error||!data?.url)throw new Error('Este contenido no está disponible públicamente o no tienes permiso para anunciarlo.');
+      if(error||!data?.url||failed)
+        throw new Error('No se pudo crear la vista previa para todos los canales: verifica sus conexiones y permisos.');
+      if(previews.some(x=>x.data.url!==data.url||x.data.title!==data.title||
+          x.data.cover_path!==data.cover_path))
+        throw new Error('La obra o su portada no coinciden entre canales. No se enviará el anuncio.');
       annPreview={...data,message:annDraftMessage||data.message};annFeedback='';draw();
     }));
     root.querySelector('#df-ann-template')?.addEventListener('change',e=>{
@@ -400,7 +420,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         if(!annLoaded)await loadAnnWorks();
         if(!annWorks.some(x=>x.id===item.series_id))
           throw new Error('La obra ya no figura entre las obras públicas de este equipo.');
-        annKind=item.source_type;annWork=item.series_id;annConnection=item.connection_id;
+        annKind=item.source_type;annWork=item.series_id;annConnection=item.connection_id;annConnectionIds=[item.connection_id];
         await loadAnnItems();
         if(annKind!=='series'&&!annItems.some(x=>x.id===item.source_id))
           throw new Error('El contenido ya no aparece como publicado. No se enviará.');
