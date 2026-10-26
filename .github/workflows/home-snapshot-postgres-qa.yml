@@ -1,0 +1,58 @@
+name: Home snapshot · QA PostgreSQL aislado
+on:
+  pull_request:
+    paths:
+      - 'sql/home-snapshot-row-level-*.sql'
+      - 'scripts/home-snapshot-pg-*.sql'
+      - '.github/workflows/home-snapshot-postgres-qa.yml'
+  push:
+    branches: [fix/home-snapshot-invalidation-row-level-20261025]
+    paths:
+      - 'sql/home-snapshot-row-level-*.sql'
+      - 'scripts/home-snapshot-pg-*.sql'
+      - '.github/workflows/home-snapshot-postgres-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  postgresql-isolated:
+    runs-on: ubuntu-latest # GitHub hosted runner estándar gratis para repositorios públicos.
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test-only-no-real-credentials
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: test-only-no-real-credentials
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preparar cliente PostgreSQL del runner
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y postgresql-client
+          fi
+      - name: Reproducir el fallo y aplicar parche en DB efímera
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f scripts/home-snapshot-pg-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f sql/home-snapshot-row-level-invalidation.sql
+          psql -X -v ON_ERROR_STOP=1 -f scripts/home-snapshot-pg-assertions.sql
+      - name: Revertir parche y validar comportamiento anterior
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f sql/home-snapshot-row-level-rollback.sql
+          psql -X -v ON_ERROR_STOP=1 -f scripts/home-snapshot-pg-rollback-assertions.sql
