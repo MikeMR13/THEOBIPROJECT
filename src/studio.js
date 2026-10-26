@@ -1956,7 +1956,7 @@ export function createStudio(ctx){
     const selected = T.team;
     app.innerHTML = shell('Difusión', '<div id="df-root"><p class="mono">Cargando Difusión…</p></div>', '/estudio/difusion');
     bindPicker(diffusion);
-    const { renderStudioDiffusion } = await import('./studio-diffusion.js?v=2');
+    const { renderStudioDiffusion } = await import('./studio-diffusion.js?v=3');
     const root = app.querySelector('#df-root');
     if (!root || T.team?.id !== selected.id) return;
     await renderStudioDiffusion({sb,root,team:selected,permissions:T.perms,esc,toast});
