@@ -38,7 +38,7 @@ console.log('Telegram: validación de campos y errores específicos PASS');
 assert.match(ts,/\['channel','group','supergroup'\]/);
 assert.match(ts,/telegram_bot_no_post_permission/);
 assert.match(ts,/telegram_token_invalid/);
-assert.match(ts,/telegram_channel_unavailable/);
+assert.match(ts,/telegram_chat_unavailable/);
 assert.match(ts,/telegram_bot_not_member/);
 assert.match(ts,/telegram_bot_blocked/);
 assert.match(ts,/class TelegramRequestError extends Error/);
