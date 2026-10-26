@@ -23,9 +23,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const canLogs = p('diffusion_logs'), canAnnounce = p('diffusion_publish');
   let tab = 'resumen', rules = [], campaigns = [], connections = [], jobs = [];
   const deep = new URLSearchParams(location.search);
-  const deepKind = ['series','volume','chapter'].includes(deep.get('kind')) ? deep.get('kind') : '';
-  const deepSource = /^[0-9a-f-]{36}$/i.test(deep.get('source')||'') ? deep.get('source') : '';
-  const deepSeries = /^[0-9a-f-]{36}$/i.test(deep.get('series')||'') ? deep.get('series') : '';
+  const deepKind = ({o:'series',v:'volume',c:'chapter'})[deep.get('k')] || (['series','volume','chapter'].includes(deep.get('kind')) ? deep.get('kind') : '');
+  const deepSource = /^[0-9a-f-]{36}$/i.test(deep.get('id')||deep.get('source')||'') ? (deep.get('id')||deep.get('source')) : '';
+  const deepSeries = /^[0-9a-f-]{36}$/i.test(deep.get('s')||deep.get('series')||'') ? (deep.get('s')||deep.get('series')) : '';
   let deepPending = !!(deepKind && deepSource);
   let annWorks=[],annItems=[],annLoaded=false,annWork='',annSource='',annConnection='',annKind=deepKind||'series',annPreview=null;
   const scoped = q => team ? q.eq('team_id', team.id) : q.is('team_id', null);

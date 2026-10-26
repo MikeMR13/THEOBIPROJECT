@@ -32,19 +32,19 @@ begin
  if se.id is null or (conn.team_id is not null and conn.team_id<>se.team_id)
     or se.published is distinct from true or se.archived_at is not null
     or coalesce(se.translation_status,'') in ('abandoned','withdrawn')
-    or not (coalesce(se.access,'public')='public' or se.access_until<=now())
+    or not (coalesce(se.access,'public')='public' or coalesce(se.access_until<=now(),false))
     or se.slug !~ '^[A-Za-z0-9_-]+$'
  then raise exception 'not_public'; end if;
  if p_kind in ('volume','chapter') then
    if vo.id is null or vo.deleted_at is not null or vo.status<>'published'
      or (vo.published_at is not null and vo.published_at>now())
-     or not (coalesce(vo.access,'public')='public' or vo.access_until<=now())
+     or not (coalesce(vo.access,'public')='public' or coalesce(vo.access_until<=now(),false))
    then raise exception 'not_public'; end if;
  end if;
  if p_kind='chapter' then
    if ch.deleted_at is not null or ch.status::text<>'published'
      or (ch.publish_at is not null and ch.publish_at>now())
-     or not (coalesce(ch.access,'public')='public' or ch.access_until<=now())
+     or not (coalesce(ch.access,'public')='public' or coalesce(ch.access_until<=now(),false))
      or ch.num is null
    then raise exception 'not_public'; end if;
    ttl:=left(se.title||' · Capítulo '||ch.num||' — '||coalesce(ch.title,''),256);
