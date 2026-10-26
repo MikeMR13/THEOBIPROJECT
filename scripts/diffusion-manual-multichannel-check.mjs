@@ -34,7 +34,7 @@ assert.match(ui,/data-ann-target/,'El formulario debe mostrar las casillas multi
 assert.match(ui,/\[data-ann-target\]:checked/,'La selección debe recoger los destinos marcados');
 assert.match(ui,/diffusion_'\+target\.provider\+'_announcement_preview/,'Vista previa por cada destino');
 assert.match(ui,/previews\.some\(/,'Rechazar portadas o fichas inconsistentes');
-assert.match(ui,/manualChannelBatch\(targets,async target=>/,'Enviar y programar independientemente');
+assert.match(ui,/manualChannelBatch\(pending\.targets,async target=>/,'Enviar y programar independientemente desde destinos confirmados');
 assert.match(ui,/target\.provider==='telegram'\?'diffusion-telegram':'diffusion-announcement'/);
 assert.match(ui,/connection_id:target\.id/);
 assert.match(ui,/id="df-ann-confirm-accept"/);

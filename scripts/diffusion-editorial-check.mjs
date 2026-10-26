@@ -29,5 +29,7 @@ assert.match(ui,/target.provider==='telegram'\?'diffusion-telegram':'diffusion-a
 assert.match(sql,/private\.diffusion_scope_ok\(p_team,'diffusion_compose'\)/);
 assert.match(sql,/and status='draft' returning id into result_id/);
 assert.match(sql,/status='draft'\s*;/);
-assert.doesNotMatch(ui,/cron\.schedule\(|setInterval\(|setTimeout\(/);
+assert.doesNotMatch(ui,/cron\.schedule\(|setTimeout\(/);
+assert.match(ui,/tab!=='calendario'/,'La consulta periódica sólo debe funcionar en Calendario');
+assert.match(ui,/scheduled\.some\(x=>x\.delivery_mode==='automatic'/,'No consultar periódicamente si no hay automáticos pendientes');
 console.log('Difusión editorial: borradores, plantillas, confirmación y alcance Discord/Telegram PASS (sin envíos)');
