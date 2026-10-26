@@ -8,7 +8,7 @@ const service=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
 const options={auth:{persistSession:false,autoRefreshToken:false}};
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const tokenValid=/^[0-9]{5,15}:[A-Za-z0-9_-]{30,80}$/;
-const chatValid=/^(@[A-Za-z][A-Za-z0-9_]{4,31}|-100[0-9]{6,16})$/;
+const chatValid=/^(@[A-Za-z][A-Za-z0-9_]{4,31}|-[1-9][0-9]{4,18})$/;
 function answer(body:Record<string,unknown>,status:number,origin:string|null){
  return new Response(JSON.stringify(body),{status,headers:{
   'content-type':'application/json','access-control-allow-origin':origin&&origins.has(origin)?origin:'https://elobidellector.com',
@@ -42,7 +42,7 @@ async function telegram(token:string,method:string,body:Record<string,unknown>){
   else if(method==='getMe'&&(response.status===401||response.status===404))
    code='telegram_token_invalid';
   else if(method==='getChat'&&(response.status===400||response.status===403))
-   code='telegram_channel_unavailable';
+   code='telegram_chat_unavailable';
   else if(method==='getChatMember'&&(response.status===400||response.status===403))
    code='telegram_bot_not_member';
   else if(method==='sendMessage'&&response.status===403)
@@ -105,15 +105,20 @@ Deno.serve(async(req:Request)=>{
     const bot=await telegram(token,'getMe',{});
     if(!bot?.id)throw new TelegramRequestError('telegram_token_invalid');
     const destination=await telegram(token,'getChat',{chat_id:chat});
-    if(!destination)throw new TelegramRequestError('telegram_channel_unavailable');
-    if(destination.type==='group'||destination.type==='supergroup')
-      throw new TelegramRequestError('telegram_group_not_supported');
-    if(destination.type!=='channel')
-      throw new TelegramRequestError('telegram_not_channel');
+    if(!destination)throw new TelegramRequestError('telegram_chat_unavailable');
+    if(!['channel','group','supergroup'].includes(destination.type))
+      throw new TelegramRequestError('telegram_not_chat');
     const member=await telegram(token,'getChatMember',{chat_id:chat,user_id:bot.id});
     if(!member)throw new TelegramRequestError('telegram_bot_not_member');
-    const canPost=member.status==='creator'
-      ||(member.status==='administrator'&&member.can_post_messages===true);
+    const canPost=destination.type==='channel'
+      ? (member.status==='creator'
+        ||(member.status==='administrator'&&member.can_post_messages===true))
+      : (member.status==='creator'||member.status==='administrator'
+        ||(member.status==='member'
+          && destination.permissions?.can_send_messages!==false
+          && destination.permissions?.can_send_photos!==false)
+        ||(member.status==='restricted'&&member.is_member===true
+          && member.can_send_messages===true&&member.can_send_photos===true));
     if(!canPost)throw new TelegramRequestError('telegram_bot_no_post_permission');
     const res=await telegram(token,'sendMessage',{
      chat_id:chat,
