@@ -14,6 +14,8 @@ on:
       - 'supabase/migrations/20261026012634_diffusion_discord_cover_by_publication_level_20261025.sql'
       - 'supabase/migrations/20261026021155_diffusion_telegram_manual_phase2c_20261025.sql'
       - 'supabase/tests/diffusion_telegram_rls.sql'
+      - 'supabase/migrations/20261026041000_diffusion_telegram_grupos_prueba.sql'
+      - 'supabase/tests/diffusion_telegram_group_ids.sql'
   workflow_dispatch:
 
 permissions:
@@ -67,6 +69,8 @@ jobs:
           psql_local supabase/migrations/20261026012634_diffusion_discord_cover_by_publication_level_20261025.sql > "$RUNNER_TEMP/diffusion-cover-strict.log"
           psql_local supabase/migrations/20261026021155_diffusion_telegram_manual_phase2c_20261025.sql > "$RUNNER_TEMP/diffusion-telegram.log"
           psql_local supabase/tests/diffusion_telegram_rls.sql > "$RUNNER_TEMP/diffusion-telegram-rls.log"
+          psql_local supabase/migrations/20261026041000_diffusion_telegram_grupos_prueba.sql > "$RUNNER_TEMP/diffusion-telegram-grupos.log"
+          psql_local supabase/tests/diffusion_telegram_group_ids.sql > "$RUNNER_TEMP/diffusion-telegram-grupos-check.log"
           echo 'Supabase Vault real: migraciones, permisos y cifrado PASS'
       - name: Apagar Supabase local y limpiar archivos efímeros
         if: always()

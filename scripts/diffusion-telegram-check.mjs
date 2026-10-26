@@ -35,7 +35,7 @@ assert.match(ui,/El token del bot no tiene un formato válido/);
 assert.match(ui,/Tu cuenta no tiene permiso/);
 console.log('Telegram: validación de campos y errores específicos PASS');
 
-assert.match(ts,/telegram_group_not_supported/);
+assert.match(ts,/\['channel','group','supergroup'\]/);
 assert.match(ts,/telegram_bot_no_post_permission/);
 assert.match(ts,/telegram_token_invalid/);
 assert.match(ts,/telegram_channel_unavailable/);
@@ -43,6 +43,17 @@ assert.match(ts,/telegram_bot_not_member/);
 assert.match(ts,/telegram_bot_blocked/);
 assert.match(ts,/class TelegramRequestError extends Error/);
 assert.match(ui,/error\.context\.json\(\)/);
-assert.match(ui,/Ese @ corresponde a un grupo/);
-assert.match(ui,/El bot está en el canal pero no tiene activado el permiso/);
+assert.match(ui,/Comprobando el grupo o canal de Telegram/);
+assert.match(ui,/El bot no puede publicar en ese grupo o canal/);
 console.log('Telegram: motivos de fallo específicos sin exponer secretos, PASS');
+
+const groupSql=readFileSync('supabase/migrations/20261026041000_diffusion_telegram_grupos_prueba.sql','utf8');
+assert.match(groupSql, /chat_id ~ /);
+assert.match(groupSql, /diffusion_telegram_connect/);
+assert.match(groupSql, /-\[1-9\]/);
+assert.match(ts,/member\.status==='member'/);
+assert.match(ts,/member\.can_send_photos===true/);
+assert.match(ui,/role="alert"/);
+assert.match(ui,/telegramFeedback/);
+assert.doesNotMatch(ts,/telegram_group_not_supported/);
+console.log('Telegram: grupos y errores persistentes PASS');
