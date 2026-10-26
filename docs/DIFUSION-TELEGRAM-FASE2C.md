@@ -7,3 +7,9 @@
 - **RLS, roles y protección:** equipos solo sus redes, Bibliotecario solo redes oficiales. Sin acceso de anon/authenticated a secretos. Reserva idempotente por contenido y conexión; fallos inciertos `unknown` sin reintento automático.
 - **Solo se considera finalizada la conexión** después de una prueba enviada realmente desde la interfaz por alguien autorizado. No se crean ni envían bots automáticamente.
 - **Precaución:** Telegram debe poder descargar la portada desde el bucket público obi-media; no se publica un mensaje solo texto como fallback.
+
+## Backend instalado (25/oct/2026)
+- Migración productiva registrada: `20261026021155_diffusion_telegram_manual_phase2c_20261025.sql`.
+- `diffusion-telegram` ACTIVE con `verify_jwt=true` en el Supabase existente.
+- Cero conexiones Telegram iniciales y ninguna regla automática habilitada.
+- La interfaz web permanece pendiente de integración hasta que CI y QA aprueben este commit.

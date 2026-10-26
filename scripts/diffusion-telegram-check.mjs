@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { transformSync } from 'esbuild';
-const sql=readFileSync('supabase/migrations/20261026023000_diffusion_telegram_manual_phase2c.sql','utf8');
+const sql=readFileSync('supabase/migrations/20261026021155_diffusion_telegram_manual_phase2c_20261025.sql','utf8');
 const ts=readFileSync('supabase/functions/diffusion-telegram/index.ts','utf8');
 const ui=readFileSync('src/diffusion-panel.js','utf8');
 assert.match(sql,/vault\.create_secret\(p_token/);

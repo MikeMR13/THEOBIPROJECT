@@ -14,7 +14,7 @@ on:
       - 'supabase/migrations/20261026010751_diffusion_discord_announcements_manual_20261025.sql'
       - 'supabase/tests/diffusion_discord_announcement_rls.sql'
       - 'supabase/migrations/20261026012634_diffusion_discord_cover_by_publication_level_20261025.sql'
-      - 'supabase/migrations/20261026023000_diffusion_telegram_manual_phase2c.sql'
+      - 'supabase/migrations/20261026021155_diffusion_telegram_manual_phase2c_20261025.sql'
       - 'supabase/tests/diffusion_telegram_rls.sql'
       - 'supabase/functions/diffusion-telegram/**'
       - 'scripts/diffusion-telegram-check.mjs'
@@ -86,6 +86,6 @@ jobs:
           psql_qa supabase/migrations/20261026010751_diffusion_discord_announcements_manual_20261025.sql
           psql_qa supabase/tests/diffusion_discord_announcement_rls.sql
           psql_qa supabase/migrations/20261026012634_diffusion_discord_cover_by_publication_level_20261025.sql
-          psql_qa supabase/migrations/20261026023000_diffusion_telegram_manual_phase2c.sql
+          psql_qa supabase/migrations/20261026021155_diffusion_telegram_manual_phase2c_20261025.sql
           psql_qa supabase/tests/diffusion_telegram_rls.sql
           echo 'Difusión QA aprobado, sin servicios alojados ni envío de publicaciones'
