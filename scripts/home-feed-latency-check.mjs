@@ -25,7 +25,7 @@ assert.doesNotMatch(home,/s\.cover_thumb_path\s*=\s*null/,
  'No descartar miniaturas WebP existentes');
 assert.match(hero,/v\?\.cover_path \|\| s\.cover_path/,
  'Conservar portada propia del volumen en hero y sus lanzamientos');
-assert.match(hero,/coverUrl = v\?\.cover_path[\s\S]*? : thumb\(s\)/,
+assert.match(home,/coverUrl = v\?\.cover_path[\s\S]*? : thumb\(s\)/,
  'Conservar portada específica de novedades y miniatura de obra en fallback');
 assert.match(home,/loading="lazy" decoding="async"/,
  'No descargar todas las miniaturas fuera de pantalla inmediatamente');
