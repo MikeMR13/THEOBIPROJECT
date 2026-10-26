@@ -34,14 +34,16 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const p = k => official || !!permissions[k];
   const canManage = p('diffusion_manage'), canCompose = p('diffusion_compose');
   const canLogs = p('diffusion_logs'), canAnnounce = p('diffusion_publish');
-  let tab = 'resumen', rules = [], campaigns = [], connections = [], jobs = [];
+  const canSchedule = p('diffusion_schedule') && canAnnounce;
+  let tab = 'resumen', rules = [], campaigns = [], connections = [], jobs = [], scheduled = [];
   let telegramFeedback = '', editingCampaignId = '', annDraftMessage = '', annDraftTitle = '', annFeedback = '';
   const deep = new URLSearchParams(location.search);
   const deepKind = ({o:'series',v:'volume',c:'chapter'})[deep.get('k')] || (['series','volume','chapter'].includes(deep.get('kind')) ? deep.get('kind') : '');
   const deepSource = /^[0-9a-f-]{36}$/i.test(deep.get('id')||deep.get('source')||'') ? (deep.get('id')||deep.get('source')) : '';
   const deepSeries = /^[0-9a-f-]{36}$/i.test(deep.get('s')||deep.get('series')||'') ? (deep.get('s')||deep.get('series')) : '';
   let deepPending = !!(deepKind && deepSource);
-  let annWorks=[],annItems=[],annLoaded=false,annWork='',annSource='',annConnection='',annKind=deepKind||'series',annPreview=null;
+  let annWorks=[],annItems=[],annLoaded=false,annWork='',annSource='',annConnection='',annKind=deepKind||'series',annPreview=null,annScheduledId='';
+  let scheduleFeedback = '';
   const scoped = q => team ? q.eq('team_id', team.id) : q.is('team_id', null);
   const q = async (table, cols, sort = 'created_at') => {
     const { data, error } = await scoped(sb.from(table).select(cols).order(sort, { ascending: false }).limit(50));
@@ -56,14 +58,15 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     ['resumen','Resumen'], ['conexiones','Conexiones'], ['anuncios','Anunciar'], ['reglas','Automatizaciones'],
     ['campanas','Borradores'], ['calendario','Calendario'], ['historial','Historial']
   ];
-  const message = 'Solo Discord y Telegram. Los borradores no se publican solos: selecciona el contenido, revisa portada y enlace y confirma cada envío. Las automatizaciones están inactivas.';
+  const message = 'Discord y Telegram: prepara anuncios y organízalos en el calendario. La agenda NO envía mensajes por sí sola; requiere confirmación al llegar la fecha. Las reglas automáticas permanecen inactivas.';
   root.innerHTML = '<div class="df" aria-live="polite"><p class="df-empty">Cargando Difusión…</p></div>';
   try {
-    [connections,rules,campaigns,jobs] = await Promise.all([
+    [connections,rules,campaigns,jobs,scheduled] = await Promise.all([
       q('diffusion_connections','id,provider,label,status,created_at'),
       q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,created_at'),
       q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at'),
-      canLogs ? q('diffusion_jobs','id,status,scheduled_at,last_error,created_at') : Promise.resolve([])
+      canLogs ? q('diffusion_jobs','id,status,scheduled_at,last_error,created_at') : Promise.resolve([]),
+      q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,created_at')
     ]);
   } catch (error) {
     const missing = error.code === '42P01' || /PGRST205|Could not find the table/i.test(error.message || '');
@@ -80,7 +83,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       + '" aria-current="' + (tab===id?'page':'false') + '">' + name + '</button>').join('') + '</nav>'
     + '<p class="df-note">' + safe(message) + '</p>';
   const cards = () => '<div class="df-cards">'
-    + [['Conexiones activas',connections.filter(c=>['discord','telegram'].includes(c.provider)&&c.status==='active').length],['Reglas inactivas',rules.filter(r=>!r.enabled).length],['Borradores',campaigns.filter(c=>c.status==='draft').length],['Registros recientes',canLogs?jobs.length:'—']]
+    + [['Conexiones activas',connections.filter(c=>['discord','telegram'].includes(c.provider)&&c.status==='active').length],['Agenda pendiente',scheduled.filter(c=>c.status==='planned').length],['Borradores',campaigns.filter(c=>c.status==='draft').length],['Registros recientes',canLogs?jobs.length:'—']]
       .map(([name,n])=>'<div class="df-card"><small>'+safe(name)+'</small><strong>'+n+'</strong></div>').join('')+'</div>';
   const connectionsView = () => '<section class="df-box"><h3>Conexiones de Discord y Telegram</h3>'
     + '<p>Discord guarda el webhook y Telegram el token de bot cifrados en Supabase Vault. No compartas ninguno por chat ni GitHub.</p>'
@@ -190,6 +193,10 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           + EDITORIAL_TEMPLATES.map(t=>'<option value="'+safe(t.id)+'">'+safe(t.label)+'</option>').join('')+'</select></label>'
           + '<label>Texto del anuncio<textarea id="df-ann-text" maxlength="700" rows="3">'+safe(annPreview.message)+'</textarea></label>'
           + '<p class="df-muted">Solo se permite un anuncio por contenido y canal. No se reintentará automáticamente ante fallos inciertos.</p>'
+          + (canSchedule?'<div class="df-form"><label>Fecha y hora de difusión (hora local de tu dispositivo)'
+          + '<input type="datetime-local" id="df-ann-schedule-at" step="60"></label>'
+          + '<p class="df-muted">Entre 2 minutos y 90 días en el futuro. Se guarda en calendario, sin envío automático.</p>'
+          + '<button type="button" class="btn" id="df-ann-schedule">Agregar al calendario</button></div>':'')
           + (canCompose?'<button type="button" class="df-link" id="df-ann-save-draft">Guardar texto como borrador</button> ':'')
           + '<button type="button" class="btn" id="df-ann-send">Confirmar y enviar a '
           + (annProvider()==='telegram'?'Telegram':'Discord')+'</button></div>' : '')
@@ -219,13 +226,38 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     await loadAnnItems();deepPending=false;
   };
 
+  const scheduleView = () => '<section class="df-box"><h3>Agenda de Discord y Telegram</h3>'
+    + '<p>Las fechas son orientativas para el equipo. Esta versión no despacha mensajes automáticamente: cuando llegue la fecha, prepara el anuncio y confirma el envío manualmente.</p>'
+    + '<p class="df-muted">Las horas se muestran según la zona horaria de tu dispositivo. Las publicaciones canceladas no se envían.</p>'
+    + '<div class="df-note" id="df-schedule-feedback" role="alert">'+safe(scheduleFeedback)+'</div>'
+    + (scheduled.length ? '<div class="df-list">'
+      + [...scheduled].sort((a,b)=>Date.parse(a.scheduled_at)-Date.parse(b.scheduled_at)).map(item=>{
+        const future=Date.parse(item.scheduled_at)>Date.now();
+        const conn=connections.find(c=>c.id===item.connection_id);
+        const active=conn?.status==='active';
+        const planned=item.status==='planned';
+        return '<article><div><strong>'+safe(item.title_snapshot)+'</strong>'
+          + '<small>'+safe(item.provider.toUpperCase()+' · '+(conn?.label||'Conexión no disponible'))
+          + ' · '+safe(item.source_type)+' · '+when(item.scheduled_at)+'</small>'
+          + '<p>'+safe(item.message)+'</p>'
+          + '<small>'+safe(planned?(future?'Previsto, sin envío automático':'Fecha cumplida: pendiente de envío manual')
+             :item.status==='sent'?'Enviado y confirmado':'Cancelado')+'</small></div>'
+          + (planned?'<div>'
+             + (canAnnounce&&active?'<button type="button" class="btn" data-schedule-prepare="'+safe(item.id)+'">'
+                +(future?'Revisar anuncio':'Preparar envío')+'</button> ':'')
+             + (canSchedule?'<button type="button" class="df-link" data-schedule-change="'+safe(item.id)+'">Cambiar fecha</button> '
+                + '<button type="button" class="df-danger" data-schedule-cancel="'+safe(item.id)+'">Cancelar</button> ':'')
+             + (canAnnounce?'<button type="button" class="df-link" data-schedule-finalize="'+safe(item.id)+'">Comprobar si ya se envió</button>':'')
+             + '</div>':'')
+          + '</article>';
+      }).join('')+'</div>' : empty('Aún no hay publicaciones previstas. Prepara un anuncio y pulsa «Agregar al calendario».'))
+    + '</section>';
   function page() {
     if (tab==='conexiones') return connectionsView();
     if (tab==='anuncios') return annView();
     if (tab==='reglas') return rulesView();
     if (tab==='campanas') return campaignsView();
-    if (tab==='calendario') return '<section class="df-box"><h3>Calendario de difusión</h3>'
-      + empty('La programación está pendiente de la fase de automatización. Por ahora los anuncios se envían solo mediante confirmación manual.')+'</section>';
+    if (tab==='calendario') return scheduleView();
     if (tab==='historial') return historyView();
     return cards() + '<div class="df-grid">'
       + '<section class="df-box"><h3>Autonomía editorial</h3><p>'
