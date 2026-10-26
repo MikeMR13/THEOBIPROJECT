@@ -18,3 +18,11 @@
 5. Confirmar manualmente el primer anuncio real.
 
 Se conserva la autonomía de los equipos; Bibliotecario opera exclusivamente conexiones oficiales. Las publicaciones automáticas siguen desactivadas.
+
+## Portadas por nivel editorial (25 de octubre de 2026)
+- **Obra:** únicamente portada general de esa obra.
+- **Volumen:** únicamente portada del volumen correspondiente.
+- **Capítulo:** portada del volumen que contiene al capítulo.
+- No hay sustitución por otra portada; cuando falta la imagen requerida, se detiene el anuncio antes del envío y se explica en la interfaz.
+- Validación de rutas seguras en servidor; no cambia anuncios previos.
+- Migración productiva: `20261026012634_diffusion_discord_cover_by_publication_level_20261025.sql`.

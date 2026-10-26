@@ -27,3 +27,14 @@ console.log('Anuncios manuales Discord: contratos y privilegios verificados (sin
 // La compilación de Deno/TypeScript valida la sintaxis que Node no interpreta.
 const transformed=transformSync(edge,{loader:'ts',format:'esm'});
 assert.ok(transformed.code.includes('Deno.serve('),'Edge Function TypeScript inválida');
+
+const coverSql=readFileSync('supabase/migrations/20261026012634_diffusion_discord_cover_by_publication_level_20261025.sql','utf8');
+assert.equal((coverSql.match(/cover:=nullif\\(btrim\\(vo\\.cover_path\\),''\\);/g)||[]).length,2,'Volumen y capítulo deben utilizar la portada del volumen');
+assert.match(coverSql,/cover:=nullif\\(btrim\\(se\\.cover_path\\),''\\);/);
+assert.doesNotMatch(coverSql,/coalesce\\(nullif\\(vo\\.cover_path,''\\),se\\.cover_path\\)/);
+assert.match(coverSql,/missing_volume_cover/);
+assert.match(coverSql,/missing_work_cover/);
+assert.match(coverSql,/invalid_cover_path/);
+assert.match(ui,/Esta obra no tiene portada general/);
+assert.match(ui,/Este volumen no tiene portada propia/);
+console.log('Portadas estrictas por nivel: obra, volumen y capítulo PASS');

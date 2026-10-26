@@ -130,6 +130,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const annSelected = (items,id,label) => items.map(x=>'<option value="'+safe(x.id)+'"'+(x.id===id?' selected':'')+'>'+safe(label(x))+'</option>').join('');
   const annView = () => '<section class="df-box"><h3>Anunciar contenido en Discord</h3>'
     + '<p>Selecciona una obra, volumen o capítulo publicado. Verás el mensaje antes de enviarlo. No se publica automáticamente.</p>'
+    + '<p>Una obra se anuncia con su portada general. Los volúmenes y capítulos usan siempre la portada del volumen correspondiente. Si falta esa imagen, no se enviará el anuncio.</p>'
     + (!canAnnounce ? empty('Necesitas el permiso «Publicar difusión».')
       : !annConnections().length ? empty('Primero conecta Discord y envía la prueba desde «Conexiones».')
       : '<div class="df-form">'
@@ -248,6 +249,12 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       const {data,error}=await sb.rpc('diffusion_discord_announcement_preview',{
         p_connection:annConnection,p_kind:annKind,p_source:chosenAnnouncementId()
       });
+      if(error?.message==='missing_volume_cover')
+        throw new Error('Este volumen no tiene portada propia. Añade la portada del volumen antes de anunciarlo o anunciar uno de sus capítulos.');
+      if(error?.message==='missing_work_cover')
+        throw new Error('Esta obra no tiene portada general. Añádela antes de anunciarla.');
+      if(error?.message==='invalid_cover_path')
+        throw new Error('La ruta de la portada no es válida para compartir. Corrige la imagen y vuelve a intentarlo.');
       if(error||!data?.url)throw new Error('Este contenido no está disponible públicamente o no tienes permiso para anunciarlo.');
       annPreview=data;draw();
     }));
