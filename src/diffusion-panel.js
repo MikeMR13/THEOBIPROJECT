@@ -2,7 +2,7 @@
 const EVENTS = [
   ['chapter.public', 'Capítulo público'],
   ['volume.public', 'Volumen completo'],
-  ['prelaunch.announced', 'Preestreno anunciado'],
+  ['prelaunch.announced', 'Nueva obra anunciada'],
   ['content.unlocked', 'Apertura a todo público'],
   ['announcement.published', 'Anuncio editorial']
 ];
@@ -110,11 +110,11 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     + '<p class="df-muted">Solo se permite una prueba por conexión cada 60 segundos.</p>'
     + '<p class="df-muted">La conexión de tu equipo no necesita autorización del Bibliotecario.</p></section>';
   const rulesView = () => '<section class="df-box"><h3>Automatizaciones del ' + (official?'Bibliotecario':'equipo') + '</h3>'
-    + '<p>Configura una regla y pulsa <strong>Activar</strong> para que las próximas publicaciones de capítulos o volúmenes se anuncien en la conexión elegida. Las publicaciones anteriores no se reenvían.</p>'
+    + '<p>Configura una regla y pulsa <strong>Activar</strong> para que los próximos anuncios de obras, publicaciones de capítulos o volúmenes se comuniquen en la conexión elegida. Las publicaciones anteriores no se reenvían.</p>'
     + '<p class="df-muted">Elige «Automática» para publicar sin intervención o «Revisión interna» para que el anuncio aparezca en Calendario y el equipo lo confirme. Los retrasos se aplican desde la publicación. Puedes pausar cualquier regla.</p>'
     + (rules.length ? '<div class="df-list">' + rules.map(r=>{
        const destinations=connections.filter(c=>c.status==='active'&&['discord','telegram'].includes(c.provider));
-       const supported=['chapter.public','volume.public'].includes(r.event_kind);
+       const supported=['chapter.public','volume.public','prelaunch.announced'].includes(r.event_kind);
        const current=connections.find(c=>c.id===r.connection_id);
        return '<article><div><strong>'+safe(r.name)+'</strong>'
        + '<small>'+safe(shortName(r.event_kind))+' · '+(r.mode==='team_review'?'Revisión interna':'Automática')
@@ -135,7 +135,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     + (canManage ? '<form id="df-rule-form" class="df-form"><h4>Crear una regla</h4>'
        + '<label>Nombre<input name="name" maxlength="100" minlength="2" required placeholder="Ej. Nuevo volumen en las redes"></label>'
        + '<label>Evento<select name="event"><option value="chapter.public">Capítulo publicado</option>'
-       + '<option value="volume.public">Volumen publicado</option></select></label>'
+       + '<option value="volume.public">Volumen publicado</option><option value="prelaunch.announced">Nueva obra anunciada (preestreno)</option></select></label>'
        + '<label>Modalidad<select name="mode"><option value="automatic">Publicación automática</option>'
        + '<option value="team_review">Con revisión interna del equipo</option></select></label>'
        + '<label>Retraso en minutos<input type="number" name="delay" min="0" max="10080" value="0" required></label>'
