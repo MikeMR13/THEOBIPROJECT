@@ -22,6 +22,6 @@ assert.doesNotMatch(sql,/cron\.schedule\(/);
 assert.doesNotMatch(sql,/service_role/i);
 assert.doesNotMatch(shared,/fetch\s*\(\s*['"]https?:/);
 assert.match(shared,/No necesita aprobación del Bibliotecario/);
-assert.match(shared,/Guardar regla inactiva/);
+assert.match(shared,/Guardar regla/); // Fase 4C añade la activación controlada, sin perder la edición de borradores.
 assert.match(shared,/Borrador guardado/);
 console.log('Difusión Fase 1: contratos estáticos OK');
