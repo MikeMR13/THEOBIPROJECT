@@ -259,9 +259,15 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
            : '<button type="button" class="btn" id="df-ann-preview">Crear vista previa</button>')
         + '</div>'
         + (annPreview ? '<div class="df-box"><h4>Vista previa (todavía no enviada)</h4>'
-          + (annCover(annPreview.cover_path)?'<img loading="lazy" alt="Portada del anuncio" src="'+safe(annCover(annPreview.cover_path))+'" style="max-width:112px;height:auto;float:right;margin:0 0 12px 12px;border-radius:6px">':'')
-          + '<p><strong>'+safe(annPreview.title)+'</strong></p>'
-          + '<p>'+safe(annPreview.description||'')+'</p>'
+          + (annDraftPresentation
+            ? '<p class="df-muted">Tarjeta de muestra: el SEO público y los campos que exige el proveedor no cambian.</p>'
+              + draftCard({
+                title:annPreview.title,synopsis:annPreview.description,cover_path:annPreview.cover_path,
+                slug:annWorks.find(w=>w.id===annWork)?.slug||''
+              },annDraftPresentation)
+            : (annCover(annPreview.cover_path)?'<img loading="lazy" alt="Portada del anuncio" src="'+safe(annCover(annPreview.cover_path))+'" style="max-width:112px;height:auto;float:right;margin:0 0 12px 12px;border-radius:6px">':'')
+              + '<p><strong>'+safe(annPreview.title)+'</strong></p>'
+              + '<p>'+safe(annPreview.description||'')+'</p>')
           + '<p><a href="'+safe(annPreview.url)+'" target="_blank" rel="noopener noreferrer">'+safe(annPreview.url)+'</a></p>'
           + (annDraftTitle?'<p class="df-muted">Texto del borrador: '+safe(annDraftTitle)+'</p>':'')
           + '<label>Plantilla para el texto<select id="df-ann-template"><option value="">'
