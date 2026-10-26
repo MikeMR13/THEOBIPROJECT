@@ -1,0 +1,34 @@
+name: Diagnostico tiempos HTTP produccion (solo lectura)
+on:
+  push:
+    branches: [diagnostic/prod-ttfb-20261026]
+    paths:
+      - '.github/workflows/production-ttfb-diagnostic.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/production-ttfb-diagnostic.yml'
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Comparar HTML dinamico y estatico
+        env:
+          ORIGIN: https://elobidellector.com
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'Prueba de solo lectura desde GitHub-hosted runner; no se publican cambios ni se llama a correo.'
+          for i in 1 2 3; do
+            for path in / /index.html /catalogo; do
+              echo "Muestra=$i ruta=$path"
+              curl --max-time 14 -sS --compressed -L -o /tmp/obi-http-body -D /tmp/obi-http-headers \
+                -w 'status=%{http_code} dns_ms=%{time_namelookup} tcp_ms=%{time_connect} tls_ms=%{time_appconnect} ttfb_ms=%{time_starttransfer} total_s=%{time_total} bytes=%{size_download}\n' \
+                "$ORIGIN$path" | tee /tmp/obi-metric
+              grep -iE '^(cache-control|x-vercel-cache|x-vercel-id|content-type|age):' /tmp/obi-http-headers | tr -d '\r' || :
+              if ! grep -q 'status=200' /tmp/obi-metric; then
+                echo 'WARN: no se obtuvo HTTP 200'; fi
+            done
+          done
