@@ -25,7 +25,7 @@ const when = value => value ? new Date(value).toLocaleString('es-MX', { dateStyl
 function stylesheet() {
   if (document.getElementById('df-css')) return;
   const l = document.createElement('link');
-  l.id = 'df-css'; l.rel = 'stylesheet'; l.href = '/diffusion.css?v=2';
+  l.id = 'df-css'; l.rel = 'stylesheet'; l.href = '/diffusion.css?v=3';
   document.head.appendChild(l);
 }
 export async function renderDiffusionPanel({ sb, root, team = null, permissions = {}, esc, toast }) {
@@ -38,6 +38,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const canSchedule = p('diffusion_schedule') && canAnnounce;
   let tab = 'resumen', rules = [], campaigns = [], connections = [], jobs = [], scheduled = [];
   let telegramFeedback = '', editingCampaignId = '', annDraftMessage = '', annDraftTitle = '', annFeedback = '';
+  let annConfirm = null, annSending = false, annResults = [];
   const deep = new URLSearchParams(location.search);
   const deepKind = ({o:'series',v:'volume',c:'chapter'})[deep.get('k')] || (['series','volume','chapter'].includes(deep.get('kind')) ? deep.get('kind') : '');
   const deepSource = /^[0-9a-f-]{36}$/i.test(deep.get('id')||deep.get('source')||'') ? (deep.get('id')||deep.get('source')) : '';
@@ -189,6 +190,11 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const annView = () => '<section class="df-box"><h3>Anunciar contenido en Discord o Telegram</h3>'
     + '<p>Selecciona una obra, volumen o capítulo publicado y uno o varios canales. Revisa el mensaje y confirma antes de enviarlo; cada canal recibe su propia publicación.</p>'
     + '<p>Una obra se anuncia con su portada general. Los volúmenes y capítulos usan siempre la portada del volumen correspondiente. Si falta esa imagen, no se enviará el anuncio.</p>'
+    + (annSending?'<p role="status" aria-live="assertive" class="df-note">Enviando los anuncios confirmados, uno por canal. No repitas la operación.</p>':'')
+    + (annResults.length?'<section id="df-ann-result-summary" class="df-send-results" role="status" tabindex="-1" aria-live="polite"><h4>Resultado de los anuncios</h4><ul>'
+       + annResults.map(r=>'<li><strong>'+safe(r.channel.provider.toUpperCase()+' · '+r.channel.label)+'</strong>: '
+          +safe(({sent:'Enviado',already:'Ya anunciado',blocked:'No enviado',uncertain:'Entrega sin confirmar'})[r.status]||'Sin confirmación')+'</li>').join('')
+       + '</ul><p>Si algún canal quedó sin confirmar, comprueba su historial antes de intentar otra publicación.</p></section>':'')
     + (!canAnnounce ? empty('Necesitas el permiso «Publicar difusión».')
       : !annConnections().length ? empty('Primero conecta Discord o Telegram y envía una prueba desde «Conexiones».')
       : '<div class="df-form">'
@@ -223,8 +229,15 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           + '<p class="df-muted">Entre 2 minutos y 90 días. El automático solo se activa al elegirlo explícitamente; los fallos inciertos nunca se reintentan solos.</p>'
           + '<button type="button" class="btn" id="df-ann-schedule">Agregar al calendario</button></div>':'')
           + (canCompose?'<button type="button" class="df-link" id="df-ann-save-draft">Guardar texto como borrador</button> ':'')
-          + '<button type="button" class="btn" id="df-ann-send">Confirmar y enviar ahora a '+annConnectionIds.length+' canal(es)</button></div>' : '')
+          + '<button type="button" class="btn" id="df-ann-send" '+(annSending?'disabled':'')+'>Revisar y confirmar envío a '+annConnectionIds.length+' canal(es)</button></div>' : '')
        + '<div class="df-note" role="alert" id="df-ann-feedback">'+safe(annFeedback)+'</div>'
+       + (annConfirm?'<dialog id="df-ann-confirm-dialog" class="df-confirm-dialog" aria-labelledby="df-ann-confirm-title" aria-describedby="df-ann-confirm-description">'
+          + '<h3 id="df-ann-confirm-title">Confirmar envío a '+annConfirm.targets.length+' canales</h3>'
+          + '<p id="df-ann-confirm-description">Se publicará el anuncio <strong>'+safe(annConfirm.title)+'</strong> ahora mismo en los siguientes destinos:</p>'
+          + '<ul>'+annConfirm.targets.map(t=>'<li>'+safe(t.provider.toUpperCase()+' · '+t.label)+'</li>').join('')+'</ul>'
+          + '<p>Esta operación no se puede deshacer. Cada canal recibe un mensaje independiente. Comprueba los resultados antes de repetir un envío.</p>'
+          + '<div class="df-confirm-actions"><button type="button" id="df-ann-confirm-cancel" class="df-link">Cancelar</button>'
+          + '<button type="button" id="df-ann-confirm-accept" class="btn">Sí, enviar ahora a '+annConfirm.targets.length+' canales</button></div></dialog>':'')
        )+'</section>';
   const loadAnnItems = async () => {
     annItems=[];annSource='';annPreview=null;
@@ -474,7 +487,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         scheduleFeedback='Se confirmó un envío ya registrado; calendario actualizado.';draw();
       });
     });
-    root.querySelector('#df-ann-send')?.addEventListener('click',e=>{
+    root.querySelector('#df-ann-send')?.addEventListener('click',()=>{
+      if(annSending||annConfirm)return;
       const content=root.querySelector('#df-ann-text')?.value.trim();
       if(!content||content.length>700){
         annFeedback='Escribe un mensaje de 1 a 700 caracteres antes de enviarlo.';
@@ -497,42 +511,74 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         const note=root.querySelector('#df-ann-feedback');if(note)note.textContent=annFeedback;
         return;
       }
-      if(!confirm('¿Enviar AHORA a '+targets.length+' canal(es)? Cada destino solo admite un anuncio por contenido.'))return;
-      busy(e.currentTarget,async()=>{
-        let calendarWarning=false;
-        const results=await manualChannelBatch(targets,async target=>{
-          const {data,error}=await sb.functions.invoke(
-            target.provider==='telegram'?'diffusion-telegram':'diffusion-announcement',{
-            body:{action:'announce',connection_id:target.id,kind:annKind,
-              source_id:chosenAnnouncementId(),message:content}
-          });
-          if(!error&&data?.ok){
-            if(annScheduledId&&target.id===annConnection){
-              try {
-                const {error:doneError}=await sb.rpc('diffusion_schedule_finalize',{p_id:annScheduledId});
-                if(doneError)calendarWarning=true;
-              }catch{calendarWarning=true;}
-            }
-            return {status:'sent'};
-          }
-          const code=error?.context?.status;
-          if(code===409||data?.error==='already_announced')return {status:'already'};
-          if(code===429||code===403||data?.error==='rate_limited')return {status:'blocked'};
-          // Un error HTTP, timeout o respuesta ambigua puede haber entregado el mensaje.
-          return {status:'uncertain'};
-        });
-        annFeedback=batchFeedback(results)+(calendarWarning
-          ?' Uno de los envíos fue confirmado, pero Calendario requiere revisar la finalización.':'');
-        if(annScheduledId&&results.some(r=>r.status==='sent')){
-          try{scheduled=await q('diffusion_scheduled_announcements',
-            'id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');}
-          catch{annFeedback+=' No se pudo actualizar el calendario. Comprueba su estado antes de repetir.';}
-        }
-        // No mantener el botón Enviar tras un intento parcial o incierto.
-        annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';
-        draw();
-      });
+      // No usar window.confirm: algunos navegadores bloquean o silencian diálogos nativos.
+      // Al abrir el diálogo NO se contacta ninguna red social.
+      annPreview={...annPreview,message:content};
+      annConfirm={targets,content,kind:annKind,sourceId:chosenAnnouncementId(),
+        scheduledId:annScheduledId,primaryConnection:annConnection,title:annPreview.title};
+      annFeedback='';annResults=[];
+      draw();
     });
+    const dialog=root.querySelector('#df-ann-confirm-dialog');
+    if(dialog){
+      root.querySelector('#df-ann-confirm-cancel')?.addEventListener('click',()=>{
+        dialog.close();annConfirm=null;draw();
+      });
+      dialog.addEventListener('cancel',e=>{
+        e.preventDefault();dialog.close();annConfirm=null;draw();
+      });
+      root.querySelector('#df-ann-confirm-accept')?.addEventListener('click',async()=>{
+        if(annSending||!annConfirm)return;
+        const pending=annConfirm;
+        annConfirm=null;annSending=true;
+        dialog.close();draw();
+        try{
+          let calendarWarning=false;
+          const results=await manualChannelBatch(pending.targets,async target=>{
+            const {data,error}=await sb.functions.invoke(
+              target.provider==='telegram'?'diffusion-telegram':'diffusion-announcement',{
+              body:{action:'announce',connection_id:target.id,kind:pending.kind,
+                source_id:pending.sourceId,message:pending.content}
+            });
+            if(!error&&data?.ok){
+              if(pending.scheduledId&&target.id===pending.primaryConnection){
+                try{
+                  const {error:doneError}=await sb.rpc('diffusion_schedule_finalize',
+                    {p_id:pending.scheduledId});
+                  if(doneError)calendarWarning=true;
+                }catch{calendarWarning=true;}
+              }
+              return {status:'sent'};
+            }
+            const code=error?.context?.status;
+            if(code===409||data?.error==='already_announced')return {status:'already'};
+            if(code===429||code===403||data?.error==='rate_limited')return {status:'blocked'};
+            return {status:'uncertain'};
+          });
+          annResults=results;
+          annFeedback=batchFeedback(results)+(calendarWarning
+            ?' Un envío fue confirmado, pero la agenda requiere comprobar su estado.':'');
+          if(pending.scheduledId&&results.some(r=>r.status==='sent')){
+            try{
+              scheduled=await q('diffusion_scheduled_announcements',
+                'id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
+            }catch{
+              annFeedback+=' No se pudo actualizar Calendario. Revisa su estado antes de repetir.';
+            }
+          }
+          // Los intentos parciales o inciertos no quedan armados para otro clic.
+          annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';
+        }catch{
+          annFeedback='No se pudo confirmar el resultado de la operación. Comprueba los canales y el historial antes de repetir.';
+          annPreview=null;annScheduledId='';
+          annResults=pending.targets.map(channel=>({channel,status:'uncertain'}));
+        }finally{
+          annSending=false;draw();
+          root.querySelector('#df-ann-result-summary')?.focus();
+        }
+      });
+      dialog.showModal();
+    }
 
     root.querySelector('#df-telegram-form')?.addEventListener('submit',e=>{
       e.preventDefault();

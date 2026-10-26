@@ -66,7 +66,8 @@
     "diffusion-rules-activation-check": "node scripts/diffusion-rules-activation-check.mjs",
     "diffusion-prelaunch-rule-check": "node scripts/diffusion-prelaunch-rule-check.mjs",
     "diffusion-multichannel-check": "node scripts/diffusion-multichannel-check.mjs",
-    "diffusion-manual-multichannel-check": "node scripts/diffusion-manual-multichannel-check.mjs"
+    "diffusion-manual-multichannel-check": "node scripts/diffusion-manual-multichannel-check.mjs",
+    "diffusion-confirmation-browser-check": "node scripts/diffusion-confirmation-browser-check.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
