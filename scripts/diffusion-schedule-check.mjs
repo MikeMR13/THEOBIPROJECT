@@ -26,7 +26,7 @@ assert.match(ui,/data-schedule-save/);
 assert.match(ui,/data-schedule-prepare/);
 assert.match(ui,/data-schedule-finalize/);
 assert.match(ui,/diffusion_schedule_finalize/);
-assert.match(ui,/La agenda NO envía mensajes por sí sola/);
+assert.match(ui,/La agenda NO envía mensajes por sí sola cuando eliges modo manual|Ninguna regla se activa sin confirmación/);
 assert.match(ui,/Fecha cumplida: pendiente de envío manual/);
 assert.match(ui,/p_at:new Date\(whenMs\)\.toISOString\(\)/);
 assert.doesNotMatch(sql,/cron\.schedule|net\.http_post|http_post|http_get/);

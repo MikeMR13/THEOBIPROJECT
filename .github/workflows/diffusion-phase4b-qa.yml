@@ -9,8 +9,10 @@ on:
       - 'supabase/tests/fixtures/diffusion_phase4b_pgnet.sql'
       - '.github/workflows/diffusion-phase4b-qa.yml'
       - 'src/diffusion-panel.js'
+      - 'sql/diffusion-4c-*'
+      - 'supabase/tests/diffusion_phase4c_rules_rls.sql'
   push:
-    branches: [feat/difusion-fase4b-despacho-programado-20261026]
+    branches: [feat/difusion-fase4b-despacho-programado-20261026, feat/difusion-reglas-activacion-20261026]
 permissions:
   contents: read
 jobs:
@@ -63,6 +65,8 @@ jobs:
           qa supabase/tests/fixtures/diffusion_phase4b_pgnet.sql
           qa sql/diffusion-4b-dispatch-candidate.sql
           qa supabase/tests/diffusion_phase4b_dispatch_rls.sql
+          qa sql/diffusion-4c-event-rules-candidate.sql
+          qa supabase/tests/diffusion_phase4c_rules_rls.sql
       - name: Edge Function simulada sin red ni tokens
         run: |
           node --check supabase/functions/diffusion-dispatch/handler.mjs
