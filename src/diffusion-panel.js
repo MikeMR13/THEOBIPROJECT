@@ -121,17 +121,30 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
        + '<label>Retraso en minutos<input type="number" name="delay" min="0" max="10080" value="0" required></label>'
        + '<button type="submit" class="btn">Guardar regla inactiva</button></form>'
        : '<p class="df-muted">Necesitas el permiso «Gestionar difusión» para crear reglas.</p>')+'</section>';
-  const campaignsView = () => '<section class="df-box"><h3>Borradores de publicaciones</h3>'
-    + (campaigns.length ? '<div class="df-list">' + campaigns.map(c=>'<article><div><strong>'+safe(c.title)+'</strong>'
-      + '<small>'+safe(c.status)+' · '+when(c.created_at)+'</small>'
-      + '<p>'+safe(c.body).slice(0,350)+'</p></div>'
-      + (canCompose&&c.status==='draft'?'<button type="button" data-del-campaign="'+safe(c.id)+'" class="df-danger">Eliminar</button>':'')
-      + '</article>').join('')+'</div>' : empty('No hay borradores.'))
-    + (canCompose ? '<form id="df-campaign-form" class="df-form"><h4>Nuevo borrador</h4>'
-       + '<label>Título<input name="title" minlength="2" maxlength="140" required placeholder="Ej. Estreno del volumen 3"></label>'
-       + '<label>Mensaje<textarea name="body" maxlength="2000" rows="4" placeholder="Presenta la novedad a tus lectores"></textarea></label>'
-       + '<button type="submit" class="btn">Guardar borrador</button></form>'
-       : '<p class="df-muted">Necesitas el permiso «Redactar difusión».</p>')+'</section>';
+  const editingCampaign = () => campaigns.find(c=>c.id===editingCampaignId&&c.status==='draft');
+  const templateOptions = () => '<option value="">Seleccionar plantilla (opcional)</option>'
+    + EDITORIAL_TEMPLATES.map(t=>'<option value="'+safe(t.id)+'">'+safe(t.label)+'</option>').join('');
+  const campaignsView = () => '<section class="df-box"><h3>Borradores editoriales</h3>'
+    + '<p>Guarda textos reutilizables y revísalos antes de enviarlos. Cada anuncio exige seleccionar el contenido publicado y confirmar manualmente.</p>'
+    + (campaigns.filter(c=>c.status==='draft').length ? '<div class="df-list">'
+      + campaigns.filter(c=>c.status==='draft').map(c=>'<article><div><strong>'+safe(c.title)+'</strong>'
+        + '<small>Sin publicar · '+when(c.created_at)+'</small>'
+        + '<p>'+safe((c.body||'').slice(0,350))+'</p></div><div>'
+        + (canAnnounce?'<button type="button" class="btn" data-use-campaign="'+safe(c.id)+'">Preparar anuncio</button> ':'')
+        + (canCompose?'<button type="button" class="btn" data-edit-campaign="'+safe(c.id)+'">Editar</button> '
+          + '<button type="button" class="df-danger" data-del-campaign="'+safe(c.id)+'">Eliminar</button>':'')
+        + '</div></article>').join('')+'</div>'
+      : empty('No hay borradores.'))
+    + (canCompose ? '<form id="df-campaign-form" class="df-form"><h4>'
+      + (editingCampaign()?'Editar borrador':'Nuevo borrador')+'</h4>'
+      + '<label>Título<input name="title" minlength="2" maxlength="140" required placeholder="Ej. Estreno del volumen 3" value="'+safe(editingCampaign()?.title||'')+'"></label>'
+      + '<label>Plantilla rápida<select id="df-campaign-template">'+templateOptions()+'</select></label>'
+      + '<label>Mensaje<textarea name="body" maxlength="2000" rows="4" placeholder="Presenta la novedad a tus lectores">'+safe(editingCampaign()?.body||'')+'</textarea></label>'
+      + '<p class="df-muted">Los anuncios admiten mensajes de hasta 700 caracteres. El Obi añade el título del contenido, su enlace y la portada verificada.</p>'
+      + '<button type="submit" class="btn">'+(editingCampaign()?'Guardar cambios':'Guardar borrador')+'</button>'
+      + (editingCampaign()?'<button type="button" class="df-link" id="df-campaign-cancel">Cancelar edición</button>':'')
+      + '</form>' : '<p class="df-muted">Necesitas «Redactar difusión» para crear o editar borradores.</p>')
+    + '</section>';
   const historyView = () => '<section class="df-box"><h3>Historial de envíos</h3>'
     + (canLogs ? (jobs.length ? '<div class="df-list">'+jobs.map(j=>'<article><strong>'+safe(j.status)+'</strong>'
       + '<small>'+when(j.scheduled_at)+'</small><p>'+safe(j.last_error||'')+'</p></article>').join('')+'</div>'
