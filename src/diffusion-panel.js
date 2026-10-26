@@ -66,7 +66,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,enabled_at,created_at'),
       q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at'),
       canLogs ? q('diffusion_jobs','id,status,scheduled_at,last_error,created_at') : Promise.resolve([]),
-      q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,last_error,created_at')
+      q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at')
     ]);
   } catch (error) {
     const missing = error.code === '42P01' || /PGRST205|Could not find the table/i.test(error.message || '');
@@ -262,8 +262,10 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           + '<small>'+safe(planned?(item.delivery_mode==='automatic'?(future?'Automático: en espera':'Automático: pendiente del despachador'):(future?'Previsto, sin envío automático':'Fecha cumplida: pendiente de envío manual'))
              :item.status==='sent'?'Enviado y confirmado':item.status==='processing'?'Envío en curso':item.status==='unknown'?'Entrega incierta: revisar antes de reenviar':item.status==='blocked'?'Bloqueado: contenido o conexión no disponibles':'Cancelado')+'</small></div>'
           + (planned?'<div>'
-             + (canAnnounce&&active&&item.delivery_mode!=='automatic'?'<button type="button" class="btn" data-schedule-prepare="'+safe(item.id)+'">'
+             + (canAnnounce&&active&&item.delivery_mode!=='automatic'&&!item.prelaunch_volume_id?'<button type="button" class="btn" data-schedule-prepare="'+safe(item.id)+'">'
                 +(future?'Revisar anuncio':'Preparar envío')+'</button> ':'')
+             + (canAnnounce&&canSchedule&&active&&item.delivery_mode==='manual'&&item.prelaunch_volume_id
+                 ?'<button type="button" class="btn" data-prelaunch-approve="'+safe(item.id)+'">Aprobar anuncio</button> ':'')
              + (canSchedule?'<button type="button" class="df-link" data-schedule-change="'+safe(item.id)+'">Cambiar fecha</button> '
                 + '<button type="button" class="df-danger" data-schedule-cancel="'+safe(item.id)+'">Cancelar</button> ':'')
              + (canSchedule&&scheduleChangingId===item.id
@@ -383,7 +385,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       if(error?.message==='already_announced')throw new Error('Este contenido ya fue anunciado en ese destino.');
       if(error?.message==='invalid_schedule')throw new Error('La fecha debe estar entre 2 minutos y 90 días en el futuro.');
       if(error)throw new Error('No se pudo guardar la fecha. Verifica el permiso «Programar difusión» y que el contenido sea público.');
-      scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,last_error,created_at');
+      scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
       scheduleFeedback=delivery==='automatic'?'Anuncio automático programado; el sistema verificará que siga público antes del envío.':'Fecha guardada para envío manual, sin automatización.';
       tab='calendario';annScheduledId='';draw();
     }));
@@ -411,7 +413,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       busy(b,async()=>{
         const {error}=await sb.rpc('diffusion_schedule_cancel',{p_id:b.dataset.scheduleCancel});
         if(error)throw new Error('No se pudo cancelar la fecha. Comprueba tus permisos.');
-        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,last_error,created_at');
+        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
         scheduleFeedback='Fecha cancelada sin enviar mensajes.';draw();
       });
     });
@@ -428,7 +430,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           p_id:b.dataset.scheduleSave,p_at:new Date(ms).toISOString()
         });
         if(error)throw new Error('No se pudo reprogramar. Revisa tus permisos y que siga pendiente.');
-        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,last_error,created_at');
+        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
         scheduleFeedback='Fecha actualizada.';scheduleChangingId='';draw();
       });
     });
@@ -436,7 +438,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       busy(b,async()=>{
         const {error}=await sb.rpc('diffusion_schedule_finalize',{p_id:b.dataset.scheduleFinalize});
         if(error)throw new Error('No existe entrega confirmada para este contenido y destino. No se marcó como enviado.');
-        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,last_error,created_at');
+        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
         scheduleFeedback='Se confirmó un envío ya registrado; calendario actualizado.';draw();
       });
     });
@@ -472,7 +474,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
             const {error:doneError}=await sb.rpc('diffusion_schedule_finalize',{p_id:annScheduledId});
             if(doneError)annFeedback='Envío confirmado, pero el calendario aún no se ha actualizado. Usa «Comprobar si ya se envió».';
             else{
-              scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,last_error,created_at');
+              scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
               annFeedback='Envío confirmado por '+(provider==='telegram'?'Telegram':'Discord')+' y calendario actualizado.';
             }
           }else annFeedback='Envío confirmado por '+(provider==='telegram'?'Telegram':'Discord')+'.';
@@ -615,7 +617,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           :error.message==='destination_unavailable'?'La conexión no está activa.'
           :'No se pudo cambiar la regla: revisa los permisos de Difusión.');
         rules=await q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,enabled_at,created_at');
-        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,last_error,created_at');
+        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
         toast(activate?'Regla activada: escuchando nuevas publicaciones.':'Regla pausada; anuncios pendientes cancelados.');
         draw();
       }));
@@ -660,6 +662,17 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         campaigns = await q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at');
         toast('Borrador guardado sin publicar');draw();
       });
+    });
+    root.querySelectorAll('[data-prelaunch-approve]').forEach(button=>{
+      button.addEventListener('click',()=>busy(button,async()=>{
+        if(!confirm('¿Aprobar este anuncio de preestreno? El despachador lo enviará cuando corresponda.'))return;
+        const {error}=await sb.rpc('diffusion_prelaunch_approve',{p_plan:button.dataset.prelaunchApprove});
+        if(error)throw new Error('No se pudo aprobar el anuncio. Revisa permisos o estado del preestreno.');
+        scheduled=await q('diffusion_scheduled_announcements',
+          'id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
+        toast('Anuncio aprobado; se enviará si el preestreno sigue público.');
+        draw();
+      }));
     });
     root.querySelectorAll('[data-del-rule],[data-del-campaign]').forEach(b => b.onclick = () => {
       const isRule = !!b.dataset.delRule, id=b.dataset.delRule||b.dataset.delCampaign;
