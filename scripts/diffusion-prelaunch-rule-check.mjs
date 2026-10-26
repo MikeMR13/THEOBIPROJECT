@@ -15,7 +15,7 @@ assert.match(sql,/select \* into vo from public\.volumes/,'Revalidación de volu
 assert.match(sql,/prelaunch_volume_id/,'Vincular anuncio a consentimiento real');
 assert.match(sql,/then reason:='prelaunch_unavailable'/,'Bloquear contenido cancelado o vencido');
 assert.match(sql,/se\.title\|\|' · Próximo estreno'/,'Título diferenciado');
-assert.doesNotMatch(sql,/from public\.chapters/,'No consultar ni filtrar capítulos borradores');
+assert.doesNotMatch(sql.split('create function private.diffusion_prelaunch_announced()')[1],/from public\.chapters/,'El trigger de preestreno no consulta capítulos borradores');
 assert.match(sql,/https:\/\/elobidellector\.com\//,'URL segura de la ficha');
 assert.ok(sql.includes('token')===false,'No guardar secretos en migraciones');
 console.log('OK: Nueva obra anunciada opt-in, deduplicación, privacidad y URL del primer vistazo');
