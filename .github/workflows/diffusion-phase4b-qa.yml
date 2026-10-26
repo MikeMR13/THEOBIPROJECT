@@ -10,9 +10,12 @@ on:
       - '.github/workflows/diffusion-phase4b-qa.yml'
       - 'src/diffusion-panel.js'
       - 'sql/diffusion-4c-*'
+      - 'sql/diffusion-prelaunch-rule-candidate.sql'
+      - 'supabase/tests/diffusion_prelaunch_announced_rls.sql'
+      - 'supabase/tests/fixtures/diffusion_prelaunch_pg17.sql'
       - 'supabase/tests/diffusion_phase4c_rules_rls.sql'
   push:
-    branches: [feat/difusion-fase4b-despacho-programado-20261026, feat/difusion-reglas-activacion-20261026]
+    branches: [feat/difusion-fase4b-despacho-programado-20261026, feat/difusion-reglas-activacion-20261026, feat/difusion-preestreno-nueva-obra-anunciada-20261026]
 permissions:
   contents: read
 jobs:
@@ -67,6 +70,9 @@ jobs:
           qa supabase/tests/diffusion_phase4b_dispatch_rls.sql
           qa sql/diffusion-4c-event-rules-candidate.sql
           qa supabase/tests/diffusion_phase4c_rules_rls.sql
+          qa supabase/tests/fixtures/diffusion_prelaunch_pg17.sql
+          qa sql/diffusion-prelaunch-rule-candidate.sql
+          qa supabase/tests/diffusion_prelaunch_announced_rls.sql
       - name: Edge Function simulada sin red ni tokens
         run: |
           node --check supabase/functions/diffusion-dispatch/handler.mjs
