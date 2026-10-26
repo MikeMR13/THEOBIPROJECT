@@ -82,9 +82,18 @@ begin
  end if;
  if public.diffusion_4b_complete((item->>'plan_id')::uuid,job,true,'fake-id') then
   raise exception 'Completion could be replayed'; end if;
+ if public.diffusion_4b_claim() is not null then raise exception 'Already claimed an item again'; end if;
+end $test$;
+reset role;
+update public.diffusion_scheduled_announcements set scheduled_at=now()-interval '3 minutes'
+ where id=current_setting('diffusion.qa.block')::uuid;
+set role service_role;
+do $test$
+declare item jsonb;
+begin
  item:=public.diffusion_4b_claim();
  if item->>'skipped'<>'true' then raise exception 'Withdrawn content not blocked'; end if;
- if public.diffusion_4b_claim() is not null then raise exception 'Already claimed an item again'; end if;
+ if public.diffusion_4b_claim() is not null then raise exception 'Blocked item was claimed again'; end if;
 end $test$;
 reset role;
 do $test$
