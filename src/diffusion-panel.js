@@ -1,4 +1,4 @@
-// Centro de Difusión: Discord y Telegram manuales; sin automatizaciones activas.
+// Centro de Difusión: anuncios manuales y agenda 4B opt-in, sin reglas automáticas globales.
 const EVENTS = [
   ['chapter.public', 'Capítulo público'],
   ['volume.public', 'Volumen completo'],
@@ -58,7 +58,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     ['resumen','Resumen'], ['conexiones','Conexiones'], ['anuncios','Anunciar'], ['reglas','Automatizaciones'],
     ['campanas','Borradores'], ['calendario','Calendario'], ['historial','Historial']
   ];
-  const message = 'Discord y Telegram: prepara anuncios y organízalos en el calendario. La agenda NO envía mensajes por sí sola; requiere confirmación al llegar la fecha. Las reglas automáticas permanecen inactivas.';
+  const message = 'Discord y Telegram: prepara anuncios manuales o elige envío automático para una fecha concreta. La agenda NO envía mensajes por sí sola cuando eliges modo manual; las reglas automáticas globales permanecen inactivas.';
   root.innerHTML = '<div class="df" aria-live="polite"><p class="df-empty">Cargando Difusión…</p></div>';
   try {
     [connections,rules,campaigns,jobs,scheduled] = await Promise.all([
@@ -66,7 +66,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,created_at'),
       q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at'),
       canLogs ? q('diffusion_jobs','id,status,scheduled_at,last_error,created_at') : Promise.resolve([]),
-      q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,created_at')
+      q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,last_error,created_at')
     ]);
   } catch (error) {
     const missing = error.code === '42P01' || /PGRST205|Could not find the table/i.test(error.message || '');
@@ -77,7 +77,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     return;
   }
   const header = () => '<div class="df-title"><div><small>DIFUSIÓN · ' + (official ? 'BIBLIOTECARIO' : 'ESTUDIO') + '</small>'
-    + '<h2>Centro de Difusión</h2><p>' + safe(scope) + '</p></div><span class="df-stage">DISCORD Y TELEGRAM · MANUAL</span></div>'
+    + '<h2>Centro de Difusión</h2><p>' + safe(scope) + '</p></div><span class="df-stage">DISCORD Y TELEGRAM · MANUAL / PROGRAMADO</span></div>'
     + '<nav class="df-tabs" aria-label="Secciones de Difusión">'
     + tabs.map(([id,name])=>'<button type="button" data-dtab="' + id + '" class="' + (tab===id?'on':'')
       + '" aria-current="' + (tab===id?'page':'false') + '">' + name + '</button>').join('') + '</nav>'
@@ -195,7 +195,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           + '<p class="df-muted">Solo se permite un anuncio por contenido y canal. No se reintentará automáticamente ante fallos inciertos.</p>'
           + (canSchedule?'<div class="df-form"><label>Fecha y hora de difusión (hora local de tu dispositivo)'
           + '<input type="datetime-local" id="df-ann-schedule-at" step="60"></label>'
-          + '<p class="df-muted">Entre 2 minutos y 90 días en el futuro. Se guarda en calendario, sin envío automático.</p>'
+          + '<label>Modo de entrega<select id="df-ann-delivery"><option value="manual">Manual: confirmar el envío al llegar la fecha</option><option value="automatic">Automático: enviar cuando llegue la fecha</option></select></label>'
+          + '<p class="df-muted">Entre 2 minutos y 90 días. El automático solo se activa al elegirlo explícitamente; los fallos inciertos nunca se reintentan solos.</p>'
           + '<button type="button" class="btn" id="df-ann-schedule">Agregar al calendario</button></div>':'')
           + (canCompose?'<button type="button" class="df-link" id="df-ann-save-draft">Guardar texto como borrador</button> ':'')
           + '<button type="button" class="btn" id="df-ann-send">Confirmar y enviar a '
@@ -227,7 +228,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   };
 
   const scheduleView = () => '<section class="df-box"><h3>Agenda de Discord y Telegram</h3>'
-    + '<p>Las fechas son orientativas para el equipo. Esta versión no despacha mensajes automáticamente: cuando llegue la fecha, prepara el anuncio y confirma el envío manualmente.</p>'
+    + '<p>Los anuncios manuales requieren confirmación. Los automáticos se enviarán a Discord o Telegram al llegar la fecha si el contenido sigue público. Una entrega incierta requiere revisión y no se reintenta sola.</p>'
     + '<p class="df-muted">Las horas se muestran según la zona horaria de tu dispositivo. Las publicaciones canceladas no se envían.</p>'
     + '<div class="df-note" id="df-schedule-feedback" role="alert">'+safe(scheduleFeedback)+'</div>'
     + (scheduled.length ? '<div class="df-list">'
@@ -240,10 +241,10 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           + '<small>'+safe(item.provider.toUpperCase()+' · '+(conn?.label||'Conexión no disponible'))
           + ' · '+safe(item.source_type)+' · '+when(item.scheduled_at)+'</small>'
           + '<p>'+safe(item.message)+'</p>'
-          + '<small>'+safe(planned?(future?'Previsto, sin envío automático':'Fecha cumplida: pendiente de envío manual')
-             :item.status==='sent'?'Enviado y confirmado':'Cancelado')+'</small></div>'
+          + '<small>'+safe(planned?(item.delivery_mode==='automatic'?(future?'Automático: en espera':'Automático: pendiente del despachador'):(future?'Previsto, sin envío automático':'Fecha cumplida: pendiente de envío manual'))
+             :item.status==='sent'?'Enviado y confirmado':item.status==='processing'?'Envío en curso':item.status==='unknown'?'Entrega incierta: revisar antes de reenviar':item.status==='blocked'?'Bloqueado: contenido o conexión no disponibles':'Cancelado')+'</small></div>'
           + (planned?'<div>'
-             + (canAnnounce&&active?'<button type="button" class="btn" data-schedule-prepare="'+safe(item.id)+'">'
+             + (canAnnounce&&active&&item.delivery_mode!=='automatic'?'<button type="button" class="btn" data-schedule-prepare="'+safe(item.id)+'">'
                 +(future?'Revisar anuncio':'Preparar envío')+'</button> ':'')
              + (canSchedule?'<button type="button" class="df-link" data-schedule-change="'+safe(item.id)+'">Cambiar fecha</button> '
                 + '<button type="button" class="df-danger" data-schedule-cancel="'+safe(item.id)+'">Cancelar</button> ':'')
@@ -355,7 +356,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       if(!message||message.length>700)throw new Error('Escribe un mensaje de 1 a 700 caracteres.');
       if(!Number.isFinite(whenMs)||whenMs-Date.now()<120000||whenMs-Date.now()>90*86400000)
         throw new Error('Selecciona una fecha entre 2 minutos y 90 días, en la hora local de tu dispositivo.');
-      const {error}=await sb.rpc('diffusion_schedule_create',{
+      const delivery=root.querySelector('#df-ann-delivery')?.value||'manual';
+      const {error}=await sb.rpc('diffusion_schedule_create',{p_delivery:delivery,
         p_connection:annConnection,p_kind:annKind,p_source:chosenAnnouncementId(),
         p_message:message,p_at:new Date(whenMs).toISOString()
       });
@@ -363,8 +365,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       if(error?.message==='already_announced')throw new Error('Este contenido ya fue anunciado en ese destino.');
       if(error?.message==='invalid_schedule')throw new Error('La fecha debe estar entre 2 minutos y 90 días en el futuro.');
       if(error)throw new Error('No se pudo guardar la fecha. Verifica el permiso «Programar difusión» y que el contenido sea público.');
-      scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,created_at');
-      scheduleFeedback='Fecha guardada. Esta agenda no envía mensajes automáticamente.';
+      scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,last_error,created_at');
+      scheduleFeedback=delivery==='automatic'?'Anuncio automático programado; el sistema verificará que siga público antes del envío.':'Fecha guardada para envío manual, sin automatización.';
       tab='calendario';annScheduledId='';draw();
     }));
     root.querySelectorAll('[data-schedule-prepare]').forEach(b=>b.onclick=()=>{
@@ -391,7 +393,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       busy(b,async()=>{
         const {error}=await sb.rpc('diffusion_schedule_cancel',{p_id:b.dataset.scheduleCancel});
         if(error)throw new Error('No se pudo cancelar la fecha. Comprueba tus permisos.');
-        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,created_at');
+        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,last_error,created_at');
         scheduleFeedback='Fecha cancelada sin enviar mensajes.';draw();
       });
     });
@@ -408,7 +410,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           p_id:b.dataset.scheduleSave,p_at:new Date(ms).toISOString()
         });
         if(error)throw new Error('No se pudo reprogramar. Revisa tus permisos y que siga pendiente.');
-        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,created_at');
+        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,last_error,created_at');
         scheduleFeedback='Fecha actualizada.';scheduleChangingId='';draw();
       });
     });
@@ -416,7 +418,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       busy(b,async()=>{
         const {error}=await sb.rpc('diffusion_schedule_finalize',{p_id:b.dataset.scheduleFinalize});
         if(error)throw new Error('No existe entrega confirmada para este contenido y destino. No se marcó como enviado.');
-        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,created_at');
+        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,last_error,created_at');
         scheduleFeedback='Se confirmó un envío ya registrado; calendario actualizado.';draw();
       });
     });
@@ -452,7 +454,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
             const {error:doneError}=await sb.rpc('diffusion_schedule_finalize',{p_id:annScheduledId});
             if(doneError)annFeedback='Envío confirmado, pero el calendario aún no se ha actualizado. Usa «Comprobar si ya se envió».';
             else{
-              scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,created_at');
+              scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,last_error,created_at');
               annFeedback='Envío confirmado por '+(provider==='telegram'?'Telegram':'Discord')+' y calendario actualizado.';
             }
           }else annFeedback='Envío confirmado por '+(provider==='telegram'?'Telegram':'Discord')+'.';
