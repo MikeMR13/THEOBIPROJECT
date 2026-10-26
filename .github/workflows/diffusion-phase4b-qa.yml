@@ -9,7 +9,7 @@ on:
       - 'supabase/tests/fixtures/diffusion_phase4b_pgnet.sql'
       - '.github/workflows/diffusion-phase4b-qa.yml'
       - 'src/diffusion-panel.js'
-      - 'supabase/migrations/20261026223000_diffusion_draft_presentation.sql'
+      - 'supabase/migrations/20261026224217_diffusion_draft_presentation.sql'
       - 'supabase/tests/diffusion_draft_presentation_rls.sql'
       - 'sql/diffusion-4c-*'
       - 'sql/diffusion-prelaunch-rule-candidate.sql'
@@ -84,7 +84,7 @@ jobs:
           qa sql/diffusion-multichannel-rules-candidate.sql
           qa supabase/tests/diffusion_multichannel_rules_rls.sql
           echo 'Borradores con preferencias por equipo: migración + privilegios'
-          qa supabase/migrations/20261026223000_diffusion_draft_presentation.sql
+          qa supabase/migrations/20261026224217_diffusion_draft_presentation.sql
           qa supabase/tests/diffusion_draft_presentation_rls.sql
       - name: Edge Function simulada sin red ni tokens
         run: |

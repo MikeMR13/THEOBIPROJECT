@@ -15,7 +15,7 @@ assert.ok(renderDraftTemplate('{{novela}}',{}).errors.length);
 assert.ok(renderDraftTemplate('{{mal',ctx).errors.length);
 assert.ok(renderDraftTemplate('x'.repeat(701),ctx).errors.length);
 const ui=readFileSync(new URL('../src/diffusion-panel.js',import.meta.url),'utf8');
-const sql=readFileSync(new URL('../supabase/migrations/20261026223000_diffusion_draft_presentation.sql',import.meta.url),'utf8');
+const sql=readFileSync(new URL('../supabase/migrations/20261026224217_diffusion_draft_presentation.sql',import.meta.url),'utf8');
 for(const token of ['df-campaign-live','data-draft-variable','data-draft-option',
  'renderDraftTemplate','p_presentation','annDraftPresentation','draftLivePreview'])
  assert.ok(ui.includes(token),'Falta integración: '+token);
