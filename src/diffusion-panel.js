@@ -80,7 +80,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       + '" aria-current="' + (tab===id?'page':'false') + '">' + name + '</button>').join('') + '</nav>'
     + '<p class="df-note">' + safe(message) + '</p>';
   const cards = () => '<div class="df-cards">'
-    + [['Conexiones activas',connections.filter(c=>['discord','telegram'].includes(c.provider)&&c.status==='active').length],['Reglas inactivas',rules.filter(r=>!r.enabled).length],['Borradores',campaigns.filter(c=>c.status==='draft').length],['Envíos recientes',canLogs?jobs.length:'—']]
+    + [['Conexiones activas',connections.filter(c=>['discord','telegram'].includes(c.provider)&&c.status==='active').length],['Reglas inactivas',rules.filter(r=>!r.enabled).length],['Borradores',campaigns.filter(c=>c.status==='draft').length],['Registros recientes',canLogs?jobs.length:'—']]
       .map(([name,n])=>'<div class="df-card"><small>'+safe(name)+'</small><strong>'+n+'</strong></div>').join('')+'</div>';
   const connectionsView = () => '<section class="df-box"><h3>Conexiones de Discord y Telegram</h3>'
     + '<p>Discord guarda el webhook y Telegram el token de bot cifrados en Supabase Vault. No compartas ninguno por chat ni GitHub.</p>'
@@ -107,7 +107,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     + '<p class="df-muted">Solo se permite una prueba por conexión cada 60 segundos.</p>'
     + '<p class="df-muted">La conexión de tu equipo no necesita autorización del Bibliotecario.</p></section>';
   const rulesView = () => '<section class="df-box"><h3>Automatizaciones del ' + (official?'Bibliotecario':'equipo') + '</h3>'
-    + '<p>Las reglas guardadas permanecerán desactivadas hasta disponer de conectores seguros.</p>'
+    + '<p>Las reglas que prepares aquí permanecen inactivas. La programación y ejecución automática se abordarán en una fase posterior, sin publicaciones autónomas por ahora.</p>'
     + (rules.length ? '<div class="df-list">' + rules.map(r=>'<article><div><strong>'+safe(r.name)+'</strong>'
       + '<small>'+safe(shortName(r.event_kind))+' · '+(r.mode==='team_review'?'Revisión interna':'Automática')
       + ' · Retraso: '+r.delay_minutes+' min · '+(r.enabled?'Activa':'Preparada, sin activar')+'</small></div>'
@@ -232,7 +232,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       + (official?'Administra aquí únicamente las cuentas oficiales de El Obi. Las publicaciones de los equipos no necesitan tu aprobación.'
         :'Tu equipo decide cuándo y dónde publicar en sus redes. No necesita aprobación del Bibliotecario.')
       + '</p><button type="button" class="df-link" data-goto="reglas">Preparar automatización →</button></section>'
-      + '<section class="df-box"><h3>Campañas</h3><p>Redacta mensajes para un futuro envío en las redes vinculadas.</p>'
+      + '<section class="df-box"><h3>Borradores editoriales</h3><p>Prepara, edita y reutiliza mensajes en envíos manuales a Discord o Telegram.</p>'
       + '<button type="button" class="df-link" data-goto="campanas">Crear borrador →</button></section></div>';
   }
   function draw() {
