@@ -124,6 +124,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const rulesView = () => '<section class="df-box"><h3>Automatizaciones del ' + (official?'Bibliotecario':'equipo') + '</h3>'
     + '<p>Configura una regla y pulsa <strong>Activar</strong> para que los próximos anuncios de obras, publicaciones de capítulos o volúmenes se comuniquen en los canales seleccionados. Cada canal recibe un anuncio independiente, sin duplicados ni retropublicaciones.</p>'
     + '<p class="df-muted">Elige «Automática» para publicar sin intervención o «Revisión interna» para confirmar en Calendario. Puedes asociar un borrador a cada regla. Solo se aplica a acontecimientos futuros. Para cambiar el mensaje de una regla activa, debes pausarla; esto cancela sus envíos pendientes, así que revisa primero el Calendario.</p>'
+    + (!scheduled.length?'<p role="status" class="df-note">Todavía no hay anuncios concretos en Calendario. Las reglas no envían avisos por activarse o por guardar un borrador: esperan una NUEVA publicación del tipo seleccionado. La regla «Nueva obra anunciada (preestreno)» no anuncia capítulos ni volúmenes ya publicados.</p>':'')
     + (!availableDrafts().length?'<p class="df-muted">No hay borradores disponibles todavía. Créalo primero desde la sección Borradores.</p>'
       +(canCompose?'<button type="button" class="df-link" data-goto="campanas">Crear un borrador</button>':''):'')
     + (rules.length ? '<div class="df-list">' + rules.map(r=>{
@@ -253,13 +254,14 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const annView = () => '<section class="df-box"><h3>Anunciar contenido en Discord o Telegram</h3>'
     + '<p>Selecciona una obra, volumen o capítulo publicado y uno o varios canales. Revisa el mensaje y confirma antes de enviarlo; cada canal recibe su propia publicación.</p>'
     + '<p>Una obra se anuncia con su portada general. Los volúmenes y capítulos usan siempre la portada del volumen correspondiente. Si falta esa imagen, no se enviará el anuncio.</p>'
+    + '<p class="df-muted">Cada obra, capítulo o volumen solo admite un anuncio confirmado por canal. Cambiar el borrador o el texto no permite publicar de nuevo ese mismo contenido; si ya se anunció, verás «Ya anunciado» y no se enviará un duplicado.</p>'
     + (annSending?'<p role="status" aria-live="assertive" class="df-note">Enviando los anuncios confirmados, uno por canal. No repitas la operación.</p>':'')
     + (annResults.length?'<section id="df-ann-result-summary" class="df-send-results" role="status" tabindex="-1" aria-live="polite">'
        + (annResults.some(r=>r.status==='sent')?'<h3 class="df-success-heading">'+safe(immediateDeliveryNotice(annResults))+'</h3>'
          :'<h3 class="df-warning-heading">'+safe(immediateDeliveryNotice(annResults))+'</h3>')
        + '<h4>Resultado por canal</h4><ul>'
        + annResults.map(r=>'<li><strong>'+safe(r.channel.provider.toUpperCase()+' · '+r.channel.label)+'</strong>: '
-          +safe(({sent:'Enviado',already:'Ya anunciado',blocked:'No enviado',uncertain:'Entrega sin confirmar'})[r.status]||'Sin confirmación')+'</li>').join('')
+          +safe(({sent:'Enviado',already:'Ya anunciado anteriormente (no se repitió)',blocked:'No enviado',uncertain:'Entrega sin confirmar'})[r.status]||'Sin confirmación')+'</li>').join('')
        + '</ul><p>Si algún canal quedó sin confirmar, comprueba su historial antes de intentar otra publicación.</p></section>':'')
     + (!canAnnounce ? empty('Necesitas el permiso «Publicar difusión».')
       : !annConnections().length ? empty('Primero conecta Discord o Telegram y envía una prueba desde «Conexiones».')
@@ -382,7 +384,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
              + (canAnnounce?'<button type="button" class="df-link" data-schedule-finalize="'+safe(item.id)+'">Comprobar si ya se envió</button>':'')
              + '</div>':'')
           + '</article>';
-      }).join('')+'</div>' : empty('Aún no hay publicaciones previstas. Prepara un anuncio y pulsa «Agregar al calendario».'))
+      }).join('')+'</div>' : empty('No hay avisos programados. Los manuales aparecen al confirmar «Agregar al calendario»; los automáticos solo cuando ocurre una nueva publicación que coincide con una regla activa. Los eventos pasados no se anuncian retroactivamente.'))
     + '</section>';
   function page() {
     if (tab==='conexiones') return connectionsView();
@@ -718,7 +720,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
             }
           }
           // Aviso inequívoco solo si el proveedor confirmó al menos un canal.
-          if(results.some(r=>r.status==='sent'))toast(deliveryNotice);
+          if(results.some(r=>r.status==='sent'||r.status==='already'))toast(deliveryNotice);
           // Los intentos parciales o inciertos no quedan armados para otro clic.
           annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';
         }catch{
