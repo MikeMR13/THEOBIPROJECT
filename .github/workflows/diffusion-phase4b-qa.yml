@@ -11,6 +11,8 @@ on:
       - 'src/diffusion-panel.js'
       - 'sql/diffusion-4c-*'
       - 'sql/diffusion-prelaunch-rule-candidate.sql'
+      - 'sql/diffusion-prelaunch-review-approve-candidate.sql'
+      - 'supabase/tests/diffusion_prelaunch_review_rls.sql'
       - 'supabase/tests/diffusion_prelaunch_announced_rls.sql'
       - 'supabase/tests/fixtures/diffusion_prelaunch_pg17.sql'
       - 'supabase/tests/diffusion_phase4c_rules_rls.sql'
@@ -72,7 +74,9 @@ jobs:
           qa supabase/tests/diffusion_phase4c_rules_rls.sql
           qa supabase/tests/fixtures/diffusion_prelaunch_pg17.sql
           qa sql/diffusion-prelaunch-rule-candidate.sql
+          qa sql/diffusion-prelaunch-review-approve-candidate.sql
           qa supabase/tests/diffusion_prelaunch_announced_rls.sql
+          qa supabase/tests/diffusion_prelaunch_review_rls.sql
       - name: Edge Function simulada sin red ni tokens
         run: |
           node --check supabase/functions/diffusion-dispatch/handler.mjs
