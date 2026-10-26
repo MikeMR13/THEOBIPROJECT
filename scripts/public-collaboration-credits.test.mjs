@@ -73,7 +73,12 @@ assert.match(sql,/REVOKE ALL ON FUNCTION public\.series_public_credits\(uuid\[\]
 assert.doesNotMatch(sql,/(?:c\.status = 'pending'|c\.status IN \('pending')/);
 const ui=readFileSync(new URL('../src/ui.js',import.meta.url),'utf8');
 const rd=readFileSync(new URL('../src/reader.js',import.meta.url),'utf8');
-assert.match(ui,/await attachPublicCredits\(sb, list\)/);
+assert.match(ui,/const creditsRequest = Promise\.all\(\[feedRequest, Promise\.resolve\(adultRequest\)\]\)/,
+  'Inicio debe consultar créditos en paralelo con los volúmenes y tras validación +18');
+assert.match(ui,/return attachPublicCredits\(sb, visible\)/,
+  'Inicio debe hidratar los logos de colaboradores solo en obras visibles');
+assert.match(ui,/await creditsRequest;/,
+  'Inicio no debe pintar logos antes de resolver créditos');
 assert.match(ui,/await attachPublicCredits\(sb, works\)/, 'La búsqueda carga logos para las obras encontradas');
 assert.match(ui,/creditsHTML\(x, \{ esc, media, mode: 'carousel' \}\)/, 'Búsqueda muestra logos sin enlaces anidados');
 const appSource=readFileSync(new URL('../src/app.js',import.meta.url),'utf8');
