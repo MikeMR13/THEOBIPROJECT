@@ -1,0 +1,25 @@
+name: Integraciones producción · smoke de solo lectura
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/production-integrations-smoke.mjs'
+      - '.github/workflows/production-integrations-smoke.yml'
+  push:
+    branches:
+      - test/integraciones-produccion-sololectura-20261026
+permissions:
+  contents: read
+jobs:
+  public-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar JavaScript
+        run: node --check scripts/production-integrations-smoke.mjs
+      - name: Consultar Vercel, API pública y miniaturas (nunca POST)
+        run: node scripts/production-integrations-smoke.mjs
