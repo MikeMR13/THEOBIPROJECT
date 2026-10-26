@@ -32,3 +32,17 @@ jobs:
                 echo 'WARN: no se obtuvo HTTP 200'; fi
             done
           done
+
+      - name: Identificar proteccion 403 sin autenticar
+        shell: bash
+        run: |
+          set -euo pipefail
+          for host in elobidellector.com www.elobidellector.com theobiproject.vercel.app; do
+            echo "Host de diagnostico: $host"
+            curl -LsS --max-time 14 -o /tmp/obi-403-body -D /tmp/obi-403-headers \
+              -w 'http=%{http_code} ttfb_s=%{time_starttransfer} redirect=%{num_redirects}\n' "https://$host/index.html"
+            grep -iE '^(server|cf-ray|cf-mitigated|x-vercel|x-robots-tag|content-type|location):' /tmp/obi-403-headers | tr -d '\r' || :
+            if grep -qi 'cloudflare\|checking your browser\|just a moment' /tmp/obi-403-body; then echo 'pagina indica Cloudflare/bot challenge'; fi
+            if grep -qi 'vercel\|authentication required\|deployment protection' /tmp/obi-403-body; then echo 'pagina menciona Vercel'; fi
+            if grep -qi 'access denied\|forbidden\|error' /tmp/obi-403-body; then echo 'pagina informa acceso denegado/error'; fi
+          done
