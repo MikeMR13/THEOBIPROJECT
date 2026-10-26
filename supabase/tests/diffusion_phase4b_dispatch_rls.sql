@@ -52,6 +52,11 @@ reset role;
 update public.diffusion_scheduled_announcements set scheduled_at=now()-interval '3 minutes'
  where id=current_setting('diffusion.qa.plan')::uuid;
 update public.series set published=false where id='70000000-0000-4000-8000-000000000002';
+-- Las pruebas 4A generaron un anuncio manual ficticio y activaron su rate limit.
+-- Simular el paso de 20 s SIN esperar ni enviar solicitudes reales.
+update public.diffusion_connections set last_announcement_at=now()-interval '20 seconds'
+ where id=(select connection_id from public.diffusion_scheduled_announcements
+  where id=current_setting('diffusion.qa.plan')::uuid);
 
 do $test$
 declare token text:='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
