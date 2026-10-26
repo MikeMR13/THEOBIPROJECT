@@ -1,0 +1,65 @@
+name: Seguridad RPC · PostgreSQL sin servicios de pago
+on:
+  pull_request:
+    paths:
+      - 'sql/public-rpc-auth-grants-*.sql'
+      - 'scripts/public-rpc-grants-qa-*.sql'
+      - '.github/workflows/public-rpc-grants-qa.yml'
+  push:
+    branches: [security/public-rpc-auth-grants-20261026]
+    paths:
+      - 'sql/public-rpc-auth-grants-*.sql'
+      - 'scripts/public-rpc-grants-qa-*.sql'
+      - '.github/workflows/public-rpc-grants-qa.yml'
+permissions:
+  contents: read
+jobs:
+  postgres-isolated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: qa-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: qa-only
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cliente PostgreSQL del runner
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y postgresql-client
+          fi
+      - name: Restricción, funciones públicas y rollback
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f scripts/public-rpc-grants-qa-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f sql/public-rpc-auth-grants-20261026.sql
+          psql -X -v ON_ERROR_STOP=1 -f scripts/public-rpc-grants-qa-assertions.sql
+          if psql -X -v ON_ERROR_STOP=1 -c "set role anon; select public.series_feedback('00000000-0000-0000-0000-000000000000'::uuid);" > /dev/null 2>&1; then
+            echo 'ERROR: anon pudo llamar series_feedback'; exit 1
+          fi
+          if psql -X -v ON_ERROR_STOP=1 -c "set role anon; select public.report_review('00000000-0000-0000-0000-000000000000'::uuid,'ref','motivo');" > /dev/null 2>&1; then
+            echo 'ERROR: anon pudo llamar report_review'; exit 1
+          fi
+          if psql -X -v ON_ERROR_STOP=1 -c "set role anon; select public.patreon_campaign_info('platform');" > /dev/null 2>&1; then
+            echo 'ERROR: anon pudo llamar patreon_campaign_info'; exit 1
+          fi
+          psql -X -v ON_ERROR_STOP=1 -c "set role anon; select public.home_feed();"
+          psql -X -v ON_ERROR_STOP=1 -c "set role authenticated; select public.series_feedback('00000000-0000-0000-0000-000000000000'::uuid);"
+          psql -X -v ON_ERROR_STOP=1 -c "set role service_role; select public.patreon_campaign_info('platform');"
+          psql -X -v ON_ERROR_STOP=1 -f sql/public-rpc-auth-grants-rollback.sql
+          psql -X -v ON_ERROR_STOP=1 -f scripts/public-rpc-grants-qa-rollback.sql
