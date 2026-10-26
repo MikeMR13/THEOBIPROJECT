@@ -29,3 +29,5 @@
 .df-providers{display:flex;gap:6px;flex-wrap:wrap}.df-providers span{padding:6px 9px;border:1px solid #54462c;color:#e9d4a8;font-size:12px}
 .df button:focus-visible,.df input:focus-visible,.df textarea:focus-visible,.df select:focus-visible{outline:2px solid #f2c230;outline-offset:3px}
 @media(max-width:700px){.df-grid{grid-template-columns:1fr}.df-box{padding:14px}.df-title{align-items:start}}
+
+.df-destination-group{margin:12px 0;padding:10px;border:1px solid #63543a;border-radius:8px}.df-destination-group legend{font-weight:600}.df-destination-option{display:flex;align-items:center;gap:10px;padding:9px 4px;cursor:pointer}.df-destination-option input{width:18px;height:18px;accent-color:#c49b4c}.df-destination-group small{display:block;opacity:.8;margin-top:6px}
