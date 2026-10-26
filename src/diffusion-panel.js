@@ -448,17 +448,45 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         toast('Regla guardada sin activar'); draw();
       });
     });
+    root.querySelector('#df-campaign-template')?.addEventListener('change',e=>{
+      const area=root.querySelector('#df-campaign-form textarea[name="body"]');
+      const selected=editorialTemplate(e.target.value);
+      if(area&&selected)area.value=selected;
+    });
+    root.querySelectorAll('[data-edit-campaign]').forEach(b=>b.onclick=()=>{
+      if(!canCompose)return;
+      const item=campaigns.find(c=>c.id===b.dataset.editCampaign&&c.status==='draft');
+      if(!item)return;
+      editingCampaignId=item.id;tab='campanas';draw();
+    });
+    root.querySelector('#df-campaign-cancel')?.addEventListener('click',()=>{
+      editingCampaignId='';draw();
+    });
+    root.querySelectorAll('[data-use-campaign]').forEach(b=>b.onclick=()=>{
+      if(!canAnnounce)return;
+      busy(b,async()=>{
+        const item=campaigns.find(c=>c.id===b.dataset.useCampaign&&c.status==='draft');
+        if(!item)throw new Error('Este borrador ya no está disponible.');
+        const body=String(item.body||'').trim();
+        if(body.length<1||body.length>700)
+          throw new Error('Para preparar el anuncio, edita el borrador y deja un mensaje de 1 a 700 caracteres.');
+        if(!annLoaded)await loadAnnWorks();
+        annDraftMessage=body;annDraftTitle=item.title;annPreview=null;annFeedback='';
+        tab='anuncios';draw();
+      });
+    });
     root.querySelector('#df-campaign-form')?.addEventListener('submit', e => {
       e.preventDefault();
       const f=e.currentTarget, data=new FormData(f);
       busy(f.querySelector('button'), async () => {
         const { error } = await sb.rpc('diffusion_campaign_draft_save', {
-          p_team:teamId,p_id:null,p_title:String(data.get('title')||''),
+          p_team:teamId,p_id:editingCampaignId||null,p_title:String(data.get('title')||''),
           p_body:String(data.get('body')||'')
         });
-        if (error) throw error;
+        if (error) throw new Error('No se pudo guardar el borrador. Comprueba tus permisos y que siga editable.');
+        editingCampaignId='';
         campaigns = await q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at');
-        toast('Borrador guardado');draw();
+        toast('Borrador guardado sin publicar');draw();
       });
     });
     root.querySelectorAll('[data-del-rule],[data-del-campaign]').forEach(b => b.onclick = () => {
@@ -467,7 +495,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       busy(b, async()=>{
         const {error}=await sb.rpc('diffusion_draft_delete',{p_team:teamId,p_type:isRule?'rule':'campaign',p_id:id});
         if(error) throw error;
-        if(isRule) rules=rules.filter(r=>r.id!==id); else campaigns=campaigns.filter(c=>c.id!==id);
+        if(isRule) rules=rules.filter(r=>r.id!==id);
+        else { campaigns=campaigns.filter(c=>c.id!==id);if(editingCampaignId===id)editingCampaignId=''; }
         toast('Borrador eliminado');draw();
       });
     });
