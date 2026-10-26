@@ -47,3 +47,9 @@
 .df-send-results li{margin:8px 0;overflow-wrap:anywhere}
 .df-send-results p{margin:8px 0 0}
 @media(max-width:520px){.df-confirm-dialog{padding:16px}.df-confirm-actions{display:grid;grid-template-columns:1fr}.df-confirm-actions button{width:100%;justify-self:stretch}}
+
+/* Confirmación de entrega: distinguir enviado, parcialmente enviado y pendiente. */
+.df-success-heading{font-size:17px;color:#bce8bb;margin:0 0 10px;line-height:1.5}
+.df-warning-heading{font-size:16px;color:#ffe0a4;margin:0 0 10px;line-height:1.5}
+.df-confirmation-notice{border:2px solid #7fad81;border-radius:8px;background:#172619;color:#d4f2cc;padding:14px 16px;line-height:1.55;margin:12px 0}
+.df-box #df-schedule-refresh{margin:10px 0;min-height:44px;max-width:100%;white-space:normal}
