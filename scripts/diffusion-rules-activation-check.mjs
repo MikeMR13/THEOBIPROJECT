@@ -20,7 +20,7 @@ for(const phrase of [
   "if new.deleted_at is not null","return new;"
 ]) assert.ok(sql.toLowerCase().includes(phrase.toLowerCase()),'Falta control SQL: '+phrase);
 assert.match(sql,/where rule\.enabled and rule\.enabled_at<=now\(\)/,'Solo próximas publicaciones');
-assert.match(sql,/r\.team_id is null or r\.team_id=se\.team_id/,'Ámbito por equipo');
+assert.match(sql,/rule\.team_id is null or rule\.team_id=se\.team_id/,'Ámbito por equipo');
 assert.match(sql,/diffusion_scope_ok\(p_team,'diffusion_manage'\)/,'Permiso de gestión');
 assert.match(sql,/diffusion_scope_ok\(p_team,'diffusion_publish'\)/,'Permiso de publicación');
 assert.match(sql,/diffusion_scope_ok\(p_team,'diffusion_schedule'\)/,'Permiso de calendario');
