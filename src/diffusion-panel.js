@@ -58,12 +58,12 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     ['resumen','Resumen'], ['conexiones','Conexiones'], ['anuncios','Anunciar'], ['reglas','Automatizaciones'],
     ['campanas','Borradores'], ['calendario','Calendario'], ['historial','Historial']
   ];
-  const message = 'Discord y Telegram: prepara anuncios manuales o elige envío automático para una fecha concreta. La agenda NO envía mensajes por sí sola cuando eliges modo manual; las reglas automáticas globales permanecen inactivas.';
+  const message = 'Discord y Telegram: programa anuncios por fecha desde Anunciar o activa reglas para futuras publicaciones desde Automatizaciones. Ninguna regla se activa sin confirmación.';
   root.innerHTML = '<div class="df" aria-live="polite"><p class="df-empty">Cargando Difusión…</p></div>';
   try {
     [connections,rules,campaigns,jobs,scheduled] = await Promise.all([
       q('diffusion_connections','id,provider,label,status,created_at'),
-      q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,created_at'),
+      q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,enabled_at,created_at'),
       q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at'),
       canLogs ? q('diffusion_jobs','id,status,scheduled_at,last_error,created_at') : Promise.resolve([]),
       q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,last_error,created_at')
@@ -110,20 +110,38 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     + '<p class="df-muted">Solo se permite una prueba por conexión cada 60 segundos.</p>'
     + '<p class="df-muted">La conexión de tu equipo no necesita autorización del Bibliotecario.</p></section>';
   const rulesView = () => '<section class="df-box"><h3>Automatizaciones del ' + (official?'Bibliotecario':'equipo') + '</h3>'
-    + '<p>Las reglas que prepares aquí permanecen inactivas. La programación y ejecución automática se abordarán en una fase posterior, sin publicaciones autónomas por ahora.</p>'
-    + (rules.length ? '<div class="df-list">' + rules.map(r=>'<article><div><strong>'+safe(r.name)+'</strong>'
-      + '<small>'+safe(shortName(r.event_kind))+' · '+(r.mode==='team_review'?'Revisión interna':'Automática')
-      + ' · Retraso: '+r.delay_minutes+' min · '+(r.enabled?'Activa':'Preparada, sin activar')+'</small></div>'
-      + (canManage&&!r.enabled?'<button type="button" data-del-rule="'+safe(r.id)+'" class="df-danger">Eliminar</button>':'')
-      + '</article>').join('')+'</div>' : empty('Todavía no hay reglas configuradas.'))
-    + (canManage ? '<form id="df-rule-form" class="df-form"><h4>Preparar una regla</h4>'
+    + '<p>Configura una regla y pulsa <strong>Activar</strong> para que las próximas publicaciones de capítulos o volúmenes se anuncien en la conexión elegida. Las publicaciones anteriores no se reenvían.</p>'
+    + '<p class="df-muted">Elige «Automática» para publicar sin intervención o «Revisión interna» para que el anuncio aparezca en Calendario y el equipo lo confirme. Los retrasos se aplican desde la publicación. Puedes pausar cualquier regla.</p>'
+    + (rules.length ? '<div class="df-list">' + rules.map(r=>{
+       const destinations=connections.filter(c=>c.status==='active'&&['discord','telegram'].includes(c.provider));
+       const supported=['chapter.public','volume.public'].includes(r.event_kind);
+       const current=connections.find(c=>c.id===r.connection_id);
+       return '<article><div><strong>'+safe(r.name)+'</strong>'
+       + '<small>'+safe(shortName(r.event_kind))+' · '+(r.mode==='team_review'?'Revisión interna':'Automática')
+       + ' · Retraso: '+r.delay_minutes+' min · '+(r.enabled?'Activa':'Inactiva')
+       + (current?' · '+safe(current.provider+' · '+current.label):'')+'</small>'
+       + (!supported?'<small>Este evento aún no admite activación automática; puedes eliminar y crear una regla de capítulo o volumen.</small>':'')
+       + '</div>'
+       + (canManage?'<div>'
+          + (r.enabled?'<button type="button" class="df-danger" data-rule-pause="'+safe(r.id)+'">Pausar regla</button>'
+           :supported&&destinations.length?'<label>Destino<select data-rule-destination="'+safe(r.id)+'">'
+                + destinations.map(c=>'<option value="'+safe(c.id)+'" '+(c.id===r.connection_id?'selected':'')+'>'
+                   + safe(c.provider.toUpperCase()+' · '+c.label)+'</option>').join('')+'</select></label>'
+                + '<button type="button" class="btn" data-rule-activate="'+safe(r.id)+'">Activar regla</button>'
+             :'<small>Conecta y verifica un destino antes de activar.</small>')
+          + (!r.enabled?'<button type="button" data-del-rule="'+safe(r.id)+'" class="df-danger">Eliminar</button>':'')
+          + '</div>':'')+'</article>';
+      }).join('')+'</div>' : empty('Todavía no hay reglas configuradas.'))
+    + (canManage ? '<form id="df-rule-form" class="df-form"><h4>Crear una regla</h4>'
        + '<label>Nombre<input name="name" maxlength="100" minlength="2" required placeholder="Ej. Nuevo volumen en las redes"></label>'
-       + '<label>Evento<select name="event">'+EVENTS.map(([k,v])=>'<option value="'+k+'">'+v+'</option>').join('')+'</select></label>'
-       + '<label>Modalidad<select name="mode"><option value="automatic">Automático al activar</option>'
+       + '<label>Evento<select name="event"><option value="chapter.public">Capítulo publicado</option>'
+       + '<option value="volume.public">Volumen publicado</option></select></label>'
+       + '<label>Modalidad<select name="mode"><option value="automatic">Publicación automática</option>'
        + '<option value="team_review">Con revisión interna del equipo</option></select></label>'
        + '<label>Retraso en minutos<input type="number" name="delay" min="0" max="10080" value="0" required></label>'
-       + '<button type="submit" class="btn">Guardar regla inactiva</button></form>'
-       : '<p class="df-muted">Necesitas el permiso «Gestionar difusión» para crear reglas.</p>')+'</section>';
+       + '<button type="submit" class="btn">Guardar regla</button>'
+       + '<p class="df-muted">Se guarda inactiva para que puedas elegir el destino y pulsar «Activar regla» expresamente.</p></form>'
+       : '<p class="df-muted">Necesitas «Gestionar difusión» y «Programar/Publicar difusión» para activar reglas.</p>')+'</section>';
   const editingCampaign = () => campaigns.find(c=>c.id===editingCampaignId&&c.status==='draft');
   const templateOptions = () => '<option value="">Seleccionar plantilla (opcional)</option>'
     + EDITORIAL_TEMPLATES.map(t=>'<option value="'+safe(t.id)+'">'+safe(t.label)+'</option>').join('');
@@ -578,9 +596,29 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           p_delay:Number(data.get('delay'))
         });
         if (error) throw error;
-        rules = await q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,created_at');
-        toast('Regla guardada sin activar'); draw();
+        rules = await q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,enabled_at,created_at');
+        toast('Regla guardada. Selecciona un destino y pulsa Activar regla.'); draw();
       });
+    });
+    root.querySelectorAll('[data-rule-activate],[data-rule-pause]').forEach(button=>{
+      button.addEventListener('click',()=>busy(button,async()=>{
+        const id=button.dataset.ruleActivate||button.dataset.rulePause;
+        const activate=Boolean(button.dataset.ruleActivate);
+        const chosen=activate?root.querySelector('[data-rule-destination="'+id+'"]')?.value:null;
+        if(activate&&!chosen)throw new Error('Selecciona una conexión activa de Discord o Telegram.');
+        if(activate&&!confirm('¿Activar esta regla para las próximas publicaciones? No anunciará contenidos históricos.'))return;
+        const {error}=await sb.rpc('diffusion_rule_toggle',{
+          p_team:teamId,p_id:id,p_enabled:activate,p_connection:chosen
+        });
+        if(error)throw new Error(error.message==='event_not_automatable_yet'
+          ?'El evento seleccionado no admite automatización todavía.'
+          :error.message==='destination_unavailable'?'La conexión no está activa.'
+          :'No se pudo cambiar la regla: revisa los permisos de Difusión.');
+        rules=await q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,enabled_at,created_at');
+        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,last_error,created_at');
+        toast(activate?'Regla activada: escuchando nuevas publicaciones.':'Regla pausada; anuncios pendientes cancelados.');
+        draw();
+      }));
     });
     root.querySelector('#df-campaign-template')?.addEventListener('change',e=>{
       const area=root.querySelector('#df-campaign-form textarea[name="body"]');
