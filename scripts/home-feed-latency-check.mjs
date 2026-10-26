@@ -6,6 +6,7 @@ const start=src.indexOf('  async function home(){');
 const end=src.indexOf('  function heroSlide(',start);
 assert(start>=0 && end>start, 'No se encontró el cuerpo de Inicio');
 const home=src.slice(start,end);
+const hero=src.slice(end,end+11000);
 const at=(token)=>{const i=home.indexOf(token);assert(i>=0,'No se encontró: '+token);return i};
 const load=at('const feedRequest = feed();');
 const credits=at('const creditsRequest = Promise.all([feedRequest, Promise.resolve(adultRequest)])');
@@ -13,7 +14,7 @@ const volumes=at("sb.from('volumes').select(");
 const waits=at('const [FD, pr, VR] = await Promise.all([');
 assert(load<credits && credits<waits && waits<volumes,
  'Los créditos deben comenzar a solicitarse antes de terminar de cargar volúmenes');
-assert.match(home,/visible = \(fd\?\.series \|\| \[\]\)\.filter\(s =>[\s\S]*?\(!s\.adult \|\| adult\?\.data === true\) && !hidS\(s\)/,
+assert.match(hero,/visible = \(fd\?\.series \|\| \[\]\)\.filter\(s =>[\s\S]*?\(!s\.adult \|\| adult\?\.data === true\) && !hidS\(s\)/,
  'Filtrar títulos +18 y preferencias antes de solicitar logos/créditos');
 assert.match(home,/await creditsRequest;/,'Conservar los créditos antes de dibujar sus logos');
 assert.doesNotMatch(home,/await attachPublicCredits\(sb, list\)/,
