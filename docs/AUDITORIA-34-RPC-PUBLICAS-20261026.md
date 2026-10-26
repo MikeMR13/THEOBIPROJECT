@@ -68,10 +68,10 @@ Los tres tenían explícitamente `PUBLIC:EXECUTE`, `anon:EXECUTE`, `authenticate
 ### B. Privacidad de reseñas de Inicio — requiere PR independiente
 
 - `public.series_reviews_list` **sí respeta** el campo `r.anonymous` al ocultar usuario y avatar ajenos.
-- `public.home_reviews` devuelve `p.username` sin aplicar `r.anonymous`.
+- `public.home_reviews` **sí respeta** `r.anonymous` al devolver el nombre (verificado en la función SQL desplegada).
 - `private.build_home` arma la colección `reviews` que consume `public.home_feed`, también sin condicionar `p.username` por `r.anonymous`.
 
-Esto permite en principio que la portada revele el nombre del autor de una reseña marcada anónima. Durante la inspección había **cero reseñas**, por lo que es un riesgo lógico **no una exposición observada**. Se debe corregir en un cambio separado y comprobar que futuras reseñas anónimas siguen sin identificadores públicos.
+La ruta `home_feed` puede en principio revelar el nombre del autor de una reseña marcada anónima, aunque el RPC independiente `home_reviews` ya lo protege. Durante la inspección había **cero reseñas**, por lo que es un riesgo lógico **no una exposición observada**. Se debe corregir en un cambio separado y comprobar que futuras reseñas anónimas siguen sin identificadores públicos.
 
 ### C. Revisiones específicas aún no cerradas
 
@@ -91,4 +91,4 @@ Esto permite en principio que la portada revele el nombre del autor de una rese�
 
 Guía actual de Supabase: https://supabase.com/docs/guides/api/securing-your-api
 
-**Estado:** revisión de 34 definiciones y candidato para 3 GRANT; pendiente revisión de privacidad de Inicio y más QA para las demás.
+**Estado:** revisión de 34 definiciones y candidato para 3 GRANT; confirmada protección en `home_reviews` y pendiente ajuste de `private.build_home`, más QA para las demás.
