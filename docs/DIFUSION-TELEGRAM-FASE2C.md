@@ -13,3 +13,11 @@
 - `diffusion-telegram` ACTIVE con `verify_jwt=true` en el Supabase existente.
 - Cero conexiones Telegram iniciales y ninguna regla automática habilitada.
 - La interfaz web permanece pendiente de integración hasta que CI y QA aprueben este commit.
+
+## Corrección de grupos (2026-10-25)
+- Telegram Bot API permite publicar en canales, grupos y supergrupos. El bot debe ser miembro habilitado para enviar mensajes/fotos o administrador; un canal exige permiso de publicación.
+- Los destinos se aceptan por @usuario público o ID numérico negativo (incluye supergrupos -100...).
+- Los enlaces de invitación no identifican un destino para Bot API. El token sigue cifrado en Vault.
+- El estado de la prueba se muestra de forma persistente. No existe ningún envío automático, son pruebas y anuncios por acción explícita.
+
+- Migración en Supabase producción: `20261026032956_diffusion_telegram_grupos_prueba_20261025.sql`.
