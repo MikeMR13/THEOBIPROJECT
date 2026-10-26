@@ -22,7 +22,12 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const canManage = p('diffusion_manage'), canCompose = p('diffusion_compose');
   const canLogs = p('diffusion_logs'), canAnnounce = p('diffusion_publish');
   let tab = 'resumen', rules = [], campaigns = [], connections = [], jobs = [];
-  let annWorks=[],annItems=[],annLoaded=false,annWork='',annSource='',annConnection='',annKind='series',annPreview=null;
+  const deep = new URLSearchParams(location.search);
+  const deepKind = ['series','volume','chapter'].includes(deep.get('kind')) ? deep.get('kind') : '';
+  const deepSource = /^[0-9a-f-]{36}$/i.test(deep.get('source')||'') ? deep.get('source') : '';
+  const deepSeries = /^[0-9a-f-]{36}$/i.test(deep.get('series')||'') ? deep.get('series') : '';
+  let deepPending = !!(deepKind && deepSource);
+  let annWorks=[],annItems=[],annLoaded=false,annWork='',annSource='',annConnection='',annKind=deepKind||'series',annPreview=null;
   const scoped = q => team ? q.eq('team_id', team.id) : q.is('team_id', null);
   const q = async (table, cols, sort = 'created_at') => {
     const { data, error } = await scoped(sb.from(table).select(cols).order(sort, { ascending: false }).limit(50));
@@ -114,6 +119,12 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     + '</section>';
 
   const chosenAnnouncementId = () => annKind==='series' ? annWork : annSource;
+  const annCover = value => {
+    if(typeof value!=='string'||value.includes('..')||!value||value.startsWith('/')
+       ||!/^[A-Za-z0-9_./-]+$/.test(value))return '';
+    return (sb.supabaseUrl||'')+'/storage/v1/object/public/obi-media/'
+      +value.split('/').map(encodeURIComponent).join('/');
+  };
   const annConnections = () => connections.filter(c=>c.provider==='discord'&&c.status==='active');
   const annOptions = () => annKind==='series' ? [] : annItems.filter(x=>x.status==='published');
   const annSelected = (items,id,label) => items.map(x=>'<option value="'+safe(x.id)+'"'+(x.id===id?' selected':'')+'>'+safe(label(x))+'</option>').join('');
@@ -134,6 +145,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
            : '<button type="button" class="btn" id="df-ann-preview">Crear vista previa</button>')
         + '</div>'
         + (annPreview ? '<div class="df-box"><h4>Vista previa (todavía no enviada)</h4>'
+          + (annCover(annPreview.cover_path)?'<img loading="lazy" alt="Portada del anuncio" src="'+safe(annCover(annPreview.cover_path))+'" style="max-width:112px;height:auto;float:right;margin:0 0 12px 12px;border-radius:6px">':'')
           + '<p><strong>'+safe(annPreview.title)+'</strong></p>'
           + '<p>'+safe(annPreview.description||'')+'</p>'
           + '<p><a href="'+safe(annPreview.url)+'" target="_blank" rel="noopener noreferrer">'+safe(annPreview.url)+'</a></p>'
@@ -149,7 +161,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     const {data,error}=await sb.from(table).select(cols).eq('series_id',annWork)
       .eq('status','published').is('deleted_at',null).order('num',{ascending:false}).limit(150);
     if(error)throw error;
-    annItems=data||[];annSource=annItems[0]?.id||'';
+    annItems=data||[];
+    annSource=(deepPending&&annItems.some(x=>x.id===deepSource)?deepSource:annItems[0]?.id)||'';
   };
   const loadAnnWorks = async () => {
     let req=sb.from('series').select('id,title,slug').eq('published',true)
@@ -157,10 +170,11 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     if(team)req=req.eq('team_id',team.id);
     const {data,error}=await req;
     if(error)throw error;
-    annWorks=data||[];annLoaded=true;annWork=annWorks[0]?.id||'';
+    annWorks=data||[];annLoaded=true;
+    annWork=annWorks.find(x=>x.id===(deepSeries||(annKind==='series'?deepSource:'')))?.id||annWorks[0]?.id||'';
     const allowed=annConnections();
     annConnection=allowed[0]?.id||'';
-    await loadAnnItems();
+    await loadAnnItems();deepPending=false;
   };
 
   function page() {
@@ -318,5 +332,6 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       });
     });
   }
+  if(deepPending){tab='anuncios';try{await loadAnnWorks();}catch{toast('No se pudo abrir el anuncio solicitado.');}}
   draw();
 }
