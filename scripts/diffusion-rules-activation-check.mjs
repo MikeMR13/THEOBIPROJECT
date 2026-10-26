@@ -6,7 +6,7 @@ for(const phrase of [
   "data-rule-activate","data-rule-pause","data-rule-destination",
   "Activar regla","Pausar regla","diffusion_rule_toggle",
   "volume.public","chapter.public","p_enabled:activate",
-  "enabled,connection_id,connection_ids,enabled_at",
+  "enabled,connection_id,connection_ids,template_campaign_id,enabled_at",
 ]) assert.ok(ui.includes(phrase),'Falta un control visible o un vínculo de regla: '+phrase);
 assert.match(ui, /event_not_automatable_yet/,'No alertan los eventos no automatizables');
 assert.match(ui, /value="automatic"/,'Modalidad automática desaparecida');
