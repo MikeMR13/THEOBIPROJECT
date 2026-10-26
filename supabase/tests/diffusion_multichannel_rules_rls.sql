@@ -1,5 +1,9 @@
 \set ON_ERROR_STOP on
 -- PG17 descartable, dos canales de un mismo equipo, sin red ni mensajes reales.
+-- Pruebas 4D previas dejan una regla de revisión activa; aislarlas impide
+-- que compitan por el mismo destino cuando las UUID aleatorias cambian de orden.
+update public.diffusion_rules set enabled=false,enabled_at=null where enabled;
+
 do $qa$
 begin
  if has_function_privilege('anon','public.diffusion_rule_toggle_multi(uuid,uuid,boolean,uuid[])'::regprocedure,'EXECUTE')
