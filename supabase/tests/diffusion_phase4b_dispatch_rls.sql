@@ -76,7 +76,10 @@ begin
  then raise exception 'Automatic claim failed'; end if;
  job:=(item->>'job_id')::uuid;
  if public.diffusion_4b_complete((item->>'plan_id')::uuid,job,false,null) is distinct from true
- then raise exception 'Uncertain outcome was not persisted'; end if;
+ then raise exception 'Uncertain outcome was not persisted: status=%, linked_job=%, claim_job=%',
+ (select status from public.diffusion_scheduled_announcements where id=(item->>'plan_id')::uuid),
+ (select dispatch_job_id from public.diffusion_scheduled_announcements where id=(item->>'plan_id')::uuid),job;
+ end if;
  if public.diffusion_4b_complete((item->>'plan_id')::uuid,job,true,'fake-id') then
   raise exception 'Completion could be replayed'; end if;
  item:=public.diffusion_4b_claim();
