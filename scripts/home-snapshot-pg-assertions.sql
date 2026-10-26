@@ -17,7 +17,7 @@ end $qa$;
 update private.home_snapshot set built_at = clock_timestamp() where id=1;
 do $qa$
 declare before_at timestamptz;
-declare after_at timestamptz;
+        after_at timestamptz;
 begin
   select built_at into before_at from private.home_snapshot where id=1;
   update public.volumes set status='published' where status='scheduled' and id<0;
