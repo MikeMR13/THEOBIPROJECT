@@ -20,6 +20,8 @@ on:
       - 'supabase/tests/diffusion_telegram_group_ids.sql'
       - 'supabase/functions/diffusion-telegram/**'
       - 'scripts/diffusion-telegram-check.mjs'
+      - 'supabase/migrations/20261026045625_diffusion_phase4a_manual_schedule_20261025.sql'
+      - 'supabase/tests/diffusion_phase4a_schedule_rls.sql'
   push:
     branches:
       - feat/difusion-hibrida-equipos-autonomos-20261025
@@ -92,4 +94,6 @@ jobs:
           psql_qa supabase/tests/diffusion_telegram_rls.sql
           psql_qa supabase/migrations/20261026032956_diffusion_telegram_grupos_prueba_20261025.sql
           psql_qa supabase/tests/diffusion_telegram_group_ids.sql
+          psql_qa supabase/migrations/20261026045625_diffusion_phase4a_manual_schedule_20261025.sql
+          psql_qa supabase/tests/diffusion_phase4a_schedule_rls.sql
           echo 'Difusión QA aprobado, sin servicios alojados ni envío de publicaciones'

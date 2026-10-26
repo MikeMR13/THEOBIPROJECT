@@ -34,14 +34,16 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const p = k => official || !!permissions[k];
   const canManage = p('diffusion_manage'), canCompose = p('diffusion_compose');
   const canLogs = p('diffusion_logs'), canAnnounce = p('diffusion_publish');
-  let tab = 'resumen', rules = [], campaigns = [], connections = [], jobs = [];
+  const canSchedule = p('diffusion_schedule') && canAnnounce;
+  let tab = 'resumen', rules = [], campaigns = [], connections = [], jobs = [], scheduled = [];
   let telegramFeedback = '', editingCampaignId = '', annDraftMessage = '', annDraftTitle = '', annFeedback = '';
   const deep = new URLSearchParams(location.search);
   const deepKind = ({o:'series',v:'volume',c:'chapter'})[deep.get('k')] || (['series','volume','chapter'].includes(deep.get('kind')) ? deep.get('kind') : '');
   const deepSource = /^[0-9a-f-]{36}$/i.test(deep.get('id')||deep.get('source')||'') ? (deep.get('id')||deep.get('source')) : '';
   const deepSeries = /^[0-9a-f-]{36}$/i.test(deep.get('s')||deep.get('series')||'') ? (deep.get('s')||deep.get('series')) : '';
   let deepPending = !!(deepKind && deepSource);
-  let annWorks=[],annItems=[],annLoaded=false,annWork='',annSource='',annConnection='',annKind=deepKind||'series',annPreview=null;
+  let annWorks=[],annItems=[],annLoaded=false,annWork='',annSource='',annConnection='',annKind=deepKind||'series',annPreview=null,annScheduledId='';
+  let scheduleFeedback = '', scheduleChangingId = '';
   const scoped = q => team ? q.eq('team_id', team.id) : q.is('team_id', null);
   const q = async (table, cols, sort = 'created_at') => {
     const { data, error } = await scoped(sb.from(table).select(cols).order(sort, { ascending: false }).limit(50));
@@ -56,14 +58,15 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     ['resumen','Resumen'], ['conexiones','Conexiones'], ['anuncios','Anunciar'], ['reglas','Automatizaciones'],
     ['campanas','Borradores'], ['calendario','Calendario'], ['historial','Historial']
   ];
-  const message = 'Solo Discord y Telegram. Los borradores no se publican solos: selecciona el contenido, revisa portada y enlace y confirma cada envío. Las automatizaciones están inactivas.';
+  const message = 'Discord y Telegram: prepara anuncios y organízalos en el calendario. La agenda NO envía mensajes por sí sola; requiere confirmación al llegar la fecha. Las reglas automáticas permanecen inactivas.';
   root.innerHTML = '<div class="df" aria-live="polite"><p class="df-empty">Cargando Difusión…</p></div>';
   try {
-    [connections,rules,campaigns,jobs] = await Promise.all([
+    [connections,rules,campaigns,jobs,scheduled] = await Promise.all([
       q('diffusion_connections','id,provider,label,status,created_at'),
       q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,created_at'),
       q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at'),
-      canLogs ? q('diffusion_jobs','id,status,scheduled_at,last_error,created_at') : Promise.resolve([])
+      canLogs ? q('diffusion_jobs','id,status,scheduled_at,last_error,created_at') : Promise.resolve([]),
+      q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,created_at')
     ]);
   } catch (error) {
     const missing = error.code === '42P01' || /PGRST205|Could not find the table/i.test(error.message || '');
@@ -80,7 +83,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       + '" aria-current="' + (tab===id?'page':'false') + '">' + name + '</button>').join('') + '</nav>'
     + '<p class="df-note">' + safe(message) + '</p>';
   const cards = () => '<div class="df-cards">'
-    + [['Conexiones activas',connections.filter(c=>['discord','telegram'].includes(c.provider)&&c.status==='active').length],['Reglas inactivas',rules.filter(r=>!r.enabled).length],['Borradores',campaigns.filter(c=>c.status==='draft').length],['Registros recientes',canLogs?jobs.length:'—']]
+    + [['Conexiones activas',connections.filter(c=>['discord','telegram'].includes(c.provider)&&c.status==='active').length],['Agenda pendiente',scheduled.filter(c=>c.status==='planned').length],['Borradores',campaigns.filter(c=>c.status==='draft').length],['Registros recientes',canLogs?jobs.length:'—']]
       .map(([name,n])=>'<div class="df-card"><small>'+safe(name)+'</small><strong>'+n+'</strong></div>').join('')+'</div>';
   const connectionsView = () => '<section class="df-box"><h3>Conexiones de Discord y Telegram</h3>'
     + '<p>Discord guarda el webhook y Telegram el token de bot cifrados en Supabase Vault. No compartas ninguno por chat ni GitHub.</p>'
@@ -190,6 +193,10 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           + EDITORIAL_TEMPLATES.map(t=>'<option value="'+safe(t.id)+'">'+safe(t.label)+'</option>').join('')+'</select></label>'
           + '<label>Texto del anuncio<textarea id="df-ann-text" maxlength="700" rows="3">'+safe(annPreview.message)+'</textarea></label>'
           + '<p class="df-muted">Solo se permite un anuncio por contenido y canal. No se reintentará automáticamente ante fallos inciertos.</p>'
+          + (canSchedule?'<div class="df-form"><label>Fecha y hora de difusión (hora local de tu dispositivo)'
+          + '<input type="datetime-local" id="df-ann-schedule-at" step="60"></label>'
+          + '<p class="df-muted">Entre 2 minutos y 90 días en el futuro. Se guarda en calendario, sin envío automático.</p>'
+          + '<button type="button" class="btn" id="df-ann-schedule">Agregar al calendario</button></div>':'')
           + (canCompose?'<button type="button" class="df-link" id="df-ann-save-draft">Guardar texto como borrador</button> ':'')
           + '<button type="button" class="btn" id="df-ann-send">Confirmar y enviar a '
           + (annProvider()==='telegram'?'Telegram':'Discord')+'</button></div>' : '')
@@ -219,13 +226,41 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     await loadAnnItems();deepPending=false;
   };
 
+  const scheduleView = () => '<section class="df-box"><h3>Agenda de Discord y Telegram</h3>'
+    + '<p>Las fechas son orientativas para el equipo. Esta versión no despacha mensajes automáticamente: cuando llegue la fecha, prepara el anuncio y confirma el envío manualmente.</p>'
+    + '<p class="df-muted">Las horas se muestran según la zona horaria de tu dispositivo. Las publicaciones canceladas no se envían.</p>'
+    + '<div class="df-note" id="df-schedule-feedback" role="alert">'+safe(scheduleFeedback)+'</div>'
+    + (scheduled.length ? '<div class="df-list">'
+      + [...scheduled].sort((a,b)=>Date.parse(a.scheduled_at)-Date.parse(b.scheduled_at)).map(item=>{
+        const future=Date.parse(item.scheduled_at)>Date.now();
+        const conn=connections.find(c=>c.id===item.connection_id);
+        const active=conn?.status==='active';
+        const planned=item.status==='planned';
+        return '<article><div><strong>'+safe(item.title_snapshot)+'</strong>'
+          + '<small>'+safe(item.provider.toUpperCase()+' · '+(conn?.label||'Conexión no disponible'))
+          + ' · '+safe(item.source_type)+' · '+when(item.scheduled_at)+'</small>'
+          + '<p>'+safe(item.message)+'</p>'
+          + '<small>'+safe(planned?(future?'Previsto, sin envío automático':'Fecha cumplida: pendiente de envío manual')
+             :item.status==='sent'?'Enviado y confirmado':'Cancelado')+'</small></div>'
+          + (planned?'<div>'
+             + (canAnnounce&&active?'<button type="button" class="btn" data-schedule-prepare="'+safe(item.id)+'">'
+                +(future?'Revisar anuncio':'Preparar envío')+'</button> ':'')
+             + (canSchedule?'<button type="button" class="df-link" data-schedule-change="'+safe(item.id)+'">Cambiar fecha</button> '
+                + '<button type="button" class="df-danger" data-schedule-cancel="'+safe(item.id)+'">Cancelar</button> ':'')
+             + (canSchedule&&scheduleChangingId===item.id
+                ? '<label>Nueva fecha y hora local<input type="datetime-local" data-schedule-at="'+safe(item.id)+'" step="60"></label>'
+                  + '<button type="button" class="btn" data-schedule-save="'+safe(item.id)+'">Guardar nueva fecha</button>':'')
+             + (canAnnounce?'<button type="button" class="df-link" data-schedule-finalize="'+safe(item.id)+'">Comprobar si ya se envió</button>':'')
+             + '</div>':'')
+          + '</article>';
+      }).join('')+'</div>' : empty('Aún no hay publicaciones previstas. Prepara un anuncio y pulsa «Agregar al calendario».'))
+    + '</section>';
   function page() {
     if (tab==='conexiones') return connectionsView();
     if (tab==='anuncios') return annView();
     if (tab==='reglas') return rulesView();
     if (tab==='campanas') return campaignsView();
-    if (tab==='calendario') return '<section class="df-box"><h3>Calendario de difusión</h3>'
-      + empty('La programación está pendiente de la fase de automatización. Por ahora los anuncios se envían solo mediante confirmación manual.')+'</section>';
+    if (tab==='calendario') return scheduleView();
     if (tab==='historial') return historyView();
     return cards() + '<div class="df-grid">'
       + '<section class="df-box"><h3>Autonomía editorial</h3><p>'
@@ -269,18 +304,18 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     });
 
     root.querySelector('#df-ann-conn')?.addEventListener('change',e=>{
-      annConnection=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annFeedback='';draw();
+      annConnection=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';annFeedback='';draw();
     });
     root.querySelector('#df-ann-kind')?.addEventListener('change',e=>{
-      annKind=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annFeedback='';
+      annKind=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';annFeedback='';
       loadAnnItems().then(draw).catch(()=>toast('No se pudieron cargar los contenidos.'));
     });
     root.querySelector('#df-ann-work')?.addEventListener('change',e=>{
-      annWork=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annFeedback='';
+      annWork=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';annFeedback='';
       loadAnnItems().then(draw).catch(()=>toast('No se pudieron cargar los contenidos.'));
     });
     root.querySelector('#df-ann-source')?.addEventListener('change',e=>{
-      annSource=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annFeedback='';draw();
+      annSource=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';annFeedback='';draw();
     });
     root.querySelector('#df-ann-preview')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
       if(!annConnection||!chosenAnnouncementId())return;
@@ -312,10 +347,89 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       campaigns=await q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at');
       toast('Texto guardado como borrador, sin publicar');
     }));
+    root.querySelector('#df-ann-schedule')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
+      const value=root.querySelector('#df-ann-schedule-at')?.value||'';
+      const message=root.querySelector('#df-ann-text')?.value.trim()||'';
+      const whenMs=value?new Date(value).getTime():NaN;
+      if(!annPreview?.url||!chosenAnnouncementId())throw new Error('Prepara la vista previa del contenido antes de agendarlo.');
+      if(!message||message.length>700)throw new Error('Escribe un mensaje de 1 a 700 caracteres.');
+      if(!Number.isFinite(whenMs)||whenMs-Date.now()<120000||whenMs-Date.now()>90*86400000)
+        throw new Error('Selecciona una fecha entre 2 minutos y 90 días, en la hora local de tu dispositivo.');
+      const {error}=await sb.rpc('diffusion_schedule_create',{
+        p_connection:annConnection,p_kind:annKind,p_source:chosenAnnouncementId(),
+        p_message:message,p_at:new Date(whenMs).toISOString()
+      });
+      if(error?.message==='already_scheduled')throw new Error('Ya existe una fecha pendiente para este contenido y destino.');
+      if(error?.message==='already_announced')throw new Error('Este contenido ya fue anunciado en ese destino.');
+      if(error?.message==='invalid_schedule')throw new Error('La fecha debe estar entre 2 minutos y 90 días en el futuro.');
+      if(error)throw new Error('No se pudo guardar la fecha. Verifica el permiso «Programar difusión» y que el contenido sea público.');
+      scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,created_at');
+      scheduleFeedback='Fecha guardada. Esta agenda no envía mensajes automáticamente.';
+      tab='calendario';annScheduledId='';draw();
+    }));
+    root.querySelectorAll('[data-schedule-prepare]').forEach(b=>b.onclick=()=>{
+      busy(b,async()=>{
+        const item=scheduled.find(x=>x.id===b.dataset.schedulePrepare&&x.status==='planned');
+        if(!item)throw new Error('El anuncio ya no está pendiente.');
+        if(!annConnections().some(x=>x.id===item.connection_id))
+          throw new Error('La conexión de este anuncio ya no está activa.');
+        if(!annLoaded)await loadAnnWorks();
+        if(!annWorks.some(x=>x.id===item.series_id))
+          throw new Error('La obra ya no figura entre las obras públicas de este equipo.');
+        annKind=item.source_type;annWork=item.series_id;annConnection=item.connection_id;
+        await loadAnnItems();
+        if(annKind!=='series'&&!annItems.some(x=>x.id===item.source_id))
+          throw new Error('El contenido ya no aparece como publicado. No se enviará.');
+        annSource=item.source_id;
+        annDraftMessage=item.message;annDraftTitle='Anuncio previsto en calendario';
+        annPreview=null;annScheduledId=item.id;annFeedback='';
+        tab='anuncios';draw();
+      });
+    });
+    root.querySelectorAll('[data-schedule-cancel]').forEach(b=>b.onclick=()=>{
+      if(!confirm('¿Cancelar esta fecha? No se enviará nada desde la agenda.'))return;
+      busy(b,async()=>{
+        const {error}=await sb.rpc('diffusion_schedule_cancel',{p_id:b.dataset.scheduleCancel});
+        if(error)throw new Error('No se pudo cancelar la fecha. Comprueba tus permisos.');
+        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,created_at');
+        scheduleFeedback='Fecha cancelada sin enviar mensajes.';draw();
+      });
+    });
+    root.querySelectorAll('[data-schedule-change]').forEach(b=>b.onclick=()=>{
+      scheduleChangingId=b.dataset.scheduleChange;draw();
+    });
+    root.querySelectorAll('[data-schedule-save]').forEach(b=>b.onclick=()=>{
+      busy(b,async()=>{
+        const raw=root.querySelector('[data-schedule-at="'+b.dataset.scheduleSave+'"]')?.value||'';
+        const ms=raw?new Date(raw).getTime():NaN;
+        if(!Number.isFinite(ms)||ms-Date.now()<120000||ms-Date.now()>90*86400000)
+          throw new Error('Selecciona una nueva fecha entre 2 minutos y 90 días.');
+        const {error}=await sb.rpc('diffusion_schedule_reschedule',{
+          p_id:b.dataset.scheduleSave,p_at:new Date(ms).toISOString()
+        });
+        if(error)throw new Error('No se pudo reprogramar. Revisa tus permisos y que siga pendiente.');
+        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,created_at');
+        scheduleFeedback='Fecha actualizada.';scheduleChangingId='';draw();
+      });
+    });
+    root.querySelectorAll('[data-schedule-finalize]').forEach(b=>b.onclick=()=>{
+      busy(b,async()=>{
+        const {error}=await sb.rpc('diffusion_schedule_finalize',{p_id:b.dataset.scheduleFinalize});
+        if(error)throw new Error('No existe entrega confirmada para este contenido y destino. No se marcó como enviado.');
+        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,created_at');
+        scheduleFeedback='Se confirmó un envío ya registrado; calendario actualizado.';draw();
+      });
+    });
     root.querySelector('#df-ann-send')?.addEventListener('click',e=>{
       const content=root.querySelector('#df-ann-text')?.value.trim();
       if(!content||content.length>700){
         annFeedback='Escribe un mensaje de 1 a 700 caracteres antes de enviarlo.';
+        const note=root.querySelector('#df-ann-feedback');if(note)note.textContent=annFeedback;
+        return;
+      }
+      const currentPlan=scheduled.find(x=>x.id===annScheduledId&&x.status==='planned');
+      if(currentPlan&&Date.parse(currentPlan.scheduled_at)>Date.now()){
+        annFeedback='La fecha programada todavía no llega. Reprograma o cancela la fecha desde el calendario.';
         const note=root.querySelector('#df-ann-feedback');if(note)note.textContent=annFeedback;
         return;
       }
@@ -334,8 +448,15 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           if(status===403)throw new Error('El contenido ya no es público o no tienes permisos.');
           if(error||!data?.ok)
             throw new Error('El envío no está confirmado. No lo repitas: comprueba el destino y el historial para evitar duplicados.');
-          annPreview=null;annDraftMessage='';annDraftTitle='';
-          annFeedback='Envío confirmado por '+(provider==='telegram'?'Telegram':'Discord')+'.';
+          if(annScheduledId){
+            const {error:doneError}=await sb.rpc('diffusion_schedule_finalize',{p_id:annScheduledId});
+            if(doneError)annFeedback='Envío confirmado, pero el calendario aún no se ha actualizado. Usa «Comprobar si ya se envió».';
+            else{
+              scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,created_at');
+              annFeedback='Envío confirmado por '+(provider==='telegram'?'Telegram':'Discord')+' y calendario actualizado.';
+            }
+          }else annFeedback='Envío confirmado por '+(provider==='telegram'?'Telegram':'Discord')+'.';
+          annPreview=null;annDraftMessage='';annDraftTitle='';annScheduledId='';
           draw();
         }catch(err){
           annFeedback=err?.message||'No se pudo confirmar el envío.';
