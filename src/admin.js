@@ -152,7 +152,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   const view = () => $('#bbv');
   async function seo(){ await renderAdminSeo({sb,view,toast}); }
   async function difusion(){
-    const { renderAdminDiffusion } = await import('./admin-diffusion.js?v=4');
+    const { renderAdminDiffusion } = await import('./admin-diffusion.js?v=5');
     await renderAdminDiffusion({sb,root:view(),team:null,esc,toast});
   }
 
