@@ -6,7 +6,13 @@ const EVENTS = [
   ['content.unlocked', 'Apertura a todo público'],
   ['announcement.published', 'Anuncio editorial']
 ];
-const TYPES = ['discord','telegram','facebook','instagram','threads','bluesky','mastodon','x','tiktok','webhook'];
+const EDITORIAL_TEMPLATES = [
+  {id:'series',label:'Estreno de obra',body:'📚 ¡Nueva obra disponible en El Obi del Lector! Descubre esta historia y comienza a leerla.'},
+  {id:'volume',label:'Nuevo volumen',body:'📖 ¡Un nuevo volumen está disponible! Continúa la aventura desde la página de lectura.'},
+  {id:'chapter',label:'Nuevo capítulo',body:'✨ ¡Nuevo capítulo publicado! Sigue la historia en El Obi del Lector.'},
+  {id:'brief',label:'Aviso breve',body:'📢 ¡Ya puedes leer la nueva publicación en El Obi del Lector!'}
+];
+const editorialTemplate = id => EDITORIAL_TEMPLATES.find(x=>x.id===id)?.body||'';
 const TELEGRAM_BOT_TOKEN = /^[0-9]{5,15}:[A-Za-z0-9_-]{30,80}$/;
 const TELEGRAM_CHANNEL = /^(@[A-Za-z][A-Za-z0-9_]{4,31}|-[1-9][0-9]{4,18})$/;
 const telegramChannelValue = input => {
@@ -29,7 +35,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const canManage = p('diffusion_manage'), canCompose = p('diffusion_compose');
   const canLogs = p('diffusion_logs'), canAnnounce = p('diffusion_publish');
   let tab = 'resumen', rules = [], campaigns = [], connections = [], jobs = [];
-  let telegramFeedback = '';
+  let telegramFeedback = '', editingCampaignId = '', annDraftMessage = '', annDraftTitle = '';
   const deep = new URLSearchParams(location.search);
   const deepKind = ({o:'series',v:'volume',c:'chapter'})[deep.get('k')] || (['series','volume','chapter'].includes(deep.get('kind')) ? deep.get('kind') : '');
   const deepSource = /^[0-9a-f-]{36}$/i.test(deep.get('id')||deep.get('source')||'') ? (deep.get('id')||deep.get('source')) : '';
@@ -48,11 +54,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const shortName = e => EVENTS.find(x => x[0] === e)?.[1] || e;
   const tabs = [
     ['resumen','Resumen'], ['conexiones','Conexiones'], ['anuncios','Anunciar'], ['reglas','Automatizaciones'],
-    ['campanas','Borradores'], ['calendario','Calendario'], ['historial','Historial'],
-    ['webhooks','Webhooks']
+    ['campanas','Borradores'], ['calendario','Calendario'], ['historial','Historial']
   ];
-  const message = 'Las reglas permanecen inactivas y las campañas como borradores. '
-    + 'Discord y Telegram permiten pruebas y anuncios individuales confirmados por ti; no hay publicaciones automáticas.';
+  const message = 'Solo Discord y Telegram. Los borradores no se publican solos: selecciona el contenido, revisa portada y enlace y confirma cada envío. Las automatizaciones están inactivas.';
   root.innerHTML = '<div class="df" aria-live="polite"><p class="df-empty">Cargando Difusión…</p></div>';
   try {
     [connections,rules,campaigns,jobs] = await Promise.all([
@@ -76,9 +80,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       + '" aria-current="' + (tab===id?'page':'false') + '">' + name + '</button>').join('') + '</nav>'
     + '<p class="df-note">' + safe(message) + '</p>';
   const cards = () => '<div class="df-cards">'
-    + [['Conexiones',connections.length],['Reglas preparadas',rules.length],['Borradores',campaigns.length],['Envíos externos',0]]
+    + [['Conexiones activas',connections.filter(c=>['discord','telegram'].includes(c.provider)&&c.status==='active').length],['Reglas inactivas',rules.filter(r=>!r.enabled).length],['Borradores',campaigns.filter(c=>c.status==='draft').length],['Envíos recientes',canLogs?jobs.length:'—']]
       .map(([name,n])=>'<div class="df-card"><small>'+safe(name)+'</small><strong>'+n+'</strong></div>').join('')+'</div>';
-  const connectionsView = () => '<section class="df-box"><h3>Conexiones sociales</h3>'
+  const connectionsView = () => '<section class="df-box"><h3>Conexiones de Discord y Telegram</h3>'
     + '<p>Discord guarda el webhook y Telegram el token de bot cifrados en Supabase Vault. No compartas ninguno por chat ni GitHub.</p>'
     + (connections.filter(c=>c.status!=='revoked').length ? '<div class="df-list">' + connections.filter(c=>c.status!=='revoked').map(c=>'<article><div><strong>'+safe(c.label)+'</strong>'
       + '<small>'+safe(c.provider)+' · '+safe(c.status==='active'?'Prueba correcta':'Pendiente de prueba')+'</small></div>'
@@ -100,7 +104,6 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         + '<p class="df-muted">Los canales y supergrupos públicos usan @usuario o t.me/usuario. Para un grupo privado se necesita su ID numérico negativo; un enlace de invitación t.me/+… no funciona.</p>'
         + '<p class="df-muted">El token se cifra en Vault. El botón «Enviar prueba» comprueba que el bot pueda enviar mensajes al grupo o canal. No se publicará nada automáticamente.</p>'
         + '<button type="submit" class="btn">Guardar Telegram de forma segura</button></form>' : '')
-    + '<h4>Proveedores previstos</h4><div class="df-providers">'+TYPES.map(n=>'<span>'+safe(n)+'</span>').join('')+'</div>'
     + '<p class="df-muted">Solo se permite una prueba por conexión cada 60 segundos.</p>'
     + '<p class="df-muted">La conexión de tu equipo no necesita autorización del Bibliotecario.</p></section>';
   const rulesView = () => '<section class="df-box"><h3>Automatizaciones del ' + (official?'Bibliotecario':'equipo') + '</h3>'
@@ -201,12 +204,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     if (tab==='anuncios') return annView();
     if (tab==='reglas') return rulesView();
     if (tab==='campanas') return campaignsView();
-    if (tab==='calendario') return '<section class="df-box"><h3>Calendario social</h3>'
-      + empty('Se habilitará cuando el despachador y los conectores estén disponibles. No equivale al calendario de capítulos.')+'</section>';
+    if (tab==='calendario') return '<section class="df-box"><h3>Calendario de difusión</h3>'
+      + empty('La programación está pendiente de la fase de automatización. Por ahora los anuncios se envían solo mediante confirmación manual.')+'</section>';
     if (tab==='historial') return historyView();
-    if (tab==='webhooks') return '<section class="df-box"><h3>Webhooks avanzados</h3>'
-      + '<p>Se preparan integraciones salientes con Make, n8n y endpoints HTTPS autorizados. Las URL y firmas serán secretas y validadas en servidor.</p>'
-      + empty('Creación de destinos y pruebas firmadas: próxima fase.')+'</section>';
     return cards() + '<div class="df-grid">'
       + '<section class="df-box"><h3>Autonomía editorial</h3><p>'
       + (official?'Administra aquí únicamente las cuentas oficiales de El Obi. Las publicaciones de los equipos no necesitan tu aprobación.'
