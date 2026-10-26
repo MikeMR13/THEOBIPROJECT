@@ -35,7 +35,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const canManage = p('diffusion_manage'), canCompose = p('diffusion_compose');
   const canLogs = p('diffusion_logs'), canAnnounce = p('diffusion_publish');
   let tab = 'resumen', rules = [], campaigns = [], connections = [], jobs = [];
-  let telegramFeedback = '', editingCampaignId = '', annDraftMessage = '', annDraftTitle = '';
+  let telegramFeedback = '', editingCampaignId = '', annDraftMessage = '', annDraftTitle = '', annFeedback = '';
   const deep = new URLSearchParams(location.search);
   const deepKind = ({o:'series',v:'volume',c:'chapter'})[deep.get('k')] || (['series','volume','chapter'].includes(deep.get('kind')) ? deep.get('kind') : '');
   const deepSource = /^[0-9a-f-]{36}$/i.test(deep.get('id')||deep.get('source')||'') ? (deep.get('id')||deep.get('source')) : '';
@@ -184,9 +184,16 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           + '<p><strong>'+safe(annPreview.title)+'</strong></p>'
           + '<p>'+safe(annPreview.description||'')+'</p>'
           + '<p><a href="'+safe(annPreview.url)+'" target="_blank" rel="noopener noreferrer">'+safe(annPreview.url)+'</a></p>'
+          + (annDraftTitle?'<p class="df-muted">Texto del borrador: '+safe(annDraftTitle)+'</p>':'')
+          + '<label>Plantilla para el texto<select id="df-ann-template"><option value="">'
+          + (annDraftTitle?'Usar borrador seleccionado':'Texto sugerido por El Obi')+'</option>'
+          + EDITORIAL_TEMPLATES.map(t=>'<option value="'+safe(t.id)+'">'+safe(t.label)+'</option>').join('')+'</select></label>'
           + '<label>Texto del anuncio<textarea id="df-ann-text" maxlength="700" rows="3">'+safe(annPreview.message)+'</textarea></label>'
           + '<p class="df-muted">Solo se permite un anuncio por contenido y canal. No se reintentará automáticamente ante fallos inciertos.</p>'
-          + '<button type="button" class="btn" id="df-ann-send">Confirmar y enviar a Discord</button></div>' : '')
+          + (canCompose?'<button type="button" class="df-link" id="df-ann-save-draft">Guardar texto como borrador</button> ':'')
+          + '<button type="button" class="btn" id="df-ann-send">Confirmar y enviar a '
+          + (annProvider()==='telegram'?'Telegram':'Discord')+'</button></div>' : '')
+       + '<div class="df-note" role="alert" id="df-ann-feedback">'+safe(annFeedback)+'</div>'
        )+'</section>';
   const loadAnnItems = async () => {
     annItems=[];annSource='';annPreview=null;
@@ -262,18 +269,18 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     });
 
     root.querySelector('#df-ann-conn')?.addEventListener('change',e=>{
-      annConnection=e.target.value;annPreview=null;draw();
+      annConnection=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annFeedback='';draw();
     });
     root.querySelector('#df-ann-kind')?.addEventListener('change',e=>{
-      annKind=e.target.value;annPreview=null;
+      annKind=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annFeedback='';
       loadAnnItems().then(draw).catch(()=>toast('No se pudieron cargar los contenidos.'));
     });
     root.querySelector('#df-ann-work')?.addEventListener('change',e=>{
-      annWork=e.target.value;annPreview=null;
+      annWork=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annFeedback='';
       loadAnnItems().then(draw).catch(()=>toast('No se pudieron cargar los contenidos.'));
     });
     root.querySelector('#df-ann-source')?.addEventListener('change',e=>{
-      annSource=e.target.value;annPreview=null;draw();
+      annSource=e.target.value;annPreview=null;annDraftMessage='';annDraftTitle='';annFeedback='';draw();
     });
     root.querySelector('#df-ann-preview')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
       if(!annConnection||!chosenAnnouncementId())return;
@@ -287,7 +294,23 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       if(error?.message==='invalid_cover_path')
         throw new Error('La ruta de la portada no es válida para compartir. Corrige la imagen y vuelve a intentarlo.');
       if(error||!data?.url)throw new Error('Este contenido no está disponible públicamente o no tienes permiso para anunciarlo.');
-      annPreview=data;draw();
+      annPreview={...data,message:annDraftMessage||data.message};annFeedback='';draw();
+    }));
+    root.querySelector('#df-ann-template')?.addEventListener('change',e=>{
+      const area=root.querySelector('#df-ann-text');
+      if(area&&annPreview)area.value=editorialTemplate(e.target.value)||annPreview.message;
+    });
+    root.querySelector('#df-ann-save-draft')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
+      const body=root.querySelector('#df-ann-text')?.value.trim()||'';
+      if(!body||body.length>700)throw new Error('El texto debe tener entre 1 y 700 caracteres.');
+      if(!annPreview?.title)throw new Error('Prepara una vista previa antes de guardar.');
+      const title=('Anuncio: '+annPreview.title).slice(0,140);
+      const {error}=await sb.rpc('diffusion_campaign_draft_save',{
+        p_team:teamId,p_id:null,p_title:title,p_body:body
+      });
+      if(error)throw new Error('No se pudo guardar este borrador.');
+      campaigns=await q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at');
+      toast('Texto guardado como borrador, sin publicar');
     }));
     root.querySelector('#df-ann-send')?.addEventListener('click',e=>{
       const content=root.querySelector('#df-ann-text')?.value.trim();
