@@ -1,4 +1,4 @@
-// Centro de Difusión compartido. Discord Fase 2a: enlace seguro y prueba MANUAL; sin automatizaciones activas.
+// Centro de Difusión: Discord y Telegram manuales; sin automatizaciones activas.
 const EVENTS = [
   ['chapter.public', 'Capítulo público'],
   ['volume.public', 'Volumen completo'],
@@ -44,7 +44,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     ['webhooks','Webhooks']
   ];
   const message = 'Las reglas permanecen inactivas y las campañas como borradores. '
-    + 'Discord permite pruebas y anuncios individuales confirmados por ti; aún no hay publicaciones automáticas.';
+    + 'Discord y Telegram permiten pruebas y anuncios individuales confirmados por ti; no hay publicaciones automáticas.';
   root.innerHTML = '<div class="df" aria-live="polite"><p class="df-empty">Cargando Difusión…</p></div>';
   try {
     [connections,rules,campaigns,jobs] = await Promise.all([
@@ -62,7 +62,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     return;
   }
   const header = () => '<div class="df-title"><div><small>DIFUSIÓN · ' + (official ? 'BIBLIOTECARIO' : 'ESTUDIO') + '</small>'
-    + '<h2>Centro de Difusión</h2><p>' + safe(scope) + '</p></div><span class="df-stage">DISCORD · ANUNCIOS MANUALES</span></div>'
+    + '<h2>Centro de Difusión</h2><p>' + safe(scope) + '</p></div><span class="df-stage">DISCORD Y TELEGRAM · MANUAL</span></div>'
     + '<nav class="df-tabs" aria-label="Secciones de Difusión">'
     + tabs.map(([id,name])=>'<button type="button" data-dtab="' + id + '" class="' + (tab===id?'on':'')
       + '" aria-current="' + (tab===id?'page':'false') + '">' + name + '</button>').join('') + '</nav>'
@@ -71,18 +71,25 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     + [['Conexiones',connections.length],['Reglas preparadas',rules.length],['Borradores',campaigns.length],['Envíos externos',0]]
       .map(([name,n])=>'<div class="df-card"><small>'+safe(name)+'</small><strong>'+n+'</strong></div>').join('')+'</div>';
   const connectionsView = () => '<section class="df-box"><h3>Conexiones sociales</h3>'
-    + '<p>Discord utiliza una URL secreta cifrada en Supabase Vault. No la compartas por chat ni la publiques en GitHub; introdúcela únicamente en esta pantalla cuando esté habilitada.</p>'
+    + '<p>Discord guarda el webhook y Telegram el token de bot cifrados en Supabase Vault. No compartas ninguno por chat ni GitHub.</p>'
     + (connections.filter(c=>c.status!=='revoked').length ? '<div class="df-list">' + connections.filter(c=>c.status!=='revoked').map(c=>'<article><div><strong>'+safe(c.label)+'</strong>'
       + '<small>'+safe(c.provider)+' · '+safe(c.status==='active'?'Prueba correcta':'Pendiente de prueba')+'</small></div>'
-      + (canManage&&c.provider==='discord'?'<div><button type="button" class="btn" data-test-discord="'+safe(c.id)+'">Enviar prueba</button> '
-      + '<button type="button" class="df-danger" data-revoke-discord="'+safe(c.id)+'">Desconectar</button></div>':'')
+      + (canManage&&(c.provider==='discord'||c.provider==='telegram')?'<div><button type="button" class="btn" data-test-'+safe(c.provider)+'="'+safe(c.id)+'">Enviar prueba</button> '
+      + '<button type="button" class="df-danger" data-revoke-'+safe(c.provider)+'="'+safe(c.id)+'">Desconectar</button></div>':'')
       + '</article>').join('')+'</div>' : empty('Aún no hay cuentas conectadas.'))
     + (canManage ? '<form id="df-discord-form" class="df-form" autocomplete="off"><h4>Conectar Discord</h4>'
       + '<label>Nombre de la conexión<input name="label" minlength="2" maxlength="100" required placeholder="Ej. Canal de novedades"></label>'
       + '<label>URL privada del webhook<input name="webhook" type="password" required autocomplete="off" spellcheck="false" inputmode="url" placeholder="https://discord.com/api/webhooks/…"></label>'
       + '<p class="df-muted">El enlace se envía una sola vez al servidor por HTTPS y se guarda cifrado en Vault. No se muestra otra vez. Una prueba solo se envía al pulsar el botón.</p>'
       + '<button type="submit" class="btn">Guardar conexión segura</button></form>'
-      : '<p class="df-muted">Necesitas «Gestionar difusión» para conectar tu Discord.</p>')
+      : '<p class="df-muted">Necesitas «Gestionar difusión» para conectar redes.</p>')
+      + (canManage ? '<form id="df-telegram-form" class="df-form" autocomplete="off"><h4>Conectar canal de Telegram</h4>'
+        + '<p>Crea un bot con @BotFather y añádelo como administrador de tu canal, con permiso para publicar. Aquí solo se admiten canales; nunca pegues el token en chats.</p>'
+        + '<label>Nombre de la conexión<input name="label" minlength="2" maxlength="100" required placeholder="Ej. Novedades en Telegram"></label>'
+        + '<label>Token privado del bot<input name="token" type="password" required autocomplete="off" spellcheck="false" placeholder="Token entregado por @BotFather"></label>'
+        + '<label>Canal de Telegram<input name="chat" required autocomplete="off" spellcheck="false" placeholder="@CanalPublico o -1001234567890"></label>'
+        + '<p class="df-muted">El token se cifra en Vault. El botón «Enviar prueba» verifica el canal y los permisos del bot. No se publicará nada automáticamente.</p>'
+        + '<button type="submit" class="btn">Guardar Telegram de forma segura</button></form>' : '')
     + '<h4>Proveedores previstos</h4><div class="df-providers">'+TYPES.map(n=>'<span>'+safe(n)+'</span>').join('')+'</div>'
     + '<p class="df-muted">Solo se permite una prueba por conexión cada 60 segundos.</p>'
     + '<p class="df-muted">La conexión de tu equipo no necesita autorización del Bibliotecario.</p></section>';
@@ -125,16 +132,17 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     return (sb.supabaseUrl||'')+'/storage/v1/object/public/obi-media/'
       +value.split('/').map(encodeURIComponent).join('/');
   };
-  const annConnections = () => connections.filter(c=>c.provider==='discord'&&c.status==='active');
+  const annConnections = () => connections.filter(c=>['discord','telegram'].includes(c.provider)&&c.status==='active');
+  const annProvider = () => connections.find(c=>c.id===annConnection)?.provider||'discord';
   const annOptions = () => annKind==='series' ? [] : annItems.filter(x=>x.status==='published');
   const annSelected = (items,id,label) => items.map(x=>'<option value="'+safe(x.id)+'"'+(x.id===id?' selected':'')+'>'+safe(label(x))+'</option>').join('');
-  const annView = () => '<section class="df-box"><h3>Anunciar contenido en Discord</h3>'
+  const annView = () => '<section class="df-box"><h3>Anunciar contenido en Discord o Telegram</h3>'
     + '<p>Selecciona una obra, volumen o capítulo publicado. Verás el mensaje antes de enviarlo. No se publica automáticamente.</p>'
     + '<p>Una obra se anuncia con su portada general. Los volúmenes y capítulos usan siempre la portada del volumen correspondiente. Si falta esa imagen, no se enviará el anuncio.</p>'
     + (!canAnnounce ? empty('Necesitas el permiso «Publicar difusión».')
-      : !annConnections().length ? empty('Primero conecta Discord y envía la prueba desde «Conexiones».')
+      : !annConnections().length ? empty('Primero conecta Discord o Telegram y envía una prueba desde «Conexiones».')
       : '<div class="df-form">'
-        + '<label>Canal de Discord<select id="df-ann-conn">'+annSelected(annConnections(),annConnection,x=>x.label)+'</select></label>'
+        + '<label>Canal de difusión<select id="df-ann-conn">'+annSelected(annConnections(),annConnection,x=>x.provider.toUpperCase()+' · '+x.label)+'</select></label>'
         + '<label>Tipo de anuncio<select id="df-ann-kind">'
           + [['series','Nueva obra'],['volume','Nuevo volumen'],['chapter','Nuevo capítulo']]
             .map(([k,v])=>'<option value="'+k+'"'+(annKind===k?' selected':'')+'>'+v+'</option>').join('')+'</select></label>'
@@ -246,7 +254,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     });
     root.querySelector('#df-ann-preview')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
       if(!annConnection||!chosenAnnouncementId())return;
-      const {data,error}=await sb.rpc('diffusion_discord_announcement_preview',{
+      const {data,error}=await sb.rpc('diffusion_'+annProvider()+'_announcement_preview',{
         p_connection:annConnection,p_kind:annKind,p_source:chosenAnnouncementId()
       });
       if(error?.message==='missing_volume_cover')
@@ -261,19 +269,60 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     root.querySelector('#df-ann-send')?.addEventListener('click',e=>{
       const content=root.querySelector('#df-ann-text')?.value.trim();
       if(!content){toast('Escribe un mensaje antes de enviarlo.');return;}
-      if(!confirm('¿Publicar ahora este anuncio en el canal Discord seleccionado? No se podrá repetir para el mismo contenido.'))return;
+      if(!confirm('¿Publicar ahora este anuncio en el canal seleccionado? No se podrá repetir para el mismo contenido.'))return;
       busy(e.currentTarget,async()=>{
-        const {data,error}=await sb.functions.invoke('diffusion-announcement',{body:{
-          connection_id:annConnection,kind:annKind,source_id:chosenAnnouncementId(),message:content
+        const provider=annProvider();
+        const {data,error}=await sb.functions.invoke(provider==='telegram'?'diffusion-telegram':'diffusion-announcement',{body:{
+          action:'announce',connection_id:annConnection,kind:annKind,source_id:chosenAnnouncementId(),message:content
         }});
         const status=error?.context?.status;
         if(status===409||data?.error==='already_announced')
-          throw new Error('Este contenido ya fue anunciado en ese canal de Discord.');
+          throw new Error('Este contenido ya fue anunciado en ese canal.');
         if(status===429||data?.error==='rate_limited')
           throw new Error('Espera 15 segundos antes de anunciar otro contenido.');
         if(status===403)throw new Error('El contenido ya no es público o no tienes permisos.');
-        if(error||!data?.ok)throw new Error('El resultado del envío no está confirmado. No lo repitas: revisa Discord o el historial.');
-        annPreview=null;toast('Anuncio enviado a Discord');draw();
+        if(error||!data?.ok)throw new Error('El resultado del envío no está confirmado. No lo repitas: revisa el canal o el historial.');
+        annPreview=null;toast('Anuncio enviado a '+(annProvider()==='telegram'?'Telegram':'Discord'));draw();
+      });
+    });
+
+
+    root.querySelector('#df-telegram-form')?.addEventListener('submit',e=>{
+      e.preventDefault();
+      const form=e.currentTarget,values=new FormData(form);
+      const token=String(values.get('token')||'');
+      const chat=String(values.get('chat')||'').trim();
+      busy(form.querySelector('button'),async()=>{
+        const {error}=await sb.rpc('diffusion_telegram_connect',{
+          p_team:teamId,p_label:String(values.get('label')||'').trim(),
+          p_token:token,p_chat:chat
+        });
+        if(error)throw new Error('No se pudo conectar Telegram: comprueba el token, canal y tus permisos.');
+        form.reset();
+        connections=await q('diffusion_connections','id,provider,label,status,created_at');
+        toast('Telegram guardado de forma segura. Envía una prueba para activarlo.');draw();
+      });
+    });
+    root.querySelectorAll('[data-test-telegram]').forEach(b=>b.onclick=()=>{
+      if(!confirm('¿Enviar una única prueba manual al canal de Telegram seleccionado?'))return;
+      busy(b,async()=>{
+        const {data,error}=await sb.functions.invoke('diffusion-telegram',{
+          body:{action:'test',connection_id:b.dataset.testTelegram}
+        });
+        if(error?.context?.status===429||data?.error==='rate_limited')
+          throw new Error('Espera 60 segundos entre pruebas de Telegram.');
+        if(error||!data?.ok)throw new Error('No llegó la prueba. Verifica que el bot sea administrador del canal y pueda publicar.');
+        connections=await q('diffusion_connections','id,provider,label,status,created_at');
+        toast('Telegram recibió la prueba');draw();
+      });
+    });
+    root.querySelectorAll('[data-revoke-telegram]').forEach(b=>b.onclick=()=>{
+      if(!confirm('¿Desconectar el canal de Telegram y borrar su token cifrado?'))return;
+      busy(b,async()=>{
+        const {error}=await sb.rpc('diffusion_telegram_disconnect',{p_team:teamId,p_id:b.dataset.revokeTelegram});
+        if(error)throw new Error('No se pudo desconectar Telegram.');
+        connections=await q('diffusion_connections','id,provider,label,status,created_at');
+        toast('Telegram desconectado y token revocado');draw();
       });
     });
 
