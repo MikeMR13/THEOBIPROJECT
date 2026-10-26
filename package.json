@@ -12,7 +12,7 @@
     "studio-functional-check": "node scripts/studio-functional-smoke.mjs && node scripts/studio-collaboration-picker.test.mjs && node scripts/public-collaboration-credits.test.mjs",
     "studio-browser-check": "node scripts/studio-browser-e2e.mjs",
     "preview-isolation-check": "node scripts/preview-isolation-check.mjs",
-    "verify": "node scripts/diffusion-phase1-check.mjs && node scripts/diffusion-discord-check.mjs && node scripts/diffusion-announcements-check.mjs && node scripts/diffusion-telegram-check.mjs && node scripts/diffusion-editorial-check.mjs && node scripts/diffusion-schedule-check.mjs && node scripts/stability-check.mjs && node scripts/visual-phase1-check.mjs && node scripts/visual-phase2-check.mjs && node scripts/visual-phase3-check.mjs && node scripts/visual-phase4-check.mjs && npm run home-snapshot-invalidation-check && npm run notify-email-cron-guard-check && npm run security-consolidation-check && npm run home-loading-check && npm run home-feed-latency-check && npm run diffusion-phase4b-check && npm run diffusion-rules-activation-check",
+    "verify": "node scripts/diffusion-phase1-check.mjs && node scripts/diffusion-discord-check.mjs && node scripts/diffusion-announcements-check.mjs && node scripts/diffusion-telegram-check.mjs && node scripts/diffusion-editorial-check.mjs && node scripts/diffusion-schedule-check.mjs && node scripts/stability-check.mjs && node scripts/visual-phase1-check.mjs && node scripts/visual-phase2-check.mjs && node scripts/visual-phase3-check.mjs && node scripts/visual-phase4-check.mjs && npm run home-snapshot-invalidation-check && npm run notify-email-cron-guard-check && npm run security-consolidation-check && npm run home-loading-check && npm run home-feed-latency-check && npm run diffusion-phase4b-check && npm run diffusion-rules-activation-check && npm run diffusion-prelaunch-rule-check",
     "integration-check": "node scripts/integration-check.mjs && npm run studio-visual-phase4-check",
     "visual-browser-check": "node scripts/visual-phase4-browser.mjs",
     "studio-fields-check": "node scripts/studio-work-fields-check.mjs",
@@ -63,7 +63,8 @@
     "security-consolidation-check": "node scripts/security-consolidation-check.mjs",
     "home-feed-latency-check": "node scripts/home-feed-latency-check.mjs",
     "diffusion-phase4b-check": "node scripts/diffusion-phase4b-check.mjs && node scripts/diffusion-dispatch-check.mjs",
-    "diffusion-rules-activation-check": "node scripts/diffusion-rules-activation-check.mjs"
+    "diffusion-rules-activation-check": "node scripts/diffusion-rules-activation-check.mjs",
+    "diffusion-prelaunch-rule-check": "node scripts/diffusion-prelaunch-rule-check.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
