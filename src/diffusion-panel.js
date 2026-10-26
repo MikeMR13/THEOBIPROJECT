@@ -123,7 +123,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     +availableDrafts().map(c=>'<option value="'+safe(c.id)+'"'+(chosen===c.id?' selected':'')+'>'+safe(c.title)+'</option>').join('');
   const rulesView = () => '<section class="df-box"><h3>Automatizaciones del ' + (official?'Bibliotecario':'equipo') + '</h3>'
     + '<p>Configura una regla y pulsa <strong>Activar</strong> para que los próximos anuncios de obras, publicaciones de capítulos o volúmenes se comuniquen en los canales seleccionados. Cada canal recibe un anuncio independiente, sin duplicados ni retropublicaciones.</p>'
-    + '<p class="df-muted">Elige «Automática» para publicar sin intervención o «Revisión interna» para confirmar en Calendario. Puedes asociar un borrador a cada regla. Solo se aplica a acontecimientos futuros. Pausa la regla antes de cambiar su mensaje.</p>'
+    + '<p class="df-muted">Elige «Automática» para publicar sin intervención o «Revisión interna» para confirmar en Calendario. Puedes asociar un borrador a cada regla. Solo se aplica a acontecimientos futuros. Para cambiar el mensaje de una regla activa, debes pausarla; esto cancela sus envíos pendientes, así que revisa primero el Calendario.</p>'
+    + (!availableDrafts().length?'<p class="df-muted">No hay borradores disponibles todavía. Créalo primero desde la sección Borradores.</p>'
+      +(canCompose?'<button type="button" class="df-link" data-goto="campanas">Crear un borrador</button>':''):'')
     + (rules.length ? '<div class="df-list">' + rules.map(r=>{
        const destinations=connections.filter(c=>c.status==='active'&&['discord','telegram'].includes(c.provider));
        const supported=['chapter.public','volume.public','prelaunch.announced'].includes(r.event_kind);
@@ -141,7 +143,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
             ? '<label>Usar borrador guardado<select data-rule-draft="'+safe(r.id)+'">'
               +savedDraftOptions(r.template_campaign_id||'')+'</select></label>'
               +'<button type="button" class="df-link" data-rule-draft-save="'+safe(r.id)+'">Guardar mensaje de esta regla</button>'
-            : '<small>Pausa la regla para cambiar su borrador. Los avisos ya programados no se modifican.</small>')
+            : '<small>Pausar cancelará los anuncios pendientes de esta regla. Consulta el Calendario antes de cambiar el borrador.</small>')
           + (r.enabled?'<button type="button" class="df-danger" data-rule-pause="'+safe(r.id)+'">Pausar regla</button>'
            :supported&&destinations.length?'<fieldset class="df-destination-group" aria-label="Canales para esta automatización"><legend>Canales de difusión (puedes elegir varios)</legend>'
                 + destinations.map(c=>'<label class="df-destination-option"><input type="checkbox" data-rule-destination="'+safe(r.id)+'" value="'+safe(c.id)+'" '
@@ -275,6 +277,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         + '<label>Usar borrador guardado<select id="df-ann-draft">'
           +savedDraftOptions(annDraftId)+'</select></label>'
         + '<p class="df-muted">Elige un borrador y pulsa «Crear vista previa» con la obra seleccionada. Puedes modificar el texto antes de enviarlo o programarlo.</p>'
+        + (!availableDrafts().length?'<p class="df-muted">Todavía no tienes borradores para seleccionar.</p>'
+          +(canCompose?'<button type="button" class="df-link" data-goto="campanas">Crear un borrador</button>':''):'')
         + (!annWorks.length ? empty('No hay obras públicas disponibles en este ámbito.')
            : annKind!=='series'&&!annOptions().length ? empty('No hay contenidos publicados de ese tipo para esta obra.')
            : '<button type="button" class="btn" id="df-ann-preview">Crear vista previa</button>')
