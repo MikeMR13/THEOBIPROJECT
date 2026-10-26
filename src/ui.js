@@ -652,29 +652,41 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     // responde esa consulta. Mostrar primero el progreso guardado en el dispositivo.
     const prog = localProgressMap();
     const progressRequest = u ? progressMap().catch(() => null) : null;
+    // Créditos públicos en paralelo con los datos de volúmenes: antes añadían
+    // una ida y vuelta secuencial que retenía TODA la portada.
+    // La lista se filtra con la autorización +18 ANTES de pedir los créditos.
+    const feedRequest = feed();
+    const adultRequest = u ? sb.rpc('my_adult_ok') : { data: null };
+    const creditsRequest = Promise.all([feedRequest, Promise.resolve(adultRequest)]).then(([fd, adult]) => {
+      const visible = (fd?.series || []).filter(s =>
+        !['abandoned', 'withdrawn'].includes(s.translation_status) &&
+        (!s.adult || adult?.data === true) && !hidS(s));
+      return attachPublicCredits(sb, visible);
+    });
     const [FD, pr, VR] = await Promise.all([
-      feed(),
+      feedRequest,
       // Esperar la validación +18 antes de representar cualquier título restringido.
-      u ? sb.rpc('my_adult_ok') : { data: null },
+      adultRequest,
       // Datos frescos del volumen: imprescindibles para «Nuevo lanzamiento».
       sb.from('volumes').select('id,series_id,num,title,cover_path,status,published_at,announced_at,is_final')
         .is('deleted_at', null).eq('status', 'published').then(r => r, () => ({ data: [] }))
     ]);
-    { const vc = {}, firstAt = {};
+    { const firstAt = {};
       (VR?.data || []).forEach(v => {
         const t=Date.parse(v.published_at || '');
         if (Number.isFinite(t) && (!firstAt[v.series_id] || t < firstAt[v.series_id])) firstAt[v.series_id]=t;
-        if (v.cover_path && (!vc[v.series_id] || v.num > vc[v.series_id].num)) vc[v.series_id]=v;
       });
       (FD?.series || []).forEach(s => {
         if (firstAt[s.id]) s.firstPublishedAt = new Date(firstAt[s.id]).toISOString();
-        const v=vc[s.id]; if (v && v.cover_path !== s.cover_path) { s.cover_path=v.cover_path; s.cover_thumb_path=null; }
+        // NO sustituir la portada de la obra por la del último volumen:
+        // destruye su miniatura WebP (30–55 KB) y fuerza imágenes de hasta 2 MB
+        // en todas las tarjetas. Hero y lanzamientos siguen usando v.cover_path.
       }); }
     const { series, latest, rkW, rkH, top10 } = FD, ps = { featured: FD.featured }, nextRel = (FD.nextRel || []).filter(e => new Date(e.at) > Date.now());
     if (location.pathname !== '/') return;
     const adultOk = pr?.data === true;
     const list = (series || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) && (!s.adult || adultOk) && !hidS(s));
-    await attachPublicCredits(sb, list);
+    await creditsRequest; // ya se inició en paralelo a la consulta de volúmenes.
     const byId = Object.fromEntries(list.map(s => [s.id, s]));
     const lastCh = {}; (latest || []).forEach(c => { lastCh[c.series_id] ||= c; });
     // Las publicaciones completas se anuncian como volumen, no como capítulos sueltos.
