@@ -1,4 +1,4 @@
-import { promptObi } from './dialogs.js';
+const promptObi=(...args)=>import('./dialogs.js').then(module=>module.promptObi(...args));
 import {updateClientSeo} from './seo.js?v=1';
 import {shareMenuPosition} from './share-placement.js?v=1';
 // Menú unificado para enlaces públicos; no altera el sistema de citas ni los carnets.
