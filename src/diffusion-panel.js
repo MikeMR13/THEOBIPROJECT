@@ -907,7 +907,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         draw();
       }));
     });
-    root.querySelectorAll('[data-del-rule],[data-del-campaign]').forEach(b => b.onclick = () => {
+    root.querySelectorAll('[data-del-rule],[data-del-campaign]').forEach(b => b.onclick = async () => {
       const isRule = !!b.dataset.delRule, id=b.dataset.delRule||b.dataset.delCampaign;
       if (!await confirmObi('¿Eliminar este borrador?')) return;
       busy(b, async()=>{
