@@ -1,4 +1,4 @@
-import { confirmInApp, promptInApp } from './dialogs.js';
+import { confirmInApp, promptInApp } from './dialogs.js?v=1';
 // Invitaciones administrativas a equipos. El enlace se entrega una sola vez.
 export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }) {
   const target = view();
