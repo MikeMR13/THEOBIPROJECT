@@ -1,4 +1,4 @@
-import { confirmInApp, promptInApp } from './dialogs.js';
+import { confirmInApp, promptInApp } from './dialogs.js?v=1';
 // Lector de El Obi del Lector: por capítulo o continuo, fuentes EPUB, progreso exacto, leídos, historial, sin conexión y anotaciones.
 const OFF_CACHE = 'obi-offline-v1', OFF_INDEX = 'obi-offline-index', PREF_KEY = 'obi-reader-prefs';
 import { cleanInline, renderBlock, warningsHTML, teaserHTML } from './blocks.js?v=2';
