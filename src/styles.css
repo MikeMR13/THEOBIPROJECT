@@ -497,6 +497,9 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
 .ob-hero-partners .obi-credit img{max-height:50px;max-width:min(96px,25vw)}
 @media(max-width:600px){.ob-hero-partners .obi-credit img{max-height:36px;max-width:82px}}
 
+/* La portada destacada conserva su composición, pero muestra la ilustración entera. */
+.ob-page .ob-hero .ob-cov .f{background-color:#0b0a08;background-size:contain;background-repeat:no-repeat;background-position:center}
+
 /* Inicio: lenguaje de fichas editoriales compartido con «Continuar leyendo».
    Alcance deliberadamente limitado a .ob-page, sin alterar catálogo, lector o Estudio. */
 .ob-page .ob-car:not(.ob-continue-car){grid-auto-columns:clamp(170px,18vw,226px)}
