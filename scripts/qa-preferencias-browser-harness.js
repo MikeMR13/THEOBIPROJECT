@@ -202,6 +202,29 @@ try{
  }
  check(document.documentElement.scrollWidth<=width+3,'Desbordamiento horizontal '+width);
 
+ // Cuenta: mismo carnet, datos privados y cuatro tarjetas responsivas.
+ sb.auth = {
+  getUser: async()=>({data:{user},error:null}),
+  getUserIdentities: async()=>({data:{identities:[{provider:'google',identity_data:{email:'google@ejemplo.invalid'}}]},error:null})
+ };
+ await open('/preferencias?s=cuenta');
+ check(app.querySelectorAll('.pf-account-card').length===4,'Cuenta no muestra las cuatro tarjetas');
+ check(app.querySelector('.pf-account-grid')&&app.textContent.includes('Patreon'),'Patreon no está junto a los métodos de acceso');
+ check(app.textContent.includes(user.email),'Cuenta no muestra el correo actual');
+ check(app.querySelectorAll('.pf-account-edit[open]').length===0,'Ediciones de Cuenta abiertas sin pedirlo');
+ check(!!app.querySelector('#g-un')===false,'Google sin acceso por correo no debe ofrecer desvinculación');
+ const editName=app.querySelector('.pf-account-edit summary');
+ editName?.click();
+ check(!!app.querySelector('.pf-account-edit[open] #fu'),'Cambiar usuario no despliega su formulario');
+ check(app.querySelector('#un')?.value===P(user.id).username,'La edición no refleja el usuario real');
+ const accountViewport=document.documentElement.clientWidth;
+ check(document.documentElement.scrollWidth<=accountViewport+3,'Cuenta desborda el ancho '+accountViewport+'px');
+ // Caso de bloqueo de 30 días: ningún otro control debe fallar.
+ P(user.id).username_changed_at=new Date().toISOString();
+ await open('/preferencias?s=cuenta');
+ check(!app.querySelector('#fu')&&app.textContent.includes('Podrás cambiarlo de nuevo'),'Cuenta no informa el bloqueo del usuario');
+ check(!!app.querySelector('#fe')&&!!app.querySelector('#pw')&&!!app.querySelector('#so'),'Bloqueo de usuario rompe otras acciones');
+ delete P(user.id).username_changed_at;
  // Carnet público real, con backend simulado y contenido no privado.
  const statsHTML=st=>'<div class="st-grid">'+[
   [st.chapters,'capítulos leídos'],[st.month,'en los últimos 30 días'],
