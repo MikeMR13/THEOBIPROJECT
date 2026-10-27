@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {spawn,execFileSync} from 'node:child_process';
 import assert from 'node:assert/strict';
-const files=new Map([['/share.js','src/share.js'],['/seo.js','src/seo.js'],['/share-placement.js','src/share-placement.js']]);
+const files=new Map([['/dialogs.js','src/dialogs.js'],['/share.js','src/share.js'],['/seo.js','src/seo.js'],['/share-placement.js','src/share-placement.js']]);
 const html=`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="index,follow"><link rel="canonical" href="https://elobidellector.com/serie/prueba">
 <style>*{box-sizing:border-box}body{margin:0;background:#0d0c0a;color:#f3ecd9;font:14px sans-serif}
