@@ -57,24 +57,36 @@ assert.equal(tries,1,'No ocultar errores de Supabase');
 await assert.rejects(()=>persistReadingChanges(sb,'',mark),/inválida/,'No modificar sin identidad');
 
 const app=readFileSync(new URL('../src/app.js',import.meta.url),'utf8');
+const ui=readFileSync(new URL('../src/ui.js',import.meta.url),'utf8');
 for(const snippet of [
  "readingGroups, planReadingChanges, undoReadingChanges, applyReadingChanges, persistReadingChanges",
  ".select('id,num,title,vol,volume_id,series_id,publish_at,status,deleted_at')",
  'const live = () => seq === librarySeq',
- 'id="lb-read-dialog"',
- 'dialog.showModal()',
- "scope!=='chapter'&&!confirm(",
- 'undoReadingChanges(tx.changes)',
+ 'data-read-work=',
+ "toggleWholeWork(",
+ "confirm(question)",
+ "undoReadingChanges(undoState.changes)",
  "readRows=applyReadingChanges(readRows,chapterById,changes)",
  "await persistReadingChanges(sb,uid,changes)",
  "await readPages((from,to)=>sb.from('read_chapters')",
- 'Estas marcas actualizan tus estadísticas',
- 'Solo se incluyen capítulos publicados',
- 'Marcar toda la novela como leída',
- 'Desmarcar toda la novela',
- 'Marcar volumen leído',
- 'Desmarcar volumen',
- 'const q=box.querySelector',
+ 'Marcar novela como leída',
+ 'Al día con lo publicado',
+ 'Solo se incluyen los capítulos publicados',
+ '↶ Desmarcar lectura',
+ 'const query=box.querySelector',
  "sb.from('profiles').update({ hidden_series:"
-]) assert(app.includes(snippet),'Contrato de funcionalidad/privacidad '+snippet);
-console.log('✓ Marcado/desmarcado de novela, volumen y capítulo, lotes, historial y deshacer sin modificar progreso');
+]) assert(app.includes(snippet),'Botón directo/privacidad de Mi biblioteca: '+snippet);
+assert(!app.includes('lb-read-dialog')&&!app.includes('dialog.showModal()'), 'No debe añadirse otra ventana ni menú');
+for(const snippet of [
+ "import { planReadingChanges, persistReadingChanges, applyReadingChanges } from './library-read-actions.js';",
+ 'data-read-chapter=',
+ 'data-read-vol=',
+ 'ui-read-chapter',
+ 'ui-read-volume',
+ "savedReadRows=applyReadingChanges(",
+ 'refreshReadButtons();',
+ "await persistReadingChanges(sb,u.id,changes)",
+ "if(isVolume&&changes.length>1&&!confirm(",
+ "u ? sb.from('read_chapters').select('chapter_id,read_at')"
+]) assert(ui.includes(snippet),'Acciones directas junto al capítulo/volumen: '+snippet);
+console.log('✓ Botón sin menú, marcado/desmarcado de novela, volumen y capítulo, lotes y deshacer seguro');
