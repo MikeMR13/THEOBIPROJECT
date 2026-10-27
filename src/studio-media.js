@@ -1,4 +1,4 @@
-import { confirmObi } from './dialogs.js';
+const confirmObi=(...args)=>import('./dialogs.js').then(module=>module.confirmObi(...args));
 // Gestor de archivos del Studio (Storage y portadas), cargado bajo demanda.
 export function createLibrary(deps){
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, errMsg, LIMITS } = deps;
