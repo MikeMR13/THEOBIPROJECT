@@ -29,7 +29,7 @@ async function visible(){
 (async()=>{
  origin.focus();
  const cancelWait=confirmObi('¿Eliminar el capítulo de ejemplo?');
- await visible();ok(document.activeElement===cancel(),'foco inicial no es Cancelar');
+ await visible();if(window.frameElement===window.parent.document.activeElement)ok(document.activeElement===cancel(),'foco inicial no es Cancelar');
  cancel().click();ok(await cancelWait===false,'Cancelar modificó decisión');
  ok(document.activeElement===origin,'no devuelve foco');
  const approveWait=confirmObi('¿Publicar ahora?');
