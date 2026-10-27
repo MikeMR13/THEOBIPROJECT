@@ -1,4 +1,4 @@
-import { confirmObi } from './dialogs.js';
+const confirmObi=(...args)=>import('./dialogs.js').then(module=>module.confirmObi(...args));
 // Editor de Studio. Se carga únicamente al abrir un capítulo.
 import { blocksToEditor, editorToBlocks, pasteToEditor, renderBlock, warningsHTML, teaserHTML, figureHTML, makesBlock, FONTS, CW } from './blocks.js?v=2';
 import { askEditorialAnnouncement, saveEditorialRecord } from './editorial-announcements.js?v=1';
