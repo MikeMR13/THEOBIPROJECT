@@ -503,12 +503,23 @@ export async function preferences(C){
     </div>
     <div class="pf-body">${body}</div></div>`;
   if (app.__obiPrefsSelectHandler) app.removeEventListener('change', app.__obiPrefsSelectHandler);
-  const selectHandler = e => {
-    if (e.target?.id !== 'pf-mobile-tab') return;
-    const next = e.target.value;
+  let tabChangePending = false;
+  const selectHandler = async e => {
+    if (e.target?.id !== 'pf-mobile-tab' || tabChangePending) return;
+    const picker = e.target, next = picker.value;
     if (!TAB_NAMES[next] || next === tab) return;
-    if (app.__obiPrefsNavGuard && !app.__obiPrefsNavGuard()) { e.target.value = tab; return; }
-    C.go(navHref(next));
+    tabChangePending = true;
+    picker.disabled = true;
+    try {
+      if (app.__obiPrefsNavGuard && !(await app.__obiPrefsNavGuard())) {
+        picker.value = tab;
+        return;
+      }
+      C.go(navHref(next));
+    } finally {
+      picker.disabled = false;
+      tabChangePending = false;
+    }
   };
   app.__obiPrefsSelectHandler = selectHandler;
   app.addEventListener('change', selectHandler);
