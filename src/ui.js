@@ -30,6 +30,27 @@ const CSS = `
 .ui-cont{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:14px}
 .ui-ccard{display:grid;grid-template-columns:64px minmax(0,1fr);gap:14px;align-items:center;padding:12px;background:#16140f;color:var(--paper);text-decoration:none;border-left:4px solid var(--c,var(--gold));transition:background .2s}.ui-ccard:hover{background:#1c1a14;color:var(--paper)}
 .ui-ccard .th{aspect-ratio:3/4;background:#1c1a14 center/cover}.ui-bar{height:4px;background:#2f2a20;margin-top:8px}.ui-bar i{display:block;height:100%;background:var(--c,var(--gold))}
+
+/* Inicio · Continuar leyendo: fichas editoriales que muestran siempre la portada íntegra. */
+.ob-continue .ob-st{flex-wrap:wrap}
+.ob-continue .ob-st .r2{display:flex;align-items:center;gap:14px;flex-wrap:wrap;max-width:100%}
+.ob-continue .ob-st .ob-arr{display:flex;margin-left:auto}
+.ob-continue .ob-continue-car{grid-auto-columns:clamp(190px,20vw,252px);gap:18px;align-items:stretch;padding:6px 3px 18px}
+.ob-continue .ob-continue-card{display:flex;flex-direction:column;gap:0;min-width:0;overflow:hidden;background:#14110d;border:1px solid #56401c;border-left:4px solid var(--gold);border-radius:6px;box-shadow:0 10px 26px rgba(0,0,0,.35);scroll-snap-align:start;transition:border-color .2s,box-shadow .2s,transform .2s}
+.ob-continue .ob-continue-card:hover{transform:translateY(-4px);border-color:var(--gold);box-shadow:0 16px 32px rgba(0,0,0,.5)}
+.ob-continue .ob-continue-card:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.ob-continue-cover{position:relative;display:flex;align-items:center;justify-content:center;aspect-ratio:2/3;min-width:0;padding:10px;background:#0b0a08;overflow:hidden}
+.ob-continue-cover img{display:block;width:100%;height:100%;object-fit:contain;object-position:center}
+.ob-continue-cover .ob-continue-chapter{position:absolute;top:12px;left:10px;z-index:1;padding:5px 9px;background:#ff8c25;color:#1a1008;font:700 11px/1.25 'IBM Plex Mono',monospace;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.ob-continue-fallback{max-width:100%;padding:12px;color:var(--paper);font:500 17px/1.35 'Shippori Mincho B1',serif;overflow-wrap:anywhere;text-align:center}
+.ob-continue-info{display:flex;flex:1;flex-direction:column;gap:8px;min-width:0;padding:12px 13px 14px;background:linear-gradient(180deg,#17130e,#100e0b);border-top:1px solid #30271d}
+.ob-continue .ob-continue-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;min-height:2.7em;color:var(--paper);font-size:15px;font-weight:650;line-height:1.35;overflow-wrap:anywhere}
+.ob-continue .ob-continue-location{font:12px/1.5 'IBM Plex Mono',monospace;color:#d5c3a2}
+.ob-continue .ob-continue-meta{display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;margin-top:auto;color:var(--mute);font:11px/1.45 'IBM Plex Mono',monospace}
+.ob-continue-progress{display:block;height:5px;width:100%;overflow:hidden;background:#302a21;border-radius:5px}
+.ob-continue-progress>span{display:block;height:100%;background:var(--gold);border-radius:inherit}
+@media(max-width:600px){.ob-continue .ob-st .r2{width:100%;gap:10px}.ob-continue .ob-st .ob-arr{margin-left:auto}.ob-continue .ob-continue-car{grid-auto-columns:min(68vw,220px)!important;gap:12px}.ob-continue .ob-continue-info{padding:11px 12px 13px}}
+@media(prefers-reduced-motion:reduce){.ob-continue .ob-continue-card{transition:none}}
 .ui-upd{display:grid;gap:12px}
 .ui-urow{display:grid;grid-template-columns:72px minmax(0,1fr);gap:18px;padding:14px 0;border-bottom:1px solid var(--line)}
 .ui-urow .th{aspect-ratio:3/4;background:#1c1a14 center/cover;display:block}
@@ -714,10 +735,33 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const cc = (s, sub, tag) => `<a class="ob-cc" href="/serie/${s.slug}">${cover(s, tag)}<b>${esc(s.title)}</b><small>${sub}</small>${creditsHTML(s, { esc, media, mode: 'carousel' })}</a>`;
     const arrows = id => `<span class="ob-arr"><button type="button" data-cs="${id}" data-d="-1" aria-controls="${id}" aria-label="Anteriores">‹</button><button type="button" data-cs="${id}" data-d="1" aria-controls="${id}" aria-label="Siguientes">›</button></span>`;
     const head = (k, t, right = '') => `<div class="ob-st"><span class="k">${k}</span><h2>${t}</h2>${right}</div>`;
-    const continueHTML = rows => `
-      ${rows.length ? `<div class="ob-band" style="display:flex;align-items:baseline;gap:14px;margin:56px 0 0;padding-bottom:10px;border-bottom:2px solid var(--gold)"><span aria-hidden="true" style="font-family:'Shippori Mincho B1',serif;font-size:28px;color:var(--gold)">君</span><h2 style="margin:0;font-size:clamp(26px,3vw,40px);font-family:'Shippori Mincho B1',serif;font-weight:500">Para ti</h2></div>` : ''}
-${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読', 'Continuar leyendo', '<a class="r" href="/biblioteca">Mi biblioteca →</a>')}<div class="ui-cont ob-anim">${rows.map(p => { const s = byId[p.series_id]; return `<a class="ui-ccard" href="/leer/${s.slug}/${p.chapter_num}" style="--c:${esc(color(s))}"><span class="th" style="background-image:${s.cover_path ? `url('${esc(thumb(s))}')` : 'none'}"></span><span><span class="ui-lbl">Cap. ${p.chapter_num}${s.chapters?.[0]?.count ? ' de ' + s.chapters[0].count : ''} · ${Math.round((p.pct || 0) * 100)}% · ${ago(p.updated_at)}</span><br><strong>${esc(s.title)}</strong><span class="ui-bar"><i style="width:${Math.round((p.pct || 0) * 100)}%"></i></span></span></a>`; }).join('')}</div></section>` : ''}
-    `;
+    const continueHTML = rows => {
+      if (!rows.length) return '';
+      const cards = rows.map(p => {
+        const s = byId[p.series_id];
+        const pct = Math.max(0, Math.min(100, Math.round((Number(p.pct) || 0) * 100)));
+        // La miniatura puede llevar un recorte incorporado: utilizar la portada original.
+        const coverPath = s.cover_path || s.cover_thumb_path;
+        const coverMarkup = coverPath
+          ? `<img src="${esc(media(coverPath))}" alt="" loading="lazy" decoding="async">`
+          : `<span class="ob-continue-fallback">${esc(s.short || s.title)}</span>`;
+        return `<a class="ob-cc ob-continue-card" href="/leer/${encodeURIComponent(s.slug)}/${encodeURIComponent(p.chapter_num)}" aria-label="${esc('Continuar ' + s.title + ' en el capítulo ' + p.chapter_num)}">
+          <span class="ob-continue-cover">${coverMarkup}<span class="ob-continue-chapter">CAP. ${esc(p.chapter_num)}</span></span>
+          <span class="ob-continue-info">
+            <strong class="ob-continue-title" title="${esc(s.title)}">${esc(s.title)}</strong>
+            <span class="ob-continue-location">Sigue en el cap. ${esc(p.chapter_num)}</span>
+            <span class="ob-continue-meta"><span>${pct}% del capítulo</span><span>${esc(ago(p.updated_at))}</span></span>
+            <span class="ob-continue-progress" role="progressbar" aria-label="Progreso del capítulo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></span>
+          </span>
+        </a>`;
+      }).join('');
+      return `
+        <div class="ob-band" style="display:flex;align-items:baseline;gap:14px;margin:56px 0 0;padding-bottom:10px;border-bottom:2px solid var(--gold)"><span aria-hidden="true" style="font-family:'Shippori Mincho B1',serif;font-size:28px;color:var(--gold)">君</span><h2 style="margin:0;font-size:clamp(26px,3vw,40px);font-family:'Shippori Mincho B1',serif;font-weight:500">Para ti</h2></div>
+        <section class="ob-sec ob-continue" style="border-top:none">
+          ${head('続読', 'Continuar leyendo', `<span class="r2"><a class="r" href="/biblioteca">Mi biblioteca →</a>${arrows('ob-continue-car')}</span>`)}
+          <div class="ob-car ob-continue-car ob-anim" id="ob-continue-car" role="region" aria-roledescription="carrusel" aria-label="Continuar leyendo" tabindex="0">${cards}</div>
+        </section>`;
+    };
 
     setTimeout(() => import('/agenda.js?v=1').then(A => A.openToday({ sb, esc }, document.getElementById('ob-open-today'))).catch(() => {}), 0);
     app.innerHTML = `<div class="ob-page">
@@ -772,6 +816,16 @@ ${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読'
     // Actualizar únicamente la sección personal cuando llegue el progreso remoto.
     // No sustituir el Inicio ni reiniciar el carrusel durante la lectura.
     const myContinueSlot = app.querySelector('#ob-continue-slot');
+    const bindContinueKeyboard = root => {
+      const car = root?.querySelector('#ob-continue-car');
+      car?.addEventListener('keydown', e => {
+        if (e.target !== car || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+        e.preventDefault();
+        car.scrollBy({ left: (e.key === 'ArrowRight' ? 1 : -1) * car.clientWidth * .85,
+          behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      });
+    };
+    bindContinueKeyboard(myContinueSlot);
     if (progressRequest) progressRequest.then(remote => {
       if (!remote || !myContinueSlot?.isConnected || app.querySelector('#ob-continue-slot') !== myContinueSlot || location.pathname !== '/') return;
       Object.assign(prog, remote);
@@ -779,6 +833,8 @@ ${rows.length ? `<section class="ob-sec" style="border-top:none">${head('続読'
         .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
         .filter(p => byId[p.series_id]).slice(0, 6);
       myContinueSlot.innerHTML = continueHTML(nextCont);
+      bindCars(myContinueSlot);
+      bindContinueKeyboard(myContinueSlot);
     });
 
     // Mantener navegación horizontal por teclado además de flechas y gesto táctil.
