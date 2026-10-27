@@ -218,6 +218,8 @@ export function installPublicShare() {
     document.addEventListener('click', async e => {
       const btn = e.target.closest('[data-obi-share]');
       if (!btn) {
+        // Los clics dentro de un diálogo Obi no deben cerrar el menú de compartir.
+        if (e.target.closest('.obi-dialog')) return;
         const insidePanel=floatingPanel?.contains(e.target);
         if (!e.target.closest('.obi-share') && !insidePanel)
           document.querySelectorAll('.obi-share[open]').forEach(x => { x.open = false; });
@@ -242,7 +244,7 @@ export function installPublicShare() {
       }
     });
     document.addEventListener('keydown',e=>{
-      if(e.key!=='Escape'||!floatingOwner)return;
+      if(e.key!=='Escape'||!floatingOwner||document.querySelector('dialog.obi-dialog[open]'))return;
       const summary=floatingOwner.querySelector('summary');
       floatingOwner.open=false;
       hideFloatingMenu();
