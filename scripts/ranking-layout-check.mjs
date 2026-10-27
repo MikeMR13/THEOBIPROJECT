@@ -1,0 +1,33 @@
+// Contratos de Ranking: composición editorial, datos y filtros accesibles.
+// No requiere conexión a Supabase ni servicios de pago.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const ui = readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+const from = ui.indexOf('  async function ranking(){');
+const to = ui.indexOf('  async function teamRank(', from);
+assert(from >= 0 && to > from, 'Debe existir la página Ranking');
+const rank = ui.slice(from, to);
+const cssFrom = ui.indexOf('const RK_CSS = `'), cssTo = ui.indexOf('`;', cssFrom);
+assert(cssFrom >= 0 && cssTo > cssFrom, 'Debe existir RK_CSS');
+const css = ui.slice(cssFrom, cssTo);
+const expect = (v, note) => assert(rank.includes(v), note);
+const cssHas = (v, note) => assert(css.includes(v), note);
+expect('const image = s.cover_path || s.cover_thumb_path', 'Usar portada original cuando está disponible');
+expect('class="rk-cover"', 'Usar marco de portada');
+expect('loading="lazy" decoding="async"', 'Mantener carga diferida');
+cssHas('object-fit:contain', 'La portada debe mostrarse sin recortes');
+for (const p of [1,2,3]) cssHas('.rk-c.rk-place-' + p, 'Falta distinción del puesto ' + p);
+expect("' rk-podium rk-place-' + r.pos", 'Las fichas deben diferenciar los tres puestos principales');
+expect("' rk-podium rk-place-' + (i + 1)", 'Los rankings de equipo también diferencian el podio');
+expect('id="rk-more" aria-controls="rk-extras" aria-expanded="false"', 'Más filtros accesible en móvil');
+expect("$('#rk-more').setAttribute('aria-expanded', String(expanded))", 'El botón comunica su estado');
+expect("$('#rk-clear').onclick", 'Los filtros de género y estado pueden limpiarse');
+expect("id=\"rk-summary\" role=\"status\" aria-live=\"polite\"", 'La actualización se anuncia accesiblemente');
+expect('se recalcula cada 6 horas', 'La hora de recálculo se conserva');
+assert(ui.includes('Lecturas únicas diarias acumuladas'), 'Explicar correctamente el indicador de lecturas');
+assert(ui.includes('no necesariamente una obra concluida'), 'Precisar el indicador de terminadas');
+assert(rank.includes("p_limit: 20"), 'Conservar el límite de resultados');
+assert(rank.includes("await attachPublicCredits(sb, ss || [])"), 'Conservar los créditos editoriales');
+assert(rank.includes('const overviewEnabled ='), 'Conservar adelantos de otras clasificaciones');
+assert(!rank.includes("background-size:cover"), 'No recortar las portadas del ranking');
+console.log('Ranking: portadas completas, podio, filtros móviles, métricas y carga diferida OK');

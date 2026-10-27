@@ -45,7 +45,7 @@ assert(overviewCode.includes('id="rk-overview"') && overviewCode.includes('${ove
 assert(overviewCode.includes('const previewObserver = typeof IntersectionObserver') && overviewCode.includes("rootMargin: '120px 0px'"),'Las listas secundarias deben cargarse al desplazarse');
 assert(overviewCode.includes("p_list: key, p_period: 'semana', p_limit: 4"),'Un adelanto no debe cargar 20 obras');
 assert(overviewCode.includes('if (!data?.length)') && overviewCode.includes('RK_E[key]'),'El estado vacío debe tener explicación sin puestos falsos');
-assert(overviewCode.includes("overview.hidden = true; if (R.teamView)") && overviewCode.includes("R.list === 'leidas' && R.period === 'semana'"),'Las vistas filtradas no deben duplicar clasificaciones');
+assert(overviewCode.includes("overview.hidden = true; summary.hidden = R.teamView; summary.innerHTML = ''; if (R.teamView)") && overviewCode.includes("R.list === 'leidas' && R.period === 'semana'"),'Las vistas filtradas no deben duplicar clasificaciones');
 assert(overviewCode.includes('/ranking?vista=equipos') && overviewCode.includes('Ver ranking completo →'),'Se deben conservar los accesos a listas completas');
 assert(css.includes('.rk-overview[hidden]{display:none!important}') && css.includes('.rk-preview-grid{min-width:0;max-width:100%;width:100%;box-sizing:border-box;grid-template-columns:repeat(4') && css.includes('grid-template-columns:repeat(2'), 'Diseño de adelantos no adaptable');
 // Navegación a la ficha: primer contenido visible antes de las consultas secundarias.
@@ -61,9 +61,9 @@ assert(appCode.includes("document.addEventListener('pointerover', warmSeries") &
 assert(seriesCode.includes("d.locked || vLk") && seriesCode.includes("sb.rpc('series_downloads_v2'"),'No se deben modificar restricciones de descarga');
 // Regresión del podio: '.top' está reservado al encabezado sticky, nunca a tarjetas.
 assert(!rankPerf.includes("rk-c${i < 3 ? ' top'") && !rankPerf.includes("rk-c${r.pos <= 3 ? ' top'"), 'Las tres primeras novelas heredarán la barra de navegación');
-assert(rankPerf.includes("rk-c${i < 3 ? ' rk-podium'") && rankPerf.includes("rk-c${r.pos <= 3 ? ' rk-podium'"), 'El podio de Ranking perdió su clase aislada');
+assert(rankPerf.includes("rk-c${i < 3 ? ' rk-podium rk-place-' + (i + 1)") && rankPerf.includes("rk-c${r.pos <= 3 ? ' rk-podium rk-place-' + r.pos"), 'El podio de Ranking debe distinguir oro, plata y bronce sin clases reservadas');
 assert(css.includes('.rk-c.rk-podium .rk-n{') && !css.includes('.rk-c.top .rk-n{'), 'Estilo de números de podio en conflicto');
-assert(rankPerf.includes('const rankBook = s => book({ ...s, cover_path: s.cover_thumb_path || s.cover_path }'), 'El ranking debe preferir portadas ligeras');
+assert(rankPerf.includes('const image = s.cover_path || s.cover_thumb_path') && rankPerf.includes('loading="lazy" decoding="async"') && css.includes('.rk-cover img{display:block;width:100%;height:100%;object-fit:contain'), 'El ranking debe utilizar portadas completas y conservar lazy loading');
 for(const bad of ['96','1996-01-01T00:00:00Z','not-a-date'])assert.equal(publicationAge(bad),'','Fecha fantasma');
 // Regresión: las descargas aparecen en su propia pestaña, por volumen y accesibles.
 const volMarkup=s.slice(s.indexOf('const dlOf = v =>'),s.indexOf("app.querySelectorAll('[data-buy]')"));

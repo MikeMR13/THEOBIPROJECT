@@ -171,7 +171,7 @@ const RK_L = { leidas: 'Más leídas', tendencia: 'Tendencia', calificadas: 'Mej
 const RK_P = { hoy: 'Hoy', semana: 'Semana', mes: 'Mes', anio: 'Año', historico: 'Histórico' };
 const RK_PF = { hoy: 'de hoy', semana: 'de la semana', mes: 'del mes', anio: 'del año', historico: 'de todos los tiempos' };
 const RK_OK = { tendencia: ['hoy', 'semana', 'mes'], novedades: ['hoy', 'semana', 'mes'] };
-const RK_D = { leidas: 'Lectores distintos: cada persona cuenta una vez al día por obra.', tendencia: 'Las que más lecturas ganaron frente al periodo anterior.', calificadas: 'Promedio de estrellas. Solo entran obras con 25 votos o más en el periodo.', terminadas: 'Lectores que llegaron al último capítulo publicado.', novedades: 'Obras con su primer capítulo publicado hace 30 días o menos.' };
+const RK_D = { leidas: 'Lecturas únicas diarias acumuladas: cada lector o dispositivo cuenta una vez por obra y día; puede volver a sumar en días distintos.', tendencia: 'Las que más lecturas ganaron frente al periodo anterior.', calificadas: 'Promedio de estrellas. Solo entran obras con 25 votos o más en el periodo.', terminadas: 'Lectores que llegaron al último capítulo publicado (no necesariamente una obra concluida).', novedades: 'Obras con su primer capítulo publicado hace 30 días o menos.' };
 const RK_E = { calificadas: 'Todavía ninguna obra llega a 25 votos en este periodo. Califica las que leas desde su ficha.', tendencia: 'Ninguna obra ganó lecturas frente al periodo anterior.', novedades: 'No hay obras nuevas con lecturas en este periodo.' };
 const RK_CSS = `
 .rk-bar{display:grid;gap:12px;margin:0 0 26px}.rk-row{display:flex;gap:12px 18px;flex-wrap:wrap;align-items:center}
@@ -209,6 +209,53 @@ const RK_CSS = `
 .rk-rate{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0}.rk-stars{display:inline-flex}.rk-stars button{width:36px;height:40px;padding:0;background:none;border:0;font-size:24px;line-height:1;color:#3d3628;cursor:pointer}.rk-stars button.avg{color:#b5a27a}.rk-stars button.on{color:var(--gold)}.rk-stars:hover button{color:var(--gold)}.rk-stars button:hover~button{color:#3d3628}.rk-rate .mono{font-size:12px}
 .tp2-rkl{display:grid}.tp2-rki{display:grid;grid-template-columns:52px 40px minmax(0,1fr) auto;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid var(--ln);color:var(--fg)!important;text-decoration:none}.tp2-rki .n{font-family:var(--tf);font-weight:800;font-size:26px;color:var(--act);text-align:center}.tp2-rki .cv{width:40px;aspect-ratio:2/3;background:var(--sf) center/cover;border:1px solid var(--ln)}.tp2-rki b{font-weight:600}.tp2-rki .m{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mu)}.tp2-rk .tp2-sh{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}.tp2-rk .tp2-sh a{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--act)}
 @media(max-width:560px){.rk-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 14px}.rk-n{font-size:18px;min-width:38px;height:38px}.rk-c.rk-podium .rk-n{min-width:46px;height:46px;font-size:24px}}
+/* Ranking editorial: fichas con portadas completas y podio distinguible. */
+.rk-grid{gap:23px 16px;padding:10px 3px 6px}
+.rk-c{min-width:0;box-sizing:border-box;padding:11px 11px 14px;border:1px solid #584321;border-left:4px solid var(--gold);border-radius:6px;background:linear-gradient(180deg,#19150f,#100e0b);box-shadow:0 10px 26px rgba(0,0,0,.35);transition:transform .2s,border-color .2s,box-shadow .2s;grid-template-rows:auto minmax(0,1fr)}
+.rk-c:hover{transform:translateY(-4px);border-color:#e0b24c;box-shadow:0 16px 35px rgba(0,0,0,.52)}
+.rk-c:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.rk-cover{width:100%;aspect-ratio:2/3;display:flex;align-items:center;justify-content:center;min-width:0;box-sizing:border-box;padding:6px;background:#0b0a08;border:1px solid #493927;overflow:hidden}
+.rk-cover img{display:block;width:100%;height:100%;object-fit:contain;object-position:center}
+.rk-cover-fallback{color:#f3ecd9;font:500 14px/1.35 'Shippori Mincho B1',serif;overflow-wrap:anywhere;text-align:center;padding:10px}
+.rk-b{display:flex;flex-direction:column;gap:6px;min-width:0;padding-top:4px}
+.rk-b b{font-size:14px;line-height:1.35;min-height:2.7em;overflow-wrap:anywhere}
+.rk-b small{line-height:1.4;overflow-wrap:anywhere}
+.rk-s{margin-top:auto;padding-top:5px;border-top:1px solid #3b3124;line-height:1.5;overflow-wrap:anywhere}
+.rk-c .rk-n{top:-9px;left:-9px;min-width:40px;height:40px;font-size:19px;background:#11100e;border-color:#aa8b48}
+.rk-c.rk-place-1{border-color:#cba34c;border-left-color:#e7bd55}
+.rk-c.rk-place-1 .rk-n{background:#e3b450;border-color:#e3b450;color:#151109}
+.rk-c.rk-place-2{border-left-color:#b9c1c9}
+.rk-c.rk-place-2 .rk-n{background:#c0c7d2;border-color:#c0c7d2;color:#19191b}
+.rk-c.rk-place-3{border-left-color:#bd875c}
+.rk-c.rk-place-3 .rk-n{background:#bd875c;border-color:#bd875c;color:#211308}
+.rk-c.rk-podium .rk-n{min-width:48px;height:48px;font-size:24px}
+.rk-preview-grid{gap:16px}
+.rk-preview-grid .rk-c{padding:9px 9px 12px}
+.rk-preview-grid .rk-n,.rk-preview-grid .rk-c.rk-podium .rk-n{min-width:34px;height:34px;font-size:18px}
+.rk-extras{display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;min-width:0}
+.rk-extras .rk-sel select{max-width:190px}
+.rk-filter-toggle{display:none}
+.rk-clear{padding:7px 9px;background:transparent;color:#d3c0a0;border:1px solid #56452f;min-height:40px;font:600 12px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.rk-clear:hover{border-color:var(--gold);color:var(--paper)}
+.rk-clear[hidden]{display:none!important}
+.rk-summary{display:grid;gap:5px;margin:3px 0 19px;padding:11px 14px;background:#15120e;border:1px solid #493927;border-left:3px solid var(--gold)}
+.rk-summary[hidden],.rk-summary:empty{display:none!important}
+.rk-summary-text{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:5px 16px}
+.rk-summary-text strong{font-size:14px;color:#f0ddae}
+.rk-summary-text span,.rk-summary p{font:11px/1.5 'IBM Plex Mono',monospace;color:#c1b5a0}
+.rk-summary p{margin:0}
+@media(max-width:680px){
+  .rk-grid{gap:16px 12px}
+  .rk-c{padding:9px 9px 12px}
+  .rk-filter-toggle{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:8px 12px;min-height:40px;color:#e3dccb;background:#17130e;border:1px solid #574529;font:600 12px 'IBM Plex Sans',sans-serif;cursor:pointer}
+  .rk-filter-toggle.has-filters{border-color:var(--gold);color:var(--gold)}
+  .rk-extras{display:none;width:100%;gap:10px;padding:11px 12px;background:#14110e;border:1px solid #4a3928}
+  .rk-extras.open{display:flex}
+  .rk-extras .rk-sel{width:100%;justify-content:space-between}
+  .rk-extras .rk-sel select{flex:1;max-width:240px}
+  .rk-c.rk-podium .rk-n{min-width:39px;height:39px;font-size:20px}
+}
+@media(prefers-reduced-motion:reduce){.rk-c{transition:none}.rk-c:hover{transform:none}}
 `;
 const SR_CSS = `
 .sr-pop{position:absolute;top:calc(100% + 8px);left:0;right:0;min-width:min(420px,92vw);max-height:70vh;overflow:auto;z-index:70;background:#14120d;border:1px solid #3d3628;box-shadow:0 18px 40px rgba(0,0,0,.5)}
@@ -1637,8 +1684,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   }
   async function ranking(){
     rkCss();
-    // Preferir miniaturas en las tarjetas del ranking: no descargar portadas originales grandes.
-    const rankBook = s => book({ ...s, cover_path: s.cover_thumb_path || s.cover_path }, null, true);
+    // Portadas originales completas: algunas miniaturas tienen el recorte incorporado.
+    // Mantener la carga diferida para las tarjetas de ranking fuera de pantalla.
+    const rankBook = s => {
+      const image = s.cover_path || s.cover_thumb_path;
+      return `<span class="rk-cover">${image
+        ? `<img src="${esc(media(image))}" alt="" loading="lazy" decoding="async">`
+        : `<span class="rk-cover-fallback">${esc(s.short || s.title)}</span>`}</span>`;
+    };
     const qs = new URLSearchParams(location.search);
     const R = { list: RK_L[qs.get('lista')] ? qs.get('lista') : 'leidas', period: RK_P[qs.get('periodo')] ? qs.get('periodo') : 'semana', genre: qs.get('genero') || '', status: ['en_curso', 'terminada'].includes(qs.get('estado')) ? qs.get('estado') : '', teamView: qs.get('vista') === 'equipos' || !!qs.get('equipo'), team: qs.get('equipo') || '' };
     app.innerHTML = '<p class="mono">Cargando el ranking…</p>';
@@ -1680,10 +1733,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       <div class="rk-bar">
         <div class="ui-chips" role="group" aria-label="Lista">${Object.entries(RK_L).map(([k, l]) => `<button class="ui-chip" type="button" data-rl="${k}">${l}</button>`).join('')}<button class="ui-chip" type="button" id="rk-team-tab" aria-controls="rk-teams">Por equipo</button></div>
         <div id="rk-filters"><div class="rk-row"><div class="rk-seg" role="group" aria-label="Periodo">${Object.entries(RK_P).map(([k, l]) => `<button type="button" data-rp="${k}">${l}</button>`).join('')}</div>
-          <label class="rk-sel"><span class="ui-lbl">Género</span><select id="rk-g"><option value="">Todos</option></select></label>
-          <div class="rk-seg" role="group" aria-label="Estado">${[['', 'Todas'], ['en_curso', 'En curso'], ['terminada', 'Terminadas']].map(([k, l]) => `<button type="button" data-rs="${k}">${l}</button>`).join('')}</div></div>
+          <button class="rk-filter-toggle" type="button" id="rk-more" aria-controls="rk-extras" aria-expanded="false">Más filtros <span aria-hidden="true">⌄</span></button>
+          <div class="rk-extras" id="rk-extras">
+            <label class="rk-sel"><span class="ui-lbl">Género</span><select id="rk-g"><option value="">Todos</option></select></label>
+            <div class="rk-seg" role="group" aria-label="Estado">${[['', 'Todas'], ['en_curso', 'En curso'], ['terminada', 'Terminadas']].map(([k, l]) => `<button type="button" data-rs="${k}">${l}</button>`).join('')}</div>
+            <button type="button" class="rk-clear" id="rk-clear">Limpiar filtros</button>
+          </div></div>
         <p class="mono rk-desc" id="rk-desc"></p></div>
-      </div><div id="rk"></div>
+      </div><div class="rk-summary" id="rk-summary" role="status" aria-live="polite"></div><div id="rk"></div>
       <section id="rk-teams" class="rk-team-panel" aria-labelledby="rk-teams-title" hidden>
         <div class="rk-team-header"><div><h2 id="rk-teams-title">Lo más visto de cada equipo</h2>
           <p class="rk-team-note">Novelas ordenadas por lectores distintos de esta semana.</p></div>
@@ -1712,6 +1769,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       app.querySelectorAll('[data-rp]').forEach(b => { b.classList.toggle('on', b.dataset.rp === R.period); b.disabled = !!ok && !ok.includes(b.dataset.rp); b.setAttribute('aria-pressed', b.dataset.rp === R.period); });
       app.querySelectorAll('[data-rs]').forEach(b => { b.classList.toggle('on', b.dataset.rs === R.status); b.setAttribute('aria-pressed', b.dataset.rs === R.status); });
       $('#rk-desc').textContent = RK_D[R.list];
+      $('#rk-clear').hidden = !R.genre && !R.status;
+      $('#rk-more').classList.toggle('has-filters', !!(R.genre || R.status));
       $('#rk-team-tab').classList.toggle('on', R.teamView); $('#rk-team-tab').setAttribute('aria-pressed', String(R.teamView));
       $('#rk-filters').hidden = R.teamView; $('#rk').hidden = R.teamView; $('#rk-teams').hidden = !R.teamView;
       if ($('#rk-autoh')) $('#rk-autoh').hidden = R.teamView || !autoHist || R.period !== 'historico' || R.list !== firstList;
@@ -1756,7 +1815,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         } else {
           body.innerHTML = `<div class="rk-grid rk-preview-grid">${entries.map(r => {
             const s = byId[r.series_id];
-            return `<a class="rk-c${r.pos <= 3 ? ' rk-podium' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}">
+            return `<a class="rk-c${r.pos <= 3 ? ' rk-podium rk-place-' + r.pos : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}">
               <span class="rk-n" aria-label="Puesto ${r.pos}">${r.pos}</span>${rankBook(s)}
               <span class="rk-b"><b>${esc(s.title)}</b>${s.teams?.name ? `<small>${esc(s.teams.name)}</small>` : ''}
                 <span class="rk-s">${previewScore(key, r)}</span></span></a>`;
@@ -1811,10 +1870,10 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       const by = Object.fromEntries((ss || []).map(s => [s.id, s]));
       const entries = rows.filter(r => by[r.series_id]);
       box.innerHTML = `<p class="rk-team-note"><a href="/equipo/${esc(team.slug)}">${esc(team.name)} →</a> · ${entries.length} ${entries.length === 1 ? 'novela clasificada' : 'novelas clasificadas'}</p>` +
-        `<div class="rk-grid">${entries.map((r, i) => { const s = by[r.series_id]; return `<a class="rk-c${i < 3 ? ' rk-podium' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${i + 1} del equipo">${i + 1}</span>${rankBook(s)}<span class="rk-b"><b>${esc(s.title)}</b>${creditsHTML(s, { esc, media, mode: 'carousel' })}<small>${fmtN(+r.score)} ${+r.score === 1 ? 'lector' : 'lectores'} · esta semana</small><span class="rk-s">${r.pos ? '#' + r.pos + ' general' : ''}</span></span></a>`; }).join('')}</div>`;
+        `<div class="rk-grid">${entries.map((r, i) => { const s = by[r.series_id]; return `<a class="rk-c${i < 3 ? ' rk-podium rk-place-' + (i + 1) : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${i + 1} del equipo">${i + 1}</span>${rankBook(s)}<span class="rk-b"><b>${esc(s.title)}</b>${creditsHTML(s, { esc, media, mode: 'carousel' })}<small>${fmtN(+r.score)} ${+r.score === 1 ? 'lector' : 'lectores'} · esta semana</small><span class="rk-s">${r.pos ? '#' + r.pos + ' general' : ''}</span></span></a>`; }).join('')}</div>`;
     };
     const draw = async () => {
-      sync(); const my = ++tk, box = $('#rk'); overview.hidden = true; if (R.teamView) return drawTeam(my); box.innerHTML = '<p class="mono">Cargando…</p>';
+      sync(); const my = ++tk, box = $('#rk'), summary = $('#rk-summary'); overview.hidden = true; summary.hidden = R.teamView; summary.innerHTML = ''; if (R.teamView) return drawTeam(my); box.innerHTML = '<p class="mono">Cargando…</p>';
       const { data, error } = await sb.rpc('ranking_list', { p_list: R.list, p_period: R.period, p_genre: R.genre || null, p_status: R.status || null, p_limit: 20 });
       if (my !== tk || !document.body.contains(box)) return;
       if (error) { box.innerHTML = `<p style="color:#f59e7a">No se pudo cargar el ranking: ${esc(error.message)}</p>`; return; }
@@ -1826,13 +1885,20 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       const by = Object.fromEntries((ss || []).map(s => [s.id, s])), filtered = !!(R.genre || R.status), anyPrev = data.some(r => r.prev_pos != null);
       const mv = r => filtered ? '' : r.prev_pos == null ? (anyPrev ? '<span class="rk-mv new">Nuevo</span>' : '') : r.prev_pos > r.gpos ? `<span class="rk-mv up" title="Subió ${r.prev_pos - r.gpos} desde la última actualización">▲${r.prev_pos - r.gpos}</span>` : r.prev_pos < r.gpos ? `<span class="rk-mv dn" title="Bajó ${r.gpos - r.prev_pos} desde la última actualización">▼${r.gpos - r.prev_pos}</span>` : '<span class="rk-mv eq" title="Sin cambios">=</span>';
       const sc = r => ({ leidas: fmtN(r.score) + ' lecturas', tendencia: '+' + fmtN(r.score) + ' lecturas', calificadas: (+r.score).toFixed(1) + ' ★ · ' + r.votes + ' votos', terminadas: fmtN(r.score) + (+r.score === 1 ? ' lector' : ' lectores') + ' al día', novedades: fmtN(r.score) + ' lecturas' })[R.list];
-      box.innerHTML = `<div class="rk-grid">${data.filter(r => by[r.series_id]).map(r => { const s = by[r.series_id]; return `<a class="rk-c${r.pos <= 3 ? ' rk-podium' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${r.pos}">${r.pos}</span>${rankBook(s)}<span class="rk-b"><b>${esc(s.title)}</b>${creditsHTML(s, { esc, media, mode: 'carousel' })}${s.teams?.name ? `<small>${esc(s.teams.name)}</small>` : ''}<span class="rk-s">${sc(r)}${mv(r)}</span></span></a>`; }).join('')}</div>
-        <p class="mono rk-upd">Actualizado ${ago(data[0].computed_at)} · se recalcula cada 6 horas${filtered ? ' · con filtros no se muestra el movimiento' : ''}</p>`;
+      summary.innerHTML = `<div class="rk-summary-text"><strong>${esc(RK_L[R.list])} · ${esc(RK_P[R.period])}</strong><span>Actualizado ${esc(ago(data[0].computed_at))} · se recalcula cada 6 horas</span></div>
+        <p>${filtered ? 'Los puestos corresponden a los filtros activos; no se muestra movimiento.' : '▲ Subió · ▼ Bajó · = Sin cambios · Nuevo: entró desde la última actualización.'}</p>`;
+      box.innerHTML = `<div class="rk-grid">${data.filter(r => by[r.series_id]).map(r => { const s = by[r.series_id]; return `<a class="rk-c${r.pos <= 3 ? ' rk-podium rk-place-' + r.pos : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${r.pos}">${r.pos}</span>${rankBook(s)}<span class="rk-b"><b>${esc(s.title)}</b>${creditsHTML(s, { esc, media, mode: 'carousel' })}${s.teams?.name ? `<small>${esc(s.teams.name)}</small>` : ''}<span class="rk-s">${sc(r)}${mv(r)}</span></span></a>`; }).join('')}</div>`;
       revealOverview();
     };
     app.querySelectorAll('[data-rl]').forEach(b => b.onclick = () => { R.teamView = false; R.list = b.dataset.rl; draw(); });
     $('#rk-team-tab').onclick = () => { R.teamView = true; draw(); };
     $('#rk-team-sel').onchange = e => { R.team = e.target.value; if (R.teamView) draw(); };
+    $('#rk-more').onclick = () => {
+      const extras = $('#rk-extras'), expanded = !extras.classList.contains('open');
+      extras.classList.toggle('open', expanded);
+      $('#rk-more').setAttribute('aria-expanded', String(expanded));
+    };
+    $('#rk-clear').onclick = () => { R.genre = ''; R.status = ''; $('#rk-g').value = ''; draw(); };
     app.querySelectorAll('[data-rp]').forEach(b => b.onclick = () => { R.period = b.dataset.rp; draw(); });
     app.querySelectorAll('[data-rs]').forEach(b => b.onclick = () => { R.status = b.dataset.rs; draw(); });
     $('#rk-g').onchange = e => { R.genre = e.target.value; draw(); };
