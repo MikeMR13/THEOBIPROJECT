@@ -1,4 +1,4 @@
-// Diálogos coherentes con El Obi del Lector, sin confirm(), alert() ni prompt() del navegador.
+// Diálogos coherentes con El Obi del Lector; no se usan cuadros modales nativos.
 // Son asíncronos: la acción solamente continúa al pulsar el botón dentro del sitio.
 const CSS = `
 .obi-dialog{box-sizing:border-box;width:min(500px,calc(100vw - 28px));max-width:500px;max-height:min(85vh,780px);margin:auto;padding:0;border:1px solid #8f7240;border-radius:7px;background:#1b1710;color:#efe9dc;box-shadow:0 26px 85px #000d;font-family:'IBM Plex Sans',sans-serif}
