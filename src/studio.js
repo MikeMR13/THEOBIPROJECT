@@ -26,7 +26,6 @@ export function createStudio(ctx){
   const T = { userId: null, teams: [], team: null, perms: {}, works: null };
   const can = a => !!T.perms[a];
   const TZS = [['America/Mexico_City','Ciudad de México'],['America/Monterrey','Monterrey'],['America/Tijuana','Tijuana'],['America/Bogota','Bogotá'],['America/Lima','Lima'],['America/Caracas','Caracas'],['America/Santiago','Santiago de Chile'],['America/Argentina/Buenos_Aires','Buenos Aires'],['America/Montevideo','Montevideo'],['America/Guatemala','Centroamérica'],['America/Santo_Domingo','Santo Domingo'],['America/New_York','Nueva York · Miami'],['America/Los_Angeles','Los Ángeles'],['Europe/Madrid','Madrid'],['Asia/Tokyo','Tokio'],['UTC','UTC']];
-  // Zona del dispositivo por defecto; se puede usar la del equipo.
   const devTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   const tzPick = () => localStorage.getItem('obi-tz-pick') || (localStorage.getItem('obi-tz-mode') === 'team' ? 'team' : 'device');
   const tz = () => { const k = tzPick(); return k === 'team' ? (T.tz || devTz()) : k === 'device' ? devTz() : k; };
@@ -48,7 +47,6 @@ export function createStudio(ctx){
   const ROLE_L = { owner: 'Propietario', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
   const NAV = [['/estudio','総','Resumen'],['/estudio/anuncios','告','Anuncios'],['/estudio/obras','作','Obras'],['/estudio/glosario','語','Glosario'],['/estudio/importar','入','Importar'],['/estudio/multimedia','画','Multimedia'],['/estudio/flujo','流','Flujo de trabajo'],['/estudio/comunidad','評','Comunidad'],['/estudio/difusion','拡','Difusión'],['/estudio/estadisticas','統','Estadísticas'],['/estudio/descargas','落','Descargas'],['/estudio/perfil','顔','Página del equipo'],['/estudio/preferencias','彩','Preferencias'],['/estudio/equipo','班','Equipo'],['/estudio/bitacora','録','Bitácora','log']];
   const CRUMB = { '/estudio': 'RESUMEN', '/estudio/obras': 'OBRAS', '/estudio/nueva': 'NUEVA OBRA', '/estudio/glosario': 'GLOSARIO', '/estudio/importar': 'IMPORTAR', '/estudio/multimedia': 'MULTIMEDIA', '/estudio/equipo': 'EQUIPO', '/estudio/flujo': 'FLUJO DE TRABAJO', '/estudio/preferencias': 'PREFERENCIAS', '/estudio/anuncios': 'ANUNCIOS', '/estudio/perfil': 'PÁGINA DEL EQUIPO', '/estudio/bitacora': 'BITÁCORA', '/estudio/comunidad': 'COMUNIDAD', '/estudio/difusion': 'DIFUSIÓN', '/estudio/estadisticas': 'ESTADÍSTICAS', '/estudio/descargas': 'DESCARGAS', '/estudio/obra': 'OBRAS · FICHA' };
-  // Grupos visuales; NAV conserva rutas y permisos.
   const NAV_GROUPS = [
     ['PUBLICACIONES Y CONTENIDO', ['/estudio','/estudio/obras','/estudio/importar','/estudio/multimedia','/estudio/glosario','/estudio/flujo']],
     ['DIFUSIÓN Y SEGUIMIENTO', ['/estudio/anuncios','/estudio/difusion','/estudio/comunidad','/estudio/estadisticas','/estudio/descargas']],
@@ -87,7 +85,6 @@ export function createStudio(ctx){
       <div class="s2-quick"><small>ACCIONES RÁPIDAS</small>${can('create') ? '<button class="s2-q main" data-quick="new">＋ Nuevo capítulo</button>' : ''}${can('import') ? '<a class="s2-q" href="/estudio/importar">⇪ Importar EPUB / DOCX / PDF</a>' : ''}<a class="s2-q" href="/estudio/obras">◷ Programar lanzamiento</a></div>
       <a class="s2-back" href="/">← Volver al sitio</a></aside>
       <section class="st-main s2-main"><header class="s2-head"><div class="s2-ht"><small>ESTUDIO · ${esc((T.team?.name || '').toUpperCase())} · ${CRUMB[tab] || esc(title.toUpperCase())}</small><h1>${title}</h1></div>${topTools()}</header>${body}</section></div>`; };
-  // Navegación compacta: un solo control; no duplica rutas ni selectores de equipo.
   const closeStudioNav = (focus = false) => {
     const side = document.querySelector('.s2-side.nav-open');
     if (!side) return;
@@ -110,7 +107,6 @@ export function createStudio(ctx){
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('.s2-side.nav-open')) closeStudioNav(true); });
   if (typeof window !== 'undefined') window.addEventListener('popstate', () => closeStudioNav());
-  // barra superior: zona horaria, avisos, búsqueda y cuenta
   const topTools = () => { queueMicrotask(bellCount);  const u = getUser(), k = tzPick();
     const opts = [['device', 'Mi dispositivo · ' + tzLabel(devTz())], ...(T.tz ? [['team', 'Equipo · ' + tzLabel(T.tz)]] : []), ...TZS.filter(([z]) => z !== devTz() && z !== T.tz).map(([z, l]) => [z, l])];
     if (!opts.some(o => o[0] === k)) opts.push([k, tzLabel(k)]);
@@ -119,7 +115,6 @@ export function createStudio(ctx){
       <div class="s2-bellw"><button type="button" class="s2-bell" id="st-bell" aria-label="Avisos" aria-controls="st-bell-list" aria-expanded="false"><span aria-hidden="true">鈴</span><em id="st-bell-n" hidden></em></button><div class="s2-pop" id="st-bell-list" hidden></div></div>
       <div class="s2-srch"><input id="st-q" type="search" placeholder="Buscar en el Estudio…" autocomplete="off" aria-label="Buscar en el Estudio" aria-controls="st-q-res" aria-expanded="false"><div class="s2-pop" id="st-q-res" hidden></div></div>
     </div>`; };
-  // Menú de cuenta compartido con el sitio.
   const mountMe = () => { const slot = document.getElementById('st-me'), src = document.querySelector('#session .ob-user'); if (!slot || !src || slot.dataset.ok) return; slot.dataset.ok = '1';
     const d = src.cloneNode(true); d.open = false; const out = d.querySelector('#out'); if (out) { out.removeAttribute('id'); out.onclick = () => document.getElementById('out')?.click(); }
     d.querySelector('.ob-menu')?.addEventListener('click', e => { if (e.target.closest('a')) d.open = false; });
@@ -195,7 +190,6 @@ export function createStudio(ctx){
     resetTeamSession(T, user?.id || null);
     if (!user) { go('/entrar'); return false; }
     const uid = user.id;
-    // Inicia la hoja en paralelo con permisos/datos; evita mostrar Studio sin estilos.
     const styles = css();
     if (!T.teams.length) {
       const { data } = await sb.from('team_members').select('role,teams(id,slug,name,color)').eq('user_id', uid);
@@ -233,6 +227,7 @@ export function createStudio(ctx){
     return T.userId === uid && getUser()?.id === uid && T.team?.id === team.id;
   }
 
+  // ---------- obras ----------
   const DAY = 864e5, ago = d => { const s = (Date.now() - new Date(d)) / 1000; if (s < 3600) return 'hace ' + Math.max(1, Math.round(s / 60)) + ' min'; if (s < 86400) return 'hace ' + Math.round(s / 3600) + ' h'; const n = Math.round(s / 86400); return n === 1 ? 'ayer' : 'hace ' + n + ' días'; };
   const until = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
   const MON = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
@@ -258,6 +253,7 @@ export function createStudio(ctx){
     return { works, chs: chs || [], sched: sched || [], reps: (reps || []).filter(r => set.has(r.chapters?.series_id)) };
   }
 
+  // ---------- resumen ----------
   async function home(){
     if (!(await ensure())) return;
     app.innerHTML = shell('Resumen', '<p class="mono">Cargando el resumen…</p>', '/estudio'); bindPicker(home);
@@ -293,11 +289,8 @@ export function createStudio(ctx){
   }
   const emptyState = () => `<div class="s2-empty"><span>空</span><h2>Tu estudio está vacío</h2><p>Empieza importando un EPUB, DOCX o PDF: armamos la obra con su portada, índice e ilustraciones.</p>${can('create') || can('import') ? '<span style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><a class="btn" href="/estudio/nueva">＋ Crear mi primera obra</a></span>' : '<p class="mono">Pide a tu propietario permiso para crear obras.</p>'}</div>`;
 
-  // Identificador compartido con el importador: conservar su normalización
-  // original al crear obras manualmente, sin cargar el importador completo.
   const slugify = s => (s || 'obra').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
 
-  // Nueva obra: ficha privada compatible con el importador
   async function newWork(){
     if (!(await ensure())) return;
     const TAB = '/estudio/obras';
@@ -381,6 +374,7 @@ export function createStudio(ctx){
     step1();
   }
 
+  // ---------- obras ----------
   async function works(){
     if (!(await ensure())) return;
     app.innerHTML = shell('Mis obras', '<p class="mono">Cargando obras…</p>', '/estudio/obras'); bindPicker(works);
@@ -580,10 +574,12 @@ export function createStudio(ctx){
     on('[data-cpub]', async b => { const ch=C.find(x=>x.id===b.dataset.cpub); const selection=await askEditorialAnnouncement({esc,kind:'chapter',title:ch?.title||'Capítulo'}); if(!selection)return; const at=new Date().toISOString(); const { error } = await sb.from('chapters').update({ status: 'published', publish_at: at }).eq('id', b.dataset.cpub); if (error) throw new Error(/approval_required/.test(error.message) ? 'El equipo exige una revisión aprobada antes de publicar.' : errMsg(error)); await recordNotice(selection,'chapter',b.dataset.cpub,at); toast('Capítulo publicado'); again(); });
     on('[data-delch]', async b => { if (!await confirmObi('¿Enviar este capítulo a la papelera? Podrás restaurarlo durante 30 días.')) return; const { error } = await sb.rpc('trash_chapters', { p_ids: [b.dataset.delch] }); if (error) throw new Error(errMsg(error)); SEL.delete(b.dataset.delch); toast('Capítulo en la papelera'); again(); });
     on('[data-delvol]', async b => { if (!await confirmObi('¿Enviar el volumen y todos sus capítulos a la papelera? Podrás restaurarlo durante 30 días.')) return; const { error } = await sb.rpc('trash_volume', { p_id: b.dataset.delvol }); if (error) throw new Error(errMsg(error)); toast('Volumen en la papelera'); again(); });
+    // ---- filtros
     app.querySelectorAll('[data-fst]').forEach(b => b.onclick = () => { F.st = b.dataset.fst; again(); });
     app.querySelectorAll('[data-fstage]').forEach(b => b.onclick = () => { F.stage = b.dataset.fstage; again(); });
     $('#wk-fclear')?.addEventListener('click', () => { Object.assign(F, { st: '', stage: '', q: '' }); again(); });
     const q0 = $('#wk-q'); if (q0) { let qt = 0; q0.oninput = () => { clearTimeout(qt); qt = setTimeout(() => { F.q = q0.value; work.focusQ = true; again(); }, 350); }; if (work.focusQ) { work.focusQ = false; q0.focus(); q0.setSelectionRange(q0.value.length, q0.value.length); } }
+    // ---- selección y acciones en lote
     const ordered = () => V.flatMap(v => listOf(v).map(c => ({ c, vid: v.id })));
     const picked = () => ordered().filter(x => SEL.has(x.c.id)).map(x => x.c);
     const okPub = c => c.status === 'draft' && volOf(c)?.status === 'published';
@@ -637,6 +633,7 @@ export function createStudio(ctx){
       B('trash')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!await confirmObi(`¿Enviar ${L2.length} capítulo(s) a la papelera? Podrás restaurarlos durante 30 días.`)) return; const { error } = await sb.rpc('trash_chapters', { p_ids: L2.map(c => c.id) }); if (error) throw new Error(errMsg(error)); toast(L2.length + ' en la papelera'); SEL.clear(); again(); }));
     }
     drawBulk();
+    // ---- arrastrar para reordenar o cambiar de volumen
     let dragId = null;
     const moveTo = (cid, targetId, after, vid) => busy(null, async () => {
       const list = ordered(), i0 = list.findIndex(x => x.c.id === cid); if (i0 < 0) return; const [it] = list.splice(i0, 1); it.vid = vid;
@@ -651,6 +648,7 @@ export function createStudio(ctx){
       r.ondrop = e => { e.preventDefault(); if (!dragId) return; const af = r.classList.contains('drop-b'); r.classList.remove('drop-a', 'drop-b'); moveTo(dragId, r.dataset.row, af, r.dataset.vol); };
     });
     if (canDrag) app.querySelectorAll('.wk-vh').forEach(h => { h.ondragover = e => { if (dragId) { e.preventDefault(); h.classList.add('drop-v'); } }; h.ondragleave = () => h.classList.remove('drop-v'); h.ondrop = e => { e.preventDefault(); h.classList.remove('drop-v'); if (dragId) moveTo(dragId, null, true, h.dataset.tog); }; });
+    // ---- papelera
     $('#wk-trash')?.addEventListener('toggle', e => { work.trashOpen = e.currentTarget.open; });
     const purgeVols = async vs => { for (const v of vs) { await deleteChapters(TC.filter(c => c.volume_id === v.id).map(c => c.id), [v.cover_path, ...(v.epub_fonts || []).map(f => pathOf(f.url))]); const { error } = await sb.from('volumes').delete().eq('id', v.id); if (error) throw new Error(errMsg(error)); } };
     on('[data-trc]', async b => { const { error } = await sb.rpc('restore_trash', { p_chapters: [b.dataset.trc], p_volumes: [] }); if (error) throw new Error(errMsg(error)); toast('Capítulo restaurado'); again(); });
@@ -785,6 +783,7 @@ export function createStudio(ctx){
       const releaseInfo=$('#wk-release-info');
       if(releaseInfo) releaseInfo.innerHTML=latestRelease ? '<p class="mono">'+esc(latestRelease.text||'Sin anuncio destacado')+' · '+esc(latestRelease.kind==='volume'?'Volumen':'Capítulo')+' · '+esc(latestRelease.days?latestRelease.days+' días':'Sin etiqueta')+'</p><small class="mono">Hasta '+esc(latestRelease.expires_at?fmtTz(latestRelease.expires_at):'sin etiqueta')+'</small>'+(can('edit')?'<button type="button" class="btn ghost sm" id="wk-release-edit">Editar anuncio</button>':'') : '<p class="mono">Las nuevas publicaciones aparecerán aquí.</p>';
       $('#wk-release-edit')?.addEventListener('click',async()=>{ if(!latestRelease)return; const x=await askEditorialAnnouncement({esc,kind:latestRelease.kind,title:'Aviso de la última publicación',initial:latestRelease}); if(!x)return; try{await saveEditorialRecord(sb,s.id,x,{kind:latestRelease.kind,id:latestRelease.id,startsAt:latestRelease.starts_at});toast('Anuncio editorial actualizado');again();}catch(e){toast(errMsg(e))} });
+      // ---- aviso en actualizaciones (se guarda aparte, en series.theme.update_tag)
       let utDirty = false; const UT = Object.assign({ on: false, text: '', color: wcolor(s), style: 'solid', until: '', season: false }, s.theme?.update_tag || {});
       const UT_PRE = ['Nuevo volumen', 'Nuevo nivel', 'Capítulo extra', 'Volumen completo', 'Final', 'De regreso'], UT_COL = ['#f2c230', '#d9922b', '#f59e7a', '#c9a8f2', '#8cc3f2', '#a9d18e', wcolor(s)];
       const drawUT = () => { const box = $('#wk-utag-b'); if (!box) return; const ed = can('edit') ? '' : 'disabled';
@@ -1003,7 +1002,6 @@ export function createStudio(ctx){
             const { data: up, error } = await sb.from('series').update({ relations: RL }).eq('id', s.id).select('id'); if (error) throw new Error(/relations/.test(error.message || '') ? 'Falta ejecutar el SQL 20261111_obras_relacionadas.sql' : errMsg(error));
             if (!up?.length) throw new Error('No se guardó (permiso de la tabla «series»)'); s.relations = [...RL]; relDirty = false; toast('Relaciones guardadas'); drawRel(); })); };
         sb.from('series').select('id,title,teams(name)').or('published.eq.true,team_id.eq.' + T.team.id).is('archived_at', null).order('title').then(({ data }) => { all = data || []; drawRel(); });
-        // otras obras que ya enlazan a esta: aparecen solas en la ficha pública (con el sentido invertido)
         sb.from('series').select('id,title,relations,teams(name)').filter('relations', 'cs', JSON.stringify([{ id: s.id }])).then(({ data }) => { const l = (data || []).filter(x => x.id !== s.id && !RL.some(r => r.id === x.id)); if (!l.length) return; const INV = { precuela: 'Secuela', secuela: 'Precuela', adaptacion: 'Obra original' }, KL = Object.fromEntries(KINDS);
           $('#wk-rel-b')?.insertAdjacentHTML('afterend', `<div style="display:grid;gap:6px;margin-top:12px"><span class="mono" style="font-size:11px">Enlazada desde otras obras · se muestran solas en la ficha pública</span>${l.map(x => { const k = (x.relations || []).find(r => r?.id === s.id)?.kind; return `<div style="display:flex;justify-content:space-between;gap:8px;padding:8px;border:1px dashed #2f2a20"><span><b>${esc(x.title)}</b><br><small class="mono">${esc(x.teams?.name || '')}</small></span><span class="mono" style="font-size:12px">${esc(INV[k] || KL[k] || 'Relacionada')}</span></div>`; }).join('')}</div>`); }); }
       let dirty = false; const mark = () => { dirty = true; const d = $('#wk-dirty'); if (d) d.textContent = 'Cambios sin guardar'; };
@@ -1039,6 +1037,7 @@ export function createStudio(ctx){
     return free.length;
   }
 
+  // ---------- editor de capítulo, importación dinámica ----------
   async function names(ids){
     ids = [...new Set(ids.filter(Boolean))];
     if (!ids.length) return {};
@@ -1055,6 +1054,7 @@ export function createStudio(ctx){
     return (await editorTask)(id);
   }
 
+  // ---------- EPUB/DOCX/PDF, importación dinámica ----------
   let importerTask = null;
   async function importer(){
     if (!importerTask) importerTask = import('./studio-importer.js?v=1')
@@ -1063,6 +1063,7 @@ export function createStudio(ctx){
     return (await importerTask)();
   }
 
+  // ---------- multimedia (módulo diferido) ----------
   let libraryTask = null;
   async function library(folder = '', page = 0){
     if (!libraryTask) libraryTask = import('./studio-media.js?v=1')
@@ -1071,6 +1072,7 @@ export function createStudio(ctx){
     return (await libraryTask)(folder, page);
   }
 
+  // ---------- glosario ----------
   async function glossary(slug){
     if (!(await ensure())) return;
     const TAB = '/estudio/glosario';
@@ -1386,6 +1388,7 @@ export function createStudio(ctx){
     draw();
   }
 
+  // ---------- lectores: comunidad, estadísticas y descargas ----------
   const pick = (works, cur, id = 'fs', all = 'Todas las obras') => `<select id="${id}" aria-label="Obra">${all ? `<option value="">${all}</option>` : ''}${(works || []).map(w => `<option value="${w.id}" ${cur === w.id ? 'selected' : ''}>${esc(w.short || w.title)}</option>`).join('')}</select>`;
   const chLbl = (n, t) => 'Cap. ' + n + (t ? ' — ' + String(t).replace(/^(Cap[íi]tulo|Cap\.)\s*\d+\s*[—–:-]?\s*/, '') : '');
   async function teamWorks(){ const { data } = await sb.from('series').select('id,slug,title,short,theme').eq('team_id', T.team.id).is('archived_at', null).order('title'); return data || []; }
@@ -1485,8 +1488,6 @@ export function createStudio(ctx){
   const FMTS = ['EPUB','PDF','MOBI','AZW3','CBZ','DOCX','ZIP'];
   const STORES = ['Amazon Japón','BookWalker','Kindle','Kobo','Google Play Libros','Apple Books','J-Novel Club','Yen Press','Seven Seas','Ivrea','Panini','Planeta Cómic','Norma Editorial','Kamite','Editorial Kemuri','Otra tienda'];
   const REGIONS = ['Japón','EE. UU.','México','Argentina','España','Latinoamérica','Global'];
-  // Editor de enlaces compartido por la ficha de la obra y la sección general.
-  // Trabaja sobre los mismos registros: no duplica descargas ni datos en Supabase.
   const validHttps = value => { try { const u = new URL(value); return u.protocol === 'https:' && !!u.hostname && !u.username && !u.password; } catch { return false; } };
   async function renderDownloads(seriesId, target){
     if (!target) return;
@@ -1556,6 +1557,7 @@ export function createStudio(ctx){
     renderDownloads(F.work, app.querySelector('#st-dl-panel'));
   }
 
+  // ---------- Anuncios: tarjeta destacada en la página pública del equipo ----------
   async function announcements(){
     if (!(await ensure())) return;
     const TAB = '/estudio/anuncios';
