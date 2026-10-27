@@ -273,7 +273,7 @@ const LB_CSS = `
 .st-gen{display:grid;gap:8px;max-width:520px}.st-gen div{display:grid;grid-template-columns:140px minmax(0,1fr) 40px;gap:10px;align-items:center;font-size:14px}.st-gen i{height:8px;background:var(--gold)}.st-gen small{font-family:'IBM Plex Mono',monospace;color:#a89f8a;text-align:right}
 
 /* Mi biblioteca: el mismo lenguaje editorial de Inicio y Ranking, con portadas completas. */
-.lb-tabs{position:relative;scrollbar-width:thin;scrollbar-color:#67512e transparent;scroll-padding-inline:12px;margin-bottom:8px}
+.lb-tabs{position:relative;flex-wrap:nowrap;align-items:stretch;scrollbar-width:thin;scrollbar-color:#67512e transparent;scroll-padding-inline:12px;margin-bottom:8px}
 .lb-tabs a{white-space:nowrap;gap:7px;min-height:48px}.lb-tabs a:focus-visible{outline:2px solid var(--gold);outline-offset:-3px}
 .lb-navhelp{display:none;font:11px/1.5 'IBM Plex Mono',monospace;color:var(--mute);margin:0 0 21px}
 .lb-toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(155px,205px);gap:12px;align-items:end;margin:0 0 16px;max-width:950px}
