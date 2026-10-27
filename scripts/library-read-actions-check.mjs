@@ -64,7 +64,7 @@ for(const snippet of [
  'const live = () => seq === librarySeq',
  'data-read-work=',
  "toggleWholeWork(",
- "confirm(question)",
+ "await confirmInApp(question)",
  "undoReadingChanges(undoState.changes)",
  "readRows=applyReadingChanges(readRows,chapterById,changes)",
  "await persistReadingChanges(sb,uid,changes)",
