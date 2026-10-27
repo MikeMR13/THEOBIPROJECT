@@ -1,6 +1,6 @@
 import { manualTargets, manualChannelBatch, batchFeedback } from './diffusion-manual-batch.js';
 import { immediateDeliveryNotice, automaticDeliveryNotice } from './diffusion-delivery-notices.js';
-import { defaultDraftPresentation, normalizeDraftPresentation, renderDraftTemplate } from './diffusion-draft-templates.js?v=1';
+import { renderDraftTemplate } from './diffusion-draft-templates.js?v=1';
 // Centro de Difusión: anuncios manuales y agenda 4B opt-in, sin reglas automáticas globales.
 const EVENTS = [
   ['chapter.public', 'Capítulo público'],
@@ -42,8 +42,6 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const canSchedule = p('diffusion_schedule') && canAnnounce;
   let tab = 'resumen', rules = [], campaigns = [], connections = [], jobs = [], scheduled = [];
   let telegramFeedback = '', editingCampaignId = '', annDraftMessage = '', annDraftTitle = '', annFeedback = '';
-  let draftWorks = [], draftWorksLoaded = false, draftWorkId = '', draftPresentation = defaultDraftPresentation();
-  let annDraftPresentation = null;
   let annConfirm = null, annSending = false, annResults = [];
   let annDraftId = '';
   const deep = new URLSearchParams(location.search);
@@ -73,7 +71,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     [connections,rules,campaigns,jobs,scheduled] = await Promise.all([
       q('diffusion_connections','id,provider,label,status,created_at'),
       q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,connection_ids,template_campaign_id,enabled_at,created_at'),
-      q('diffusion_campaigns','id,title,body,presentation,status,scheduled_at,created_at'),
+      q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at'),
       canLogs ? q('diffusion_jobs','id,status,scheduled_at,last_error,created_at') : Promise.resolve([]),
       q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at')
     ]);
@@ -180,58 +178,27 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     if(!result.text.trim())throw new Error('El mensaje no puede estar vacío.');
     return result.text.trim();
   };
-  const loadDraftWorks = async () => {
-    if(draftWorksLoaded)return;
-    draftWorks=await q('series','id,title,slug,synopsis,author,cover_path,team_id','title');
-    draftWorksLoaded=true;
-    if(!draftWorkId&&draftWorks.length)draftWorkId=draftWorks[0].id;
-  };
-  const draftCard = (work,config) => {
-    if(!work)return '<p class="df-muted">Selecciona una obra de tu equipo para mostrar su información real. No se enviará nada.</p>';
-    const opts=normalizeDraftPresentation(config);
-    return '<div class="df-draft-card">'
-      +(opts.showCover&&annCover(work.cover_path)?'<img alt="Portada" loading="lazy" src="'+safe(annCover(work.cover_path))+'">':'')
-      +'<div class="df-draft-card-content">'
-      +(opts.showTitle?'<strong>'+safe(work.title)+'</strong>':'')
-      +(opts.showTeam?'<span>Traducción: '+safe(team?.name||'El Obi del Lector')+'</span>':'')
-      +(opts.showSynopsis&&work.synopsis?'<p>'+safe(work.synopsis.slice(0,300))+'</p>':'')
-      +'<small>elobidellector.com/serie/'+safe(work.slug||'')+'</small></div></div>';
-  };
-  const draftLivePreview = (body,workId,config) => {
-    const work=draftWorks.find(w=>w.id===workId);
-    const rendered=renderDraftTemplate(body,draftContext(work));
-    return '<section class="df-draft-preview" aria-live="polite"><h4>Vista previa del mensaje y la tarjeta</h4>'
-      +'<p class="df-muted">Esta tarjeta es una simulación editorial. No cambia el SEO público ni las portadas obligatorias de Discord y Telegram.</p>'
-      +(rendered.errors.length?'<p role="status" class="df-warning-heading">'+safe(rendered.errors.join(' '))+'</p>':'')
-      +'<div class="df-draft-message">'+safe(rendered.text||'Escribe un mensaje para visualizarlo.')+'</div>'
-      +'<small class="df-muted">'+rendered.text.length+'/700 caracteres después de sustituir las variables.</small>'
-      +draftCard(work,config)+'</section>';
-  };
-  const campaignsView = () => '<section class="df-box"><h3>Borradores editoriales</h3>'
-    +'<p>Crea textos reutilizables, inserta variables y elige los datos de la tarjeta simulada. No se envía ningún mensaje hasta confirmarlo.</p>'
+  // Las plantillas solo afectan el mensaje editorial, no el SEO ni la presentación de la tarjeta.
+  const campaignsView = () => '<section class="df-box"><h3>Plantillas de anuncios</h3>'
+    +'<p>Guarda y reutiliza mensajes para Anunciar y Automatizaciones. El nombre, la portada y los metadatos del enlace se toman siempre de la obra, no de la plantilla.</p>'
     +(campaigns.filter(c=>c.status==='draft').length?'<div class="df-list">'
       +campaigns.filter(c=>c.status==='draft').map(c=>'<article><div><strong>'+safe(c.title)+'</strong>'
-        +'<small>Sin publicar · '+when(c.created_at)+'</small>'
+        +'<small>Plantilla guardada · '+when(c.created_at)+'</small>'
         +'<p>'+safe((c.body||'').slice(0,350))+'</p></div><div>'
         +(canAnnounce?'<button type="button" class="btn" data-use-campaign="'+safe(c.id)+'">Preparar anuncio</button> ':'')
         +(canCompose?'<button type="button" class="btn" data-edit-campaign="'+safe(c.id)+'">Editar</button> '
           +'<button type="button" class="df-danger" data-del-campaign="'+safe(c.id)+'">Eliminar</button>':'')
-        +'</div></article>').join('')+'</div>':empty('No hay borradores.'))
-    +(canCompose?'<form id="df-campaign-form" class="df-form"><h4>'+(editingCampaign()?'Editar borrador':'Nuevo borrador')+'</h4>'
-      +'<label>Título interno<input name="title" minlength="2" maxlength="140" required placeholder="Ej. Presentación de una obra" value="'+safe(editingCampaign()?.title||'')+'"></label>'
-      +'<label>Plantilla rápida<select id="df-campaign-template">'+templateOptions()+'</select></label>'
+        +'</div></article>').join('')+'</div>':empty('Todavía no hay plantillas.'))
+    +(canCompose?'<form id="df-campaign-form" class="df-form"><h4>'+(editingCampaign()?'Editar plantilla':'Nueva plantilla')+'</h4>'
+      +'<label>Nombre de la plantilla<input name="title" minlength="2" maxlength="140" required placeholder="Ej. Presentación de nueva obra" value="'+safe(editingCampaign()?.title||'')+'"></label>'
+      +'<label>Texto sugerido<select id="df-campaign-template">'+templateOptions()+'</select></label>'
       +'<label>Mensaje con variables<textarea name="body" maxlength="2000" rows="5" placeholder="¡Les presentamos {{novela}} por {{equipo_traductor}}!">'+safe(editingCampaign()?.body||'')+'</textarea></label>'
       +'<div class="df-draft-variables" role="group" aria-label="Insertar variables">'
       +[['novela','Novela'],['equipo_traductor','Equipo productor / traductor'],['sinopsis','Sinopsis'],['autor','Autor']].map(([key,label])=>'<button type="button" class="df-link" data-draft-variable="'+key+'">＋ '+label+'</button>').join('')+'</div>'
-      +'<label>Obra para la vista previa<select id="df-campaign-work">'
-      +(draftWorks.length?draftWorks.map(w=>'<option value="'+safe(w.id)+'"'+(draftWorkId===w.id?' selected':'')+'>'+safe(w.title)+'</option>').join(''):'<option value="">No hay obras disponibles</option>')+'</select></label>'
-      +'<fieldset class="df-draft-options"><legend>Campos en la tarjeta de muestra</legend>'
-      +[['showTitle','Nombre de la obra'],['showTeam','Equipo productor / traductor'],['showSynopsis','Sinopsis'],['showCover','Portada']].map(([key,label])=>'<label><input type="checkbox" data-draft-option="'+key+'"'+(draftPresentation[key]?' checked':'')+'> '+label+'</label>').join('')+'</fieldset>'
-      +'<div id="df-campaign-live">'+draftLivePreview(editingCampaign()?.body||'',draftWorkId,draftPresentation)+'</div>'
-      +'<p class="df-muted">Máximo de 700 caracteres para enviar, después de sustituir las variables. La portada y el enlace real se validan en el servidor.</p>'
-      +'<button type="submit" class="btn">'+(editingCampaign()?'Guardar cambios':'Guardar borrador')+'</button>'
+      +'<p class="df-muted">Las variables se sustituyen al preparar un anuncio o al ocurrir un evento automático. El texto final debe tener como máximo 700 caracteres y se valida antes del envío.</p>'
+      +'<button type="submit" class="btn">'+(editingCampaign()?'Guardar cambios':'Guardar plantilla')+'</button>'
       +(editingCampaign()?'<button type="button" class="df-link" id="df-campaign-cancel">Cancelar edición</button>':'')
-      +'</form>':'<p class="df-muted">Necesitas «Redactar difusión» para crear o editar borradores.</p>')
+      +'</form>':'<p class="df-muted">Necesitas «Redactar difusión» para crear o editar plantillas.</p>')
     +'</section>';
   const historyView = () => '<section class="df-box"><h3>Historial de envíos</h3>'
     + (canLogs ? (jobs.length ? '<div class="df-list">'+jobs.map(j=>'<article><strong>'+safe(j.status)+'</strong>'
@@ -284,15 +251,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
            : '<button type="button" class="btn" id="df-ann-preview">Crear vista previa</button>')
         + '</div>'
         + (annPreview ? '<div class="df-box"><h4>Vista previa (todavía no enviada)</h4>'
-          + (annDraftPresentation
-            ? '<p class="df-muted">Tarjeta de muestra: el SEO público y los campos que exige el proveedor no cambian.</p>'
-              + draftCard({
-                title:annPreview.title,synopsis:annPreview.description,cover_path:annPreview.cover_path,
-                slug:annWorks.find(w=>w.id===annWork)?.slug||''
-              },annDraftPresentation)
-            : (annCover(annPreview.cover_path)?'<img loading="lazy" alt="Portada del anuncio" src="'+safe(annCover(annPreview.cover_path))+'" style="max-width:112px;height:auto;float:right;margin:0 0 12px 12px;border-radius:6px">':'')
-              + '<p><strong>'+safe(annPreview.title)+'</strong></p>'
-              + '<p>'+safe(annPreview.description||'')+'</p>')
+          + (annCover(annPreview.cover_path)?'<img loading="lazy" alt="Portada del anuncio" src="'+safe(annCover(annPreview.cover_path))+'" style="max-width:112px;height:auto;float:right;margin:0 0 12px 12px;border-radius:6px">':'')
+          + '<p><strong>'+safe(annPreview.title)+'</strong></p>'
+          + '<p>'+safe(annPreview.description||'')+'</p>'
           + '<p><a href="'+safe(annPreview.url)+'" target="_blank" rel="noopener noreferrer">'+safe(annPreview.url)+'</a></p>'
           + (annDraftTitle?'<p class="df-muted">Texto del borrador: '+safe(annDraftTitle)+'</p>':'')
           + '<label>Plantilla para el texto<select id="df-ann-template"><option value="">'
@@ -418,7 +379,6 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     root.innerHTML = '<div class="df">' + header() + page() + '</div>';
     root.querySelectorAll('[data-dtab],[data-goto]').forEach(b => b.onclick = async () => {
       tab = b.dataset.dtab || b.dataset.goto;
-      if(tab==='campanas'&&!draftWorksLoaded){try{await loadDraftWorks();}catch{toast('No se pudieron cargar obras para la vista previa.');}}
       if(tab==='anuncios'&&!annLoaded) {
         try{await loadAnnWorks();}catch(e){toast('No se pudo cargar el catálogo para anuncios.');}
       }
@@ -464,7 +424,6 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       const selected=availableDrafts().find(c=>c.id===annDraftId);
       annDraftMessage=selected?String(selected.body||'').trim():'';
       annDraftTitle=selected?.title||'';
-      annDraftPresentation=selected?normalizeDraftPresentation(selected.presentation):null;
       annPreview=null;annFeedback='';annScheduledId='';draw();
     });
     root.querySelector('#df-ann-kind')?.addEventListener('change',e=>{
@@ -524,11 +483,10 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       if(!annPreview?.title)throw new Error('Prepara una vista previa antes de guardar.');
       const title=('Anuncio: '+annPreview.title).slice(0,140);
       const {error}=await sb.rpc('diffusion_campaign_draft_save',{
-        p_team:teamId,p_id:null,p_title:title,p_body:body,
-        p_presentation:normalizeDraftPresentation(annDraftPresentation)
+        p_team:teamId,p_id:null,p_title:title,p_body:body
       });
       if(error)throw new Error('No se pudo guardar este borrador.');
-      campaigns=await q('diffusion_campaigns','id,title,body,presentation,status,scheduled_at,created_at');
+      campaigns=await q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at');
       toast('Texto guardado como borrador, sin publicar');
     }));
     root.querySelector('#df-ann-schedule')?.addEventListener('click',()=>{
@@ -894,32 +852,22 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     root.querySelector('#df-campaign-template')?.addEventListener('change',e=>{
       const area=root.querySelector('#df-campaign-form textarea[name="body"]');
       const selected=editorialTemplate(e.target.value);
-      if(area&&selected){area.value=selected;refreshDraftPreview();}
+      if(area&&selected)area.value=selected;
     });
-    const refreshDraftPreview=()=>{
-      const area=root.querySelector('#df-campaign-form textarea[name="body"]');
-      const live=root.querySelector('#df-campaign-live');
-      if(area&&live)live.innerHTML=draftLivePreview(area.value,draftWorkId,draftPresentation);
-    };
-    root.querySelector('#df-campaign-form textarea[name="body"]')?.addEventListener('input',refreshDraftPreview);
-    root.querySelector('#df-campaign-work')?.addEventListener('change',e=>{draftWorkId=e.target.value;refreshDraftPreview();});
-    root.querySelectorAll('[data-draft-option]').forEach(input=>input.addEventListener('change',()=>{
-      draftPresentation={...draftPresentation,[input.dataset.draftOption]:input.checked};refreshDraftPreview();
-    }));
     root.querySelectorAll('[data-draft-variable]').forEach(button=>button.addEventListener('click',()=>{
       const area=root.querySelector('#df-campaign-form textarea[name="body"]');
       if(!area)return;
       area.setRangeText('{{'+button.dataset.draftVariable+'}}',area.selectionStart,area.selectionEnd,'end');
-      area.focus();refreshDraftPreview();
+      area.focus();
     }));
     root.querySelectorAll('[data-edit-campaign]').forEach(b=>b.onclick=()=>{
       if(!canCompose)return;
       const item=campaigns.find(c=>c.id===b.dataset.editCampaign&&c.status==='draft');
       if(!item)return;
-      editingCampaignId=item.id;draftPresentation=normalizeDraftPresentation(item.presentation);tab='campanas';draw();
+      editingCampaignId=item.id;tab='campanas';draw();
     });
     root.querySelector('#df-campaign-cancel')?.addEventListener('click',()=>{
-      editingCampaignId='';draftPresentation=defaultDraftPresentation();draw();
+      editingCampaignId='';draw();
     });
     root.querySelectorAll('[data-use-campaign]').forEach(b=>b.onclick=()=>{
       if(!canAnnounce)return;
@@ -929,7 +877,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         const body=String(item.body||'').trim();
         if(body.length<1||body.length>2000)throw new Error('Revisa la longitud del borrador (máximo 2000 caracteres).');
         if(!annLoaded)await loadAnnWorks();
-        annDraftId=item.id;annDraftMessage=body;annDraftTitle=item.title;annDraftPresentation=normalizeDraftPresentation(item.presentation);annPreview=null;annFeedback='';
+        annDraftId=item.id;annDraftMessage=body;annDraftTitle=item.title;annPreview=null;annFeedback='';
         tab='anuncios';draw();
       });
     });
@@ -939,11 +887,11 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       busy(f.querySelector('button'), async () => {
         const { error } = await sb.rpc('diffusion_campaign_draft_save', {
           p_team:teamId,p_id:editingCampaignId||null,p_title:String(data.get('title')||''),
-          p_body:String(data.get('body')||''),p_presentation:normalizeDraftPresentation(draftPresentation)
+          p_body:String(data.get('body')||'')
         });
         if (error) throw new Error('No se pudo guardar el borrador. Comprueba tus permisos y que siga editable.');
-        editingCampaignId='';draftPresentation=defaultDraftPresentation();
-        campaigns = await q('diffusion_campaigns','id,title,body,presentation,status,scheduled_at,created_at');
+        editingCampaignId='';
+        campaigns = await q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at');
         toast('Borrador guardado sin publicar');draw();
       });
     });
