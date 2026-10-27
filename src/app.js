@@ -359,7 +359,7 @@ async function library(){
     }
     if (!live()) return;
     // Los créditos no deben hacer desaparecer obras cuando falle una consulta complementaria.
-    try { await attachPublicCredits(sb,ser); } catch(e){ console.warn('Créditos de biblioteca',e); }
+    try { await attachPublicCredits(sb, ser || []); } catch(e){ console.warn('Créditos de biblioteca',e); }
   } catch(e) {
     if (!live()) return;
     console.warn('Mi biblioteca',e);
@@ -394,7 +394,7 @@ async function library(){
       <a class="lb-cover-link" href="/serie/${esc(w.s.slug)}" aria-label="Ver ficha de ${esc(w.s.title)}">${COVER(w)}</a>
       <div class="lb-card-body"><span class="lb-label${done?' finished':pending?' pending':''}">${label}</span>
         <a class="lb-title" href="/serie/${esc(w.s.slug)}">${esc(w.s.title)}</a>
-        ${creditsHTML(w.s,{esc,media:MED,mode:'carousel'})}
+        ${creditsHTML(w.s, { esc, media: MED, mode: 'carousel' })}
         <span class="lb-card-sub">${esc(status)}</span>
         <div class="lb-progress" aria-label="${w.nr} de ${w.tot} capítulos disponibles leídos; ${pct} por ciento">
           <span class="lb-progress-head"><span>${w.nr} de ${w.tot} capítulos</span><span>${pct} %</span></span>
