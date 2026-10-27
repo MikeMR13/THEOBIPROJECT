@@ -1,6 +1,6 @@
 // Diálogos coherentes con El Obi del Lector, sin confirm(), alert() ni prompt() del navegador.
 // Son asíncronos: la acción solamente continúa al pulsar el botón dentro del sitio.
-const CSS = \`
+const CSS = `
 .obi-dialog{box-sizing:border-box;width:min(500px,calc(100vw - 28px));max-width:500px;max-height:min(85vh,780px);margin:auto;padding:0;border:1px solid #8f7240;border-radius:7px;background:#1b1710;color:#efe9dc;box-shadow:0 26px 85px #000d;font-family:'IBM Plex Sans',sans-serif}
 .obi-dialog::backdrop{background:rgba(0,0,0,.8);backdrop-filter:blur(3px)}
 .obi-dialog-inner{padding:clamp(19px,4vw,29px);display:grid;gap:16px}
@@ -20,7 +20,7 @@ const CSS = \`
 .obi-dialog button:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:480px){.obi-dialog-actions{display:grid;grid-template-columns:1fr 1fr}.obi-dialog-actions button{min-width:0;padding:10px 6px}}
 @media(prefers-reduced-motion:reduce){.obi-dialog::backdrop{backdrop-filter:none}}
-\`;
+`;
 let stylesReady = false;
 const queue = [];
 let active = false;
