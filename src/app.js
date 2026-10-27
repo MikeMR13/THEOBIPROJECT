@@ -436,7 +436,7 @@ async function library(){
           if(b.disabled)return; b.disabled=true;const id=b.dataset.hide,on=!HID.has(id);
           const proposed=new Set(HID);on?proposed.add(id):proposed.delete(id);
           try {
-            const {error}=await sb.from('profiles').update({hidden_series:[...proposed]}).eq('id',uid);
+            const {error}=await sb.from('profiles').update({ hidden_series:[...proposed] }).eq('id',uid);
             if(error)throw error;
             if(!live())return;
             HID.clear();proposed.forEach(x=>HID.add(x));
