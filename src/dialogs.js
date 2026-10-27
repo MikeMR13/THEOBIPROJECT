@@ -38,6 +38,7 @@ const dialog = ({ kind = 'confirm', message = '', initial = '', confirmLabel, da
     cancel.type = 'button';
     cancel.className = 'obi-dialog-cancel';
     cancel.textContent = 'Cancelar';
+    cancel.hidden = kind === 'alert';
     const accept = document.createElement('button');
     accept.type = 'button';
     accept.className = 'obi-dialog-accept' + (danger ? ' is-danger' : '');
