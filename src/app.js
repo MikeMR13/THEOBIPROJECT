@@ -1,6 +1,7 @@
 import { installPublicShare } from './share.js?v=1';
 import { readPages } from './paging.js';
 import { prepareLibrary, selectLibraryItems } from './library-logic.js';
+import { readingGroups, planReadingChanges, undoReadingChanges, applyReadingChanges, persistReadingChanges } from './library-read-actions.js';
 // Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
 import { createClient } from '/supabase.js?v=1';
 import { createReader } from '/reader.js?v=19';
@@ -351,7 +352,7 @@ async function library(){
           .select('id,team_id,slug,title,short,cover_path,cover_thumb_path,translation_status,theme,teams(name,slug,color,avatar_path)')
           .in('id',group).eq('published',true).order('id').range(from,to)))),
         Promise.all(batches.map(group=>readPages((from,to)=>sb.from('chapters')
-          .select('id,num,series_id,publish_at,status,deleted_at')
+          .select('id,num,title,vol,volume_id,series_id,publish_at,status,deleted_at')
           .eq('status','published').is('deleted_at',null).in('series_id',group)
           .order('id').range(from,to))))
       ]);
@@ -369,12 +370,20 @@ async function library(){
     return;
   }
   if (!live()) return;
-  const { lists:L, read, followed:F }=prepareLibrary({progress:prog,follows:fol,readRows,series:ser,chapters:chs});
+  let { lists:L, read, followed:F }=prepareLibrary({progress:prog,follows:fol,readRows,series:ser,chapters:chs});
+  const chapterById=new Map(chs.map(c=>[c.id,c]));
+  const worksById=new Map(ser.map(w=>[w.id,w]));
   const HID=new Set(profile?.hidden_series || []);
   const count = k => L[k]?.length ?? null;
   app.innerHTML = `<div class="ui-cath"><div><h1>Mi biblioteca</h1><p>${read.size.toLocaleString('es-MX')} capítulos leídos · ${F.size.toLocaleString('es-MX')} obras seguidas</p></div><span class="kj" aria-hidden="true">書庫</span></div>
   <nav class="lb-tabs" aria-label="Secciones de Mi biblioteca">${TABS.map(([k,label])=>`<a href="/biblioteca${k==='leyendo'?'':'?t='+k}" class="${k===tab?'on':''}"${k===tab?' aria-current="page"':''}>${label}${count(k)?`<em>${count(k)}</em>`:''}</a>`).join('')}</nav>
-  <p class="lb-navhelp">Desliza las pestañas para ver todas las secciones →</p><div id="lb-body"></div>`;
+  <p class="lb-navhelp">Desliza las pestañas para ver todas las secciones →</p>
+  <div id="lb-read-feedback" class="lb-read-feedback" role="status" aria-live="polite" hidden></div>
+  <div id="lb-body"></div>
+  <dialog id="lb-read-dialog" class="lb-read-dialog" aria-labelledby="lb-read-title">
+    <div id="lb-read-dialog-body"></div>
+    <button type="button" class="btn ghost lb-read-close" id="lb-read-close">Cerrar</button>
+  </dialog>`;
   const box=$('#lb-body'), nav=app.querySelector('.lb-tabs');
   const COVER = w => {
     const c=w.s.theme?.color || w.s.teams?.color || '#76592e';
@@ -401,6 +410,7 @@ async function library(){
           <span class="lb-progress-track" aria-hidden="true"><i style="width:${pct}%"></i></span>
         </div>
         <a class="lb-card-cta" href="${esc(href)}">${done?'Ver la obra':pending?'Leer siguiente capítulo':'Continuar leyendo'}</a>
+        <button type="button" class="lb-read-open" data-read-open="${esc(w.s.id)}" aria-label="Gestionar capítulos leídos de ${esc(w.s.title)}">✓ Gestionar lecturas</button>
         <button type="button" class="lb-card-hide" data-hide="${esc(w.s.id)}">${HID.has(w.s.id)?'Mostrar en mi perfil':'Ocultar de mi perfil público'}</button>
       </div></article>`;
   };
@@ -409,6 +419,125 @@ async function library(){
     pendientes:'Sigue una obra desde su ficha: cuando tenga capítulos sin leer, aparecerá aquí.',
     terminadas:'Aquí aparecen las obras completas cuyos capítulos publicados ya leíste.'
   };
+  // Panel único, montado al abrirse: no genera cientos de controles ocultos por ficha.
+  // Cada acción opera exclusivamente sobre capítulos publicados hasta la fecha actual.
+  const dialog=app.querySelector('#lb-read-dialog');
+  const dialogBody=app.querySelector('#lb-read-dialog-body');
+  const notice=app.querySelector('#lb-read-feedback');
+  let managedId=null, opener=null, busy=false, undoState=null;
+  const availableGroups = id => readingGroups(id,chs);
+  const dialogContent = () => {
+    const series=worksById.get(managedId);
+    if(!series) return '<p>Esta obra ya no está disponible.</p>';
+    const groups=availableGroups(managedId), all=groups.flatMap(g=>g.chapters);
+    const count=all.filter(c=>read.has(c.id)).length;
+    const button=(scope,id,mark,label,disabled=false)=>`<button type="button" class="lb-read-action" data-read-scope="${scope}" data-read-target="${esc(id)}" data-read-mark="${mark?'1':'0'}"${disabled?' disabled':''}>${label}</button>`;
+    return `<header class="lb-read-head"><h2 id="lb-read-title">Gestionar lecturas</h2>
+      <strong>${esc(series.title)}</strong><p>${count} de ${all.length} capítulos publicados y disponibles marcados como leídos.</p></header>
+      <p class="lb-read-explain">Estas marcas actualizan tus estadísticas y el avance de la obra, pero no cambian el punto exacto donde pausaste el lector. Solo se incluyen capítulos publicados hasta hoy.</p>
+      <div class="lb-read-all" role="group" aria-label="Obra completa">
+        ${button('work',managedId,true,'✓ Marcar toda la novela como leída',count===all.length)}
+        ${button('work',managedId,false,'↶ Desmarcar toda la novela',count===0)}
+      </div>
+      <div class="lb-read-groups">${groups.map(g=>{
+        const marked=g.chapters.filter(c=>read.has(c.id)).length;
+        return `<details class="lb-read-volume"><summary>${esc(g.label)} · ${marked} de ${g.chapters.length} leídos</summary>
+          <div class="lb-read-volume-actions">
+            ${button('volume',g.key,true,'Marcar volumen leído',marked===g.chapters.length)}
+            ${button('volume',g.key,false,'Desmarcar volumen',marked===0)}
+          </div>
+          <ul class="lb-read-chapters">${g.chapters.map(c=>`<li>
+            <span><b>Capítulo ${esc(c.num)}</b>${c.title ? '<small>'+esc(c.title)+'</small>' : ''}</span>
+            ${button('chapter',c.id,!read.has(c.id),read.has(c.id)?'↶ Desmarcar':'✓ Marcar leído')}
+          </li>`).join('')}</ul>
+        </details>`;}).join('') || '<p class="mono">No hay capítulos publicados disponibles para marcar.</p>'}</div>`;
+  };
+  const refreshReadViews = () => {
+    ({ lists:L, read, followed:F }=prepareLibrary({progress:prog,follows:fol,readRows,series:ser,chapters:chs}));
+    const total=app.querySelector('.ui-cath p');
+    if(total)total.textContent=`${read.size.toLocaleString('es-MX')} capítulos leídos · ${F.size.toLocaleString('es-MX')} obras seguidas`;
+    nav.querySelectorAll('a').forEach(a=>{
+      const k=new URL(a.href,location.origin).searchParams.get('t')||'leyendo';
+      const n=count(k),em=a.querySelector('em');
+      if(!n)em?.remove();
+      else if(em)em.textContent=n;
+      else a.insertAdjacentHTML('beforeend','<em>'+n+'</em>');
+    });
+    const q=box.querySelector('#lb-search')?.value||'';
+    const order=box.querySelector('#lb-order')?.value||'';
+    void paintTab(tab).then(()=>{
+      if(!live())return;
+      const input=box.querySelector('#lb-search'),sel=box.querySelector('#lb-order');
+      if(input){input.value=q;if(sel&&order)sel.value=order;input.dispatchEvent(new Event('input'));}
+    });
+    if(dialog.open)dialogBody.innerHTML=dialogContent();
+  };
+  const renderUndo = () => {
+    if(!undoState){notice.hidden=true;notice.textContent='';return;}
+    notice.hidden=false;
+    notice.innerHTML=`<span>${esc(undoState.message)}</span><button type="button" id="lb-read-undo">Deshacer</button>`;
+    notice.querySelector('#lb-read-undo').onclick=async()=>{
+      if(!undoState||busy||!live())return;
+      const tx=undoState;
+      const inverse=undoReadingChanges(tx.changes);
+      await runReadMutation(inverse,'Se deshizo el cambio',true);
+    };
+  };
+  const runReadMutation = async (changes,message,isUndo=false) => {
+    if(busy||!changes.length||!live())return;
+    busy=true;
+    dialog.querySelectorAll('button').forEach(b=>b.disabled=true);
+    notice.querySelectorAll('button').forEach(b=>b.disabled=true);
+    try {
+      await persistReadingChanges(sb,uid,changes);
+      if(!live())return;
+      readRows=applyReadingChanges(readRows,chapterById,changes);
+      undoState=isUndo?null:{changes,message};
+      refreshReadViews();
+      renderUndo();
+      toast(message);
+    } catch(error){
+      console.warn('Marcas de lectura',error);
+      undoState=null;
+      // La API puede fallar en el último lote: refrescar siempre el estado real.
+      try{
+        const {data}=await readPages((from,to)=>sb.from('read_chapters')
+          .select('chapter_id,read_at,chapters!inner(series_id,deleted_at)')
+          .eq('user_id',uid).is('chapters.deleted_at',null).order('chapter_id').range(from,to));
+        if(live()){readRows=data;refreshReadViews();}
+      }catch(e){if(live())void library();}
+      if(live()){renderUndo();toast('No se pudo completar el cambio. Comprueba tu biblioteca e inténtalo de nuevo.');}
+    }finally{
+      busy=false;
+      if(live())dialog.querySelectorAll('button').forEach(b=>b.disabled=false);
+    }
+  };
+  const openReadDialog=(id,from)=>{
+    if(!live()||!worksById.has(id)||busy)return;
+    managedId=id;opener=from;dialogBody.innerHTML=dialogContent();
+    if(!dialog.open)dialog.showModal();
+  };
+  dialog.querySelector('#lb-read-close').onclick=()=>dialog.close();
+  dialog.addEventListener('close',()=>{const target=app.querySelector('[data-read-open="'+managedId+'"]');(target||opener)?.focus?.();});
+  dialogBody.addEventListener('click',e=>{
+    const b=e.target.closest('[data-read-scope]');
+    if(!b||busy||!managedId||!live())return;
+    const scope=b.dataset.readScope,mark=b.dataset.readMark==='1';
+    const groups=availableGroups(managedId);
+    const selected=scope==='work' ? groups.flatMap(g=>g.chapters) :
+      scope==='volume' ? (groups.find(g=>g.key===b.dataset.readTarget)?.chapters||[]) :
+      scope==='chapter' ? groups.flatMap(g=>g.chapters).filter(c=>c.id===b.dataset.readTarget) : [];
+    const changes=planReadingChanges(selected.map(c=>c.id),readRows,mark);
+    if(!changes.length)return;
+    const unit=changes.length===1?'capítulo':'capítulos';
+    if(scope!=='chapter'&&!confirm('¿'+(mark?'Marcar':'Desmarcar')+' '+changes.length+' '+unit+' como '+(mark?'leídos':'no leídos')+'?\\nLas estadísticas se actualizarán y podrás deshacerlo.'))return;
+    const previousOpen=[...dialogBody.querySelectorAll('.lb-read-volume')].filter(x=>x.open).map(x=>x.querySelector('summary')?.textContent?.split(' · ')[0]);
+    void runReadMutation(changes,(mark?'Marcados':'Desmarcados')+' '+changes.length+' '+unit).then(()=>{
+      if(!dialog.open||!live())return;
+      dialogBody.querySelectorAll('.lb-read-volume').forEach(v=>{if(previousOpen.some(p=>v.querySelector('summary')?.textContent?.startsWith(p)))v.open=true;});
+    });
+  });
+
   let tabRequest=0;
   const paintTab = async next => {
     if (!live()) return;
@@ -432,6 +561,7 @@ async function library(){
         results.innerHTML=filtered.length ? `<div class="lb-grid">${filtered.map(w=>card(w,tab)).join('')}</div>`
           : `<div class="lb-empty"><span>${L[tab].length?'No hay resultados con esta búsqueda.':EMPTY[tab]}</span>${L[tab].length?'<button type="button" class="btn ghost" id="lb-reset">Limpiar búsqueda</button>':'<a class="btn ghost" href="/catalogo">Explorar el catálogo</a>'}</div>`;
         results.querySelector('#lb-reset')?.addEventListener('click',()=>{input.value='';repaint();input.focus();});
+        results.querySelectorAll('[data-read-open]').forEach(b=>b.onclick=()=>openReadDialog(b.dataset.readOpen,b));
         results.querySelectorAll('[data-hide]').forEach(b=>b.onclick=async()=>{
           if(b.disabled)return; b.disabled=true;const id=b.dataset.hide,on=!HID.has(id);
           const proposed=new Set(HID);on?proposed.add(id):proposed.delete(id);
