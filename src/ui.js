@@ -207,7 +207,29 @@ const RK_CSS = `
 .rk-upd{margin:28px 0 0;font-size:12px;color:#7d745f}
 .rk-bdgs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}.rk-bdgs:empty{display:none}.rk-bdg{display:inline-flex;align-items:center;gap:8px;min-height:32px;padding:0 12px 0 0;background:#16140f;border:1px solid var(--gold);color:var(--paper)!important;font-size:13px;font-weight:600;text-decoration:none}.rk-bdg b{display:flex;align-items:center;align-self:stretch;padding:0 9px;background:var(--gold);color:#0d0c0a;font-family:'Shippori Mincho B1',serif;font-size:16px}.rk-bdg:hover{background:#1f1c14}
 .rk-rate{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0}.rk-stars{display:inline-flex}.rk-stars button{width:36px;height:40px;padding:0;background:none;border:0;font-size:24px;line-height:1;color:#3d3628;cursor:pointer}.rk-stars button.avg{color:#b5a27a}.rk-stars button.on{color:var(--gold)}.rk-stars:hover button{color:var(--gold)}.rk-stars button:hover~button{color:#3d3628}.rk-rate .mono{font-size:12px}
-.tp2-rkl{display:grid}.tp2-rki{display:grid;grid-template-columns:52px 40px minmax(0,1fr) auto;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid var(--ln);color:var(--fg)!important;text-decoration:none}.tp2-rki .n{font-family:var(--tf);font-weight:800;font-size:26px;color:var(--act);text-align:center}.tp2-rki .cv{width:40px;aspect-ratio:2/3;background:var(--sf) center/cover;border:1px solid var(--ln)}.tp2-rki b{font-weight:600}.tp2-rki .m{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mu)}.tp2-rk .tp2-sh{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}.tp2-rk .tp2-sh a{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--act)}
+/* Ranking del perfil: los puestos son del Top 50 general de lecturas de la semana. */
+.tp2-rk{min-width:0}
+.tp2-rk .tp2-sh{display:flex;justify-content:space-between;align-items:baseline;gap:10px 16px;flex-wrap:wrap}
+.tp2-rk .tp2-sh a{font:600 12px/1.6 'IBM Plex Mono',monospace;color:var(--act)}
+.tp2-rk .tp2-sh a:focus-visible,.tp2-rki:focus-visible{outline:2px solid var(--ac);outline-offset:3px}
+.tp2-rk-sub{margin:-5px 0 14px;color:var(--mu);font:12px/1.6 'IBM Plex Mono',monospace}
+.tp2-rkl{display:grid;gap:10px}
+.tp2-rki{display:grid;grid-template-columns:46px 54px minmax(0,1fr) minmax(118px,auto);gap:12px;align-items:center;min-width:0;padding:11px 13px;background:var(--sf);border:1px solid var(--ln);border-left:3px solid var(--ac);border-radius:var(--r);color:var(--fg)!important;text-decoration:none;transition:border-color .2s,background .2s}
+.tp2-rki:hover{border-color:var(--ac);background:color-mix(in srgb,var(--ac) 6%,var(--sf))}
+.tp2-rki .n{font-family:var(--tf);font-weight:800;font-size:clamp(21px,2cqi,28px);color:var(--act);text-align:center;white-space:nowrap}
+.tp2-rki .cv{width:54px;aspect-ratio:2/3;min-width:0;background:var(--bg);border:1px solid var(--ln);display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--act);font-family:serif}
+.tp2-rki .cv img{display:block;width:100%;height:100%;object-fit:contain;object-position:center}
+.tp2-rki-main{min-width:0;display:grid;gap:5px}
+.tp2-rki-main b{font-family:var(--tf);font-size:clamp(14px,1.65cqi,18px);font-weight:650;line-height:1.35;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.tp2-rki-main small{font:11px/1.4 'IBM Plex Mono',monospace;color:var(--mu)}
+.tp2-rki-metrics{display:grid;justify-items:end;gap:6px;min-width:0}
+.tp2-rk-score{font:600 12px/1.4 'IBM Plex Mono',monospace;text-align:right;color:var(--fg);overflow-wrap:anywhere}
+.tp2-rkmv{display:inline-flex;align-items:center;gap:3px;min-height:22px;padding:2px 6px;border:1px solid currentColor;font:700 11px/1.3 'IBM Plex Mono',monospace}
+.tp2-rkmv.up{color:#a9d18e}.tp2-rkmv.down{color:#f59e7a}.tp2-rkmv.same{color:var(--mu);border-color:var(--ln)}.tp2-rkmv.new{color:var(--act)}
+.tp2-rk-foot{margin:12px 0 0;color:var(--mu);font:11px/1.7 'IBM Plex Mono',monospace;max-width:78ch}
+@container(max-width:700px){.tp2-rki{grid-template-columns:40px 48px minmax(0,1fr);gap:9px;padding:10px}.tp2-rki .cv{width:48px}.tp2-rki-metrics{grid-column:3;justify-items:start;grid-row:2;gap:5px}.tp2-rk-score{text-align:left}.tp2-rki-main b{-webkit-line-clamp:3}.tp2-rk .tp2-sh a{font-size:11px}}
+@container(max-width:420px){.tp2-rki{grid-template-columns:35px 43px minmax(0,1fr);gap:7px}.tp2-rki .cv{width:43px}.tp2-rki .n{font-size:20px}.tp2-rki-main b{font-size:14px}}
+@media(prefers-reduced-motion:reduce){.tp2-rki{transition:none}}
 @media(max-width:560px){.rk-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 14px}.rk-n{font-size:18px;min-width:38px;height:38px}.rk-c.rk-podium .rk-n{min-width:46px;height:46px;font-size:24px}}
 /* Ranking editorial: fichas con portadas completas y podio distinguible. */
 .rk-grid{gap:23px 16px;padding:10px 3px 6px}
@@ -1916,12 +1938,46 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     }).catch(() => {});
   }
   async function teamRank(root, teamId, insertRanking){
-    const { data: tw } = await sb.from('series').select('id,slug,title,cover_path').eq('team_id', teamId).eq('published', true);
-    if (!tw?.length) return;
-    const { data: tr } = await sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'semana').lte('pos', 50).in('series_id', tw.map(w => w.id)).order('pos');
-    const box = root.querySelector('.tp2-in'); if (!tr?.length || !box || !document.body.contains(root)) return;
-    rkCss(); const by = Object.fromEntries(tw.map(w => [w.id, w]));
-    insertRanking(root, `<section class="tp2-sec tp2-rk"><div class="tp2-sh"><h2>En el ranking</h2><a href="/ranking">Más leídas de la semana →</a></div><div class="tp2-rkl">${tr.map(r => { const w = by[r.series_id]; return `<a class="tp2-rki" href="/serie/${esc(w.slug)}"><span class="n">#${r.pos}</span><span class="cv" style="${w.cover_path ? `background-image:url('${esc(thumb(w))}')` : ''}"></span><b>${esc(w.title)}</b><span class="m">de 50</span></a>`; }).join('')}</div></section>`);
+    // La posición corresponde al ranking general, no a una clasificación interna del equipo.
+    const { data: tw, error: worksError } = await sb.from('series')
+      .select('id,slug,title,cover_path,cover_thumb_path')
+      .eq('team_id', teamId).eq('published', true);
+    if (worksError || !tw?.length || !root?.isConnected) return;
+    const { data: tr, error: rankingError } = await sb.from('rankings')
+      .select('series_id,pos,prev_pos,score,computed_at')
+      .eq('list', 'leidas').eq('period', 'semana').lte('pos', 50)
+      .in('series_id', tw.map(w => w.id)).order('pos');
+    if (rankingError || !tr?.length || !root?.isConnected) return;
+    const by = Object.fromEntries(tw.map(w => [w.id, w]));
+    const rows = tr.filter(r => by[r.series_id] && Number.isFinite(+r.pos) && +r.pos >= 1 && +r.pos <= 50);
+    if (!rows.length) return;
+    const anyPrev = rows.some(r => r.prev_pos != null);
+    const movement = r => {
+      if (r.prev_pos == null) return anyPrev ? '<span class="tp2-rkmv new" aria-label="Nueva entrada al Top 50">Nuevo</span>' : '';
+      const delta = Number(r.prev_pos) - Number(r.pos);
+      if (!Number.isFinite(delta)) return '';
+      if (delta > 0) return `<span class="tp2-rkmv up" aria-label="Subió ${delta} ${delta === 1 ? 'puesto' : 'puestos'} desde la última actualización">▲ ${delta}</span>`;
+      if (delta < 0) return `<span class="tp2-rkmv down" aria-label="Bajó ${-delta} ${-delta === 1 ? 'puesto' : 'puestos'} desde la última actualización">▼ ${-delta}</span>`;
+      return '<span class="tp2-rkmv same" aria-label="Sin cambios desde la última actualización">=</span>';
+    };
+    const readings = r => {
+      const n = Math.max(0, Number(r.score) || 0);
+      return `${n.toLocaleString('es-MX')} ${n === 1 ? 'lectura' : 'lecturas'} · 7 días`;
+    };
+    const updatedAt = rows.find(r => r.computed_at)?.computed_at;
+    rkCss();
+    insertRanking(root, `<section class="tp2-sec tp2-rk" aria-labelledby="tp2-rk-heading">
+      <div class="tp2-sh"><h2 id="tp2-rk-heading">Nuestras obras en el Top 50</h2><a href="/ranking">Ver ranking general →</a></div>
+      <p class="tp2-rk-sub">Más leídas de la semana · Ranking general de El Obi</p>
+      <div class="tp2-rkl">${rows.map(r => { const w = by[r.series_id]; const image = w.cover_path || w.cover_thumb_path;
+        return `<a class="tp2-rki" href="/serie/${esc(w.slug)}">
+          <span class="n" aria-hidden="true">#${r.pos}</span>
+          <span class="cv">${image ? `<img src="${esc(media(image))}" alt="" loading="lazy" decoding="async">` : '<span aria-hidden="true">書</span>'}</span>
+          <span class="tp2-rki-main"><b>${esc(w.title)}</b><small>Puesto ${r.pos} de 50 · general</small></span>
+          <span class="tp2-rki-metrics"><span class="tp2-rk-score">${readings(r)}</span>${movement(r)}</span>
+        </a>`; }).join('')}</div>
+      <p class="tp2-rk-foot">Lecturas únicas por lector o dispositivo y día, acumuladas durante los últimos 7 días. Una persona puede contar en varios días.${anyPrev ? ' ▲ Sube · ▼ Baja · = Sin cambios · Nuevo: entró al Top 50 desde la última actualización.' : ''}${updatedAt ? ' Actualizado ' + esc(ago(updatedAt)) + ' · se recalcula cada 6 horas.' : ''}</p>
+    </section>`);
   }
   // ---------- página pública del equipo (diseño en teampage.js) ----------
   async function team(slug){
