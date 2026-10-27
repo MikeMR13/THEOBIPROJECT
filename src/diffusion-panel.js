@@ -1,4 +1,4 @@
-import { confirmObi } from './dialogs.js';
+const confirmObi=(...args)=>import('./dialogs.js').then(module=>module.confirmObi(...args));
 import { manualTargets, manualChannelBatch, batchFeedback } from './diffusion-manual-batch.js';
 import { immediateDeliveryNotice, automaticDeliveryNotice } from './diffusion-delivery-notices.js';
 import { renderDraftTemplate } from './diffusion-draft-templates.js?v=1';
