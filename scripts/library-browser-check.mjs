@@ -26,6 +26,8 @@ const qa=[
  "if(w<=480&&all[0]?.getBoundingClientRect().top>=all[1]?.getBoundingClientRect().top)e.push('tarjetas móviles superpuestas');",
  "if(w>=1024&&all[0]?.getBoundingClientRect().top!==all[1]?.getBoundingClientRect().top)e.push('escritorio sin múltiples columnas');",
  "const nav=document.querySelector('.lb-tabs');if(!nav?.querySelector('[aria-current=page]'))e.push('pestaña sin aria-current');",
+ "const links=[...nav.querySelectorAll('a')];if(w<=480&&(links.some(a=>Math.abs(a.getBoundingClientRect().top-links[0].getBoundingClientRect().top)>2)||getComputedStyle(nav).flexWrap!=='nowrap'))e.push('pestañas móviles en varias filas');",
+ "if(w<=480&&nav.scrollWidth<=nav.clientWidth+10)e.push('pestañas sin desplazamiento horizontal');",
  "for(const x of document.querySelectorAll('.lb-card-cta'))if(x.getBoundingClientRect().height<40)e.push('acción táctil corta');",
  "for(const x of document.querySelectorAll('.lb-toolbar input,.lb-toolbar select'))if(x.getBoundingClientRect().width<135)e.push('filtro estrecho');",
  "const q=document.querySelector('#case-result');q.dataset.qaStatus=e.length?'fail':'pass';q.textContent=e.join(' ; ')||'OK';"
