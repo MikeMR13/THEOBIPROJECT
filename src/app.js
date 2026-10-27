@@ -315,55 +315,200 @@ const LB_CSS = `
 
 `;
 const lbCss = () => { if (document.getElementById('lb-css')) return; const s = document.createElement('style'); s.id = 'lb-css'; s.textContent = LB_CSS; document.head.appendChild(s); };
+et librarySeq = 0;
 async function library(){
-if (!user) return go(new URLSearchParams(location.search).get('t') === 'offline' ? '/descargas' : '/entrar');
-lbCss(); installCreditImageFallback(); app.innerHTML = '<p class="mono">Cargando tu biblioteca…</p>';
-const TABS = [['leyendo', 'Leyendo'], ['pendientes', 'Pendientes'], ['terminadas', 'Terminadas'], ['avisos', 'Avisos'], ['offline', 'Sin conexión'], ['historial', 'Historial']];
-const tab = TABS.some(t => t[0] === new URLSearchParams(location.search).get('t')) ? new URLSearchParams(location.search).get('t') : 'leyendo';
-const [{ data: prog }, { data: fol }, { data: rc }] = await Promise.all([
-  sb.from('reading_progress').select('series_id,chapter_num,pct,updated_at').eq('user_id', user.id),
-  sb.from('follows').select('series_id,channels').eq('user_id', user.id),
-  sb.from('read_chapters').select('chapter_id').eq('user_id', user.id)]);
-const ids = [...new Set([...(prog || []), ...(fol || [])].map(r => r.series_id))];
-const [{ data: ser }, { data: chs }] = ids.length ? await Promise.all([
-  sb.from('series').select('id,team_id,slug,title,short,cover_path,translation_status,theme,teams(name,slug,color,avatar_path)').in('id', ids),
-  sb.from('chapters').select('id,num,series_id,publish_at').eq('status', 'published').is('deleted_at', null).in('series_id', ids).order('num')]) : [{ data: [] }, { data: [] }];
-await attachPublicCredits(sb, ser || []);
-const read = new Set((rc || []).map(r => r.chapter_id)), P = Object.fromEntries((prog || []).map(r => [r.series_id, r])), F = new Set((fol || []).map(r => r.series_id));
-const now = Date.now(), by = {}; (chs || []).forEach(c => { if (c.publish_at && new Date(c.publish_at) > now) return; (by[c.series_id] ||= []).push(c); });
-const W = (ser || []).map(s => { const list = by[s.id] || [], nr = list.filter(c => read.has(c.id)).length, nu = list.find(c => !read.has(c.id));
-  return { s, p: P[s.id], tot: list.length, nr, unread: list.length - nr, nextU: nu, done: s.translation_status === 'completed' && list.length > 0 && nr >= list.length, fol: F.has(s.id), lastAt: list.length ? list[list.length - 1].publish_at : null }; });
-const L = {
-  leyendo: W.filter(w => w.p && !w.done).sort((a, b) => new Date(b.p.updated_at) - new Date(a.p.updated_at)),
-  pendientes: W.filter(w => w.fol && w.unread > 0 && !w.done).sort((a, b) => new Date(b.lastAt || 0) - new Date(a.lastAt || 0)),
-  terminadas: W.filter(w => w.done).sort((a, b) => a.s.title.localeCompare(b.s.title, 'es'))};
-const cv = (w, badge) => { const c = w.s.theme?.color || w.s.teams?.color || '#f2c230'; return w.s.cover_path ? `<span class="cv" style="background-image:url('${esc(MED(w.s.cover_path))}')">${badge}</span>` : `<span class="cv no" style="--c:${esc(c)}">${badge}${esc(w.s.short || w.s.title)}</span>`; };
-const card = (w, k) => { const href = k === 'pendientes' && w.nextU ? `/leer/${w.s.slug}/${w.nextU.num}` : k === 'leyendo' ? `/leer/${w.s.slug}/${w.p.chapter_num}` : `/serie/${w.s.slug}`;
-  const badge = k === 'pendientes' ? `<em>${w.unread} sin leer</em>` : k === 'terminadas' ? '<em class="ok">✓ Completa</em>' : '';
-  const sub = k === 'leyendo' ? `Cap. ${w.p.chapter_num}${w.p.pct > .02 && w.p.pct < .95 ? ' · ' + Math.round(w.p.pct * 100) + '%' : ''} · ${w.nr}/${w.tot}` : k === 'pendientes' ? (w.nextU ? 'Sigue en el cap. ' + w.nextU.num : '') : w.tot + ' capítulos';
-  return `<a class="lb-c" href="${href}">${cv(w, badge)}${w.tot ? `<span class="bar"><i style="width:${Math.round(w.nr / w.tot * 100)}%"></i></span>` : ''}<b>${esc(w.s.title)}</b>${creditsHTML(w.s, { esc, media: MED, mode: 'carousel' })}<small>${sub}</small></a>`; };
-const HID = new Set(profile?.hidden_series || []);
-const cardW = (w, k) => `<div style="display:grid;gap:4px;align-content:start">${card(w, k)}<button type="button" class="ui-lnk" data-hide="${w.s.id}" style="justify-self:start;font-size:12px;color:#a89f8a;min-height:32px">${HID.has(w.s.id) ? 'Mostrar en mi perfil' : 'Ocultar del perfil'}</button></div>`;
-const EMPTY = { leyendo: 'Abre cualquier capítulo y aparecerá aquí.', pendientes: 'Sigue una obra desde su ficha: cuando salga un capítulo que no has leído, aparecerá aquí.', terminadas: 'Aquí aparecen las obras completas que leíste de principio a fin.' };
-const n = k => L[k] ? L[k].length : null;
-app.innerHTML = `<div class="ui-cath"><div><h1>Mi biblioteca</h1><p>${read.size} capítulos leídos · ${F.size} obras seguidas</p></div><span class="kj" aria-hidden="true">書庫</span></div>
-<nav class="lb-tabs">${TABS.map(([k, l]) => `<a href="/biblioteca${k === 'leyendo' ? '' : '?t=' + k}" class="${k === tab ? 'on' : ''}">${l}${n(k) ? `<em>${n(k)}</em>` : ''}</a>`).join('')}</nav><div id="lb-body"></div>`;
-const box = $('#lb-body');
-if (L[tab]) { box.innerHTML = L[tab].length ? `<div class="lb-grid">${L[tab].map(w => cardW(w, tab)).join('')}</div>` : `<div class="lb-empty"><span>${EMPTY[tab]}</span><a class="btn ghost" href="/catalogo">Explorar el catálogo</a></div>`;
-  box.querySelectorAll('[data-hide]').forEach(b => b.onclick = async () => { const id = b.dataset.hide, on = !HID.has(id); on ? HID.add(id) : HID.delete(id);
-    const { error } = await sb.from('profiles').update({ hidden_series: [...HID] }).eq('id', user.id); if (error) { on ? HID.delete(id) : HID.add(id); return toast(error.message); }
-    if (profile) profile.hidden_series = [...HID]; b.textContent = on ? 'Mostrar en mi perfil' : 'Ocultar del perfil'; toast(on ? 'Oculta de tu perfil público' : 'Visible en tu perfil público'); }); }
-else if (tab === 'avisos') {
-  const FL = (fol || []).map(r => ({ r, s: (ser || []).find(x => x.id === r.series_id) })).filter(x => x.s).sort((a, b) => a.s.title.localeCompare(b.s.title, 'es'));
-  box.innerHTML = FL.length ? `<p class="mono" style="margin:0 0 14px;font-size:13px">Elige de qué obras quieres aviso en la campana cuando salga un capítulo nuevo. <a href="/preferencias?s=avisos">Más opciones de avisos y correo</a>.</p><div class="lb-av">${FL.map(({ r, s }) => { const on = r.channels?.web !== false; return `<div class="lb-ai"><a href="/serie/${s.slug}">${esc(s.title)}</a><label class="ui-tog"><input type="checkbox" data-av="${s.id}" ${on ? 'checked' : ''}> Avisarme</label><button class="ui-lnk" data-unf="${s.id}">Dejar de seguir</button></div>`; }).join('')}</div>`
-    : '<div class="lb-empty">Aún no sigues ninguna obra. Usa «Seguir serie» en la ficha de una obra.</div>';
-  box.querySelectorAll('[data-av]').forEach(i => i.onchange = async () => { const r = (fol || []).find(x => x.series_id === i.dataset.av), ch = { ...(r.channels || {}), web: i.checked };
-    const { error } = await sb.from('follows').update({ channels: ch }).eq('user_id', user.id).eq('series_id', i.dataset.av); if (error) { i.checked = !i.checked; return toast(error.message); } r.channels = ch; toast(i.checked ? 'Recibirás avisos de esta obra' : 'Ya no recibirás avisos de esta obra'); });
-  box.querySelectorAll('[data-unf]').forEach(b => b.onclick = async () => { if (!confirm('¿Dejar de seguir esta obra?')) return; const { error } = await sb.from('follows').delete().eq('user_id', user.id).eq('series_id', b.dataset.unf); if (error) return toast(error.message); toast('Ya no sigues esta obra'); library(); });
+  if (!user) return go(new URLSearchParams(location.search).get('t') === 'offline' ? '/descargas' : '/entrar');
+  const uid = user.id, seq = ++librarySeq;
+  const live = () => seq === librarySeq && user?.id === uid && location.pathname === '/biblioteca';
+  lbCss(); installCreditImageFallback();
+  app.innerHTML = '<p class="mono" role="status" aria-live="polite">Cargando tu biblioteca…</p>';
+  const TABS = [['leyendo','Leyendo'],['pendientes','Pendientes'],['terminadas','Terminadas'],['avisos','Avisos'],['offline','Sin conexión'],['historial','Historial']];
+  const requested = new URLSearchParams(location.search).get('t');
+  let tab = TABS.some(([k]) => k === requested) ? requested : 'leyendo';
+  let prog = [], fol = [], readRows = [], ser = [], chs = [];
+  try {
+    await meReady; // preferencias y secciones ocultas pertenecen a la cuenta verificada
+    if (!live()) return;
+    // readPages recorre las páginas en orden estable y rechaza las respuestas incompletas.
+    const [pr, fo, rc] = await Promise.all([
+      readPages((from,to) => sb.from('reading_progress')
+        .select('series_id,chapter_num,pct,updated_at').eq('user_id',uid).order('series_id').range(from,to)),
+      readPages((from,to) => sb.from('follows')
+        .select('series_id,channels').eq('user_id',uid).order('series_id').range(from,to)),
+      readPages((from,to) => sb.from('read_chapters')
+        .select('chapter_id,read_at,chapters!inner(series_id,deleted_at)')
+        .eq('user_id',uid).is('chapters.deleted_at',null).order('chapter_id').range(from,to))
+    ]);
+    if (!live()) return;
+    prog=pr.data;fol=fo.data;readRows=rc.data;
+    const ids = [...new Set([...prog.map(r=>r.series_id),...fol.map(r=>r.series_id),
+      ...readRows.map(r=>r.chapters?.series_id)].filter(Boolean))];
+    // Lotes pequeños evitan URL excesivamente largas en los filtros .in().
+    const batches=[];for(let i=0;i<ids.length;i+=80)batches.push(ids.slice(i,i+80));
+    if (batches.length) {
+      const [seriesBatches,chapterBatches] = await Promise.all([
+        Promise.all(batches.map(group=>readPages((from,to)=>sb.from('series')
+          .select('id,team_id,slug,title,short,cover_path,cover_thumb_path,translation_status,theme,teams(name,slug,color,avatar_path)')
+          .in('id',group).eq('published',true).order('id').range(from,to)))),
+        Promise.all(batches.map(group=>readPages((from,to)=>sb.from('chapters')
+          .select('id,num,series_id,publish_at,status,deleted_at')
+          .eq('status','published').is('deleted_at',null).in('series_id',group)
+          .order('id').range(from,to))))
+      ]);
+      ser=seriesBatches.flatMap(x=>x.data);chs=chapterBatches.flatMap(x=>x.data);
+    }
+    if (!live()) return;
+    // Los créditos no deben hacer desaparecer obras cuando falle una consulta complementaria.
+    try { await attachPublicCredits(sb,ser); } catch(e){ console.warn('Créditos de biblioteca',e); }
+  } catch(e) {
+    if (!live()) return;
+    console.warn('Mi biblioteca',e);
+    app.innerHTML = `<div class="ui-cath"><div><h1>Mi biblioteca</h1><p>No se pudieron cargar tus lecturas.</p></div><span class="kj" aria-hidden="true">書庫</span></div>
+      <div class="lb-error" role="alert"><strong>No pudimos cargar la biblioteca completa.</strong><p>No se han borrado tus libros ni tu progreso. Revisa tu conexión e inténtalo de nuevo.</p><button type="button" class="btn" id="lb-retry">Reintentar</button></div>`;
+    $('#lb-retry').onclick = () => library();
+    return;
+  }
+  if (!live()) return;
+  const { lists:L, read, followed:F }=prepareLibrary({progress:prog,follows:fol,readRows,series:ser,chapters:chs});
+  const HID=new Set(profile?.hidden_series || []);
+  const count = k => L[k]?.length ?? null;
+  app.innerHTML = `<div class="ui-cath"><div><h1>Mi biblioteca</h1><p>${read.size.toLocaleString('es-MX')} capítulos leídos · ${F.size.toLocaleString('es-MX')} obras seguidas</p></div><span class="kj" aria-hidden="true">書庫</span></div>
+  <nav class="lb-tabs" aria-label="Secciones de Mi biblioteca">${TABS.map(([k,label])=>`<a href="/biblioteca${k==='leyendo'?'':'?t='+k}" class="${k===tab?'on':''}"${k===tab?' aria-current="page"':''}>${label}${count(k)?`<em>${count(k)}</em>`:''}</a>`).join('')}</nav>
+  <p class="lb-navhelp">Desliza las pestañas para ver todas las secciones →</p><div id="lb-body"></div>`;
+  const box=$('#lb-body'), nav=app.querySelector('.lb-tabs');
+  const COVER = w => {
+    const c=w.s.theme?.color || w.s.teams?.color || '#76592e';
+    const path=w.s.cover_path || w.s.cover_thumb_path;
+    return path ? `<img src="${esc(MED(path))}" alt="" loading="lazy" decoding="async">`
+      : `<span class="lb-cover-fallback" style="--c:${esc(c)}">${esc(w.s.short || w.s.title)}</span>`;
+  };
+  const card = (w,k) => {
+    const chapter=k==='pendientes' ? w.nextU : w.resume;
+    const href=chapter ? '/leer/'+encodeURIComponent(w.s.slug)+'/'+chapter.num : '/serie/'+encodeURIComponent(w.s.slug);
+    const done=k==='terminadas', pending=k==='pendientes';
+    const pct=w.tot ? Math.min(100,Math.max(0,Math.round(w.nr/w.tot*100))):0;
+    const label=done ? 'Completada' : pending ? (w.unread===1 ? '1 capítulo pendiente' : w.unread+' capítulos pendientes') : 'En progreso';
+    const current=chapter ? 'Capítulo '+chapter.num : 'Ver obra';
+    const status=done ? `${w.nr} capítulos leídos` : pending ? `Leer siguiente · ${current}` : `Continuar · ${current}${w.p?.pct > .02 && w.p?.pct < .95 ? ' · '+Math.round(w.p.pct*100)+' % del capítulo' : ''}`;
+    return `<article class="lb-card">
+      <a class="lb-cover-link" href="/serie/${esc(w.s.slug)}" aria-label="Ver ficha de ${esc(w.s.title)}">${COVER(w)}</a>
+      <div class="lb-card-body"><span class="lb-label${done?' finished':pending?' pending':''}">${label}</span>
+        <a class="lb-title" href="/serie/${esc(w.s.slug)}">${esc(w.s.title)}</a>
+        ${creditsHTML(w.s,{esc,media:MED,mode:'carousel'})}
+        <span class="lb-card-sub">${esc(status)}</span>
+        <div class="lb-progress" aria-label="${w.nr} de ${w.tot} capítulos disponibles leídos; ${pct} por ciento">
+          <span class="lb-progress-head"><span>${w.nr} de ${w.tot} capítulos</span><span>${pct} %</span></span>
+          <span class="lb-progress-track" aria-hidden="true"><i style="width:${pct}%"></i></span>
+        </div>
+        <a class="lb-card-cta" href="${esc(href)}">${done?'Ver la obra':pending?'Leer siguiente capítulo':'Continuar leyendo'}</a>
+        <button type="button" class="lb-card-hide" data-hide="${esc(w.s.id)}">${HID.has(w.s.id)?'Mostrar en mi perfil':'Ocultar de mi perfil público'}</button>
+      </div></article>`;
+  };
+  const EMPTY = {
+    leyendo:'Cuando abras un capítulo, podrás continuar su lectura desde aquí.',
+    pendientes:'Sigue una obra desde su ficha: cuando tenga capítulos sin leer, aparecerá aquí.',
+    terminadas:'Aquí aparecen las obras completas cuyos capítulos publicados ya leíste.'
+  };
+  let tabRequest=0;
+  const paintTab = async next => {
+    if (!live()) return;
+    tab=next;
+    const request=++tabRequest;
+    nav.querySelectorAll('a').forEach(a=>{
+      const k=new URL(a.href,location.origin).searchParams.get('t')||'leyendo';
+      a.classList.toggle('on',k===tab);
+      k===tab ? a.setAttribute('aria-current','page') : a.removeAttribute('aria-current');
+    });
+    if(L[tab]){
+      const defaultOrder=tab==='terminadas'?'titulo':'recientes';
+      box.innerHTML=`<div class="lb-toolbar"><label>Buscar en esta sección<input id="lb-search" type="search" placeholder="Título u organización" autocomplete="off" aria-controls="lb-results"></label>
+        <label>Ordenar por<select id="lb-order" aria-controls="lb-results"><option value="recientes">Actividad reciente</option><option value="titulo">Título (A–Z)</option><option value="progreso">Progreso leído</option><option value="nuevos">Más capítulos pendientes</option></select></label></div>
+        <p class="lb-match-count" id="lb-match-count" role="status"></p><div id="lb-results"></div>`;
+      const input=box.querySelector('#lb-search'), sort=box.querySelector('#lb-order'), results=box.querySelector('#lb-results');
+      sort.value=defaultOrder;
+      const repaint=()=>{
+        const filtered=selectLibraryItems(L[tab],{query:input.value,order:sort.value,tab});
+        box.querySelector('#lb-match-count').textContent=`${filtered.length} de ${L[tab].length} obras`;
+        results.innerHTML=filtered.length ? `<div class="lb-grid">${filtered.map(w=>card(w,tab)).join('')}</div>`
+          : `<div class="lb-empty"><span>${L[tab].length?'No hay resultados con esta búsqueda.':EMPTY[tab]}</span>${L[tab].length?'<button type="button" class="btn ghost" id="lb-reset">Limpiar búsqueda</button>':'<a class="btn ghost" href="/catalogo">Explorar el catálogo</a>'}</div>`;
+        results.querySelector('#lb-reset')?.addEventListener('click',()=>{input.value='';repaint();input.focus();});
+        results.querySelectorAll('[data-hide]').forEach(b=>b.onclick=async()=>{
+          if(b.disabled)return; b.disabled=true;const id=b.dataset.hide,on=!HID.has(id);
+          const proposed=new Set(HID);on?proposed.add(id):proposed.delete(id);
+          try {
+            const {error}=await sb.from('profiles').update({hidden_series:[...proposed]}).eq('id',uid);
+            if(error)throw error;
+            if(!live())return;
+            HID.clear();proposed.forEach(x=>HID.add(x));
+            if(profile?.hidden_series)profile.hidden_series=[...HID];
+            b.textContent=on?'Mostrar en mi perfil':'Ocultar de mi perfil público';
+            toast(on?'Oculta de tu perfil público':'Visible en tu perfil público');
+          } catch(e){toast('No se pudo guardar la visibilidad. Inténtalo de nuevo.');}
+          finally{b.disabled=false;}
+        });
+      };
+      input.oninput=repaint;sort.onchange=repaint;repaint();
+    } else if(tab==='avisos'){
+      const FL=fol.map(r=>({r,s:ser.find(x=>x.id===r.series_id)})).filter(x=>x.s).sort((a,b)=>a.s.title.localeCompare(b.s.title,'es'));
+      box.innerHTML=FL.length?`<p class="mono" style="margin:0 0 14px;font-size:13px">Elige de qué obras recibir avisos cuando se publique un capítulo. <a href="/preferencias?s=avisos">Más opciones de avisos y correo</a>.</p>
+        <div class="lb-av">${FL.map(({r,s})=>`<div class="lb-ai"><a href="/serie/${esc(s.slug)}">${esc(s.title)}</a>
+          <label class="ui-tog"><input type="checkbox" data-av="${esc(s.id)}" ${r.channels?.web!==false?'checked':''}> Avisarme</label>
+          <button type="button" class="ui-lnk" data-unf="${esc(s.id)}">Dejar de seguir</button></div>`).join('')}</div>`
+        :'<div class="lb-empty">Aún no sigues ninguna obra. Usa «Seguir serie» en su ficha.</div>';
+      box.querySelectorAll('[data-av]').forEach(i=>i.onchange=async()=>{
+        const r=fol.find(x=>x.series_id===i.dataset.av),ch={...(r.channels||{}),web:i.checked};
+        i.disabled=true;
+        try{const {error}=await sb.from('follows').update({channels:ch}).eq('user_id',uid).eq('series_id',i.dataset.av);if(error)throw error;r.channels=ch;toast(i.checked?'Recibirás avisos de esta obra':'Ya no recibirás avisos de esta obra');}
+        catch(e){i.checked=!i.checked;toast('No se pudieron guardar los avisos.');}
+        finally{i.disabled=false;}
+      });
+      box.querySelectorAll('[data-unf]').forEach(b=>b.onclick=async()=>{
+        if(!confirm('¿Dejar de seguir esta obra?'))return;
+        b.disabled=true;
+        try{const {error}=await sb.from('follows').delete().eq('user_id',uid).eq('series_id',b.dataset.unf);if(error)throw error;toast('Ya no sigues esta obra');if(live())library();}
+        catch(e){b.disabled=false;toast('No se pudo dejar de seguir la obra.');}
+      });
+    } else if(tab==='offline') {
+      box.innerHTML=`<div id="off">${rd().offlineList()}</div>`;
+      rd().bindOfflineList($('#off'),()=>{if(live())paintTab('offline');});
+    } else {
+      box.innerHTML='<p class="mono" role="status">Cargando historial…</p>';
+      const pageSize=30, all=[];
+      const drawHistory=()=>{
+        box.innerHTML=all.length?`<div class="lb-h">${all.map(h=>`<a href="/leer/${esc(h.chapters.series.slug)}/${h.chapters.num}">
+          <span class="mono">${new Date(h.opened_at).toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'})}</span>
+          <span>${esc(h.chapters.series.title)} · ${esc(h.chapters.title)}</span></a>`).join('')}</div><button type="button" id="lb-history-more" class="btn ghost lb-history-more">Cargar más visitas</button>`
+          :'<div class="lb-empty">Aún no tienes visitas registradas en el historial.</div>';
+        const more=box.querySelector('#lb-history-more');
+        if(more){if(all.length%pageSize!==0)more.remove();else more.onclick=()=>fetchHistory();}
+      };
+      const fetchHistory=async()=>{
+        try{
+          const data=await rd().historyList({offset:all.length,limit:pageSize});
+          if(!live()||request!==tabRequest)return;
+          all.push(...data);drawHistory();
+          if(data.length<pageSize)box.querySelector('#lb-history-more')?.remove();
+        } catch(e){
+          if(!live()||request!==tabRequest)return;
+          if(all.length){box.querySelector('#lb-history-more')?.remove();}
+          box.insertAdjacentHTML('beforeend','<div class="lb-error" role="alert"><strong>No se pudo cargar el historial.</strong><button class="btn ghost" id="lb-history-retry">Reintentar</button></div>');
+          box.querySelector('#lb-history-retry').onclick=()=>{box.querySelector('.lb-error')?.remove();fetchHistory();};
+        }
+      };
+      await fetchHistory();
+    }
+  };
+  nav.addEventListener('click',e=>{
+    const a=e.target.closest('a');if(!a)return;
+    const url=new URL(a.href,location.origin);
+    if(url.pathname!=='/biblioteca')return;
+    e.preventDefault();e.stopPropagation();
+    history.pushState({},'',url.pathname+url.search);
+    paintTab(url.searchParams.get('t')||'leyendo');
+  });
+  paintTab(tab);
 }
-else if (tab === 'offline') { box.innerHTML = `<div id="off">${rd().offlineList()}</div>`; rd().bindOfflineList($('#off'), library); }
-else { const hist = await rd().historyList(); box.innerHTML = hist.length ? `<div class="lb-h">${hist.map(h => `<a href="/leer/${h.chapters.series.slug}/${h.chapters.num}"><span class="mono">${new Date(h.opened_at).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}</span><span>${esc(h.chapters.series.title)} · ${esc(h.chapters.title)}</span></a>`).join('')}</div>` : '<div class="lb-empty">Sin historial todavía.</div>'; }
-}
+
 const statsHTML = st => {
   if (!st) return '';
   // El RPC agrupa por capítulos leídos (no son gustos elegidos en Preferencias).
