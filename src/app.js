@@ -1,4 +1,6 @@
 import { installPublicShare } from './share.js?v=1';
+import { readPages } from './paging.js';
+import { prepareLibrary, selectLibraryItems } from './library-logic.js';
 // Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
 import { createClient } from '/supabase.js?v=1';
 import { createReader } from '/reader.js?v=19';
@@ -269,6 +271,48 @@ const LB_CSS = `
 .lb-empty{padding:28px;border:1px dashed #3d3628;color:#a89f8a;display:grid;gap:12px;justify-items:start}.lb-h{display:grid;gap:0}.lb-h a{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;padding:10px 0;border-bottom:1px solid #221f18;color:var(--paper);text-decoration:none;font-size:14px}.lb-h a:hover{color:var(--gold)}.lb-h .mono{font-size:12px}
 .st-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:12px;margin:14px 0}.st-k{padding:16px;border:1px solid #2f2a20;background:#16140f;display:grid;gap:4px}.st-k b{font-family:'Shippori Mincho B1',serif;font-size:32px;font-weight:500;color:var(--gold);line-height:1}.st-k span{font-size:13px;color:#a89f8a}
 .st-gen{display:grid;gap:8px;max-width:520px}.st-gen div{display:grid;grid-template-columns:140px minmax(0,1fr) 40px;gap:10px;align-items:center;font-size:14px}.st-gen i{height:8px;background:var(--gold)}.st-gen small{font-family:'IBM Plex Mono',monospace;color:#a89f8a;text-align:right}
+
+/* Mi biblioteca: el mismo lenguaje editorial de Inicio y Ranking, con portadas completas. */
+.lb-tabs{position:relative;scrollbar-width:thin;scrollbar-color:#67512e transparent;scroll-padding-inline:12px;margin-bottom:8px}
+.lb-tabs a{white-space:nowrap;gap:7px;min-height:48px}.lb-tabs a:focus-visible{outline:2px solid var(--gold);outline-offset:-3px}
+.lb-navhelp{display:none;font:11px/1.5 'IBM Plex Mono',monospace;color:var(--mute);margin:0 0 21px}
+.lb-toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(155px,205px);gap:12px;align-items:end;margin:0 0 16px;max-width:950px}
+.lb-toolbar label{display:grid;gap:7px;font-size:12px;font-weight:600;color:var(--mute);min-width:0}
+.lb-toolbar input,.lb-toolbar select{width:100%;min-height:45px;min-width:0;background:#16140f;border:1px solid #5f4e32;color:var(--paper);padding:9px 12px;border-radius:4px;font:inherit;font-size:14px}
+.lb-toolbar :is(input,select):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.lb-match-count{margin:0 0 14px;font:12px 'IBM Plex Mono',monospace;color:var(--mute)}
+.lb-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,285px),1fr));gap:16px;align-items:stretch}
+.lb-card{display:grid;grid-template-columns:clamp(86px,10vw,116px) minmax(0,1fr);gap:14px;align-items:start;padding:14px;background:#19160f;border:1px solid #4a3b27;border-left:3px solid #b9913b;border-radius:5px;min-width:0;container-type:inline-size}
+.lb-card:hover{border-color:#a88b54}
+.lb-cover-link{display:block;min-width:0;border:1px solid #514029;background:#100e0b;overflow:hidden;aspect-ratio:2/3;text-decoration:none}
+.lb-cover-link img{display:block;width:100%;height:100%;object-fit:contain;object-position:center}
+.lb-cover-fallback{display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding:8px;overflow-wrap:anywhere;text-align:center;font-family:'Shippori Mincho B1',serif;font-size:12px;background:linear-gradient(145deg,var(--c,#483c2b),#100e0b);color:var(--paper)}
+.lb-card-body{min-width:0;display:grid;gap:8px;align-content:start}
+.lb-title{font-size:15px;font-weight:650;line-height:1.35;color:var(--paper);text-decoration:none;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.lb-title:hover,.lb-title:focus-visible{color:var(--gold)}
+.lb-card .ui-credits{max-width:100%}
+.lb-label{display:inline-flex;align-items:center;min-height:22px;max-width:max-content;padding:2px 7px;border:1px solid #826b41;color:#d8c296;font:600 10px/1.4 'IBM Plex Mono',monospace}
+.lb-label.finished{border-color:#6b9270;color:#addbb0}
+.lb-label.pending{border-color:#a78954;color:#f2c230}
+.lb-card-sub{color:#d0c3a8;font:12px/1.5 'IBM Plex Sans',sans-serif;overflow-wrap:anywhere}
+.lb-progress{display:grid;gap:5px;min-width:0}
+.lb-progress-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 8px;color:#c9b99a;font:11px/1.4 'IBM Plex Mono',monospace}
+.lb-progress-track{display:block;height:6px;background:#3c3122;border-radius:8px;overflow:hidden}
+.lb-progress-track i{display:block;height:100%;max-width:100%;background:var(--gold);border-radius:8px}
+.lb-card-cta{display:inline-flex;align-items:center;justify-content:center;min-height:42px;text-align:center;padding:9px 12px;color:#14110b!important;background:var(--gold);border:1px solid var(--gold);border-radius:3px;font:700 12px/1.3 'IBM Plex Sans',sans-serif;text-decoration:none}
+.lb-card-cta:hover{background:#f6d875}
+.lb-card-hide{justify-self:start;min-height:36px;padding:5px 0;border:0;background:none;color:#bcb19e;font:12px 'IBM Plex Sans',sans-serif;cursor:pointer;text-align:left}
+.lb-card-hide:hover{text-decoration:underline;color:var(--gold)}
+.lb-card :is(a,button):focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.lb-empty{max-width:720px;padding:22px;border:1px dashed #6d5833;border-radius:4px}
+.lb-history-more{margin:18px 0;min-height:44px}
+.lb-error{max-width:760px;padding:20px;border:1px solid #c67d52;background:#211810;display:grid;gap:11px}
+.lb-error strong{color:#ffd2b8}.lb-error p{margin:0;font-size:14px;color:#e0cfb9;line-height:1.5}
+.lb-av .lb-ai{min-height:65px}.lb-av :is(button,input):focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+@media(max-width:700px){.lb-navhelp{display:block}.lb-tabs{margin-bottom:7px}}
+@media(max-width:480px){.lb-toolbar{grid-template-columns:1fr}.lb-grid{grid-template-columns:1fr;gap:13px}.lb-card{grid-template-columns:92px minmax(0,1fr);padding:12px;gap:12px}.lb-title{font-size:15px}.lb-cover-link{max-width:92px}}
+@media(prefers-reduced-motion:reduce){.lb-card,.lb-cover-link img{transition:none}}
+
 `;
 const lbCss = () => { if (document.getElementById('lb-css')) return; const s = document.createElement('style'); s.id = 'lb-css'; s.textContent = LB_CSS; document.head.appendChild(s); };
 async function library(){
