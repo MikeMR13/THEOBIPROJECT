@@ -295,8 +295,8 @@ export function createStudio(ctx){
   }
   const emptyState = () => `<div class="s2-empty"><span>空</span><h2>Tu estudio está vacío</h2><p>Empieza importando un EPUB, DOCX o PDF: armamos la obra con su portada, índice e ilustraciones.</p>${can('create') || can('import') ? '<span style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><a class="btn" href="/estudio/nueva">＋ Crear mi primera obra</a></span>' : '<p class="mono">Pide a tu propietario permiso para crear obras.</p>'}</div>`;
 
-  // Identificador compartido con el importador: conservar su normalización
-  // original al crear obras manualmente, sin cargar el importador completo.
+  // ID compartido con el importador.
+  // Creación manual sin importador.
   const slugify = s => (s || 'obra').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
 
   // Nueva obra: ficha privada compatible con el importador
@@ -421,8 +421,8 @@ export function createStudio(ctx){
       ${list.length ? `<div class="s2-works">${list.map(card).join('')}${can('create') || can('import') ? '<a class="s2-add" href="/estudio/nueva"><span>＋</span>Nueva obra<small>Desde cero con el editor o importando un EPUB, DOCX o PDF</small></a>' : ''}</div>` : emptyState()}
       ${(collab || []).length ? `<h2 class="s2-h2">Colaboraciones</h2><div class="s2-box">${collab.map(c => `<p><a href="/serie/${c.series.slug}">${esc(c.series.title)}</a> <span class="mono">de ${esc(c.series.teams?.name)}</span></p>`).join('')}</div>` : ''}`;
     app.innerHTML = shell('Mis obras', body, '/estudio/obras'); bindPicker(works);
-    // Se reemplaza atómicamente la elección anterior. El servidor valida equipo,
-    // obra publicada y permisos; nunca basta con esconder botones en el cliente.
+    // La elección anterior se reemplaza con validación del equipo.
+    // El servidor valida publicación y permisos.
     app.querySelectorAll('[data-feature]').forEach(btn=>btn.onclick=()=>busy(btn,async()=>{
       const teamId=T.team.id, seriesId=btn.dataset.feature, next=featuredSeriesId===seriesId?null:seriesId;
       const {error}=await sb.rpc('team_feature_set',{p_team_id:teamId,p_series_id:next});
@@ -1569,7 +1569,7 @@ export function createStudio(ctx){
     renderDownloads(F.work, app.querySelector('#st-dl-panel'));
   }
 
-  // Anuncios destacados del equipo
+  // ---------- Anuncios: tarjeta destacada en la página pública del equipo ----------
   async function announcements(){
     if (!(await ensure())) return;
     const TAB = '/estudio/anuncios';
