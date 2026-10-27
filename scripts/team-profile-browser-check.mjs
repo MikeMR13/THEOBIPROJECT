@@ -46,7 +46,7 @@ const checks=[
  " const img=recentTrack.querySelector('img');if(img&&getComputedStyle(img).objectFit!=='contain')errors.push('portada recortada');",
  " if(!recentTrack.hasAttribute('tabindex')||recentTrack.getAttribute('role')!=='region')errors.push('carrusel no accesible');",
  " const buttons=[...recentUnit.querySelectorAll('[data-updates-scroll]')];if(buttons.length!==2||buttons.some(x=>x.getBoundingClientRect().width<43||x.getBoundingClientRect().height<43))errors.push('navegación del carrusel');",
- "}"
+ "}",
  "const b=document.querySelector('.tp2-car-nav button')?.getBoundingClientRect();",
  "if(b&&(b.width<43||b.height<43))errors.push('botón carrusel');",
  "}catch(e){errors.push(e.message)}",
