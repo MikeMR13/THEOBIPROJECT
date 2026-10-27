@@ -6,7 +6,7 @@ import { createServer } from 'node:http';
 import { spawn, execFileSync } from 'node:child_process';
 const moduleSource=readFileSync(new URL('../src/dialogs.js',import.meta.url),'utf8');
 const widths=[320,390,768,1024,1440];
-const test=String.raw\`
+const test=String.raw`
 import {confirmObi,promptObi,alertObi} from '/dialogs.js';
 const errs=[],result=document.getElementById('case-result');
 const ok=(condition,message)=>{if(!condition)errs.push(message)};
@@ -60,7 +60,7 @@ async function visible(){
  result.dataset.qaStatus=errs.length?'fail':'pass';
  result.textContent=errs.join(' | ')||'Diálogos UI accesibles en '+innerWidth+'px OK';
 })().catch(err=>{result.dataset.qaStatus='fail';result.textContent='Excepción: '+err.message;});
-\`;
+`;
 const sample='<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
 '<style>body{margin:0;padding:12px;background:#0e0c09;color:#f3e3c3;font:14px system-ui}button{min-height:44px}</style></head><body>'+
 '<button type="button" id="start">Abrir confirmación</button><p id="case-result" data-qa-status="running">RUNNING</p>'+
