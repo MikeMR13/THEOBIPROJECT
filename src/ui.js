@@ -1915,13 +1915,13 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       }
     }).catch(() => {});
   }
-  async function teamRank(root, teamId){
+  async function teamRank(root, teamId, insertRanking){
     const { data: tw } = await sb.from('series').select('id,slug,title,cover_path').eq('team_id', teamId).eq('published', true);
     if (!tw?.length) return;
     const { data: tr } = await sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'semana').lte('pos', 50).in('series_id', tw.map(w => w.id)).order('pos');
     const box = root.querySelector('.tp2-in'); if (!tr?.length || !box || !document.body.contains(root)) return;
     rkCss(); const by = Object.fromEntries(tw.map(w => [w.id, w]));
-    box.insertAdjacentHTML('beforeend', `<section class="tp2-sec tp2-rk"><div class="tp2-sh"><h2>En el ranking</h2><a href="/ranking">Más leídas de la semana →</a></div><div class="tp2-rkl">${tr.map(r => { const w = by[r.series_id]; return `<a class="tp2-rki" href="/serie/${esc(w.slug)}"><span class="n">#${r.pos}</span><span class="cv" style="${w.cover_path ? `background-image:url('${esc(thumb(w))}')` : ''}"></span><b>${esc(w.title)}</b><span class="m">de 50</span></a>`; }).join('')}</div></section>`);
+    insertRanking(root, `<section class="tp2-sec tp2-rk"><div class="tp2-sh"><h2>En el ranking</h2><a href="/ranking">Más leídas de la semana →</a></div><div class="tp2-rkl">${tr.map(r => { const w = by[r.series_id]; return `<a class="tp2-rki" href="/serie/${esc(w.slug)}"><span class="n">#${r.pos}</span><span class="cv" style="${w.cover_path ? `background-image:url('${esc(thumb(w))}')` : ''}"></span><b>${esc(w.title)}</b><span class="m">de 50</span></a>`; }).join('')}</div></section>`);
   }
   // ---------- página pública del equipo (diseño en teampage.js) ----------
   async function team(slug){
@@ -1940,7 +1940,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const publicSeasonOff = (() => { try { return localStorage.getItem('obi-season') === 'off'; } catch { return false; } })();
     const top = (canEdit ? '<div class="tp2-top"><a class="tp2-edit" href="/estudio/preferencias">⚙ Personalizar</a></div>' : '') + (draft ? '<div class="tp2-draft"><b>Vista previa del borrador</b><span>Así se verá la página cuando el equipo publique los cambios.</span></div>' : '');
     app.innerHTML = `<div class="tp2-page">${TP.render(D, design, { esc, media, top, sim: publicSeasonOff ? '' : undefined })}</div>`;
-    const root = app.querySelector('.tp2'); TP.bind(root); if (!draft) teamRank(root, D.t.id);
+    const root = app.querySelector('.tp2'); TP.bind(root); if (!draft) teamRank(root, D.t.id, TP.insertTeamRanking);
     // Sello de aniversario: solo ese día (fecha del equipo o, si no hay, la de creación).
     sb.from('teams').select('anniversary,anniversary_msg,created_at').eq('id', D.t.id).maybeSingle().then(({ data: a }) => { if (!a || !document.body.contains(root)) return; const b = a.anniversary || (a.created_at ? new Date(a.created_at).toLocaleDateString('en-CA', { timeZone: window.obiTZ() }) : ''); const k = new Date().toLocaleDateString('en-CA', { timeZone: window.obiTZ() }); if (!b || b.slice(5) !== k.slice(5)) return; const y = +k.slice(0, 4) - +b.slice(0, 4); if (y < 1) return;
       const el = document.createElement('div'); el.setAttribute('role', 'note'); el.style.cssText = 'display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;padding:12px 16px;background:#16140f;border-bottom:2px solid #efe6d2;color:#f3ecd9;text-align:left';

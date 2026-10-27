@@ -620,6 +620,22 @@ const CSS = `
 `;
 
 export const followBtn = (on, n, label = 'equipo') => `<button type="button" class="tp2-btn tp2-follow${on ? ' on' : ''}" data-follow aria-pressed="${!!on}">${on ? '✓ Siguiendo' : '＋ ' + FOLLOW_LABELS[label]}${n ? ` · ${n.toLocaleString('es-MX')}` : ''}</button>`;
+// El ranking llega después de inicializar las animaciones del perfil.
+// Debe insertarse antes del cierre comunitario y revelarse de inmediato:
+// de otro modo una sección invisible conserva su altura y separa el footer.
+export function insertTeamRanking(root, markup) {
+  const content = root?.querySelector?.('.tp2-in');
+  if (!content || !root.isConnected) return null;
+  const existing = content.querySelector('.tp2-rk');
+  if (existing) return existing;
+  const community = content.querySelector('.tp2-community-cta');
+  if (community) community.insertAdjacentHTML('beforebegin', markup);
+  else content.insertAdjacentHTML('beforeend', markup);
+  const ranking = content.querySelector('.tp2-rk');
+  ranking?.classList.add('in');
+  return ranking;
+}
+
 export function fillFollow(root, on, n){ root.querySelectorAll('.tp2-fslot,.tp2-fslot2,.tp2-fslot3').forEach(s => { s.innerHTML = followBtn(on, n, root.dataset.followLabel); }); root.querySelectorAll('[data-follow-count]').forEach(el => { el.textContent = (+n || 0).toLocaleString('es-MX'); }); }
 // carrusel de destacadas (manual)
 // Fase 6: el orden de lectura y de tabulación coincide con el orden visual en móvil.

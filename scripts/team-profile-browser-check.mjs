@@ -20,7 +20,7 @@ const design={
 };
 const page=render(data,design,{esc,media:x=>x,sim:''});
 const checks=[
- "import {bind,ensureFonts} from '/teampage.js';",
+ "import {bind,ensureFonts,insertTeamRanking} from '/teampage.js';",
  "const errors=[];try{",
  "ensureFonts([]); const root=document.querySelector('.tp2'); bind(root);",
  "await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));",
@@ -49,14 +49,29 @@ const checks=[
  "}",
  "const b=document.querySelector('.tp2-car-nav button')?.getBoundingClientRect();",
  "if(b&&(b.width<43||b.height<43))errors.push('botón carrusel');",
+ // Un ranking obtenido después de activar la animación de aparición NO debe ser invisible,
+ // ni ocupar un bloque oculto después de la llamada a la comunidad.
+ "root.classList.add('tp2-rv');",
+ "const fixture='<section class=\"tp2-sec tp2-rk\">'+Array(7).fill('<div style=\"height:65px\">Obra clasificada</div>').join('')+'</section>';",
+ "const rank=insertTeamRanking(root,fixture), community=root.querySelector('.tp2-community-cta');",
+ "if(!rank||!community||rank.nextElementSibling!==community)errors.push('ranking posterior a comunidad');",
+ "if(rank&&getComputedStyle(rank).opacity!=='1')errors.push('ranking invisible tras carga asíncrona');",
+ "if(rank&&insertTeamRanking(root,fixture)!==rank)errors.push('ranking duplicado');",
+ "const foot=document.querySelector('.foot');",
+ "const gap=foot&&community?foot.getBoundingClientRect().top-community.getBoundingClientRect().bottom:Infinity;",
+ "if(gap<0||gap>(mobile?240:160))errors.push('hueco antes del footer: '+Math.round(gap)+'px');",
  "}catch(e){errors.push(e.message)}",
  "const q=document.getElementById('case-result');q.dataset.qaStatus=errors.length?'fail':'pass';q.textContent=errors.join('; ')||'OK';"
 ].join('\n');
-const sample='<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}</style></head><body>'+
- page+'<p id="case-result" data-qa-status="running">RUNNING</p><script type="module">'+checks+'</script></body></html>';
+const sample='<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+ 
+  '*{box-sizing:border-box}html,body{overflow-x:clip}body{margin:0;background:#0d0c0a}main{max-width:1920px;margin:0 auto;padding:40px clamp(16px,4vw,56px) 80px}'+
+  '.tp2-page{position:relative;width:100vw;margin:-40px 0 -80px calc(50% - 50vw)}'+
+  '.foot{border-top:1px solid #2f2a20;padding:22px 16px 96px;color:#a89f8a}'+
+  '</style></head><body><main id="app"><div class="tp2-page">'+
+ page+'</div></main><footer class="foot">© El Obi del Lector · Política de privacidad</footer><p id="case-result" data-qa-status="running">RUNNING</p><script type="module">'+checks+'</script></body></html>';
 const parent='<!doctype html><html><head><meta charset="utf-8"></head><body><p id="qa-result" data-qa-status="running">QA_RUNNING</p>'+
  widths.map(w=>'<iframe title="Perfil '+w+'" width="'+w+'" height="800" src="/sample"></iframe>').join('')+
- '<script>const frames=[...document.querySelectorAll("iframe")];let tries=0;const poll=setInterval(()=>{const results=frames.map(x=>x.contentDocument?.getElementById("case-result"));if(results.every(p=>p?.dataset.qaStatus&&p.dataset.qaStatus!=="running")||++tries>250){clearInterval(poll);const errors=results.flatMap((p,i)=>p?.dataset.qaStatus==="pass"?[]:[frames[i].width+": "+(p?.textContent||"sin resultado")]);const q=document.getElementById("qa-result");q.dataset.qaStatus=errors.length?"fail":"pass";q.textContent=errors.join(" | ")||"Perfil grupal Chromium 320/390/768/1024/1440 OK";}},20);</script></body></html>';
+ '<script>const frames=[...document.querySelectorAll("iframe")];let tries=0;const poll=setInterval(()=>{const results=frames.map(x=>x.contentDocument?.getElementById("case-result"));if(results.every(p=>p?.dataset.qaStatus&&p.dataset.qaStatus!=="running")||++tries>950){clearInterval(poll);const errors=results.flatMap((p,i)=>p?.dataset.qaStatus==="pass"?[]:[frames[i].width+": "+(p?.textContent||"sin resultado")]);const q=document.getElementById("qa-result");q.dataset.qaStatus=errors.length?"fail":"pass";q.textContent=errors.join(" | ")||"Perfil grupal Chromium 320/390/768/1024/1440 OK";}},20);</script></body></html>';
 const server=createServer((req,res)=>{
  const url=new URL(req.url||'/', 'http://127.0.0.1');
  res.setHeader('Cache-Control','no-store');
@@ -73,7 +88,7 @@ assert(bin,'Chromium no está instalado');
 try{
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve)});
  const args=['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking',
- '--no-proxy-server','--incognito','--window-size=1600,900','--virtual-time-budget=20000','--dump-dom',
+ '--no-proxy-server','--incognito','--window-size=1600,900','--virtual-time-budget=35000','--dump-dom',
  'http://127.0.0.1:'+server.address().port];
  const child=spawn(bin,args,{stdio:['ignore','pipe','pipe']});let out='',err='';
  child.stdout.on('data',x=>out+=String(x));child.stderr.on('data',x=>err+=String(x).slice(0,35000));
