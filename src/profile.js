@@ -328,8 +328,18 @@ const CSS = `
 .lc-public .lc-genres{display:grid;gap:13px}
 .lc-public .lc-genre-chips{display:flex;flex-wrap:wrap;gap:9px}
 .lc-public .lc-genre-chip{display:inline-flex;align-items:center;min-height:36px;padding:8px 13px;border:1px solid #7b633d;background:#211c14;color:var(--paper);font:600 13px 'IBM Plex Sans',sans-serif;max-width:100%;overflow-wrap:anywhere}
-.lc-public .lc-badges-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px}
-.lc-public .lc-badge-card{display:flex;align-items:flex-start;gap:12px;min-width:0;border:1px solid #51432c;background:#1b1812;padding:16px}
+/* Estadísticas del carnet: no depender de los estilos de Mi biblioteca.
+   Antes .st-gen solo existía en LB_CSS y se perdía al entrar directamente a /perfil. */
+.lc-public .lc-stats .st-gen{display:grid;gap:9px;max-width:720px;margin-top:12px}
+.lc-public .lc-stats .st-gen-row{display:grid;grid-template-columns:minmax(105px,160px) minmax(0,1fr) 40px;align-items:center;gap:12px;min-width:0;box-sizing:border-box;padding:11px 13px;background:#181510;border:1px solid #453826;border-radius:5px}
+.lc-public .lc-stats .st-gen-name{min-width:0;color:var(--paper);font:600 14px/1.4 'IBM Plex Sans',sans-serif;overflow-wrap:anywhere}
+.lc-public .lc-stats .st-gen-track{display:block;min-width:0;height:9px;overflow:hidden;border-radius:8px;background:#372c1c}
+.lc-public .lc-stats .st-gen-track i{display:block;height:100%;max-width:100%;border-radius:8px;background:var(--ac);min-width:0;box-shadow:0 0 7px rgba(242,194,48,.15)}
+.lc-public .lc-stats .st-gen-count{text-align:right;color:var(--ac);font:700 14px/1 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+.lc-public .lc-stats .st-gen-help{margin:0 0 12px;max-width:66ch;font:12px/1.55 'IBM Plex Sans',sans-serif;color:#c4b8a3}
+@media(max-width:480px){.lc-public .lc-badges-grid{grid-template-columns:minmax(0,1fr)}.lc-public .lc-stats .st-gen-row{grid-template-columns:minmax(84px,118px) minmax(0,1fr) 30px;gap:8px;padding:9px 10px}.lc-public .lc-stats .st-gen-name{font-size:12px}}
+.lc-public .lc-badges-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),400px));gap:12px;justify-content:start}
+.lc-public .lc-badge-card{display:flex;align-items:flex-start;gap:12px;min-width:0;border:1px solid #51432c;background:#1b1812;padding:16px;border-left:3px solid var(--ac)}
 .lc-public .lc-badge-glyph{flex:none;display:grid;place-items:center;width:54px;height:54px;background:#110f0b;border:2px solid #b74f38;color:#e67a60;font:800 26px 'Shippori Mincho B1',serif}
 .lc-public .lc-badge-card .lc-badge-glyph.is-earned{border-color:var(--ac);color:var(--ac)}
 .lc-public .lc-badge-info{display:grid;gap:6px;min-width:0}

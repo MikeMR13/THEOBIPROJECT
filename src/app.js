@@ -320,8 +320,20 @@ else if (tab === 'avisos') {
 else if (tab === 'offline') { box.innerHTML = `<div id="off">${rd().offlineList()}</div>`; rd().bindOfflineList($('#off'), library); }
 else { const hist = await rd().historyList(); box.innerHTML = hist.length ? `<div class="lb-h">${hist.map(h => `<a href="/leer/${h.chapters.series.slug}/${h.chapters.num}"><span class="mono">${new Date(h.opened_at).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}</span><span>${esc(h.chapters.series.title)} · ${esc(h.chapters.title)}</span></a>`).join('')}</div>` : '<div class="lb-empty">Sin historial todavía.</div>'; }
 }
-const statsHTML = st => st ? `<div class="st-grid"><div class="st-k"><b>${(+st.chapters).toLocaleString('es-MX')}</b><span>capítulos leídos</span></div><div class="st-k"><b>${st.month}</b><span>en los últimos 30 días</span></div><div class="st-k"><b>${st.series}</b><span>obras empezadas</span></div><div class="st-k"><b>${st.finished}</b><span>obras terminadas</span></div><div class="st-k"><b>${st.following}</b><span>obras seguidas</span></div></div>
-${(st.genres || []).length ? `<h3 style="margin:22px 0 10px">Géneros favoritos</h3><div class="st-gen">${st.genres.map(g => `<div><span>${esc(g.g)}</span><i style="width:${Math.max(4, Math.round(g.n / st.genres[0].n * 100))}%"></i><small>${g.n}</small></div>`).join('')}</div>` : ''}` : '';
+const statsHTML = st => {
+  if (!st) return '';
+  // El RPC agrupa por capítulos leídos (no son gustos elegidos en Preferencias).
+  // Una obra puede pertenecer a más de un género; cada capítulo suma en todos ellos.
+  const genres = (Array.isArray(st.genres) ? st.genres : [])
+    .filter(g => g && typeof g.g === 'string')
+    .map(g => ({ name: g.g, count: Math.max(0, Number(g.n) || 0) }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'es'));
+  const max = Math.max(1, ...genres.map(g => g.count));
+  return `<div class="st-grid"><div class="st-k"><b>${(+st.chapters || 0).toLocaleString('es-MX')}</b><span>capítulos leídos</span></div><div class="st-k"><b>${(+st.month || 0).toLocaleString('es-MX')}</b><span>capítulos en los últimos 30 días</span></div><div class="st-k"><b>${(+st.series || 0).toLocaleString('es-MX')}</b><span>obras con capítulos leídos</span></div><div class="st-k"><b>${(+st.finished || 0).toLocaleString('es-MX')}</b><span>obras completas leídas</span></div><div class="st-k"><b>${(+st.following || 0).toLocaleString('es-MX')}</b><span>obras seguidas</span></div></div>
+  ${genres.length ? `<section class="st-genre-section" aria-labelledby="st-genres-heading"><h3 id="st-genres-heading" style="margin:22px 0 8px">Géneros más leídos</h3>
+    <p class="st-gen-help">Capítulos leídos por género. Si una obra tiene varios géneros, sus capítulos cuentan en cada uno de ellos.</p>
+    <div class="st-gen">${genres.map(g => `<div class="st-gen-row"><span class="st-gen-name">${esc(g.name)}</span><span class="st-gen-track" aria-hidden="true"><i style="width:${Math.round(g.count / max * 100)}%"></i></span><span class="st-gen-count" title="${g.count} capítulos">${g.count}</span></div>`).join('')}</div></section>` : ''}`;
+};
 async function lector(name){ await meReady; if (user && profile?.username && profile.username.toLowerCase() === name.toLowerCase()) { history.replaceState({}, '', '/perfil'); return perfil(); } return (await pf()).publicProfile(PCTX(), name); }
 const SUP_KIND = { paypal: ['PayPal', '#8cc3f2'], kofi: ['Ko-fi', '#f59e7a'], patreon: ['Patreon', '#f29bb0'], bmac: ['Buy Me a Coffee', '#f2c230'], mercadopago: ['Mercado Pago', '#8cc3f2'], otro: ['Enlace', '#a9d18e'] };
 async function support(){
