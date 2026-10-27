@@ -28,7 +28,7 @@ export function seriesPublicationHTML(series, volumes, can, esc, toLocal, tzHint
     '</section>';
 }
 
-export function bindSeriesPublication({ app, sb, series, can, fromLocal, fmtTz, busy, toast, refresh }) {
+export function bindSeriesPublication({ app, sb, series, can, fromLocal, fmtTz, busy, toast, refresh, confirmAction = confirmObi }) {
   const root = app.querySelector('#wk-series-publication');
   if (!root || !can('publish')) return;
   const mode = root.querySelector('#wk-sp-mode');
@@ -68,7 +68,7 @@ export function bindSeriesPublication({ app, sb, series, can, fromLocal, fmtTz, 
       prelaunch: '¿Reprogramar «' + series.title + '» para ' + fmtTz(at) + '? Los demás volúmenes publicados o programados volverán a borrador.',
       published: '¿Publicar «' + series.title + '» ahora? Se aplicará la publicación habitual del volumen seleccionado, incluidos sus avisos.'
     };
-    if (!await confirmObi(warnings[selected])) return;
+    if (!await confirmAction(warnings[selected])) return;
     const { error } = await sb.rpc('series_publication_transition', {
       p_series: series.id, p_mode: selected,
       p_volume: selected === 'draft' ? null : vol.value, p_at: at
