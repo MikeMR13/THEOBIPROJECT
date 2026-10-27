@@ -1622,6 +1622,87 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     initSeriesOrganization(app);
     initSeriesTabs(app);
     const shelf = app.querySelector('#fx-vols');
+
+    // Botones directos dentro del índice que ya existe: sin un menú adicional.
+    // No se modifica reading_progress; solo las marcas read_chapters del lector.
+    if(u&&shelf){
+      const validChapter = c => c && !c.deleted_at && (!c.status||c.status==='published') &&
+        (!c.publish_at||new Date(c.publish_at).getTime()<=Date.now());
+      const visibleReadChapters=allCh.filter(validChapter), byChapter=new Map(allCh.map(c=>[c.id,{...c,series_id:s.id}]));
+      const volumesById=new Map((vols||[]).map(v=>[
+        String(v.id),visibleReadChapters.filter(c=>c.volume_id===v.id||(!c.volume_id&&c.vol===v.num))
+      ]));
+      let marking=false;
+      const refreshReadButtons=()=>{
+        const number=allCh.filter(c=>read.has(c.id)).length,total=allCh.length;
+        const top=app.querySelector('#serie-vols .fx-prog');
+        if(top){
+          const label=top.querySelector('.mono');if(label)label.textContent=number+' de '+total+' leídos';
+          const bar=top.querySelector('.fx-bar i');if(bar)bar.style.width=(total?Math.round(number/total*100):0)+'%';
+        }
+        shelf.querySelectorAll('[data-chapter-id]').forEach(row=>{
+          const marked=read.has(row.dataset.chapterId);
+          row.dataset.chapterRead=String(marked);row.classList.toggle('is-read',marked);
+          row.querySelector('a')?.classList.toggle('read',marked);
+          const button=row.querySelector('[data-read-chapter]');
+          if(button){
+            button.dataset.readMark=marked?'0':'1';
+            button.textContent=marked?'↶ Desmarcar':'✓ Leído';
+            button.setAttribute('aria-label',(marked?'Desmarcar':'Marcar leído')+' capítulo '+row.dataset.chapterNum);
+          }
+        });
+        shelf.querySelectorAll('[data-vol-id]').forEach(card=>{
+          const ids=volumesById.get(card.dataset.volId)||[];
+          const marked=ids.length>0&&ids.every(c=>read.has(c.id));
+          const button=card.querySelector('[data-read-vol]');
+          if(button){
+            button.dataset.readMark=marked?'0':'1';
+            button.textContent=marked?'↶ Desmarcar volumen':'✓ Marcar volumen leído';
+            button.setAttribute('aria-label',(marked?'Desmarcar lectura del':'Marcar leído el')+' volumen '+card.dataset.volNum);
+          }
+          const p=card.querySelector('.ui-volume-progress');
+          if(p){
+            const counts=volumeProgress((chs||[]).filter(c=>c.volume_id===card.dataset.volId||(!c.volume_id&&String(c.vol)===card.dataset.volNum)),read);
+            p.setAttribute('aria-label','Progreso del volumen '+card.dataset.volNum+': '+counts.read+' de '+counts.total+' capítulos leídos');
+            const label=p.querySelector('span');if(label)label.textContent=counts.read+' de '+counts.total+' leídos';
+            const pct=p.querySelector('b');if(pct)pct.textContent=counts.pct+'%';
+            const bar=p.querySelector('.ui-volume-progress-track i');if(bar)bar.style.width=counts.pct+'%';
+          }
+        });
+        app.querySelector('#ui-series-state')?.dispatchEvent(new Event('change'));
+      };
+      shelf.addEventListener('click',async e=>{
+        const b=e.target.closest('[data-read-chapter],[data-read-vol]');
+        if(!b||marking||getUser()?.id!==u.id||app.querySelector('#fx-vols')!==shelf)return;
+        const isVolume=!!b.dataset.readVol;
+        const target=isVolume ? volumesById.get(b.dataset.readVol)||[] :
+          visibleReadChapters.filter(c=>c.id===b.dataset.readChapter);
+        const mark=b.dataset.readMark==='1';
+        const changes=planReadingChanges(target.map(c=>c.id),savedReadRows,mark);
+        if(!changes.length)return;
+        if(isVolume&&changes.length>1&&!confirm('¿'+(mark?'Marcar':'Desmarcar')+' '+changes.length+' capítulos del volumen? Se actualizarán tus estadísticas.'))return;
+        marking=true;
+        shelf.querySelectorAll('[data-read-chapter],[data-read-vol]').forEach(x=>x.disabled=true);
+        try{
+          await persistReadingChanges(sb,u.id,changes);
+          if(getUser()?.id!==u.id||app.querySelector('#fx-vols')!==shelf)return;
+          savedReadRows=applyReadingChanges(savedReadRows,byChapter,changes);
+          changes.forEach(x=>x.desired?read.add(x.chapter_id):read.delete(x.chapter_id));
+          refreshReadButtons();
+          toast((mark?'Marcados ':'Desmarcados ')+changes.length+(changes.length===1?' capítulo':' capítulos'));
+        }catch(err){
+          console.warn('Cambios de lectura en ficha',err);
+          if(app.querySelector('#fx-vols')===shelf){
+            toast('No se pudieron guardar todas las marcas. Actualizando la ficha…');
+            void series(slug);
+          }
+        }finally{
+          marking=false;
+          if(app.querySelector('#fx-vols')===shelf)shelf.querySelectorAll('[data-read-chapter],[data-read-vol]').forEach(x=>x.disabled=false);
+        }
+      });
+    }
+
     app.querySelectorAll('[data-series-view]').forEach(b => b.onclick = () => {
       const view = b.dataset.seriesView;
       if (view !== 'galeria' && view !== 'lista') return;
