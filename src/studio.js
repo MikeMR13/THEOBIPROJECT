@@ -233,7 +233,6 @@ export function createStudio(ctx){
     return T.userId === uid && getUser()?.id === uid && T.team?.id === team.id;
   }
 
-  // ---------- obras ----------
   const DAY = 864e5, ago = d => { const s = (Date.now() - new Date(d)) / 1000; if (s < 3600) return 'hace ' + Math.max(1, Math.round(s / 60)) + ' min'; if (s < 86400) return 'hace ' + Math.round(s / 3600) + ' h'; const n = Math.round(s / 86400); return n === 1 ? 'ayer' : 'hace ' + n + ' días'; };
   const until = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
   const MON = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
@@ -259,7 +258,6 @@ export function createStudio(ctx){
     return { works, chs: chs || [], sched: sched || [], reps: (reps || []).filter(r => set.has(r.chapters?.series_id)) };
   }
 
-  // ---------- resumen ----------
   async function home(){
     if (!(await ensure())) return;
     app.innerHTML = shell('Resumen', '<p class="mono">Cargando el resumen…</p>', '/estudio'); bindPicker(home);
@@ -383,7 +381,6 @@ export function createStudio(ctx){
     step1();
   }
 
-  // ---------- obras ----------
   async function works(){
     if (!(await ensure())) return;
     app.innerHTML = shell('Mis obras', '<p class="mono">Cargando obras…</p>', '/estudio/obras'); bindPicker(works);
@@ -583,12 +580,10 @@ export function createStudio(ctx){
     on('[data-cpub]', async b => { const ch=C.find(x=>x.id===b.dataset.cpub); const selection=await askEditorialAnnouncement({esc,kind:'chapter',title:ch?.title||'Capítulo'}); if(!selection)return; const at=new Date().toISOString(); const { error } = await sb.from('chapters').update({ status: 'published', publish_at: at }).eq('id', b.dataset.cpub); if (error) throw new Error(/approval_required/.test(error.message) ? 'El equipo exige una revisión aprobada antes de publicar.' : errMsg(error)); await recordNotice(selection,'chapter',b.dataset.cpub,at); toast('Capítulo publicado'); again(); });
     on('[data-delch]', async b => { if (!await confirmObi('¿Enviar este capítulo a la papelera? Podrás restaurarlo durante 30 días.')) return; const { error } = await sb.rpc('trash_chapters', { p_ids: [b.dataset.delch] }); if (error) throw new Error(errMsg(error)); SEL.delete(b.dataset.delch); toast('Capítulo en la papelera'); again(); });
     on('[data-delvol]', async b => { if (!await confirmObi('¿Enviar el volumen y todos sus capítulos a la papelera? Podrás restaurarlo durante 30 días.')) return; const { error } = await sb.rpc('trash_volume', { p_id: b.dataset.delvol }); if (error) throw new Error(errMsg(error)); toast('Volumen en la papelera'); again(); });
-    // ---- filtros
     app.querySelectorAll('[data-fst]').forEach(b => b.onclick = () => { F.st = b.dataset.fst; again(); });
     app.querySelectorAll('[data-fstage]').forEach(b => b.onclick = () => { F.stage = b.dataset.fstage; again(); });
     $('#wk-fclear')?.addEventListener('click', () => { Object.assign(F, { st: '', stage: '', q: '' }); again(); });
     const q0 = $('#wk-q'); if (q0) { let qt = 0; q0.oninput = () => { clearTimeout(qt); qt = setTimeout(() => { F.q = q0.value; work.focusQ = true; again(); }, 350); }; if (work.focusQ) { work.focusQ = false; q0.focus(); q0.setSelectionRange(q0.value.length, q0.value.length); } }
-    // ---- selección y acciones en lote
     const ordered = () => V.flatMap(v => listOf(v).map(c => ({ c, vid: v.id })));
     const picked = () => ordered().filter(x => SEL.has(x.c.id)).map(x => x.c);
     const okPub = c => c.status === 'draft' && volOf(c)?.status === 'published';
@@ -642,7 +637,6 @@ export function createStudio(ctx){
       B('trash')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!await confirmObi(`¿Enviar ${L2.length} capítulo(s) a la papelera? Podrás restaurarlos durante 30 días.`)) return; const { error } = await sb.rpc('trash_chapters', { p_ids: L2.map(c => c.id) }); if (error) throw new Error(errMsg(error)); toast(L2.length + ' en la papelera'); SEL.clear(); again(); }));
     }
     drawBulk();
-    // ---- arrastrar para reordenar o cambiar de volumen
     let dragId = null;
     const moveTo = (cid, targetId, after, vid) => busy(null, async () => {
       const list = ordered(), i0 = list.findIndex(x => x.c.id === cid); if (i0 < 0) return; const [it] = list.splice(i0, 1); it.vid = vid;
@@ -657,7 +651,6 @@ export function createStudio(ctx){
       r.ondrop = e => { e.preventDefault(); if (!dragId) return; const af = r.classList.contains('drop-b'); r.classList.remove('drop-a', 'drop-b'); moveTo(dragId, r.dataset.row, af, r.dataset.vol); };
     });
     if (canDrag) app.querySelectorAll('.wk-vh').forEach(h => { h.ondragover = e => { if (dragId) { e.preventDefault(); h.classList.add('drop-v'); } }; h.ondragleave = () => h.classList.remove('drop-v'); h.ondrop = e => { e.preventDefault(); h.classList.remove('drop-v'); if (dragId) moveTo(dragId, null, true, h.dataset.tog); }; });
-    // ---- papelera
     $('#wk-trash')?.addEventListener('toggle', e => { work.trashOpen = e.currentTarget.open; });
     const purgeVols = async vs => { for (const v of vs) { await deleteChapters(TC.filter(c => c.volume_id === v.id).map(c => c.id), [v.cover_path, ...(v.epub_fonts || []).map(f => pathOf(f.url))]); const { error } = await sb.from('volumes').delete().eq('id', v.id); if (error) throw new Error(errMsg(error)); } };
     on('[data-trc]', async b => { const { error } = await sb.rpc('restore_trash', { p_chapters: [b.dataset.trc], p_volumes: [] }); if (error) throw new Error(errMsg(error)); toast('Capítulo restaurado'); again(); });
@@ -792,7 +785,6 @@ export function createStudio(ctx){
       const releaseInfo=$('#wk-release-info');
       if(releaseInfo) releaseInfo.innerHTML=latestRelease ? '<p class="mono">'+esc(latestRelease.text||'Sin anuncio destacado')+' · '+esc(latestRelease.kind==='volume'?'Volumen':'Capítulo')+' · '+esc(latestRelease.days?latestRelease.days+' días':'Sin etiqueta')+'</p><small class="mono">Hasta '+esc(latestRelease.expires_at?fmtTz(latestRelease.expires_at):'sin etiqueta')+'</small>'+(can('edit')?'<button type="button" class="btn ghost sm" id="wk-release-edit">Editar anuncio</button>':'') : '<p class="mono">Las nuevas publicaciones aparecerán aquí.</p>';
       $('#wk-release-edit')?.addEventListener('click',async()=>{ if(!latestRelease)return; const x=await askEditorialAnnouncement({esc,kind:latestRelease.kind,title:'Aviso de la última publicación',initial:latestRelease}); if(!x)return; try{await saveEditorialRecord(sb,s.id,x,{kind:latestRelease.kind,id:latestRelease.id,startsAt:latestRelease.starts_at});toast('Anuncio editorial actualizado');again();}catch(e){toast(errMsg(e))} });
-      // ---- aviso en actualizaciones (se guarda aparte, en series.theme.update_tag)
       let utDirty = false; const UT = Object.assign({ on: false, text: '', color: wcolor(s), style: 'solid', until: '', season: false }, s.theme?.update_tag || {});
       const UT_PRE = ['Nuevo volumen', 'Nuevo nivel', 'Capítulo extra', 'Volumen completo', 'Final', 'De regreso'], UT_COL = ['#f2c230', '#d9922b', '#f59e7a', '#c9a8f2', '#8cc3f2', '#a9d18e', wcolor(s)];
       const drawUT = () => { const box = $('#wk-utag-b'); if (!box) return; const ed = can('edit') ? '' : 'disabled';
@@ -1047,7 +1039,6 @@ export function createStudio(ctx){
     return free.length;
   }
 
-  // ---------- editor de capítulo, importación dinámica ----------
   async function names(ids){
     ids = [...new Set(ids.filter(Boolean))];
     if (!ids.length) return {};
@@ -1064,7 +1055,6 @@ export function createStudio(ctx){
     return (await editorTask)(id);
   }
 
-  // ---------- EPUB/DOCX/PDF, importación dinámica ----------
   let importerTask = null;
   async function importer(){
     if (!importerTask) importerTask = import('./studio-importer.js?v=1')
@@ -1073,7 +1063,6 @@ export function createStudio(ctx){
     return (await importerTask)();
   }
 
-  // ---------- multimedia (módulo diferido) ----------
   let libraryTask = null;
   async function library(folder = '', page = 0){
     if (!libraryTask) libraryTask = import('./studio-media.js?v=1')
@@ -1082,7 +1071,6 @@ export function createStudio(ctx){
     return (await libraryTask)(folder, page);
   }
 
-  // ---------- glosario ----------
   async function glossary(slug){
     if (!(await ensure())) return;
     const TAB = '/estudio/glosario';
@@ -1398,7 +1386,6 @@ export function createStudio(ctx){
     draw();
   }
 
-  // ---------- lectores: comunidad, estadísticas y descargas ----------
   const pick = (works, cur, id = 'fs', all = 'Todas las obras') => `<select id="${id}" aria-label="Obra">${all ? `<option value="">${all}</option>` : ''}${(works || []).map(w => `<option value="${w.id}" ${cur === w.id ? 'selected' : ''}>${esc(w.short || w.title)}</option>`).join('')}</select>`;
   const chLbl = (n, t) => 'Cap. ' + n + (t ? ' — ' + String(t).replace(/^(Cap[íi]tulo|Cap\.)\s*\d+\s*[—–:-]?\s*/, '') : '');
   async function teamWorks(){ const { data } = await sb.from('series').select('id,slug,title,short,theme').eq('team_id', T.team.id).is('archived_at', null).order('title'); return data || []; }
@@ -1569,7 +1556,6 @@ export function createStudio(ctx){
     renderDownloads(F.work, app.querySelector('#st-dl-panel'));
   }
 
-  // ---------- Anuncios: tarjeta destacada en la página pública del equipo ----------
   async function announcements(){
     if (!(await ensure())) return;
     const TAB = '/estudio/anuncios';
