@@ -2,7 +2,8 @@
 // Pruebas con funciones reales y datos ficticios; ninguna conexión a cuentas ni Supabase.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { activeSeason } from '../src/anim.js';
+import { activeSeason, SEASONS } from '../src/anim.js';
+import { seasonPeriods, formatSeasonPeriod, addSeasonDay } from '../src/season-periods.js';
 import * as TP from '../src/teampage.js';
 
 const src=p=>readFileSync(p,'utf8');
@@ -73,3 +74,33 @@ contains(profile,"sb.from('reader_prefs').upsert({ user_id: user.id, global: sna
 contains(reader,"const effective = volId => ({ ...DEF, ...(S.series?.teams?.reader_defaults || {}), ...S.remote.global, ...(S.remote.per_volume[volId] || {}) });",'prioridad equipo - global - volumen');
 contains(studio,'TP.render(D, previewDesign','vista previa del diseño sin edición en la página pública');
 console.log('Fase 6.2: respeto de temporadas, tema manual, solo colores, vista previa y preferencias confirmado.');
+
+/* Calendario: ventanas inclusivas, límites entre meses/años y fechas lunares. */
+const periods = (a, b, opts) => seasonPeriods(SEASONS, a, b, opts);
+const october = periods('2026-10-01', '2026-10-31');
+const halloween = october.find(p => p.key === 'halloween');
+assert(halloween, 'Halloween debe aparecer en octubre');
+assert.deepEqual([halloween.start, halloween.end], ['2026-10-25', '2026-10-31'], 'Halloween dura del 25 al 31 inclusive');
+assert.equal(formatSeasonPeriod(halloween), '25 al 31 de octubre de 2026', 'El calendario debe describir el rango completo');
+assert(halloween.start <= '2026-10-27' && halloween.end >= '2026-10-27', 'El 27 de octubre sigue dentro de Halloween');
+assert(!('2026-11-01' <= halloween.end), 'Halloween ya terminó el 1 de noviembre');
+const halloweenWeek = periods('2026-10-26', '2026-11-01').filter(p => p.key === 'halloween');
+assert.equal(halloweenWeek.length, 1, 'No se debe duplicar Halloween en una misma semana');
+const january = periods('2027-01-01', '2027-01-31');
+assert(january.some(p => p.key === 'anonuevo' && p.start === '2026-12-30' && p.end === '2027-01-02'),
+  'Año Nuevo debe conservar ambos años en enero');
+const easter = periods('2026-04-01', '2026-04-30').find(p => p.key === 'pascua');
+assert.deepEqual([easter.start, easter.end], ['2026-04-02', '2026-04-06'], 'Las festividades lunares respetan días antes y después');
+assert(january.some(p => p.key === 'invierno' && p.start === '2026-12-21' && p.end === '2027-03-19'),
+  'El invierno del norte cruza el año y termina antes de primavera');
+assert(january.some(p => p.key === 'verano' && p.start === '2026-12-21' && p.end === '2027-03-19') === false,
+  'El hemisferio norte no debe confundirse con el sur');
+assert(periods('2027-01-01', '2027-01-31', { hemi: 'sur' }).some(p => p.key === 'verano' && p.end === '2027-03-19'),
+  'Las estaciones del hemisferio sur respetan su calendario');
+const offset = addSeasonDay('2026-10-31', 1);
+assert.equal(offset, '2026-11-01', 'El cálculo de fechas es estable al cruzar el mes');
+const agendaSource = src('src/agenda.js');
+for (const marker of ['seasonSummary(periods)', 'month(list, periods)', 'week(list, periods)', 'ag-msel-season', 'ag-season-dot', 'seasonPeriods(AN?.SEASONS']) {
+  assert(agendaSource.includes(marker), 'La interfaz debe mostrar el intervalo de temporadas: ' + marker);
+}
+console.log('Calendario: Halloween 25–31 oct., estaciones, año nuevo, fechas lunares y señalización de toda la vigencia verificados.');
