@@ -50,7 +50,7 @@ try{
   Object.defineProperty(navigator,'clipboard',{configurable:true,value:{
     writeText:async()=>{throw Error('portapapeles bloqueado');}
   }});
-  copy.click();await delay();
+  copy.focus();copy.click();await delay();
   const fallback=document.querySelector('dialog.obi-dialog');
   check(fallback?.open,'No se abre el diálogo de El Obi para copiar manualmente');
   check(fallback.querySelector('input')?.value===location.origin+location.pathname,
@@ -58,6 +58,7 @@ try{
   check(toast.textContent==='Enlace listo para copiar','El aviso debe distinguir el fallo del copiado real');
   fallback.querySelector('.obi-dialog-cancel').click();await delay();
   check(!document.querySelector('dialog.obi-dialog'),'El diálogo de copia no se cierra al cancelar');
+  check(document.activeElement===copy,'Cancelar el diálogo no devuelve el foco al botón de copia');
   // Compatibilidad: el estado del menú sigue funcionando si no existe el toast global.
   toast.remove();
   Object.defineProperty(navigator,'clipboard',{configurable:true,value:{
