@@ -61,7 +61,7 @@ assert(appCode.includes("document.addEventListener('pointerover', warmSeries") &
 assert(seriesCode.includes("d.locked || vLk") && seriesCode.includes("sb.rpc('series_downloads_v2'"),'No se deben modificar restricciones de descarga');
 // Regresión del podio: '.top' está reservado al encabezado sticky, nunca a tarjetas.
 assert(!rankPerf.includes("rk-c${i < 3 ? ' top'") && !rankPerf.includes("rk-c${r.pos <= 3 ? ' top'"), 'Las tres primeras novelas heredarán la barra de navegación');
-assert(rankPerf.includes("rk-c${i < 3 ? ' rk-podium'") && rankPerf.includes("rk-c${r.pos <= 3 ? ' rk-podium'"), 'El podio de Ranking perdió su clase aislada');
+assert(rankPerf.includes("rk-c${i < 3 ? ' rk-podium rk-place-' + (i + 1)") && rankPerf.includes("rk-c${r.pos <= 3 ? ' rk-podium rk-place-' + r.pos"), 'El podio de Ranking debe distinguir oro, plata y bronce sin clases reservadas');
 assert(css.includes('.rk-c.rk-podium .rk-n{') && !css.includes('.rk-c.top .rk-n{'), 'Estilo de números de podio en conflicto');
 assert(rankPerf.includes('const rankBook = s => book({ ...s, cover_path: s.cover_thumb_path || s.cover_path }'), 'El ranking debe preferir portadas ligeras');
 for(const bad of ['96','1996-01-01T00:00:00Z','not-a-date'])assert.equal(publicationAge(bad),'','Fecha fantasma');
