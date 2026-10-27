@@ -117,6 +117,44 @@ const CSS = `
 .pf-up input[type="file"]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip-path:inset(50%)} 
 .pf-up label:focus-within{outline:3px solid var(--gold);outline-offset:3px}
 .pf-ban{width:160px;height:60px;background:#1c1a14 center/cover;border:1px solid var(--line)}
+
+/* Cuenta: identidad, acceso, Patreon y sesiones en un único panel. */
+.pf-account-heading{display:grid;gap:7px}
+.pf-account-heading .pf-account-kicker{color:var(--gold);font:700 11px 'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase}
+.pf-account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:16px}
+.pf-account-card{display:grid;align-content:start;gap:14px;padding:18px;border:1px solid #5b4b30;background:#1b1812;min-width:0}
+.pf-account-card-head{display:grid;gap:5px}
+.pf-account-card h3{font:800 18px 'Shippori Mincho B1',serif;color:var(--paper)}
+.pf-account-card-desc{font-size:13px;line-height:1.5;color:var(--mute);margin:0}
+.pf-account-field{display:grid;gap:7px;min-width:0}
+.pf-account-field+.pf-account-field{padding-top:14px;border-top:1px solid #3c3326}
+.pf-account-field-label{font:700 11px 'IBM Plex Mono',monospace;color:var(--mute);letter-spacing:.035em}
+.pf-account-field-value{color:var(--paper);font-size:15px;font-weight:700;overflow-wrap:anywhere}
+.pf-account-url{font:12px 'IBM Plex Mono',monospace;overflow-wrap:anywhere;color:#c8b991}
+.pf-account-identity{display:grid;gap:10px;min-width:0}
+.pf-account-method{display:grid;gap:8px;min-width:0}
+.pf-account-method+.pf-account-method{padding-top:13px;border-top:1px solid #3c3326}
+.pf-account-method-title{font-size:14px;font-weight:700}
+.pf-account-method .pf-row{margin-top:3px}
+.pf-account-edit{display:grid;gap:9px;min-width:0}
+.pf-account-edit>summary{display:inline-flex;align-items:center;justify-self:start;min-height:44px;padding:10px 14px;color:var(--gold);border:1px solid #78613c;background:#17140e;cursor:pointer;font:700 13px 'IBM Plex Sans',sans-serif;list-style:none}
+.pf-account-edit>summary::-webkit-details-marker{display:none}
+.pf-account-edit>summary:hover{border-color:var(--gold);background:#292215}
+.pf-account-edit[open]>summary{background:#292215}
+.pf-account-edit-body{display:grid;gap:10px;margin-top:10px}
+.pf-account-edit-body form{min-width:0}
+.pf-account-edit-body .pf-row{background:#12100d;padding:10px;gap:10px}
+.pf-account-edit-body .pf-row input{flex:1 1 160px}
+.pf-account-edit-body .pf-row button{flex:none}
+.pf-account-grid .btn{min-height:44px}
+.pf-account-status{font:700 11px 'IBM Plex Mono',monospace;color:#e5c477}
+.pf-account-foot{display:flex;align-items:center;gap:10px;padding:14px;border:1px solid #3c3326;background:#17140e;font-size:13px;color:var(--mute)}
+.pf-account-foot a{color:var(--gold);font-weight:700}
+.pf-account-method #pt-acc{min-width:0}
+.pf-account-method #pt-acc .pf-note{font-size:13px}
+@media(max-width:1050px){.pf-account-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.pf-account-card{padding:16px}.pf-account-grid{gap:12px}.pf-account-edit-body .pf-row input,.pf-account-edit-body .pf-row button{flex-basis:100%}.pf-account-edit-body .pf-row button{width:100%}}
+
 .pf-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 12px;border:1px solid #2c281e;background:#0d0c0a}
 .pf-row input{flex:1 1 180px;min-width:0;font:13px 'IBM Plex Mono',monospace}
 .pf-row select{flex:0 0 150px}
@@ -823,20 +861,29 @@ export async function preferences(C){
     const LERR = lerr ? (/already|exist|linked/i.test(lerr) ? 'Esa cuenta de Google ya está enlazada a otro lector de El Obi del Lector.' : /manual linking/i.test(lerr) ? 'El enlace con Google no está activado todavía en el servidor.' : lerr) : '';
     const G = '<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
     const gBox = gid
-      ? `<div class="pf-row" style="justify-content:space-between"><span style="display:flex;gap:12px;align-items:center;flex:1 1 240px">${G}<span style="display:grid;gap:2px"><b style="font-size:14px">Enlazada con Google</b><span class="pf-note" style="font-size:13px">${esc(gid.identity_data?.email || '')}</span></span></span>${IDS.length > 1 ? '<button type="button" class="btn ghost sm" id="g-un">Desvincular</button>' : '<span class="pf-note" style="font-size:12px;max-width:220px">Es tu única forma de entrar: crea una contraseña antes de desvincularla.</span>'}</div>`
+      ? `<div class="pf-row" style="justify-content:space-between"><span style="display:flex;gap:12px;align-items:center;flex:1 1 240px">${G}<span style="display:grid;gap:2px"><b style="font-size:14px">Enlazada con Google</b><span class="pf-note" style="font-size:13px">${esc(gid.identity_data?.email || '')}</span></span></span>${(hasPw && !!user.email_confirmed_at) ? '<button type="button" class="btn ghost sm" id="g-un">Desvincular</button>' : '<span class="pf-note" style="font-size:12px;max-width:220px">Verifica tu correo y configura el acceso por correo antes de desvincular Google.</span>'}</div>`
       : `<div class="pf-row" style="justify-content:space-between"><span style="display:flex;gap:12px;align-items:center;flex:1 1 240px">${G}<span class="pf-note" style="font-size:13px">Entra con un clic usando tu cuenta de Google. Tu biblioteca, tu carnet y tus avisos siguen siendo los mismos.</span></span><button type="button" id="g-ln" style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 16px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:4px;font:600 14px 'IBM Plex Sans',system-ui,sans-serif;cursor:pointer">${G}Enlazar con Google</button></div>`;
-    const blk = (t, d, body) => `<div style="display:grid;gap:10px"><h3>${t}</h3>${d ? `<p class="pf-note" style="font-size:13px">${d}</p>` : ''}${body}</div>`;
-    setTimeout(() => import('/patreon.js?v=1').then(m => m.accountBox(document.getElementById('pt-acc'), { sb, url, esc, toast })), 0);
-    app.innerHTML = shell(`<div style="display:grid;gap:6px"><h2>Cuenta</h2><p class="pf-note">Tus datos de acceso. Nadie más ve tu correo.</p></div>
-      ${blk('Patreon', 'Vincula tu cuenta para activar lo que es solo para mecenas.', '<div id="pt-acc"><p class="mono">Cargando…</p></div>')}
-      ${blk('Nombre de usuario', `Es tu dirección pública: /lector/${esc(P.username)}. Si lo cambias, el enlace anterior seguirá llevando a tu carnet durante 90 días. Puedes cambiarlo una vez cada 30 días.`,
-        `<form id="fu" class="pf-row" style="gap:10px"><input id="un" value="${esc(P.username)}" minlength="2" maxlength="32" autocomplete="username" aria-label="Nombre de usuario" style="flex:1 1 220px" ${lockU ? 'disabled' : ''}><button class="btn" ${lockU ? 'disabled' : ''}>Guardar</button></form>${lockU ? `<p class="pf-note" style="font-size:13px">Podrás cambiarlo de nuevo el ${nextU.toLocaleDateString('es-MX', { dateStyle: 'long' })}.</p>` : ''}<p id="un-err" role="alert" style="color:#f59e7a;margin:0;font-size:13px"></p>`)}
-      ${blk('Correo', user.new_email ? `Cambio pendiente a <b>${esc(user.new_email)}</b>: confirma el enlace que enviamos a los dos correos.` : `Ahora: <b>${esc(user.email)}</b>. Te enviaremos un enlace al correo actual y otro al nuevo; el cambio se aplica al confirmar ambos.`,
-        `<form id="fe" class="pf-row" style="gap:10px"><input id="em" type="email" autocomplete="email" placeholder="nuevo@correo.com" aria-label="Nuevo correo" style="flex:1 1 220px" required><button class="btn">Cambiar correo</button></form><p id="em-err" role="alert" style="color:#f59e7a;margin:0;font-size:13px"></p>`)}
-      ${blk('Inicio de sesión con Google', gid ? 'Puedes entrar con Google o con tu correo y contraseña.' : '', gBox + (LERR ? `<p role="alert" style="color:#f59e7a;margin:0;font-size:13px">${esc(LERR)}</p>` : ''))}
-      ${blk(hasPw ? 'Contraseña' : 'Crear contraseña', hasPw ? 'Te enviaremos un enlace a tu correo para elegir una nueva.' : 'Entraste con Google. Si quieres entrar también con tu correo, te enviamos un enlace para crear una contraseña.', '<button class="btn ghost" id="pw" style="justify-self:start">Cambiar contraseña</button>')}
-      ${blk('Sesiones', last ? `Último inicio de sesión: ${last}.` : '', '<div class="pf-row" style="justify-content:space-between"><span class="pf-note" style="flex:1 1 240px;font-size:13px">¿Entraste desde un equipo ajeno o perdiste un dispositivo? Cierra todas las demás sesiones; esta seguirá abierta.</span><button class="btn ghost" id="so">Cerrar las demás sesiones</button></div>')}
-      <p class="pf-note" style="font-size:13px">Para descargar tus datos o eliminar tu cuenta, ve a <a href="/preferencias?s=privacidad">Privacidad</a>.</p>`);
+
+    const accountCard = (title, description, body) => `<section class="pf-account-card"><header class="pf-account-card-head"><h3>${{title}</h3>${{description ? `<p class="pf-account-card-desc">${{description}</p>` : ''}</header>${{body}</section>`;
+    const editPanel = (title, body) => `<details class="pf-account-edit"><summary>${{title}</summary><div class="pf-account-edit-body">${{body}</div></details>`;
+    const usernameForm = `<form id="fu" class="pf-row"><input id="un" value="${{esc(P.username)}" minlength="2" maxlength="32" autocomplete="username" aria-label="Nuevo nombre de usuario" ${{lockU ? 'disabled' : ''}><button class="btn" ${{lockU ? 'disabled' : ''}>Guardar nombre</button></form><p id="un-err" role="alert" style="color:#f59e7a;margin:0;font-size:13px"></p>`;
+    const emailForm = `<form id="fe" class="pf-row"><input id="em" type="email" autocomplete="email" placeholder="nuevo@correo.com" aria-label="Nuevo correo electrónico" required><button class="btn">Solicitar cambio</button></form><p id="em-err" role="alert" style="color:#f59e7a;margin:0;font-size:13px"></p>`;
+    const usernameBody = `<div class="pf-account-field"><span class="pf-account-field-label">Nombre de usuario</span><span class="pf-account-field-value">${{esc(P.username)}</span><span class="pf-account-url">/lector/${{esc(P.username)}</span><p class="pf-account-card-desc">El enlace anterior seguirá funcionando 90 días. Solo puedes cambiarlo una vez cada 30 días.</p>${{lockU ? `<p class="pf-note">Podrás cambiarlo de nuevo el ${{nextU.toLocaleDateString('es-MX', { dateStyle: 'long' })}.</p>` : editPanel('Cambiar usuario', usernameForm)}</div>`;
+    const emailBody = `<div class="pf-account-field"><span class="pf-account-field-label">Correo electrónico privado</span><span class="pf-account-field-value">${{esc(user.email || 'Sin correo disponible')}</span>${{user.new_email ? `<p class="pf-note">Cambio pendiente a <b>${{esc(user.new_email)}</b>. Confirma los enlaces enviados a ambos correos.</p>` : `<p class="pf-account-card-desc">El cambio requiere confirmar el correo actual y el nuevo.</p>`}${{editPanel('Cambiar correo', emailForm)}</div>`;
+    const googleBody = `<div class="pf-account-method"><span class="pf-account-method-title">Google</span>${{gBox}${{LERR ? `<p role="alert" style="color:#f59e7a;margin:0;font-size:13px">${{esc(LERR)}</p>` : ''}</div>`;
+    const passwordBody = `<div class="pf-account-method"><span class="pf-account-method-title">Acceso por correo</span><p class="pf-account-card-desc">Solicita un enlace para crear o restablecer la contraseña. Podrás seguir utilizando este mismo carnet y biblioteca.</p><button type="button" class="btn ghost" id="pw" style="justify-self:start">Crear o restablecer contraseña</button></div>`;
+    const patreonBody = `<div class="pf-account-method"><span class="pf-account-method-title">Patreon</span><div id="pt-acc"><p class="pf-note">Cargando estado de Patreon…</p></div></div>`;
+    setTimeout(() => import('/patreon.js?v=1').then(m => m.accountBox(document.getElementById('pt-acc'), { sb, url, esc, toast })).catch(() => {
+      const el = document.getElementById('pt-acc'); if (el) el.textContent = 'No se pudo cargar Patreon. Actualiza la página para intentarlo de nuevo.';
+    }), 0);
+    app.innerHTML = shell(`<header class="pf-account-heading"><span class="pf-account-kicker">Mi identidad · Seguridad y cuenta</span><h2>Cuenta y seguridad</h2><p class="pf-note">Una sola cuenta de El Obi del Lector para tus datos, biblioteca y métodos de acceso. Tu correo es privado.</p></header>
+      <div class="pf-account-grid">
+        ${{accountCard('Datos de tu cuenta', 'Información asociada a tu carnet de lector.', usernameBody + emailBody)}
+        ${{accountCard('Métodos de acceso', 'Google, correo y Patreon se vinculan al mismo lector, sin crear otro carnet.', passwordBody + googleBody + patreonBody)}
+        ${{accountCard('Sesiones y dispositivos', 'Controla los accesos a tu cuenta.', `<div class="pf-account-field"><span class="pf-account-field-label">Último inicio de sesión</span><span class="pf-account-field-value">${{last ? esc(last) : 'No disponible'}</span><p class="pf-account-card-desc">Si utilizaste un equipo compartido o perdiste un dispositivo, puedes cerrar las otras sesiones sin salir de esta.</p><button type="button" class="btn ghost" id="so" style="justify-self:start">Cerrar las demás sesiones</button></div>`)}
+        ${{accountCard('Privacidad y datos', 'Tus datos pertenecen al mismo perfil aunque cambies cómo inicias sesión.', `<div class="pf-account-field"><p class="pf-account-card-desc">Consulta la visibilidad de tu actividad, descarga tus datos o solicita eliminar tu cuenta desde Privacidad.</p><a class="btn ghost" href="/preferencias?s=privacidad" style="justify-self:start">Ir a Privacidad</a></div>`)}
+      </div>
+      <p class="pf-account-foot">Vincular Patreon o Google no sustituye ni duplica tu usuario. Si ya pertenecen a otra cuenta, inicia sesión en ella antes de continuar.</p>`);
     const $ = s => app.querySelector(s), EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
     $('#fu').onsubmit = async e => { e.preventDefault(); const v = $('#un').value.trim(); $('#un-err').textContent = '';
       if (v === P.username) return; if (v.length < 2 || v.length > 32) return $('#un-err').textContent = 'Entre 2 y 32 caracteres.';
@@ -851,7 +898,7 @@ export async function preferences(C){
     $('#g-ln')?.addEventListener('click', async e => { const b = e.currentTarget; b.disabled = true;
       const { error } = await sb.auth.linkIdentity({ provider: 'google', options: { redirectTo: location.origin + '/preferencias?s=cuenta&enlazada=1', queryParams: { prompt: 'select_account' } } });
       if (error) { b.disabled = false; toast(/manual linking/i.test(error.message) ? 'El enlace con Google no está activado todavía en el servidor.' : error.message); } });
-    $('#g-un')?.addEventListener('click', async () => { if (!await confirmObi('¿Desvincular tu cuenta de Google? Seguirás entrando con tu correo y contraseña.')) return;
+    $('#g-un')?.addEventListener('click', async () => { if (!hasPw || !user.email_confirmed_at) return toast('Verifica primero el acceso con tu correo.'); if (!await confirmObi('¿Desvincular Google? Antes de hacerlo, asegúrate de poder entrar con tu correo y de haber creado una contraseña.')) return;
       const { error } = await sb.auth.unlinkIdentity(gid); if (error) return toast(error.message); toast('Cuenta de Google desvinculada'); preferences(C); });
     if (new URLSearchParams(location.search).get('enlazada') && gid) { history.replaceState({}, '', '/preferencias?s=cuenta'); toast('¡Listo! Ya puedes entrar con Google'); }
     $('#pw').onclick = async () => { let captchaToken; try { captchaToken = await (await import('/captcha.js?v=1')).once('reset'); } catch (e) { return toast(e.message); } const { error } = await sb.auth.resetPasswordForEmail(user.email, { redirectTo: location.origin + '/restablecer', captchaToken }); toast(error ? error.message : 'Te enviamos un enlace a tu correo para cambiarla'); };
