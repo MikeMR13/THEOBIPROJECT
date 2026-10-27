@@ -25,8 +25,8 @@ assert.doesNotMatch(home,/s\.cover_thumb_path\s*=\s*null/,
  'No descartar miniaturas WebP existentes');
 assert.match(hero,/v\?\.cover_path \|\| s\.cover_path/,
  'Conservar portada propia del volumen en hero y sus lanzamientos');
-assert.match(home,/coverUrl = v\?\.cover_path[\s\S]*? : thumb\(s\)/,
- 'Conservar portada específica de novedades y miniatura de obra en fallback');
+assert.match(home,/coverUrl = media\(v\?\.cover_path \|\| s\.cover_path \|\| s\.cover_thumb_path\)/,
+ 'Conservar la portada específica del volumen y priorizar la portada original de la obra');
 assert.match(home,/loading="lazy" decoding="async"/,
  'No descargar todas las miniaturas fuera de pantalla inmediatamente');
-console.log('OK: Inicio solicita créditos en paralelo, filtra +18 y conserva miniaturas/portadas editoriales.');
+console.log('OK: Inicio solicita créditos en paralelo, filtra +18 y conserva portadas editoriales completas sin adelantar descargas.');

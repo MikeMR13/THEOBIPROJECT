@@ -21,10 +21,10 @@ assert(releases.includes('const grp = news.entries.slice(0, 10)'),'Inicio debe l
 assert(releases.includes('ob-car ob-release-car ob-anim') && releases.includes('ob-cc ob-release-card'),'El carrusel debe reutilizar las tarjetas de otras secciones');
 assert(releases.includes("arrows('ob-release-car')") && releases.includes('role="region" aria-roledescription="carrusel"'),'Faltan flechas o accesibilidad del carrusel');
 assert(releases.includes("releaseCar?.addEventListener('keydown'") && releases.includes('prefers-reduced-motion: reduce'),'Falta teclado o compatibilidad con movimiento reducido');
-assert(releases.includes('loading="lazy" decoding="async"') && releases.includes('thumb(s)'),'Faltan miniaturas optimizadas y carga diferida');
+assert(releases.includes('loading="lazy" decoding="async"') && releases.includes('coverUrl = media(v?.cover_path || s.cover_path || s.cover_thumb_path)'),'Faltan portadas completas y carga diferida');
 assert(releases.includes('¡Nuevo volumen!') && releases.includes('Nuevo capítulo') && releases.includes('Todos los lanzamientos →'),'Faltan tipos o enlace al historial completo');
 assert(releases.includes("g.kind === 'volume' ? g.volume : null") && releases.includes("v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + c.num"),'Se perdieron los destinos de volumen y capítulo');
-assert(css.includes('.ob-release-card b{min-height:2.7em}') && css.includes('.ob-release-card .cv img{display:block;width:100%;height:100%;object-fit:cover}'),'Portadas o altura de tarjetas no respetadas');
+assert(css.includes('.ob-release-card b{min-height:2.7em}') && css.includes('.ob-page .ob-car>.ob-cc:not(.ob-continue-card)>.cv img{') && css.includes('object-fit:contain'),'Altura de tarjetas o portadas completas no respetadas');
 assert(css.includes('.ob-car{display:grid;grid-auto-flow:column;grid-auto-columns:clamp(132px,16vw,172px)') && css.includes('.ob-car{grid-auto-columns:40vw!important;'),'El carrusel nuevo debe heredar exactamente los tamaños habituales en escritorio y móvil');
 assert(css.includes('.ob-release-card .cv{overflow:hidden;isolation:isolate;box-sizing:border-box}'),'Las portadas de respaldo deben respetar proporción y bordes');
 assert(!releases.includes('ob-upd ob-anim') && !releases.includes('ob-urow${v'),'La lista vertical original sigue presente');

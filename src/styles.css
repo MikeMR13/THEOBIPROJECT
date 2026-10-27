@@ -496,3 +496,113 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
 .ob-hero-partners .obi-credits{margin:0;gap:6px 12px}
 .ob-hero-partners .obi-credit img{max-height:50px;max-width:min(96px,25vw)}
 @media(max-width:600px){.ob-hero-partners .obi-credit img{max-height:36px;max-width:82px}}
+
+/* La portada destacada conserva su composición, pero muestra la ilustración entera. */
+.ob-page .ob-hero .ob-cov .f{background-color:#0b0a08;background-size:contain;background-repeat:no-repeat;background-position:center}
+
+/* Inicio: lenguaje de fichas editoriales compartido con «Continuar leyendo».
+   Alcance deliberadamente limitado a .ob-page, sin alterar catálogo, lector o Estudio. */
+.ob-page .ob-car:not(.ob-continue-car){grid-auto-columns:clamp(170px,18vw,226px)}
+.ob-page .ob-car>.ob-cc:not(.ob-continue-card){
+  display:flex;flex-direction:column;align-items:stretch;gap:8px;
+  min-width:0;min-height:100%;box-sizing:border-box;padding:10px 10px 13px;
+  background:linear-gradient(180deg,#17130e,#100e0b);
+  border:1px solid #56401c;border-left:4px solid var(--gold);border-radius:6px;
+  box-shadow:0 10px 26px rgba(0,0,0,.35);
+  transition:border-color .2s,box-shadow .2s,transform .2s;
+}
+.ob-page .ob-car>.ob-cc:not(.ob-continue-card):hover{
+  transform:translateY(-4px);border-color:var(--gold);
+  box-shadow:0 16px 32px rgba(0,0,0,.5);
+}
+.ob-page .ob-car>.ob-cc:not(.ob-continue-card):focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.ob-page .ob-car>.ob-cc:not(.ob-continue-card)>.cv{
+  position:relative;display:block;box-sizing:border-box;width:100%;
+  aspect-ratio:2/3;padding:6px;overflow:hidden;
+  background:#0b0a08;border:1px solid #41372a;
+  transition:none;
+}
+.ob-page .ob-car>.ob-cc:not(.ob-continue-card)>.cv img{
+  position:static;display:block;width:100%;height:100%;
+  object-fit:contain;object-position:center;
+}
+.ob-page .ob-car>.ob-cc:not(.ob-continue-card):hover>.cv{
+  transform:none;box-shadow:none;
+}
+.ob-page .ob-car>.ob-cc:not(.ob-continue-card)>.cv.no{
+  display:flex;align-items:flex-end;padding:12px;
+  background:linear-gradient(150deg,var(--c,var(--gold)),#16140f);
+}
+.ob-page .ob-car>.ob-cc:not(.ob-continue-card)>b{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+  min-height:2.7em;overflow:hidden;overflow-wrap:anywhere;line-height:1.35;
+}
+.ob-page .ob-car>.ob-cc:not(.ob-continue-card)>small{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+  overflow:hidden;overflow-wrap:anywhere;line-height:1.4;
+}
+.ob-page .ob-car>.ob-cc:not(.ob-continue-card)>.obi-credits--carousel{margin-top:auto;padding-top:4px}
+.ob-page .ob-car>.ob-cc.all>.cv{display:flex;align-items:center;justify-content:center}
+
+/* Más leídas: mantener el número destacado, pero encuadrar la portada vertical. */
+.ob-page .ob-rank>.ob-ritem{
+  min-width:0;box-sizing:border-box;padding:12px;
+  background:linear-gradient(180deg,#17130e,#100e0b);
+  border:1px solid #56401c;border-left:4px solid var(--gold);
+  border-radius:6px;box-shadow:0 10px 26px rgba(0,0,0,.35);
+  transition:border-color .2s,box-shadow .2s;
+}
+.ob-page .ob-rank>.ob-ritem:hover{border-color:var(--gold);box-shadow:0 16px 32px rgba(0,0,0,.5)}
+.ob-page .ob-rank>.ob-ritem:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.ob-page .ob-rank .ob-ritem>.c{
+  position:relative;display:flex;align-items:center;justify-content:center;
+  min-width:0;width:100%;aspect-ratio:2/3;box-sizing:border-box;
+  padding:5px;background:#0b0a08;border:1px solid #41372a;overflow:hidden;
+  transition:none;
+}
+.ob-page .ob-rank .ob-ritem>.c img{
+  position:static;display:block;width:100%;height:100%;
+  object-fit:contain;object-position:center;
+}
+.ob-page .ob-rank .ob-ritem:hover>.c{transform:none}
+.ob-page .ob-rank-cover-fallback{
+  display:block;max-width:100%;color:var(--paper);
+  text-align:center;font:500 13px/1.3 'Shippori Mincho B1',serif;overflow-wrap:anywhere;
+}
+.ob-page .ob-rank .ob-ritem>b{overflow-wrap:anywhere;line-height:1.35}
+.ob-page .ob-rank .ob-ritem>small{overflow-wrap:anywhere;line-height:1.5}
+
+/* Tarjetas de texto: conservar sus enlaces, estados y jerarquía. */
+.ob-page .ob-rev,.ob-page .ob-nx,.ob-page .ob-ann{
+  min-width:0;box-sizing:border-box;background:#14110d;
+  border-color:#56401c;border-radius:6px;
+  box-shadow:0 10px 26px rgba(0,0,0,.3);
+}
+.ob-page .ob-rev{border-left:4px solid var(--gold)}
+.ob-page .ob-rev>.c{
+  display:flex;align-items:center;justify-content:center;
+  width:56px;height:80px;padding:3px;box-sizing:border-box;
+  background:#0b0a08;border:1px solid #41372a;overflow:hidden;
+}
+.ob-page .ob-rev>.c img{
+  display:block;width:100%;height:100%;object-fit:contain;object-position:center;
+}
+.ob-page .ob-nx{border-left:4px solid var(--gold)}
+.ob-page .ob-ann{border-left:4px solid var(--tc,var(--gold))}
+.ob-page .ob-rev:hover,.ob-page .ob-nx:hover,.ob-page .ob-ann:hover{
+  border-color:var(--gold);box-shadow:0 14px 28px rgba(0,0,0,.42);
+}
+/* Géneros conservan su imagen ambiental; únicamente reciben el contorno de ficha. */
+.ob-page a[href^="/catalogo?g="]{
+  border-radius:6px;box-shadow:inset 4px 0 0 var(--gold),0 10px 26px rgba(0,0,0,.28);
+}
+.ob-page a[href^="/catalogo?g="]:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+@media(max-width:600px){
+  .ob-page .ob-car:not(.ob-continue-car){grid-auto-columns:min(66vw,220px)!important}
+  .ob-page .ob-car>.ob-cc:not(.ob-continue-card){padding:9px 9px 12px}
+  .ob-page .ob-rank>.ob-ritem{padding:10px}
+}
+@media(prefers-reduced-motion:reduce){
+  .ob-page .ob-car>.ob-cc:not(.ob-continue-card),
+  .ob-page .ob-rank>.ob-ritem{transition:none}
+}
