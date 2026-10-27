@@ -28,7 +28,7 @@ const server=createServer((req,res)=>{
   res.setHeader('Content-Type','text/javascript; charset=utf-8');
   res.end(readFileSync('scripts/qa-preferencias-browser-harness.js','utf8'));return;
  }
- if(['/profile.js','/reader-pref-cache.js','/preferences-preview.js'].includes(path)){
+ if(['/profile.js','/dialogs.js','/reader-pref-cache.js','/preferences-preview.js'].includes(path)){
   res.setHeader('Content-Type','text/javascript; charset=utf-8');
   res.end(readFileSync('src/'+path.slice(1),'utf8'));return;
  }
