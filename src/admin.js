@@ -1,4 +1,4 @@
-import { confirmObi } from './dialogs.js';
+const confirmObi=(...args)=>import('./dialogs.js').then(module=>module.confirmObi(...args));
 import { renderAdminSeo } from './admin-seo.js?v=1';
 // Panel del Bibliotecario: acceso único en /bibliotecario (alias /admin).
 const CSS = `
