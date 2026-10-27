@@ -1,4 +1,6 @@
-import { confirmObi, alertObi, promptObi } from './dialogs.js';
+const confirmObi=(...args)=>import('./dialogs.js').then(module=>module.confirmObi(...args));
+const alertObi=(...args)=>import('./dialogs.js').then(module=>module.alertObi(...args));
+const promptObi=(...args)=>import('./dialogs.js').then(module=>module.promptObi(...args));
 import { STUDIO_TEAM_PERMS } from './studio-team-permissions.js?v=1';
 import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=1';
 import { initCollaborationTeamPicker, COLLABORATION_STATUS } from './studio-collaboration-picker.js?v=1';
