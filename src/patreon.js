@@ -1,4 +1,4 @@
-import { confirmObi } from './dialogs.js';
+const confirmObi=(...args)=>import('./dialogs.js').then(module=>module.confirmObi(...args));
 // Patreon: conectar campañas (equipos y plataforma), vincular la cuenta del lector y pantallas de bloqueo.
 const FN = url => url + '/functions/v1/patreon';
 export async function start(sb, url, kind, owner = null, toast = () => {}) {
