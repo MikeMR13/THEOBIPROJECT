@@ -54,22 +54,9 @@
 .df-confirmation-notice{border:2px solid #7fad81;border-radius:8px;background:#172619;color:#d4f2cc;padding:14px 16px;line-height:1.55;margin:12px 0}
 .df-box #df-schedule-refresh{margin:10px 0;min-height:44px;max-width:100%;white-space:normal}
 
-/* Plantillas de anuncios: tarjeta y mensaje son una simulación editorial. */
+/* Botones para insertar variables en plantillas. */
 .df-draft-variables{display:flex;gap:8px;flex-wrap:wrap}
 .df-draft-variables .df-link{border:1px solid #5f4f30;padding:8px;min-height:40px}
-.df-draft-options{display:flex;flex-wrap:wrap;gap:12px;border:1px solid #665436;padding:12px}
-.df-draft-options legend{font-size:13px;font-weight:700}
-.df-draft-options label{display:flex;align-items:center;gap:7px}
-.df-draft-options input{width:18px;height:18px;accent-color:#d4ae52}
-.df-draft-preview{display:grid;gap:10px;padding:15px;border:1px solid #6c572e;background:#211b12;min-width:0}
-.df-draft-preview h4{margin:0}
-.df-draft-message{white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;border:1px solid #473b28;background:#17140e;line-height:1.6}
-.df-draft-card{display:flex;gap:12px;padding:12px;border:1px solid #4a422f;background:#16140f;overflow-wrap:anywhere}
-.df-draft-card img{width:90px;max-width:30%;aspect-ratio:2/3;object-fit:cover}
-.df-draft-card-content{display:grid;gap:6px;min-width:0}
-.df-draft-card-content strong{color:#f4deb1}
-.df-draft-card-content small{font-size:11px;color:#baa987}
-@media(max-width:520px){.df-draft-card img{width:65px}.df-draft-options{display:grid}}
 
 /* Selector visible de plantilla para reglas existentes. */
 .df [data-rule-draft]{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:10px;border:1px solid #a68a52;background:#13110d;color:#f3ecd9;font:inherit}

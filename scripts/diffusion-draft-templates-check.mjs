@@ -16,9 +16,14 @@ assert.ok(renderDraftTemplate('{{mal',ctx).errors.length);
 assert.ok(renderDraftTemplate('x'.repeat(701),ctx).errors.length);
 const ui=readFileSync(new URL('../src/diffusion-panel.js',import.meta.url),'utf8');
 const sql=readFileSync(new URL('../supabase/migrations/20261026224217_diffusion_draft_presentation.sql',import.meta.url),'utf8');
-for(const token of ['df-campaign-live','data-draft-variable','data-draft-option',
- 'renderDraftTemplate','p_presentation','annDraftPresentation','draftLivePreview'])
- assert.ok(ui.includes(token),'Falta integración: '+token);
+for(const token of ['data-draft-variable','renderDraftTemplate','diffusion_campaign_draft_save',
+ 'df-campaign-form','data-use-campaign','savedDraftOptions(annDraftId)'])
+ assert.ok(ui.includes(token),'Falta función de plantilla: '+token);
+for(const removed of ['df-campaign-work','df-campaign-live','data-draft-option',
+ 'annDraftPresentation','draftLivePreview','p_presentation:','draftPresentation='])
+ assert.ok(!ui.includes(removed),'La opción de presentación debe desaparecer: '+removed);
+assert.ok(!ui.includes("q('series','id,title,slug,synopsis,author,cover_path,team_id'"),
+ 'Crear plantillas no debe consultar obras privadas');
 assert.match(sql,/not private\.diffusion_scope_ok\(p_team,'diffusion_compose'\)/);
 assert.match(sql,/team_id is not distinct from p_team and status='draft'/);
 assert.match(sql,/grant execute on function public\.diffusion_campaign_draft_save\(uuid,uuid,text,text,jsonb\)/);
