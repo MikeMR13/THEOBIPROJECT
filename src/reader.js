@@ -1,3 +1,4 @@
+import { confirmObi, promptObi } from './dialogs.js';
 // Lector de El Obi del Lector: por capítulo o continuo, fuentes EPUB, progreso exacto, leídos, historial, sin conexión y anotaciones.
 const OFF_CACHE = 'obi-offline-v1', OFF_INDEX = 'obi-offline-index', PREF_KEY = 'obi-reader-prefs';
 import { cleanInline, renderBlock, warningsHTML, teaserHTML } from './blocks.js?v=2';
@@ -701,7 +702,7 @@ export function createReader(ctx){
       return `<div class="off-it"><span><b>${esc(it.title)}</b><small>Volumen ${it.vol} · ${n} ${n === 1 ? 'capítulo' : 'capítulos'} · descargado ${new Date(it.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</small></span><a class="btn" href="/leer/${esc(it.slug)}/${here || it.nums[0]}">${here ? 'Continuar · cap. ' + here : 'Empezar a leer'}</a><button class="btn ghost" data-off="${esc(k)}">Borrar</button></div>`; }).join('')}</div><p class="mono" id="off-space"></p>`;
   }
   function bindOfflineList(root, after){
-    root.querySelectorAll('[data-off]').forEach(b => b.onclick = async () => { if (!confirm('¿Borrar este volumen del dispositivo?')) return; await removeVolume(b.dataset.off); toast('Descarga eliminada'); after(); });
+    root.querySelectorAll('[data-off]').forEach(b => b.onclick = async () => { if (!await confirmObi('¿Borrar este volumen del dispositivo?')) return; await removeVolume(b.dataset.off); toast('Descarga eliminada'); after(); });
     navigator.storage?.estimate?.().then(e => { const el = root.querySelector('#off-space'); if (el && e?.usage) el.textContent = `Espacio usado en este dispositivo: ${Math.max(1, Math.round(e.usage / 1048576))} MB`; }).catch(() => {});
   }
 
@@ -816,14 +817,14 @@ export function createReader(ctx){
       b.disabled = false; if (error) return toast(error.message); toast('Comentario publicado'); pn.hidden = true; comments(); });
     pn.querySelectorAll('[data-reply]').forEach(b => b.onclick = () => { const it = b.closest('.cm-it'); if (it.nextElementSibling?.classList.contains('cm-form')) return; it.insertAdjacentHTML('afterend', form(b.dataset.reply)); const f = it.nextElementSibling; f.body.focus();
       f.onsubmit = async e => { e.preventDefault(); const { error } = await sb.from('comments').insert({ chapter_id: ch.id, user_id: u.id, body: f.body.value.trim(), spoiler: f.spoiler.checked, parent_id: +b.dataset.reply }); if (error) return toast(error.message); toast('Respuesta publicada'); pn.hidden = true; comments(); }; });
-    pn.querySelectorAll('[data-cdel]').forEach(b => b.onclick = async () => { if (!confirm('¿Borrar tu comentario?')) return; const { error } = await sb.from('comments').delete().eq('id', b.dataset.cdel); if (error) return toast(error.message); pn.hidden = true; comments(); });
+    pn.querySelectorAll('[data-cdel]').forEach(b => b.onclick = async () => { if (!await confirmObi('¿Borrar tu comentario?')) return; const { error } = await sb.from('comments').delete().eq('id', b.dataset.cdel); if (error) return toast(error.message); pn.hidden = true; comments(); });
   }
 
   // ---------- errata ----------
   async function report(){
     const user = getUser(); if (!user) return go('/entrar');
-    const quote = String(getSelection()).trim() || prompt('Frase con el error'); if (!quote) return;
-    const fix = prompt('¿Cómo debería decir?') || '';
+    const quote = String(getSelection()).trim() || await promptObi('Frase con el error'); if (!quote) return;
+    const fix = await promptObi('¿Cómo debería decir?') || '';
     const { error } = await sb.from('reports').insert({ chapter_id: S.active.id, user_id: user.id, kind: 'Errata', quote, fix });
     toast(error ? error.message : 'Gracias, el equipo recibió tu reporte');
   }
