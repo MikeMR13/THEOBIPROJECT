@@ -19,6 +19,7 @@ for (const field of ['id="fu"', 'id="fe"', 'id="pw"', 'id="so"', 'id="pt-acc"', 
 assert.ok(account.includes('editPanel(') && account.includes('<details'), 'Las ediciones deben ser desplegables');
 assert.ok(account.includes('hasPw && !!user.email_confirmed_at'), 'No desvincular Google sin identidad y correo verificado');
 assert.ok(account.includes('lockU ?'), 'Respetar bloqueo de cambio de nombre');
+assert.ok(account.includes("if ($('#fu')) $('#fu').onsubmit"), 'La ausencia del formulario bloqueado no debe interrumpir otros controles');
 assert.ok(account.includes('user.new_email'), 'Mostrar estado de cambio de correo pendiente');
 assert.ok(profile.includes('.pf-account-grid{'), 'Faltan estilos de panel unificado');
 assert.ok(profile.includes('@media(max-width:1050px){.pf-account-grid'), 'El panel debe adaptarse a pantallas pequeñas');
