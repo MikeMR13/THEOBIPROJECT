@@ -13,7 +13,7 @@ for(const name of files){
  if(source.includes('confirmObi(')||source.includes('promptObi(')||source.includes('alertObi(')){
   const parse=spawnSync(process.execPath,['--check',path],{encoding:'utf8'});
   assert.equal(parse.status,0,'Sintaxis '+name+': '+parse.stderr);
-  if(name!=='dialogs.js')assert(source.includes("from './dialogs.js'"),name+' necesita importar diálogos');
+  if(name!=='dialogs.js')assert(source.includes("from './dialogs.js'")||source.includes("import('./dialogs.js')"),name+' necesita cargar diálogos');
   converted++;
  }
  seen++;
