@@ -1,4 +1,4 @@
-import { confirmObi } from './dialogs.js';
+const confirmObi=(...args)=>import('./dialogs.js').then(module=>module.confirmObi(...args));
 // Vistas públicas con la identidad visual de El Obi del Lector: Inicio, Catálogo y Ficha de serie.
 import { publicationDate, publicationAge, publicationDay } from './publication-dates.js?v=1';
 import { homeReleaseOverview } from './home-releases.js?v=1';
