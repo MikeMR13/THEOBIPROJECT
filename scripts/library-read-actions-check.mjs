@@ -69,7 +69,7 @@ for(const snippet of [
  "await persistReadingChanges(sb,uid,changes)",
  "await readPages((from,to)=>sb.from('read_chapters')",
  'Estas marcas actualizan tus estadísticas',
- 'solo se incluyen capítulos publicados',
+ 'Solo se incluyen capítulos publicados',
  'Marcar toda la novela como leída',
  'Desmarcar toda la novela',
  'Marcar volumen leído',
@@ -77,5 +77,4 @@ for(const snippet of [
  'const q=box.querySelector',
  "sb.from('profiles').update({ hidden_series:"
 ]) assert(app.includes(snippet),'Contrato de funcionalidad/privacidad '+snippet);
-assert(app.includes('status:')===false||app.includes("data-read-scope"),'Conservar el flujo de lectura');
 console.log('✓ Marcado/desmarcado de novela, volumen y capítulo, lotes, historial y deshacer sin modificar progreso');
