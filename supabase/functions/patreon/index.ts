@@ -139,10 +139,15 @@ Deno.serve(async req => {
     }
     const ij = await get('/identity?include=memberships,memberships.campaign,memberships.currently_entitled_tiers&fields[user]=email,full_name,is_email_verified,image_url&fields[member]=patron_status,currently_entitled_amount_cents', t.access_token);
     const pid = String(ij.data.id), email = ij.data.attributes.email as string | undefined, verified = !!ij.data.attributes.is_email_verified;
-    const { data: owner } = await db.from('profiles').select('id').eq('patreon_user_id', pid).maybeSingle();
+    const { data: owner, error: ownerError } = await db.from('profiles').select('id').eq('patreon_user_id', pid).maybeSingle();
+    if (ownerError) throw ownerError;
     if (kind === 'link') {
-      if (owner && owner.id !== S.user_id) return back(ret, { patreon: 'en_uso' });
-      await db.from('profiles').update({ patreon_user_id: pid }).eq('id', S.user_id);
+      // Un Patreon solo se vincula al lector que inició el OAuth. No fusionar perfiles por correo.
+      if (!S.user_id) return back(ret, { s: 'cuenta', patreon: 'error' });
+      if (owner && owner.id !== S.user_id) return back(ret, { s: 'cuenta', patreon: 'en_uso' });
+      const { data: linked, error: linkError } = await db.from('profiles')
+        .update({ patreon_user_id: pid }).eq('id', S.user_id).select('id').maybeSingle();
+      if (linkError || linked?.id !== S.user_id) return back(ret, { s: 'cuenta', patreon: 'error' });
       await saveMemberships(pid, ij); return back(ret, { s: 'cuenta', patreon: 'vinculado' });
     }
     // login / registro
