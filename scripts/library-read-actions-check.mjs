@@ -86,7 +86,7 @@ for(const snippet of [
  "savedReadRows=applyReadingChanges(",
  'refreshReadButtons();',
  "await persistReadingChanges(sb,u.id,changes)",
- "if(isVolume&&changes.length>1&&!confirm(",
+ "if(isVolume&&changes.length>1&&!await confirmObi(",
  "u ? sb.from('read_chapters').select('chapter_id,read_at')"
 ]) assert(ui.includes(snippet),'Acciones directas junto al capítulo/volumen: '+snippet);
 console.log('✓ Botón sin menú, marcado/desmarcado de novela, volumen y capítulo, lotes y deshacer seguro');
