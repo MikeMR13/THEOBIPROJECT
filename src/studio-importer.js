@@ -1,3 +1,4 @@
+import { confirmInApp } from './dialogs.js';
 // Importador de Studio: EPUB, DOCX y PDF, bajo demanda.
 import { renderBlock } from './blocks.js?v=2';
 import { inferSectionType } from './section-types.js?v=1';
@@ -422,7 +423,7 @@ export function createImporter(deps) {
       const ficha = fichaRow();
       let w = work(), vol = liveVols(w).find(v => v.num === D.vnum);
       const workMeta = !w ? workPayload(NW) : null;
-      if (vol && D.mode === 'replace' && !confirm(`Se reemplazará el Volumen ${D.vnum}: capítulos, ficha y portada. Los capítulos anteriores van a la papelera. ¿Continuar?`)) return;
+      if (vol && D.mode === 'replace' && !await confirmInApp(`Se reemplazará el Volumen ${D.vnum}: capítulos, ficha y portada. Los capítulos anteriores van a la papelera. ¿Continuar?`)) return;
       try {
         ({ data: job } = await sb.from('import_jobs').insert({ team_id: T.team.id, created_by: getUser().id, filename: file.name, file_type: file.name.split('.').pop().toLowerCase(), mode: vol ? D.mode : 'append', status: 'running', fingerprint: fp }).select().single());
         if (!w) {
