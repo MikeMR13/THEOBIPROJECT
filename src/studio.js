@@ -1563,6 +1563,7 @@ export function createStudio(ctx){
     renderDownloads(F.work, app.querySelector('#st-dl-panel'));
   }
 
+  // ---------- Anuncios: tarjeta destacada en la página pública del equipo ----------
   async function announcements(){
     if (!(await ensure())) return;
     const TAB = '/estudio/anuncios';
