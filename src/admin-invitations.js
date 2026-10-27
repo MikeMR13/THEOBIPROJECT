@@ -1,3 +1,4 @@
+import { confirmInApp, promptInApp } from './dialogs.js?v=1';
 // Invitaciones administrativas a equipos. El enlace se entrega una sola vez.
 export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }) {
   const target = view();
@@ -108,10 +109,10 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
       return toast('Un enlace libre a un equipo existente no puede conceder administración ni propiedad');
     if (create && !/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(newSlug))
       return toast('El identificador admite 3-40 caracteres: minúsculas, números y guiones');
-    if (create && open && !confirm('ATENCIÓN: la primera persona que se registre o inicie sesión con correo verificado y acepte el enlace CREARÁ «' + newName + '» y será su PROPIETARIO. Si el enlace llega a otra persona, podría reclamar el equipo. ¿Generar enlace libre?')) return;
-    if (create && !open && !confirm('Se creará «' + newName + '» cuando ' + email + ' acepte la invitación. Será Propietario y Administrador interno del equipo. ¿Continuar?')) return;
-    if (open && !create && !confirm('Cualquier cuenta con correo verificado podrá reclamar este enlace una sola vez. ¿Generar enlace libre?')) return;
-    if (!create && role === 'admin' && !confirm('Esta persona administrará el equipo seleccionado, sin ser Bibliotecario ni Propietario. ¿Continuar?')) return;
+    if (create && open && !await confirmInApp('ATENCIÓN: la primera persona que se registre o inicie sesión con correo verificado y acepte el enlace CREARÁ «' + newName + '» y será su PROPIETARIO. Si el enlace llega a otra persona, podría reclamar el equipo. ¿Generar enlace libre?')) return;
+    if (create && !open && !await confirmInApp('Se creará «' + newName + '» cuando ' + email + ' acepte la invitación. Será Propietario y Administrador interno del equipo. ¿Continuar?')) return;
+    if (open && !create && !await confirmInApp('Cualquier cuenta con correo verificado podrá reclamar este enlace una sola vez. ¿Generar enlace libre?')) return;
+    if (!create && role === 'admin' && !await confirmInApp('Esta persona administrará el equipo seleccionado, sin ser Bibliotecario ni Propietario. ¿Continuar?')) return;
     const button = form.querySelector('[type=submit]'); button.disabled = true;
     try {
       const invitation = await rpc('admin_invitation_create',
@@ -148,10 +149,10 @@ export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }
   };
   target.querySelectorAll('[data-revoke]').forEach(button => {
     button.onclick = async () => {
-      const reason = prompt('Motivo para revocar esta invitación (mínimo 12 caracteres):');
+      const reason = await promptInApp('Motivo para revocar esta invitación (mínimo 12 caracteres):');
       if (reason === null) return;
       if (reason.trim().length < 12) return toast('El motivo debe tener al menos 12 caracteres');
-      if (!confirm('¿Revocar la invitación? El enlace dejará de funcionar.')) return;
+      if (!await confirmInApp('¿Revocar la invitación? El enlace dejará de funcionar.')) return;
       button.disabled = true;
       try {
         await rpc('admin_invitation_revoke', { p_id: button.dataset.revoke, p_reason: reason.trim() });

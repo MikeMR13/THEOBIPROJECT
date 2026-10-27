@@ -1,3 +1,4 @@
+import { confirmInApp } from './dialogs.js?v=1';
 import { cleanSiteSeo, SEO_LIMITS } from './seo-settings.js?v=1';
 // Editor del SEO global. Debe ejecutarse solo tras whoami bibliotecario en admin.js
 // y con las políticas RLS de platform_settings (UPDATE exclusivo Bibliotecario).
@@ -58,8 +59,8 @@ export async function renderAdminSeo({sb,view,toast}) {
     status.textContent=dirty?'Cambios sin guardar':'';
   };
   Object.values(fields).forEach(e=>e.addEventListener('input',()=>{dirty=true;refresh();}));
-  reset.onclick=()=>{
-    if(!confirm('¿Restaurar el SEO automático de Inicio? Debes guardar para aplicar.'))return;
+  reset.onclick=async()=>{
+    if(!await confirmInApp('¿Restaurar el SEO automático de Inicio? Debes guardar para aplicar.'))return;
     Object.values(fields).forEach(e=>e.value='');dirty=true;refresh();
   };
   save.onclick=async()=>{

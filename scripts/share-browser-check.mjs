@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {spawn,execFileSync} from 'node:child_process';
 import assert from 'node:assert/strict';
-const files=new Map([['/share.js','src/share.js'],['/seo.js','src/seo.js'],['/share-placement.js','src/share-placement.js']]);
+const files=new Map([['/dialogs.js','src/dialogs.js'],['/share.js','src/share.js'],['/seo.js','src/seo.js'],['/share-placement.js','src/share-placement.js']]);
 const html=`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="index,follow"><link rel="canonical" href="https://elobidellector.com/serie/prueba">
 <style>*{box-sizing:border-box}body{margin:0;background:#0d0c0a;color:#f3ecd9;font:14px sans-serif}
@@ -46,14 +46,17 @@ try{
     'Falta el aviso visible después de copiar el enlace');
   check(Number(toast.style.zIndex)>9000,'El menú flotante puede tapar el aviso');
   check(toast.getAttribute('role')==='status','El mensaje no es accesible al lector de pantalla');
-  // Fallo de clipboard: jamás decir que se copió cuando solo se abrió el prompt.
-  window.__promptURL='';
-  window.prompt=(message,url)=>{window.__promptURL=url;return url;};
+  // Fallo de clipboard: un cuadro de texto propio, nunca window.prompt.
+  window.prompt=()=>{throw Error('El navegador no debe mostrar prompts nativos');};
   Object.defineProperty(navigator,'clipboard',{configurable:true,value:{
     writeText:async()=>{throw Error('portapapeles bloqueado');}
   }});
   copy.click();await delay();
-  check(window.__promptURL===location.origin+location.pathname,'No muestra el enlace para copiar manualmente');
+  const internalDialog=document.querySelector('dialog.obi-dialog');
+  check(internalDialog?.open,'No se abrió el cuadro de texto integrado en El Obi');
+  check(internalDialog.querySelector('textarea')?.value===location.origin+location.pathname,
+    'El cuadro de texto no contiene el enlace completo');
+  internalDialog.querySelector('.obi-dialog-accept').click();await delay();
   check(toast.textContent==='Enlace listo para copiar','El aviso debe distinguir el fallo del copiado real');
   // Compatibilidad: el estado del menú sigue funcionando si no existe el toast global.
   toast.remove();

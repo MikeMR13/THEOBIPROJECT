@@ -48,7 +48,7 @@ const missing = [...text['index.html'].matchAll(REF)].filter(m => !H[m[2]]).map(
 if (missing.length) throw new Error('index.html apunta a archivos inexistentes: ' + missing.join(', '));
 
 // 3. Service worker con la versión de la compilación y la lista exacta del arranque (sin studio.js ni admin.js).
-const BOOT = ['styles.css', 'config.js', 'app.js', 'ui.js', 'reader.js', 'season.js', 'anim.js', 'teampage.js'].filter(f => H[f]);
+const BOOT = ['styles.css', 'config.js', 'app.js', 'ui.js', 'reader.js', 'dialogs.js', 'season.js', 'anim.js', 'teampage.js'].filter(f => H[f]);
 const SHELL = ['/', '/manifest.webmanifest', '/icon.svg', ...BOOT.map(f => `/${f}?v=${H[f]}`)];
 const V = 'obi-' + hash(SHELL.join('|')).slice(0, 8);
 const sw = readFileSync('dist/sw.js', 'utf8').replace(/\/\*@shell\*\/[\s\S]*?\/\*@end\*\//, `const V=${JSON.stringify(V)},SHELL=${JSON.stringify(SHELL)};`);

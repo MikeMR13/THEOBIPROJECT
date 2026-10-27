@@ -43,7 +43,30 @@ fields['#wk-sp-volume'].value='v1';
 const root={querySelector:k=>fields[k]};
 const calls=[];
 let confirmed=true;
-globalThis.confirm=()=>confirmed;
+// El diálogo de plataforma necesita un DOM: usar un doble mínimo con la misma
+// interacción Cancelar/Confirmar, sin llamar confirm() del navegador en las pruebas.
+class FakeDialogNode {
+  constructor(tag){this.tag=tag;this.children=[];this.listeners=new Map();this.isConnected=true;}
+  append(...nodes){this.children.push(...nodes);}
+  addEventListener(type,fn){this.listeners.set(type,fn);}
+  setAttribute(){}
+  focus(){}
+  select(){}
+  close(){}
+  remove(){this.isConnected=false;}
+  showModal(){
+    queueMicrotask(()=>{
+      const frame=this.children[0], actions=frame.children.at(-1);
+      const button=actions.children[confirmed?1:0];
+      button.listeners.get('click')?.();
+    });
+  }
+}
+globalThis.document={
+  activeElement:null,
+  createElement:tag=>new FakeDialogNode(tag),
+  body:{append(){}}
+};
 const bind=can=>bindSeriesPublication({
   app:{querySelector:k=>k==='#wk-series-publication'?root:null},
   sb:{rpc:async(name,args)=>{calls.push({name,args});return {error:null};}},

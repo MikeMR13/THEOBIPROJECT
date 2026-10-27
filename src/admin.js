@@ -1,3 +1,4 @@
+import { confirmInApp } from './dialogs.js?v=1';
 import { renderAdminSeo } from './admin-seo.js?v=1';
 // Panel del Bibliotecario: acceso único en /bibliotecario (alias /admin).
 const CSS = `
@@ -240,7 +241,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
         <div class="bb-row"><label>Agregar publicador (correo o usuario)<input data-add="${t.id}" placeholder="correo@ejemplo.com"></label><label style="flex:0 0 180px">Rol en el equipo<select data-role="${t.id}">${Object.entries(TROLE).map(([k, l]) => `<option value="${k}" ${k === 'editor' ? 'selected' : ''}>${l}</option>`).join('')}</select></label><button class="btn" data-go="${t.id}">Agregar</button></div></div>`; }).join('')}`;
     $('#tcreate').onclick = async () => { try { await rpc('admin_create_team', { p_name: $('#tn').value, p_slug: $('#ts').value.trim().toLowerCase(), p_color: $('#tc').value }); toast('Equipo creado'); equipos(); } catch (e) { toast(msg(e)); } };
     view().querySelectorAll('[data-go]').forEach(b => b.onclick = async () => { const id = b.dataset.go, who = view().querySelector(`[data-add="${id}"]`).value; if (!who.trim()) return toast('Escribe el correo o usuario'); try { await rpc('admin_add_publisher', { p_user: who, p_team: id, p_role: view().querySelector(`[data-role="${id}"]`).value }); toast('Ahora es Publicador del equipo'); equipos(); } catch (e) { toast(msg(e)); } });
-    view().querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { const [t, u, n] = b.dataset.rm.split('|'); if (!confirm('¿Quitar a ' + n + ' del equipo? Si no pertenece a otro equipo volverá a ser Lector.')) return; try { await rpc('admin_remove_member', { p_team: t, p_user: u }); toast('Quitado del equipo'); equipos(); } catch (e) { toast(msg(e)); } });
+    view().querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { const [t, u, n] = b.dataset.rm.split('|'); if (!await confirmInApp('¿Quitar a ' + n + ' del equipo? Si no pertenece a otro equipo volverá a ser Lector.')) return; try { await rpc('admin_remove_member', { p_team: t, p_user: u }); toast('Quitado del equipo'); equipos(); } catch (e) { toast(msg(e)); } });
   }
 
 
@@ -310,7 +311,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     view().querySelectorAll('[data-team]').forEach(s => s.onchange = () => { view().querySelector(`[data-namewrap="${s.dataset.team}"]`).hidden = !!s.value; });
     view().querySelectorAll('[data-dec]').forEach(b => b.onclick = async () => {
       const [id, st] = b.dataset.dec.split('|'), q = k => view().querySelector(`[data-${k}="${id}"]`);
-      if (st === 'rejected' && !confirm('¿Rechazar esta solicitud?')) return;
+      if (st === 'rejected' && !await confirmInApp('¿Rechazar esta solicitud?')) return;
       b.disabled = true;
       try { const tid = await rpc('admin_decide_request', { p_id: +id, p_status: st, p_note: q('note')?.value || null, p_team: q('team')?.value || null, p_team_name: q('name')?.value || null });
         toast(st === 'approved' ? 'Aprobada · el equipo ya está listo y el solicitante es publicador' : st === 'info' ? 'Pediste más información' : 'Solicitud rechazada'); solicitudes();
@@ -325,7 +326,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       <p class="mono" style="font-size:12px;margin:0 0 12px">${r.reports.map(x => esc(RS[x.reason] || x.reason) + (x.note ? ' — «' + esc(x.note) + '»' : '') + ' · ' + esc(x.by || '—')).join('<br>')}</p>
       <div class="bb-row"><button class="bb-mini red" data-res="${i}|removed">Retirar reseña</button><button class="bb-mini" data-res="${i}|dismissed">Descartar reportes</button></div></div>`).join('')}</div>` : '<p class="mono">No hay reseñas reportadas.</p>';
     view().querySelectorAll('[data-res]').forEach(b => b.onclick = async () => { const [i, a] = b.dataset.res.split('|'), r = Q[+i];
-      if (a === 'removed' && !confirm('¿Retirar esta reseña? Se avisará a su autor.')) return; b.disabled = true;
+      if (a === 'removed' && !await confirmInApp('¿Retirar esta reseña? Se avisará a su autor.')) return; b.disabled = true;
       try { await rpc('admin_review_resolve', { p_series: r.series_id, p_author: r.author_id, p_action: a }); toast(a === 'removed' ? 'Reseña retirada' : 'Reportes descartados'); resenas(); } catch (e) { b.disabled = false; toast(msg(e)); } });
   }
   async function inicio(){
@@ -428,7 +429,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     view().innerHTML = `<div class="bb-box"><h3>Enlaces de compra por verificar · ${rows.length}</h3><p class="mono" style="font-size:13px;margin:0 0 10px">Abre cada enlace y confirma que es una tienda o editorial oficial de esa obra y volumen. Solo los verificados se muestran a los lectores.</p>
       ${rows.length ? `<table class="bb-tbl"><thead><tr><th>Obra</th><th>Equipo</th><th>Vol.</th><th>Tienda</th><th>Enlace</th><th></th></tr></thead><tbody>${rows.map(r => `<tr><td><a href="/serie/${esc(r.series_slug)}">${esc(r.series_title)}</a></td><td>${esc(r.team_name)}</td><td>${r.vol ?? '—'}</td><td>${esc(r.store)}<br><span class="mono">${esc([r.fmt, r.region].filter(Boolean).join(' · '))}</span></td><td><a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">${esc(r.url.replace(/^https:\/\//, '').slice(0, 48))} ↗</a></td><td style="white-space:nowrap"><button class="btn" data-ok="${r.id}">Verificar</button> <button class="btn ghost" data-no="${r.id}">Rechazar</button></td></tr>`).join('')}</tbody></table>` : '<p class="mono">No hay enlaces pendientes.</p>'}</div>`;
     view().querySelectorAll('[data-ok]').forEach(b => b.onclick = async () => { b.disabled = true; const { error } = await sb.from('purchase_links').update({ verified: true }).eq('id', b.dataset.ok); if (error) { b.disabled = false; return toast(msg(error)); } toast('Enlace verificado'); compras(); });
-    view().querySelectorAll('[data-no]').forEach(b => b.onclick = async () => { if (!confirm('¿Rechazar y borrar este enlace?')) return; const { error } = await sb.from('purchase_links').delete().eq('id', b.dataset.no); if (error) return toast(msg(error)); toast('Enlace rechazado'); compras(); });
+    view().querySelectorAll('[data-no]').forEach(b => b.onclick = async () => { if (!await confirmInApp('¿Rechazar y borrar este enlace?')) return; const { error } = await sb.from('purchase_links').delete().eq('id', b.dataset.no); if (error) return toast(msg(error)); toast('Enlace rechazado'); compras(); });
   }
 
   async function bitacora(){

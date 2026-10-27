@@ -1,3 +1,4 @@
+import { confirmInApp } from './dialogs.js?v=1';
 // Visibilidad editorial de novelas. La escritura se realiza únicamente por RPC.
 export function seriesPublicationHTML(series, volumes, can, esc, toLocal, tzHint) {
   const options = volumes.filter(v => v.status !== 'hidden');
@@ -67,7 +68,7 @@ export function bindSeriesPublication({ app, sb, series, can, fromLocal, fmtTz, 
       prelaunch: '¿Reprogramar «' + series.title + '» para ' + fmtTz(at) + '? Los demás volúmenes publicados o programados volverán a borrador.',
       published: '¿Publicar «' + series.title + '» ahora? Se aplicará la publicación habitual del volumen seleccionado, incluidos sus avisos.'
     };
-    if (!confirm(warnings[selected])) return;
+    if (!await confirmInApp(warnings[selected])) return;
     const { error } = await sb.rpc('series_publication_transition', {
       p_series: series.id, p_mode: selected,
       p_volume: selected === 'draft' ? null : vol.value, p_at: at

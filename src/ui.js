@@ -1,3 +1,4 @@
+import { confirmInApp } from './dialogs.js?v=1';
 // Vistas públicas con la identidad visual de El Obi del Lector: Inicio, Catálogo y Ficha de serie.
 import { publicationDate, publicationAge, publicationDay } from './publication-dates.js?v=1';
 import { homeReleaseOverview } from './home-releases.js?v=1';
@@ -1680,7 +1681,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         const mark=b.dataset.readMark==='1';
         const changes=planReadingChanges(target.map(c=>c.id),savedReadRows,mark);
         if(!changes.length)return;
-        if(isVolume&&changes.length>1&&!confirm('¿'+(mark?'Marcar':'Desmarcar')+' '+changes.length+' capítulos del volumen? Se actualizarán tus estadísticas.'))return;
+        if(isVolume&&changes.length>1&&!await confirmInApp('¿'+(mark?'Marcar':'Desmarcar')+' '+changes.length+' capítulos del volumen? Se actualizarán tus estadísticas.'))return;
         marking=true;
         shelf.querySelectorAll('[data-read-chapter],[data-read-vol]').forEach(x=>x.disabled=true);
         try{
@@ -1791,7 +1792,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
           if (error && error.code !== '23505') return toast(error.message); wrap.innerHTML = '<span class="mono" style="font-size:12px">Gracias, el Bibliotecario lo revisará.</span>'; }; });
       box.querySelector('[data-rv="edit"]')?.addEventListener('click', () => draw(true));
       box.querySelector('[data-rv="cancel"]')?.addEventListener('click', () => draw(false));
-      box.querySelector('[data-rv="del"]')?.addEventListener('click', async () => { if (!confirm('¿Borrar tu reseña?')) return; const { error } = await sb.from('series_reviews').delete().eq('series_id', s.id).eq('user_id', u.id); if (error) return toast(error.message); toast('Reseña borrada'); reviews(s); });
+      box.querySelector('[data-rv="del"]')?.addEventListener('click', async () => { if (!await confirmInApp('¿Borrar tu reseña?')) return; const { error } = await sb.from('series_reviews').delete().eq('series_id', s.id).eq('user_id', u.id); if (error) return toast(error.message); toast('Reseña borrada'); reviews(s); });
       const fm = $('#rv-form'); if (fm) fm.onsubmit = async e => { e.preventDefault(); const v = t.value.trim(); if (v.length < 30) return toast('La reseña necesita al menos 30 caracteres');
         const btn = fm.querySelector('[type="submit"]'); btn.disabled = true;
         const { error } = await sb.from('series_reviews').upsert({ series_id: s.id, user_id: u.id, body: v, anonymous: !!$('#rv-anon')?.checked, updated_at: new Date().toISOString() }); btn.disabled = false;
