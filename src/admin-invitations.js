@@ -1,4 +1,5 @@
-import { confirmObi, promptObi } from './dialogs.js';
+const confirmObi=(...args)=>import('./dialogs.js').then(module=>module.confirmObi(...args));
+const promptObi=(...args)=>import('./dialogs.js').then(module=>module.promptObi(...args));
 // Invitaciones administrativas a equipos. El enlace se entrega una sola vez.
 export async function renderAdminInvitations({ sb, view, esc, toast, rpc, when }) {
   const target = view();
