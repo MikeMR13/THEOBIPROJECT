@@ -487,7 +487,7 @@ async function library(){
       if(live())box.querySelectorAll('[data-read-work]').forEach(b=>b.disabled=false);
     }
   };
-  const toggleWholeWork=(id,mark)=>{
+  const toggleWholeWork=async (id,mark)=>{
     if(!live()||busy)return;
     const series=worksById.get(id);
     if(!series)return;
