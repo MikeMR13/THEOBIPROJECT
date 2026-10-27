@@ -834,9 +834,15 @@ export function createReader(ctx){
     if (user) { const { data } = await sb.from('reading_progress').select('chapter_num,pct,updated_at,series(title,slug)').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(6); rows = (data || []).map(r => ({ title: r.series.title, slug: r.series.slug, num: r.chapter_num, pct: r.pct })); }
     return rows;
   }
-  async function historyList(){
+  async function historyList({ offset = 0, limit = 30 } = {}){
     const user = getUser(); if (!user) return [];
-    const { data } = await sb.from('reading_history').select('opened_at,chapters(num,title,series(title,slug))').eq('user_id', user.id).order('opened_at', { ascending: false }).limit(30);
+    const from = Math.max(0, Math.floor(Number(offset) || 0));
+    const size = Math.min(100, Math.max(1, Math.floor(Number(limit) || 30)));
+    const { data, error } = await sb.from('reading_history')
+      .select('opened_at,chapters(num,title,series(title,slug))')
+      .eq('user_id', user.id).order('opened_at', { ascending: false })
+      .range(from, from + size - 1);
+    if (error) throw error;
     return (data || []).filter(h => h.chapters?.series);
   }
 
