@@ -310,38 +310,14 @@ const LB_CSS = `
 .lb-error{max-width:760px;padding:20px;border:1px solid #c67d52;background:#211810;display:grid;gap:11px}
 .lb-error strong{color:#ffd2b8}.lb-error p{margin:0;font-size:14px;color:#e0cfb9;line-height:1.5}
 .lb-av .lb-ai{min-height:65px}.lb-av :is(button,input):focus-visible{outline:2px solid var(--gold);outline-offset:3px}
-.lb-read-open{justify-self:start;min-height:42px;padding:7px 11px;border:1px solid #ab8a47;border-radius:3px;color:#f1ce77;background:#241e13;font:600 12px/1.35 'IBM Plex Sans',sans-serif;cursor:pointer}
-.lb-read-open:hover,.lb-read-open:focus-visible{background:#403017;border-color:var(--gold);outline-offset:2px}
+.lb-read-toggle{justify-self:start;min-height:44px;padding:9px 13px;border:1px solid #a88b54;border-radius:3px;background:#251d10;color:#f3cd78;text-align:left;font:700 12px/1.35 'IBM Plex Sans',sans-serif;cursor:pointer}
+.lb-read-toggle:hover:not(:disabled),.lb-read-toggle:focus-visible{background:#3b2a13;border-color:var(--gold);outline:2px solid var(--gold);outline-offset:2px}
+.lb-read-toggle.is-read{color:#b1d8aa;border-color:#6e926b;background:#1a2b1c}
+.lb-read-toggle:disabled{opacity:.55;cursor:progress}
 .lb-read-feedback{display:flex;align-items:center;flex-wrap:wrap;gap:10px 18px;margin:5px 0 16px;padding:12px 14px;background:#282112;border:1px solid #8e7239;color:#f1e5cc;font:13px/1.45 'IBM Plex Sans',sans-serif}
 .lb-read-feedback[hidden]{display:none}
-.lb-read-feedback button{min-height:40px;padding:7px 14px;border:1px solid var(--gold);border-radius:3px;color:#17120a;background:var(--gold);font:700 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
-.lb-read-dialog{box-sizing:border-box;width:min(720px,calc(100vw - 28px));max-width:720px;max-height:min(84vh,850px);overflow-y:auto;overscroll-behavior:contain;margin:auto;border:1px solid #80663d;border-radius:6px;background:#19150f;color:var(--paper);padding:24px;box-shadow:0 20px 80px #000b}
-.lb-read-dialog::backdrop{background:rgba(0,0,0,.8);backdrop-filter:blur(3px)}
-.lb-read-dialog[aria-busy=true] .lb-read-action{opacity:.55;cursor:progress}
-.lb-read-head{display:grid;gap:7px;border-bottom:1px solid #56452d;padding-bottom:13px}
-.lb-read-head h2{margin:0;font:700 clamp(21px,3vw,27px) 'Shippori Mincho B1',serif;color:var(--paper)}
-.lb-read-head strong{font:600 16px/1.4 'IBM Plex Sans',sans-serif;overflow-wrap:anywhere}
-.lb-read-head p,.lb-read-explain{margin:0;color:#d0bea0;font:12px/1.6 'IBM Plex Sans',sans-serif}
-.lb-read-explain{margin:14px 0}
-.lb-read-all{display:flex;gap:8px;flex-wrap:wrap;padding:12px 0 18px}
-.lb-read-action{min-height:42px;padding:8px 11px;border:1px solid #7b623c;background:#262013;color:#f3deb2;border-radius:3px;font:600 12px/1.35 'IBM Plex Sans',sans-serif;cursor:pointer}
-.lb-read-action:hover:not(:disabled){border-color:var(--gold);background:#392b16}
-.lb-read-action:disabled{opacity:.42;cursor:not-allowed}
-.lb-read-dialog :is(button,summary):focus-visible,.lb-read-feedback button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
-.lb-read-groups{display:grid;gap:10px}
-.lb-read-volume{border:1px solid #56452d;background:#211b13;border-radius:4px}
-.lb-read-volume>summary{padding:12px 14px;min-height:44px;display:list-item;cursor:pointer;color:var(--paper);font:600 14px/1.35 'IBM Plex Sans',sans-serif}
-.lb-read-volume[open]>summary{border-bottom:1px solid #50412b}
-.lb-read-volume-actions{padding:12px 12px 4px;display:flex;gap:8px;flex-wrap:wrap}
-.lb-read-chapters{padding:5px 13px 13px;margin:0;display:grid;gap:0;list-style:none}
-.lb-read-chapters li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #403626;min-width:0}
-.lb-read-chapters li:last-child{border:0}
-.lb-read-chapters li>span{display:grid;gap:4px;min-width:0;font:600 13px/1.4 'IBM Plex Sans',sans-serif}
-.lb-read-chapters li small{font-size:12px;font-weight:400;color:#b4a58c;overflow-wrap:anywhere}
-.lb-read-chapters li button{flex:none;white-space:normal;text-align:center;max-width:150px}
-.lb-read-close{position:sticky;bottom:0;display:block;margin:18px 0 0 auto;min-height:44px;box-shadow:0 -8px 16px #19150f}
-@media(max-width:480px){.lb-read-dialog{padding:16px;max-height:90vh}.lb-read-all{display:grid;grid-template-columns:1fr}.lb-read-action{min-height:44px}.lb-read-chapters li button{max-width:130px}}
-
+.lb-read-feedback button{min-height:44px;padding:8px 14px;border:1px solid var(--gold);border-radius:3px;color:#17120a;background:var(--gold);font:700 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.lb-read-feedback button:focus-visible{outline:2px solid var(--paper);outline-offset:3px}
 @media(max-width:700px){.lb-navhelp{display:block}.lb-tabs{margin-bottom:7px}}
 @media(max-width:480px){.lb-toolbar{grid-template-columns:1fr}.lb-grid{grid-template-columns:1fr;gap:13px}.lb-card{grid-template-columns:92px minmax(0,1fr);padding:12px;gap:12px}.lb-title{font-size:15px}.lb-cover-link{max-width:92px}}
 @media(prefers-reduced-motion:reduce){.lb-card,.lb-cover-link img{transition:none}}
@@ -411,11 +387,7 @@ async function library(){
   <nav class="lb-tabs" aria-label="Secciones de Mi biblioteca">${TABS.map(([k,label])=>`<a href="/biblioteca${k==='leyendo'?'':'?t='+k}" class="${k===tab?'on':''}"${k===tab?' aria-current="page"':''}>${label}${count(k)?`<em>${count(k)}</em>`:''}</a>`).join('')}</nav>
   <p class="lb-navhelp">Desliza las pestañas para ver todas las secciones →</p>
   <div id="lb-read-feedback" class="lb-read-feedback" role="status" aria-live="polite" hidden></div>
-  <div id="lb-body"></div>
-  <dialog id="lb-read-dialog" class="lb-read-dialog" aria-labelledby="lb-read-title">
-    <div id="lb-read-dialog-body"></div>
-    <button type="button" class="btn ghost lb-read-close" id="lb-read-close">Cerrar</button>
-  </dialog>`;
+  <div id="lb-body"></div>`;
   const box=$('#lb-body'), nav=app.querySelector('.lb-tabs');
   const COVER = w => {
     const c=w.s.theme?.color || w.s.teams?.color || '#76592e';
@@ -428,7 +400,8 @@ async function library(){
     const href=chapter ? '/leer/'+encodeURIComponent(w.s.slug)+'/'+chapter.num : '/serie/'+encodeURIComponent(w.s.slug);
     const done=k==='terminadas', pending=k==='pendientes';
     const pct=w.tot ? Math.min(100,Math.max(0,Math.round(w.nr/w.tot*100))):0;
-    const label=done ? 'Completada' : pending ? (w.unread===1 ? '1 capítulo pendiente' : w.unread+' capítulos pendientes') : 'En progreso';
+    const caughtUp=w.tot>0 && w.nr===w.tot;
+    const label=done ? 'Completada' : caughtUp ? 'Al día con lo publicado' : pending ? (w.unread===1 ? '1 capítulo pendiente' : w.unread+' capítulos pendientes') : 'En progreso';
     const current=chapter ? 'Capítulo '+chapter.num : 'Ver obra';
     const status=done ? `${w.nr} capítulos leídos` : pending ? `Leer siguiente · ${current}` : `Continuar · ${current}${w.p?.pct > .02 && w.p?.pct < .95 ? ' · '+Math.round(w.p.pct*100)+' % del capítulo' : ''}`;
     return `<article class="lb-card">
@@ -442,7 +415,8 @@ async function library(){
           <span class="lb-progress-track" aria-hidden="true"><i style="width:${pct}%"></i></span>
         </div>
         <a class="lb-card-cta" href="${esc(href)}">${done?'Ver la obra':pending?'Leer siguiente capítulo':'Continuar leyendo'}</a>
-        <button type="button" class="lb-read-open" data-read-open="${esc(w.s.id)}" aria-label="Gestionar capítulos leídos de ${esc(w.s.title)}">✓ Gestionar lecturas</button>
+        ${w.tot ? `<button type="button" class="lb-read-toggle${caughtUp?' is-read':''}" data-read-work="${esc(w.s.id)}" data-read-mark="${caughtUp?'0':'1'}" aria-label="${caughtUp?'Desmarcar capítulos leídos':'Marcar novela como leída'}: ${esc(w.s.title)}">${caughtUp?'↶ Desmarcar lectura':'✓ Marcar novela como leída'}</button>` : ''}
+        <span class="lb-card-sub">${caughtUp&&!done?'Al día con los capítulos publicados · la obra continúa en traducción.':'Puedes marcar lo publicado sin cambiar dónde pausaste.'}</span>
         <button type="button" class="lb-card-hide" data-hide="${esc(w.s.id)}">${HID.has(w.s.id)?'Mostrar en mi perfil':'Ocultar de mi perfil público'}</button>
       </div></article>`;
   };
@@ -451,39 +425,10 @@ async function library(){
     pendientes:'Sigue una obra desde su ficha: cuando tenga capítulos sin leer, aparecerá aquí.',
     terminadas:'Aquí aparecen las obras completas cuyos capítulos publicados ya leíste.'
   };
-  // Panel único, montado al abrirse: no genera cientos de controles ocultos por ficha.
-  // Cada acción opera exclusivamente sobre capítulos publicados hasta la fecha actual.
-  const dialog=app.querySelector('#lb-read-dialog');
-  const dialogBody=app.querySelector('#lb-read-dialog-body');
+  // Acciones directas en cada ficha, sin menús ni ventanas emergentes adicionales.
+  // La confirmación nativa solo aparece antes de alterar muchos registros de lectura.
   const notice=app.querySelector('#lb-read-feedback');
-  let managedId=null, opener=null, busy=false, undoState=null;
-  const availableGroups = id => readingGroups(id,chs);
-  const dialogContent = () => {
-    const series=worksById.get(managedId);
-    if(!series) return '<p>Esta obra ya no está disponible.</p>';
-    const groups=availableGroups(managedId), all=groups.flatMap(g=>g.chapters);
-    const count=all.filter(c=>read.has(c.id)).length;
-    const button=(scope,id,mark,label,disabled=false)=>`<button type="button" class="lb-read-action" data-read-scope="${scope}" data-read-target="${esc(id)}" data-read-mark="${mark?'1':'0'}"${disabled?' disabled':''}>${label}</button>`;
-    return `<header class="lb-read-head"><h2 id="lb-read-title">Gestionar lecturas</h2>
-      <strong>${esc(series.title)}</strong><p>${count} de ${all.length} capítulos publicados y disponibles marcados como leídos.</p></header>
-      <p class="lb-read-explain">Estas marcas actualizan tus estadísticas y el avance de la obra, pero no cambian el punto exacto donde pausaste el lector. Solo se incluyen capítulos publicados hasta hoy.</p>
-      <div class="lb-read-all" role="group" aria-label="Obra completa">
-        ${button('work',managedId,true,'✓ Marcar toda la novela como leída',count===all.length)}
-        ${button('work',managedId,false,'↶ Desmarcar toda la novela',count===0)}
-      </div>
-      <div class="lb-read-groups">${groups.map(g=>{
-        const marked=g.chapters.filter(c=>read.has(c.id)).length;
-        return `<details class="lb-read-volume"><summary>${esc(g.label)} · ${marked} de ${g.chapters.length} leídos</summary>
-          <div class="lb-read-volume-actions">
-            ${button('volume',g.key,true,'Marcar volumen leído',marked===g.chapters.length)}
-            ${button('volume',g.key,false,'Desmarcar volumen',marked===0)}
-          </div>
-          <ul class="lb-read-chapters">${g.chapters.map(c=>`<li>
-            <span><b>Capítulo ${esc(c.num)}</b>${c.title ? '<small>'+esc(c.title)+'</small>' : ''}</span>
-            ${button('chapter',c.id,!read.has(c.id),read.has(c.id)?'↶ Desmarcar':'✓ Marcar leído')}
-          </li>`).join('')}</ul>
-        </details>`;}).join('') || '<p class="mono">No hay capítulos publicados disponibles para marcar.</p>'}</div>`;
-  };
+  let busy=false, undoState=null;
   const refreshReadViews = () => {
     ({ lists:L, read, followed:F }=prepareLibrary({progress:prog,follows:fol,readRows,series:ser,chapters:chs}));
     const total=app.querySelector('.ui-cath p');
@@ -495,30 +440,27 @@ async function library(){
       else if(em)em.textContent=n;
       else a.insertAdjacentHTML('beforeend','<em>'+n+'</em>');
     });
-    const q=box.querySelector('#lb-search')?.value||'';
+    const query=box.querySelector('#lb-search')?.value||'';
     const order=box.querySelector('#lb-order')?.value||'';
     void paintTab(tab).then(()=>{
       if(!live())return;
       const input=box.querySelector('#lb-search'),sel=box.querySelector('#lb-order');
-      if(input){input.value=q;if(sel&&order)sel.value=order;input.dispatchEvent(new Event('input'));}
+      if(input){input.value=query;if(sel&&order)sel.value=order;input.dispatchEvent(new Event('input'));}
     });
-    if(dialog.open)dialogBody.innerHTML=dialogContent();
   };
   const renderUndo = () => {
     if(!undoState){notice.hidden=true;notice.textContent='';return;}
     notice.hidden=false;
     notice.innerHTML=`<span>${esc(undoState.message)}</span><button type="button" id="lb-read-undo">Deshacer</button>`;
-    notice.querySelector('#lb-read-undo').onclick=async()=>{
+    notice.querySelector('#lb-read-undo').onclick=()=>{
       if(!undoState||busy||!live())return;
-      const tx=undoState;
-      const inverse=undoReadingChanges(tx.changes);
-      await runReadMutation(inverse,'Se deshizo el cambio',true);
+      void runReadMutation(undoReadingChanges(undoState.changes),'Se deshizo el cambio',true);
     };
   };
   const runReadMutation = async (changes,message,isUndo=false) => {
     if(busy||!changes.length||!live())return;
     busy=true;
-    dialog.setAttribute('aria-busy','true');
+    box.querySelectorAll('[data-read-work]').forEach(b=>b.disabled=true);
     notice.querySelectorAll('button').forEach(b=>b.disabled=true);
     try {
       await persistReadingChanges(sb,uid,changes);
@@ -531,45 +473,33 @@ async function library(){
     } catch(error){
       console.warn('Marcas de lectura',error);
       undoState=null;
-      // La API puede fallar en el último lote: refrescar siempre el estado real.
-      try{
+      // Una operación por lotes puede fallar a la mitad: usar el estado real del servidor.
+      try {
         const {data}=await readPages((from,to)=>sb.from('read_chapters')
           .select('chapter_id,read_at,chapters!inner(series_id,deleted_at)')
           .eq('user_id',uid).is('chapters.deleted_at',null).order('chapter_id').range(from,to));
         if(live()){readRows=data;refreshReadViews();}
       }catch(e){if(live())void library();}
       if(live()){renderUndo();toast('No se pudo completar el cambio. Comprueba tu biblioteca e inténtalo de nuevo.');}
-    }finally{
+    } finally {
       busy=false;
-      dialog.removeAttribute('aria-busy');
-      if(live())renderUndo();
+      if(live())box.querySelectorAll('[data-read-work]').forEach(b=>b.disabled=false);
     }
   };
-  const openReadDialog=(id,from)=>{
-    if(!live()||!worksById.has(id)||busy)return;
-    managedId=id;opener=from;dialogBody.innerHTML=dialogContent();
-    if(!dialog.open)dialog.showModal();
-  };
-  dialog.querySelector('#lb-read-close').onclick=()=>dialog.close();
-  dialog.addEventListener('close',()=>{const target=app.querySelector('[data-read-open="'+managedId+'"]');(target||opener)?.focus?.();});
-  dialogBody.addEventListener('click',e=>{
-    const b=e.target.closest('[data-read-scope]');
-    if(!b||busy||!managedId||!live())return;
-    const scope=b.dataset.readScope,mark=b.dataset.readMark==='1';
-    const groups=availableGroups(managedId);
-    const selected=scope==='work' ? groups.flatMap(g=>g.chapters) :
-      scope==='volume' ? (groups.find(g=>g.key===b.dataset.readTarget)?.chapters||[]) :
-      scope==='chapter' ? groups.flatMap(g=>g.chapters).filter(c=>c.id===b.dataset.readTarget) : [];
-    const changes=planReadingChanges(selected.map(c=>c.id),readRows,mark);
+  const toggleWholeWork=(id,mark)=>{
+    if(!live()||busy)return;
+    const series=worksById.get(id);
+    if(!series)return;
+    const ids=readingGroups(id,chs).flatMap(g=>g.chapters.map(c=>c.id));
+    const changes=planReadingChanges(ids,readRows,mark);
     if(!changes.length)return;
-    const unit=changes.length===1?'capítulo':'capítulos';
-    if(scope!=='chapter'&&!confirm('¿'+(mark?'Marcar':'Desmarcar')+' '+changes.length+' '+unit+' como '+(mark?'leídos':'no leídos')+'?\\nLas estadísticas se actualizarán y podrás deshacerlo.'))return;
-    const previousOpen=[...dialogBody.querySelectorAll('.lb-read-volume')].filter(x=>x.open).map(x=>x.querySelector('summary')?.textContent?.split(' · ')[0]);
-    void runReadMutation(changes,(mark?'Marcados':'Desmarcados')+' '+changes.length+' '+unit).then(()=>{
-      if(!dialog.open||!live())return;
-      dialogBody.querySelectorAll('.lb-read-volume').forEach(v=>{if(previousOpen.some(p=>v.querySelector('summary')?.textContent?.startsWith(p)))v.open=true;});
-    });
-  });
+    const n=changes.length, unit=n===1?'capítulo':'capítulos';
+    const question=mark
+      ? `¿Marcar como leídos los ${n} ${unit} pendientes de «${series.title}»? Solo se incluyen los capítulos publicados hasta hoy. Podrás deshacerlo.`
+      : `¿Desmarcar los ${n} ${unit} leídos de «${series.title}»? Se actualizarán tus estadísticas. Podrás deshacerlo.`;
+    if(!confirm(question))return;
+    void runReadMutation(changes,(mark?'Marcados':'Desmarcados')+' '+n+' '+unit);
+  };
 
   let tabRequest=0;
   const paintTab = async next => {
@@ -594,7 +524,7 @@ async function library(){
         results.innerHTML=filtered.length ? `<div class="lb-grid">${filtered.map(w=>card(w,tab)).join('')}</div>`
           : `<div class="lb-empty"><span>${L[tab].length?'No hay resultados con esta búsqueda.':EMPTY[tab]}</span>${L[tab].length?'<button type="button" class="btn ghost" id="lb-reset">Limpiar búsqueda</button>':'<a class="btn ghost" href="/catalogo">Explorar el catálogo</a>'}</div>`;
         results.querySelector('#lb-reset')?.addEventListener('click',()=>{input.value='';repaint();input.focus();});
-        results.querySelectorAll('[data-read-open]').forEach(b=>b.onclick=()=>openReadDialog(b.dataset.readOpen,b));
+        results.querySelectorAll('[data-read-work]').forEach(b=>b.onclick=()=>toggleWholeWork(b.dataset.readWork,b.dataset.readMark==='1'));
         results.querySelectorAll('[data-hide]').forEach(b=>b.onclick=async()=>{
           if(b.disabled)return; b.disabled=true;const id=b.dataset.hide,on=!HID.has(id);
           const proposed=new Set(HID);on?proposed.add(id):proposed.delete(id);
