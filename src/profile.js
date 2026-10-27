@@ -1068,7 +1068,15 @@ export async function preferences(C){
   const navigate = e => {
     const a = e.target.closest?.('a[href^="/"]');
     if (!a || a.target || a.getAttribute('href') === location.pathname + location.search) return;
-    if (!canLeave()) { e.preventDefault(); e.stopImmediatePropagation(); }
+    if (!dirty) { cleanup(); return; }
+    // El diálogo integrado es asíncrono: detener la navegación antes de abrirlo.
+    e.preventDefault(); e.stopImmediatePropagation();
+    const destination = a.getAttribute('href');
+    void canLeave().then(approved => {
+      if (!approved) return;
+      history.pushState({}, '', destination);
+      dispatchEvent(new PopStateEvent('popstate'));
+    });
   };
   const onBack = () => {
     // Atrás tampoco atraviesa el controlador de enlaces. El borrador se conserva.
