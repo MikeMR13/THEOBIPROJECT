@@ -1,4 +1,4 @@
-import { confirmObi } from './dialogs.js';
+const confirmObi=(...args)=>import('./dialogs.js').then(module=>module.confirmObi(...args));
 import { readReaderPrefs, readPendingReaderPrefs, stageReaderPrefs, acknowledgeReaderPrefs, sameReaderAccount } from './reader-pref-cache.js?v=1';
 import { readingPreviewDescription, privacyPreviewModel, notificationPreviewSummary } from './preferences-preview.js?v=1';
 // Perfil público de lector (carnet) y página /preferencias. Se carga solo al visitar esas rutas.
