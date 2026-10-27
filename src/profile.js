@@ -885,7 +885,7 @@ export async function preferences(C){
       </div>
       <p class="pf-account-foot">Vincular Patreon o Google no sustituye ni duplica tu usuario. Si ya pertenecen a otra cuenta, inicia sesión en ella antes de continuar.</p>`);
     const $ = s => app.querySelector(s), EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-    $('#fu').onsubmit = async e => { e.preventDefault(); const v = $('#un').value.trim(); $('#un-err').textContent = '';
+    if ($('#fu')) $('#fu').onsubmit = async e => { e.preventDefault(); const v = $('#un').value.trim(); $('#un-err').textContent = '';
       if (v === P.username) return; if (v.length < 2 || v.length > 32) return $('#un-err').textContent = 'Entre 2 y 32 caracteres.';
       if (!/^[\p{L}\p{N}_.-]+$/u.test(v)) return $('#un-err').textContent = 'Usa solo letras, números, punto, guion y guion bajo (sin espacios).';
       if (!await confirmObi(`¿Cambiar tu nombre a «${v}»? Tu enlace pasará a ser /lector/${v}.`)) return;
