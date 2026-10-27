@@ -1970,7 +1970,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       <div class="tp2-sh"><h2 id="tp2-rk-heading">Nuestras obras en el Top 50</h2><a href="/ranking">Ver ranking general →</a></div>
       <p class="tp2-rk-sub">Más leídas de la semana · Ranking general de El Obi</p>
       <div class="tp2-rkl">${rows.map(r => { const w = by[r.series_id]; const image = w.cover_path || w.cover_thumb_path;
-        return `<a class="tp2-rki" href="/serie/${esc(w.slug)}" aria-label="${esc(w.title)}. Puesto ${r.pos} del Top 50 general. ${readings(r).replace(' · ', ', ')}.">
+        return `<a class="tp2-rki" href="/serie/${esc(w.slug)}">
           <span class="n" aria-hidden="true">#${r.pos}</span>
           <span class="cv">${image ? `<img src="${esc(media(image))}" alt="" loading="lazy" decoding="async">` : '<span aria-hidden="true">書</span>'}</span>
           <span class="tp2-rki-main"><b>${esc(w.title)}</b><small>Puesto ${r.pos} de 50 · general</small></span>
