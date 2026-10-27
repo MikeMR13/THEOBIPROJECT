@@ -209,6 +209,53 @@ const RK_CSS = `
 .rk-rate{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0}.rk-stars{display:inline-flex}.rk-stars button{width:36px;height:40px;padding:0;background:none;border:0;font-size:24px;line-height:1;color:#3d3628;cursor:pointer}.rk-stars button.avg{color:#b5a27a}.rk-stars button.on{color:var(--gold)}.rk-stars:hover button{color:var(--gold)}.rk-stars button:hover~button{color:#3d3628}.rk-rate .mono{font-size:12px}
 .tp2-rkl{display:grid}.tp2-rki{display:grid;grid-template-columns:52px 40px minmax(0,1fr) auto;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid var(--ln);color:var(--fg)!important;text-decoration:none}.tp2-rki .n{font-family:var(--tf);font-weight:800;font-size:26px;color:var(--act);text-align:center}.tp2-rki .cv{width:40px;aspect-ratio:2/3;background:var(--sf) center/cover;border:1px solid var(--ln)}.tp2-rki b{font-weight:600}.tp2-rki .m{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mu)}.tp2-rk .tp2-sh{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}.tp2-rk .tp2-sh a{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--act)}
 @media(max-width:560px){.rk-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 14px}.rk-n{font-size:18px;min-width:38px;height:38px}.rk-c.rk-podium .rk-n{min-width:46px;height:46px;font-size:24px}}
+/* Ranking editorial: fichas con portadas completas y podio distinguible. */
+.rk-grid{gap:23px 16px;padding:10px 3px 6px}
+.rk-c{min-width:0;box-sizing:border-box;padding:11px 11px 14px;border:1px solid #584321;border-left:4px solid var(--gold);border-radius:6px;background:linear-gradient(180deg,#19150f,#100e0b);box-shadow:0 10px 26px rgba(0,0,0,.35);transition:transform .2s,border-color .2s,box-shadow .2s;grid-template-rows:auto minmax(0,1fr)}
+.rk-c:hover{transform:translateY(-4px);border-color:#e0b24c;box-shadow:0 16px 35px rgba(0,0,0,.52)}
+.rk-c:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.rk-cover{width:100%;aspect-ratio:2/3;display:flex;align-items:center;justify-content:center;min-width:0;box-sizing:border-box;padding:6px;background:#0b0a08;border:1px solid #493927;overflow:hidden}
+.rk-cover img{display:block;width:100%;height:100%;object-fit:contain;object-position:center}
+.rk-cover-fallback{color:#f3ecd9;font:500 14px/1.35 'Shippori Mincho B1',serif;overflow-wrap:anywhere;text-align:center;padding:10px}
+.rk-b{display:flex;flex-direction:column;gap:6px;min-width:0;padding-top:4px}
+.rk-b b{font-size:14px;line-height:1.35;min-height:2.7em;overflow-wrap:anywhere}
+.rk-b small{line-height:1.4;overflow-wrap:anywhere}
+.rk-s{margin-top:auto;padding-top:5px;border-top:1px solid #3b3124;line-height:1.5;overflow-wrap:anywhere}
+.rk-c .rk-n{top:-9px;left:-9px;min-width:40px;height:40px;font-size:19px;background:#11100e;border-color:#aa8b48}
+.rk-c.rk-place-1{border-color:#cba34c;border-left-color:#e7bd55}
+.rk-c.rk-place-1 .rk-n{background:#e3b450;border-color:#e3b450;color:#151109}
+.rk-c.rk-place-2{border-left-color:#b9c1c9}
+.rk-c.rk-place-2 .rk-n{background:#c0c7d2;border-color:#c0c7d2;color:#19191b}
+.rk-c.rk-place-3{border-left-color:#bd875c}
+.rk-c.rk-place-3 .rk-n{background:#bd875c;border-color:#bd875c;color:#211308}
+.rk-c.rk-podium .rk-n{min-width:48px;height:48px;font-size:24px}
+.rk-preview-grid{gap:16px}
+.rk-preview-grid .rk-c{padding:9px 9px 12px}
+.rk-preview-grid .rk-n,.rk-preview-grid .rk-c.rk-podium .rk-n{min-width:34px;height:34px;font-size:18px}
+.rk-extras{display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;min-width:0}
+.rk-extras .rk-sel select{max-width:190px}
+.rk-filter-toggle{display:none}
+.rk-clear{padding:7px 9px;background:transparent;color:#d3c0a0;border:1px solid #56452f;min-height:40px;font:600 12px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.rk-clear:hover{border-color:var(--gold);color:var(--paper)}
+.rk-clear[hidden]{display:none!important}
+.rk-summary{display:grid;gap:5px;margin:3px 0 19px;padding:11px 14px;background:#15120e;border:1px solid #493927;border-left:3px solid var(--gold)}
+.rk-summary[hidden],.rk-summary:empty{display:none!important}
+.rk-summary-text{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:5px 16px}
+.rk-summary-text strong{font-size:14px;color:#f0ddae}
+.rk-summary-text span,.rk-summary p{font:11px/1.5 'IBM Plex Mono',monospace;color:#c1b5a0}
+.rk-summary p{margin:0}
+@media(max-width:680px){
+  .rk-grid{gap:16px 12px}
+  .rk-c{padding:9px 9px 12px}
+  .rk-filter-toggle{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:8px 12px;min-height:40px;color:#e3dccb;background:#17130e;border:1px solid #574529;font:600 12px 'IBM Plex Sans',sans-serif;cursor:pointer}
+  .rk-filter-toggle.has-filters{border-color:var(--gold);color:var(--gold)}
+  .rk-extras{display:none;width:100%;gap:10px;padding:11px 12px;background:#14110e;border:1px solid #4a3928}
+  .rk-extras.open{display:flex}
+  .rk-extras .rk-sel{width:100%;justify-content:space-between}
+  .rk-extras .rk-sel select{flex:1;max-width:240px}
+  .rk-c.rk-podium .rk-n{min-width:39px;height:39px;font-size:20px}
+}
+@media(prefers-reduced-motion:reduce){.rk-c{transition:none}.rk-c:hover{transform:none}}
 `;
 const SR_CSS = `
 .sr-pop{position:absolute;top:calc(100% + 8px);left:0;right:0;min-width:min(420px,92vw);max-height:70vh;overflow:auto;z-index:70;background:#14120d;border:1px solid #3d3628;box-shadow:0 18px 40px rgba(0,0,0,.5)}
