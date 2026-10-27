@@ -1,4 +1,4 @@
-import { confirmInApp } from './dialogs.js';
+import { confirmInApp } from './dialogs.js?v=1';
 // Importador de Studio: EPUB, DOCX y PDF, bajo demanda.
 import { renderBlock } from './blocks.js?v=2';
 import { inferSectionType } from './section-types.js?v=1';
