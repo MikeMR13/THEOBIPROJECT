@@ -171,7 +171,7 @@ const RK_L = { leidas: 'Más leídas', tendencia: 'Tendencia', calificadas: 'Mej
 const RK_P = { hoy: 'Hoy', semana: 'Semana', mes: 'Mes', anio: 'Año', historico: 'Histórico' };
 const RK_PF = { hoy: 'de hoy', semana: 'de la semana', mes: 'del mes', anio: 'del año', historico: 'de todos los tiempos' };
 const RK_OK = { tendencia: ['hoy', 'semana', 'mes'], novedades: ['hoy', 'semana', 'mes'] };
-const RK_D = { leidas: 'Lectores distintos: cada persona cuenta una vez al día por obra.', tendencia: 'Las que más lecturas ganaron frente al periodo anterior.', calificadas: 'Promedio de estrellas. Solo entran obras con 25 votos o más en el periodo.', terminadas: 'Lectores que llegaron al último capítulo publicado.', novedades: 'Obras con su primer capítulo publicado hace 30 días o menos.' };
+const RK_D = { leidas: 'Lecturas únicas diarias acumuladas: cada lector o dispositivo cuenta una vez por obra y día; puede volver a sumar en días distintos.', tendencia: 'Las que más lecturas ganaron frente al periodo anterior.', calificadas: 'Promedio de estrellas. Solo entran obras con 25 votos o más en el periodo.', terminadas: 'Lectores que llegaron al último capítulo publicado (no necesariamente una obra concluida).', novedades: 'Obras con su primer capítulo publicado hace 30 días o menos.' };
 const RK_E = { calificadas: 'Todavía ninguna obra llega a 25 votos en este periodo. Califica las que leas desde su ficha.', tendencia: 'Ninguna obra ganó lecturas frente al periodo anterior.', novedades: 'No hay obras nuevas con lecturas en este periodo.' };
 const RK_CSS = `
 .rk-bar{display:grid;gap:12px;margin:0 0 26px}.rk-row{display:flex;gap:12px 18px;flex-wrap:wrap;align-items:center}
@@ -1637,8 +1637,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
   }
   async function ranking(){
     rkCss();
-    // Preferir miniaturas en las tarjetas del ranking: no descargar portadas originales grandes.
-    const rankBook = s => book({ ...s, cover_path: s.cover_thumb_path || s.cover_path }, null, true);
+    // Portadas originales completas: algunas miniaturas tienen el recorte incorporado.
+    // Mantener la carga diferida para las tarjetas de ranking fuera de pantalla.
+    const rankBook = s => {
+      const image = s.cover_path || s.cover_thumb_path;
+      return `<span class="rk-cover">${image
+        ? `<img src="${esc(media(image))}" alt="" loading="lazy" decoding="async">`
+        : `<span class="rk-cover-fallback">${esc(s.short || s.title)}</span>`}</span>`;
+    };
     const qs = new URLSearchParams(location.search);
     const R = { list: RK_L[qs.get('lista')] ? qs.get('lista') : 'leidas', period: RK_P[qs.get('periodo')] ? qs.get('periodo') : 'semana', genre: qs.get('genero') || '', status: ['en_curso', 'terminada'].includes(qs.get('estado')) ? qs.get('estado') : '', teamView: qs.get('vista') === 'equipos' || !!qs.get('equipo'), team: qs.get('equipo') || '' };
     app.innerHTML = '<p class="mono">Cargando el ranking…</p>';
@@ -1680,10 +1686,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       <div class="rk-bar">
         <div class="ui-chips" role="group" aria-label="Lista">${Object.entries(RK_L).map(([k, l]) => `<button class="ui-chip" type="button" data-rl="${k}">${l}</button>`).join('')}<button class="ui-chip" type="button" id="rk-team-tab" aria-controls="rk-teams">Por equipo</button></div>
         <div id="rk-filters"><div class="rk-row"><div class="rk-seg" role="group" aria-label="Periodo">${Object.entries(RK_P).map(([k, l]) => `<button type="button" data-rp="${k}">${l}</button>`).join('')}</div>
-          <label class="rk-sel"><span class="ui-lbl">Género</span><select id="rk-g"><option value="">Todos</option></select></label>
-          <div class="rk-seg" role="group" aria-label="Estado">${[['', 'Todas'], ['en_curso', 'En curso'], ['terminada', 'Terminadas']].map(([k, l]) => `<button type="button" data-rs="${k}">${l}</button>`).join('')}</div></div>
+          <button class="rk-filter-toggle" type="button" id="rk-more" aria-controls="rk-extras" aria-expanded="false">Más filtros <span aria-hidden="true">⌄</span></button>
+          <div class="rk-extras" id="rk-extras">
+            <label class="rk-sel"><span class="ui-lbl">Género</span><select id="rk-g"><option value="">Todos</option></select></label>
+            <div class="rk-seg" role="group" aria-label="Estado">${[['', 'Todas'], ['en_curso', 'En curso'], ['terminada', 'Terminadas']].map(([k, l]) => `<button type="button" data-rs="${k}">${l}</button>`).join('')}</div>
+            <button type="button" class="rk-clear" id="rk-clear">Limpiar filtros</button>
+          </div></div>
         <p class="mono rk-desc" id="rk-desc"></p></div>
-      </div><div id="rk"></div>
+      </div><div class="rk-summary" id="rk-summary" role="status" aria-live="polite"></div><div id="rk"></div>
       <section id="rk-teams" class="rk-team-panel" aria-labelledby="rk-teams-title" hidden>
         <div class="rk-team-header"><div><h2 id="rk-teams-title">Lo más visto de cada equipo</h2>
           <p class="rk-team-note">Novelas ordenadas por lectores distintos de esta semana.</p></div>
@@ -1712,6 +1722,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       app.querySelectorAll('[data-rp]').forEach(b => { b.classList.toggle('on', b.dataset.rp === R.period); b.disabled = !!ok && !ok.includes(b.dataset.rp); b.setAttribute('aria-pressed', b.dataset.rp === R.period); });
       app.querySelectorAll('[data-rs]').forEach(b => { b.classList.toggle('on', b.dataset.rs === R.status); b.setAttribute('aria-pressed', b.dataset.rs === R.status); });
       $('#rk-desc').textContent = RK_D[R.list];
+      $('#rk-clear').hidden = !R.genre && !R.status;
+      $('#rk-more').classList.toggle('has-filters', !!(R.genre || R.status));
       $('#rk-team-tab').classList.toggle('on', R.teamView); $('#rk-team-tab').setAttribute('aria-pressed', String(R.teamView));
       $('#rk-filters').hidden = R.teamView; $('#rk').hidden = R.teamView; $('#rk-teams').hidden = !R.teamView;
       if ($('#rk-autoh')) $('#rk-autoh').hidden = R.teamView || !autoHist || R.period !== 'historico' || R.list !== firstList;
@@ -1756,7 +1768,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
         } else {
           body.innerHTML = `<div class="rk-grid rk-preview-grid">${entries.map(r => {
             const s = byId[r.series_id];
-            return `<a class="rk-c${r.pos <= 3 ? ' rk-podium' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}">
+            return `<a class="rk-c${r.pos <= 3 ? ' rk-podium rk-place-' + r.pos : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}">
               <span class="rk-n" aria-label="Puesto ${r.pos}">${r.pos}</span>${rankBook(s)}
               <span class="rk-b"><b>${esc(s.title)}</b>${s.teams?.name ? `<small>${esc(s.teams.name)}</small>` : ''}
                 <span class="rk-s">${previewScore(key, r)}</span></span></a>`;
@@ -1811,10 +1823,10 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       const by = Object.fromEntries((ss || []).map(s => [s.id, s]));
       const entries = rows.filter(r => by[r.series_id]);
       box.innerHTML = `<p class="rk-team-note"><a href="/equipo/${esc(team.slug)}">${esc(team.name)} →</a> · ${entries.length} ${entries.length === 1 ? 'novela clasificada' : 'novelas clasificadas'}</p>` +
-        `<div class="rk-grid">${entries.map((r, i) => { const s = by[r.series_id]; return `<a class="rk-c${i < 3 ? ' rk-podium' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${i + 1} del equipo">${i + 1}</span>${rankBook(s)}<span class="rk-b"><b>${esc(s.title)}</b>${creditsHTML(s, { esc, media, mode: 'carousel' })}<small>${fmtN(+r.score)} ${+r.score === 1 ? 'lector' : 'lectores'} · esta semana</small><span class="rk-s">${r.pos ? '#' + r.pos + ' general' : ''}</span></span></a>`; }).join('')}</div>`;
+        `<div class="rk-grid">${entries.map((r, i) => { const s = by[r.series_id]; return `<a class="rk-c${i < 3 ? ' rk-podium rk-place-' + (i + 1) : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${i + 1} del equipo">${i + 1}</span>${rankBook(s)}<span class="rk-b"><b>${esc(s.title)}</b>${creditsHTML(s, { esc, media, mode: 'carousel' })}<small>${fmtN(+r.score)} ${+r.score === 1 ? 'lector' : 'lectores'} · esta semana</small><span class="rk-s">${r.pos ? '#' + r.pos + ' general' : ''}</span></span></a>`; }).join('')}</div>`;
     };
     const draw = async () => {
-      sync(); const my = ++tk, box = $('#rk'); overview.hidden = true; if (R.teamView) return drawTeam(my); box.innerHTML = '<p class="mono">Cargando…</p>';
+      sync(); const my = ++tk, box = $('#rk'), summary = $('#rk-summary'); overview.hidden = true; summary.hidden = R.teamView; summary.innerHTML = ''; if (R.teamView) return drawTeam(my); box.innerHTML = '<p class="mono">Cargando…</p>';
       const { data, error } = await sb.rpc('ranking_list', { p_list: R.list, p_period: R.period, p_genre: R.genre || null, p_status: R.status || null, p_limit: 20 });
       if (my !== tk || !document.body.contains(box)) return;
       if (error) { box.innerHTML = `<p style="color:#f59e7a">No se pudo cargar el ranking: ${esc(error.message)}</p>`; return; }
@@ -1825,14 +1837,21 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       if (my !== tk) return;
       const by = Object.fromEntries((ss || []).map(s => [s.id, s])), filtered = !!(R.genre || R.status), anyPrev = data.some(r => r.prev_pos != null);
       const mv = r => filtered ? '' : r.prev_pos == null ? (anyPrev ? '<span class="rk-mv new">Nuevo</span>' : '') : r.prev_pos > r.gpos ? `<span class="rk-mv up" title="Subió ${r.prev_pos - r.gpos} desde la última actualización">▲${r.prev_pos - r.gpos}</span>` : r.prev_pos < r.gpos ? `<span class="rk-mv dn" title="Bajó ${r.gpos - r.prev_pos} desde la última actualización">▼${r.gpos - r.prev_pos}</span>` : '<span class="rk-mv eq" title="Sin cambios">=</span>';
-      const sc = r => ({ leidas: fmtN(r.score) + ' lecturas', tendencia: '+' + fmtN(r.score) + ' lecturas', calificadas: (+r.score).toFixed(1) + ' ★ · ' + r.votes + ' votos', terminadas: fmtN(r.score) + (+r.score === 1 ? ' lector' : ' lectores') + ' al día', novedades: fmtN(r.score) + ' lecturas' })[R.list];
-      box.innerHTML = `<div class="rk-grid">${data.filter(r => by[r.series_id]).map(r => { const s = by[r.series_id]; return `<a class="rk-c${r.pos <= 3 ? ' rk-podium' : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${r.pos}">${r.pos}</span>${rankBook(s)}<span class="rk-b"><b>${esc(s.title)}</b>${creditsHTML(s, { esc, media, mode: 'carousel' })}${s.teams?.name ? `<small>${esc(s.teams.name)}</small>` : ''}<span class="rk-s">${sc(r)}${mv(r)}</span></span></a>`; }).join('')}</div>
-        <p class="mono rk-upd">Actualizado ${ago(data[0].computed_at)} · se recalcula cada 6 horas${filtered ? ' · con filtros no se muestra el movimiento' : ''}</p>`;
+      const sc = r => ({ leidas: fmtN(r.score) + ' lecturas únicas diarias', tendencia: '+' + fmtN(r.score) + ' lecturas', calificadas: (+r.score).toFixed(1) + ' ★ · ' + r.votes + ' votos', terminadas: fmtN(r.score) + (+r.score === 1 ? ' lector' : ' lectores') + ' al día', novedades: fmtN(r.score) + ' lecturas' })[R.list];
+      summary.innerHTML = `<div class="rk-summary-text"><strong>${esc(RK_L[R.list])} · ${esc(RK_P[R.period])}</strong><span>Actualizado ${esc(ago(data[0].computed_at))} · se recalcula cada 6 horas</span></div>
+        <p>${filtered ? 'Los puestos corresponden a los filtros activos; no se muestra movimiento.' : '▲ Subió · ▼ Bajó · = Sin cambios · Nuevo: entró desde la última actualización.'}</p>`;
+      box.innerHTML = `<div class="rk-grid">${data.filter(r => by[r.series_id]).map(r => { const s = by[r.series_id]; return `<a class="rk-c${r.pos <= 3 ? ' rk-podium rk-place-' + r.pos : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${r.pos}">${r.pos}</span>${rankBook(s)}<span class="rk-b"><b>${esc(s.title)}</b>${creditsHTML(s, { esc, media, mode: 'carousel' })}${s.teams?.name ? `<small>${esc(s.teams.name)}</small>` : ''}<span class="rk-s">${sc(r)}${mv(r)}</span></span></a>`; }).join('')}</div>`;
       revealOverview();
     };
     app.querySelectorAll('[data-rl]').forEach(b => b.onclick = () => { R.teamView = false; R.list = b.dataset.rl; draw(); });
     $('#rk-team-tab').onclick = () => { R.teamView = true; draw(); };
     $('#rk-team-sel').onchange = e => { R.team = e.target.value; if (R.teamView) draw(); };
+    $('#rk-more').onclick = () => {
+      const extras = $('#rk-extras'), expanded = !extras.classList.contains('open');
+      extras.classList.toggle('open', expanded);
+      $('#rk-more').setAttribute('aria-expanded', String(expanded));
+    };
+    $('#rk-clear').onclick = () => { R.genre = ''; R.status = ''; $('#rk-g').value = ''; draw(); };
     app.querySelectorAll('[data-rp]').forEach(b => b.onclick = () => { R.period = b.dataset.rp; draw(); });
     app.querySelectorAll('[data-rs]').forEach(b => b.onclick = () => { R.status = b.dataset.rs; draw(); });
     $('#rk-g').onchange = e => { R.genre = e.target.value; draw(); };
