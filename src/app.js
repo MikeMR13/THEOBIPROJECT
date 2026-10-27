@@ -1,4 +1,4 @@
-import { confirmInApp } from './dialogs.js';
+import { confirmInApp } from './dialogs.js?v=1';
 import { installPublicShare } from './share.js?v=1';
 import { readPages } from './paging.js';
 import { prepareLibrary, selectLibraryItems } from './library-logic.js';
