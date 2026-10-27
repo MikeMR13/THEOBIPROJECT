@@ -87,7 +87,7 @@ export function createStudio(ctx){
       <div class="s2-quick"><small>ACCIONES RÁPIDAS</small>${can('create') ? '<button class="s2-q main" data-quick="new">＋ Nuevo capítulo</button>' : ''}${can('import') ? '<a class="s2-q" href="/estudio/importar">⇪ Importar EPUB / DOCX / PDF</a>' : ''}<a class="s2-q" href="/estudio/obras">◷ Programar lanzamiento</a></div>
       <a class="s2-back" href="/">← Volver al sitio</a></aside>
       <section class="st-main s2-main"><header class="s2-head"><div class="s2-ht"><small>ESTUDIO · ${esc((T.team?.name || '').toUpperCase())} · ${CRUMB[tab] || esc(title.toUpperCase())}</small><h1>${title}</h1></div>${topTools()}</header>${body}</section></div>`; };
-  // Navegación compacta: un solo control; no duplica rutas ni selectores de equipo.
+  // Navegación sin rutas ni selectores duplicados.
   const closeStudioNav = (focus = false) => {
     const side = document.querySelector('.s2-side.nav-open');
     if (!side) return;
@@ -195,7 +195,7 @@ export function createStudio(ctx){
     resetTeamSession(T, user?.id || null);
     if (!user) { go('/entrar'); return false; }
     const uid = user.id;
-    // Inicia la hoja en paralelo con permisos/datos; evita mostrar Studio sin estilos.
+    // Cargar estilos antes de mostrar Studio.
     const styles = css();
     if (!T.teams.length) {
       const { data } = await sb.from('team_members').select('role,teams(id,slug,name,color)').eq('user_id', uid);
@@ -539,8 +539,8 @@ export function createStudio(ctx){
     app.querySelectorAll('[data-tog]').forEach(b => b.onclick = () => { const id = b.dataset.tog; open.has(id) ? open.delete(id) : open.add(id); again(); });
     on('#wk-new', async () => { const v = V[V.length - 1]; if (!v) throw new Error('Crea primero un volumen'); const num = Math.max(0, ...allNums) + 1; const { data, error } = await sb.from('chapters').insert({ series_id: s.id, volume_id: v.id, vol: v.num, num, title: 'Capítulo ' + num, body: [], status: 'draft', section_type: 'Capítulo' }).select('id').single(); if (error) throw error; go('/estudio/editar/' + data.id); });
     on('#addvol', async () => { const nn = Math.max(0, ...V.map(v => v.num), ...TV.map(v => v.num)) + 1; const { data, error } = await sb.from('volumes').insert({ series_id: s.id, num: nn, status: 'draft' }).select('id').single(); if (error) throw error; open.add(data.id); again(); });
-    // La selección editorial se hace ANTES de publicar; el registro solo se escribe
-    // DESPUÉS de la publicación efectiva. No modifica los avisos a seguidores.
+    // Elegir anuncio antes de publicar; escribir solo
+    // después de publicar, sin alterar avisos.
     const recordNotice = async (selection,kind,id,at) => {
       try { await saveEditorialRecord(sb,s.id,selection,{kind,id,startsAt:at}); }
       catch (e) { toast('Contenido publicado, pero el anuncio no se guardó: '+errMsg(e)); }
@@ -792,7 +792,7 @@ export function createStudio(ctx){
       const releaseInfo=$('#wk-release-info');
       if(releaseInfo) releaseInfo.innerHTML=latestRelease ? '<p class="mono">'+esc(latestRelease.text||'Sin anuncio destacado')+' · '+esc(latestRelease.kind==='volume'?'Volumen':'Capítulo')+' · '+esc(latestRelease.days?latestRelease.days+' días':'Sin etiqueta')+'</p><small class="mono">Hasta '+esc(latestRelease.expires_at?fmtTz(latestRelease.expires_at):'sin etiqueta')+'</small>'+(can('edit')?'<button type="button" class="btn ghost sm" id="wk-release-edit">Editar anuncio</button>':'') : '<p class="mono">Las nuevas publicaciones aparecerán aquí.</p>';
       $('#wk-release-edit')?.addEventListener('click',async()=>{ if(!latestRelease)return; const x=await askEditorialAnnouncement({esc,kind:latestRelease.kind,title:'Aviso de la última publicación',initial:latestRelease}); if(!x)return; try{await saveEditorialRecord(sb,s.id,x,{kind:latestRelease.kind,id:latestRelease.id,startsAt:latestRelease.starts_at});toast('Anuncio editorial actualizado');again();}catch(e){toast(errMsg(e))} });
-      // ---- aviso en actualizaciones (se guarda aparte, en series.theme.update_tag)
+      // Aviso: series.theme.update_tag
       let utDirty = false; const UT = Object.assign({ on: false, text: '', color: wcolor(s), style: 'solid', until: '', season: false }, s.theme?.update_tag || {});
       const UT_PRE = ['Nuevo volumen', 'Nuevo nivel', 'Capítulo extra', 'Volumen completo', 'Final', 'De regreso'], UT_COL = ['#f2c230', '#d9922b', '#f59e7a', '#c9a8f2', '#8cc3f2', '#a9d18e', wcolor(s)];
       const drawUT = () => { const box = $('#wk-utag-b'); if (!box) return; const ed = can('edit') ? '' : 'disabled';
@@ -1011,7 +1011,7 @@ export function createStudio(ctx){
             const { data: up, error } = await sb.from('series').update({ relations: RL }).eq('id', s.id).select('id'); if (error) throw new Error(/relations/.test(error.message || '') ? 'Falta ejecutar el SQL 20261111_obras_relacionadas.sql' : errMsg(error));
             if (!up?.length) throw new Error('No se guardó (permiso de la tabla «series»)'); s.relations = [...RL]; relDirty = false; toast('Relaciones guardadas'); drawRel(); })); };
         sb.from('series').select('id,title,teams(name)').or('published.eq.true,team_id.eq.' + T.team.id).is('archived_at', null).order('title').then(({ data }) => { all = data || []; drawRel(); });
-        // otras obras que ya enlazan a esta: aparecen solas en la ficha pública (con el sentido invertido)
+        // Otras obras que enlazan a esta (relación inversa)
         sb.from('series').select('id,title,relations,teams(name)').filter('relations', 'cs', JSON.stringify([{ id: s.id }])).then(({ data }) => { const l = (data || []).filter(x => x.id !== s.id && !RL.some(r => r.id === x.id)); if (!l.length) return; const INV = { precuela: 'Secuela', secuela: 'Precuela', adaptacion: 'Obra original' }, KL = Object.fromEntries(KINDS);
           $('#wk-rel-b')?.insertAdjacentHTML('afterend', `<div style="display:grid;gap:6px;margin-top:12px"><span class="mono" style="font-size:11px">Enlazada desde otras obras · se muestran solas en la ficha pública</span>${l.map(x => { const k = (x.relations || []).find(r => r?.id === s.id)?.kind; return `<div style="display:flex;justify-content:space-between;gap:8px;padding:8px;border:1px dashed #2f2a20"><span><b>${esc(x.title)}</b><br><small class="mono">${esc(x.teams?.name || '')}</small></span><span class="mono" style="font-size:12px">${esc(INV[k] || KL[k] || 'Relacionada')}</span></div>`; }).join('')}</div>`); }); }
       let dirty = false; const mark = () => { dirty = true; const d = $('#wk-dirty'); if (d) d.textContent = 'Cambios sin guardar'; };
@@ -1051,7 +1051,7 @@ export function createStudio(ctx){
   async function names(ids){
     ids = [...new Set(ids.filter(Boolean))];
     if (!ids.length) return {};
-    // No consultar profiles directamente: solo nombres de colegas cuyo equipo comparte sesión.
+    // Solo colegas del equipo; no consultar profiles.
     const { data, error } = await sb.rpc('studio_profile_names', { p_ids: ids.slice(0, 100) });
     if (error) throw new Error(errMsg(error));
     return Object.fromEntries((data || []).map(p => [p.id, p.username]));
@@ -1498,8 +1498,8 @@ export function createStudio(ctx){
   const FMTS = ['EPUB','PDF','MOBI','AZW3','CBZ','DOCX','ZIP'];
   const STORES = ['Amazon Japón','BookWalker','Kindle','Kobo','Google Play Libros','Apple Books','J-Novel Club','Yen Press','Seven Seas','Ivrea','Panini','Planeta Cómic','Norma Editorial','Kamite','Editorial Kemuri','Otra tienda'];
   const REGIONS = ['Japón','EE. UU.','México','Argentina','España','Latinoamérica','Global'];
-  // Editor de enlaces compartido por la ficha de la obra y la sección general.
-  // Trabaja sobre los mismos registros: no duplica descargas ni datos en Supabase.
+  // Editor de enlaces compartido.
+  // Sin duplicar descargas ni registros.
   const validHttps = value => { try { const u = new URL(value); return u.protocol === 'https:' && !!u.hostname && !u.username && !u.password; } catch { return false; } };
   async function renderDownloads(seriesId, target){
     if (!target) return;
@@ -1569,7 +1569,7 @@ export function createStudio(ctx){
     renderDownloads(F.work, app.querySelector('#st-dl-panel'));
   }
 
-  // ---------- Anuncios: tarjeta destacada en la página pública del equipo ----------
+  // Anuncios destacados del equipo
   async function announcements(){
     if (!(await ensure())) return;
     const TAB = '/estudio/anuncios';
