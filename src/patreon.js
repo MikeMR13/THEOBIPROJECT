@@ -1,4 +1,4 @@
-import { confirmInApp } from './dialogs.js';
+import { confirmInApp } from './dialogs.js?v=1';
 // Patreon: conectar campañas (equipos y plataforma), vincular la cuenta del lector y pantallas de bloqueo.
 const FN = url => url + '/functions/v1/patreon';
 export async function start(sb, url, kind, owner = null, toast = () => {}) {
