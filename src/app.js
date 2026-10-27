@@ -310,6 +310,38 @@ const LB_CSS = `
 .lb-error{max-width:760px;padding:20px;border:1px solid #c67d52;background:#211810;display:grid;gap:11px}
 .lb-error strong{color:#ffd2b8}.lb-error p{margin:0;font-size:14px;color:#e0cfb9;line-height:1.5}
 .lb-av .lb-ai{min-height:65px}.lb-av :is(button,input):focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.lb-read-open{justify-self:start;min-height:42px;padding:7px 11px;border:1px solid #ab8a47;border-radius:3px;color:#f1ce77;background:#241e13;font:600 12px/1.35 'IBM Plex Sans',sans-serif;cursor:pointer}
+.lb-read-open:hover,.lb-read-open:focus-visible{background:#403017;border-color:var(--gold);outline-offset:2px}
+.lb-read-feedback{display:flex;align-items:center;flex-wrap:wrap;gap:10px 18px;margin:5px 0 16px;padding:12px 14px;background:#282112;border:1px solid #8e7239;color:#f1e5cc;font:13px/1.45 'IBM Plex Sans',sans-serif}
+.lb-read-feedback[hidden]{display:none}
+.lb-read-feedback button{min-height:40px;padding:7px 14px;border:1px solid var(--gold);border-radius:3px;color:#17120a;background:var(--gold);font:700 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.lb-read-dialog{box-sizing:border-box;width:min(720px,calc(100vw - 28px));max-width:720px;max-height:min(84vh,850px);overflow-y:auto;overscroll-behavior:contain;margin:auto;border:1px solid #80663d;border-radius:6px;background:#19150f;color:var(--paper);padding:24px;box-shadow:0 20px 80px #000b}
+.lb-read-dialog::backdrop{background:rgba(0,0,0,.8);backdrop-filter:blur(3px)}
+.lb-read-dialog[aria-busy=true] .lb-read-action{opacity:.55;cursor:progress}
+.lb-read-head{display:grid;gap:7px;border-bottom:1px solid #56452d;padding-bottom:13px}
+.lb-read-head h2{margin:0;font:700 clamp(21px,3vw,27px) 'Shippori Mincho B1',serif;color:var(--paper)}
+.lb-read-head strong{font:600 16px/1.4 'IBM Plex Sans',sans-serif;overflow-wrap:anywhere}
+.lb-read-head p,.lb-read-explain{margin:0;color:#d0bea0;font:12px/1.6 'IBM Plex Sans',sans-serif}
+.lb-read-explain{margin:14px 0}
+.lb-read-all{display:flex;gap:8px;flex-wrap:wrap;padding:12px 0 18px}
+.lb-read-action{min-height:42px;padding:8px 11px;border:1px solid #7b623c;background:#262013;color:#f3deb2;border-radius:3px;font:600 12px/1.35 'IBM Plex Sans',sans-serif;cursor:pointer}
+.lb-read-action:hover:not(:disabled){border-color:var(--gold);background:#392b16}
+.lb-read-action:disabled{opacity:.42;cursor:not-allowed}
+.lb-read-dialog :is(button,summary):focus-visible,.lb-read-feedback button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.lb-read-groups{display:grid;gap:10px}
+.lb-read-volume{border:1px solid #56452d;background:#211b13;border-radius:4px}
+.lb-read-volume>summary{padding:12px 14px;min-height:44px;display:list-item;cursor:pointer;color:var(--paper);font:600 14px/1.35 'IBM Plex Sans',sans-serif}
+.lb-read-volume[open]>summary{border-bottom:1px solid #50412b}
+.lb-read-volume-actions{padding:12px 12px 4px;display:flex;gap:8px;flex-wrap:wrap}
+.lb-read-chapters{padding:5px 13px 13px;margin:0;display:grid;gap:0;list-style:none}
+.lb-read-chapters li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #403626;min-width:0}
+.lb-read-chapters li:last-child{border:0}
+.lb-read-chapters li>span{display:grid;gap:4px;min-width:0;font:600 13px/1.4 'IBM Plex Sans',sans-serif}
+.lb-read-chapters li small{font-size:12px;font-weight:400;color:#b4a58c;overflow-wrap:anywhere}
+.lb-read-chapters li button{flex:none;white-space:normal;text-align:center;max-width:150px}
+.lb-read-close{position:sticky;bottom:0;display:block;margin:18px 0 0 auto;min-height:44px;box-shadow:0 -8px 16px #19150f}
+@media(max-width:480px){.lb-read-dialog{padding:16px;max-height:90vh}.lb-read-all{display:grid;grid-template-columns:1fr}.lb-read-action{min-height:44px}.lb-read-chapters li button{max-width:130px}}
+
 @media(max-width:700px){.lb-navhelp{display:block}.lb-tabs{margin-bottom:7px}}
 @media(max-width:480px){.lb-toolbar{grid-template-columns:1fr}.lb-grid{grid-template-columns:1fr;gap:13px}.lb-card{grid-template-columns:92px minmax(0,1fr);padding:12px;gap:12px}.lb-title{font-size:15px}.lb-cover-link{max-width:92px}}
 @media(prefers-reduced-motion:reduce){.lb-card,.lb-cover-link img{transition:none}}
@@ -486,7 +518,7 @@ async function library(){
   const runReadMutation = async (changes,message,isUndo=false) => {
     if(busy||!changes.length||!live())return;
     busy=true;
-    dialog.querySelectorAll('button').forEach(b=>b.disabled=true);
+    dialog.setAttribute('aria-busy','true');
     notice.querySelectorAll('button').forEach(b=>b.disabled=true);
     try {
       await persistReadingChanges(sb,uid,changes);
@@ -509,7 +541,8 @@ async function library(){
       if(live()){renderUndo();toast('No se pudo completar el cambio. Comprueba tu biblioteca e inténtalo de nuevo.');}
     }finally{
       busy=false;
-      if(live())dialog.querySelectorAll('button').forEach(b=>b.disabled=false);
+      dialog.removeAttribute('aria-busy');
+      if(live())renderUndo();
     }
   };
   const openReadDialog=(id,from)=>{
