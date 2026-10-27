@@ -14,9 +14,13 @@ const card=(i)=>'<article class="lb-card"><a class="lb-cover-link" href="/serie/
  '<div class="lb-card-body"><span class="lb-label">'+(i===1?'En progreso':'Pendiente')+'</span><a class="lb-title" href="/serie/obra-'+i+'">'+(i%2===0?'Una novela ligera de traducciones extraordinariamente largas':'Historias de fantasía, aventuras y mundos lejanos')+'</a>'+
  '<span class="lb-card-sub">Continuar · Capítulo '+(i+4)+'</span><div class="lb-progress" aria-label="8 de 24 capítulos"><span class="lb-progress-head"><span>8 de 24 capítulos</span><span>33 %</span></span>'+
  '<span class="lb-progress-track" aria-hidden="true"><i style="width:33%"></i></span></div><a class="lb-card-cta" href="/leer/obra-'+i+'/5">Continuar leyendo</a>'+
- '<button type="button" class="lb-card-hide">Ocultar de mi perfil público</button></div></article>';
+ '<button type="button" class="lb-read-toggle" data-read-work="work-'+i+'" data-read-mark="1" aria-label="Marcar novela como leída">✓ Marcar novela como leída</button><button type="button" class="lb-card-hide">Ocultar de mi perfil público</button></div></article>';
 const qa=[
  "const e=[];const w=document.documentElement.clientWidth;",
+ "const direct=[...document.querySelectorAll('.lb-read-toggle')];if(direct.length!==5)e.push('botones por novela faltantes');",
+ "for(const b of direct)if(b.getBoundingClientRect().height<42||b.getBoundingClientRect().width<140)e.push('botón directo demasiado pequeño');",
+ "if(document.querySelector('dialog,[data-read-open]'))e.push('menú adicional inesperado');",
+
  "const all=[...document.querySelectorAll('.lb-card')];",
  "if(all.length!==5)e.push('faltan fichas');",
  "if(document.documentElement.scrollWidth>w+4)e.push('desbordamiento horizontal: '+(document.documentElement.scrollWidth-w));",

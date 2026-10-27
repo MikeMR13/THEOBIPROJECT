@@ -7,6 +7,7 @@ import { createHeroRotationClock } from './home-hero-rotation.js?v=1';
 import { createHomeMetrics, homeMetricCategory } from './home-metrics.js?v=1';
 import { initSeriesOrganization, volumeProgress } from './series-organization.js?v=1';
 import { initSeriesTabs } from './series-tabs.js?v=1';
+import { planReadingChanges, persistReadingChanges, applyReadingChanges } from './library-read-actions.js';
 import { chooseActiveEditorial } from './editorial-announcements.js?v=1';
 // Géneros/etiquetas que el lector ocultó en Preferencias › Contenido.
 const hidS = s => { const H = window.__obiUI?.hide; if (!H?.length) return false; const S = new Set(H.map(x => String(x).toLowerCase())); return [...(s.genres || []), ...(Array.isArray(s.tags) ? s.tags : [])].some(g => S.has(String(g).toLowerCase())); };
@@ -81,6 +82,16 @@ html[data-season] .ui-sh{border-top-color:var(--sea)}
 .ui-chl a{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #221f18;color:#e3dccb;text-decoration:none;font-size:14px}.ui-chl a:hover{color:var(--gold)}.ui-chl a.read{color:#8c846f}.ui-chl a .n{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--mute);min-width:28px;padding-top:2px}
 .ui-chl a[data-lock] .n::before{content:"🔒︎ ";font-size:11px}.ui-chl a[data-lock]{color:#a89f8a}
 .ui-chl a.read .n::after{content:' ✓';color:#a9d18e}
+.ui-read-chapter,.ui-read-volume{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:7px 10px;border:1px solid #8b7548;border-radius:3px;background:#261e12;color:#f1cf86;text-align:center;font:650 12px/1.35 'IBM Plex Sans',sans-serif;cursor:pointer}
+.ui-read-chapter:hover:not(:disabled),.ui-read-volume:hover:not(:disabled){border-color:var(--gold);background:#3d2e19}
+.ui-read-chapter:focus-visible,.ui-read-volume:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.ui-read-chapter:disabled,.ui-read-volume:disabled{opacity:.5;cursor:progress}
+.ui-read-chapter{flex:none;min-width:106px}
+.ui-chl li{display:flex;gap:9px;align-items:center;min-width:0}
+.ui-chl li>a{flex:1;min-width:0}
+.ui-v-actions{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+@media(max-width:480px){.ui-chl li{flex-wrap:wrap;gap:4px 8px}.ui-read-chapter{margin-left:auto;min-width:112px}}
+
 @media(max-width:720px){.ui-hero,.ui-sh{grid-template-columns:1fr}.ui-hero .ui-book{max-width:200px;order:-1}.ui-sh .ui-book{max-width:200px}.ui-vol{grid-template-columns:64px minmax(0,1fr)}}
 .ui-chip.out{border-color:#f59e7a;color:#f59e7a;text-decoration:line-through}
 .ui-card{position:relative}.ui-st{position:absolute;top:10px;left:10px;z-index:2;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;padding:4px 8px;background:#0d0c0a;color:var(--paper);border:1px solid #3d3628;box-shadow:0 4px 10px rgba(0,0,0,.4)}.ui-st.new{background:var(--gold);color:#0d0c0a;border-color:var(--gold)}.ui-st.reading{border-color:#a9d18e;color:#a9d18e}
@@ -1508,7 +1519,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
       sb.from('volumes').select('id,num,title,cover_path,synopsis,status,external_url,external_site,external_only').eq('series_id', s.id).eq('status', 'published').is('deleted_at', null).order('num', { ascending: false }),
       sb.rpc('series_toc', { p_series: s.id }).then(x => x.error ? sb.from('chapters').select('id,num,vol,volume_id,title,section_type,publish_at').eq('series_id', s.id).is('deleted_at', null).order('num') : x),
       progressMap(),
-      u ? sb.from('read_chapters').select('chapter_id').eq('user_id', u.id) : { data: [] },
+      u ? sb.from('read_chapters').select('chapter_id,read_at').eq('user_id', u.id) : { data: [] },
       u ? sb.from('follows').select('series_id').eq('user_id', u.id).eq('series_id', s.id) : { data: [] },
       sb.rpc('series_downloads_v2', { p_series: s.id }).then(r => r.error?.code === 'PGRST202' ? sb.rpc('series_downloads', { p_series: s.id }) : r),
       sb.from('purchase_links').select('id,volume_id,vol,store,region,fmt').eq('series_id', s.id).eq('verified', true).order('vol').order('id'),
@@ -1532,7 +1543,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     const unread = u ? (() => { const rs = new Set((readR?.data || []).map(x => x.chapter_id)), at = prog?.[s.id]?.chapter_num ?? -Infinity, now = Date.now(); return (chs || []).filter(c => (!c.publish_at || new Date(c.publish_at) <= now) && !rs.has(c.id) && c.num > at).length; })() : null;
     const dlOf = v => (dls || []).filter(d => d.volume_id === v.id || (!d.volume_id && d.vol === v.num));
     const patronLink = (() => { const fallback = s.teams?.slug ? '/equipo/' + encodeURIComponent(s.teams.slug) : '/serie/' + encodeURIComponent(s.slug); try { const u = new URL(pt?.url); return u.protocol === 'https:' && /(^|\.)patreon\.com$/i.test(u.hostname) ? u.toString() : fallback; } catch { return fallback; } })();
-    const read = new Set((readR.data || []).map(r => r.chapter_id)), p = prog[s.id], following = !!(folR.data || []).length;
+    let savedReadRows=(readR.data || []).filter(r=>r.chapter_id);
+    const read = new Set(savedReadRows.map(r => r.chapter_id)), p = prog[s.id], following = !!(folR.data || []).length;
     const first = (chs || [])[0], allCh = chs || [], nRead = allCh.filter(c => read.has(c.id)).length;
     const pIdx = p ? allCh.findIndex(c => c.num === p.chapter_num) : -1;
     const nextUnread = allCh.slice(Math.max(0, pIdx)).find(c => !read.has(c.id) && c.num !== p?.chapter_num) || allCh.find(c => !read.has(c.id));
@@ -1579,17 +1591,19 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
           const vLk = list.length > 0 && list.every(c => c.locked);
           const firstVol = list[0], hereVol = list.find(c => p?.chapter_num === c.num);
           const volumeReading = u && list.length ? volumeProgress(list, read) : null;
+          const availableVolume=list.filter(c=>!c.deleted_at && (!c.status||c.status==='published') && (!c.publish_at||new Date(c.publish_at).getTime()<=Date.now()));
+          const allVolumeRead=availableVolume.length>0 && availableVolume.every(c=>read.has(c.id));
           const named = v.title && v.title !== String(v.num) && v.title.length > 2 && !/^volumen\s*\d+$/i.test(v.title.trim());
           const cover = v.cover_path ? thumb(v) : s.cover_path ? thumb(s) : '';
-          return `<article class="ui-vol ui-vol-book" data-vol-num="${esc(v.num)}"${vLk ? ' data-lock="1"' : ''}>
+          return `<article class="ui-vol ui-vol-book" data-vol-num="${esc(v.num)}" data-vol-id="${esc(v.id)}"${vLk ? ' data-lock="1"' : ''}>
             <span class="th ui-v-cover ${cover ? 'has-cover' : 'no-cover'}" role="img" aria-label="Portada del volumen ${esc(v.num)}">${cover ? `<img src="${esc(cover)}" alt="" loading="lazy" decoding="async" fetchpriority="low" width="240" height="360">` : ''}<span class="ui-v-spine" aria-hidden="true"></span>${!cover ? `<span class="ui-v-placeholder">帯<small>VOLUMEN ${esc(v.num)}</small></span>` : ''}</span>
             <div class="ui-v-content">
               <div class="ui-v-heading"><span class="ui-lbl">LIBRO ${esc(v.num)} · ${v.external_only && v.external_url && !list.length ? 'en el sitio del traductor' : list.length + (list.length === 1 ? ' capítulo' : ' capítulos')}${vLk ? ' · Solo mecenas' : ''}</span><h3>${esc(named ? v.title : 'Volumen ' + v.num)}</h3>${v.synopsis ? `<p class="ui-v-syn">${esc(v.synopsis)}</p>` : ''}</div>
               ${volumeReading ? `<div class="ui-volume-progress" aria-label="Progreso del volumen ${esc(v.num)}: ${volumeReading.read} de ${volumeReading.total} capítulos leídos"><span>${volumeReading.read} de ${volumeReading.total} leídos</span><b>${volumeReading.pct}%</b><div class="ui-volume-progress-track"><i style="width:${volumeReading.pct}%"></i></div></div>` : ''}
               ${v.external_url ? `<div class="ui-dl ui-ext"><span class="ui-lbl">${v.external_only ? 'Este volumen se lee en el sitio del equipo traductor' : 'También disponible en el sitio del traductor'}</span><a class="ui-dlb ext" href="${esc(v.external_url)}" target="_blank" rel="noopener noreferrer">Leer en ${esc(v.external_site || s.teams?.name || 'el sitio del traductor')} ↗<small>${esc((() => { try { return new URL(v.external_url).hostname.replace(/^www\./, ''); } catch { return ''; } })())}</small></a></div>` : ''}
               ${dlOf(v).length ? `<a class="ui-v-download-jump" href="#serie-descargas" aria-label="Ver las ${dlOf(v).length} descargas del volumen ${esc(v.num)}">↓ ${dlOf(v).length} ${dlOf(v).length === 1 ? 'formato disponible' : 'formatos disponibles'} · Ver descargas</a>` : ''}
-              ${firstVol ? `<div class="ui-v-actions"><a class="btn ${hereVol ? 'gold' : 'ghost'}" href="/leer/${esc(s.slug)}/${hereVol?.num || firstVol.num}">${hereVol ? 'Continuar leyendo' : vLk ? '🔒 Leer con acceso' : 'Leer volumen'} →</a></div>` : ''}
-              ${list.length ? `<details class="ui-v-index"><summary>Índice de capítulos <span class="mono">${list.length} · desplegar <span aria-hidden="true">⌄</span></span></summary><ul class="ui-chl">${list.map(c => `<li data-chapter-num="${esc(c.num)}" data-chapter-title="${esc(c.title || '')}" data-chapter-type="${esc(c.section_type || 'Capítulo')}" data-chapter-read="${read.has(c.id)}" data-chapter-new="${!!isNew(c)}" class="${read.has(c.id) ? 'is-read' : ''}"><a href="/leer/${esc(s.slug)}/${c.num}" ${c.locked ? 'title="Solo para mecenas" data-lock="1"' : ''} class="${read.has(c.id) ? 'read' : ''}${p?.chapter_num === c.num ? ' here' : ''}"><span class="n">${c.num}</span><span>${c.section_type && c.section_type !== 'Capítulo' ? `<small class="ui-ch-type">${esc(c.section_type)}</small> ` : ''}${esc(c.title)}</span>${p?.chapter_num === c.num ? '<em class="fx-tag here">Aquí vas</em>' : isNew(c) ? '<em class="fx-tag">Nuevo</em>' : ''}</a></li>`).join('')}</ul></details>` : ''}
+              ${firstVol ? `<div class="ui-v-actions"><a class="btn ${hereVol ? 'gold' : 'ghost'}" href="/leer/${esc(s.slug)}/${hereVol?.num || firstVol.num}">${hereVol ? 'Continuar leyendo' : vLk ? '🔒 Leer con acceso' : 'Leer volumen'} →</a>${u&&availableVolume.length ? `<button type="button" class="ui-read-volume" data-read-vol="${esc(v.id)}" data-read-mark="${allVolumeRead?'0':'1'}" aria-label="${allVolumeRead?'Desmarcar lectura del':'Marcar leído el'} volumen ${esc(v.num)}">${allVolumeRead?'↶ Desmarcar volumen':'✓ Marcar volumen leído'}</button>` : ''}</div>` : ''}
+              ${list.length ? `<details class="ui-v-index"><summary>Índice de capítulos <span class="mono">${list.length} · desplegar <span aria-hidden="true">⌄</span></span></summary><ul class="ui-chl">${list.map(c => `<li data-chapter-id="${esc(c.id)}" data-chapter-num="${esc(c.num)}" data-chapter-title="${esc(c.title || '')}" data-chapter-type="${esc(c.section_type || 'Capítulo')}" data-chapter-read="${read.has(c.id)}" data-chapter-new="${!!isNew(c)}" class="${read.has(c.id) ? 'is-read' : ''}"><a href="/leer/${esc(s.slug)}/${c.num}" ${c.locked ? 'title="Solo para mecenas" data-lock="1"' : ''} class="${read.has(c.id) ? 'read' : ''}${p?.chapter_num === c.num ? ' here' : ''}"><span class="n">${c.num}</span><span>${c.section_type && c.section_type !== 'Capítulo' ? `<small class="ui-ch-type">${esc(c.section_type)}</small> ` : ''}${esc(c.title)}</span>${p?.chapter_num === c.num ? '<em class="fx-tag here">Aquí vas</em>' : isNew(c) ? '<em class="fx-tag">Nuevo</em>' : ''}</a>${u&&(!c.publish_at||new Date(c.publish_at).getTime()<=Date.now()) ? `<button type="button" class="ui-read-chapter" data-read-chapter="${esc(c.id)}" data-read-mark="${read.has(c.id)?'0':'1'}" aria-label="${read.has(c.id)?'Desmarcar':'Marcar leído'} capítulo ${esc(c.num)}">${read.has(c.id)?'↶ Desmarcar':'✓ Leído'}</button>` : ''}</li>`).join('')}</ul></details>` : ''}
               ${buyOf(v).length ? `<div class="ui-dl ui-buy"><span class="ui-lbl">Compra la edición oficial</span>${buyOf(v).map(b => `<button class="ui-dlb buy" data-buy="${b.id}">${esc(b.store)}<small>${esc([b.fmt, b.region].filter(Boolean).join(' · '))}</small></button>`).join('')}</div>` : ''}
             </div></article>`;
         }).join('') || '<p class="mono">Aún no hay volúmenes publicados.</p>'}
@@ -1608,6 +1622,87 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url }){
     initSeriesOrganization(app);
     initSeriesTabs(app);
     const shelf = app.querySelector('#fx-vols');
+
+    // Botones directos dentro del índice que ya existe: sin un menú adicional.
+    // No se modifica reading_progress; solo las marcas read_chapters del lector.
+    if(u&&shelf){
+      const validChapter = c => c && !c.deleted_at && (!c.status||c.status==='published') &&
+        (!c.publish_at||new Date(c.publish_at).getTime()<=Date.now());
+      const visibleReadChapters=allCh.filter(validChapter), byChapter=new Map(allCh.map(c=>[c.id,{...c,series_id:s.id}]));
+      const volumesById=new Map((vols||[]).map(v=>[
+        String(v.id),visibleReadChapters.filter(c=>c.volume_id===v.id||(!c.volume_id&&c.vol===v.num))
+      ]));
+      let marking=false;
+      const refreshReadButtons=()=>{
+        const number=allCh.filter(c=>read.has(c.id)).length,total=allCh.length;
+        const top=app.querySelector('#serie-vols .fx-prog');
+        if(top){
+          const label=top.querySelector('.mono');if(label)label.textContent=number+' de '+total+' leídos';
+          const bar=top.querySelector('.fx-bar i');if(bar)bar.style.width=(total?Math.round(number/total*100):0)+'%';
+        }
+        shelf.querySelectorAll('[data-chapter-id]').forEach(row=>{
+          const marked=read.has(row.dataset.chapterId);
+          row.dataset.chapterRead=String(marked);row.classList.toggle('is-read',marked);
+          row.querySelector('a')?.classList.toggle('read',marked);
+          const button=row.querySelector('[data-read-chapter]');
+          if(button){
+            button.dataset.readMark=marked?'0':'1';
+            button.textContent=marked?'↶ Desmarcar':'✓ Leído';
+            button.setAttribute('aria-label',(marked?'Desmarcar':'Marcar leído')+' capítulo '+row.dataset.chapterNum);
+          }
+        });
+        shelf.querySelectorAll('[data-vol-id]').forEach(card=>{
+          const ids=volumesById.get(card.dataset.volId)||[];
+          const marked=ids.length>0&&ids.every(c=>read.has(c.id));
+          const button=card.querySelector('[data-read-vol]');
+          if(button){
+            button.dataset.readMark=marked?'0':'1';
+            button.textContent=marked?'↶ Desmarcar volumen':'✓ Marcar volumen leído';
+            button.setAttribute('aria-label',(marked?'Desmarcar lectura del':'Marcar leído el')+' volumen '+card.dataset.volNum);
+          }
+          const p=card.querySelector('.ui-volume-progress');
+          if(p){
+            const counts=volumeProgress((chs||[]).filter(c=>c.volume_id===card.dataset.volId||(!c.volume_id&&String(c.vol)===card.dataset.volNum)),read);
+            p.setAttribute('aria-label','Progreso del volumen '+card.dataset.volNum+': '+counts.read+' de '+counts.total+' capítulos leídos');
+            const label=p.querySelector('span');if(label)label.textContent=counts.read+' de '+counts.total+' leídos';
+            const pct=p.querySelector('b');if(pct)pct.textContent=counts.pct+'%';
+            const bar=p.querySelector('.ui-volume-progress-track i');if(bar)bar.style.width=counts.pct+'%';
+          }
+        });
+        app.querySelector('#ui-series-state')?.dispatchEvent(new Event('change'));
+      };
+      shelf.addEventListener('click',async e=>{
+        const b=e.target.closest('[data-read-chapter],[data-read-vol]');
+        if(!b||marking||getUser()?.id!==u.id||app.querySelector('#fx-vols')!==shelf)return;
+        const isVolume=!!b.dataset.readVol;
+        const target=isVolume ? volumesById.get(b.dataset.readVol)||[] :
+          visibleReadChapters.filter(c=>c.id===b.dataset.readChapter);
+        const mark=b.dataset.readMark==='1';
+        const changes=planReadingChanges(target.map(c=>c.id),savedReadRows,mark);
+        if(!changes.length)return;
+        if(isVolume&&changes.length>1&&!confirm('¿'+(mark?'Marcar':'Desmarcar')+' '+changes.length+' capítulos del volumen? Se actualizarán tus estadísticas.'))return;
+        marking=true;
+        shelf.querySelectorAll('[data-read-chapter],[data-read-vol]').forEach(x=>x.disabled=true);
+        try{
+          await persistReadingChanges(sb,u.id,changes);
+          if(getUser()?.id!==u.id||app.querySelector('#fx-vols')!==shelf)return;
+          savedReadRows=applyReadingChanges(savedReadRows,byChapter,changes);
+          changes.forEach(x=>x.desired?read.add(x.chapter_id):read.delete(x.chapter_id));
+          refreshReadButtons();
+          toast((mark?'Marcados ':'Desmarcados ')+changes.length+(changes.length===1?' capítulo':' capítulos'));
+        }catch(err){
+          console.warn('Cambios de lectura en ficha',err);
+          if(app.querySelector('#fx-vols')===shelf){
+            toast('No se pudieron guardar todas las marcas. Actualizando la ficha…');
+            void series(slug);
+          }
+        }finally{
+          marking=false;
+          if(app.querySelector('#fx-vols')===shelf)shelf.querySelectorAll('[data-read-chapter],[data-read-vol]').forEach(x=>x.disabled=false);
+        }
+      });
+    }
+
     app.querySelectorAll('[data-series-view]').forEach(b => b.onclick = () => {
       const view = b.dataset.seriesView;
       if (view !== 'galeria' && view !== 'lista') return;
