@@ -1,5 +1,6 @@
 // Calendario: una sola vista con lo publicado (últimos 30 días), lo programado, lo bloqueado para mecenas,
 import { attachPublicCredits, creditTeams, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
+import { seasonPeriods, formatSeasonPeriod } from './season-periods.js?v=1';
 // las aperturas a todo público, los volúmenes y los aniversarios de los equipos. Vistas: Semana, Línea de tiempo y Mes.
 const COL = { pub: '#f2c230', pat: '#f96854', open: '#a9d18e', prog: '#8cc3f2', vol: '#c9a0e8', aniv: '#efe6d2' };
 const LEG = [['pub', 'Estreno público'], ['pat', 'Estreno para mecenas'], ['open', 'Apertura al público general'], ['prog', 'Programado'], ['vol', 'Volumen completo'], ['aniv', 'Aniversario de equipo']];
@@ -48,6 +49,23 @@ const CSS = `
 .ag-mc.out{background:#0b0a08;color:#5c5546}.ag-mc.today{outline:2px solid #f2c230;outline-offset:-2px}.ag-mc.sel{background:#2a2412}
 .ag-mc>b{font-size:13px}.ag-mcount{margin-left:auto;border-radius:10px;padding:0 5px;background:#3c3320;color:#f3ecd9;font-size:10px;font-weight:700}.ag-mi{display:flex;gap:4px;align-items:center;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#cfc6b0}.ag-mi i{width:7px;height:7px;flex:none;background:var(--c)}.ag-mf{font-size:11px;color:var(--fc);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ag-msel{margin-top:16px}.ag-msel h2{font-size:18px;font-weight:500;margin:0 0 8px;text-transform:capitalize}
+.ag-season-list{display:grid;gap:10px;margin:0 0 18px;padding:14px 16px;background:#14110d;border:1px solid #56401c;border-left:4px solid var(--gold);border-radius:6px}
+.ag-season-list h2{margin:0;font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:20px}
+.ag-season-list>p{margin:0;color:#a89f8a;font-size:12px;line-height:1.5}
+.ag-season-items{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,225px),1fr));gap:8px}
+.ag-season-card{display:grid;gap:5px;min-width:0;padding:11px 12px;background:#0f0d0a;border:1px solid #403327;border-left:4px solid var(--fc);border-radius:4px}
+.ag-season-card b{color:#f3ecd9;font-size:14px;overflow-wrap:anywhere}
+.ag-season-card time{font-family:'IBM Plex Mono',monospace;color:#e0d2ba;font-size:12px;line-height:1.5}
+.ag-season-card small{color:#a89f8a;font-size:11px}
+.ag-season-card.is-current{border-color:var(--fc)}
+.ag-mc.has-season{box-shadow:inset 0 3px 0 var(--fc);background:color-mix(in srgb,var(--fc) 8%,#100f0c)}
+.ag-mc.out.has-season{background:color-mix(in srgb,var(--fc) 5%,#0b0a08)}
+.ag-mf{white-space:normal;overflow-wrap:anywhere;line-height:1.25}
+.ag-season-dot{display:block;flex:none;width:100%;height:3px;background:var(--fc);opacity:.8}
+.ag-msel-season{display:grid;gap:3px;padding:9px 11px;margin:0 0 8px;border-left:4px solid var(--fc);background:#16140f}
+.ag-msel-season b{color:var(--fc);font-size:13px}
+.ag-msel-season span{color:#ded0b0;font-size:12px;line-height:1.5}
+.ag-week-fest{display:block;margin:6px 6px 0;padding:5px 7px;background:#17120d;border-left:3px solid var(--fc);color:var(--fc);font-size:11px;line-height:1.4;overflow-wrap:anywhere}
 .ag-empty{padding:30px 0;color:#a89f8a}
 .ag-foot{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;margin-top:22px;font-size:12px;color:#a89f8a}
 @media (max-width:1180px){.ag-ev.c{grid-template-columns:minmax(0,1fr)}.ag-ev.c .ag-cv{display:none}}
@@ -75,7 +93,7 @@ export async function agenda(ctx){
   const dow = k => (noon(k).getUTCDay() + 6) % 7, monday = k => addK(k, -dow(k)), today = () => ymd(Date.now());
   const media = p => p ? (/^https?:/.test(p) ? p : `${url}/storage/v1/object/public/obi-media/${encodeURI(p)}`) : '';
   const V = { view: VIEWS.some(v => v[0] === qs.get('v')) ? qs.get('v') : (window.matchMedia?.('(max-width: 760px)').matches ? 'linea' : 'semana'), when: PERIODS.some(x => x[0] === qs.get('cuando')) ? qs.get('cuando') : '', access: ACCESS.some(x => x[0] === qs.get('acceso')) ? qs.get('acceso') : '', f: FIL.some(x => x[0] === qs.get('f')) ? qs.get('f') : '', mine: qs.get('sigo') === '1', team: qs.get('equipo') || '', type: qs.get('tipo') || '', anchor: /^\d{4}-\d{2}-\d{2}$/.test(qs.get('d') || '') ? qs.get('d') : today(), sel: null, opts: false };
-  const D = { from: null, to: null, rows: [], aniv: [], series: {}, pat: {}, read: new Set(), fol: new Set(), rem: new Set(), fests: null };
+  const D = { from: null, to: null, rows: [], aniv: [], series: {}, pat: {}, read: new Set(), fol: new Set(), rem: new Set(), fests: [], festRange: null, seasonsReady: false };
 
   const [AN, S] = await Promise.all([import('/anim.js?v=8'), import('/season.js?v=3')]).catch(() => [null, null]);
   async function load(fromK, toK){
@@ -237,38 +255,60 @@ export async function agenda(ctx){
       ${g.kind !== 'vol' && g.kind !== 'volp' ? `<span class="ag-m">Acceso: <b>${g.kind === 'open' ? 'Público desde esta fecha' : g.kind === 'pub' && g.patronFirst && g.open && new Date(g.open) <= Date.now() ? 'Estreno para mecenas · ahora público' : accL(g)}</b>${unread != null ? (unread ? ` · <span class="ur">${unread} sin leer</span>` : ' · <span class="rd">✓ Leído</span>') : ''}</span>` : ''}
       ${dates}${cd}${chapters}${acts ? `<div class="ag-acts">${acts}</div>` : ''}</div></div>`;
   }
-  function festivals(fromK, toK){
-    if (!AN || !S) return [];
-    const out = [], hemi = S.hemiOf ? S.hemiOf(TZ) : 'norte';
-    for (let k = fromK; k <= toK; k = addK(k, 1)) { const d = noon(k); for (const [key, s] of Object.entries(AN.SEASONS)) { if (s.g === 'est') continue; const was = AN.activeSeason({ auto: [key] }, new Date(d.getTime() - DAY)) === key, is = AN.activeSeason({ auto: [key] }, d) === key; if (is && !was) out.push({ day: k, s }); } }
-    (D.fests || []).filter(c => ['primavera', 'verano', 'otono', 'invierno'].includes(c.key) && c.hemi === hemi && c.starts >= fromK && c.starts <= toK && AN.SEASONS[c.key]).forEach(c => out.push({ day: c.starts, s: AN.SEASONS[c.key] }));
-    return out;
-  }
+  const seasonLabel = p => formatSeasonPeriod(p);
+  const seasonDuration = p => Math.round((Date.parse(p.end + 'T12:00:00Z') - Date.parse(p.start + 'T12:00:00Z')) / DAY) + 1;
+  const seasonSummary = periods => periods.length ? `<section class="ag-season-list" aria-label="Periodos de las temporadas">
+    <h2>Temporadas y festividades</h2>
+    <p>Estos son los intervalos completos de los temas visuales de El Obi, no fechas únicas de celebración. Se muestran independientemente de los filtros de lanzamientos.</p>
+    <div class="ag-season-items">${periods.map(p => `<div class="ag-season-card${p.start <= today() && today() <= p.end ? ' is-current' : ''}" style="--fc:${esc(p.color)}">
+      <b>${esc(p.label)}</b><time datetime="${p.start}">Del ${esc(seasonLabel(p))}</time>
+      <small>${p.kind === 'estacion' ? 'Estación del año' : 'Tema de festividad'} · ${seasonDuration(p)} ${seasonDuration(p) === 1 ? 'día' : 'días'}${p.start <= today() && today() <= p.end ? ' · En curso' : ''}</small>
+    </div>`).join('')}</div></section>` : '';
+
 
   // ---------- vistas ----------
   const byDay = list => { const m = {}; list.forEach(g => (m[g.day] ||= []).push(g)); Object.values(m).forEach(l => l.sort((a, b) => new Date(a.at) - new Date(b.at))); return m; };
   const dayName = k => noon(k).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
   const lbl = k => k === today() ? 'Hoy' : k === addK(today(), 1) ? 'Mañana' : k === addK(today(), -1) ? 'Ayer' : dayName(k);
-  function week(list){
+  function week(list, periods){
     const m0 = monday(V.anchor), M = byDay(list), t = today();
-    return `<div class="ag-week">${[...Array(7)].map((_, i) => { const k = addK(m0, i), L = M[k] || []; return `<section class="ag-day${k === t ? ' today' : ''}${L.length ? '' : ' empty'}"><div class="ag-dh"><span>${k === t ? 'Hoy' : noon(k).toLocaleDateString('es-MX', { weekday: 'short', timeZone: 'UTC' })}</span><b>${+k.slice(8)}</b></div><div class="ag-dl">${L.length ? L.map(g => card(g, true)).join('') : '<span class="ag-none">—</span>'}</div></section>`; }).join('')}</div>`;
+    return `<div class="ag-week">${[...Array(7)].map((_, i) => {
+      const k = addK(m0, i), L = M[k] || [], active = periods.filter(p => p.kind === 'festividad' && p.start <= k && k <= p.end);
+      return `<section class="ag-day${k === t ? ' today' : ''}${L.length || active.length ? '' : ' empty'}">
+        <div class="ag-dh"><span>${k === t ? 'Hoy' : noon(k).toLocaleDateString('es-MX', { weekday: 'short', timeZone: 'UTC' })}</span><b>${+k.slice(8)}</b></div>
+        ${active.map(p => `<span class="ag-week-fest" style="--fc:${esc(p.color)}" title="${esc(p.label + ': ' + seasonLabel(p))}">${esc(p.label)} · ${k === p.start ? 'Inicia' : k === p.end ? 'Termina' : 'En curso'}</span>`).join('')}
+        <div class="ag-dl">${L.length ? L.map(g => card(g, true)).join('') : '<span class="ag-none">—</span>'}</div></section>`;
+    }).join('')}</div>`;
   }
+
   function line(list){
     const t = today(), M = byDay(list.filter(g => g.day >= addK(t, -PAST) && g.day <= addK(t, FUT))), ks = Object.keys(M).sort().reverse();
     const fut = ks.filter(k => k > t).sort(), pst = ks.filter(k => k < t), sec = k => `<section class="ag-ld"><h2>${lbl(k)}<small>${k.slice(8)}/${k.slice(5, 7)}</small></h2><div class="ag-ll">${M[k].map(g => card(g)).join('')}</div></section>`;
     return `<div class="ag-line">${V.when === 'past' ? '' : fut.length ? fut.map(sec).join('') : '<p class="ag-empty">Nada programado todavía.</p>'}<div class="ag-now" id="ag-now">Hoy · ${noon(t).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', timeZone: 'UTC' })}</div>${M[t] ? sec(t).replace(/<h2>.*?<\/h2>/, '') : V.when ? '' : '<p class="ag-empty" style="padding:6px 0">Nada hoy por ahora.</p>'}${V.when === 'next' ? '' : pst.length ? pst.map(sec).join('') : '<p class="ag-empty">Nada publicado en los últimos 30 días.</p>'}</div>`;
   }
-  function month(list){
+  function month(list, periods){
     const a = V.anchor.slice(0, 8) + '01', ym = a.slice(0, 7), start = monday(a), M = byDay(list), t = today();
     let end = addK(a, 31); end = end.slice(0, 7) === ym ? end : addK(end.slice(0, 8) + '01', -1); end = addK(monday(end), 6);
-    const F = {}; festivals(start, end).forEach(f => (F[f.day] ||= []).push(f));
     const cells = []; for (let k = start; k <= end; k = addK(k, 1)) cells.push(k);
     const sel = V.sel && V.sel.slice(0, 7) === ym ? V.sel : (t.slice(0, 7) === ym ? t : (Object.keys(M).filter(k => k.slice(0, 7) === ym).sort()[0] || null));
     const hd = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'].map(d => `<div class="ag-mh">${d}</div>`).join('');
-    const grid = cells.map(k => { const L = M[k] || [], fe = F[k] || []; return `<button type="button" class="ag-mc${k.slice(0, 7) !== ym ? ' out' : ''}${k === t ? ' today' : ''}${k === sel ? ' sel' : ''}" data-day="${k}" aria-label="${esc(dayName(k))}: ${L.length} ${L.length === 1 ? 'evento' : 'eventos'}"><b>${+k.slice(8)}</b>${L.length ? `<span class="ag-mcount">${L.length}</span>` : ''}${fe.map(f => `<span class="ag-mf" style="--fc:${f.s.ac}">${esc(f.s.l)}</span>`).join('')}<span class="dots">${L.slice(0, 3).map(g => `<span class="ag-mi" style="--c:${COL[g.c]}"><i></i><span>${esc(g.kind === 'aniv' ? g.team.name : g.s.short || g.s.title)}</span></span>`).join('')}</span>${L.length > 3 ? `<span class="ag-mi" style="color:#a89f8a">+${L.length - 3}</span>` : ''}</button>`; }).join('');
-    const SL = sel ? (M[sel] || []) : [], SF = sel ? (F[sel] || []) : [];
-    return `<div class="ag-mon">${hd}${grid}</div>${sel ? `<div class="ag-msel"><h2>${lbl(sel)}</h2>${SF.map(f => `<p class="ag-m" style="color:${f.s.ac};font-weight:600">${esc(f.s.l)} · festividad</p>`).join('')}${SL.length ? `<div class="ag-ll">${SL.map(g => card(g)).join('')}</div>` : '<p class="ag-empty" style="padding:6px 0">Sin lanzamientos este día.</p>'}</div>` : ''}`;
+    const grid = cells.map(k => {
+      const L = M[k] || [], active = periods.filter(p => p.kind === 'festividad' && p.start <= k && k <= p.end);
+      const label = dayName(k) + ': ' + L.length + (L.length === 1 ? ' evento' : ' eventos')
+        + (active.length ? '. Temporadas: ' + active.map(p => p.label + ' del ' + seasonLabel(p)).join('; ') : '');
+      return `<button type="button" class="ag-mc${k.slice(0, 7) !== ym ? ' out' : ''}${k === t ? ' today' : ''}${k === sel ? ' sel' : ''}${active.length ? ' has-season' : ''}" ${active.length ? `style="--fc:${esc(active[0].color)}"` : ''} data-day="${k}" aria-label="${esc(label)}">
+        <b>${+k.slice(8)}</b>${L.length ? `<span class="ag-mcount">${L.length}</span>` : ''}
+        ${active.map(p => `<span class="ag-mf" style="--fc:${esc(p.color)}" aria-hidden="true">${esc(p.label)} · ${k === p.start ? 'inicia' : k === p.end ? 'termina' : 'en curso'}</span><span class="ag-season-dot" style="--fc:${esc(p.color)}" aria-hidden="true"></span>`).join('')}
+        <span class="dots">${L.slice(0, 3).map(g => `<span class="ag-mi" style="--c:${COL[g.c]}"><i></i><span>${esc(g.kind === 'aniv' ? g.team.name : g.s.short || g.s.title)}</span></span>`).join('')}</span>
+        ${L.length > 3 ? `<span class="ag-mi" style="color:#a89f8a">+${L.length - 3}</span>` : ''}
+      </button>`;
+    }).join('');
+    const SL = sel ? (M[sel] || []) : [], SF = sel ? periods.filter(p => p.start <= sel && sel <= p.end) : [];
+    return `<div class="ag-mon">${hd}${grid}</div>${sel ? `<div class="ag-msel"><h2>${lbl(sel)}</h2>
+      ${SF.map(p => `<div class="ag-msel-season" style="--fc:${esc(p.color)}"><b>${esc(p.label)} · ${p.kind === 'estacion' ? 'Estación' : 'Tema de festividad'}</b><span>Del ${esc(seasonLabel(p))} · ${seasonDuration(p)} ${seasonDuration(p) === 1 ? 'día' : 'días'} · ${sel === p.start ? 'Inicia hoy' : sel === p.end ? 'Finaliza hoy' : 'En curso'}</span></div>`).join('')}
+      ${SL.length ? `<div class="ag-ll">${SL.map(g => card(g)).join('')}</div>` : '<p class="ag-empty" style="padding:6px 0">Sin lanzamientos este día.</p>'}</div>` : ''}`;
   }
+
 
   // ---------- dibujo ----------
   const range = () => { if (V.view === 'semana') return [monday(V.anchor), addK(monday(V.anchor), 6)]; if (V.view !== 'mes') return [addK(today(), -PAST), addK(today(), FUT)]; const first = V.anchor.slice(0, 8) + '01'; const next = new Date(Date.UTC(+first.slice(0, 4), +first.slice(5, 7), 1, 12)).toISOString().slice(0, 10); const end = addK(next, -1); return [monday(first), addK(monday(end), 6)]; };
@@ -276,7 +316,19 @@ export async function agenda(ctx){
   const sync = () => { const p = new URLSearchParams(); if (V.view !== 'semana') p.set('v', V.view); if (V.f) p.set('f', V.f); if (V.when) p.set('cuando', V.when); if (V.access) p.set('acceso', V.access); if (V.mine) p.set('sigo', '1'); if (V.team) p.set('equipo', V.team); if (V.type) p.set('tipo', V.type); if (V.anchor !== today() && V.view !== 'linea') p.set('d', V.anchor); if (/^\/(calendario|lanzamientos)$/.test(location.pathname)) history.replaceState({}, '', '/calendario' + (p.toString() ? '?' + p : '')); };
   async function draw(scroll){
     const [a, b] = range(); await load(a, b);
-    if (V.view === 'mes' && !D.fests) { try { if (S) await S.load(sb); const { data } = await sb.from('season_calendar').select('key,starts,hemi').gte('starts', addK(today(), -400)).lte('starts', addK(today(), 400)); D.fests = data || []; } catch { D.fests = []; } }
+    if (AN && S) {
+      if (!D.seasonsReady) { try { await S.load(sb); } catch (e) { console.warn('temporadas del calendario', e); } D.seasonsReady = true; }
+      // Incluir el inicio anterior y el siguiente solsticio para mostrar rangos que cruzan meses/años.
+      if (!D.festRange || a < D.festRange[0] || b > D.festRange[1]) {
+        const from = addK(a, -400), to = addK(b, 400);
+        try {
+          const { data, error } = await sb.from('season_calendar').select('key,starts,hemi').gte('starts', from).lte('starts', to);
+          D.fests = error ? [] : data || [];
+        } catch { D.fests = []; }
+        D.festRange = [from, to];
+      }
+    }
+    const periods = seasonPeriods(AN?.SEASONS, a, b, { hemi: S?.hemiOf?.(TZ) || 'norte', starts: D.fests });
     const all = groups(), inRange = all.filter(g => g.day >= a && g.day <= b), list = inRange.filter(pass);
     const weekOpen = all.filter(g => g.kind === 'open' && new Date(g.at) > Date.now() && new Date(g.at) - Date.now() < 7 * DAY && pass(g)).length;
     const scoped = inRange.filter(g => passBase(g) && passAccess(g)), countable = scoped.filter(passWhen);
@@ -298,7 +350,8 @@ export async function agenda(ctx){
           <button class="ag-btn" id="ag-ics">⤓ Exportar .ics</button></div>
         <div class="ag-leg" aria-label="Leyenda">${LEG.map(([k, l]) => `<span><i style="--c:${COL[k]}"></i>${l}</span>`).join('')}${V.view === 'mes' ? '<span><i style="--c:linear-gradient(90deg,#d9668a,#8cc3f2);background:linear-gradient(90deg,#d9668a,#8cc3f2)"></i>Festividad</span>' : ''}</div>
       </div>
-      <div id="ag-body">${V.view === 'semana' ? week(list) : V.view === 'mes' ? month(list) : line(list)}</div>
+      ${seasonSummary(periods)}
+      <div id="ag-body">${V.view === 'semana' ? week(list, periods) : V.view === 'mes' ? month(list, periods) : line(list)}</div>
       ${list.length ? '' : `<p class="ag-empty">${V.f || V.mine || V.team || V.type || V.access || V.when ? 'No hay lanzamientos que coincidan con estos filtros. <button class="ag-btn" id="ag-clear">Quitar filtros</button>' : 'Sin lanzamientos en estas fechas.'}</p>`}
       <div class="ag-foot"><span>${window.__obiUI?.tz ? '<a href="/preferencias?s=pantalla">Tu zona horaria</a>' : 'Horario de tu dispositivo'} · ${esc(TZ.replace(/_/g, ' '))}</span><span>Publicados: últimos ${PAST} días · Próximos: ${FUT} días</span></div>`;
     sync(); bind(all);
