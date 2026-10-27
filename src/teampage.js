@@ -318,7 +318,11 @@ export function render(D, design, h){
   const publicMembers = Array.isArray(D.mem) ? D.mem : [], visibleMembers = publicMembers.slice(0, C.memberCount), overflowMembers = publicMembers.slice(C.memberCount);
   const mem = on('show_members') && publicMembers.length ? `<section class="tp2-sec tp2-members-sec" id="grupo-integrantes"><div class="tp2-sh"><h2>Nuestro equipo</h2><span class="tp2-team-count">${publicMembers.length} integrantes públicos</span></div>${memberList(visibleMembers)}${overflowMembers.length ? `<details class="tp2-member-more"><summary>Ver ${overflowMembers.length} integrante${overflowMembers.length === 1 ? '' : 's'} más</summary>${memberList(overflowMembers, 'tp2-mem-extra')}</details>` : ''}</section>` : '';
   const feed = (Array.isArray(D.recent) ? D.recent : []).filter(item => E.recentKind === 'ambos' || item.kind === (E.recentKind === 'volumen' ? 'volume' : 'chapter')).slice(0, E.recentCount);
-  const updates = feed.length ? `<section class="tp2-sec tp2-updates-sec" id="grupo-novedades"><div class="tp2-sh"><h2>Novedades recientes</h2><span class="tp2-updates-hint">${feed.length} publicaciones</span></div><div class="tp2-updates" data-view="${E.recentStyle}">${feed.map(item => `<a class="tp2-update" href="${esc(item.href)}"><span class="tp2-upcover"${item.cover_path ? ` style="background-image:url('${esc(media(item.cover_path))}')"` : ''}><span class="tp2-upcover-fallback">${esc(item.series?.short || item.series?.title || 'Obra')}</span></span><span class="tp2-upbody"><small class="tp2-upkind">${item.kind === 'volume' ? 'VOLUMEN ' + (+item.volume || '') : 'CAPÍTULO ' + (+item.chapter || '')}</small><b>${esc(item.series?.short || item.series?.title || 'Obra')}</b><span class="tp2-uptitle">${esc(item.title)}</span><time datetime="${esc(item.at)}">${new Date(item.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}</time></span></a>`).join('')}</div></section>` : '';
+  const hasUpdatesCarousel = E.recentStyle === 'carrusel' && feed.length > 1;
+  const updates = feed.length ? `<section class="tp2-sec tp2-updates-sec" id="grupo-novedades"><div class="tp2-sh"><h2>Novedades recientes</h2>
+    <span class="tp2-updates-actions"><span class="tp2-updates-hint">${feed.length} publicaciones</span>${hasUpdatesCarousel ? `<span class="tp2-car-nav" role="group" aria-label="Navegar novedades"><button type="button" data-updates-scroll="-1" aria-controls="tp2-updates-carousel" aria-label="Novedades anteriores">‹</button><button type="button" data-updates-scroll="1" aria-controls="tp2-updates-carousel" aria-label="Siguientes novedades">›</button></span>` : ''}</span></div>
+    <div class="tp2-updates" data-view="${E.recentStyle}"${E.recentStyle === 'carrusel' ? ' id="tp2-updates-carousel" role="region" aria-roledescription="carrusel" aria-label="Novedades recientes" tabindex="0"' : ''}>
+      ${feed.map(item => `<a class="tp2-update" href="${esc(item.href)}"><span class="tp2-upcover">${item.cover_path ? `<img src="${esc(media(item.cover_path))}" alt="" loading="lazy" decoding="async">` : `<span class="tp2-upcover-fallback">${esc(item.series?.short || item.series?.title || 'Obra')}</span>`}</span><span class="tp2-upbody"><small class="tp2-upkind">${item.kind === 'volume' ? 'VOLUMEN ' + (+item.volume || '') : 'CAPÍTULO ' + (+item.chapter || '')}</small><b>${esc(item.series?.short || item.series?.title || 'Obra')}</b><span class="tp2-uptitle">${esc(item.title)}</span><time datetime="${esc(item.at)}">${new Date(item.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}</time></span></a>`).join('')}</div></section>` : '';
   const bio = L.showBio && t.bio ? `<p class="tp2-bio">${esc(t.bio)}</p>` : '';
   const SEC = { recent: updates, announce: ann, next: nx, stats: L.stats === 'cabecera' ? '' : stats, featured: on('show_featured') ? featH : '', works: d.template === 'editorial' ? list : grid, members: mem };
   const SN = d.season && SEASONS[d.season], greet = SN && d.seasons.greet[d.season] ? `<div class="tp2-greet"><small>${esc(SN.l.toUpperCase())}</small><span>${esc(d.seasons.greet[d.season])}</span></div>` : '';
@@ -330,7 +334,7 @@ export function render(D, design, h){
   const visibleOrder = d.order.filter(k => !d.hidden.includes(k));
   const mobileSequence = (d.mobile.orderMode === 'propio' ? d.mobile.order : d.order).filter(k => !d.hidden.includes(k));
   const mobilePos = key => Math.max(0, mobileSequence.indexOf(key));
-  const composedUnit = (key, html, joined = false) => html ? `<div class="tp2-unit" data-section="${key}" data-emphasis="${d.composition.emphasis[key]}"${joined ? ' data-paired="true"' : ''} style="--mobile-position:${mobilePos(key)}${joined ? ';--mobile-featured:' + mobilePos('featured') + ';--mobile-next:' + mobilePos('next') : ''}">${html}</div>` : '';
+  const composedUnit = (key, html, joined = false) => html ? `<div class="tp2-unit" data-section="${key}" data-emphasis="${d.composition.emphasis[key]}"${key === 'recent' ? ' data-feed-style="' + E.recentStyle + '"' : ''}${joined ? ' data-paired="true"' : ''} style="--mobile-position:${mobilePos(key)}${joined ? ';--mobile-featured:' + mobilePos('featured') + ';--mobile-next:' + mobilePos('next') : ''}">${html}</div>` : '';
   const orderedContent = visibleOrder.reduce((out, key, i) => {
     if (key === 'next' && visibleOrder[i - 1] === 'featured' && E.featureStyle === 'editorial' && featH && nx) return out;
     if (key === 'featured' && visibleOrder[i + 1] === 'next' && E.featureStyle === 'editorial' && featH && nx) return out + composedUnit(key, `<div class="tp2-editorial-pair">${featH}${nx}</div>`, true);
@@ -464,22 +468,31 @@ const CSS = `
 .tp2-editorial-pair .tp2-feature-block{min-width:0}
 .tp2-editorial-pair .tp2-next-feature{grid-template-columns:100px minmax(0,1fr);gap:12px}
 .tp2-updates-hint{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mu);padding-bottom:7px}
-.tp2-updates{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,205px),1fr));gap:14px;min-width:0}
-.tp2-update{display:grid;grid-template-columns:82px minmax(0,1fr);gap:12px;min-width:0;padding:12px;background:var(--sf);border:1px solid var(--ln);border-radius:var(--r);transition:border-color .2s ease,transform .2s ease}
+.tp2-updates-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.tp2-updates-actions .tp2-updates-hint{padding-bottom:0}
+.tp2-updates-actions .tp2-car-nav{padding-bottom:6px}
+.tp2-updates{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,205px),1fr));gap:14px;min-width:0;max-width:100%}
+.tp2-updates[data-view=cuadricula]{grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))}
+.tp2-update{display:grid;grid-template-columns:clamp(82px,10cqi,104px) minmax(0,1fr);gap:12px;min-width:0;padding:12px;background:var(--sf);border:1px solid var(--ln);border-radius:var(--r);transition:border-color .2s ease,transform .2s ease}
 .tp2-update:hover{border-color:var(--ac);transform:translateY(-2px)}
 .tp2-update:focus-visible{outline:3px solid var(--act);outline-offset:2px}
-.tp2-upcover{width:82px;aspect-ratio:2/3;background:var(--bg) center/cover;border:1px solid var(--ln);border-radius:var(--r);display:grid;align-items:end;overflow:hidden}
+.tp2-upcover{width:100%;aspect-ratio:2/3;min-width:0;align-self:start;box-sizing:border-box;background:var(--bg);border:1px solid var(--ln);border-radius:var(--r);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.tp2-upcover img{display:block;width:100%;height:100%;object-fit:contain;object-position:center}
 .tp2-upcover-fallback{font-family:var(--tf);font-size:11px;line-height:1.25;color:var(--mu);padding:6px}
-.tp2-upcover[style] .tp2-upcover-fallback{display:none}
+.tp2-upcover-fallback{overflow-wrap:anywhere}
 .tp2-upbody{display:grid;gap:5px;align-content:center;min-width:0}
-.tp2-upbody b{font-family:var(--tf);font-weight:var(--tw);line-height:1.2;font-size:clamp(14px,1.6cqi,19px);overflow-wrap:anywhere}
+.tp2-upbody b{font-family:var(--tf);font-weight:var(--tw);line-height:1.3;font-size:clamp(15px,1.6cqi,19px);overflow-wrap:break-word;hyphens:auto;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .tp2-upkind{font:600 10px/1.4 'IBM Plex Mono',monospace;color:var(--act);letter-spacing:.07em}
 .tp2-uptitle{font-size:13px;line-height:1.35;color:var(--fg);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .tp2-upbody time{font-size:11px;color:var(--mu)}
 .tp2-updates[data-view=lista]{grid-template-columns:minmax(0,1fr);gap:0}
 .tp2-updates[data-view=lista] .tp2-update{grid-template-columns:64px 1fr;padding:12px 8px;border-width:0 0 1px;border-radius:0;background:transparent}
 .tp2-updates[data-view=lista] .tp2-upcover{width:64px}
-.tp2-updates[data-view=carrusel]{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,31%);grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:thin;padding-bottom:8px}
+.tp2-updates[data-view=carrusel]{display:grid;grid-auto-flow:column;grid-auto-columns:clamp(280px,35%,430px);grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding-inline:3px;scrollbar-width:thin;scrollbar-color:var(--ln) transparent;overscroll-behavior-x:contain;padding:5px 3px 10px}
+.tp2-updates[data-view=carrusel]::-webkit-scrollbar{height:6px}
+.tp2-updates[data-view=carrusel]::-webkit-scrollbar-thumb{background:var(--ln);border-radius:8px}
+.tp2-updates[data-view=carrusel]::-webkit-scrollbar-track{background:transparent}
+.tp2-updates[data-view=carrusel]:focus-visible{outline:2px solid var(--act);outline-offset:2px}
 .tp2-updates[data-view=carrusel] .tp2-update{scroll-snap-align:start}
 @container (max-width:760px){
  .tp2-editorial-pair{grid-template-columns:1fr}
@@ -544,6 +557,9 @@ const CSS = `
 .tp2-composition{display:grid;grid-template-columns:minmax(0,1fr);gap:30px;min-width:0}
 .tp2-composition[data-columns=dos],.tp2-composition[data-columns=auto]{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px;row-gap:28px}
 .tp2-composition[data-columns=auto] .tp2-unit[data-section=featured],.tp2-composition[data-columns=auto] .tp2-unit[data-section=works]{grid-column:1/-1}
+/* Las tarjetas y el carrusel de novedades necesitan ancho de lectura, también en composiciones a dos columnas.
+   El modo Lista conserva el diseño compacto elegido por el equipo. */
+.tp2-composition .tp2-unit[data-section=recent][data-feed-style=cuadricula],.tp2-composition .tp2-unit[data-section=recent][data-feed-style=carrusel]{grid-column:1/-1}
 .tp2-unit{min-width:0;align-self:start}
 .tp2-composition .tp2-unit[data-emphasis=destacado]{grid-column:1/-1}
 .tp2-composition .tp2-unit[data-emphasis=destacado]>.tp2-sec{border-top:3px solid var(--ac);padding:clamp(12px,2.3cqi,22px);background:color-mix(in srgb,var(--ac) 7%,var(--sf));border-radius:var(--r)}
@@ -685,6 +701,23 @@ export function bind(root){
     targets.forEach(el => observer.observe(el));
   }
   bindMobileComposition(root);
+  const updatesCar = root.querySelector('.tp2-updates[data-view=carrusel]');
+  if (updatesCar) {
+    const scrollStep = () => Math.max(220, Math.round(updatesCar.clientWidth * .8));
+    const scroll = direction => updatesCar.scrollBy({
+      left: direction * scrollStep(),
+      behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 'auto' : 'smooth'
+    });
+    root.querySelectorAll('[data-updates-scroll]').forEach(button => button.addEventListener('click', event => {
+      event.preventDefault();
+      scroll(Number(button.dataset.updatesScroll) || 0);
+    }));
+    updatesCar.addEventListener('keydown', event => {
+      if (event.target !== updatesCar || (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft')) return;
+      event.preventDefault();
+      scroll(event.key === 'ArrowRight' ? 1 : -1);
+    });
+  }
   const car = root.querySelector('.tp2-car'); if (!car) return;
   const dots = [...root.querySelectorAll('.tp2-dots i')], idx = () => Math.round(car.scrollLeft / car.clientWidth);
   root.querySelectorAll('[data-car]').forEach(b => b.onclick = e => { e.preventDefault(); const n = car.children.length, i = (idx() + +b.dataset.car + n) % n; car.scrollTo({ left: i * car.clientWidth, behavior: 'smooth' }); });

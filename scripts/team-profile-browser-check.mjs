@@ -11,11 +11,11 @@ const data={
  works:[{id:'w',slug:'novela',title:'Novela ligera de ejemplo',short:'Novela',synopsis:'Fantasía y aventuras',chapters:[{count:12}],translation_status:'active'}],
  mem:[{role:'owner',profiles:{username:'Editora'},team_roles:{name:'Propietaria'}}],
  next:{at:'2027-01-01T12:00:00Z',series:{slug:'novela',title:'Novela ligera de ejemplo'}},
- recent:[{id:'c',kind:'chapter',series_id:'w',series:{slug:'novela',title:'Novela'},title:'Capítulo doce',chapter:12,at:'2026-10-22T10:00:00Z',href:'/leer/novela/12'}]
+ recent:Array.from({length:4},(_,i)=>({id:'c'+i,kind:'chapter',series_id:'w',series:{slug:'novela',title:'Para crear una organización extraordinaria de traductores'},title:'Capítulo doce',chapter:12+i,at:'2026-10-22T10:00:00Z',href:'/leer/novela/'+(12+i),cover_path:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="400" height="600" fill="#76552b"/></svg>')}))
 };
 const design={
  order:['featured','next','recent','works','members','announce','stats'],featured:['novela'],
- editorial:{featureStyle:'editorial'},composition:{columns:'dos'},
+ editorial:{featureStyle:'editorial',recentStyle:'carrusel',recentCount:4},composition:{columns:'dos'},
  mobile:{orderMode:'propio',order:['members','recent','featured','works','next','announce','stats'],hero:'compacto',catalog:'una',follow:'mostrar'}
 };
 const page=render(data,design,{esc,media:x=>x,sim:''});
@@ -35,6 +35,18 @@ const checks=[
  "const bar=getComputedStyle(document.querySelector('.tp2-fbar')).display;",
  "if(mobile&&bar==='none'||!mobile&&bar!=='none')errors.push('barra seguir '+bar);",
  "const overflow=document.documentElement.scrollWidth-w;if(overflow>4)errors.push('desbordamiento '+overflow);",
+ "const recentUnit=comp.querySelector('.tp2-unit[data-section=recent]'), recentTrack=recentUnit?.querySelector('.tp2-updates');",
+ "if(!recentUnit||!recentTrack)errors.push('novedades no renderizadas');",
+ "else {",
+ " if(recentTrack.dataset.view!=='carrusel')errors.push('tipo de carrusel incorrecto');",
+ " if(w>=1024&&Math.abs(recentUnit.getBoundingClientRect().width-comp.getBoundingClientRect().width)>3)errors.push('novedades limitadas a media columna');",
+ " if(w>=1024&&recentTrack.firstElementChild.getBoundingClientRect().width<280)errors.push('tarjetas demasiado estrechas');",
+ " if(recentTrack.querySelectorAll('.tp2-update').length!==4)errors.push('novedades incompletas');",
+ " if(recentTrack.querySelectorAll('.tp2-upcover img').length!==4)errors.push('portadas no son imagenes');",
+ " const img=recentTrack.querySelector('img');if(img&&getComputedStyle(img).objectFit!=='contain')errors.push('portada recortada');",
+ " if(!recentTrack.hasAttribute('tabindex')||recentTrack.getAttribute('role')!=='region')errors.push('carrusel no accesible');",
+ " const buttons=[...recentUnit.querySelectorAll('[data-updates-scroll]')];if(buttons.length!==2||buttons.some(x=>x.getBoundingClientRect().width<43||x.getBoundingClientRect().height<43))errors.push('navegación del carrusel');",
+ "}",
  "const b=document.querySelector('.tp2-car-nav button')?.getBoundingClientRect();",
  "if(b&&(b.width<43||b.height<43))errors.push('botón carrusel');",
  "}catch(e){errors.push(e.message)}",
