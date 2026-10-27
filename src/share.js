@@ -1,4 +1,4 @@
-import { promptInApp } from './dialogs.js';
+import { promptInApp } from './dialogs.js?v=1';
 import {updateClientSeo} from './seo.js?v=1';
 import {shareMenuPosition} from './share-placement.js?v=1';
 // Menú unificado para enlaces públicos; no altera el sistema de citas ni los carnets.
