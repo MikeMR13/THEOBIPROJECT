@@ -315,7 +315,7 @@ const LB_CSS = `
 
 `;
 const lbCss = () => { if (document.getElementById('lb-css')) return; const s = document.createElement('style'); s.id = 'lb-css'; s.textContent = LB_CSS; document.head.appendChild(s); };
-et librarySeq = 0;
+let librarySeq = 0;
 async function library(){
   if (!user) return go(new URLSearchParams(location.search).get('t') === 'offline' ? '/descargas' : '/entrar');
   const uid = user.id, seq = ++librarySeq;
