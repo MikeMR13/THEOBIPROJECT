@@ -48,7 +48,7 @@ const bind=can=>bindSeriesPublication({
   app:{querySelector:k=>k==='#wk-series-publication'?root:null},
   sb:{rpc:async(name,args)=>{calls.push({name,args});return {error:null};}},
   series,can,fromLocal:x=>new Date(x).toISOString(),
-  fmtTz:x=>x,busy:async(_,fn)=>fn(),toast:()=>{},refresh:()=>{}
+  fmtTz:x=>x,busy:async(_,fn)=>fn(),toast:()=>{},refresh:()=>{},confirmAction:async()=>confirmed
 });
 bind(()=>false);
 assert.equal(fields['#wk-sp-save'].onclick,undefined);
