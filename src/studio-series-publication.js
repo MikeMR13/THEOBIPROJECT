@@ -1,4 +1,4 @@
-import { confirmObi } from './dialogs.js';
+const confirmObi=(...args)=>import('./dialogs.js').then(module=>module.confirmObi(...args));
 // Visibilidad editorial de novelas. La escritura se realiza únicamente por RPC.
 export function seriesPublicationHTML(series, volumes, can, esc, toLocal, tzHint) {
   const options = volumes.filter(v => v.status !== 'hidden');
