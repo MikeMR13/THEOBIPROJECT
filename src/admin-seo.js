@@ -1,4 +1,4 @@
-import { confirmInApp } from './dialogs.js';
+import { confirmInApp } from './dialogs.js?v=1';
 import { cleanSiteSeo, SEO_LIMITS } from './seo-settings.js?v=1';
 // Editor del SEO global. Debe ejecutarse solo tras whoami bibliotecario en admin.js
 // y con las políticas RLS de platform_settings (UPDATE exclusivo Bibliotecario).
