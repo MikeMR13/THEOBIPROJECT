@@ -1,4 +1,4 @@
-import { confirmInApp } from './dialogs.js';
+import { confirmInApp } from './dialogs.js?v=1';
 // Editor de Studio. Se carga únicamente al abrir un capítulo.
 import { blocksToEditor, editorToBlocks, pasteToEditor, renderBlock, warningsHTML, teaserHTML, figureHTML, makesBlock, FONTS, CW } from './blocks.js?v=2';
 import { askEditorialAnnouncement, saveEditorialRecord } from './editorial-announcements.js?v=1';
