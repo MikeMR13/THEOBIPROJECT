@@ -49,6 +49,7 @@ async function display(type,message,opts={}){
   entry=document.createElement(opts.multiline?'textarea':'input');entry.value=String(opts.defaultValue??'');
   if(!opts.multiline)entry.type='text';
   if(opts.maxLength)entry.maxLength=opts.maxLength;
+  if(opts.readOnly)entry.readOnly=true;
   label.append(entry);panel.append(label);
  }
  const actions=document.createElement('div');actions.className='obi-native-actions';
@@ -82,6 +83,7 @@ async function display(type,message,opts={}){
   host.onclick=e=>{if(e.target===host&&type!=='alert')close(type==='confirm'?false:null)};
   if(type==='prompt'&&!opts.multiline)entry.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();accept.click()}});
   (entry|| (type==='confirm'?cancel:accept)).focus();
+  if(entry && opts.selectAll && typeof entry.select==='function')entry.select();
  });
 }
 function enqueue(type,message,opts){
