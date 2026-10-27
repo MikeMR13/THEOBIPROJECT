@@ -10,9 +10,12 @@ for (const name of dirs) {
  const banned = /(?<![\w.])(?:confirm|alert|prompt)\s*\(|\bwindow\.(?:confirm|alert|prompt)\s*\(/g;
  const hits = [...code.matchAll(banned)];
  assert.equal(hits.length,0,'Diálogo nativo encontrado en '+name+': '+hits.map(x=>x[0]).join(', '));
- if(code.includes("from './dialogs.js'")) migrated++;
+ if(code.includes("from './dialogs.js?v=1'")) migrated++;
 }
 assert(migrated>=15,'Las pantallas principales deben importar diálogos integrados: '+migrated);
+const build=readFileSync(new URL('../build.mjs',import.meta.url),'utf8');
+assert(build.includes("'reader.js', 'dialogs.js', 'season.js'"),'Los diálogos deben estar en la PWA offline');
+assert(dirs.filter(name=>readFileSync(new URL('../src/'+name,import.meta.url),'utf8').includes("from './dialogs.js?v=1'")).length===migrated,'Importaciones de diálogos versionadas');
 const dialogs=readFileSync(new URL('../src/dialogs.js',import.meta.url),'utf8');
 const styles=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
 for(const text of ["export const confirmInApp","export const promptInApp","export const alertInApp",
