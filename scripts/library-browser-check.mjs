@@ -14,17 +14,12 @@ const card=(i)=>'<article class="lb-card"><a class="lb-cover-link" href="/serie/
  '<div class="lb-card-body"><span class="lb-label">'+(i===1?'En progreso':'Pendiente')+'</span><a class="lb-title" href="/serie/obra-'+i+'">'+(i%2===0?'Una novela ligera de traducciones extraordinariamente largas':'Historias de fantasía, aventuras y mundos lejanos')+'</a>'+
  '<span class="lb-card-sub">Continuar · Capítulo '+(i+4)+'</span><div class="lb-progress" aria-label="8 de 24 capítulos"><span class="lb-progress-head"><span>8 de 24 capítulos</span><span>33 %</span></span>'+
  '<span class="lb-progress-track" aria-hidden="true"><i style="width:33%"></i></span></div><a class="lb-card-cta" href="/leer/obra-'+i+'/5">Continuar leyendo</a>'+
- '<button type="button" class="lb-read-open" aria-label="Gestionar capítulos">✓ Gestionar lecturas</button><button type="button" class="lb-card-hide">Ocultar de mi perfil público</button></div></article>';
-const demoDialog='<dialog class="lb-read-dialog" id="lb-read-dialog" aria-labelledby="lb-read-title"><div class="lb-read-head"><h2 id="lb-read-title">Gestionar lecturas</h2><strong>Historias de fantasía, aventuras y mundos lejanos</strong><p>3 de 12 capítulos publicados y disponibles marcados como leídos.</p></div>'+
- '<p class="lb-read-explain">Estas marcas actualizan tus estadísticas y el avance de la obra, pero no cambian el punto exacto donde pausaste el lector.</p>'+
- '<div class="lb-read-all"><button class="lb-read-action">✓ Marcar toda la novela como leída</button><button class="lb-read-action">↶ Desmarcar toda la novela</button></div>'+
- '<div class="lb-read-groups"><details class="lb-read-volume" open><summary>Volumen 1 · 2 de 5 leídos</summary><div class="lb-read-volume-actions"><button class="lb-read-action">Marcar volumen leído</button><button class="lb-read-action">Desmarcar volumen</button></div>'+
- '<ul class="lb-read-chapters"><li><span><b>Capítulo 1</b><small>El comienzo de una gran aventura</small></span><button class="lb-read-action">↶ Desmarcar</button></li><li><span><b>Capítulo 2</b><small>Amigos en un mundo desconocido</small></span><button class="lb-read-action">✓ Marcar leído</button></li></ul></details>'+
- '<details class="lb-read-volume"><summary>Volumen 2 · 1 de 7 leídos</summary></details></div><button class="btn ghost lb-read-close">Cerrar</button></dialog>';
+ '<button type="button" class="lb-read-toggle" data-read-work="work-'+i+'" data-read-mark="1" aria-label="Marcar novela como leída">✓ Marcar novela como leída</button><button type="button" class="lb-card-hide">Ocultar de mi perfil público</button></div></article>';
 const qa=[
  "const e=[];const w=document.documentElement.clientWidth;",
- "const modal=document.getElementById('lb-read-dialog');if(location.search.includes('modal=1')){modal.showModal();}",
- "if(location.search.includes('modal=1')){const r=modal.getBoundingClientRect();if(!modal.open)e.push('modal no visible');if(r.left<4||r.right>w-4)e.push('modal horizontalmente fuera');if(r.height>innerHeight*.95)e.push('modal demasiado alto');if(!modal.querySelector('#lb-read-title'))e.push('modal sin encabezado accesible');for(const b of modal.querySelectorAll('button'))if(b.getBoundingClientRect().height<40)e.push('botones del modal demasiado pequeños');}",
+ "const direct=[...document.querySelectorAll('.lb-read-toggle')];if(direct.length!==5)e.push('botones por novela faltantes');",
+ "for(const b of direct)if(b.getBoundingClientRect().height<42||b.getBoundingClientRect().width<140)e.push('botón directo demasiado pequeño');",
+ "if(document.querySelector('dialog,[data-read-open]'))e.push('menú adicional inesperado');",
 
  "const all=[...document.querySelectorAll('.lb-card')];",
  "if(all.length!==5)e.push('faltan fichas');",
@@ -47,11 +42,11 @@ function sample(){
  '<nav class="lb-tabs" aria-label="Secciones de Mi biblioteca"><a class="on" aria-current="page" href="/biblioteca">Leyendo <em>5</em></a><a href="?t=pendientes">Pendientes <em>4</em></a><a href="?t=terminadas">Terminadas</a><a href="?t=avisos">Avisos</a><a href="?t=offline">Sin conexión</a><a href="?t=historial">Historial</a></nav>'+
  '<p class="lb-navhelp">Desliza las pestañas para ver todas las secciones →</p>'+
  '<div class="lb-toolbar"><label>Buscar en esta sección<input type="search" placeholder="Título u organización"></label><label>Ordenar por<select><option>Actividad reciente</option></select></label></div>'+
- '<p class="lb-match-count">5 de 5 obras</p><div class="lb-grid">'+Array.from({length:5},(_,i)=>card(i+1)).join('')+'</div>'+demoDialog+
+ '<p class="lb-match-count">5 de 5 obras</p><div class="lb-grid">'+Array.from({length:5},(_,i)=>card(i+1)).join('')+'</div>'+
  '</main><p id="case-result" data-qa-status="running">RUNNING</p><script>'+qa+'</script></body></html>';
 }
 const parent='<html><head><meta charset="utf-8"></head><body><p id="qa-result" data-qa-status="running">QA_RUNNING</p>'+
- sizes.map(w=>'<iframe title="Biblioteca '+w+'" width="'+w+'" height="800" src="/sample?modal=1"></iframe>').join('')+
+ sizes.map(w=>'<iframe title="Biblioteca '+w+'" width="'+w+'" height="800" src="/sample"></iframe>').join('')+
  '<script>const frames=[...document.querySelectorAll("iframe")];let n=0;const tick=setInterval(()=>{const rs=frames.map(x=>x.contentDocument?.getElementById("case-result"));if(rs.every(x=>x?.dataset.qaStatus&&x.dataset.qaStatus!=="running")||++n>700){clearInterval(tick);const bad=rs.flatMap((x,i)=>x?.dataset.qaStatus==="pass"?[]:[frames[i].width+": "+(x?.textContent||"sin resultado")]);const q=document.getElementById("qa-result");q.dataset.qaStatus=bad.length?"fail":"pass";q.textContent=bad.join(" | ")||"Biblioteca Chromium 320/390/768/1024/1440 OK";}},20);</script></body></html>';
 const server=createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('Content-Security-Policy',"default-src 'self' data:; connect-src 'none'; img-src data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-src 'self'; object-src 'none'");res.end(req.url?.startsWith('/sample')?sample():parent)});
 const bin=process.env.QA_CHROME||['google-chrome','google-chrome-stable','chromium','chromium-browser'].map(x=>{try{return execFileSync('which',[x],{encoding:'utf8'}).trim()}catch{return ''}}).find(Boolean);
@@ -70,10 +65,6 @@ try{
   for(const [width,height,label] of [[1440,1100,'escritorio'],[390,1000,'movil']]){
    await run(['--headless=new','--no-sandbox','--disable-gpu','--hide-scrollbars','--no-proxy-server','--virtual-time-budget=3000',
    '--window-size='+width+','+height,'--screenshot='+resolve(dest,'biblioteca-'+label+'.png'),url+'/sample']);
-  }
-  for(const [width,height,label] of [[1440,1050,'modal-escritorio'],[390,900,'modal-movil']]){
-   await run(['--headless=new','--no-sandbox','--disable-gpu','--hide-scrollbars','--no-proxy-server','--virtual-time-budget=3000',
-   '--window-size='+width+','+height,'--screenshot='+resolve(dest,'biblioteca-'+label+'.png'),url+'/sample?modal=1']);
   }
   console.log('Capturas de validación en qa-capturas/');
  }
