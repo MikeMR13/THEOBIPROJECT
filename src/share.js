@@ -1,3 +1,4 @@
+import { promptInApp } from './dialogs.js';
 import {updateClientSeo} from './seo.js?v=1';
 import {shareMenuPosition} from './share-placement.js?v=1';
 // Menú unificado para enlaces públicos; no altera el sistema de citas ni los carnets.
@@ -236,7 +237,7 @@ export function installPublicShare() {
         await navigator.clipboard.writeText(url);
         say('Enlace copiado');
       } catch {
-        window.prompt('Copia el enlace:', url);
+        await promptInApp('Copia el enlace:', url);
         say('Enlace listo para copiar');
       }
     });
