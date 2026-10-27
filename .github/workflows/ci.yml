@@ -49,6 +49,8 @@ jobs:
         run: npm run visual-browser-check
       - name: Perfil público de grupos — Chromium responsive y orden de teclado
         run: node scripts/team-profile-browser-check.mjs
+      - name: Diálogos El Obi — Chromium cancelación, foco, teclado y móvil
+        run: node scripts/platform-dialog-browser-check.mjs
       - name: Mi biblioteca — Chromium, accesibilidad y capturas de escritorio/móvil
         run: OBI_LIBRARY_SCREENSHOTS=1 node scripts/library-browser-check.mjs
       - name: Guardar capturas de revisión de Mi biblioteca (24 horas)

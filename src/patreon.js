@@ -1,3 +1,4 @@
+const confirmObi=(...args)=>import('./dialogs.js').then(module=>module.confirmObi(...args));
 // Patreon: conectar campañas (equipos y plataforma), vincular la cuenta del lector y pantallas de bloqueo.
 const FN = url => url + '/functions/v1/patreon';
 export async function start(sb, url, kind, owner = null, toast = () => {}) {
@@ -40,7 +41,7 @@ export async function campaignBox(el, { sb, url, esc, toast, owner, edit = true 
       : `<div style="${box}"><span class="mono" style="font-size:12px">${I === null ? 'Solo quien puede editar la página del equipo ve esta conexión.' : 'Sin conectar.'}</span>${edit && I !== null ? `<span>${btn('pt-con', PT + ' Conectar Patreon')}</span>` : ''}</div>`}</div>`;
     const go = () => start(sb, url, 'creator', owner, toast);
     el.querySelector('#pt-con')?.addEventListener('click', go); el.querySelector('#pt-re')?.addEventListener('click', go);
-    el.querySelector('#pt-off')?.addEventListener('click', async () => { if (!confirm(owner === 'platform' ? '¿Desconectar el Patreon general? Se detendrán sus reconocimientos y la sincronización del apoyo, pero no cambiará el acceso a ninguna obra.' : '¿Desconectar el Patreon del equipo? Sus mecenas perderán el acceso al contenido exclusivo hasta que vuelvas a conectarlo.')) return;
+    el.querySelector('#pt-off')?.addEventListener('click', async () => { if (!await confirmObi(owner === 'platform' ? '¿Desconectar el Patreon general? Se detendrán sus reconocimientos y la sincronización del apoyo, pero no cambiará el acceso a ninguna obra.' : '¿Desconectar el Patreon del equipo? Sus mecenas perderán el acceso al contenido exclusivo hasta que vuelvas a conectarlo.')) return;
       const { error } = await sb.rpc('patreon_disconnect', { p_owner: owner }); if (error) return toast(error.message); toast('Patreon desconectado'); draw(); });
     el.querySelector('#pt-sync')?.addEventListener('click', async e => { const b = e.currentTarget; b.disabled = true; b.textContent = 'Sincronizando…';
       const { data: s } = await sb.auth.getSession(); const r = await fetch(FN(url), { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + s.session?.access_token }, body: JSON.stringify({ action: 'sync', owner }) }).catch(() => null);
@@ -65,7 +66,7 @@ export async function accountBox(el, { sb, url, esc, toast }) {
     <span style="display:flex;gap:8px;flex-wrap:wrap">${btn('pt-relink', 'Actualizar mis apoyos', 1)}${btn('pt-unlink', 'Desvincular', 1)}</span></div>`;
   el.querySelector('#pt-wall').onchange = async e => { const { error } = await sb.from('profiles').update({ patron_wall: e.target.checked }).eq('id', user.id); toast(error ? error.message : 'Guardado'); };
   el.querySelector('#pt-relink').onclick = () => start(sb, url, 'link', null, toast);
-  el.querySelector('#pt-unlink').onclick = async () => { if (!confirm('¿Desvincular Patreon? Perderás el acceso a lo que es solo para mecenas.')) return; const { error } = await sb.rpc('patreon_unlink'); if (error) return toast(error.message); toast('Patreon desvinculado'); accountBox(el, { sb, url, esc, toast }); };
+  el.querySelector('#pt-unlink').onclick = async () => { if (!await confirmObi('¿Desvincular Patreon? Perderás el acceso a lo que es solo para mecenas.')) return; const { error } = await sb.rpc('patreon_unlink'); if (error) return toast(error.message); toast('Patreon desvinculado'); accountBox(el, { sb, url, esc, toast }); };
 }
 
 // Lector: pantalla de capítulo bloqueado

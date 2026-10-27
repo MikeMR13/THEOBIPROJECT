@@ -1,3 +1,4 @@
+const confirmObi=(...args)=>import('./dialogs.js').then(module=>module.confirmObi(...args));
 import { manualTargets, manualChannelBatch, batchFeedback } from './diffusion-manual-batch.js';
 import { immediateDeliveryNotice, automaticDeliveryNotice } from './diffusion-delivery-notices.js';
 import { renderDraftTemplate } from './diffusion-draft-templates.js?v=1';
@@ -559,8 +560,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         tab='anuncios';draw();
       });
     });
-    root.querySelectorAll('[data-schedule-cancel]').forEach(b=>b.onclick=()=>{
-      if(!confirm('¿Cancelar esta fecha? No se enviará nada desde la agenda.'))return;
+    root.querySelectorAll('[data-schedule-cancel]').forEach(b=>b.onclick=async()=>{
+      if(!await confirmObi('¿Cancelar esta fecha? No se enviará nada desde la agenda.'))return;
       busy(b,async()=>{
         const {error}=await sb.rpc('diffusion_schedule_cancel',{p_id:b.dataset.scheduleCancel});
         if(error)throw new Error('No se pudo cancelar la fecha. Comprueba tus permisos.');
@@ -720,8 +721,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         toast('Telegram guardado de forma segura. Envía una prueba para activarlo.');draw();
       });
     });
-    root.querySelectorAll('[data-test-telegram]').forEach(b=>b.onclick=()=>{
-      if(!confirm('¿Enviar una única prueba al grupo o canal de Telegram seleccionado?'))return;
+    root.querySelectorAll('[data-test-telegram]').forEach(b=>b.onclick=async()=>{
+      if(!await confirmObi('¿Enviar una única prueba al grupo o canal de Telegram seleccionado?'))return;
       telegramFeedback='Comprobando el grupo o canal de Telegram…';
       const note=root.querySelector('#df-telegram-feedback');
       if(note)note.textContent=telegramFeedback;
@@ -758,8 +759,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         draw();
       });
     });
-    root.querySelectorAll('[data-revoke-telegram]').forEach(b=>b.onclick=()=>{
-      if(!confirm('¿Desconectar el canal de Telegram y borrar su token cifrado?'))return;
+    root.querySelectorAll('[data-revoke-telegram]').forEach(b=>b.onclick=async()=>{
+      if(!await confirmObi('¿Desconectar el canal de Telegram y borrar su token cifrado?'))return;
       busy(b,async()=>{
         const {error}=await sb.rpc('diffusion_telegram_disconnect',{p_team:teamId,p_id:b.dataset.revokeTelegram});
         if(error)throw new Error('No se pudo desconectar Telegram.');
@@ -768,8 +769,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       });
     });
 
-    root.querySelectorAll('[data-test-discord]').forEach(b=>b.onclick=()=>{
-      if(!confirm('¿Enviar un único mensaje de prueba a este canal de Discord?')) return;
+    root.querySelectorAll('[data-test-discord]').forEach(b=>b.onclick=async()=>{
+      if(!await confirmObi('¿Enviar un único mensaje de prueba a este canal de Discord?')) return;
       busy(b,async()=>{
         const {data,error}=await sb.functions.invoke('diffusion-discord',{
           body:{connection_id:b.dataset.testDiscord}
@@ -781,8 +782,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         toast('Mensaje de prueba enviado a Discord');draw();
       });
     });
-    root.querySelectorAll('[data-revoke-discord]').forEach(b=>b.onclick=()=>{
-      if(!confirm('¿Desconectar este webhook y borrar su secreto almacenado?'))return;
+    root.querySelectorAll('[data-revoke-discord]').forEach(b=>b.onclick=async()=>{
+      if(!await confirmObi('¿Desconectar este webhook y borrar su secreto almacenado?'))return;
       busy(b,async()=>{
         const {error}=await sb.rpc('diffusion_discord_disconnect',{
           p_team:teamId,p_id:b.dataset.revokeDiscord
@@ -834,7 +835,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         const activate=Boolean(button.dataset.ruleActivate);
         const chosen=activate?[...root.querySelectorAll('[data-rule-destination="'+id+'"]:checked')].map(el=>el.value):null;
         if(activate&&(!chosen.length||chosen.length>8))throw new Error('Selecciona entre 1 y 8 canales de difusión activos.');
-        if(activate&&!confirm('¿Activar esta regla en '+chosen.length+' canal(es)? Se anunciarán solo publicaciones futuras.'))return;
+        if(activate&&!await confirmObi('¿Activar esta regla en '+chosen.length+' canal(es)? Se anunciarán solo publicaciones futuras.'))return;
         const {error}=await sb.rpc('diffusion_rule_toggle_multi',{
           p_team:teamId,p_id:id,p_enabled:activate,p_connections:chosen
         });
@@ -897,7 +898,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     });
     root.querySelectorAll('[data-prelaunch-approve]').forEach(button=>{
       button.addEventListener('click',()=>busy(button,async()=>{
-        if(!confirm('¿Aprobar este anuncio de preestreno? El despachador lo enviará cuando corresponda.'))return;
+        if(!await confirmObi('¿Aprobar este anuncio de preestreno? El despachador lo enviará cuando corresponda.'))return;
         const {error}=await sb.rpc('diffusion_prelaunch_approve',{p_plan:button.dataset.prelaunchApprove});
         if(error)throw new Error('No se pudo aprobar el anuncio. Revisa permisos o estado del preestreno.');
         scheduled=await q('diffusion_scheduled_announcements',
@@ -906,9 +907,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         draw();
       }));
     });
-    root.querySelectorAll('[data-del-rule],[data-del-campaign]').forEach(b => b.onclick = () => {
+    root.querySelectorAll('[data-del-rule],[data-del-campaign]').forEach(b => b.onclick = async () => {
       const isRule = !!b.dataset.delRule, id=b.dataset.delRule||b.dataset.delCampaign;
-      if (!confirm('¿Eliminar este borrador?')) return;
+      if (!await confirmObi('¿Eliminar este borrador?')) return;
       busy(b, async()=>{
         const {error}=await sb.rpc('diffusion_draft_delete',{p_team:teamId,p_type:isRule?'rule':'campaign',p_id:id});
         if(error) throw error;

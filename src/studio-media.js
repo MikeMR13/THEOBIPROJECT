@@ -1,3 +1,4 @@
+const confirmObi=(...args)=>import('./dialogs.js').then(module=>module.confirmObi(...args));
 // Gestor de archivos del Studio (Storage y portadas), cargado bajo demanda.
 export function createLibrary(deps){
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, errMsg, LIMITS } = deps;
@@ -20,7 +21,7 @@ export function createLibrary(deps){
       const { data: s } = await sb.from('series').select('id,cover_path').eq('team_id', T.team.id).eq('slug', vf[1]).maybeSingle(); if (!s) throw new Error('No encontré la obra de esta carpeta');
       const { data: v } = await sb.from('volumes').select('id').eq('series_id', s.id).eq('num', +vf[2]).is('deleted_at', null).maybeSingle(); if (!v) throw new Error('Esa obra no tiene Volumen ' + vf[2]);
       const { error } = await sb.from('volumes').update({ cover_path: b.dataset.cover }).eq('id', v.id); if (error) throw new Error(errMsg(error));
-      if (!s.cover_path && confirm('La obra aún no tiene portada. ¿Usar también esta?')) await sb.from('series').update({ cover_path: b.dataset.cover }).eq('id', s.id);
+      if (!s.cover_path && await confirmObi('La obra aún no tiene portada. ¿Usar también esta?')) await sb.from('series').update({ cover_path: b.dataset.cover }).eq('id', s.id);
       toast('Portada del Volumen ' + vf[2] + ' actualizada'); }); });
     app.querySelectorAll('[data-copy]').forEach(b => b.onclick = e => { e.preventDefault(); navigator.clipboard?.writeText(b.dataset.copy); toast('URL copiada'); });
     const boxes = () => [...app.querySelectorAll('[data-p]')], count = () => $('#sel').textContent = boxes().filter(b => b.checked).length + ' seleccionadas';

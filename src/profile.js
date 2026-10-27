@@ -1,3 +1,4 @@
+const confirmObi=(...args)=>import('./dialogs.js').then(module=>module.confirmObi(...args));
 import { readReaderPrefs, readPendingReaderPrefs, stageReaderPrefs, acknowledgeReaderPrefs, sameReaderAccount } from './reader-pref-cache.js?v=1';
 import { readingPreviewDescription, privacyPreviewModel, notificationPreviewSummary } from './preferences-preview.js?v=1';
 // Perfil público de lector (carnet) y página /preferencias. Se carga solo al visitar esas rutas.
@@ -452,7 +453,7 @@ export async function publicProfile(C, name, opt = {}){
   app.querySelectorAll('.lc-rv .sp').forEach(p => p.onclick = p.onkeydown = () => p.classList.remove('sp'));
   const reBlk = async () => { const { data } = await sb.rpc('my_blocks'); if (Array.isArray(data)) window.obiSetBlocks?.(data); publicProfile(C, name, opt); };
   app.querySelectorAll('[data-blk]').forEach(b => b.onclick = async () => { const k = b.dataset.blk;
-    if (!confirm(k === 'block' ? `¿Bloquear a ${r.username}? No verás sus comentarios ni reseñas y no podrá responder a los tuyos.` : `¿Silenciar a ${r.username}? Dejarás de ver sus comentarios y reseñas.`)) return;
+    if (!await confirmObi(k === 'block' ? `¿Bloquear a ${r.username}? No verás sus comentarios ni reseñas y no podrá responder a los tuyos.` : `¿Silenciar a ${r.username}? Dejarás de ver sus comentarios y reseñas.`)) return;
     const { error } = await sb.rpc('block_user', { p_username: r.username, p_kind: k }); if (error) return C.toast?.(error.message); C.toast?.(k === 'block' ? 'Lector bloqueado' : 'Lector silenciado'); reBlk(); });
   const ub = app.querySelector('#lc-unb'); if (ub) ub.onclick = async () => { const { error } = await sb.rpc('unblock_user', { p_id: blk.id }); if (error) return C.toast?.(error.message); C.toast?.('Quitado de tu lista'); reBlk(); };
   const share = app.querySelector('#lc-share');
@@ -619,7 +620,7 @@ export async function preferences(C){
       $('#lc-illus').onclick = () => set('illus', G.illus === false);
       $('#lc-season').onclick = () => { localStorage.getItem('obi-season') === 'off' ? localStorage.removeItem('obi-season') : (localStorage.setItem('obi-season-mig1', '1'), localStorage.setItem('obi-season', 'off')); dispatchEvent(new Event('obi-season')); draw(); };
       app.querySelectorAll('[data-delv]').forEach(b => b.onclick = () => { delete R.per_volume[b.dataset.delv]; persist(); draw(); });
-      $('#lc-reset').onclick = () => { if (!confirm('¿Volver a los ajustes originales de lectura?')) return; G = { ...DEF }; R.global = {}; persist(); draw(); };
+      $('#lc-reset').onclick = async () => { if (!await confirmObi('¿Volver a los ajustes originales de lectura?')) return; G = { ...DEF }; R.global = {}; persist(); draw(); };
     };
     draw(); return;
   }
@@ -735,7 +736,7 @@ export async function preferences(C){
       });
       FL.forEach(({ r, s }) => { $('#f-' + s.id).onclick = async e => { const b = e.currentTarget, ch = { ...(r.channels || {}), web: r.channels?.web === false };
         const { error } = await sb.from('follows').update({ channels: ch }).eq('user_id', user.id).eq('series_id', s.id); if (error) return toast(error.message); r.channels = ch; flip(b); }; });
-      app.querySelectorAll('[data-unf]').forEach(b => b.onclick = async () => { if (!confirm('¿Dejar de seguir esta obra?')) return; const id = b.dataset.unf; const { error } = await sb.from('follows').delete().eq('user_id', user.id).eq('series_id', id); if (error) return toast(error.message); FL.splice(FL.findIndex(x => x.s.id === id), 1); toast('Ya no sigues esta obra'); draw(); });
+      app.querySelectorAll('[data-unf]').forEach(b => b.onclick = async () => { if (!await confirmObi('¿Dejar de seguir esta obra?')) return; const id = b.dataset.unf; const { error } = await sb.from('follows').delete().eq('user_id', user.id).eq('series_id', id); if (error) return toast(error.message); FL.splice(FL.findIndex(x => x.s.id === id), 1); toast('Ya no sigues esta obra'); draw(); });
     };
     draw(); return;
   }
@@ -751,7 +752,7 @@ export async function preferences(C){
         <form id="hf" class="pf-row" style="gap:10px;max-width:560px"><input id="hq" list="hl" placeholder="Escribe un género o etiqueta…" aria-label="Género o etiqueta a ocultar" style="flex:1 1 220px" autocomplete="off"><datalist id="hl">${opts.filter(o => !has(o)).map(o => `<option value="${esc(o)}"></option>`).join('')}</datalist><button class="btn">Ocultar</button></form></div>
       <p class="pf-note" style="font-size:13px">Los avisos de contenido dentro de los capítulos se eligen en <a href="/preferencias?s=lectura">Lectura</a>.</p>`);
       const b = app.querySelector('#ad'); b.onclick = async () => { const v = b.getAttribute('aria-pressed') !== 'true';
-        if (v && !confirm('Confirma que tienes 18 años o más.')) return;
+        if (v && !await confirmObi('Confirma que tienes 18 años o más.')) return;
         const { error } = await sb.from('profiles').update({ adult_ok: v }).eq('id', user.id); if (error) return toast(error.message);
         P.adult_ok = v; C.setProfile?.({ adult_ok: v }); flip(b); toast(v ? 'Obras +18 visibles' : 'Obras +18 ocultas'); };
       app.querySelectorAll('[data-hx]').forEach(x => x.onclick = async () => { const g = UI.hide[+x.dataset.hx]; if (await saveUI({ hide: UI.hide.filter((_, i) => i !== +x.dataset.hx) })) { toast('«' + g + '» vuelve a mostrarse'); draw(); } });
@@ -829,7 +830,7 @@ export async function preferences(C){
     $('#fu').onsubmit = async e => { e.preventDefault(); const v = $('#un').value.trim(); $('#un-err').textContent = '';
       if (v === P.username) return; if (v.length < 2 || v.length > 32) return $('#un-err').textContent = 'Entre 2 y 32 caracteres.';
       if (!/^[\p{L}\p{N}_.-]+$/u.test(v)) return $('#un-err').textContent = 'Usa solo letras, números, punto, guion y guion bajo (sin espacios).';
-      if (!confirm(`¿Cambiar tu nombre a «${v}»? Tu enlace pasará a ser /lector/${v}.`)) return;
+      if (!await confirmObi(`¿Cambiar tu nombre a «${v}»? Tu enlace pasará a ser /lector/${v}.`)) return;
       const { data, error } = await sb.rpc('change_username', { p_new: v }); if (error) return $('#un-err').textContent = error.message;
       P.username = data; P.username_changed_at = new Date().toISOString(); C.setProfile?.({ username: data, username_changed_at: P.username_changed_at }); toast('Nombre de usuario actualizado'); preferences(C); };
     $('#fe').onsubmit = async e => { e.preventDefault(); const v = $('#em').value.trim().toLowerCase(); $('#em-err').textContent = '';
@@ -839,11 +840,11 @@ export async function preferences(C){
     $('#g-ln')?.addEventListener('click', async e => { const b = e.currentTarget; b.disabled = true;
       const { error } = await sb.auth.linkIdentity({ provider: 'google', options: { redirectTo: location.origin + '/preferencias?s=cuenta&enlazada=1', queryParams: { prompt: 'select_account' } } });
       if (error) { b.disabled = false; toast(/manual linking/i.test(error.message) ? 'El enlace con Google no está activado todavía en el servidor.' : error.message); } });
-    $('#g-un')?.addEventListener('click', async () => { if (!confirm('¿Desvincular tu cuenta de Google? Seguirás entrando con tu correo y contraseña.')) return;
+    $('#g-un')?.addEventListener('click', async () => { if (!await confirmObi('¿Desvincular tu cuenta de Google? Seguirás entrando con tu correo y contraseña.')) return;
       const { error } = await sb.auth.unlinkIdentity(gid); if (error) return toast(error.message); toast('Cuenta de Google desvinculada'); preferences(C); });
     if (new URLSearchParams(location.search).get('enlazada') && gid) { history.replaceState({}, '', '/preferencias?s=cuenta'); toast('¡Listo! Ya puedes entrar con Google'); }
     $('#pw').onclick = async () => { let captchaToken; try { captchaToken = await (await import('/captcha.js?v=1')).once('reset'); } catch (e) { return toast(e.message); } const { error } = await sb.auth.resetPasswordForEmail(user.email, { redirectTo: location.origin + '/restablecer', captchaToken }); toast(error ? error.message : 'Te enviamos un enlace a tu correo para cambiarla'); };
-    $('#so').onclick = async () => { if (!confirm('¿Cerrar sesión en todos los demás dispositivos?')) return; const { error } = await sb.auth.signOut({ scope: 'others' }); toast(error ? error.message : 'Listo: las demás sesiones se cerraron'); };
+    $('#so').onclick = async () => { if (!await confirmObi('¿Cerrar sesión en todos los demás dispositivos?')) return; const { error } = await sb.auth.signOut({ scope: 'others' }); toast(error ? error.message : 'Listo: las demás sesiones se cerraron'); };
     return;
   }
 
@@ -1059,15 +1060,23 @@ export async function preferences(C){
     if (app.__obiPrefsNavGuard === canLeave) app.__obiPrefsNavGuard = null;
     if (app.__obiPrefsDispose === cleanup) app.__obiPrefsDispose = null;
   };
-  const canLeave = () => {
-    if (dirty && !confirm('Tienes cambios sin guardar en tu perfil. El borrador se conservará para volver después. ¿Salir?')) return false;
+  const canLeave = async () => {
+    if (dirty && !await confirmObi('Tienes cambios sin guardar en tu perfil. El borrador se conservará para volver después. ¿Salir?')) return false;
     cleanup();
     return true;
   };
   const navigate = e => {
     const a = e.target.closest?.('a[href^="/"]');
     if (!a || a.target || a.getAttribute('href') === location.pathname + location.search) return;
-    if (!canLeave()) { e.preventDefault(); e.stopImmediatePropagation(); }
+    if (!dirty) { cleanup(); return; }
+    // El diálogo integrado es asíncrono: detener la navegación antes de abrirlo.
+    e.preventDefault(); e.stopImmediatePropagation();
+    const destination = a.getAttribute('href');
+    void canLeave().then(approved => {
+      if (!approved) return;
+      history.pushState({}, '', destination);
+      dispatchEvent(new PopStateEvent('popstate'));
+    });
   };
   const onBack = () => {
     // Atrás tampoco atraviesa el controlador de enlaces. El borrador se conserva.
