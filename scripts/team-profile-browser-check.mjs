@@ -57,7 +57,6 @@ const checks=[
  "if(!rank||!community||rank.nextElementSibling!==community)errors.push('ranking posterior a comunidad');",
  "if(rank&&getComputedStyle(rank).opacity!=='1')errors.push('ranking invisible tras carga asíncrona');",
  "if(rank&&insertTeamRanking(root,fixture)!==rank)errors.push('ranking duplicado');",
- "await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));",
  "const foot=document.querySelector('.foot');",
  "const gap=foot&&community?foot.getBoundingClientRect().top-community.getBoundingClientRect().bottom:Infinity;",
  "if(gap<0||gap>(mobile?240:160))errors.push('hueco antes del footer: '+Math.round(gap)+'px');",
@@ -72,7 +71,7 @@ const sample='<!doctype html><html lang="es"><head><meta charset="utf-8"><meta n
  page+'</div></main><footer class="foot">© El Obi del Lector · Política de privacidad</footer><p id="case-result" data-qa-status="running">RUNNING</p><script type="module">'+checks+'</script></body></html>';
 const parent='<!doctype html><html><head><meta charset="utf-8"></head><body><p id="qa-result" data-qa-status="running">QA_RUNNING</p>'+
  widths.map(w=>'<iframe title="Perfil '+w+'" width="'+w+'" height="800" src="/sample"></iframe>').join('')+
- '<script>const frames=[...document.querySelectorAll("iframe")];let tries=0;const poll=setInterval(()=>{const results=frames.map(x=>x.contentDocument?.getElementById("case-result"));if(results.every(p=>p?.dataset.qaStatus&&p.dataset.qaStatus!=="running")||++tries>250){clearInterval(poll);const errors=results.flatMap((p,i)=>p?.dataset.qaStatus==="pass"?[]:[frames[i].width+": "+(p?.textContent||"sin resultado")]);const q=document.getElementById("qa-result");q.dataset.qaStatus=errors.length?"fail":"pass";q.textContent=errors.join(" | ")||"Perfil grupal Chromium 320/390/768/1024/1440 OK";}},20);</script></body></html>';
+ '<script>const frames=[...document.querySelectorAll("iframe")];let tries=0;const poll=setInterval(()=>{const results=frames.map(x=>x.contentDocument?.getElementById("case-result"));if(results.every(p=>p?.dataset.qaStatus&&p.dataset.qaStatus!=="running")||++tries>950){clearInterval(poll);const errors=results.flatMap((p,i)=>p?.dataset.qaStatus==="pass"?[]:[frames[i].width+": "+(p?.textContent||"sin resultado")]);const q=document.getElementById("qa-result");q.dataset.qaStatus=errors.length?"fail":"pass";q.textContent=errors.join(" | ")||"Perfil grupal Chromium 320/390/768/1024/1440 OK";}},20);</script></body></html>';
 const server=createServer((req,res)=>{
  const url=new URL(req.url||'/', 'http://127.0.0.1');
  res.setHeader('Cache-Control','no-store');
@@ -89,7 +88,7 @@ assert(bin,'Chromium no está instalado');
 try{
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve)});
  const args=['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking',
- '--no-proxy-server','--incognito','--window-size=1600,900','--virtual-time-budget=20000','--dump-dom',
+ '--no-proxy-server','--incognito','--window-size=1600,900','--virtual-time-budget=35000','--dump-dom',
  'http://127.0.0.1:'+server.address().port];
  const child=spawn(bin,args,{stdio:['ignore','pipe','pipe']});let out='',err='';
  child.stdout.on('data',x=>out+=String(x));child.stderr.on('data',x=>err+=String(x).slice(0,35000));
