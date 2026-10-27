@@ -1,3 +1,4 @@
+import { confirmObi, inputObi } from './obi-dialog.js';
 import {cleanSeo, editImages, SEO_LIMITS} from './seo-settings.js?v=1';
 // SEO editorial por obra, sin modificar RLS, publicación, precios ni canonical.
 const css = '.wk-seo{display:grid;gap:14px;max-width:850px}.wk-seo label{display:grid;gap:6px}.wk-seo textarea{min-height:88px;resize:vertical}.wk-seo small{color:#b9ae94;font-size:12px}.wk-seo-preview{border:1px solid #57492d;background:#16140f;padding:16px;display:grid;gap:8px;overflow-wrap:anywhere}.wk-seo-preview strong{color:#f2c230;font-size:18px}.wk-seo-preview img{width:100%;max-height:230px;object-fit:contain;background:#0d0c0a}.wk-seo-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.wk-seo input:focus-visible,.wk-seo textarea:focus-visible,.wk-seo select:focus-visible{outline:2px solid #f2c230}';
@@ -73,8 +74,8 @@ export function bindSeriesSeo({app,sb,series,volumes=[],canEdit=false,media,toas
     const reset=field('button',{type:'button',className:'btn ghost'},'Restaurar automático');
     const status=field('span',{className:'mono',role:'status'});
     controls.status=status;actions.append(save,reset,status);wrap.append(actions);
-    reset.onclick=()=>{
-      if(!confirm('¿Restaurar los metadatos automáticos? Guarda para aplicar.'))return;
+    reset.onclick=async()=>{
+      if(!await confirmObi('¿Restaurar los metadatos automáticos? Guarda para aplicar.'))return;
       Object.entries(controls).forEach(([key,el])=>{if(key.endsWith('Note')||key==='status')return;if(el.type==='checkbox')el.checked=false;else el.value='';});
       dirty=true;update();
     };

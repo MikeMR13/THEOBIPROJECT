@@ -26,8 +26,8 @@ for(const part of [
   'class="pf-nav-group"', 'aria-current="page"',
   'class="pf-mobile-nav"', 'for="pf-mobile-tab"',
   'select id="pf-mobile-tab"', 'optgroup label=', 'k === tab ? \'selected\' : \'\'',
-  'if (app.__obiPrefsNavGuard && !app.__obiPrefsNavGuard())',
-  'e.target.value = tab', 'C.go(navHref(next))',
+  'if (app.__obiPrefsNavGuard && !(await app.__obiPrefsNavGuard()))',
+  'picker.value = tab', 'tabChangePending', 'C.go(navHref(next))',
   'app.__obiPrefsDispose?.()', 'app.__obiPrefsDispose = cleanup',
   'app.addEventListener(\'change\', selectHandler)'
 ])assert(src.includes(part),'Falta navegación funcional: '+part);

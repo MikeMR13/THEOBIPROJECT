@@ -1,4 +1,5 @@
 import { installPublicShare } from './share.js?v=1';
+import { confirmObi, inputObi } from './obi-dialog.js';
 import { readPages } from './paging.js';
 import { prepareLibrary, selectLibraryItems } from './library-logic.js';
 import { readingGroups, planReadingChanges, undoReadingChanges, applyReadingChanges, persistReadingChanges } from './library-read-actions.js';
@@ -486,7 +487,7 @@ async function library(){
       if(live())box.querySelectorAll('[data-read-work]').forEach(b=>b.disabled=false);
     }
   };
-  const toggleWholeWork=(id,mark)=>{
+  const toggleWholeWork=async(id,mark)=>{
     if(!live()||busy)return;
     const series=worksById.get(id);
     if(!series)return;
@@ -497,7 +498,7 @@ async function library(){
     const question=mark
       ? `¿Marcar como leídos los ${n} ${unit} pendientes de «${series.title}»? Solo se incluyen los capítulos publicados hasta hoy. Podrás deshacerlo.`
       : `¿Desmarcar los ${n} ${unit} leídos de «${series.title}»? Se actualizarán tus estadísticas. Podrás deshacerlo.`;
-    if(!confirm(question))return;
+    if(!await confirmObi(question))return;
     void runReadMutation(changes,(mark?'Marcados':'Desmarcados')+' '+n+' '+unit);
   };
 
@@ -556,7 +557,7 @@ async function library(){
         finally{i.disabled=false;}
       });
       box.querySelectorAll('[data-unf]').forEach(b=>b.onclick=async()=>{
-        if(!confirm('¿Dejar de seguir esta obra?'))return;
+        if(!await confirmObi('¿Dejar de seguir esta obra?'))return;
         b.disabled=true;
         try{const {error}=await sb.from('follows').delete().eq('user_id',uid).eq('series_id',b.dataset.unf);if(error)throw error;toast('Ya no sigues esta obra');if(live())library();}
         catch(e){b.disabled=false;toast('No se pudo dejar de seguir la obra.');}
@@ -786,7 +787,7 @@ b.disabled = false;
 if (error) { $('#rqerr').textContent = error.message; return; }
 toast(open ? 'Solicitud actualizada' : 'Solicitud enviada · te avisaremos aquí'); solicitud();
 };
-$('#rqcancel')?.addEventListener('click', async () => { if (!confirm('¿Retirar tu solicitud?')) return; const { error } = await sb.rpc('cancel_translator_request'); if (error) return toast(error.message); toast('Solicitud retirada'); solicitud(); });
+$('#rqcancel')?.addEventListener('click', async () => { if (!await confirmObi('¿Retirar tu solicitud?')) return; const { error } = await sb.rpc('cancel_translator_request'); if (error) return toast(error.message); toast('Solicitud retirada'); solicitud(); });
 }
 function notFound(){ app.innerHTML = '<h1>Esta página no está en el estante</h1><p><a href="/">Volver al inicio</a></p>'; }
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');

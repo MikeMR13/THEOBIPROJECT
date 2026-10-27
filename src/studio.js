@@ -1,3 +1,4 @@
+import { confirmObi, noticeObi, inputObi } from './obi-dialog.js';
 import { STUDIO_TEAM_PERMS } from './studio-team-permissions.js?v=1';
 import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=1';
 import { initCollaborationTeamPicker, COLLABORATION_STATUS } from './studio-collaboration-picker.js?v=1';
@@ -25,7 +26,6 @@ export function createStudio(ctx){
   const T = { userId: null, teams: [], team: null, perms: {}, works: null };
   const can = a => !!T.perms[a];
   const TZS = [['America/Mexico_City','Ciudad de México'],['America/Monterrey','Monterrey'],['America/Tijuana','Tijuana'],['America/Bogota','Bogotá'],['America/Lima','Lima'],['America/Caracas','Caracas'],['America/Santiago','Santiago de Chile'],['America/Argentina/Buenos_Aires','Buenos Aires'],['America/Montevideo','Montevideo'],['America/Guatemala','Centroamérica'],['America/Santo_Domingo','Santo Domingo'],['America/New_York','Nueva York · Miami'],['America/Los_Angeles','Los Ángeles'],['Europe/Madrid','Madrid'],['Asia/Tokyo','Tokio'],['UTC','UTC']];
-  // Zona del dispositivo por defecto; se puede usar la del equipo.
   const devTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   const tzPick = () => localStorage.getItem('obi-tz-pick') || (localStorage.getItem('obi-tz-mode') === 'team' ? 'team' : 'device');
   const tz = () => { const k = tzPick(); return k === 'team' ? (T.tz || devTz()) : k === 'device' ? devTz() : k; };
@@ -47,7 +47,6 @@ export function createStudio(ctx){
   const ROLE_L = { owner: 'Propietario', admin: 'Administrador', translator: 'Traductor', editor: 'Editor', proofreader: 'Corrector', collaborator: 'Colaborador' };
   const NAV = [['/estudio','総','Resumen'],['/estudio/anuncios','告','Anuncios'],['/estudio/obras','作','Obras'],['/estudio/glosario','語','Glosario'],['/estudio/importar','入','Importar'],['/estudio/multimedia','画','Multimedia'],['/estudio/flujo','流','Flujo de trabajo'],['/estudio/comunidad','評','Comunidad'],['/estudio/difusion','拡','Difusión'],['/estudio/estadisticas','統','Estadísticas'],['/estudio/descargas','落','Descargas'],['/estudio/perfil','顔','Página del equipo'],['/estudio/preferencias','彩','Preferencias'],['/estudio/equipo','班','Equipo'],['/estudio/bitacora','録','Bitácora','log']];
   const CRUMB = { '/estudio': 'RESUMEN', '/estudio/obras': 'OBRAS', '/estudio/nueva': 'NUEVA OBRA', '/estudio/glosario': 'GLOSARIO', '/estudio/importar': 'IMPORTAR', '/estudio/multimedia': 'MULTIMEDIA', '/estudio/equipo': 'EQUIPO', '/estudio/flujo': 'FLUJO DE TRABAJO', '/estudio/preferencias': 'PREFERENCIAS', '/estudio/anuncios': 'ANUNCIOS', '/estudio/perfil': 'PÁGINA DEL EQUIPO', '/estudio/bitacora': 'BITÁCORA', '/estudio/comunidad': 'COMUNIDAD', '/estudio/difusion': 'DIFUSIÓN', '/estudio/estadisticas': 'ESTADÍSTICAS', '/estudio/descargas': 'DESCARGAS', '/estudio/obra': 'OBRAS · FICHA' };
-  // Grupos visuales; NAV conserva rutas y permisos.
   const NAV_GROUPS = [
     ['PUBLICACIONES Y CONTENIDO', ['/estudio','/estudio/obras','/estudio/importar','/estudio/multimedia','/estudio/glosario','/estudio/flujo']],
     ['DIFUSIÓN Y SEGUIMIENTO', ['/estudio/anuncios','/estudio/difusion','/estudio/comunidad','/estudio/estadisticas','/estudio/descargas']],
@@ -86,7 +85,6 @@ export function createStudio(ctx){
       <div class="s2-quick"><small>ACCIONES RÁPIDAS</small>${can('create') ? '<button class="s2-q main" data-quick="new">＋ Nuevo capítulo</button>' : ''}${can('import') ? '<a class="s2-q" href="/estudio/importar">⇪ Importar EPUB / DOCX / PDF</a>' : ''}<a class="s2-q" href="/estudio/obras">◷ Programar lanzamiento</a></div>
       <a class="s2-back" href="/">← Volver al sitio</a></aside>
       <section class="st-main s2-main"><header class="s2-head"><div class="s2-ht"><small>ESTUDIO · ${esc((T.team?.name || '').toUpperCase())} · ${CRUMB[tab] || esc(title.toUpperCase())}</small><h1>${title}</h1></div>${topTools()}</header>${body}</section></div>`; };
-  // Navegación compacta: un solo control; no duplica rutas ni selectores de equipo.
   const closeStudioNav = (focus = false) => {
     const side = document.querySelector('.s2-side.nav-open');
     if (!side) return;
@@ -109,7 +107,6 @@ export function createStudio(ctx){
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('.s2-side.nav-open')) closeStudioNav(true); });
   if (typeof window !== 'undefined') window.addEventListener('popstate', () => closeStudioNav());
-  // barra superior: zona horaria, avisos, búsqueda y cuenta
   const topTools = () => { queueMicrotask(bellCount);  const u = getUser(), k = tzPick();
     const opts = [['device', 'Mi dispositivo · ' + tzLabel(devTz())], ...(T.tz ? [['team', 'Equipo · ' + tzLabel(T.tz)]] : []), ...TZS.filter(([z]) => z !== devTz() && z !== T.tz).map(([z, l]) => [z, l])];
     if (!opts.some(o => o[0] === k)) opts.push([k, tzLabel(k)]);
@@ -118,7 +115,6 @@ export function createStudio(ctx){
       <div class="s2-bellw"><button type="button" class="s2-bell" id="st-bell" aria-label="Avisos" aria-controls="st-bell-list" aria-expanded="false"><span aria-hidden="true">鈴</span><em id="st-bell-n" hidden></em></button><div class="s2-pop" id="st-bell-list" hidden></div></div>
       <div class="s2-srch"><input id="st-q" type="search" placeholder="Buscar en el Estudio…" autocomplete="off" aria-label="Buscar en el Estudio" aria-controls="st-q-res" aria-expanded="false"><div class="s2-pop" id="st-q-res" hidden></div></div>
     </div>`; };
-  // Menú de cuenta compartido con el sitio.
   const mountMe = () => { const slot = document.getElementById('st-me'), src = document.querySelector('#session .ob-user'); if (!slot || !src || slot.dataset.ok) return; slot.dataset.ok = '1';
     const d = src.cloneNode(true); d.open = false; const out = d.querySelector('#out'); if (out) { out.removeAttribute('id'); out.onclick = () => document.getElementById('out')?.click(); }
     d.querySelector('.ob-menu')?.addEventListener('click', e => { if (e.target.closest('a')) d.open = false; });
@@ -194,7 +190,6 @@ export function createStudio(ctx){
     resetTeamSession(T, user?.id || null);
     if (!user) { go('/entrar'); return false; }
     const uid = user.id;
-    // Inicia la hoja en paralelo con permisos/datos; evita mostrar Studio sin estilos.
     const styles = css();
     if (!T.teams.length) {
       const { data } = await sb.from('team_members').select('role,teams(id,slug,name,color)').eq('user_id', uid);
@@ -294,11 +289,8 @@ export function createStudio(ctx){
   }
   const emptyState = () => `<div class="s2-empty"><span>空</span><h2>Tu estudio está vacío</h2><p>Empieza importando un EPUB, DOCX o PDF: armamos la obra con su portada, índice e ilustraciones.</p>${can('create') || can('import') ? '<span style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><a class="btn" href="/estudio/nueva">＋ Crear mi primera obra</a></span>' : '<p class="mono">Pide a tu propietario permiso para crear obras.</p>'}</div>`;
 
-  // Identificador compartido con el importador: conservar su normalización
-  // original al crear obras manualmente, sin cargar el importador completo.
   const slugify = s => (s || 'obra').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
 
-  // Nueva obra: ficha privada compatible con el importador
   async function newWork(){
     if (!(await ensure())) return;
     const TAB = '/estudio/obras';
@@ -580,8 +572,8 @@ export function createStudio(ctx){
     on('[data-show]', async b => { const { error } = await sb.from('volumes').update({ status: 'published' }).eq('id', b.dataset.show); if (error) throw error; again(); });
     on('[data-addch]', async b => { const num = Math.max(0, ...allNums) + 1; const { data, error } = await sb.from('chapters').insert({ series_id: s.id, volume_id: b.dataset.addch, vol: +b.dataset.n, num, title: 'Capítulo ' + num, body: [], status: 'draft', section_type: 'Capítulo' }).select('id').single(); if (error) throw error; go('/estudio/editar/' + data.id); });
     on('[data-cpub]', async b => { const ch=C.find(x=>x.id===b.dataset.cpub); const selection=await askEditorialAnnouncement({esc,kind:'chapter',title:ch?.title||'Capítulo'}); if(!selection)return; const at=new Date().toISOString(); const { error } = await sb.from('chapters').update({ status: 'published', publish_at: at }).eq('id', b.dataset.cpub); if (error) throw new Error(/approval_required/.test(error.message) ? 'El equipo exige una revisión aprobada antes de publicar.' : errMsg(error)); await recordNotice(selection,'chapter',b.dataset.cpub,at); toast('Capítulo publicado'); again(); });
-    on('[data-delch]', async b => { if (!confirm('¿Enviar este capítulo a la papelera? Podrás restaurarlo durante 30 días.')) return; const { error } = await sb.rpc('trash_chapters', { p_ids: [b.dataset.delch] }); if (error) throw new Error(errMsg(error)); SEL.delete(b.dataset.delch); toast('Capítulo en la papelera'); again(); });
-    on('[data-delvol]', async b => { if (!confirm('¿Enviar el volumen y todos sus capítulos a la papelera? Podrás restaurarlo durante 30 días.')) return; const { error } = await sb.rpc('trash_volume', { p_id: b.dataset.delvol }); if (error) throw new Error(errMsg(error)); toast('Volumen en la papelera'); again(); });
+    on('[data-delch]', async b => { if (!await confirmObi('¿Enviar este capítulo a la papelera? Podrás restaurarlo durante 30 días.')) return; const { error } = await sb.rpc('trash_chapters', { p_ids: [b.dataset.delch] }); if (error) throw new Error(errMsg(error)); SEL.delete(b.dataset.delch); toast('Capítulo en la papelera'); again(); });
+    on('[data-delvol]', async b => { if (!await confirmObi('¿Enviar el volumen y todos sus capítulos a la papelera? Podrás restaurarlo durante 30 días.')) return; const { error } = await sb.rpc('trash_volume', { p_id: b.dataset.delvol }); if (error) throw new Error(errMsg(error)); toast('Volumen en la papelera'); again(); });
     // ---- filtros
     app.querySelectorAll('[data-fst]').forEach(b => b.onclick = () => { F.st = b.dataset.fst; again(); });
     app.querySelectorAll('[data-fstage]').forEach(b => b.onclick = () => { F.stage = b.dataset.fstage; again(); });
@@ -595,7 +587,7 @@ export function createStudio(ctx){
     app.querySelectorAll('[data-pick]').forEach(i => i.onchange = () => { i.checked ? SEL.add(i.dataset.pick) : SEL.delete(i.dataset.pick); i.closest('.wk-tr').classList.toggle('sel', i.checked); syncAll(); drawBulk(); });
     app.querySelectorAll('[data-allv]').forEach(a => a.onchange = () => { app.querySelectorAll(`[data-vol="${a.dataset.allv}"] [data-pick]`).forEach(i => { i.checked = a.checked; a.checked ? SEL.add(i.dataset.pick) : SEL.delete(i.dataset.pick); i.closest('.wk-tr').classList.toggle('sel', a.checked); }); drawBulk(); });
     const loop = async (list, fn) => { let ok = 0; const bad = []; for (const c of list) { const { error } = await fn(c); if (error) bad.push('Cap. ' + c.num + ': ' + (/approval_required/.test(error.message) ? 'necesita una revisión aprobada' : errMsg(error))); else ok++; } return { ok, bad }; };
-    const report = (r, verb) => { toast(r.ok + ' ' + (r.ok === 1 ? 'capítulo ' : 'capítulos ') + verb + (r.bad.length ? ' · ' + r.bad.length + ' con error' : '')); if (r.bad.length) alert('No se pudieron procesar:\n' + r.bad.join('\n')); SEL.clear(); again(); };
+    const report = async (r, verb) => { toast(r.ok + ' ' + (r.ok === 1 ? 'capítulo ' : 'capítulos ') + verb + (r.bad.length ? ' · ' + r.bad.length + ' con error' : '')); if (r.bad.length) await noticeObi('No se pudieron procesar:\n' + r.bad.join('\n')); SEL.clear(); again(); };
     const addDaysLocal = (v, k) => { const [D0, H0] = v.split('T'), [y, m, d] = D0.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + k)).toISOString().slice(0, 10) + 'T' + H0; };
     const dowOf = v => new Date(v.split('T')[0] + 'T12:00:00Z').getUTCDay();
     const DOW = [['1', 'L'], ['2', 'M'], ['3', 'X'], ['4', 'J'], ['5', 'V'], ['6', 'S'], ['0', 'D']];
@@ -604,7 +596,7 @@ export function createStudio(ctx){
       const ren = list.filter((x, i) => +x.c.num !== i + 1), moved = list.filter(x => (volOf(x.c)?.id) !== x.vid);
       if (!ren.length && !moved.length) return false;
       const pubR = ren.filter(x => x.c.status === 'published').length;
-      if (ren.length && !confirm(`${msg}\n\nSe renumerarán ${ren.length} capítulo(s) para que la numeración siga el nuevo orden${pubR ? `; ${pubR} ya publicado(s) cambiará(n) de número y de enlace` : ''}. ¿Continuar?`)) return false;
+      if (ren.length && !await confirmObi(`${msg}\n\nSe renumerarán ${ren.length} capítulo(s) para que la numeración siga el nuevo orden${pubR ? `; ${pubR} ya publicado(s) cambiará(n) de número y de enlace` : ''}. ¿Continuar?`)) return false;
       const { error } = await sb.rpc('reorder_chapters', { p_series: s.id, p_items: list.map(x => ({ id: x.c.id, volume_id: x.vid })) }); if (error) throw new Error(errMsg(error)); return true;
     }
     function drawBulk(){
@@ -620,7 +612,7 @@ export function createStudio(ctx){
       const skipNote = skip ? `<span class="mono">Se omiten ${skip}: solo se publican o programan borradores de volúmenes ya publicados (para un volumen nuevo usa «Programar volumen»).</span>` : '';
       const B = k => w.querySelector(`[data-bk="${k}"]`);
       B('clear').onclick = () => { SEL.clear(); app.querySelectorAll('[data-pick]').forEach(i => { i.checked = false; i.closest('.wk-tr').classList.remove('sel'); }); syncAll(); drawBulk(); };
-      B('pub')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!elig.length) throw new Error('Ninguno se puede publicar ahora: solo borradores de volúmenes ya publicados.'); if (!confirm(`¿Publicar ahora ${elig.length} capítulo(s)?${skip ? ` Se omiten ${skip}.` : ''}`)) return; const at = new Date().toISOString(); report(await loop(elig, c => sb.from('chapters').update({ status: 'published', publish_at: at }).eq('id', c.id)), 'publicados'); }));
+      B('pub')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!elig.length) throw new Error('Ninguno se puede publicar ahora: solo borradores de volúmenes ya publicados.'); if (!await confirmObi(`¿Publicar ahora ${elig.length} capítulo(s)?${skip ? ` Se omiten ${skip}.` : ''}`)) return; const at = new Date().toISOString(); report(await loop(elig, c => sb.from('chapters').update({ status: 'published', publish_at: at }).eq('id', c.id)), 'publicados'); }));
       B('sch')?.addEventListener('click', () => { bp.hidden = !bp.hidden; bp.innerHTML = `<div class="row"><label class="mono">Fecha y hora <input type="datetime-local" id="bk-at"></label>${tzHint()}<button class="btn sm" id="bk-go">Programar ${elig.length}</button></div>${skipNote}`;
         $('#bk-go').onclick = e => busy(e.currentTarget, async () => { const v = $('#bk-at').value; if (!v) throw new Error('Elige fecha y hora'); const d = new Date(fromLocal(v)); if (d <= new Date()) throw new Error('La fecha debe ser futura'); if (!elig.length) throw new Error('Ninguno se puede programar'); report(await loop(elig, c => sb.from('chapters').update({ status: 'scheduled', publish_at: d.toISOString() }).eq('id', c.id)), 'programados para ' + fmtTz(d)); }); });
       B('ser')?.addEventListener('click', () => { bp.hidden = !bp.hidden; const S = { start: '', every: 7, days: [] };
@@ -638,7 +630,7 @@ export function createStudio(ctx){
         const ti = V.findIndex(v => v.id === vid), at = (() => { let k = -1; rest.forEach((x, i) => { if (V.findIndex(v => v.id === x.vid) <= ti) k = i; }); return k + 1; })(); rest.splice(at, 0, ...mv);
         if (await commitOrder(rest, `Mover ${mv.length} capítulo(s) al volumen ${V[ti].num}.`)) { toast('Capítulos movidos'); SEL.clear(); again(); } else e.target.value = ''; }); });
       B('stage')?.addEventListener('change', e => { const k = e.target.value; if (!k) return; busy(null, async () => { const L3 = L2.filter(c => c.status === 'draft'); if (!L3.length) throw new Error('La etapa solo aplica a borradores'); report(await loop(L3, c => sb.rpc('chapter_move', { p_id: c.id, p_stage: k, p_assignee: null })), 'pasados a «' + STG[k][0] + '»'); }); });
-      B('trash')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!confirm(`¿Enviar ${L2.length} capítulo(s) a la papelera? Podrás restaurarlos durante 30 días.`)) return; const { error } = await sb.rpc('trash_chapters', { p_ids: L2.map(c => c.id) }); if (error) throw new Error(errMsg(error)); toast(L2.length + ' en la papelera'); SEL.clear(); again(); }));
+      B('trash')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!await confirmObi(`¿Enviar ${L2.length} capítulo(s) a la papelera? Podrás restaurarlos durante 30 días.`)) return; const { error } = await sb.rpc('trash_chapters', { p_ids: L2.map(c => c.id) }); if (error) throw new Error(errMsg(error)); toast(L2.length + ' en la papelera'); SEL.clear(); again(); }));
     }
     drawBulk();
     // ---- arrastrar para reordenar o cambiar de volumen
@@ -661,9 +653,9 @@ export function createStudio(ctx){
     const purgeVols = async vs => { for (const v of vs) { await deleteChapters(TC.filter(c => c.volume_id === v.id).map(c => c.id), [v.cover_path, ...(v.epub_fonts || []).map(f => pathOf(f.url))]); const { error } = await sb.from('volumes').delete().eq('id', v.id); if (error) throw new Error(errMsg(error)); } };
     on('[data-trc]', async b => { const { error } = await sb.rpc('restore_trash', { p_chapters: [b.dataset.trc], p_volumes: [] }); if (error) throw new Error(errMsg(error)); toast('Capítulo restaurado'); again(); });
     on('[data-trv]', async b => { const { error } = await sb.rpc('restore_trash', { p_chapters: [], p_volumes: [b.dataset.trv] }); if (error) throw new Error(errMsg(error)); toast('Volumen restaurado'); again(); });
-    on('[data-purc]', async b => { if (!confirm('¿Borrar definitivamente este capítulo? No se podrá recuperar y sus imágenes sin uso se eliminarán.')) return; await deleteChapters([b.dataset.purc]); again(); });
-    on('[data-purv]', async b => { if (!confirm('¿Borrar definitivamente el volumen y sus capítulos? No se podrá recuperar.')) return; await purgeVols(TV.filter(v => v.id === b.dataset.purv)); again(); });
-    on('#wk-empty', async () => { if (!confirm('¿Vaciar la papelera? Todo se borrará definitivamente.')) return; await purgeVols(TV); await deleteChapters(TCx.map(c => c.id)); toast('Papelera vaciada'); again(); });
+    on('[data-purc]', async b => { if (!await confirmObi('¿Borrar definitivamente este capítulo? No se podrá recuperar y sus imágenes sin uso se eliminarán.')) return; await deleteChapters([b.dataset.purc]); again(); });
+    on('[data-purv]', async b => { if (!await confirmObi('¿Borrar definitivamente el volumen y sus capítulos? No se podrá recuperar.')) return; await purgeVols(TV.filter(v => v.id === b.dataset.purv)); again(); });
+    on('#wk-empty', async () => { if (!await confirmObi('¿Vaciar la papelera? Todo se borrará definitivamente.')) return; await purgeVols(TV); await deleteChapters(TCx.map(c => c.id)); toast('Papelera vaciada'); again(); });
     if (can('delete')) { const oldV = TV.filter(v => !left(v.deleted_at)), oldC = TCx.filter(c => !left(c.deleted_at)); if (oldV.length || oldC.length) (async () => { try { await purgeVols(oldV); if (oldC.length) await deleteChapters(oldC.map(c => c.id)); } catch (e) { console.warn('papelera', e); } })(); }
     app.querySelectorAll('[data-vedit]').forEach(b => b.onclick = () => { const v = V.find(x => x.id === b.dataset.vedit), box = $('#ve-' + v.id); if (!box.hidden) { box.hidden = true; return; }
       box.hidden = false; box.innerHTML = `<div class="imp-fg" style="margin:0">
@@ -707,9 +699,9 @@ export function createStudio(ctx){
           st2.textContent = 'Subiendo…'; const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type], path = `${T.team.id}/obras/${s.slug}/vol-${v.num}/portada-${Date.now()}.${ext}`;
           const { error } = await sb.storage.from('obi-media').upload(path, file, { contentType: file.type, cacheControl: '31536000' }); if (error) { st2.textContent = ''; throw new Error(errMsg(error)); }
           await setCover(path, v.cover_path); $('#vcp-' + v.id).style.backgroundImage = `url('${media(path)}')`; $('#vcp-' + v.id).textContent = ''; st2.textContent = '✓ Portada guardada';
-          if (!s.cover_path && confirm('La obra aún no tiene portada. ¿Usar también esta?')) await sb.from('series').update({ cover_path: path }).eq('id', s.id);
+          if (!s.cover_path && await confirmObi('La obra aún no tiene portada. ¿Usar también esta?')) await sb.from('series').update({ cover_path: path }).eq('id', s.id);
           toast('Portada del volumen ' + v.num + ' actualizada'); }).then(() => { if (!st2.textContent.startsWith('✓')) st2.textContent = ''; }); };
-      box.querySelector('[data-vcovdel]')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!confirm('¿Quitar la portada de este volumen?')) return; await setCover(null, v.cover_path); toast('Portada quitada'); again(); }));
+      box.querySelector('[data-vcovdel]')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!await confirmObi('¿Quitar la portada de este volumen?')) return; await setCover(null, v.cover_path); toast('Portada quitada'); again(); }));
       const f = k => box.querySelector(`[name=${k}]`);
       box.querySelector('[data-vcancel]').onclick = () => { box.hidden = true; };
       box.querySelector('[data-vsave]').onclick = e => busy(e.currentTarget, async () => {
@@ -719,13 +711,13 @@ export function createStudio(ctx){
         const acc = box.querySelector('[name=access]:checked')?.value || 'public';
         if (acc === 'tier' && !tierSel.value) throw new Error('Elige desde qué nivel se puede leer');
         const au = acc === 'public' || !unlockAuto.checked ? null : fromLocal(f('access_until').value);
-        if (au && new Date(au) <= new Date() && !confirm('La fecha de liberación pública ya pasó: se abrirá este volumen y todos sus capítulos. ¿Continuar?')) return;
+        if (au && new Date(au) <= new Date() && !await confirmObi('La fecha de liberación pública ya pasó: se abrirá este volumen y todos sus capítulos. ¿Continuar?')) return;
         Object.assign(patch, { access: acc, access_min_price: acc === 'tier' ? +tierSel.value : null, access_until: au });
         const nn = Math.round(+f('vnum').value);
         if (nn !== v.num) { if (!(nn >= 1 && nn <= 999)) throw new Error('El número de volumen va de 1 a 999');
           const live = V.find(x => x.id !== v.id && x.num === nn), gone = (TV || []).find(x => x.id !== v.id && x.num === nn);
-          if (live && !confirm(`Ya existe el Volumen ${nn}. ¿Intercambiar números? El Volumen ${nn} pasará a ser el ${v.num}.`)) return;
-          if (!live && gone && !confirm(`Hay un Volumen ${nn} en la papelera. Pasará a ser el ${v.num} para dejar libre el número. ¿Continuar?`)) return;
+          if (live && !await confirmObi(`Ya existe el Volumen ${nn}. ¿Intercambiar números? El Volumen ${nn} pasará a ser el ${v.num}.`)) return;
+          if (!live && gone && !await confirmObi(`Hay un Volumen ${nn} en la papelera. Pasará a ser el ${v.num} para dejar libre el número. ¿Continuar?`)) return;
           if (patch.title === String(v.num)) patch.title = String(nn);
           const r = await sb.rpc('renumber_volume', { p_volume: v.id, p_num: nn }); if (r.error) throw new Error(errMsg(r.error)); }
         const { error } = await sb.from('volumes').update(patch).eq('id', v.id); if (error) throw new Error(errMsg(error)); toast((nn !== v.num ? `Volumen guardado · ahora es el Volumen ${nn}` : 'Volumen guardado') + (acc !== (v.access || 'public') ? ' · acceso: ' + ({ public: 'público general', donors: 'solo mecenas', tier: 'desde ' + (tierSel.selectedOptions[0]?.textContent || 'el nivel elegido') })[acc] : '')); again(); });
@@ -1010,7 +1002,6 @@ export function createStudio(ctx){
             const { data: up, error } = await sb.from('series').update({ relations: RL }).eq('id', s.id).select('id'); if (error) throw new Error(/relations/.test(error.message || '') ? 'Falta ejecutar el SQL 20261111_obras_relacionadas.sql' : errMsg(error));
             if (!up?.length) throw new Error('No se guardó (permiso de la tabla «series»)'); s.relations = [...RL]; relDirty = false; toast('Relaciones guardadas'); drawRel(); })); };
         sb.from('series').select('id,title,teams(name)').or('published.eq.true,team_id.eq.' + T.team.id).is('archived_at', null).order('title').then(({ data }) => { all = data || []; drawRel(); });
-        // otras obras que ya enlazan a esta: aparecen solas en la ficha pública (con el sentido invertido)
         sb.from('series').select('id,title,relations,teams(name)').filter('relations', 'cs', JSON.stringify([{ id: s.id }])).then(({ data }) => { const l = (data || []).filter(x => x.id !== s.id && !RL.some(r => r.id === x.id)); if (!l.length) return; const INV = { precuela: 'Secuela', secuela: 'Precuela', adaptacion: 'Obra original' }, KL = Object.fromEntries(KINDS);
           $('#wk-rel-b')?.insertAdjacentHTML('afterend', `<div style="display:grid;gap:6px;margin-top:12px"><span class="mono" style="font-size:11px">Enlazada desde otras obras · se muestran solas en la ficha pública</span>${l.map(x => { const k = (x.relations || []).find(r => r?.id === s.id)?.kind; return `<div style="display:flex;justify-content:space-between;gap:8px;padding:8px;border:1px dashed #2f2a20"><span><b>${esc(x.title)}</b><br><small class="mono">${esc(x.teams?.name || '')}</small></span><span class="mono" style="font-size:12px">${esc(INV[k] || KL[k] || 'Relacionada')}</span></div>`; }).join('')}</div>`); }); }
       let dirty = false; const mark = () => { dirty = true; const d = $('#wk-dirty'); if (d) d.textContent = 'Cambios sin guardar'; };
@@ -1138,7 +1129,7 @@ export function createStudio(ctx){
     $('#gllist').onclick = e => {
       const eb = e.target.closest('[data-gled]'), db = e.target.closest('[data-gldel]');
       if (eb) { const t = terms.find(x => x.id === eb.dataset.gled); editing = t.id; $('#glterm').value = t.term; $('#glcat').innerHTML = opt(t.category); $('#gldef').value = t.definition; $('#glsave').textContent = 'Guardar cambios'; $('#glcancel').hidden = false; $('#glterm').focus(); scrollTo(0, 0); }
-      if (db) busy(db, async () => { const t = terms.find(x => x.id === db.dataset.gldel); if (!confirm('¿Borrar «' + t.term + '» del glosario?')) return; const { error } = await sb.from('glossary_terms').delete().eq('id', t.id); if (error) throw error; terms = terms.filter(x => x.id !== t.id); if (editing === t.id) reset(); toast('Término borrado'); draw(); });
+      if (db) busy(db, async () => { const t = terms.find(x => x.id === db.dataset.gldel); if (!await confirmObi('¿Borrar «' + t.term + '» del glosario?')) return; const { error } = await sb.from('glossary_terms').delete().eq('id', t.id); if (error) throw error; terms = terms.filter(x => x.id !== t.id); if (editing === t.id) reset(); toast('Término borrado'); draw(); });
     };
   }
 
@@ -1207,8 +1198,8 @@ export function createStudio(ctx){
     app.querySelectorAll('[data-mrole]').forEach(s => s.onchange = () => busy(null, async () => { const m = memOf(s.dataset.mrole); await rpc('team_member_set', { p_team: T.team.id, p_user: m.user_id, p_role: s.value, p_overrides: m.overrides || {} }); toast('Rol actualizado'); again(); }));
     app.querySelectorAll('[data-mx]').forEach(b => b.onclick = () => again({ open: open === b.dataset.mx ? null : b.dataset.mx }));
     app.querySelectorAll('[data-ov]').forEach(s => s.onchange = () => busy(null, async () => { const m = memOf(s.dataset.u), o = { ...(m.overrides || {}) }; if (s.value === 'inherit') delete o[s.dataset.ov]; else o[s.dataset.ov] = s.value === 'allow'; await rpc('team_member_set', { p_team: T.team.id, p_user: m.user_id, p_role: null, p_overrides: o }); toast('Excepción guardada'); again(); }));
-    app.querySelectorAll('[data-mrm]').forEach(b => b.onclick = () => busy(b, async () => { const m = memOf(b.dataset.mrm); if (!confirm(`¿Retirar a ${m.profiles?.username || 'este integrante'} del equipo? Sus tarjetas quedan sin asignar.`)) return; await rpc('team_member_remove', { p_team: T.team.id, p_user: m.user_id }); toast('Integrante retirado'); again(); }));
-    $('[data-leave]')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!confirm('¿Salir de este equipo? Perderás el acceso a su Estudio.')) return; await rpc('team_member_remove', { p_team: T.team.id, p_user: me }); T.teams = []; T.team = null; go('/'); }));
+    app.querySelectorAll('[data-mrm]').forEach(b => b.onclick = () => busy(b, async () => { const m = memOf(b.dataset.mrm); if (!await confirmObi(`¿Retirar a ${m.profiles?.username || 'este integrante'} del equipo? Sus tarjetas quedan sin asignar.`)) return; await rpc('team_member_remove', { p_team: T.team.id, p_user: m.user_id }); toast('Integrante retirado'); again(); }));
+    $('[data-leave]')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!await confirmObi('¿Salir de este equipo? Perderás el acceso a su Estudio.')) return; await rpc('team_member_remove', { p_team: T.team.id, p_user: me }); T.teams = []; T.team = null; go('/'); }));
     app.querySelectorAll('[data-redit]').forEach(b => b.onclick = () => again({ editing: b.dataset.redit }));
     $('[data-rcancel]')?.addEventListener('click', () => again({ editing: null }));
     const f = $('#rform');
@@ -1216,7 +1207,7 @@ export function createStudio(ctx){
       f.querySelector('input[name=name]').focus();
       f.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => { f.color.value = b.dataset.sw; f.style.borderTopColor = b.dataset.sw; f.querySelectorAll('[data-sw]').forEach(x => x.setAttribute('aria-checked', x === b)); });
       f.onsubmit = e => { e.preventDefault(); busy(e.submitter, async () => { const perms = Object.fromEntries(PERMS.map(([k]) => [k, !!f['p_' + k]?.checked])); await rpc('team_role_save', { p_team: T.team.id, p_id: f.dataset.id || null, p_name: f.name.value, p_color: f.color.value, p_desc: f.desc.value, p_perms: perms }); toast(f.dataset.id ? 'Rol guardado' : 'Rol creado'); await pickTeam(T.team.id); again({ editing: null }); }); };
-      f.querySelector('[data-rdel]')?.addEventListener('click', e => busy(e.currentTarget, async () => { const r = rById[f.dataset.id]; if (!confirm(`¿Borrar el rol «${r.name}»?`)) return; await rpc('team_role_delete', { p_team: T.team.id, p_id: r.id, p_move_to: f.move?.value || null }); toast('Rol borrado'); again({ editing: null }); }));
+      f.querySelector('[data-rdel]')?.addEventListener('click', e => busy(e.currentTarget, async () => { const r = rById[f.dataset.id]; if (!await confirmObi(`¿Borrar el rol «${r.name}»?`)) return; await rpc('team_role_delete', { p_team: T.team.id, p_id: r.id, p_move_to: f.move?.value || null }); toast('Rol borrado'); again({ editing: null }); }));
     }
   }
 
@@ -1261,7 +1252,7 @@ export function createStudio(ctx){
     const moveTo = async (c, k) => {
       const from = colOf(c); if (from === k) return;
       if (k === 'programado') return schedAsk(c);
-      if (from === 'programado') { if (!confirm('¿Cancelar la programación y devolverlo a «' + COLS.find(x => x[0] === k)[1] + '»?')) return; const { error } = await sb.from('chapters').update({ status: 'draft' }).eq('id', c.id); if (error) throw new Error(errMsg(error)); }
+      if (from === 'programado') { if (!await confirmObi('¿Cancelar la programación y devolverlo a «' + COLS.find(x => x[0] === k)[1] + '»?')) return; const { error } = await sb.from('chapters').update({ status: 'draft' }).eq('id', c.id); if (error) throw new Error(errMsg(error)); }
       await rpc('chapter_move', { p_id: c.id, p_stage: k, p_assignee: null, p_set_assignee: false }); board();
     };
     app.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => busy(b, () => { const c = cOf(b.dataset.mv), i = COLS.findIndex(x => x[0] === colOf(c)); return moveTo(c, COLS[i + +b.dataset.dir][0]); }));
@@ -1385,7 +1376,7 @@ export function createStudio(ctx){
       if (!/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(D.slug)) throw new Error('La dirección debe tener de 3 a 40 caracteres: minúsculas, números y guiones');
       if (D.name.trim().length < 2) throw new Error('El nombre es muy corto');
       const bad = LINKS.find(([k]) => D.links[k] && !/^https:\/\//.test(D.links[k])); if (bad) throw new Error(bad[1] + ': el enlace debe empezar con https://');
-      if (D.slug !== t.slug && !confirm(`¿Cambiar la dirección a obi.lat/equipo/${D.slug}? Los enlaces viejos dejarán de funcionar.`)) return;
+      if (D.slug !== t.slug && !await confirmObi(`¿Cambiar la dirección a obi.lat/equipo/${D.slug}? Los enlaces viejos dejarán de funcionar.`)) return;
       const settings = { ...S0, ...D.links, ...D.sect, featured_works: D.feat, show_team_logo: D.logoUpd, show_reader_logo: D.logoReader, timezone: D.tz, seo: cleanSeo(D.seo,{allowedImages:[D.banner,D.avatar].filter(Boolean)}) };
       const { error } = await sb.from('teams').update({ name: D.name.trim(), slug: D.slug, bio: D.bio.trim() || null, color: D.color, langs: D.langs, avatar_path: D.avatar, banner_path: D.banner, settings, anniversary: D.aniv || null, anniversary_msg: D.anivMsg.trim() || null }).eq('id', T.team.id);
       if (error) throw new Error(/teams_slug_key/.test(error.message) ? 'Esa dirección ya la usa otro equipo' : /teams_profile_checks/.test(error.message) ? 'Revisa el nombre, la dirección y la presentación' : errMsg(error));
@@ -1446,7 +1437,7 @@ export function createStudio(ctx){
     app.querySelectorAll('[data-cancel]').forEach(b => b.onclick = () => { b.closest('.cm-reply').hidden = true; });
     app.querySelectorAll('[data-send]').forEach(b => b.onclick = () => busy(b, async () => { const tx = b.closest('.cm-reply').querySelector('textarea').value.trim(); if (!tx) throw new Error('Escribe una respuesta'); const { error } = await sb.from('comments').insert({ chapter_id: b.dataset.ch, parent_id: +b.dataset.send, user_id: me, body: tx }); if (error) throw new Error(errMsg(error)); toast('Respuesta publicada'); community(); }));
     app.querySelectorAll('[data-pin]').forEach(b => b.onclick = () => busy(b, async () => { await rpc('comment_pin', { p_id: +b.dataset.pin, p_on: b.dataset.on === 'true' }); toast(b.dataset.on === 'true' ? 'Comentario fijado' : 'Comentario desfijado'); community(); }));
-    app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => busy(b, async () => { if (!confirm('¿Borrar este comentario y sus respuestas?')) return; const { error } = await sb.from('comments').delete().eq('id', b.dataset.del); if (error) throw new Error(errMsg(error)); toast('Comentario borrado'); community(); }));
+    app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => busy(b, async () => { if (!await confirmObi('¿Borrar este comentario y sus respuestas?')) return; const { error } = await sb.from('comments').delete().eq('id', b.dataset.del); if (error) throw new Error(errMsg(error)); toast('Comentario borrado'); community(); }));
   }
 
   async function stats(){
@@ -1497,8 +1488,6 @@ export function createStudio(ctx){
   const FMTS = ['EPUB','PDF','MOBI','AZW3','CBZ','DOCX','ZIP'];
   const STORES = ['Amazon Japón','BookWalker','Kindle','Kobo','Google Play Libros','Apple Books','J-Novel Club','Yen Press','Seven Seas','Ivrea','Panini','Planeta Cómic','Norma Editorial','Kamite','Editorial Kemuri','Otra tienda'];
   const REGIONS = ['Japón','EE. UU.','México','Argentina','España','Latinoamérica','Global'];
-  // Editor de enlaces compartido por la ficha de la obra y la sección general.
-  // Trabaja sobre los mismos registros: no duplica descargas ni datos en Supabase.
   const validHttps = value => { try { const u = new URL(value); return u.protocol === 'https:' && !!u.hostname && !u.username && !u.password; } catch { return false; } };
   async function renderDownloads(seriesId, target){
     if (!target) return;
@@ -1532,13 +1521,13 @@ export function createStudio(ctx){
       const u = f.url.value.trim(); if (!validHttps(u)) throw new Error('El enlace debe empezar con https://');
       const { error } = await sb.from('purchase_links').insert({ series_id: seriesId, volume_id: f.dataset.vol, vol: +f.dataset.num, store: f.store.value, region: f.region.value, fmt: f.fmt.value, url: u, verified: false, created_by: getUser().id });
       if (error) throw new Error(errMsg(error)); toast('Enlace propuesto · se mostrará cuando el Bibliotecario lo verifique'); renderDownloads(seriesId, target); }); });
-    target.querySelectorAll('[data-bdel]').forEach(b => b.onclick = () => busy(b, async () => { if (!confirm('¿Quitar este enlace de compra?')) return; const { error } = await sb.from('purchase_links').delete().eq('id', b.dataset.bdel); if (error) throw new Error(errMsg(error)); renderDownloads(seriesId, target); }));
+    target.querySelectorAll('[data-bdel]').forEach(b => b.onclick = () => busy(b, async () => { if (!await confirmObi('¿Quitar este enlace de compra?')) return; const { error } = await sb.from('purchase_links').delete().eq('id', b.dataset.bdel); if (error) throw new Error(errMsg(error)); renderDownloads(seriesId, target); }));
     target.querySelectorAll('.dl-add:not(.buy-add):not(.dl-edit)').forEach(f => f.onsubmit = e => { e.preventDefault(); busy(e.submitter, async () => {
       const u = f.url.value.trim(); if (!validHttps(u)) throw new Error('El enlace debe empezar con https://');
       const { error } = await sb.from('download_links').insert({ series_id: seriesId, volume_id: f.dataset.vol, vol: +f.dataset.num, fmt: f.fmt.value, url: u, provider: provOf(u), label: f.label.value.trim() || null, donor_only: false, ...(patreonDlReady ? { patreon_only: f.elements.access.value === 'patreon' } : {}), sort: Date.now() % 1e6 });
       if (error) throw new Error(errMsg(error)); toast('Enlace agregado'); renderDownloads(seriesId, target); }); });
     target.querySelectorAll('[data-daccess]').forEach(sel => sel.onchange = () => busy(null, async () => { const access = sel.value; sel.disabled = true; try { const { error } = await sb.from('download_links').update({ donor_only: false, ...(patreonDlReady ? { patreon_only: access === 'patreon' } : {}) }).eq('id', sel.dataset.daccess); if (error) throw new Error(errMsg(error)); renderDownloads(seriesId, target); } finally { sel.disabled = false; } }));
-    target.querySelectorAll('[data-ddel]').forEach(b => b.onclick = () => busy(b, async () => { if (!confirm('¿Quitar este enlace?')) return; const { error } = await sb.from('download_links').delete().eq('id', b.dataset.ddel); if (error) throw new Error(errMsg(error)); toast('Enlace quitado'); renderDownloads(seriesId, target); }));    target.querySelectorAll('[data-dedit]').forEach(b => b.onclick = () => {
+    target.querySelectorAll('[data-ddel]').forEach(b => b.onclick = () => busy(b, async () => { if (!await confirmObi('¿Quitar este enlace?')) return; const { error } = await sb.from('download_links').delete().eq('id', b.dataset.ddel); if (error) throw new Error(errMsg(error)); toast('Enlace quitado'); renderDownloads(seriesId, target); }));    target.querySelectorAll('[data-dedit]').forEach(b => b.onclick = () => {
       const form = target.querySelector(`[data-editform="${b.dataset.dedit}"]`);
       if (form) form.style.display = form.style.display === 'none' ? '' : 'none';
     });
@@ -1597,7 +1586,7 @@ export function createStudio(ctx){
     ['#an-t', '#an-x', '#an-l', '#an-u', '#an-d'].forEach(s => $(s).oninput = read);
     const send = async x => { await rpc('team_announce_set', { p_team: T.team.id, p_announce: x }); Object.assign(pub, x); const st = state(pub), el = $('#an-st'); el.textContent = '● ' + st[0]; el.style.color = st[1]; draw(); };
     $('#an-pub')?.addEventListener('click', e => busy(e.currentTarget, async () => { await send(A); toast('Anuncio publicado'); }));
-    $('#an-del')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!confirm('¿Quitar el anuncio de la página del equipo?')) return; A = { title: '', text: '', label: '', url: '', until: '' }; ['#an-t', '#an-x', '#an-l', '#an-u', '#an-d'].forEach(s => $(s).value = ''); $('#an-c').textContent = '0 / 300'; await send(A); toast('Anuncio quitado'); }));
+    $('#an-del')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!await confirmObi('¿Quitar el anuncio de la página del equipo?')) return; A = { title: '', text: '', label: '', url: '', until: '' }; ['#an-t', '#an-x', '#an-l', '#an-u', '#an-d'].forEach(s => $(s).value = ''); $('#an-c').textContent = '0 / 300'; await send(A); toast('Anuncio quitado'); }));
     draw();
   }
 
@@ -1886,8 +1875,8 @@ export function createStudio(ctx){
       P.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { set({ [b.dataset.k]: b.dataset.v }); P.querySelectorAll(`[data-k="${b.dataset.k}"]`).forEach(x => { const o = x.dataset.v === b.dataset.v; x.classList.toggle('on', o); x.setAttribute(x.getAttribute('role') === 'radio' ? 'aria-checked' : 'aria-pressed', o); }); if (b.dataset.k === 'pattern') $('#pf-op').disabled = b.dataset.v === 'none'; if (b.dataset.k === 'bg') { if (b.dataset.v === 'propio' && !d._seeded) { d.custom = { ...TP.palette({ ...d, bg: 'oscuro' }) }; d.custom = { bg: d.custom.bg, sf: d.custom.sf, fg: d.custom.fg }; } redraw(); pv(); } P.querySelectorAll('.pf-th').forEach(x => { x.classList.remove('on'); x.setAttribute('aria-pressed', 'false'); }); });
       P.querySelectorAll('[data-mine]').forEach(b => b.onclick = () => { const m = mine.find(x => x.id === +b.dataset.mine); set({ ...TP.normalize(m.design, D.t.color), layout: d.layout, editorial: d.editorial, community: d.community, composition: d.composition, savedCompositions: d.savedCompositions, mobile: d.mobile, motto: d.motto, theme: 'mine:' + m.id }, true); });
       P.querySelectorAll('[data-mupd]').forEach(b => b.onclick = () => busy(b, async () => { const id = +b.dataset.mupd, { motto, layout, editorial, community, composition, savedCompositions, mobile, ...des } = d; const { error } = await sb.from('team_custom_themes').update({ design: des, updated_at: new Date().toISOString() }).eq('id', id); if (error) throw new Error(errMsg(error)); mine.find(x => x.id === id).design = des; toast('Tema actualizado'); }));
-      P.querySelectorAll('[data-mren]').forEach(b => b.onclick = () => busy(b, async () => { const m = mine.find(x => x.id === +b.dataset.mren), n = (prompt('Nuevo nombre del tema', m.name) || '').trim().slice(0, 40); if (!n || n === m.name) return; const { error } = await sb.from('team_custom_themes').update({ name: n }).eq('id', m.id); if (error) throw new Error(/duplicate|unique/.test(error.message) ? 'Ya tienes un tema con ese nombre' : errMsg(error)); m.name = n; redraw(); }));
-      P.querySelectorAll('[data-mdel]').forEach(b => b.onclick = () => busy(b, async () => { const m = mine.find(x => x.id === +b.dataset.mdel); if (!confirm(`¿Borrar el tema «${m.name}»? El borrador actual no cambia.`)) return; const { error } = await sb.from('team_custom_themes').delete().eq('id', m.id); if (error) throw new Error(errMsg(error)); mine = mine.filter(x => x !== m); if (d.theme === 'mine:' + m.id) d.theme = 'custom'; redraw(); }));
+      P.querySelectorAll('[data-mren]').forEach(b => b.onclick = () => busy(b, async () => { const m = mine.find(x => x.id === +b.dataset.mren), n = (await inputObi('Nuevo nombre del tema', {defaultValue:m.name,title:'Renombrar tema'}) || '').trim().slice(0, 40); if (!n || n === m.name) return; const { error } = await sb.from('team_custom_themes').update({ name: n }).eq('id', m.id); if (error) throw new Error(/duplicate|unique/.test(error.message) ? 'Ya tienes un tema con ese nombre' : errMsg(error)); m.name = n; redraw(); }));
+      P.querySelectorAll('[data-mdel]').forEach(b => b.onclick = () => busy(b, async () => { const m = mine.find(x => x.id === +b.dataset.mdel); if (!await confirmObi(`¿Borrar el tema «${m.name}»? El borrador actual no cambia.`)) return; const { error } = await sb.from('team_custom_themes').delete().eq('id', m.id); if (error) throw new Error(errMsg(error)); mine = mine.filter(x => x !== m); if (d.theme === 'mine:' + m.id) d.theme = 'custom'; redraw(); }));
       $('#pf-tsave')?.addEventListener('click', e => busy(e.currentTarget, async () => { const n = $('#pf-tname').value.trim().slice(0, 40); if (!n) throw new Error('Ponle nombre al tema'); const { motto, theme, layout, editorial, community, composition, savedCompositions, mobile, seasons, featured, announce, order, hidden, ...des } = d; const { data, error } = await sb.from('team_custom_themes').insert({ team_id: T.team.id, name: n, design: des }).select('id,name,design,updated_at').single(); if (error) throw new Error(/duplicate|unique/.test(error.message) ? 'Ya tienes un tema con ese nombre' : errMsg(error)); mine = [...mine, data].sort((a, b) => a.name.localeCompare(b.name)); d.theme = 'mine:' + data.id; save(); redraw(); toast('Tema «' + n + '» guardado'); }));
       P.querySelectorAll('[data-cc]').forEach(i => i.oninput = () => { P.querySelector(`[data-cx="${i.dataset.cc}"]`).value = i.value; set({ custom: { ...d.custom, [i.dataset.cc]: i.value } }); });
       P.querySelectorAll('[data-cx]').forEach(i => i.oninput = () => { if (/^#[0-9a-f]{6}$/i.test(i.value)) { P.querySelector(`[data-cc="${i.dataset.cx}"]`).value = i.value; set({ custom: { ...d.custom, [i.dataset.cx]: i.value } }); } });
@@ -1947,8 +1936,8 @@ export function createStudio(ctx){
     addEventListener('beforeunload', leave);
     document.addEventListener('click', function nav(e){ if (!$('#pf-panel')) return document.removeEventListener('click', nav, true); if (e.target.closest('a[href]')) flush(); }, true);
     $('#pf-pub').onclick = e => busy(e.currentTarget, async () => { clearTimeout(saveT); await rpc('team_design_save', { p_team: T.team.id, p_design: d }); savedDesign = JSON.stringify(d); await rpc('team_design_publish', { p_team: T.team.id }); D.t.design = d; status(); hist(); toast('Página publicada'); });
-    $('#pf-discard').onclick = e => busy(e.currentTarget, async () => { if (!confirm('¿Descartar el borrador y volver a lo publicado?')) return; clearTimeout(saveT); d = TP.normalize(D.t.design, D.t.color); await rpc('team_design_save', { p_team: T.team.id, p_design: d }); savedDesign = JSON.stringify(d); redraw(); pv(); status(); toast('Borrador descartado'); });
-    $('#pf-share').onclick = e => busy(e.currentTarget, async () => { const shared = await previewShareLink({ origin: location.origin, slug: T.team.slug, token, savedDesign, currentDesign: JSON.stringify(d), queued: !!saveT, saving, generateToken: () => rpc('team_design_new_token', { p_team: T.team.id }) }); token = shared.token; try { await navigator.clipboard.writeText(shared.link); toast('Enlace copiado · cualquiera con él ve el borrador guardado'); } catch { prompt('Copia este enlace:', shared.link); } });
+    $('#pf-discard').onclick = e => busy(e.currentTarget, async () => { if (!await confirmObi('¿Descartar el borrador y volver a lo publicado?')) return; clearTimeout(saveT); d = TP.normalize(D.t.design, D.t.color); await rpc('team_design_save', { p_team: T.team.id, p_design: d }); savedDesign = JSON.stringify(d); redraw(); pv(); status(); toast('Borrador descartado'); });
+    $('#pf-share').onclick = e => busy(e.currentTarget, async () => { const shared = await previewShareLink({ origin: location.origin, slug: T.team.slug, token, savedDesign, currentDesign: JSON.stringify(d), queued: !!saveT, saving, generateToken: () => rpc('team_design_new_token', { p_team: T.team.id }) }); token = shared.token; try { await navigator.clipboard.writeText(shared.link); toast('Enlace copiado · cualquiera con él ve el borrador guardado'); } catch { await inputObi('Copia este enlace:', {defaultValue:shared.link,title:'Enlace para compartir'}); } });
   }
 
   async function diffusion(){

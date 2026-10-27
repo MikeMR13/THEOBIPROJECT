@@ -1,3 +1,4 @@
+import { confirmObi, inputObi } from './obi-dialog.js';
 // Editor de Studio. Se carga únicamente al abrir un capítulo.
 import { blocksToEditor, editorToBlocks, pasteToEditor, renderBlock, warningsHTML, teaserHTML, figureHTML, makesBlock, FONTS, CW } from './blocks.js?v=2';
 import { askEditorialAnnouncement, saveEditorialRecord } from './editorial-announcements.js?v=1';
@@ -169,7 +170,7 @@ export function createEditor(deps) {
         : (can('schedule') ? '<input type="datetime-local" id="pubat" aria-label="Fecha de publicación">' + tzHint() + '<button class="btn ghost" id="sch">Programar</button>' : '') + (can('publish') ? '<button class="btn" id="pubnow">Publicar ahora</button>' : '');
       if (c.status !== 'published') $('#pub').insertAdjacentHTML('beforeend', '<p class="ed-note" style="margin:8px 0 0">Esta fecha programa solo la publicación de ESTE capítulo. Los demás conservan su calendario. Si el volumen o la obra está restringido a mecenas, este capítulo también seguirá bloqueado para el público hasta la liberación opcional que defina el equipo.</p>');
       const act = (btn, status, when) => busy(btn, async () => {
-        lint(); if (L.total && !confirm(`La revisión automática dejó ${L.total} aviso(s). ¿${status === 'published' ? 'Publicar' : 'Programar'} de todos modos?`)) return;
+        lint(); if (L.total && !await confirmObi(`La revisión automática dejó ${L.total} aviso(s). ¿${status === 'published' ? 'Publicar' : 'Programar'} de todos modos?`)) return;
         const selection=await askEditorialAnnouncement({esc,kind:'chapter',title:title()});
         if(!selection)return;
         if (!(await doSave(true, 'publish', status === 'published' ? 'Publicado' : 'Programado para ' + fmtTz(when)))) throw new Error('No se pudo guardar antes de publicar');
@@ -253,7 +254,7 @@ export function createEditor(deps) {
       chan.on('presence', { event: 'sync' }, drawPres)
         .on('broadcast', { event: 'saved' }, ({ payload: pl }) => { if (!pl || pl.by === meU?.id || !(pl.version > version) || !$('#ctx')) return;
           $('#ctx').innerHTML = `<div class="ed-ctx"><span><b>${esc(pl.name || 'Alguien')}</b> guardó la versión ${pl.version}.${dirty ? ' Tienes cambios sin guardar: si guardas ahora habrá conflicto. Siguen a salvo en tu copia local.' : ''}</span><button class="btn" id="reload2">Cargar la versión nueva</button></div>`;
-          $('#reload2').onclick = () => { if (!dirty || confirm('Tus cambios sin guardar quedarán en tu copia local para recuperarlos. ¿Cargar la versión nueva?')) editor(id); }; })
+          $('#reload2').onclick = async () => { if (!dirty || await confirmObi('Tus cambios sin guardar quedarán en tu copia local para recuperarlos. ¿Cargar la versión nueva?')) editor(id); }; })
         .subscribe(stt => { if (stt === 'SUBSCRIBED') chan.track({ name: myName, at: Date.now() }); });
     } catch {}
 
@@ -328,7 +329,7 @@ export function createEditor(deps) {
       else if (d.device) { UI.device = d.device; views(); preview(); }
       else if (d.fix) { fix(d.fix); toast('Revisión aplicada'); }
       else if (d.hv) busy(el, async () => { viewing = await getRev(d.hv); if (UI.view === 'edit') { UI.view = 'split'; views(); } preview(); $('#ctx').innerHTML = `<div class="ed-ctx"><span>La vista previa muestra la versión ${viewing.version || ''} del ${fmtTz(viewing.created_at, { dateStyle: 'medium', timeStyle: 'short' })}. El editor sigue con el texto actual.</span><button class="btn" id="vrest">Restaurar esta versión</button><button class="btn ghost" id="vback">Volver al texto actual</button></div>`; $('#vrest').onclick = () => busy($('#vrest'), () => restore(viewing)); $('#vback').onclick = () => { viewing = null; $('#ctx').innerHTML = ''; preview(); }; });
-      else if (d.hr) busy(el, async () => { if (!confirm('¿Reemplazar el texto actual por esta versión? El texto actual queda guardado en el historial.')) return; if (dirty) await doSave(true); await restore(await getRev(d.hr)); });
+      else if (d.hr) busy(el, async () => { if (!await confirmObi('¿Reemplazar el texto actual por esta versión? El texto actual queda guardado en el historial.')) return; if (dirty) await doSave(true); await restore(await getRev(d.hr)); });
       else if (d.go != null) { if (!findText(d.go)) toast('No encontré ese fragmento; quizá ya se corrigió'); }
       else if (d.apply) busy(el, async () => { const r = reps.find(x => String(x.id) === d.apply); const n = textNodes().find(x => x.data.includes(r.quote)); if (!n) return toast('No encontré el fragmento en el texto'); n.data = n.data.replace(r.quote, r.fix); changed(); const { error } = await sb.from('reports').update({ status: 'fixed' }).eq('id', r.id); if (error) throw error; reps.splice(reps.indexOf(r), 1); drawComs(); toast('Corrección aplicada · errata cerrada'); });
       else if (d.dismiss) busy(el, async () => { const { error } = await sb.from('reports').update({ status: 'dismissed' }).eq('id', d.dismiss); if (error) throw error; reps.splice(reps.findIndex(x => String(x.id) === d.dismiss), 1); drawComs(); });

@@ -1,3 +1,4 @@
+import { confirmObi, inputObi } from './obi-dialog.js';
 import {updateClientSeo} from './seo.js?v=1';
 import {shareMenuPosition} from './share-placement.js?v=1';
 // Menú unificado para enlaces públicos; no altera el sistema de citas ni los carnets.
@@ -217,6 +218,8 @@ export function installPublicShare() {
     document.addEventListener('click', async e => {
       const btn = e.target.closest('[data-obi-share]');
       if (!btn) {
+        // Los clics dentro de un diálogo Obi no deben cerrar el menú de compartir.
+        if (e.target.closest('.obi-dialog')) return;
         const insidePanel=floatingPanel?.contains(e.target);
         if (!e.target.closest('.obi-share') && !insidePanel)
           document.querySelectorAll('.obi-share[open]').forEach(x => { x.open = false; });
@@ -236,12 +239,12 @@ export function installPublicShare() {
         await navigator.clipboard.writeText(url);
         say('Enlace copiado');
       } catch {
-        window.prompt('Copia el enlace:', url);
+        void inputObi('Copia el enlace:', {title:'Compartir enlace',defaultValue:url});
         say('Enlace listo para copiar');
       }
     });
     document.addEventListener('keydown',e=>{
-      if(e.key!=='Escape'||!floatingOwner)return;
+      if(e.key!=='Escape'||!floatingOwner||document.querySelector('dialog.obi-dialog[open]'))return;
       const summary=floatingOwner.querySelector('summary');
       floatingOwner.open=false;
       hideFloatingMenu();

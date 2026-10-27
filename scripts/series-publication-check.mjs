@@ -43,12 +43,12 @@ fields['#wk-sp-volume'].value='v1';
 const root={querySelector:k=>fields[k]};
 const calls=[];
 let confirmed=true;
-globalThis.confirm=()=>confirmed;
+// El diálogo de El Obi se verifica con una respuesta simulada en esta prueba sin DOM.
 const bind=can=>bindSeriesPublication({
   app:{querySelector:k=>k==='#wk-series-publication'?root:null},
   sb:{rpc:async(name,args)=>{calls.push({name,args});return {error:null};}},
   series,can,fromLocal:x=>new Date(x).toISOString(),
-  fmtTz:x=>x,busy:async(_,fn)=>fn(),toast:()=>{},refresh:()=>{}
+  fmtTz:x=>x,busy:async(_,fn)=>fn(),toast:()=>{},refresh:()=>{},confirmDialog:async()=>confirmed
 });
 bind(()=>false);
 assert.equal(fields['#wk-sp-save'].onclick,undefined);

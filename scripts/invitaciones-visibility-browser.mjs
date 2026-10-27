@@ -78,7 +78,8 @@ const server=createServer((req,res)=>{
   const path=(req.url||'').split('?')[0];
   res.setHeader('Cache-Control','no-store');
   if(path==='/'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});res.end(html);return;}
-  const files={'/styles.css':'src/styles.css','/admin-invitations.js':'src/admin-invitations.js'};
+  const files={'/styles.css':'src/styles.css','/admin-invitations.js':'src/admin-invitations.js',
+    '/obi-dialog.js':'src/obi-dialog.js'};
   if(!files[path]){res.writeHead(404);res.end('No disponible');return;}
   res.writeHead(200,{'Content-Type':path.endsWith('.css')?'text/css':'text/javascript'});
   res.end(readFileSync(files[path]));
