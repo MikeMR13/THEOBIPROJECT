@@ -10,6 +10,7 @@ import { spawn, execFileSync } from 'node:child_process';
 const root = process.cwd();
 const whitelist = new Map([
  ['/studio.js','src/studio.js'],
+ ['/obi-dialog.js','src/obi-dialog.js'],
  ['/studio-team-permissions.js','src/studio-team-permissions.js'],
  ['/studio-diffusion.js','src/studio-diffusion.js'],
  ['/diffusion-panel.js','src/diffusion-panel.js'],
