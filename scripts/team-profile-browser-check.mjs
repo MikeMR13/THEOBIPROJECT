@@ -65,7 +65,7 @@ const checks=[
  "const q=document.getElementById('case-result');q.dataset.qaStatus=errors.length?'fail':'pass';q.textContent=errors.join('; ')||'OK';"
 ].join('\n');
 const sample='<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+ 
-  '*{box-sizing:border-box}body{margin:0;background:#0d0c0a}main{max-width:1920px;margin:0 auto;padding:40px clamp(16px,4vw,56px) 80px}'+
+  '*{box-sizing:border-box}html,body{overflow-x:clip}body{margin:0;background:#0d0c0a}main{max-width:1920px;margin:0 auto;padding:40px clamp(16px,4vw,56px) 80px}'+
   '.tp2-page{position:relative;width:100vw;margin:-40px 0 -80px calc(50% - 50vw)}'+
   '.foot{border-top:1px solid #2f2a20;padding:22px 16px 96px;color:#a89f8a}'+
   '</style></head><body><main id="app"><div class="tp2-page">'+
