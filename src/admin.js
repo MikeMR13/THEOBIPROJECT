@@ -296,7 +296,25 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   }
 
   async function equipos(epoch){
-    const [{ data: teams }, users] = await Promise.all([sb.from('teams').select('id,slug,name,color,status,official_verified').order('name'), rpc('admin_users', { p_q: '', p_role: 'publicador' })]);
+    const allPublishers=async()=>{
+      const all=[],size=100;let offset=0;
+      while(true){
+        const {data,error}=await sb.rpc('admin_users_page',{
+          p_q:'',p_role:'publicador',p_offset:offset,p_limit:size
+        });
+        if(error)throw error;
+        if(epoch!==paneEpoch)return [];
+        all.push(...(data||[]));
+        if((data||[]).length<size)break;
+        offset+=size;
+      }
+      return all;
+    };
+    const [{ data: teams,error:teamsError }, users] = await Promise.all([
+      sb.from('teams').select('id,slug,name,color,status,official_verified').order('name'),
+      allPublishers()
+    ]);
+    if(teamsError)throw teamsError;
     if(epoch!==paneEpoch)return;
     view().innerHTML = `<div class="bb-box"><h3>Nuevo equipo traductor</h3><div class="bb-row"><label>Nombre<input id="tn" placeholder="Kaori Translations"></label><label>Identificador<input id="ts" placeholder="kaori"></label><label style="flex:0 0 120px">Color<input id="tc" type="color" value="#f2c230" style="height:44px;padding:4px"></label><button class="btn" id="tcreate">Crear equipo</button></div></div>
       ${(teams || []).map(t => { const mem = users.filter(u => u.teams.some(x => x.id === t.id)); return `<div class="bb-box" style="border-left:6px solid ${esc(t.color || '#f2c230')}"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(t.name)} <span class="mono">/${esc(t.slug)}</span></h3><span class="mono">${mem.length} publicador(es) · ${t.official_verified ? "✓ Verificado" : "Sin verificar"}</span></div>
@@ -527,9 +545,31 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   }
 
   async function bitacora(epoch){
-    const rows = await rpc('admin_audit', { p_limit: 200 });
-    if(epoch!==paneEpoch)return;
-    view().innerHTML = `<table class="bb-tbl"><thead><tr><th>Fecha</th><th>Quién</th><th>Acción</th><th>Sobre</th></tr></thead><tbody>${rows.map(r => `<tr><td class="mono">${when(r.at)}</td><td>${esc(r.actor || '—')}</td><td>${esc(r.action.replace(/_/g, ' '))}</td><td class="mono">${esc(r.target_type)} ${esc((r.target_id || '').slice(0, 8))}</td></tr>`).join('') || '<tr><td colspan="4" class="mono">Sin movimientos todavía.</td></tr>'}</tbody></table>`;
+    const pageSize=50;let page=0,request=0;
+    const root=view();root.innerHTML='<h2>Bitácora administrativa</h2><div id="bb-audit-result" aria-live="polite"></div>';
+    const target=root.querySelector('#bb-audit-result');
+    const draw=async()=>{
+      const id=++request;
+      target.innerHTML='<p class="mono">Consultando movimientos…</p>';
+      const {data,error}=await sb.rpc('admin_audit_page',{p_offset:page*pageSize,p_limit:pageSize+1});
+      if(id!==request||epoch!==paneEpoch||!target.isConnected)return;
+      if(error)throw error;
+      const rows=Array.isArray(data)?data:[],next=rows.length>pageSize,items=rows.slice(0,pageSize);
+      target.innerHTML=`<div style="max-width:100%;overflow-x:auto"><table class="bb-tbl">
+       <thead><tr><th>Fecha</th><th>Quién</th><th>Acción</th><th>Sobre</th></tr></thead>
+       <tbody>${items.map(r=>`<tr><td class="mono">${when(r.at)}</td><td>${esc(r.actor||'—')}</td>
+         <td>${esc((r.action||'').replace(/_/g,' '))}</td>
+         <td class="mono">${esc(r.target_type)} ${esc((r.target_id||'').slice(0,8))}</td></tr>`).join('')||'<tr><td colspan="4">Sin movimientos todavía.</td></tr>'}
+       </tbody></table></div>
+       <div class="bb-row" style="justify-content:space-between;align-items:center">
+         <button type="button" class="bb-mini" data-back ${page===0?'disabled':''}>Anterior</button>
+         <span role="status" class="mono">Página ${page+1}</span>
+         <button type="button" class="bb-mini" data-forward ${next?'':'disabled'}>Siguiente</button>
+       </div>`;
+      target.querySelector('[data-back]').onclick=()=>{page--;draw().catch(e=>toast(msg(e)));};
+      target.querySelector('[data-forward]').onclick=()=>{page++;draw().catch(e=>toast(msg(e)));};
+    };
+    await draw();
   }
 
   return { render };
