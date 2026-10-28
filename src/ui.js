@@ -817,21 +817,35 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const cc = (s, sub, tag) => `<a class="ob-cc" href="/serie/${s.slug}">${cover(s, tag)}<b>${esc(s.title)}</b><small>${sub}</small>${creditsHTML(s, { esc, media, mode: 'carousel' })}</a>`;
     const arrows = id => `<span class="ob-arr"><button type="button" data-cs="${id}" data-d="-1" aria-controls="${id}" aria-label="Anteriores">‹</button><button type="button" data-cs="${id}" data-d="1" aria-controls="${id}" aria-label="Siguientes">›</button></span>`;
     const head = (k, t, right = '') => `<div class="ob-st"><span class="k">${k}</span><h2>${t}</h2>${right}</div>`;
+    // La ruta sigue usando chapter_num interno; el carrusel muestra el número editorial.
+    // Hasta tener el encabezado publicado, ofrecer una etiqueta neutra sin exponer IDs.
+    const continueTitles = new Map();
+    const continueKey = p => String(p.series_id) + ':' + String(p.chapter_num);
+    const continueLabel = p => {
+      const chapter = continueTitles.get(continueKey(p));
+      if (!chapter) return {badge:'LEYENDO',location:'Retomar lectura',spoken:'retomar lectura'};
+      const shown = formatChapterIndex({title:chapter.title,sectionType:chapter.section_type});
+      if (shown.label === 'Capítulo' && shown.number)
+        return {badge:'CAP. ' + shown.number,location:'Sigue en el cap. ' + shown.number,spoken:'capítulo ' + shown.number};
+      const special = shown.label === 'Sección' ? 'SECCIÓN' : shown.label.toLocaleUpperCase('es-MX');
+      return {badge:special,location:shown.label === 'Sección' ? 'Retomar lectura' : 'Sigue en ' + shown.label.toLocaleLowerCase('es-MX'),spoken:shown.label.toLocaleLowerCase('es-MX')};
+    };
     const continueHTML = rows => {
       if (!rows.length) return '';
       const cards = rows.map(p => {
         const s = byId[p.series_id];
         const pct = Math.max(0, Math.min(100, Math.round((Number(p.pct) || 0) * 100)));
+        const readingLabel = continueLabel(p);
         // La miniatura puede llevar un recorte incorporado: utilizar la portada original.
         const coverPath = s.cover_path || s.cover_thumb_path;
         const coverMarkup = coverPath
           ? `<img src="${esc(media(coverPath))}" alt="" loading="lazy" decoding="async">`
           : `<span class="ob-continue-fallback">${esc(s.short || s.title)}</span>`;
-        return `<a class="ob-cc ob-continue-card" href="/leer/${encodeURIComponent(s.slug)}/${encodeURIComponent(p.chapter_num)}" aria-label="${esc('Continuar ' + s.title + ' en el capítulo ' + p.chapter_num)}">
-          <span class="ob-continue-cover">${coverMarkup}<span class="ob-continue-chapter">CAP. ${esc(p.chapter_num)}</span></span>
+        return `<a class="ob-cc ob-continue-card" href="/leer/${encodeURIComponent(s.slug)}/${encodeURIComponent(p.chapter_num)}" aria-label="${esc('Continuar ' + s.title + ' · ' + readingLabel.spoken)}">
+          <span class="ob-continue-cover">${coverMarkup}<span class="ob-continue-chapter">${esc(readingLabel.badge)}</span></span>
           <span class="ob-continue-info">
             <strong class="ob-continue-title" title="${esc(s.title)}">${esc(s.title)}</strong>
-            <span class="ob-continue-location">Sigue en el cap. ${esc(p.chapter_num)}</span>
+            <span class="ob-continue-location">${esc(readingLabel.location)}</span>
             <span class="ob-continue-meta"><span>${pct}% del capítulo</span><span>${esc(ago(p.updated_at))}</span></span>
             <span class="ob-continue-progress" role="progressbar" aria-label="Progreso del capítulo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></span>
           </span>
@@ -908,6 +922,29 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       });
     };
     bindContinueKeyboard(myContinueSlot);
+    const hydrateContinueTitles = async rows => {
+      const unknown = (rows || []).filter(p => !continueTitles.has(continueKey(p)));
+      if (!unknown.length) return;
+      // Evitar consultas duplicadas mientras llegan el progreso local y el remoto.
+      unknown.forEach(p => continueTitles.set(continueKey(p), null));
+      try {
+        const seriesIds = [...new Set(unknown.map(p => p.series_id))];
+        const nums = [...new Set(unknown.map(p => p.chapter_num))];
+        const { data, error } = await sb.from('chapters')
+          .select('series_id,num,title,section_type')
+          .in('series_id', seriesIds).in('num', nums)
+          .eq('status','published').is('deleted_at',null);
+        if (error) return;
+        (data || []).forEach(ch => continueTitles.set(String(ch.series_id)+':'+String(ch.num),ch));
+      } catch { return; }
+      if (location.pathname !== '/' || !myContinueSlot?.isConnected || app.querySelector('#ob-continue-slot') !== myContinueSlot) return;
+      const shownRows = Object.values(prog).sort((a,b) => new Date(b.updated_at)-new Date(a.updated_at))
+        .filter(p => byId[p.series_id]).slice(0,6);
+      myContinueSlot.innerHTML = continueHTML(shownRows);
+      bindCars(myContinueSlot);
+      bindContinueKeyboard(myContinueSlot);
+    };
+    void hydrateContinueTitles(cont);
     if (progressRequest) progressRequest.then(remote => {
       if (!remote || !myContinueSlot?.isConnected || app.querySelector('#ob-continue-slot') !== myContinueSlot || location.pathname !== '/') return;
       Object.assign(prog, remote);
@@ -917,6 +954,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       myContinueSlot.innerHTML = continueHTML(nextCont);
       bindCars(myContinueSlot);
       bindContinueKeyboard(myContinueSlot);
+      void hydrateContinueTitles(nextCont);
     });
 
     // Mantener navegación horizontal por teclado además de flechas y gesto táctil.
