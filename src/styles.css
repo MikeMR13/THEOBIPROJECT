@@ -725,3 +725,24 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
  main:has(>.ob-page){padding-bottom:28px}
  .ob-page>.ob-sec:last-child{padding-bottom:20px}
 }
+
+
+/* Fase 1: lectura prioritaria y operaciones secundarias en móviles. */
+@media(max-width:600px){
+ .ui-series-page .ui-series-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px!important;align-items:stretch}
+ .ui-series-page .ui-series-actions>.btn,
+ .ui-series-page .ui-series-actions>.obi-share,
+ .ui-series-page .ui-series-actions>button{box-sizing:border-box;min-width:0;max-width:100%;min-height:44px;justify-content:center;text-align:center;overflow-wrap:break-word}
+ .ui-series-page .ui-series-actions>.btn:first-child{grid-column:1/-1;background:var(--gold);color:#14110d;border-color:var(--gold);font-weight:700}
+ .ui-series-page .ui-v-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:stretch}
+ .ui-series-page .ui-v-actions>.btn,
+ .ui-series-page .ui-v-actions>.ui-read-volume,
+ .ui-series-page .ui-v-actions>button{box-sizing:border-box;min-width:0;max-width:100%;min-height:44px;margin:0;justify-content:center;text-align:center;white-space:normal;overflow-wrap:break-word}
+ .ui-series-page .ui-v-actions>.btn:first-child{grid-column:1/-1;background:var(--gold);color:#14110d;border-color:var(--gold);font-weight:700}
+ .ui-series-page .ui-v-actions>.ui-v-first-chapter{grid-column:1/-1;background:#21190f;color:#f1cc76}
+}
+@media(max-width:370px){
+ .ui-series-page .ui-series-actions{grid-template-columns:minmax(0,1fr)}
+ .ui-series-page .ui-v-actions{grid-template-columns:minmax(0,1fr)}
+ .ui-series-page .ui-v-actions>*{grid-column:1}
+}
