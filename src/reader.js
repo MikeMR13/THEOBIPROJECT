@@ -67,16 +67,25 @@ export function createReader(ctx){
   // ahora los tres van juntos filtrando por el slug, y la última copia queda guardada para abrir al instante la próxima vez.
   const META_KEY = slug => 'obi-meta-' + slug;
   const CH_COLS = 'id,num,vol,title,section_type,volume_id,content_warnings,teaser,teaser_on,updated_at';
+  // Una precarga de enlace y la apertura pueden solicitar la misma ficha simultáneamente.
+  // Compartir únicamente solicitudes en curso: RLS y revisiones se revalidan en el siguiente acceso.
+  const metaFlights = new Map();
   function fetchMeta(slug){
-    return Promise.all([
+    const inflight = metaFlights.get(slug);
+    if (inflight) return inflight;
+    const request = Promise.all([
       sb.from('series').select('id,slug,title,team_id,teams(name,slug,status,avatar_path,settings,reader_defaults)').eq('slug', slug).maybeSingle(),
       sb.from('chapters').select(CH_COLS + ',series!inner(slug)').eq('series.slug', slug).is('deleted_at', null).order('num'),
       sb.from('volumes').select('id,num,title,epub_fonts,series!inner(slug)').eq('series.slug', slug).is('deleted_at', null).order('num')
-    ]).then(async ([a, b, c]) => { const e = a.error || b.error || c.error; if (e) throw e; if (!a.data) return null;
+    ]).then(([a, b, c]) => { const e = a.error || b.error || c.error; if (e) throw e; if (!a.data) return null;
       const strip = l => (l || []).map(({ series, ...x }) => x);
       const m = { series: a.data, chapters: strip(b.data), vols: strip(c.data), at: Date.now() };
       try { const saved = { ...m, series: { ...m.series } }; delete saved.series.publicCredits; const j = JSON.stringify(saved); if (j.length < 400000) localStorage.setItem(META_KEY(slug), j); } catch {}
       return m; });
+    metaFlights.set(slug, request);
+    // finally crea otra promesa: capturar el fallo también para evitar rechazos sin observador.
+    request.finally(() => { if (metaFlights.get(slug) === request) metaFlights.delete(slug); }).catch(() => {});
+    return request;
   }
   const cachedMeta = slug => { try { return JSON.parse(localStorage.getItem(META_KEY(slug))); } catch { return null; } };
   function setSeries(m, offGl){
@@ -168,7 +177,18 @@ export function createReader(ctx){
     caches.open(BC).then(async c => { const ks = await c.keys(); await Promise.all(ks.filter(k => k.url.includes('/b/' + ch.id + '?')).map(k => c.delete(k)));
       await c.put(bKey(ch), new Response(JSON.stringify(b), { headers: { 'content-type': 'application/json' } }));
       if (ks.length > BC_MAX) await Promise.all(ks.slice(0, ks.length - BC_MAX).map(k => c.delete(k))); }).catch(() => {}); }
+  // Un mismo capítulo puede ser solicitado por precarga, navegación y lectura continua a la vez.
+  // La llave incluye revisión y serie para que nunca se reutilice una descarga desactualizada.
   async function body(ch){
+    const key = [S.series?.id, ch.id, ch.updated_at || ''].join(':');
+    S.bodyFlights ||= new Map();
+    if (S.bodyFlights.has(key)) return S.bodyFlights.get(key);
+    const request = loadBody(ch);
+    S.bodyFlights.set(key, request);
+    try { return await request; }
+    finally { if (S.bodyFlights.get(key) === request) S.bodyFlights.delete(key); }
+  }
+  async function loadBody(ch){
     const rev = ch.updated_at || null, seriesId = S.series?.id;
     if (S.bodies.has(ch.id) && S.bodyVersions.get(ch.id) === rev) return S.bodies.get(ch.id);
     S.bodies.delete(ch.id); S.bodyVersions.delete(ch.id);
@@ -182,15 +202,24 @@ export function createReader(ctx){
     if (!navigator.onLine) {
       return remember(await offlineBody(ch) || await cacheGet(ch));
     }
-    const hit = await cacheGet(ch);
-    if (hit) return remember(hit);
-    const ek = (S.series?.slug || '') + '/' + ch.num;
-    if (early.has(ek)) {
-      const d = await early.get(ek); early.delete(ek);
-      if (d?.id === ch.id && d.body) {
-        const saved = remember(d.body); if (saved) cachePut(ch, saved);
+    const ek = (S.series?.slug || '') + '/' + ch.num, warm = early.get(ek);
+    if (warm) {
+      // Cache Storage puede tardar más que la descarga iniciada con hover/touch.
+      // Elegir la primera respuesta válida evita esperar al disco o repetir una solicitud.
+      const first = await Promise.any([
+        cacheGet(ch).then(b => b ? { body: b, disk: true } : Promise.reject(null)),
+        warm.then(d => d?.id === ch.id && d.body
+          ? { body: d.body, disk: false } : Promise.reject(null))
+      ]).catch(() => null);
+      early.delete(ek);
+      if (first) {
+        const saved = remember(first.body);
+        if (saved && !first.disk) cachePut(ch, saved);
         return saved;
       }
+    } else {
+      const hit = await cacheGet(ch);
+      if (hit) return remember(hit);
     }
     let b = null;
     try { const { data, error } = await sb.from('chapters').select('body').eq('id', ch.id).maybeSingle(); if (error) throw error; b = data?.body ?? null; }
@@ -357,7 +386,7 @@ export function createReader(ctx){
   // al pasar el cursor (o tocar) un enlace al lector: se piden ficha y texto antes del clic
   async function warm(slug, num){ if (!navigator.onLine || !slug || !num) return;
     const m = S.series?.slug === slug ? { chapters: S.chapters } : cachedMeta(slug), ch = m?.chapters?.find(c => c.num === num);
-    if (ch) { if (S.bodies.has(ch.id) || await cacheGet(ch)) return; const d = await bodyBySlug(slug, num); if (d?.body && d.id === ch.id) cachePut(ch, d.body); return; }
+    if (ch) { if (S.bodies.has(ch.id) && S.bodyVersions.get(ch.id) === (ch.updated_at || null) || await cacheGet(ch)) return; const d = await bodyBySlug(slug, num); if (d?.body && d.id === ch.id) cachePut(ch, d.body); return; }
     bodyBySlug(slug, num); fetchMeta(slug).catch(() => {}); }
   async function open(slug, num){
     const openingUser = getUser()?.id || null, openingId = (S.openId || 0) + 1;
