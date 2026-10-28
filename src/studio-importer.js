@@ -465,13 +465,48 @@ export function createImporter(deps) {
           const r = await sb.from('volumes').insert({ ...ficha, series_id: w.id, num: D.vnum, status: 'draft', epub_fonts: fonts, cover_path: cov }).select().single();
           if (r.error) throw r.error; vol = createdVol = r.data;
         }
-        const { data: existing, error: exErr } = await sb.from('chapters').select('id,num,vol,volume_id,deleted_at').eq('series_id', w.id); if (exErr) throw exErr;
-        if (D.mode === 'replace' && !createdVol) oldIds = (existing || []).filter(c => !c.deleted_at && (c.volume_id === vol.id || c.vol === D.vnum)).map(c => c.id);
-        let num = Math.max(0, ...(existing || []).map(c => +c.num || 0));
-        const rows = inc.map((c, i) => ({ series_id: w.id, volume_id: vol.id, vol: D.vnum, num: ++num, sort_order: i, title: (c.title || 'Sin título').slice(0, 300), section_type: c.type, status: 'draft',
-          body: c.blocks.map(b => b.type === 'image' ? { ...b, url: map[b.url] ? PUB + map[b.url] : b.url } : b).filter(b => b.type !== 'image' || /^https?:/.test(b.url)) }));
-        for (let i = 0; i < rows.length; i += 10) { st(`Guardando capítulos ${Math.min(i + 10, rows.length)}/${rows.length}…`); const r = await sb.from('chapters').insert(rows.slice(i, i + 10)).select('id'); if (r.error) throw r.error; inserted.push(...r.data.map(x => x.id)); }
-        if (oldIds.length) { const r = await sb.from('chapters').update({ deleted_at: new Date().toISOString() }).in('id', oldIds); if (r.error) throw r.error; oldGone = true; }
+        const {data:existing,error:exErr}=await sb.from('chapters')
+          .select('id,num,vol,volume_id,deleted_at').eq('series_id',w.id);
+        if(exErr)throw exErr;
+        const replacing=D.mode==='replace'&&!createdVol;
+        const plan=replacing?planVolumeReplacement(existing,vol.id,D.vnum,inc.length):null;
+        const maxNum=Math.max(0,...(existing||[]).map(c=>+c.num||0));
+        const rows=inc.map((c,i)=>({
+          series_id:w.id,volume_id:vol.id,vol:D.vnum,
+          num:replacing?plan.update[i].num:maxNum+i+1,sort_order:i,
+          title:(c.title||'Sin título').slice(0,300),section_type:c.type,status:'draft',
+          body:c.blocks.map(b=>b.type==='image'?{...b,url:map[b.url]?PUB+map[b.url]:b.url}:b)
+        }));
+        if(replacing){
+          const ids=[...plan.update,...plan.remove].map(x=>x.id);
+          const {data:originals,error:backupError}=await sb.from('chapters')
+            .select('id,num,vol,volume_id,title,section_type,status,sort_order,body,deleted_at').in('id',ids);
+          if(backupError||originals?.length!==ids.length)
+            throw backupError||new Error('No se pudo respaldar el contenido anterior');
+          const originalById=new Map(originals.map(x=>[x.id,x]));
+          for(let i=0;i<rows.length;i++){
+            const old=originalById.get(plan.update[i].id);
+            updatedRows.push(old);
+            const {error}=await sb.from('chapters').update({
+              title:rows[i].title,section_type:rows[i].section_type,
+              body:rows[i].body,sort_order:i,status:'draft'
+            }).eq('id',old.id);
+            if(error)throw error;
+          }
+          for(const item of plan.remove){
+            const old=originalById.get(item.id);removedRows.push(old);
+            const {error}=await sb.from('chapters').update({deleted_at:new Date().toISOString()}).eq('id',old.id);
+            if(error)throw error;
+          }
+        }else{
+          for(let i=0;i<rows.length;i+=10){
+            st(`Guardando capítulos ${Math.min(i+10,rows.length)}/${rows.length}…`);
+            const batch=rows.slice(i,i+10),r=await sb.from('chapters').insert(batch).select('id');
+            if(r.error)throw r.error;
+            if(r.data?.length!==batch.length)throw new Error('No se guardaron todos los capítulos');
+            inserted.push(...r.data.map(x=>x.id));
+          }
+        }
         if (!createdVol) {
           const { data: vr } = await sb.from('volumes').select('*').eq('id', vol.id).single();
           const patch = {}; if (fonts.length) patch.epub_fonts = fonts; if (cov) patch.cover_path = cov;
@@ -483,20 +518,29 @@ export function createImporter(deps) {
           try { await saveEditorialRecord(sb,w.id,notice,{kind:'volume',id:vol.id,startsAt:D.pub==='at' ? fromLocal(D.at) : new Date().toISOString()}); }
           catch (e) { toast('Volumen importado y publicado, pero el anuncio no se guardó: '+(e.message||e)); }
         }
-        await sb.from('import_jobs').update({ status: 'done', media_paths: uploaded, result: { series: w.id, volume: vol.id, chapters: inserted.length, cover: cov } }).eq('id', job.id);
+        const {error:finishError}=await sb.from('import_jobs').update({status:'done',media_paths:uploaded,
+          result:{series:w.id,volume:vol.id,chapters:rows.length,cover:cov}}).eq('id',job.id);
+        // Un fallo del historial no puede deshacer capítulos que ya se publicaron.
+        if(finishError)toast('Contenido guardado; no se pudo actualizar el historial de importación');
         P.urls.forEach(u => u && URL.revokeObjectURL(u));
-        toast(`Importadas ${inserted.length} secciones${D.pub === 'now' ? ' y publicadas' : D.pub === 'at' ? ' · programadas para ' + fmtTz(fromLocal(D.at)) : ' como borrador'} · ${Object.keys(map).length} imágenes en Multimedia`);
+        toast(`Importadas ${rows.length} secciones${D.pub === 'now' ? ' y publicadas' : D.pub === 'at' ? ' · programadas para ' + fmtTz(fromLocal(D.at)) : ' como borrador'} · ${Object.keys(map).length} imágenes en Multimedia`);
         go('/estudio/obra/' + w.slug);
       } catch (er) {
-        if (inserted.length) await sb.from('chapters').delete().in('id', inserted);
-        if (oldGone) await sb.from('chapters').update({ deleted_at: null }).in('id', oldIds);
-        if (volBefore && vol) await sb.from('volumes').update(volBefore).eq('id', vol.id);
-        if (seriesCoverBefore !== undefined && !createdSeries) await sb.from('series').update({ cover_path: seriesCoverBefore }).eq('id', w.id);
-        if (createdVol) await sb.from('volumes').delete().eq('id', createdVol.id);
-        if (restoredVol) await sb.from('volumes').update({ deleted_at: new Date().toISOString() }).eq('id', restoredVol);
-        if (createdSeries) await sb.from('series').delete().eq('id', createdSeries.id);
-        if (uploaded.length) await sb.storage.from('obi-media').remove(uploaded);
-        if (job) await sb.from('import_jobs').update({ status: 'failed', result: { error: er.message } }).eq('id', job.id);
+        // Recuperar todas las filas modificadas. Reportar los fallos de rollback.
+        const rollbackErrors=[];
+        const undo=async fn=>{try{await fn()}catch(e){rollbackErrors.push(e?.message||String(e))}};
+        if(inserted.length)await undo(async()=>{const r=await sb.from('chapters').delete().in('id',inserted);if(r.error)throw r.error});
+        for(const old of [...updatedRows,...removedRows].reverse())
+          await undo(async()=>{const {id,...prior}=old;const r=await sb.from('chapters').update(prior).eq('id',id);if(r.error)throw r.error});
+        if(volBefore&&vol)await undo(async()=>{const r=await sb.from('volumes').update(volBefore).eq('id',vol.id);if(r.error)throw r.error});
+        if(seriesCoverBefore!==undefined&&!createdSeries)await undo(async()=>{const r=await sb.from('series').update({cover_path:seriesCoverBefore}).eq('id',w.id);if(r.error)throw r.error});
+        if(createdVol)await undo(async()=>{const r=await sb.from('volumes').delete().eq('id',createdVol.id);if(r.error)throw r.error});
+        if(restoredVol)await undo(async()=>{const r=await sb.from('volumes').update({deleted_at:new Date().toISOString()}).eq('id',restoredVol);if(r.error)throw r.error});
+        if(createdSeries)await undo(async()=>{const r=await sb.from('series').delete().eq('id',createdSeries.id);if(r.error)throw r.error});
+        if(uploaded.length)await undo(async()=>{const r=await sb.storage.from('obi-media').remove(uploaded);if(r.error)throw r.error});
+        if(job)await undo(async()=>{const r=await sb.from('import_jobs').update({status:'failed',
+          result:{error:er.message,rollback_errors:rollbackErrors}}).eq('id',job.id);if(r.error)throw r.error});
+        if(rollbackErrors.length)er.message+=' · Fallos al revertir: '+rollbackErrors.join(' / ');
         console.error('Importación fallida', er);
         const why = [er.message, er.details, er.hint, er.code && 'código ' + er.code].filter(Boolean).join(' · ');
         st(''); throw new Error('Se deshizo la importación: ' + why);
