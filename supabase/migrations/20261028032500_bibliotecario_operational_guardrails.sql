@@ -147,3 +147,19 @@ $function$;
 
 revoke all on function public.admin_users_page(text,text,integer,integer) from public,anon;
 grant execute on function public.admin_users_page(text,text,integer,integer) to authenticated;
+
+-- Páginas de la Bitácora (mantener API admin_audit original para consumidores previos).
+create or replace function public.admin_audit_page(p_offset integer default 0,p_limit integer default 50)
+returns table(at timestamptz,actor text,action text,target_type text,target_id text,detail jsonb)
+language plpgsql stable security definer set search_path to ''
+as $function$
+begin
+  if not private.is_admin() then raise exception 'forbidden'; end if;
+  if p_offset<0 or p_limit<1 or p_limit>100 then raise exception 'Paginación inválida'; end if;
+  return query select a.created_at,p.username,a.action,a.target_type,a.target_id,a.detail
+  from public.moderation_audit a left join public.profiles p on p.id=a.actor
+  order by a.created_at desc,a.target_id desc limit p_limit offset p_offset;
+end
+$function$;
+revoke all on function public.admin_audit_page(integer,integer) from public,anon;
+grant execute on function public.admin_audit_page(integer,integer) to authenticated;
