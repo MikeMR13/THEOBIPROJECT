@@ -402,7 +402,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     let R, prog = {}; try { [R, prog] = await Promise.all([searchData(q, lim), progressMap().catch(() => ({}))]); } catch { return '<p class="sr-none">No se pudo buscar. Intenta de nuevo.</p>'; }
     const grp = (t, items) => items.length ? `<div class="sr-g"><span class="sr-h">${t}</span>${items.join('')}</div>` : '';
     const cv = x => `<span class="sr-cv" style="${x.cover_path ? `background-image:url('${esc(thumb(x))}')` : `background:${esc(color(x))}`}"></span>`;
-    const html = grp('Obras', R.works.map(x => { const p = prog[x.id]; return p ? `<a href="/leer/${x.slug}/${p.chapter_num}" title="Continuar donde te quedaste">${cv(x)}<span><b>${esc(x.title)}</b><small class="sr-cont">Continuar · cap. ${p.chapter_num}${p.pct > 0.02 && p.pct < 0.98 ? ' · ' + Math.round(p.pct * 100) + ' %' : ''}</small>${creditsHTML(x, { esc, media, mode: 'carousel' })}</span></a>` : `<a href="/serie/${x.slug}">${cv(x)}<span><b>${esc(x.title)}</b><small>${esc([x.author, x.teams?.name].filter(Boolean).join(' · '))}</small>${creditsHTML(x, { esc, media, mode: 'carousel' })}</span></a>`; }))
+    const html = grp('Obras', R.works.map(x => { const p = prog[x.id]; return p ? `<a href="/leer/${x.slug}/${p.chapter_num}" title="Continuar donde te quedaste">${cv(x)}<span><b>${esc(x.title)}</b><small class="sr-cont">Retomar lectura${p.pct > 0.02 && p.pct < 0.98 ? ' · ' + Math.round(p.pct * 100) + ' %' : ''}</small>${creditsHTML(x, { esc, media, mode: 'carousel' })}</span></a>` : `<a href="/serie/${x.slug}">${cv(x)}<span><b>${esc(x.title)}</b><small>${esc([x.author, x.teams?.name].filter(Boolean).join(' · '))}</small>${creditsHTML(x, { esc, media, mode: 'carousel' })}</span></a>`; }))
       + grp('Autores', R.authors.map(([a, c]) => `<a href="/catalogo?q=${encodeURIComponent(a)}"><span class="sr-ic">著</span><span><b>${esc(a)}</b><small>${c} ${c === 1 ? 'obra' : 'obras'}</small></span></a>`))
       + grp('Equipos', R.teams.map(t => `<a href="/equipo/${esc(t.slug)}"><span class="sr-ic">訳</span><span><b>${esc(t.name)}</b><small>Equipo traductor</small></span></a>`))
       + grp('Géneros y etiquetas', R.tags.map(t => `<a href="/catalogo?${t.t === 'g' ? 'g=' + encodeURIComponent(t.v) : 'q=' + encodeURIComponent(t.v)}"><span class="sr-ic">${t.t === 'g' ? '類' : '#'}</span><span><b>${esc(t.v)}</b><small>${t.t === 'g' ? 'Género' : 'Etiqueta'} · ${t.c} ${t.c === 1 ? 'obra' : 'obras'}</small></span></a>`))
@@ -449,8 +449,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
           <h2 id="gq-t">${esc(s.title)}</h2>${creditsHTML(s, { esc, media, mode: 'detail' })}${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
           <div class="ui-chips">${pill(s.translation_status)}${(s.genres || []).slice(0, 6).map(g => `<span class="ui-chip" style="cursor:default">${esc(g)}</span>`).join('')}${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</div>
           ${s.synopsis ? `<p class="syn">${esc(s.synopsis)}</p>` : '<p class="mono" style="margin:14px 0">Sin sinopsis todavía.</p>'}
-          <p class="mono" style="margin:0 0 16px">${s.chapters?.[0]?.count ?? 0} capítulos${lc ? ' · último: cap. ' + lc.num + ageTag(lc.publish_at) : ''}</p>
-          <div class="acts">${n ? `<a class="btn" href="/leer/${s.slug}/${n}">${p ? 'Continuar · cap. ' + n : 'Empezar a leer'}</a>` : ''}<button class="btn ghost" data-gqf>${following ? '✓ Siguiendo' : 'Seguir serie'}</button><a class="btn ghost" href="/serie/${s.slug}">Ver ficha completa</a></div>
+          <p class="mono" style="margin:0 0 16px">${genericSectionCount(s.chapters?.[0]?.count)}${lc ? ' · última actualización' + ageTag(lc.publish_at) : ''}</p>
+          <div class="acts">${n ? `<a class="btn" href="/leer/${s.slug}/${n}">${p ? 'Continuar lectura' : 'Leer desde el inicio'}</a>` : ''}<button class="btn ghost" data-gqf>${following ? '✓ Siguiendo' : 'Seguir serie'}</button><a class="btn ghost" href="/serie/${s.slug}">Ver ficha completa</a></div>
         </div></div>`;
       q.querySelector('.ui-qx').onclick = gqClose;
       q.querySelectorAll('.ui-qvc a').forEach(a => a.addEventListener('click', () => { q.hidden = true; document.body.style.overflow = ''; }));
@@ -1265,7 +1265,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       if (p) return ['Leyendo' + (p.pct > 0.02 && p.pct < 0.98 ? ' · ' + Math.round(p.pct * 100) + ' %' : ''), 'reading'];
       if (fol.has(s.id)) return ['Siguiendo', 'follow'];
       return null; };
-    const SORT = { popular: ['Más leídas', (a, b) => (b.views || 0) - (a.views || 0)], ranking: ['Ranking ' + rkLbl, (a, b) => (RK[a.id] ?? 1e9) - (RK[b.id] ?? 1e9) || (b.views || 0) - (a.views || 0)], recent: ['Actualizadas', (a, b) => new Date(last[b.id]?.publish_at || 0) - new Date(last[a.id]?.publish_at || 0)], az: ['Título A–Z', (a, b) => a.title.localeCompare(b.title, 'es')], chapters: ['Más capítulos', (a, b) => nCh(b) - nCh(a)] };
+    const SORT = { popular: ['Más leídas', (a, b) => (b.views || 0) - (a.views || 0)], ranking: ['Ranking ' + rkLbl, (a, b) => (RK[a.id] ?? 1e9) - (RK[b.id] ?? 1e9) || (b.views || 0) - (a.views || 0)], recent: ['Actualizadas', (a, b) => new Date(last[b.id]?.publish_at || 0) - new Date(last[a.id]?.publish_at || 0)], az: ['Título A–Z', (a, b) => a.title.localeCompare(b.title, 'es')], chapters: ['Más secciones', (a, b) => nCh(b) - nCh(a)] };
     const genres = [...new Set(all.flatMap(s => s.genres || []))].sort((a, b) => a.localeCompare(b, 'es'));
     const types = [...new Set(all.map(s => s.work_type || 'Novela ligera'))].sort();
     const origs = Object.keys(OR).filter(k => all.some(s => s.original_status === k));
