@@ -409,7 +409,9 @@ export function createReader(ctx){
     const annP = fetchAnnots([ch.id]);
     // Renderizar con la posición y las preferencias locales. Las respuestas remotas no bloquean el texto.
     const localPos = () => { try { return JSON.parse(localStorage.getItem(posKey(S.series.id))); } catch { return null; } };
-    const pos = localPos(), posP = fetchPos();
+    const local = localPos();
+    let readyPos = null;
+    const posP = fetchPos().then(p => { readyPos = p; return p; }, () => null);
     prefsP?.then(() => {
       // La lectura continua puede cambiar la URL sin cambiar esta sesión del lector.
       if (S.openId === openingId && sameReaderAccount(getUser()?.id, prefsUid) &&
@@ -417,6 +419,8 @@ export function createReader(ctx){
     }).catch(() => {});
     const b = await body(ch);
     if (!stillOpening()) return;
+    // Si el progreso remoto llegó durante la descarga del texto, restaurarlo de una vez.
+    const pos = readyPos || local;
     if (!b) { app.innerHTML = '<h1>Sin conexión</h1><p>Este capítulo no está descargado. <a href="/descargas">Ver mis descargas</a></p>'; return; }
     const p = effective(ch.volume_id);
     S.mounted = [ch]; S.active = ch; S.activeOwner = openingUser; S.annots = []; S.lastY = null; trackView(ch);
