@@ -21,6 +21,8 @@ jobs:
       - name: Validar TOML de Supabase
         run: python3 -c "import tomllib; tomllib.load(open('supabase/config.toml','rb'))"
       - run: npm run check && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run studio-fields-check && npm run integration-check
+      - name: Descargas sin conexión — Obras, Biblioteca, volúmenes y capítulos (sin backend)
+        run: node scripts/offline-buttons-check.mjs
       - name: Lector Fase 4 — lectura continua y TTS sin condiciones de carrera
         run: node scripts/reader-phase4-continuity-check.mjs
       - name: Lector Fase 4 — navegación rápida, latencia y acceso restringido (Chromium)
