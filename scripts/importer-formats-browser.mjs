@@ -66,7 +66,7 @@ const libraryFiles={
   '/__qa__/pdf.worker.mjs':'node_modules/pdfjs-dist/build/pdf.worker.mjs'
 };
 for(const p of Object.values(libraryFiles)) assert(existsSync(p),'No está instalada la dependencia '+p);
-const html='<!doctype html><html lang="es"><meta charset="utf-8"><p id="qa-result" data-status="running">Leyendo EPUB/DOCX/PDF…</p><script>setTimeout(()=>{const p=document.getElementById("qa-result");if(p.dataset.status==="running"){p.dataset.status="fail";p.textContent="No completó la decodificación en 40 segundos";}},40000)</script><script type="module" src="/__qa__/test.mjs"></script></html>';
+const html='<!doctype html><html lang="es"><meta charset="utf-8"><p id="qa-result" data-status="running">Leyendo EPUB/DOCX/PDF…</p><script>setTimeout(()=>{const p=document.getElementById("qa-result");if(p.dataset.status==="running"){p.dataset.status="fail";p.textContent="Sin resultado. Etapa: "+(window.__qaStage||"no iniciado");}},40000)</script><script type="module" src="/__qa__/test.mjs"></script></html>';
 const server=createServer((req,res)=>{
   const path=(req.url||'/').split('?')[0];res.setHeader('Cache-Control','no-store');
   if(fixtures[path]){res.setHeader('Content-Type','application/octet-stream');res.end(fixtures[path]);return;}
