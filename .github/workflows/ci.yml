@@ -94,6 +94,8 @@ jobs:
         run: node scripts/phase6-studio-accounts-check.mjs
       - name: Fase 6.4 Lector y predeterminados de equipos
         run: node scripts/phase6-reader-check.mjs
+      - name: Lector — estabilidad, caché, apertura y controles táctiles
+        run: node scripts/reader-improvements-check.mjs
       - name: Fase 6.5 regresión cruzada y sesiones concurrentes
         run: node scripts/phase6-regression-check.mjs
       - name: Estudio Fase 1 — geometría en seis anchuras
