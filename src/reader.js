@@ -5,6 +5,7 @@ import { cleanInline, renderBlock, warningsHTML, teaserHTML } from './blocks.js?
 import { attachPublicCredits, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
 import { readerPrefsKey, readReaderPrefs, readPendingReaderPrefs, stageReaderPrefs, acknowledgeReaderPrefs, sameReaderAccount, readingProgressKey, readingProgressPrefix, readerProgressKeys } from './reader-pref-cache.js?v=1';
 import { SECTION_LABELS } from './section-types.js?v=1';
+import { formatChapterIndex } from './chapter-title-display.js?v=2';
 import { adjacentChapter, mergeChapterMetadata } from './reader-navigation.js?v=1';
 const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true };
 const COLORS = { gold: '#f2c230', rose: '#f29bb0', sky: '#8cc3f2', mint: '#9fdcb0' };
@@ -277,10 +278,11 @@ export function createReader(ctx){
   }
   function chapterHTML(ch, blocks, p){
     const vol = volOf(ch); ensureFonts(vol);
-    const label = (SEC_LABEL[ch.section_type] || 'Cap.') + (ch.section_type === 'Capítulo' || !ch.section_type ? ' ' + ch.num : '');
+    const shown = formatChapterIndex({title:ch.title,sectionType:ch.section_type});
+    const label = shown.label + (shown.number ? ' ' + shown.number : '');
     return `<article class="rd-ch" lang="es" data-ch="${ch.id}" style="${vol ? fontVars(vol, p) : ''}">
       ${teamHTML()}
-      <header class="rd-head"><span class="mono">Volumen ${ch.vol} · ${esc(label)}</span><h2${(() => { const f = (blocks || []).find(b => (b.type || b.t) === 'heading')?.html?.match(/data-epub-family="(\d+)"/)?.[1]; return f ? ` style="font-family:var(--f${f})"` : ''; })()}>${esc(ch.title)}</h2></header>
+      <header class="rd-head"><span class="mono">Volumen ${ch.vol} · ${esc(label)}</span><h2${(() => { const f = (blocks || []).find(b => (b.type || b.t) === 'heading')?.html?.match(/data-epub-family="(\d+)"/)?.[1]; return f ? ` style="font-family:var(--f${f})"` : ''; })()}>${esc(shown.heading || (shown.number ? "" : ch.title))}</h2></header>
       ${warningsHTML(ch.content_warnings, p.cw)}
       <div class="rd-body">${(blocks || []).map((b, i) => block(b, i, p)).join('')}</div>
       ${ch.teaser_on && ch.teaser ? teaserHTML(ch.teaser, nextWhen()) : ''}</article>`;
