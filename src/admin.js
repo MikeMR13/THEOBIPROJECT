@@ -179,7 +179,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     catch (e) { if(epoch===paneEpoch && $('#bbv')) $('#bbv').innerHTML = `<p role="alert" style="color:#f59e7a">${esc(msg(e))}</p>`; }
   }
   const view = () => $('#bbv');
-  async function seo(){ await renderAdminSeo({sb,view,toast,onSaved:()=>{formDirty=false;}}); }
+  async function seo(epoch){ await renderAdminSeo({sb,view,toast,onSaved:()=>{if(epoch===paneEpoch)formDirty=false;}}); }
   async function difusion(epoch){
     const { renderAdminDiffusion } = await import('./admin-diffusion.js?v=5');
     if(epoch!==paneEpoch)return;
@@ -227,7 +227,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       }).join('')}</tbody></table></div>
       ${!allTotals.show ? '<p class="mono" style="font-size:12px">Aún no hay exposiciones medidas para este período.</p>' : ''}
     </div>`;
-    view().querySelectorAll('[data-days]').forEach(b=>b.onclick=()=>metricas(paneEpoch,Number(b.dataset.days)));
+    view().querySelectorAll('[data-days]').forEach(b=>b.onclick=()=>metricas(epoch,Number(b.dataset.days)));
   }
 
   async function resumen(epoch){
@@ -320,9 +320,9 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       ${(teams || []).map(t => { const mem = users.filter(u => u.teams.some(x => x.id === t.id)); const hasOwner=mem.some(u=>u.teams.some(x=>x.id===t.id&&x.role==='owner')); return `<div class="bb-box" style="border-left:6px solid ${esc(t.color || '#f2c230')}"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(t.name)} <span class="mono">/${esc(t.slug)}</span></h3><span class="mono">${mem.length} publicador(es) · ${t.official_verified ? "✓ Verificado" : "Sin verificar"}</span></div>
         <table class="bb-tbl"><tbody>${mem.map(u => { const r = u.teams.find(x => x.id === t.id).role; return `<tr><td><strong>${esc(u.username)}</strong> <span class="mono">${esc(u.email)}</span></td><td>${TROLE[r] || r}</td><td style="text-align:right"><button class="bb-mini red" data-rm="${t.id}|${u.id}|${esc(u.username)}" ${r === "owner" ? 'disabled title="La propiedad requiere transferencia"':''}>${r === "owner" ? "Propietario protegido" : "Quitar del equipo"}</button></td></tr>`; }).join('') || '<tr><td class="mono">Sin publicadores todavía.</td></tr>'}</tbody></table>
         <div class="bb-row"><label>Agregar publicador (correo o usuario)<input data-add="${t.id}" placeholder="correo@ejemplo.com"></label><label style="flex:0 0 180px">Rol en el equipo<select data-role="${t.id}">${Object.entries(TROLE).filter(([k])=>k!=='owner'||!hasOwner).map(([k, l]) => `<option value="${k}" ${k === (hasOwner ? 'editor':'owner') ? 'selected' : ''}>${l}</option>`).join('')}</select></label><button class="btn" data-go="${t.id}">Agregar</button></div></div>`; }).join('')}`;
-    $('#tcreate').onclick = async () => { if(!await confirmObi('¿Crear un equipo nuevo? Asigna después un Propietario mediante Invitaciones.'))return; try { await rpc('admin_create_team', { p_name: $('#tn').value, p_slug: $('#ts').value.trim().toLowerCase(), p_color: $('#tc').value }); toast('Equipo creado'); equipos(paneEpoch); } catch (e) { toast(msg(e)); } };
-    view().querySelectorAll('[data-go]').forEach(b => b.onclick = async () => { const id = b.dataset.go, who = view().querySelector(`[data-add="${id}"]`).value; if (!who.trim()) return toast('Escribe el correo o usuario'); const role=view().querySelector(`[data-role="${id}"]`).value; if(role==='owner'&&!await confirmObi('Esta persona será Propietaria de este equipo. ¿Continuar?'))return; try { await rpc('admin_add_publisher', { p_user: who, p_team: id, p_role: role }); toast('Ahora es Publicador del equipo'); equipos(paneEpoch); } catch (e) { toast(msg(e)); } });
-    view().querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { const [t, u, n] = b.dataset.rm.split('|'); if (!await confirmObi('¿Quitar a ' + n + ' del equipo? Si no pertenece a otro equipo volverá a ser Lector.')) return; try { await rpc('admin_remove_member', { p_team: t, p_user: u }); toast('Quitado del equipo'); equipos(paneEpoch); } catch (e) { toast(msg(e)); } });
+    $('#tcreate').onclick = async () => { if(!await confirmObi('¿Crear un equipo nuevo? Asigna después un Propietario mediante Invitaciones.'))return; try { await rpc('admin_create_team', { p_name: $('#tn').value, p_slug: $('#ts').value.trim().toLowerCase(), p_color: $('#tc').value }); toast('Equipo creado'); equipos(epoch); } catch (e) { toast(msg(e)); } };
+    view().querySelectorAll('[data-go]').forEach(b => b.onclick = async () => { const id = b.dataset.go, who = view().querySelector(`[data-add="${id}"]`).value; if (!who.trim()) return toast('Escribe el correo o usuario'); const role=view().querySelector(`[data-role="${id}"]`).value; if(role==='owner'&&!await confirmObi('Esta persona será Propietaria de este equipo. ¿Continuar?'))return; try { await rpc('admin_add_publisher', { p_user: who, p_team: id, p_role: role }); toast('Ahora es Publicador del equipo'); equipos(epoch); } catch (e) { toast(msg(e)); } });
+    view().querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { const [t, u, n] = b.dataset.rm.split('|'); if (!await confirmObi('¿Quitar a ' + n + ' del equipo? Si no pertenece a otro equipo volverá a ser Lector.')) return; try { await rpc('admin_remove_member', { p_team: t, p_user: u }); toast('Quitado del equipo'); equipos(epoch); } catch (e) { toast(msg(e)); } });
   }
 
 
@@ -421,7 +421,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       if (st === 'rejected' && !await confirmObi('¿Rechazar esta solicitud?')) return;
       b.disabled = true;
       try { const tid = await rpc('admin_decide_request', { p_id: +id, p_status: st, p_note: q('note')?.value || null, p_team: q('team')?.value || null, p_team_name: q('name')?.value || null });
-        toast(st === 'approved' ? 'Aprobada · el equipo ya está listo y el solicitante es publicador' : st === 'info' ? 'Pediste más información' : 'Solicitud rechazada'); solicitudes(paneEpoch);
+        toast(st === 'approved' ? 'Aprobada · el equipo ya está listo y el solicitante es publicador' : st === 'info' ? 'Pediste más información' : 'Solicitud rechazada'); solicitudes(epoch);
       } catch (e) { b.disabled = false; toast(msg(e)); } });
   }
 
@@ -435,7 +435,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       <div class="bb-row"><button class="bb-mini red" data-res="${i}|removed">Retirar reseña</button><button class="bb-mini" data-res="${i}|dismissed">Descartar reportes</button></div></div>`).join('')}</div>` : '<p class="mono">No hay reseñas reportadas.</p>';
     view().querySelectorAll('[data-res]').forEach(b => b.onclick = async () => { const [i, a] = b.dataset.res.split('|'), r = Q[+i];
       if (a === 'removed' && !await confirmObi('¿Retirar esta reseña? Se avisará a su autor.')) return; if(a==='dismissed' && !await confirmObi('¿Descartar los reportes de esta reseña?'))return; b.disabled = true;
-      try { await rpc('admin_review_resolve', { p_series: r.series_id, p_author: r.author_id, p_action: a }); toast(a === 'removed' ? 'Reseña retirada' : 'Reportes descartados'); resenas(paneEpoch); } catch (e) { b.disabled = false; toast(msg(e)); } });
+      try { await rpc('admin_review_resolve', { p_series: r.series_id, p_author: r.author_id, p_action: a }); toast(a === 'removed' ? 'Reseña retirada' : 'Reportes descartados'); resenas(epoch); } catch (e) { b.disabled = false; toast(msg(e)); } });
   }
   async function inicio(epoch){
     const [{ data: row, error }, { data: ss }] = await Promise.all([sb.from('platform_settings').select('featured').eq('id', 1).single(), sb.from('series').select('id,title,cover_path,adult,translation_status,teams(name)').eq('published', true).order('title')]);
@@ -453,7 +453,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       v.querySelectorAll('[data-dn]').forEach(b => b.onclick = () => mv(+b.dataset.dn, +b.dataset.dn + 1));
       v.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { F.splice(+b.dataset.rm, 1); dirty = true; formDirty = true; draw(); });
       const add = v.querySelector('#bb-fadd'); if (add) add.onclick = () => { const id = v.querySelector('#bb-fsel').value; if (!id) return toast('Elige una obra'); F.push(id); dirty = true; formDirty = true; draw(); };
-      v.querySelector('#bb-fsave').onclick = async e => { e.currentTarget.disabled = true; const { error } = await sb.from('platform_settings').update({ featured: F, updated_at: new Date().toISOString() }).eq('id', 1); if (error) { e.currentTarget.disabled = false; return toast(msg(error)); } dirty = false; formDirty=false; toast('Destacadas guardadas'); draw(); };
+      v.querySelector('#bb-fsave').onclick = async e => { e.currentTarget.disabled = true; const { error } = await sb.from('platform_settings').update({ featured: F, updated_at: new Date().toISOString() }).eq('id', 1); if (error) { e.currentTarget.disabled = false; return toast(msg(error)); } dirty = false; if(epoch===paneEpoch)formDirty=false; toast('Destacadas guardadas'); draw(); };
     };
     draw();
   }
@@ -498,7 +498,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
         const support = { show: C.show !== false, label: (C.label || '').trim().slice(0, 24) || '援 Apoyar', mode: C.mode, url: (C.url || '').trim(), title: (C.title || '').trim().slice(0, 80), intro: (C.intro || '').trim().slice(0, 600), links: C.links.map(l => ({ kind: l.kind, url: (l.url || '').trim(), label: (l.label || '').trim().slice(0, 60), note: (l.note || '').trim().slice(0, 160) })) };
         const { data: up, error } = await sb.from('platform_settings').update({ support, updated_at: new Date().toISOString() }).eq('id', 1).select('id');
         if (error || !up?.length) { e.currentTarget.disabled = false; return toast(error ? msg(error) : 'No se guardó: falta ejecutar el SQL 20261110_boton_apoyar.sql'); }
-        dirty = false; formDirty=false; toast('Botón Apoyar guardado'); draw(); };
+        dirty = false; if(epoch===paneEpoch)formDirty=false; toast('Botón Apoyar guardado'); draw(); };
     };
     draw();
   }
@@ -527,10 +527,10 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       V.querySelectorAll('[data-auto]').forEach(c => c.onchange = () => { const k = c.dataset.auto; C.auto = c.checked ? [...C.auto, k] : C.auto.filter(x => x !== k); mark(); });
       V.querySelectorAll('[data-greet]').forEach(i => i.oninput = () => { C.greet[i.dataset.greet] = i.value; mark(); });
       V.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { prev = temporadas.prev = b.dataset.pv; draw(); V.querySelector('.bb-pv').scrollIntoView ? window.scrollTo({ top: V.querySelector('.bb-pv').getBoundingClientRect().top + scrollY - 120, behavior: 'smooth' }) : 0; });
-      $('#sea-sync').onclick = async e => { const b = e.currentTarget; b.disabled = true; b.textContent = 'Sincronizando…'; const { data, error } = await sb.functions.invoke('season-sync', { body: { years: 4 } }); if(epoch!==paneEpoch)return; if (error || !data?.ok) { toast('No se pudo sincronizar: ' + (data?.error || error?.message || '')); b.disabled = false; b.textContent = 'Sincronizar fechas ahora'; return; } toast('Fechas sincronizadas'); await PS.load(sb, true); temporadas(paneEpoch); };
+      $('#sea-sync').onclick = async e => { const b = e.currentTarget; b.disabled = true; b.textContent = 'Sincronizando…'; const { data, error } = await sb.functions.invoke('season-sync', { body: { years: 4 } }); if(epoch!==paneEpoch)return; if (error || !data?.ok) { toast('No se pudo sincronizar: ' + (data?.error || error?.message || '')); b.disabled = false; b.textContent = 'Sincronizar fechas ahora'; return; } toast('Fechas sincronizadas'); await PS.load(sb, true); temporadas(epoch); };
       const fr = V.querySelector('.bb-pv'); let okL = false; fr.onload = () => { try { okL = !!fr.contentDocument?.body?.childElementCount; } catch { okL = false; } V.querySelector('.bb-pvx').hidden = okL; }; setTimeout(() => { if (!okL) V.querySelector('.bb-pvx').hidden = false; }, 6000);
       $('#sea-pv').onchange = e => { prev = temporadas.prev = e.target.value; draw(); };
-      $('#sea-save').onclick = async e => { e.currentTarget.disabled = true; const greet = Object.fromEntries(Object.entries(C.greet).map(([k, v]) => [k, String(v).slice(0, 140)])); const { error } = await sb.from('platform_settings').update({ seasons: { auto: C.auto, greet, intensity: C.intensity, density: C.density }, updated_at: new Date().toISOString() }).eq('id', 1); if (error) { e.currentTarget.disabled = false; return toast(msg(error)); } dirty = false; formDirty=false; row.updated_at = new Date().toISOString(); await PS.load(sb, true); toast('Temporadas guardadas'); draw(); };
+      $('#sea-save').onclick = async e => { e.currentTarget.disabled = true; const greet = Object.fromEntries(Object.entries(C.greet).map(([k, v]) => [k, String(v).slice(0, 140)])); const { error } = await sb.from('platform_settings').update({ seasons: { auto: C.auto, greet, intensity: C.intensity, density: C.density }, updated_at: new Date().toISOString() }).eq('id', 1); if (error) { e.currentTarget.disabled = false; return toast(msg(error)); } dirty = false; if(epoch===paneEpoch)formDirty=false; row.updated_at = new Date().toISOString(); await PS.load(sb, true); toast('Temporadas guardadas'); draw(); };
     };
     draw();
   }
@@ -540,8 +540,8 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     if(epoch!==paneEpoch)return;
     view().innerHTML = `<div class="bb-box"><h3>Enlaces de compra por verificar · ${rows.length}</h3><p class="mono" style="font-size:13px;margin:0 0 10px">Abre cada enlace y confirma que es una tienda o editorial oficial de esa obra y volumen. Solo los verificados se muestran a los lectores.</p>
       ${rows.length ? `<table class="bb-tbl"><thead><tr><th>Obra</th><th>Equipo</th><th>Vol.</th><th>Tienda</th><th>Enlace</th><th></th></tr></thead><tbody>${rows.map(r => `<tr><td><a href="/serie/${esc(r.series_slug)}">${esc(r.series_title)}</a></td><td>${esc(r.team_name)}</td><td>${r.vol ?? '—'}</td><td>${esc(r.store)}<br><span class="mono">${esc([r.fmt, r.region].filter(Boolean).join(' · '))}</span></td><td><a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">${esc(r.url.replace(/^https:\/\//, '').slice(0, 48))} ↗</a></td><td style="white-space:nowrap"><button class="btn" data-ok="${r.id}">Verificar</button> <button class="btn ghost" data-no="${r.id}">Rechazar</button></td></tr>`).join('')}</tbody></table>` : '<p class="mono">No hay enlaces pendientes.</p>'}</div>`;
-    view().querySelectorAll('[data-ok]').forEach(b => b.onclick = async () => { if (!await confirmObi('¿Confirmas que revisaste la tienda y verificaste que el enlace corresponde a la obra?')) return; b.disabled = true; const { error } = await sb.from('purchase_links').update({ verified: true }).eq('id', b.dataset.ok); if (error) { b.disabled = false; return toast(msg(error)); } toast('Enlace verificado'); compras(paneEpoch); });
-    view().querySelectorAll('[data-no]').forEach(b => b.onclick = async () => { if (!await confirmObi('¿Rechazar y borrar este enlace?')) return; const { error } = await sb.from('purchase_links').delete().eq('id', b.dataset.no); if (error) { b.disabled=false; return toast(msg(error)); } toast('Enlace rechazado'); compras(paneEpoch); });
+    view().querySelectorAll('[data-ok]').forEach(b => b.onclick = async () => { if (!await confirmObi('¿Confirmas que revisaste la tienda y verificaste que el enlace corresponde a la obra?')) return; b.disabled = true; const { error } = await sb.from('purchase_links').update({ verified: true }).eq('id', b.dataset.ok); if (error) { b.disabled = false; return toast(msg(error)); } toast('Enlace verificado'); compras(epoch); });
+    view().querySelectorAll('[data-no]').forEach(b => b.onclick = async () => { if (!await confirmObi('¿Rechazar y borrar este enlace?')) return; const { error } = await sb.from('purchase_links').delete().eq('id', b.dataset.no); if (error) { b.disabled=false; return toast(msg(error)); } toast('Enlace rechazado'); compras(epoch); });
   }
 
   async function bitacora(epoch){
