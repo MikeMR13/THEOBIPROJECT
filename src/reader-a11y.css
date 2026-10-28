@@ -117,3 +117,29 @@ body.rd-zen .rd-zen-x{
   .rd-opt button{font-size:14px}
   .rd-pop{max-width:calc(100vw - 16px);gap:8px}
 }
+
+/* Descarga local: un botón independiente del enlace, cómodo con teclado y dedos. */
+.obi-offline-btn{
+  display:inline-flex;align-items:center;justify-content:center;max-width:100%;
+  min-height:44px;min-width:44px;padding:9px 12px;
+  background:#241d12;border:1px solid #9c8244;border-radius:3px;
+  color:#f4d998;font:650 13px/1.35 'IBM Plex Sans',system-ui,sans-serif;
+  text-align:center;white-space:normal;cursor:pointer;
+}
+.obi-offline-btn:hover:not(:disabled){background:#382b16;border-color:var(--gold,#f2c230)}
+.obi-offline-btn:focus-visible{outline:3px solid var(--gold,#f2c230);outline-offset:3px}
+.obi-offline-btn[data-saved="1"]{color:#c9e7b4;border-color:#7da166;background:#1b2919}
+.obi-offline-btn:disabled{opacity:.75;cursor:progress}
+.obi-work-tile{min-width:0;display:grid;gap:8px;align-content:start}
+.obi-work-tile>.obi-offline-btn{justify-self:start}
+.ui-grid .obi-work-tile>.ui-card{min-width:0}
+.ui-fich .obi-work-tile{min-width:0}
+.ui-series-actions .obi-offline-btn,.ui-v-actions .obi-offline-btn{flex:none}
+.ui-chl li>.obi-offline-btn{flex:none}
+.lb-offline-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.lb-offline-actions .obi-offline-btn{flex:1 1 140px}
+@media(max-width:600px){
+  .ui-chl li{flex-wrap:wrap}
+  .ui-chl li>.obi-offline-btn{margin-left:auto}
+  .ui-series-actions>.obi-offline-btn{flex:1 1 160px}
+}
