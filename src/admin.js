@@ -112,6 +112,10 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   if (!document.getElementById('bb-css')) { const s = document.createElement('style'); s.id = 'bb-css'; s.textContent = CSS; document.head.appendChild(s); }
   const msg = e => ({ forbidden: 'Solo el Bibliotecario puede hacer esto.' }[e?.message] || e?.message || 'Algo salió mal');
   const rpc = async (fn, args) => { const { data, error } = await sb.rpc(fn, args); if (error) throw error; return data; };
+  // Compatibilidad hasta desplegar la migración administrativa en Supabase.
+  // Sólo retroceder a RPC existentes cuando PostgREST informa ausencia de la nueva función.
+  const missingRpc = error => error?.code === 'PGRST202' ||
+    /could not find the function|function .* does not exist/i.test(error?.message || '');
   const when = d => d ? new Date(d).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
   let tab = 'resumen', paneEpoch = 0, formDirty = false;
 
@@ -266,14 +270,21 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     const draw=async()=>{
       const id=++request;
       container.innerHTML='<p class="mono">Consultando usuarios…</p>';
-      const {data,error}=await sb.rpc('admin_users_page',{
+      let {data,error}=await sb.rpc('admin_users_page',{
         p_q:search.value.trim(),p_role:role.value||null,p_offset:page*pageSize,p_limit:pageSize+1
       });
+      let legacy=false;
+      if(error && missingRpc(error)){
+        legacy=true;
+        const fallback=await sb.rpc('admin_users',{p_q:search.value.trim(),p_role:role.value||null});
+        error=fallback.error;
+        data=(fallback.data||[]).slice(page*pageSize,(page+1)*pageSize+1);
+      }
       if(epoch!==paneEpoch || id!==request || !container.isConnected)return;
       if(error)throw error;
       const records=Array.isArray(data)?data:[],hasNext=records.length>pageSize;
       const rows=records.slice(0,pageSize);
-      container.innerHTML = `<div style="max-width:100%;overflow-x:auto"><table class="bb-tbl">
+      container.innerHTML = `${legacy?'<p class="bb-super-note">Paginación compatible: se muestran como máximo las primeras 200 cuentas hasta activar la migración administrativa.</p>':''}<div style="max-width:100%;overflow-x:auto"><table class="bb-tbl">
       <thead><tr><th>Usuario</th><th>Correo</th><th>Rol</th><th>Equipos</th><th>Alta</th><th>Último acceso</th></tr></thead>
       <tbody>${rows.map(u=>{const [label,color]=ROLE[u.platform_role]||[u.platform_role||'—','#a89f8a'];return `<tr>
       <td><strong>${esc(u.username)}</strong></td><td class="mono">${esc(u.email)}</td>
@@ -296,12 +307,19 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   }
 
   async function equipos(epoch){
+    let legacyTeams=false;
     const allPublishers=async()=>{
       const all=[],size=100;let offset=0;
       while(true){
         const {data,error}=await sb.rpc('admin_users_page',{
           p_q:'',p_role:'publicador',p_offset:offset,p_limit:size
         });
+        if(error && missingRpc(error)){
+          legacyTeams=true;
+          const fallback=await sb.rpc('admin_users',{p_q:'',p_role:'publicador'});
+          if(fallback.error)throw fallback.error;
+          return fallback.data||[];
+        }
         if(error)throw error;
         if(epoch!==paneEpoch)return [];
         all.push(...(data||[]));
@@ -316,7 +334,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     ]);
     if(teamsError)throw teamsError;
     if(epoch!==paneEpoch)return;
-    view().innerHTML = `<div class="bb-box"><h3>Nuevo equipo traductor</h3><div class="bb-row"><label>Nombre<input id="tn" placeholder="Kaori Translations"></label><label>Identificador<input id="ts" placeholder="kaori"></label><label style="flex:0 0 120px">Color<input id="tc" type="color" value="#f2c230" style="height:44px;padding:4px"></label><button class="btn" id="tcreate">Crear equipo</button></div></div>
+    view().innerHTML = `${legacyTeams?'<p class="bb-super-note">Modo compatible: el listado incluye como máximo 200 publicadores hasta activar la migración administrativa.</p>':''}<div class="bb-box"><h3>Nuevo equipo traductor</h3><div class="bb-row"><label>Nombre<input id="tn" placeholder="Kaori Translations"></label><label>Identificador<input id="ts" placeholder="kaori"></label><label style="flex:0 0 120px">Color<input id="tc" type="color" value="#f2c230" style="height:44px;padding:4px"></label><button class="btn" id="tcreate">Crear equipo</button></div></div>
       ${(teams || []).map(t => { const mem = users.filter(u => u.teams.some(x => x.id === t.id)); const hasOwner=mem.some(u=>u.teams.some(x=>x.id===t.id&&x.role==='owner')); return `<div class="bb-box" style="border-left:6px solid ${esc(t.color || '#f2c230')}"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(t.name)} <span class="mono">/${esc(t.slug)}</span></h3><span class="mono">${mem.length} publicador(es) · ${t.official_verified ? "✓ Verificado" : "Sin verificar"}</span></div>
         <table class="bb-tbl"><tbody>${mem.map(u => { const r = u.teams.find(x => x.id === t.id).role; return `<tr><td><strong>${esc(u.username)}</strong> <span class="mono">${esc(u.email)}</span></td><td>${TROLE[r] || r}</td><td style="text-align:right"><button class="bb-mini red" data-rm="${t.id}|${u.id}|${esc(u.username)}" ${r === "owner" ? 'disabled title="La propiedad requiere transferencia"':''}>${r === "owner" ? "Propietario protegido" : "Quitar del equipo"}</button></td></tr>`; }).join('') || '<tr><td class="mono">Sin publicadores todavía.</td></tr>'}</tbody></table>
         <div class="bb-row"><label>Agregar publicador (correo o usuario)<input data-add="${t.id}" placeholder="correo@ejemplo.com"></label><label style="flex:0 0 180px">Rol en el equipo<select data-role="${t.id}">${Object.entries(TROLE).filter(([k])=>k!=='owner'||!hasOwner).map(([k, l]) => `<option value="${k}" ${k === (hasOwner ? 'editor':'owner') ? 'selected' : ''}>${l}</option>`).join('')}</select></label><button class="btn" data-go="${t.id}">Agregar</button></div></div>`; }).join('')}`;
@@ -551,11 +569,18 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     const draw=async()=>{
       const id=++request;
       target.innerHTML='<p class="mono">Consultando movimientos…</p>';
-      const {data,error}=await sb.rpc('admin_audit_page',{p_offset:page*pageSize,p_limit:pageSize+1});
+      let {data,error}=await sb.rpc('admin_audit_page',{p_offset:page*pageSize,p_limit:pageSize+1});
+      let legacy=false;
+      if(error && missingRpc(error)){
+        legacy=true;
+        const fallback=await sb.rpc('admin_audit',{p_limit:200});
+        error=fallback.error;
+        data=(fallback.data||[]).slice(page*pageSize,(page+1)*pageSize+1);
+      }
       if(id!==request||epoch!==paneEpoch||!target.isConnected)return;
       if(error)throw error;
       const rows=Array.isArray(data)?data:[],next=rows.length>pageSize,items=rows.slice(0,pageSize);
-      target.innerHTML=`<div style="max-width:100%;overflow-x:auto"><table class="bb-tbl">
+      target.innerHTML=`${legacy?'<p class="bb-super-note">Paginación compatible: sólo los últimos 200 movimientos hasta activar la migración administrativa.</p>':''}<div style="max-width:100%;overflow-x:auto"><table class="bb-tbl">
        <thead><tr><th>Fecha</th><th>Quién</th><th>Acción</th><th>Sobre</th></tr></thead>
        <tbody>${items.map(r=>`<tr><td class="mono">${when(r.at)}</td><td>${esc(r.actor||'—')}</td>
          <td>${esc((r.action||'').replace(/_/g,' '))}</td>
