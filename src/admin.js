@@ -256,13 +256,43 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     await renderAdminInvitations({ sb, view, esc, toast, rpc, when });
   }
 
-  async function usuarios(){
-    view().innerHTML = `<div class="bb-secintro"><div><h2>Gestión de usuarios</h2><p>Consulta de cuentas, roles y equipos · Privacidad protegida</p></div></div><div class="bb-row"><label>Buscar<input id="bbq" placeholder="Usuario o correo"></label><label style="flex:0 0 180px">Rol<select id="bbr"><option value="">Todos</option><option value="lector">Lectores</option><option value="publicador">Publicadores</option><option value="bibliotecario">Bibliotecario</option></select></label></div><div id="bbu"></div>`;
-    const draw = async () => {
-      const rows = await rpc('admin_users', { p_q: $('#bbq').value.trim(), p_role: $('#bbr').value || null });
-      $('#bbu').innerHTML = `<table class="bb-tbl"><thead><tr><th>Usuario</th><th>Correo</th><th>Rol</th><th>Equipos</th><th>Alta</th><th>Último acceso</th></tr></thead><tbody>${rows.map(u => { const [l, c] = ROLE[u.platform_role]; return `<tr><td><strong>${esc(u.username)}</strong></td><td class="mono">${esc(u.email)}</td><td><span class="bb-role" style="color:${c}">${l}</span></td><td>${u.teams.map(t => esc(t.name) + ' <span class="mono">(' + (TROLE[t.role] || t.role) + ')</span>').join('<br>') || '—'}</td><td class="mono">${when(u.created_at)}</td><td class="mono">${when(u.last_sign_in)}</td></tr>`; }).join('') || '<tr><td colspan="6" class="mono">Sin resultados.</td></tr>'}</tbody></table>`;
+  async function usuarios(epoch){
+    view().innerHTML = `<div class="bb-secintro"><div><h2>Gestión de usuarios</h2><p>Consulta de cuentas, roles y equipos · Privacidad protegida</p></div></div>
+      <div class="bb-row"><label>Buscar<input id="bbq" placeholder="Usuario o correo" autocomplete="off"></label>
+      <label style="flex:0 0 180px">Rol<select id="bbr"><option value="">Todos</option><option value="lector">Lectores</option><option value="publicador">Publicadores</option><option value="bibliotecario">Bibliotecario</option></select></label></div>
+      <div id="bbu" aria-live="polite"></div>`;
+    const root=view(),search=root.querySelector('#bbq'),role=root.querySelector('#bbr'),container=root.querySelector('#bbu');
+    const pageSize=50;let page=0,request=0;
+    const draw=async()=>{
+      const id=++request;
+      container.innerHTML='<p class="mono">Consultando usuarios…</p>';
+      const {data,error}=await sb.rpc('admin_users_page',{
+        p_q:search.value.trim(),p_role:role.value||null,p_offset:page*pageSize,p_limit:pageSize+1
+      });
+      if(epoch!==paneEpoch || id!==request || !container.isConnected)return;
+      if(error)throw error;
+      const records=Array.isArray(data)?data:[],hasNext=records.length>pageSize;
+      const rows=records.slice(0,pageSize);
+      container.innerHTML = `<div style="max-width:100%;overflow-x:auto"><table class="bb-tbl">
+      <thead><tr><th>Usuario</th><th>Correo</th><th>Rol</th><th>Equipos</th><th>Alta</th><th>Último acceso</th></tr></thead>
+      <tbody>${rows.map(u=>{const [label,color]=ROLE[u.platform_role]||[u.platform_role||'—','#a89f8a'];return `<tr>
+      <td><strong>${esc(u.username)}</strong></td><td class="mono">${esc(u.email)}</td>
+      <td><span class="bb-role" style="color:${color}">${esc(label)}</span></td>
+      <td>${(u.teams||[]).map(t=>esc(t.name)+' <span class="mono">('+esc(TROLE[t.role]||t.role)+')</span>').join('<br>')||'—'}</td>
+      <td class="mono">${when(u.created_at)}</td><td class="mono">${when(u.last_sign_in)}</td></tr>`;}).join('')||'<tr><td colspan="6">Sin resultados.</td></tr>'}
+      </tbody></table></div>
+      <div class="bb-row" style="align-items:center;justify-content:space-between">
+        <button class="bb-mini" id="bb-prev" ${page===0?'disabled':''}>Anterior</button>
+        <span class="mono" role="status">Página ${page+1} · ${rows.length} cuenta(s)</span>
+        <button class="bb-mini" id="bb-next" ${hasNext?'':'disabled'}>Siguiente</button>
+      </div>`;
+      container.querySelector('#bb-prev').onclick=()=>{page--;draw().catch(e=>toast(msg(e)));};
+      container.querySelector('#bb-next').onclick=()=>{page++;draw().catch(e=>toast(msg(e)));};
     };
-    let t; $('#bbq').oninput = () => { clearTimeout(t); t = setTimeout(draw, 300); }; $('#bbr').onchange = draw; await draw();
+    let timer;
+    search.oninput=()=>{page=0;clearTimeout(timer);timer=setTimeout(()=>draw().catch(e=>{if(epoch===paneEpoch)container.textContent=msg(e);}),300);};
+    role.onchange=()=>{page=0;draw().catch(e=>{if(epoch===paneEpoch)container.textContent=msg(e);});};
+    await draw();
   }
 
   async function equipos(epoch){
