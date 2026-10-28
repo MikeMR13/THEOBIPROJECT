@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFileSync,existsSync} from 'node:fs';
-import {spawn,execFileSync} from 'node:child_process';
+import {execFileSync} from 'node:child_process';
+import {runChromiumCdp} from './chromium-cdp-check.mjs';
 
 const u16=n=>{const b=Buffer.alloc(2);b.writeUInt16LE(n);return b};
 const u32=n=>{const b=Buffer.alloc(4);b.writeUInt32LE(n>>>0);return b};
@@ -93,18 +94,7 @@ assert(chrome,'Chromium no está instalado');
 try{
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve)});
   const target='http://127.0.0.1:'+server.address().port+'/';
-  const cmd=['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage',
-    '--disable-background-networking','--window-size=900,900','--virtual-time-budget=48000','--dump-dom',target];
-  const p=spawn(chrome,cmd,{stdio:['ignore','pipe','pipe']});let out='',err='';
-  p.stdout.on('data',c=>{out+=String(c).slice(0,450000)});p.stderr.on('data',c=>{err+=String(c).slice(0,25000)});
-  const exit=await new Promise((resolve,reject)=>{
-    const timer=setTimeout(()=>{p.kill('SIGKILL');reject(new Error('Chromium tardó más de 90 segundos'))},90000);
-    p.once('error',e=>{clearTimeout(timer);reject(e)});
-    p.once('close',c=>{clearTimeout(timer);resolve(c)});
-  });
-  assert.equal(exit,0,err.slice(-1200));
-  const m=out.match(/<p id="qa-result" data-status="(pass|fail)">([\s\S]*?)<\/p>/);
-  assert(m,'No se obtuvo resultado del importador en Chromium: '+out.slice(-1200)+' '+err.slice(-800));
-  assert.equal(m[1],'pass',m[2]);
-  console.log('Decodificadores EPUB, DOCX y PDF con archivos sintéticos: '+m[2]);
+  const result=await runChromiumCdp(chrome,target,75000);
+  assert.equal(result.status,'pass',result.text+' · Etapa: '+result.stage+' · '+result.stderr);
+  console.log('Decodificadores EPUB, DOCX y PDF con archivos sintéticos: '+result.text);
 }finally{await new Promise(resolve=>server.close(resolve))}
