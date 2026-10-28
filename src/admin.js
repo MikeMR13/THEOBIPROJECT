@@ -87,6 +87,14 @@ const CSS = `
 .bb .bb-super-detail{padding:12px;border:1px solid #4b3d24;background:#11100d}
 .bb .bb-super-detail .bb-tbl{min-width:520px}
 .bb .bb-role-lock{font-family:'IBM Plex Mono',monospace;color:var(--gold);font-size:11px}
+.bb :is(button,a,input,textarea,select):focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.bb .bb-mini{min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center}
+.bb .bb-tabs button{min-height:48px}
+.bb .bb-tabs button[aria-selected="true"]{background:var(--gold);color:#0d0c0a}
+.bb #bbv{min-width:0}
+.bb .bb-tbl{min-width:640px}
+.bb :is(.bb-box,.bb-supercard){min-width:0}
+.bb .bb-super-detail{max-width:100%;overflow-x:auto}
 @media(max-width:760px){
   .bb .bb-dashboard{grid-template-columns:1fr}
   .bb .bb-top{align-items:start}
@@ -105,7 +113,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   const msg = e => ({ forbidden: 'Solo el Bibliotecario puede hacer esto.' }[e?.message] || e?.message || 'Algo salió mal');
   const rpc = async (fn, args) => { const { data, error } = await sb.rpc(fn, args); if (error) throw error; return data; };
   const when = d => d ? new Date(d).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
-  let tab = 'resumen';
+  let tab = 'resumen', paneEpoch = 0, formDirty = false;
 
   async function render(){
     const { data: { user } } = await sb.auth.getUser();
@@ -143,25 +151,47 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     };
   }
 
-  async function panel(me){
+  async function panel(me, focusTab=false){
+    const epoch = ++paneEpoch;
     app.innerHTML = `<div class="bb"><div class="bb-top"><div class="bb-heading"><span class="bb-kicker">EL OBI DEL LECTOR · ADMINISTRACIÓN GENERAL</span><h1>Mostrador del <em>Bibliotecario</em></h1><p class="bb-sub">Supervisión global · Independencia editorial de los equipos</p></div><div class="bb-headside"><span class="bb-admin-tag">◆ ${esc(me.username)}<small>Autoridad de plataforma</small></span><button class="btn ghost" id="bbout">Cerrar sesión</button></div></div>
-      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['invitaciones','Invitaciones'],['solicitudes','Solicitudes'],['supervision','Supervisión'],['compras','Enlaces de compra'],['inicio','Inicio'],['metricas','Métricas Inicio'],['resenas','Reseñas'],['temporadas','Temporadas'],['seo','SEO y compartir'],['difusion','Difusión'],['apoyar','Botón Apoyar'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
+      <div class="bb-tabs" role="tablist" aria-label="Secciones del Bibliotecario">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['invitaciones','Invitaciones'],['solicitudes','Solicitudes'],['supervision','Supervisión'],['compras','Enlaces de compra'],['inicio','Inicio'],['metricas','Métricas Inicio'],['resenas','Reseñas'],['temporadas','Temporadas'],['seo','SEO y compartir'],['difusion','Difusión'],['apoyar','Botón Apoyar'],['bitacora','Bitácora']].map(([k, l]) => `<button type="button" role="tab" aria-selected="${tab===k}" aria-controls="bbv" data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv" role="tabpanel" tabindex="-1"><p class="mono">Cargando…</p></div></div>`;
     $('#bbout').onclick = async () => { await sb.auth.signOut(); location.href = '/'; };
-    app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; panel(me); });
-    try { await ({ resumen, usuarios, equipos, invitaciones, solicitudes, supervision, compras, inicio, metricas, resenas, temporadas, seo, difusion, apoyar, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
+    const warn = () => { if (['inicio','temporadas','seo','apoyar'].includes(tab)) formDirty = true; };
+    $('#bbv').addEventListener('input', warn);
+    $('#bbv').addEventListener('change', warn);
+    app.querySelectorAll('[data-t]').forEach(b => b.onclick = async () => {
+      const next = b.dataset.t;
+      if (next === tab) return;
+      if (formDirty && !await confirmObi('Tienes cambios sin guardar. ¿Salir de esta sección y descartarlos?')) return;
+      formDirty = false; tab = next; await panel(me, true);
+    });
+    app.querySelector('.bb-tabs').onkeydown = e => {
+      if (!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
+      e.preventDefault();
+      const btns = [...app.querySelectorAll('.bb-tabs button')];
+      const index = btns.indexOf(document.activeElement);
+      const next = e.key === 'Home' ? 0 : e.key === 'End' ? btns.length - 1 :
+        (index + (e.key === 'ArrowRight' ? 1 : -1) + btns.length) % btns.length;
+      btns[next]?.focus(); btns[next]?.scrollIntoView({block:'nearest',inline:'nearest'});
+    };
+    if (focusTab) app.querySelector('.bb-tabs .on')?.focus({preventScroll:true});
+    try { await ({ resumen, usuarios, equipos, invitaciones, solicitudes, supervision, compras, inicio, metricas, resenas, temporadas, seo, difusion, apoyar, bitacora })[tab](epoch); }
+    catch (e) { if(epoch===paneEpoch && $('#bbv')) $('#bbv').innerHTML = `<p role="alert" style="color:#f59e7a">${esc(msg(e))}</p>`; }
   }
   const view = () => $('#bbv');
-  async function seo(){ await renderAdminSeo({sb,view,toast}); }
-  async function difusion(){
+  async function seo(){ await renderAdminSeo({sb,view,toast,onSaved:()=>{formDirty=false;}}); }
+  async function difusion(epoch){
     const { renderAdminDiffusion } = await import('./admin-diffusion.js?v=5');
+    if(epoch!==paneEpoch)return;
     await renderAdminDiffusion({sb,root:view(),team:null,esc,toast});
   }
 
 
   // Solo los Bibliotecarios pueden consultar estos contadores. El servidor
   // devuelve totales diarios por categoría, nunca identidades o sesiones.
-  async function metricas(days=30){
+  async function metricas(epoch,days=30){
     const rows=await rpc('admin_carousel_metrics',{p_days:days});
+    if(epoch!==paneEpoch)return;
     const names={launch:'Nuevo lanzamiento',release:'Nuevos volúmenes y capítulos',popular:'Top semanal',
       historic:'Más vistas',editorial:'Selección editorial',discover:'Joya por descubrir',
       trending:'Tendencia',team:'Recomendaciones grupales',prelaunch:'Próximos estrenos',other:'Otros'};
@@ -197,11 +227,12 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       }).join('')}</tbody></table></div>
       ${!allTotals.show ? '<p class="mono" style="font-size:12px">Aún no hay exposiciones medidas para este período.</p>' : ''}
     </div>`;
-    view().querySelectorAll('[data-days]').forEach(b=>b.onclick=()=>metricas(Number(b.dataset.days)));
+    view().querySelectorAll('[data-days]').forEach(b=>b.onclick=()=>metricas(paneEpoch,Number(b.dataset.days)));
   }
 
-  async function resumen(){
+  async function resumen(epoch){
     const o = await rpc('admin_overview');
+    if(epoch!==paneEpoch)return;
     const goto = (label, target, detail) => `<div class="bb-task"><div><b>${esc(label)}</b><small>${esc(detail)}</small></div><button class="bb-mini" data-jump="${target}">Revisar</button></div>`;
     view().innerHTML = `<div class="bb-kpis">${[['Lectores', o.lectores], ['Publicadores', o.publicadores], ['Equipos', o.equipos], ['Obras', o.obras], ['Capítulos publicados', o.capitulos], ['Erratas abiertas', o.reportes], ['Solicitudes pendientes', o.solicitudes], ['Cuentas nuevas · 7 días', o.nuevos7d]].map(([l,v])=>`<div class="bb-kpi"><span class="ui-lbl">${esc(l)}</span><b>${v ?? 0}</b></div>`).join('')}</div>
       <div class="bb-dashboard">
@@ -219,8 +250,9 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     view().querySelectorAll('[data-jump]').forEach(b => b.onclick = () => { app.querySelector('[data-t="' + b.dataset.jump + '"]')?.click(); });
   }
 
-  async function invitaciones(){
+  async function invitaciones(epoch){
     const { renderAdminInvitations } = await import('/admin-invitations.js?v=1');
+    if(epoch!==paneEpoch)return;
     await renderAdminInvitations({ sb, view, esc, toast, rpc, when });
   }
 
@@ -233,8 +265,9 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     let t; $('#bbq').oninput = () => { clearTimeout(t); t = setTimeout(draw, 300); }; $('#bbr').onchange = draw; await draw();
   }
 
-  async function equipos(){
+  async function equipos(epoch){
     const [{ data: teams }, users] = await Promise.all([sb.from('teams').select('id,slug,name,color,status,official_verified').order('name'), rpc('admin_users', { p_q: '', p_role: 'publicador' })]);
+    if(epoch!==paneEpoch)return;
     view().innerHTML = `<div class="bb-box"><h3>Nuevo equipo traductor</h3><div class="bb-row"><label>Nombre<input id="tn" placeholder="Kaori Translations"></label><label>Identificador<input id="ts" placeholder="kaori"></label><label style="flex:0 0 120px">Color<input id="tc" type="color" value="#f2c230" style="height:44px;padding:4px"></label><button class="btn" id="tcreate">Crear equipo</button></div></div>
       ${(teams || []).map(t => { const mem = users.filter(u => u.teams.some(x => x.id === t.id)); return `<div class="bb-box" style="border-left:6px solid ${esc(t.color || '#f2c230')}"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(t.name)} <span class="mono">/${esc(t.slug)}</span></h3><span class="mono">${mem.length} publicador(es) · ${t.official_verified ? "✓ Verificado" : "Sin verificar"}</span></div>
         <table class="bb-tbl"><tbody>${mem.map(u => { const r = u.teams.find(x => x.id === t.id).role; return `<tr><td><strong>${esc(u.username)}</strong> <span class="mono">${esc(u.email)}</span></td><td>${TROLE[r] || r}</td><td style="text-align:right"><button class="bb-mini red" data-rm="${t.id}|${u.id}|${esc(u.username)}" ${r === "owner" ? 'disabled title="La propiedad requiere transferencia"':''}>${r === "owner" ? "Propietario protegido" : "Quitar del equipo"}</button></td></tr>`; }).join('') || '<tr><td class="mono">Sin publicadores todavía.</td></tr>'}</tbody></table>
@@ -245,7 +278,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   }
 
 
-  async function supervision(){
+  async function supervision(epoch){
     view().innerHTML = `<div class="bb-secintro"><div><h2>Supervisión de publicaciones</h2><p>Lectura administrativa de todas las obras · La edición corresponde a cada equipo</p></div><span class="bb-status warn">SOLO SUPERVISIÓN</span></div>
       <div class="bb-super-note">El Bibliotecario puede consultar publicaciones y borradores. Esta vista no permite editar traducciones, alterar calendarios ni borrar capítulos. Las sanciones editoriales deberán tramitarse mediante un procedimiento administrativo independiente y auditado.</div>
       <div class="bb-row"><label>Buscar obra<input id="bb-superq" placeholder="Buscar por título"></label></div><div id="bb-superlist"><p class="mono">Consultando biblioteca…</p></div>`;
@@ -257,7 +290,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
         .order('title').limit(100);
       if(term) query = query.ilike('title', '%' + term.replace(/[%_]/g,'') + '%');
       const {data, error} = await query;
-      if(!list.isConnected)return;
+      if(!list.isConnected || epoch!==paneEpoch)return;
       if(error) throw error;
       list.innerHTML = (data||[]).map(w => `<article class="bb-supercard">
         <div class="bb-superhead"><h3>${esc(w.title)}</h3>
@@ -284,11 +317,12 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     await load();
   }
 
-  async function solicitudes(){
+  async function solicitudes(epoch){
     const [{ data, error }, { data: teams }] = await Promise.all([
       sb.from('translator_requests').select('id,alias,team_name,langs,links,message,reply,status,note,created_at,updated_at,team_id,user_id,teams(name,slug)').order('updated_at', { ascending: false }),
       sb.from('teams').select('id,name').order('name')]);
     if (error) throw error;
+    if(epoch!==paneEpoch)return;
     // Resolver solo el nombre del solicitante con el RPC limitado a administración.
     const requesterIds=[...new Set((data||[]).map(r=>r.user_id).filter(Boolean))];
     const nameLookups=await Promise.all(
@@ -298,6 +332,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     );
     for(const result of nameLookups) if(result.error) throw result.error;
     const requesterById=Object.fromEntries(nameLookups.flatMap(r=>r.data||[]).map(u=>[u.id,u.username]));
+    if(epoch!==paneEpoch)return;
     const ST = { pending: ['Pendiente', '#f2c230'], info: ['Esperando respuesta', '#8cc3f2'], approved: ['Aprobada', '#a9d18e'], rejected: ['Rechazada', '#a89f8a'] };
     const list = (data || []).sort((a, b) => (a.status === 'pending' ? 0 : a.status === 'info' ? 1 : 2) - (b.status === 'pending' ? 0 : b.status === 'info' ? 1 : 2));
     view().innerHTML = list.map(r => { const open = r.status === 'pending' || r.status === 'info';
@@ -319,8 +354,9 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   }
 
 
-  async function resenas(){
+  async function resenas(epoch){
     const Q = await rpc('admin_review_queue'), RS = { spoiler: 'Spoilers', ofensiva: 'Ofensiva', spam: 'Spam', otra: 'Otro motivo' };
+    if(epoch!==paneEpoch)return;
     view().innerHTML = Q.length ? `<div style="display:grid;gap:12px">${Q.map((r, i) => `<div class="bb-box"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3 style="margin:0"><a href="/serie/${esc(r.slug)}">${esc(r.title)}</a> · reseña de ${esc(r.author || 'Lector')}</h3><span class="mono" style="color:#f59e7a">${r.n} ${r.n === 1 ? 'reporte' : 'reportes'}</span></div>
       <p style="margin:10px 0;padding:12px;background:#0d0c0a;border:1px solid #2f2a20;font-size:14px;line-height:1.55;white-space:pre-wrap">${esc(r.body)}</p>
       <p class="mono" style="font-size:12px;margin:0 0 12px">${r.reports.map(x => esc(RS[x.reason] || x.reason) + (x.note ? ' — «' + esc(x.note) + '»' : '') + ' · ' + esc(x.by || '—')).join('<br>')}</p>
@@ -329,9 +365,10 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       if (a === 'removed' && !await confirmObi('¿Retirar esta reseña? Se avisará a su autor.')) return; b.disabled = true;
       try { await rpc('admin_review_resolve', { p_series: r.series_id, p_author: r.author_id, p_action: a }); toast(a === 'removed' ? 'Reseña retirada' : 'Reportes descartados'); resenas(); } catch (e) { b.disabled = false; toast(msg(e)); } });
   }
-  async function inicio(){
+  async function inicio(epoch){
     const [{ data: row, error }, { data: ss }] = await Promise.all([sb.from('platform_settings').select('featured').eq('id', 1).single(), sb.from('series').select('id,title,cover_path,adult,translation_status,teams(name)').eq('published', true).order('title')]);
     if (error) throw error;
+    if(epoch!==paneEpoch)return;
     const all = (ss || []).filter(x => x.translation_status !== 'withdrawn'), by = Object.fromEntries(all.map(x => [x.id, x]));
     let F = (Array.isArray(row.featured) ? row.featured : []).filter(id => by[id]), dirty = false;
     const MED = p => p ? (/^https?:/.test(p) ? p : url + '/storage/v1/object/public/obi-media/' + encodeURI(p)) : '';
@@ -348,8 +385,9 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     };
     draw();
   }
-  async function apoyar(){
+  async function apoyar(epoch){
     const { data: row, error } = await sb.from('platform_settings').select('support').eq('id', 1).single(); if (error) throw error;
+    if(epoch!==paneEpoch)return;
     const KIND = [['paypal', 'PayPal'], ['kofi', 'Ko-fi'], ['patreon', 'Patreon'], ['bmac', 'Buy Me a Coffee'], ['mercadopago', 'Mercado Pago'], ['otro', 'Otro enlace']];
     const C = Object.assign({ show: true, label: '援 Apoyar', mode: 'patreon', url: '', title: 'Apoya a los traductores', intro: '', links: [] }, row.support || {}); C.links = [...(C.links || [])]; let dirty = false;
     const MODES = [['patreon', 'Página con los niveles de Patreon', 'La página actual: muestra los niveles de Patreon de los equipos.'], ['links', 'Página con enlaces', 'Tarjetas con tus enlaces: PayPal, Ko-fi, Patreon y los que agregues.'], ['both', 'Enlaces y niveles de Patreon', 'Primero los enlaces y debajo los niveles de Patreon.'], ['external', 'Ir directo a un enlace', 'El botón abre un solo enlace (por ejemplo, tu Patreon) sin pasar por la página.']];
@@ -362,7 +400,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
           ${C.mode === 'external' ? `<label>Enlace al que lleva el botón<input id="sp-url" type="url" placeholder="https://www.patreon.com/tu-pagina" value="${esc(C.url)}"></label>` : `
           <label>Título de la página<input id="sp-title" maxlength="80" value="${esc(C.title)}"></label>
           <label>Texto de presentación<textarea id="sp-intro" rows="3" maxlength="600">${esc(C.intro)}</textarea></label>`}
-          ${C.mode === 'links' || C.mode === 'both' ? `<div style="display:grid;gap:8px"><b>Enlaces</b>${C.links.map((l, i) => `<div style="display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:8px;align-items:start;padding:10px;border:1px solid #2f2a20;background:#16140f">
+          ${C.mode === 'links' || C.mode === 'both' ? `<div style="display:grid;gap:8px"><b>Enlaces</b>${C.links.map((l, i) => `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:8px;align-items:start;padding:10px;border:1px solid #2f2a20;background:#16140f">
               <select data-lk="${i}" data-f="kind">${KIND.map(([k, n]) => `<option value="${k}" ${l.kind === k ? 'selected' : ''}>${n}</option>`).join('')}</select>
               <span style="display:grid;gap:6px"><input data-lk="${i}" data-f="url" type="url" placeholder="https://…" value="${esc(l.url || '')}"><input data-lk="${i}" data-f="label" maxlength="60" placeholder="Nombre visible (opcional)" value="${esc(l.label || '')}"><input data-lk="${i}" data-f="note" maxlength="160" placeholder="Descripción corta (opcional)" value="${esc(l.note || '')}"></span>
               <span style="display:flex;gap:6px"><button class="bb-mini" data-lu="${i}" ${i ? '' : 'disabled'} aria-label="Subir">↑</button><button class="bb-mini" data-ld="${i}" ${i < C.links.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button><button class="bb-mini red" data-lr="${i}">Quitar</button></span></div>`).join('') || '<p class="mono">Aún no hay enlaces.</p>'}
@@ -392,11 +430,12 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     };
     draw();
   }
-  async function temporadas(){
+  async function temporadas(epoch){
     const PS = await import('/season.js?v=4');
     const [{ data: row, error }, { data: cal }, { data: slog }, { data: lun }] = await Promise.all([sb.from('platform_settings').select('seasons,updated_at').eq('id', 1).single(), sb.from('season_calendar').select('key,label,starts,hemi').gte('starts', new Date().toISOString().slice(0, 10)).order('starts').limit(120), sb.from('season_sync_log').select('ran_at,ok,detail').order('id', { ascending: false }).limit(1), sb.from('season_calendar').select('key,day,source').in('key', ['seollal', 'chuseok', 'tsukimi', 'dano', 'buda', 'pascua']).not('day', 'is', null).order('day')]);
     const lastY = (lun || []).reduce((a, r) => Math.max(a, +r.day.slice(0, 4)), 0), sl = slog?.[0];
     if (error) throw error;
+    if(epoch!==paneEpoch)return;
     const C = { auto: [], greet: {}, intensity: 'sutil', density: 'normal', ...(row.seasons || {}) }; let prev = temporadas.prev || PS.platformKey() || 'navidad', dirty = false;
     const seg = (k, o) => `<div class="bb-seg">${Object.entries(o).map(([v, l]) => `<button type="button" data-${k}="${v}" class="${C[k] === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
     const next = (cal || []).filter(c => C.auto.includes(c.key) && (!c.hemi || c.hemi === 'norte')).slice(0, 4);
@@ -424,16 +463,18 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
     draw();
   }
 
-  async function compras(){
+  async function compras(epoch){
     const rows = await rpc('admin_purchase_queue');
+    if(epoch!==paneEpoch)return;
     view().innerHTML = `<div class="bb-box"><h3>Enlaces de compra por verificar · ${rows.length}</h3><p class="mono" style="font-size:13px;margin:0 0 10px">Abre cada enlace y confirma que es una tienda o editorial oficial de esa obra y volumen. Solo los verificados se muestran a los lectores.</p>
       ${rows.length ? `<table class="bb-tbl"><thead><tr><th>Obra</th><th>Equipo</th><th>Vol.</th><th>Tienda</th><th>Enlace</th><th></th></tr></thead><tbody>${rows.map(r => `<tr><td><a href="/serie/${esc(r.series_slug)}">${esc(r.series_title)}</a></td><td>${esc(r.team_name)}</td><td>${r.vol ?? '—'}</td><td>${esc(r.store)}<br><span class="mono">${esc([r.fmt, r.region].filter(Boolean).join(' · '))}</span></td><td><a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">${esc(r.url.replace(/^https:\/\//, '').slice(0, 48))} ↗</a></td><td style="white-space:nowrap"><button class="btn" data-ok="${r.id}">Verificar</button> <button class="btn ghost" data-no="${r.id}">Rechazar</button></td></tr>`).join('')}</tbody></table>` : '<p class="mono">No hay enlaces pendientes.</p>'}</div>`;
     view().querySelectorAll('[data-ok]').forEach(b => b.onclick = async () => { b.disabled = true; const { error } = await sb.from('purchase_links').update({ verified: true }).eq('id', b.dataset.ok); if (error) { b.disabled = false; return toast(msg(error)); } toast('Enlace verificado'); compras(); });
     view().querySelectorAll('[data-no]').forEach(b => b.onclick = async () => { if (!await confirmObi('¿Rechazar y borrar este enlace?')) return; const { error } = await sb.from('purchase_links').delete().eq('id', b.dataset.no); if (error) return toast(msg(error)); toast('Enlace rechazado'); compras(); });
   }
 
-  async function bitacora(){
+  async function bitacora(epoch){
     const rows = await rpc('admin_audit', { p_limit: 200 });
+    if(epoch!==paneEpoch)return;
     view().innerHTML = `<table class="bb-tbl"><thead><tr><th>Fecha</th><th>Quién</th><th>Acción</th><th>Sobre</th></tr></thead><tbody>${rows.map(r => `<tr><td class="mono">${when(r.at)}</td><td>${esc(r.actor || '—')}</td><td>${esc(r.action.replace(/_/g, ' '))}</td><td class="mono">${esc(r.target_type)} ${esc((r.target_id || '').slice(0, 8))}</td></tr>`).join('') || '<tr><td colspan="4" class="mono">Sin movimientos todavía.</td></tr>'}</tbody></table>`;
   }
 
