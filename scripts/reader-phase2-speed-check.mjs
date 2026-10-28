@@ -27,7 +27,7 @@ const blocks = [{type:'paragraph',text:'Contenido del capítulo'}];
     };
   }};
   const stored = [];
-  const ctx = {sb, Date, Map, localStorage:{setItem:(key,value)=>stored.push([key,value])},META_KEY:slug=>'test-'+slug};
+  const ctx = {sb, Date, Map, CH_COLS:'id,num,vol,title,updated_at', localStorage:{setItem:(key,value)=>stored.push([key,value])},META_KEY:slug=>'test-'+slug};
   const snippet = section('  const metaFlights = new Map();', '  const cachedMeta');
   const api = vm.runInNewContext('(()=>{' + snippet + 'return {fetchMeta,metaFlights}})()',ctx);
   const a=api.fetchMeta('demo'), b=api.fetchMeta('demo');
