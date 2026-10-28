@@ -30,8 +30,8 @@ export function bindVolumeCoverGallery({sb,teamId,series,volume,box,busy,toast,c
   }
   const s=series,v=volume;
   const setCover=async path=>{
-    const {error}=await sb.from('volumes').update({cover_path:path}).eq('id',v.id);
-    if(error)throw new Error(errMsg(error));
+    const {data:written,error}=await sb.from('volumes').update({cover_path:path}).eq('id',v.id).select('id');
+    if(error||!written?.length)throw new Error(error?errMsg(error):'No se pudo actualizar la portada por permisos');
     v.cover_path=path;
     // Multimedia puede estar compartida con capítulos, galerías y otros volúmenes.
   };
