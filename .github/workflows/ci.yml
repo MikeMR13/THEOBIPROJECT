@@ -90,6 +90,8 @@ jobs:
         run: node scripts/series-editorial-phase12-check.mjs
       - name: Ficha pública Fases 3–4 — búsqueda, filtros y accesibilidad móvil
         run: node scripts/series-editorial-phase34-check.mjs
+      - name: Móvil — índice, botones y cabecera sin solapamientos (Chromium 320–1024)
+        run: node scripts/mobile-layout-regression-check.mjs
       - name: Ficha pública — pestañas y descargas separadas (Chromium responsive)
         run: node scripts/series-tabs-mobile-check.mjs
       - name: Compartir ficha — portal visible, móvil y teclado (Chromium)

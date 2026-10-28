@@ -582,6 +582,29 @@ const CSS = `
 }
 
 
+/* En móvil el nombre del equipo no debe tapar el texto o logotipo del banner.
+   Separar la identidad del fondo respeta la imagen que subió el equipo. */
+@container (max-width:640px){
+ .tp2[data-tpl=revista] .tp2-hero{
+  display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;
+  min-height:clamp(225px,68cqi,320px);background-position:center top
+ }
+ .tp2[data-tpl=revista] .tp2-hero::after{
+  background:linear-gradient(to bottom,transparent 30%,rgba(0,0,0,.3) 65%,var(--bg) 100%)
+ }
+ .tp2[data-tpl=revista] .tp2-heroin{
+  display:grid;grid-template-columns:70px minmax(0,1fr);
+  align-items:center;gap:12px;padding:12px 16px;
+  background:color-mix(in srgb,var(--bg) 94%,transparent);
+  border-top:2px solid var(--ac);max-width:100%;margin:0
+ }
+ .tp2[data-tpl=revista] .tp2-heroin .tp2-logo{width:70px;min-width:0}
+ .tp2[data-tpl=revista] .tp2-heroin .tp2-name{
+  font-size:clamp(22px,6.2cqi,34px);line-height:1.18;
+  overflow-wrap:break-word;word-break:normal;min-width:0
+ }
+}
+
 /* Fase 5: orden móvil independiente, tarjetas y cabecera sin alterar escritorio. */
 @container (max-width:640px){
  /* El orden personalizado se aplica también al DOM: teclado y lectores de pantalla siguen la misma secuencia. */

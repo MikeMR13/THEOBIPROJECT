@@ -77,7 +77,7 @@ function setupCSS() {
     '.rd-tools>.obi-share{margin:0}',
     '.rd-tools>.obi-share>summary{min-height:40px}',
     '.tp2-page>.obi-share{margin:12px 0}',
-    '.obi-share[data-placement="team"]{margin-left:14px}',
+    '.obi-share[data-placement="team"]{margin:0}',
     '@media(max-width:480px){.ui-series-actions>.obi-share{max-width:100%}.ui-series-actions>.obi-share>summary{min-height:46px}}'
   ].join('\n');
   document.head.appendChild(s);
@@ -139,7 +139,7 @@ function insertMenu() {
   const p = location.pathname;
   const target = p.startsWith('/serie/') ? document.querySelector('.ui-series-page .ui-series-actions')
     : p.startsWith('/leer/') ? document.querySelector('.rd-tools')
-    : document.querySelector('.tp2-page .tp2');
+    : document.querySelector('.tp2-page .tp2-links');
   if (!target) return;
   const slot = document.createElement('div');
   slot.innerHTML = menu();
@@ -148,7 +148,7 @@ function insertMenu() {
   if (!navigator.share) el.querySelector('[data-obi-share="native"]')?.remove();
   bindFloatingMenu(el);
   if (p.startsWith('/serie/')) el.dataset.placement='series';
-  if (p.startsWith('/equipo/')) { el.dataset.placement = 'team'; target.prepend(el); }
+  if (p.startsWith('/equipo/')) { el.dataset.placement = 'team'; target.append(el); }
   else if (p.startsWith('/leer/')) target.append(el);
   else target.append(el);
   if (p.startsWith('/serie/')) {
