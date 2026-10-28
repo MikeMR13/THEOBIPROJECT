@@ -36,7 +36,7 @@ body{--gold:#f2c230;--paper:#f3ecd9;--mute:#a89f8a;--line:#2f2a20}
 </style></head><body>
 <header class="top"><a class="ob-brand" href="/"><span class="ob-seal">帯</span><span class="ob-word"><b>El Obi del Lector</b></span></a>
 <nav class="ob-nav"><a href="/">Inicio</a></nav>
-<button class="ob-mbtn" aria-label="Abrir menú">☰</button><div class="ob-tools"><button aria-label="Continuar">続</button><button aria-label="Avisos">鈴</button><button aria-label="Equipo">OX</button></div></header>
+<div class="ob-tools"><div id="session"><button aria-label="Avisos">鈴</button><button aria-label="Cuenta">OX</button></div></div></header>
 <main class="test"><section class="ob-page"><section class="ob-sec"><div class="ob-st">
  <span class="k">推薦</span><h2>Para ti</h2><span class="r2"><span class="mono">porque lees Comedia y Escolar</span><button>‹</button><button>›</button></span>
  </div></section></section>
@@ -63,9 +63,11 @@ body{--gold:#f2c230;--paper:#f3ecd9;--mute:#a89f8a;--line:#2f2a20}
   if(getComputedStyle(name.querySelector('.ui-ch-type')).writingMode!=='horizontal-tb')e.push('Etiqueta vertical '+i);
  }
  if(w<=640){
-  const m=head.querySelector('.ob-mbtn'),tools=head.querySelector('.ob-tools'),brand=head.querySelector('.ob-brand');
-  if(intersects(m,brand)||intersects(m,tools))e.push('Cabecera superpuesta');
-  if(head.getBoundingClientRect().height>170)e.push('Cabecera alta '+head.getBoundingClientRect().height);
+  const tools=head.querySelector('.ob-tools'),brand=head.querySelector('.ob-brand');
+  if(head.querySelector('.ob-mbtn'))e.push('Hamburguesa duplicada en cabecera');
+  if(getComputedStyle(head.querySelector('.ob-nav')).display!=='none')e.push('Navegación duplicada visible');
+  if(intersects(brand,tools))e.push('Cabecera superpuesta');
+  if(head.getBoundingClientRect().height>92)e.push('Cabecera alta '+head.getBoundingClientRect().height);
   const h=document.querySelector('.ob-st h2');
   if(h.getBoundingClientRect().height>65)e.push('Título Para ti vertical');
  }
