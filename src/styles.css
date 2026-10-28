@@ -706,3 +706,12 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
   .ob-page .ob-st .r2 .ob-arr{margin-left:auto}
   .ob-page .ob-band{margin-top:24px!important}
 }
+
+/* Studio: radios, selectores y campos del volumen fluidos en iPhone. */
+@media(max-width:600px){
+ .s2 .wk-dat,.s2 .wk-col,.s2 .wk-box{min-width:0;max-width:100%}
+ .s2 .wk-box{padding:14px}
+ .s2 .wk-box :is(input:not([type=checkbox]):not([type=radio]),textarea,select){box-sizing:border-box;min-width:0;max-width:100%}
+ .s2 .wk-box .tb-inl{display:flex;align-items:flex-start;gap:8px 10px;min-width:0;max-width:100%;flex-wrap:wrap;line-height:1.5;overflow-wrap:break-word}
+ .s2 .wk-box .tb-inl>select{flex:1 1 100%;width:100%;max-width:100%;margin-left:28px;min-height:44px}
+}
