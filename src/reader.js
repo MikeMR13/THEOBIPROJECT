@@ -5,6 +5,7 @@ import { cleanInline, renderBlock, warningsHTML, teaserHTML } from './blocks.js?
 import { attachPublicCredits, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
 import { readerPrefsKey, readReaderPrefs, readPendingReaderPrefs, stageReaderPrefs, acknowledgeReaderPrefs, sameReaderAccount, readingProgressKey, readingProgressPrefix, readerProgressKeys } from './reader-pref-cache.js?v=1';
 import { SECTION_LABELS } from './section-types.js?v=1';
+import { adjacentChapter, mergeChapterMetadata } from './reader-navigation.js?v=1';
 const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true };
 const COLORS = { gold: '#f2c230', rose: '#f29bb0', sky: '#8cc3f2', mint: '#9fdcb0' };
 const SEC_LABEL = SECTION_LABELS;
@@ -13,7 +14,7 @@ export function createReader(ctx){
   installCreditImageFallback();
   const { sb, app, $, esc, toast, go, getUser, url } = ctx;
   const media = p => p ? (/^https?:/.test(p) ? p : `${url}/storage/v1/object/public/obi-media/${encodeURI(p)}`) : '';
-  const S = { series: null, chapters: [], vols: [], bodies: new Map(), prefs: null, remote: null, mounted: [], active: null, annots: [], saveT: 0, readMarked: new Set(), historyLogged: new Set() };
+  const S = { series: null, chapters: [], vols: [], bodies: new Map(), bodyVersions: new Map(), prefs: null, remote: null, mounted: [], active: null, annots: [], saveT: 0, readMarked: new Set(), historyLogged: new Set() };
 
   // ---------- preferencias ----------
   const loadLocal = userId => readPendingReaderPrefs(localStorage, userId) || readReaderPrefs(localStorage, userId);
@@ -72,7 +73,6 @@ export function createReader(ctx){
       sb.from('chapters').select(CH_COLS + ',series!inner(slug)').eq('series.slug', slug).is('deleted_at', null).order('num'),
       sb.from('volumes').select('id,num,title,epub_fonts,series!inner(slug)').eq('series.slug', slug).is('deleted_at', null).order('num')
     ]).then(async ([a, b, c]) => { const e = a.error || b.error || c.error; if (e) throw e; if (!a.data) return null;
-      await attachPublicCredits(sb, [a.data]);
       const strip = l => (l || []).map(({ series, ...x }) => x);
       const m = { series: a.data, chapters: strip(b.data), vols: strip(c.data), at: Date.now() };
       try { const saved = { ...m, series: { ...m.series } }; delete saved.series.publicCredits; const j = JSON.stringify(saved); if (j.length < 400000) localStorage.setItem(META_KEY(slug), j); } catch {}
@@ -80,7 +80,11 @@ export function createReader(ctx){
   }
   const cachedMeta = slug => { try { return JSON.parse(localStorage.getItem(META_KEY(slug))); } catch { return null; } };
   function setSeries(m, offGl){
-    Object.assign(S, { series: m.series, chapters: m.chapters || [], vols: m.vols || [], nextAt: null, teamIds: null, bodies: S.series?.id === m.series.id ? S.bodies : new Map(), annots: [], gloss: [], glMap: new Map(), glRe: undefined, readSet: null });
+    const sameSeries = S.series?.id === m.series.id;
+    Object.assign(S, { series: m.series, chapters: m.chapters || [], vols: m.vols || [], nextAt: null, teamIds: null,
+      bodies: sameSeries ? S.bodies : new Map(), bodyVersions: sameSeries ? S.bodyVersions : new Map(),
+      active: sameSeries ? S.active : null, mounted: sameSeries ? S.mounted : [], loadingNext: false,
+      annots: [], gloss: [], glMap: new Map(), glRe: undefined, readSet: null });
   }
   async function loadSeries(slug, num){
     if (S.series?.slug === slug && (num == null || S.chapters.some(c => c.num === num))) return true;
@@ -96,21 +100,56 @@ export function createReader(ctx){
       return true;
     }
     let m = null, offGl = null; const hit = cachedMeta(slug);
-    if (hit?.series && (num == null || hit.chapters.some(c => c.num === num))) {
-      // copia guardada al instante; la red la refresca por detrás (capítulos nuevos, títulos, avisos)
-      m = hit; S.metaFresh = fetchMeta(slug).then(n => { if (n && S.series?.id === n.series.id) { const act = S.active, nw = act && n.chapters.find(c => c.id === act.id); S.series = n.series; S.chapters = n.chapters; S.vols = n.vols;
-        if (act && nw && nw.updated_at !== act.updated_at) { S.bodies.delete(act.id); Object.assign(act, nw); if (S.mounted.length === 1 && scrollY < 400) body(act).then(b => { const art = b && $(`[data-ch="${act.id}"]`); if (art) { art.outerHTML = chapterHTML(act, b, effective(act.volume_id)); markTerms($(`[data-ch="${act.id}"]`)); } }); } } return n; }).catch(() => null);
-    } else {
-      try { m = await fetchMeta(slug); } catch { const o = await offlineMeta(slug); if (o) { m = { series: o.series, chapters: o.chapters, vols: o.vols }; offGl = o.gloss || null; } }
+    const hasHit = !!(hit?.series && (num == null || hit.chapters?.some(c => c.num === num)));
+    if (hasHit) m = hit;
+    else {
+      try { m = await fetchMeta(slug); }
+      catch { const o = await offlineMeta(slug); if (o) { m = { series: o.series, chapters: o.chapters, vols: o.vols }; offGl = o.gloss || null; } }
     }
     if (!m?.series) return false;
-    setSeries(m); const s = m.series;
-    if (hit) { s.publicCredits = null; await attachPublicCredits(sb, [s]); }
-    // calendario y glosario no bloquean la apertura: llegan después y se aplican solos
+    setSeries(m);
+    const s = S.series;
+    // Los créditos públicos se verifican con el servidor sin retrasar la aparición del texto.
+    // La copia local nunca guarda colaboradores: hasta recibir respuesta solo muestra al equipo principal.
+    s.publicCredits = null;
+    S.creditsFresh = attachPublicCredits(sb, [s]).then(() => {
+      if (S.series !== s || !$('.rd')) return;
+      const html = creditsHTML(s, { esc, media, mode: 'reader' });
+      document.querySelectorAll('.rd-ch').forEach(art => {
+        const old = art.querySelector('.obi-credits');
+        if (old) old.outerHTML = html;
+        else if (html) art.insertAdjacentHTML('afterbegin', html);
+      });
+    }).catch(() => {});
+    if (hasHit) {
+      // Revalidar títulos, permisos y revisiones en segundo plano sin sustituir referencias del lector.
+      S.metaFresh = fetchMeta(slug).then(n => {
+        if (!n || S.series !== s) return n;
+        const act = S.active;
+        const merged = mergeChapterMetadata(S.chapters, n.chapters, S.bodies, S.bodyVersions);
+        Object.assign(s, n.series);
+        S.chapters = merged.chapters;
+        S.vols = n.vols;
+        if (act && merged.changed.has(act.id) && S.mounted.length === 1 && scrollY < 400) {
+          body(act).then(b => {
+            if (!b || S.series !== s || S.active?.id !== act.id || S.mounted.length !== 1 || scrollY >= 400) return;
+            const art = $('[data-ch="' + act.id + '"]');
+            if (art) {
+              art.outerHTML = chapterHTML(act, b, effective(act.volume_id));
+              markTerms($('[data-ch="' + act.id + '"]'));
+              paintAnnots(act.id);
+            }
+          }).catch(() => {});
+        }
+        if (S.active && $('.rd')) footer();
+        return n;
+      }).catch(() => null);
+    }
+    // El calendario y el glosario tampoco son requisitos para abrir el capítulo.
     S.extras = Promise.all([
       sb.from('schedule').select('at').eq('series_id', s.id).gte('at', new Date().toISOString()).order('at').limit(1).then(r => r.data?.[0]?.at || null, () => null),
       sb.from('glossary_terms').select('term,category,definition').eq('series_id', s.id).then(r => r.data || [], () => [])
-    ]).then(([at, gl0]) => { if (S.series?.id !== s.id) return; const gl = gl0.length ? gl0 : (offGl || []); Object.assign(S, { nextAt: at, gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined }); });
+    ]).then(([at, gl0]) => { if (S.series !== s) return; const gl = gl0.length ? gl0 : (offGl || []); Object.assign(S, { nextAt: at, gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined }); });
     return true;
   }
   const early = new Map(); // slug/num → promesa del texto pedido en paralelo con la ficha
@@ -127,23 +166,36 @@ export function createReader(ctx){
       await c.put(bKey(ch), new Response(JSON.stringify(b), { headers: { 'content-type': 'application/json' } }));
       if (ks.length > BC_MAX) await Promise.all(ks.slice(0, ks.length - BC_MAX).map(k => c.delete(k))); }).catch(() => {}); }
   async function body(ch){
-    if (S.bodies.has(ch.id)) return S.bodies.get(ch.id);
-    // En modo avión, el texto completo descargado es la fuente primaria.
-    // No crear ni aguardar ninguna solicitud remota aunque el navegador tarde en detectar el corte.
-    if (!navigator.onLine) {
-      const b = await offlineBody(ch) || await cacheGet(ch);
-      if (b) S.bodies.set(ch.id, b);
+    const rev = ch.updated_at || null, seriesId = S.series?.id;
+    if (S.bodies.has(ch.id) && S.bodyVersions.get(ch.id) === rev) return S.bodies.get(ch.id);
+    S.bodies.delete(ch.id); S.bodyVersions.delete(ch.id);
+    // Una descarga iniciada antes de una revisión o de cambiar de obra no puede contaminar el caché actual.
+    const remember = b => {
+      if (!b || S.series?.id !== seriesId ||
+          !S.chapters.some(c => c.id === ch.id && (c.updated_at || null) === rev)) return null;
+      S.bodies.set(ch.id, b); S.bodyVersions.set(ch.id, rev);
       return b;
+    };
+    if (!navigator.onLine) {
+      return remember(await offlineBody(ch) || await cacheGet(ch));
     }
-    { const hit = await cacheGet(ch); if (hit) { S.bodies.set(ch.id, hit); return hit; } }
+    const hit = await cacheGet(ch);
+    if (hit) return remember(hit);
     const ek = (S.series?.slug || '') + '/' + ch.num;
-    if (early.has(ek)) { const d = await early.get(ek); early.delete(ek); if (d?.id === ch.id && d.body) { S.bodies.set(ch.id, d.body); cachePut(ch, d.body); return d.body; } }
+    if (early.has(ek)) {
+      const d = await early.get(ek); early.delete(ek);
+      if (d?.id === ch.id && d.body) {
+        const saved = remember(d.body); if (saved) cachePut(ch, saved);
+        return saved;
+      }
+    }
     let b = null;
     try { const { data, error } = await sb.from('chapters').select('body').eq('id', ch.id).maybeSingle(); if (error) throw error; b = data?.body ?? null; }
     catch { b = await offlineBody(ch); }
     if (!b) b = await offlineBody(ch);
-    if (b) { S.bodies.set(ch.id, b); cachePut(ch, b); }
-    return b;
+    const saved = remember(b);
+    if (saved) cachePut(ch, saved);
+    return saved;
   }
   // texto del siguiente capítulo + sus 2 primeras ilustraciones (salvo modo ahorro de datos)
   // No descargar por anticipado el capítulo en conexiones lentas, ahorro de datos
@@ -157,8 +209,8 @@ export function createReader(ctx){
         b.filter(x => x.url || x.src).slice(0, 2).forEach(x => { const i = new Image(); i.decoding = 'async'; i.src = media(x.url || x.src); }); }).catch(() => {});
     });
   };
-  const nextOf = ch => S.chapters[S.chapters.indexOf(ch) + 1];
-  const prevOf = ch => S.chapters[S.chapters.indexOf(ch) - 1];
+  const nextOf = ch => adjacentChapter(S.chapters, ch, 1);
+  const prevOf = ch => adjacentChapter(S.chapters, ch, -1);
   const volOf = ch => S.vols.find(v => v.id === ch.volume_id) || S.vols.find(v => v.num === ch.vol);
 
   // ---------- fuentes EPUB ----------
