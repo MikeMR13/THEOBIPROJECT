@@ -28,6 +28,7 @@ const whitelist = new Map([
  ['/series-cover-editor.js','src/series-cover-editor.js'],
  ['/series-cover-editor.css','src/series-cover-editor.css'],
  ['/section-types.js','src/section-types.js'],
+ ['/chapter-title-display.js','src/chapter-title-display.js'],
   ['/editorial-announcements.js','src/editorial-announcements.js'],
  ['/studio.css','src/studio.css'],
  ['/reader-a11y.css','src/reader-a11y.css'],
