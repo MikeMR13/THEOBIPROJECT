@@ -47,6 +47,8 @@ jobs:
         run: node scripts/visual-phase5-browser.mjs
       - name: Invitaciones · mostrar únicamente los campos del modo seleccionado
         run: node scripts/invitaciones-visibility-browser.mjs
+      - name: Bibliotecario · paginación, navegación y móvil real (Chromium)
+        run: node scripts/bibliotecario-browser-check.mjs
       - run: npm run studio-browser-check
       - name: QA visual responsive (5 anchuras, datos ficticios)
         run: npm run visual-browser-check

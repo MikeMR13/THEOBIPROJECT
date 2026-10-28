@@ -1,0 +1,59 @@
+name: Bibliotecario · QA operacional y permisos sin costo
+
+on:
+  push:
+    branches: [fix/bibliotecario-operativo-visual-20261027]
+    paths:
+      - 'supabase/migrations/20261028032500_bibliotecario_operational_guardrails.sql'
+      - 'supabase/tests/bibliotecario_operational_assertions.sql'
+      - 'supabase/tests/fixtures/bibliotecario_operational_local.sql'
+      - '.github/workflows/bibliotecario-operational-qa.yml'
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261028032500_bibliotecario_operational_guardrails.sql'
+      - 'supabase/tests/bibliotecario_operational_assertions.sql'
+      - 'supabase/tests/fixtures/bibliotecario_operational_local.sql'
+      - '.github/workflows/bibliotecario-operational-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bibliotecario-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgres:
+    name: PostgreSQL 17 aislado · propietarios, edición, auditoría
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      database:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: obi_admin_qa
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: local_qa_only
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d obi_admin_qa"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Esquema sintético, migración y pruebas sin Supabase externo
+        env:
+          PGPASSWORD: local_qa_only
+        run: |
+          set -euo pipefail
+          psql_qa() {
+            docker run --rm --network host -e PGPASSWORD="$PGPASSWORD" \
+              -v "$PWD:/work:ro" -w /work postgres:17-alpine \
+              psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d obi_admin_qa -f "$1"
+          }
+          psql_qa supabase/tests/fixtures/bibliotecario_operational_local.sql
+          psql_qa supabase/migrations/20261028032500_bibliotecario_operational_guardrails.sql
+          psql_qa supabase/tests/bibliotecario_operational_assertions.sql
+          echo 'QA PostgreSQL del Bibliotecario: APROBADO'

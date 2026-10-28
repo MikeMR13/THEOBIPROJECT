@@ -17,7 +17,7 @@ const element = (tag, content = '', attrs = {}) => {
   }
   return e;
 };
-export async function renderAdminSeo({sb,view,toast}) {
+export async function renderAdminSeo({sb,view,toast,onSaved}) {
   const root=view();
   root.replaceChildren(element('div','Cargando ajustes SEO…',{className:'bb-box'}));
   const {data:config,error:loadError}=await sb.from('platform_settings').select('id,seo').eq('id',1).single();
@@ -71,7 +71,7 @@ export async function renderAdminSeo({sb,view,toast}) {
       const {data, error}=await sb.from('platform_settings').update({seo,updated_at:new Date().toISOString()}).eq('id',1).select('id');
       if(error)throw error;
       if(!data?.length)throw new Error('Sin permisos para guardar esta configuración');
-      dirty=false;refresh();toast('Preferencias SEO de Inicio guardadas');
+      dirty=false;onSaved?.();refresh();toast('Preferencias SEO de Inicio guardadas');
     }catch(e){status.textContent='Error al guardar: '+(e.message||'desconocido');}
     finally{save.disabled=false;}
   };
