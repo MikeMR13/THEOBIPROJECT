@@ -449,7 +449,10 @@ export function createReader(ctx){
       const newer = !pos || Date.parse(latest.at || latest.updated_at || 0) > Date.parse(pos.at || pos.updated_at || 0);
       if (!newer) return;
       S.pos = latest;
-      if (latest.chapter_id === ch.id && +latest.block === +(pos?.block || 0)) return;
+      if (latest.chapter_id === ch.id &&
+          (!(+latest.block > 0) || +latest.block === +(pos?.block || 0))) return;
+      if (latest.chapter_id !== ch.id &&
+          !S.chapters.some(c => c.id === latest.chapter_id || c.num === (latest.num ?? latest.chapter_num))) return;
       // El avance remoto no se sobrescribe hasta que el lector elija continuar aquí o se desplace.
       S.resumePending = { chapterId: ch.id, y: scrollY };
       resumeBar(ch, latest, true);
