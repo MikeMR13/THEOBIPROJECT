@@ -427,7 +427,7 @@ export function createReader(ctx){
     const more = `<button class="btn ghost" data-act="coms">Comentarios</button><button class="btn ghost" data-act="notes">Anotaciones</button><button class="btn ghost" data-act="offline">${isVolOffline(ch) ? '✓ Descargado' : 'Descargar volumen'}</button>`;
     app.innerHTML = `<div class="rd" data-theme="${p.theme}" data-width="${p.width}" data-lh="${p.lh}" data-align="${p.align}" data-para="${p.para}" data-font="${p.font}" style="--rs:${p.size}px">
       <nav class="rd-bar">
-        <span class="rd-where"><a href="/serie/${esc(slug)}" class="rd-back">‹ ${esc(S.series.title)}</a><span class="rd-left mono"></span></span>
+        <span class="rd-where"><a href="/serie/${esc(slug)}" class="rd-back" title="${esc(S.series.title)}">‹ ${esc(S.series.title)}</a><span class="rd-left mono"></span></span>
         <div class="rd-tools">
           <button class="btn ghost" data-act="toc" aria-label="Índice">Índice</button>
           <button class="btn ghost" data-act="prefs" aria-label="Ajustes de lectura">Aa</button>
