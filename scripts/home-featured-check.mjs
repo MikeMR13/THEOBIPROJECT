@@ -108,7 +108,7 @@ const competing={...launchInput,news:{entries:[
 const priority=homeFeaturedSelection(competing);
 assert.equal(priority.entries[0].id,'completo','Primeras 48 h: el volumen público más reciente debe abrir el carrusel');
 assert.equal(priority.entries[1].id,'nuevo','Un debut reciente conserva la segunda posición de lanzamientos');
-assert.equal(priority.entries[0].label,'Nuevo lanzamiento');
+assert.equal(priority.entries[0].label,'¡Novela completa!','Conservar la etiqueta de volumen finalizado cuando sea el más reciente');
 // Regresión 28/oct: un volumen 3 estrenado hoy prevalece sobre debuts y
 // novelas completas de días anteriores; no necesita ser el volumen 1.
 const newVolume={id:'antiguo',kind:'volume',at:'2026-10-23T21:18:00Z',
