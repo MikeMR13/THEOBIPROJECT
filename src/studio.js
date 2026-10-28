@@ -9,6 +9,7 @@ import { SECTION_TYPES } from './section-types.js?v=1';
 import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
 import { askEditorialAnnouncement, saveEditorialRecord, chooseActiveEditorial } from './editorial-announcements.js?v=1';
 import { WORK_GENRES, WORK_DEMOGRAPHICS, createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
+import { loadVolumeCoverChoices, galleryCoverPaths } from './volume-cover-gallery.js?v=1';
 document.addEventListener('click', e => { const i = e.target.closest?.('input[type=date],input[type=datetime-local]'); if (i && !i.disabled && !i.readOnly) try { i.showPicker(); } catch {} });
 const LIMITS = { file: 80 * 1024 * 1024, entries: 15000, unzipped: 300 * 1024 * 1024, image: 8 * 1024 * 1024 };
 const ACTIONS = [['view','Ver'],['edit','Editar'],['create','Crear'],['import','Importar'],['publish','Publicar'],['schedule','Programar'],['delete','Borrar'],['review','Revisar']];
@@ -676,7 +677,14 @@ export function createStudio(ctx){
           <span class="mono" style="font-size:11px">El equipo siempre lo ve. Los lectores sin acceso lo ven bloqueado con el enlace para apoyar. Puedes cambiarlo cuando quieras, también después de publicado.</span></div>
         <div class="wide wk-vcov"><span class="wk-vcp" id="vcp-${v.id}" style="${v.cover_path ? `background-image:url('${esc(media(v.cover_thumb_path || v.cover_path))}')` : ''}">${v.cover_path ? '' : 'Sin portada'}</span>
           <span style="display:grid;gap:6px"><b style="font-size:13px">Portada del volumen</b><span class="mono" style="font-size:11px">JPG, PNG o WebP · máx. 8 MB · se recomienda vertical 2:3 (por ejemplo 1200 × 1800 px).</span>
-          <span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label class="btn ghost sm" style="cursor:pointer">${v.cover_path ? 'Cambiar portada' : 'Subir portada'}<input type="file" name="cover" accept="image/jpeg,image/png,image/webp" hidden></label>${v.cover_path ? '<button type="button" class="lnk danger" data-vcovdel>Quitar portada</button>' : ''}<span class="mono" id="vcs-${v.id}"></span></span></span></div>
+          <span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <label class="btn ghost sm" style="cursor:pointer">${v.cover_path ? 'Subir otra portada' : 'Subir portada'}<input type="file" name="cover" accept="image/jpeg,image/png,image/webp" hidden></label>
+            <button type="button" class="btn ghost sm" data-vgallery aria-expanded="false" aria-controls="vgallery-${v.id}">▦ Elegir de Multimedia</button>
+            ${v.cover_path ? '<button type="button" class="lnk danger" data-vcovdel>Quitar portada</button>' : ''}
+            <span class="mono" id="vcs-${v.id}" role="status"></span>
+          </span></span>
+          <div class="wide wk-vgallery" id="vgallery-${v.id}" hidden aria-label="Portadas de la galería multimedia de esta obra"></div>
+        </div>
         <div class="wide wk-vext"><label class="tb-inl"><input type="checkbox" name="ext_on" ${v.external_url ? 'checked' : ''}> Volumen disponible en el sitio del traductor</label>
           <div class="wk-vexf" ${v.external_url ? '' : 'hidden'}>
             <label>Enlace del volumen<input name="external_url" type="url" inputmode="url" maxlength="500" placeholder="https://tu-sitio.com/obra/volumen-${v.num}" value="${esc(v.external_url || '')}"></label>
@@ -692,16 +700,52 @@ export function createStudio(ctx){
         tierSel.innerHTML = L2.length ? L2.map(t => `<option value="${t.price_usd}" ${v.access_min_price != null && +v.access_min_price === +t.price_usd ? 'selected' : ''}>${esc(t.name)} · ${t.price_usd} USD</option>`).join('') : '<option value="">Aún no hay niveles de Patreon</option>';
         if (!L2.length) { tierSel.disabled = true; const tr = box.querySelector('[name=access][value=tier]'); tr.disabled = true; } });
       const extOn = box.querySelector('[name=ext_on]'); extOn.onchange = () => { box.querySelector('.wk-vexf').hidden = !extOn.checked; if (extOn.checked) box.querySelector('[name=external_url]').focus(); };
-      const setCover = async (path, old) => { const { error } = await sb.from('volumes').update({ cover_path: path }).eq('id', v.id); if (error) throw new Error(errMsg(error)); v.cover_path = path;
-        if (old && old !== path && old.startsWith(T.team.id + '/')) { const { data: used } = await sb.rpc('media_in_use', { p_team: T.team.id, p_paths: [old] }); if (!(used || []).includes(old)) await sb.storage.from('obi-media').remove([old]); } };
+      const setCover = async (path) => { const { error } = await sb.from('volumes').update({ cover_path: path }).eq('id', v.id);
+        if (error) throw new Error(errMsg(error));
+        v.cover_path = path;
+        // No borrar automáticamente multimedia al cambiar portada: puede estar en
+        // la galería de la obra, en otro volumen o referenciada por un capítulo.
+      };
+      const showCover = path => { const preview=box.querySelector('#vcp-' + v.id);
+        preview.style.backgroundImage = path ? `url("${media(path)}")` : '';
+        preview.textContent = path ? '' : 'Sin portada';
+        const status=box.querySelector('#vcs-' + v.id); if(status)status.textContent=path ? '✓ Portada guardada' : 'Sin portada';
+      };
+      const galleryBtn=box.querySelector('[data-vgallery]'), galleryBox=box.querySelector('#vgallery-' + v.id);
+      galleryBtn.onclick=()=>busy(galleryBtn,async()=>{
+        if(!galleryBox.hidden){galleryBox.hidden=true;galleryBtn.setAttribute('aria-expanded','false');return;}
+        galleryBox.hidden=false;galleryBtn.setAttribute('aria-expanded','true');
+        galleryBox.textContent='Buscando imágenes de esta obra…';
+        try{
+          const paths=await loadVolumeCoverChoices({sb,teamId:T.team.id,slug:s.slug,
+            volumeNum:v.num,gallery:s.media?.gallery||[]});
+          galleryBox.innerHTML=paths.length
+            ? '<p class="mono" style="margin:0 0 8px">Elige una imagen existente de Multimedia para usarla como portada del volumen.</p>'+
+              '<div class="wk-vgallery-grid">'+paths.map(path=>
+              `<button type="button" data-vcoverpick="${esc(path)}" aria-label="Usar ${esc(path.split('/').pop())} como portada del volumen ${v.num}" aria-pressed="${v.cover_path===path}"><img src="${esc(media(path))}" alt="" loading="lazy" decoding="async"><span>${esc(path.split('/').pop())}</span></button>`).join('')+'</div>'
+            : '<p class="mono">Aún no hay imágenes asociadas a esta obra. Súbelas desde Multimedia.</p>';
+          galleryBox.querySelectorAll('[data-vcoverpick]').forEach(b=>b.onclick=()=>busy(b,async()=>{
+            const path=b.dataset.vcoverpick;
+            const allowed=galleryCoverPaths({teamId:T.team.id,slug:s.slug,gallery:s.media?.gallery||[],files:paths});
+            if(!allowed.includes(path))throw new Error('La imagen no pertenece a Multimedia de esta obra');
+            await setCover(path);showCover(path);
+            galleryBox.querySelectorAll('[data-vcoverpick]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.vcoverpick===path)));
+            if(!s.cover_path&&await confirmObi('La obra aún no tiene portada. ¿Usar también esta imagen?')){
+              const {error}=await sb.from('series').update({cover_path:path}).eq('id',s.id);
+              if(error)throw new Error(errMsg(error));s.cover_path=path;
+            }
+            toast('Portada del Volumen '+v.num+' elegida de Multimedia');
+          }));
+        }catch(error){galleryBox.textContent='No se pudo cargar la galería: '+(error.message||error);throw error;}
+      }));
       box.querySelector('[name=cover]').onchange = e => { const file = e.target.files[0]; e.target.value = ''; if (!file) return; const st2 = $('#vcs-' + v.id);
         busy(null, async () => { if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('Usa JPG, PNG o WebP'); if (file.size > LIMITS.image) throw new Error('La imagen pesa más de 8 MB');
           st2.textContent = 'Subiendo…'; const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type], path = `${T.team.id}/obras/${s.slug}/vol-${v.num}/portada-${Date.now()}.${ext}`;
           const { error } = await sb.storage.from('obi-media').upload(path, file, { contentType: file.type, cacheControl: '31536000' }); if (error) { st2.textContent = ''; throw new Error(errMsg(error)); }
-          await setCover(path, v.cover_path); $('#vcp-' + v.id).style.backgroundImage = `url('${media(path)}')`; $('#vcp-' + v.id).textContent = ''; st2.textContent = '✓ Portada guardada';
+          await setCover(path); showCover(path); st2.textContent = '✓ Portada guardada';
           if (!s.cover_path && await confirmObi('La obra aún no tiene portada. ¿Usar también esta?')) await sb.from('series').update({ cover_path: path }).eq('id', s.id);
           toast('Portada del volumen ' + v.num + ' actualizada'); }).then(() => { if (!st2.textContent.startsWith('✓')) st2.textContent = ''; }); };
-      box.querySelector('[data-vcovdel]')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!await confirmObi('¿Quitar la portada de este volumen?')) return; await setCover(null, v.cover_path); toast('Portada quitada'); again(); }));
+      box.querySelector('[data-vcovdel]')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!await confirmObi('¿Quitar la portada de este volumen?')) return; await setCover(null); toast('Portada quitada'); again(); }));
       const f = k => box.querySelector(`[name=${k}]`);
       box.querySelector('[data-vcancel]').onclick = () => { box.hidden = true; };
       box.querySelector('[data-vsave]').onclick = e => busy(e.currentTarget, async () => {
