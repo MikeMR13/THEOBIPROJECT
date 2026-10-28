@@ -1,35 +1,34 @@
-// Regresión del índice editorial optativo por volumen (sin Supabase ni escrituras).
+// Regresión del índice editorial universal + escaneo voluntario en Studio.
+// Solo datos ficticios; no consulta Supabase ni escribe novelas.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {formatChapterIndex} from '../src/chapter-title-display.js';
+import {formatChapterIndex,scanImportedChapterTitles} from '../src/chapter-title-display.js';
 
-const original = 'Captiulo 1: Una nueva vida';
-const off = formatChapterIndex({title:original,sectionType:'Capítulo',globalNum:24,enabled:false});
-assert.deepEqual(off,{label:'',number:'24',heading:original,secondary:'',normalized:false,typo:false},'Sin consentimiento el índice permanece intacto');
-
-const cases = [
+const cases=[
  ['Capítulo 1: El comienzo','01','El comienzo'],
  ['Capitulo 01 - El despertar','01','El despertar'],
  ['Captiulo 1: Una nueva vida','01','Una nueva vida'],
  ['CAP. 02 — El encuentro','02','El encuentro'],
  ['Cap 3. La promesa','03','La promesa'],
+ ['Capítulo 0: Introducción','00','Introducción'],
  ['Capítulo 3','03',''],
  ['Capítulo número 12: El final','12','El final']
 ];
-for (const [title,number,heading] of cases) {
- const got = formatChapterIndex({title,sectionType:'Capítulo',globalNum:24,enabled:true});
+for(const [title,number,heading] of cases) {
+ const got=formatChapterIndex({title,sectionType:'Capítulo',globalNum:24});
  assert.equal(got.label,'Capítulo',title);
  assert.equal(got.number,number,title);
  assert.equal(got.heading,heading,title);
- assert.equal(got.secondary,'Sección global 24',title);
- assert.equal(got.normalized,true,title);
+ assert(!Object.values(got).some(x=>typeof x==='string'&&x.includes('global 24')),
+   'Prohibido mostrar numeración global al lector: '+title);
 }
-assert(formatChapterIndex({title:original,enabled:true}).typo,'Detectar el error común «Captiulo»');
-for (const title of ['El despertar de la bruja','Capítulo veinte','Capítulo 1.5 - parte 2','Capítulo 1a: Extra','Capítulo 10000: Fuera de rango']) {
- const got=formatChapterIndex({title,sectionType:'Capítulo',globalNum:33,enabled:true});
- assert.equal(got.heading,title,'No cambiar títulos ambiguos: '+title);
- assert.equal(got.number,'','No inventar numeración editorial: '+title);
- assert.equal(got.secondary,'Sección global 33');
+assert(formatChapterIndex({title:'Captiulo 1: Una nueva vida'}).typo);
+for(const title of ['El despertar de la bruja','Capítulo veinte','Capítulo 1.5 - parte 2',
+ 'Capítulo 1a: Extra','Capítulo 10000: Fuera de rango','Portada','Sinopsis']) {
+ const got=formatChapterIndex({title,sectionType:'Capítulo',globalNum:33});
+ assert.equal(got.label,'Sección',title);
+ assert.equal(got.number,'','Nunca inventar número editorial: '+title);
+ assert.equal(got.heading,title);
 }
 for(const [type,title,heading] of [
  ['Prólogo','Prólogo: Una promesa','Una promesa'],
@@ -39,29 +38,49 @@ for(const [type,title,heading] of [
  ['Afterword','Afterword',''],
  ['Extra','Extra digital del autor','Extra digital del autor']
 ]) {
- const v=formatChapterIndex({title,sectionType:type,globalNum:7,enabled:true});
- assert.equal(v.label,type);
- assert.equal(v.heading,heading);
- assert.equal(v.number,'','Los materiales especiales no son capítulos numerados');
+ const v=formatChapterIndex({title,sectionType:type,globalNum:7});
+ assert.equal(v.label,type);assert.equal(v.heading,heading);assert.equal(v.number,'');
 }
+assert.deepEqual(formatChapterIndex({title:'Prólogo: El bosque',sectionType:'Capítulo'}),
+ {label:'Prólogo',number:'',heading:'El bosque',normalized:true,typo:false},
+ 'Detectar secciones especiales antiguas clasificadas como capítulo');
+const original=[{title:'Captiulo 1: Una nueva vida',type:'Capítulo'},
+ {title:'Capítulo 2: Otro día',type:'Capítulo'},{title:'Prólogo: Comienzo',type:'Prólogo'},
+ {title:'El final',type:'Capítulo'},{title:'Capítulo 9',type:'Capítulo',skip:true}];
+const snapshot=structuredClone(original);
+const scan=scanImportedChapterTitles(original);
+assert.equal(scan.total,4);assert.equal(scan.numbered,2);
+assert.equal(scan.special,1);assert.equal(scan.typo,1);assert.equal(scan.unrecognized,1);
+assert.equal(scan.findings[0].number,'01');
+assert.deepEqual(original,snapshot,'El escáner no debe alterar ni títulos ni tipos');
+assert.equal(scanImportedChapterTitles([]).total,0);
+
 const ui=readFileSync('src/ui.js','utf8');
 const imp=readFileSync('src/studio-importer.js','utf8');
+const reader=readFileSync('src/reader.js','utf8');
 const css=readFileSync('src/styles.css','utf8');
-const sql=readFileSync('supabase/migrations/20261028190000_volume_chapter_index_opt_in.sql','utf8');
-for (const marker of [
- "format_chapter_titles')", // consulta solo a volúmenes publicados
- "v.format_chapter_titles ? formatChapterIndex(",
- 'data-chapter-title="${esc(c.title || \'\')}"', // búsqueda con título intacto
- 'href="/leer/${esc(s.slug)}/${c.num}"', // ruta global conservada
- 'ui-ch-global'
-]) assert(ui.includes(marker),'Ficha pública: '+marker);
-for (const marker of [
- 'id="imp-format-titles"','D.formatChapterTitles = e.target.checked',
- 'format_chapter_titles: !!D.formatChapterTitles',
- 'patch.format_chapter_titles = !!D.formatChapterTitles',
- 'title:(c.title||\'Sin título\').slice(0,300)',
+for(const marker of [
+ 'const shown = formatChapterIndex({title:c.title,sectionType:c.section_type})',
+ 'data-chapter-title="${esc(c.title || \'\')}"',
+ 'href="/leer/${esc(s.slug)}/${c.num}"',
+ '<span class="n" aria-hidden="true">${shown.number',
+ 'data-chapter-display='
+])assert(ui.includes(marker),'Ficha pública: '+marker);
+assert(!ui.includes('v.format_chapter_titles')&&!ui.includes('ui-ch-global'),
+ 'La preferencia antigua o el número global no pueden controlar el índice público');
+assert(reader.includes('const shown = formatChapterIndex({title:ch.title,sectionType:ch.section_type})'),
+ 'El lector debe usar la misma numeración editorial');
+assert(!reader.includes("ch.section_type === 'Capítulo' || !ch.section_type ? ' ' + ch.num"),
+ 'El lector sigue mostrando el número global en su cabecera');
+for(const marker of [
+ 'id="imp-scan-titles"','D.scanChapterTitles = e.target.checked',
+ 'const scanResults = () => scanImportedChapterTitles(ch)',
+ 'const a=scanImportedChapterTitles(inc)',
+ "title:(c.title||'Sin título').slice(0,300)",
  'if(volBefore&&vol)'
-]) assert(imp.includes(marker),'Importación optativa y rollback: '+marker);
-assert(css.includes('.imp-title-switch')&&css.includes('.ui-series-page .ui-ch-display'),'Faltan estilos móvil y táctiles');
-assert(sql.includes('default false') && !/\b(?:delete|update|truncate)\s+public\./i.test(sql),'La migración no debe habilitar obras antiguas ni cambiar contenido');
-console.log('Índice opcional: 7 prefijos, ambigüedad, secciones especiales, opt-in, rutas y rollback OK');
+])assert(imp.includes(marker),'Importador: '+marker);
+assert(!imp.includes('format_chapter_titles')&&!imp.includes('formatChapterTitles'),
+ 'El escáner no debe guardar preferencias visuales en los volúmenes');
+assert(css.includes('.imp-title-switch')&&css.includes('.ui-series-page .ui-ch-display'),
+ 'Faltan estilos del importador y del índice');
+console.log('Índice editorial universal: prefijos, secciones, títulos ambiguos, lector, escaneo voluntario y rutas OK');

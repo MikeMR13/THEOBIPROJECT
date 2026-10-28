@@ -38,7 +38,7 @@ const series=readFileSync('src/ui.js','utf8');
 assert(series.includes('data-chapter-type='),'Ficha no expone tipo para búsqueda');
 assert(series.includes('class="ui-ch-type"'),'Ficha pública no muestra los nuevos tipos');
 assert(files['src/reader.js'].includes('const SEC_LABEL = SECTION_LABELS;'),'Lector no usa las nuevas etiquetas');
-assert(files['src/reader.js'].includes("ch.section_type === 'Capítulo' || !ch.section_type ? ' ' + ch.num : ''"),'El lector debe mantener numeración solo en Capítulo');
+assert(files['src/reader.js'].includes('const shown = formatChapterIndex({title:ch.title,sectionType:ch.section_type})'),'El lector debe mostrar el número editorial, nunca el global');
 assert(files['scripts/studio-browser-e2e.mjs'].includes("['/section-types.js','src/section-types.js']"),'La prueba de navegador no sirve el módulo');
 
 const migration=readFileSync('supabase/migrations/20261021_chapters_section_types_expanded.sql','utf8');
