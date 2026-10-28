@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { spawn, execFileSync } from 'node:child_process';
 import { render } from '../src/teampage.js';
-const widths=[320,390,768,1024,1440];
+const widths=[320,375,390,430,768,1024,1440];
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const data={
  t:{id:'g',slug:'grupo-demo',name:'Equipo de traducción de ejemplo',color:'#f2c230',settings:{show_works:true,show_members:true,show_stats:true,show_featured:true}},
