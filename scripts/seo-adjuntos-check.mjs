@@ -22,7 +22,7 @@ assert.match(shell,/twitter:card" content="summary_large_image"/);
 assert.match(shell,/reader-a11y\.css/,'No eliminar accesibilidad');
 assert.match(shell,/Saltar al contenido principal/,'No eliminar saltar a contenido');
 assert.match(shell,/tts\.js/,'No eliminar voz de lectura');
-assert.match(shell,/app\.js\?v=30/,'No restaurar versiones de frontend antiguas');
+assert(Number(shell.match(/app\.js\?v=(\d+)/)?.[1]) >= 30,'No restaurar versiones de frontend antiguas');
 assert.match(share,/import \{updateClientSeo\} from '.\/seo\.js\?v=1'/);
 assert.match(share,/ENTRY_NOINDEX.*noindex/,'No eliminar noindex del SSR');
 assert.match(share,/if\(clientNavigated\) updateClientSeo/,
