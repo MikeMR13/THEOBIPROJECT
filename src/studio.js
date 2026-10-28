@@ -10,6 +10,7 @@ import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
 import { askEditorialAnnouncement, saveEditorialRecord, chooseActiveEditorial } from './editorial-announcements.js?v=1';
 import { WORK_GENRES, WORK_DEMOGRAPHICS, createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
 import { bindVolumeCoverGallery } from './volume-cover-gallery.js?v=1';
+import { mountSeriesCoverEditor } from './series-cover-editor.js?v=1';
 document.addEventListener('click', e => { const i = e.target.closest?.('input[type=date],input[type=datetime-local]'); if (i && !i.disabled && !i.readOnly) try { i.showPicker(); } catch {} });
 const LIMITS = { file: 80 * 1024 * 1024, entries: 15000, unzipped: 300 * 1024 * 1024, image: 8 * 1024 * 1024 };
 const ACTIONS = [['view','Ver'],['edit','Editar'],['create','Crear'],['import','Importar'],['publish','Publicar'],['schedule','Programar'],['delete','Borrar'],['review','Revisar']];
@@ -483,6 +484,7 @@ export function createStudio(ctx){
     const sel = (k, opts) => `<select data-d="${k}">${opts.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}" ${String(D[k]) === v ? 'selected' : ''}>${esc(l)}</option>`; }).join('')}</select>`;
     const inp = (k, l, a = '') => `<label>${l}<input data-d="${k}" value="${esc(D[k])}" ${a}></label>`;
     const datos = () => `<div class="wk-dat">${seriesPublicationHTML(s, V, can, esc, toLocal, tzHint)}
+      <section class="wk-box wk-series-cover" id="wk-series-cover" aria-label="Portada principal"></section>
       <section class="wk-box"><h2>Ficha</h2>${inp('title', 'Título en español', 'maxlength="500"')}${inp('short', 'Título corto (cinta y lomo)', 'maxlength="26"')}${inp('original', 'Título original', 'maxlength="300"')}${inp('title_romaji', 'Lectura / rōmaji del título', 'maxlength="300"')}${inp('publisher', 'Editorial', 'maxlength="120"')}
         <div class="wk-g2">${inp('author', 'Autor', 'maxlength="120"')}${inp('illustrator', 'Ilustración', 'maxlength="120"')}
           <label>Tipo${sel('work_type', WTYPES)}</label><label>Demografía${sel('demographic', WORK_DEMOGRAPHICS.map(([k,l]) => [k,l]))}<small class="mono" id="wk-dem-desc">${esc((WORK_DEMOGRAPHICS.find(x => x[0] === D.demographic) || WORK_DEMOGRAPHICS[0])[2])}</small></label>
@@ -525,7 +527,8 @@ export function createStudio(ctx){
     if (tab === 'descargas') renderDownloads(s.id, app.querySelector('#wk-downloads'));
     const on = (sel2, fn) => app.querySelectorAll(sel2).forEach(b => b.onclick = e => { e.preventDefault(); busy(b, () => fn(b)); });
     const again = () => work(slug);
-    if (tab === 'datos') bindSeriesPublication({ app, sb, series: s, can, fromLocal, fmtTz, busy, toast, refresh: again });
+    if (tab === 'datos') { bindSeriesPublication({ app, sb, series: s, can, fromLocal, fmtTz, busy, toast, refresh: again });
+      mountSeriesCoverEditor({ sb, series:s, teamId:T.team.id, root:$('#wk-series-cover'), canEdit:can('edit'), media, esc, busy, toast, confirmObi }); }
     if (tab === 'seo') bindSeriesSeo({ app, sb, series: s, volumes: V, canEdit: can('edit'), media, busy, toast, refresh: again });
     app.querySelectorAll('[data-tab]').forEach(a => a.onclick = e => { e.preventDefault(); history.replaceState({}, '', a.dataset.tab === 'caps' ? location.pathname : location.pathname + '?tab=' + a.dataset.tab); again(); });
     app.querySelectorAll('[data-tog]').forEach(b => b.onclick = () => { const id = b.dataset.tog; open.has(id) ? open.delete(id) : open.add(id); again(); });
