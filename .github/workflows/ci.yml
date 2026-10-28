@@ -110,6 +110,16 @@ jobs:
           if-no-files-found: warn
       - name: Móvil — índice, botones y cabecera sin solapamientos (Chromium 320–1024)
         run: node scripts/mobile-layout-regression-check.mjs
+      - name: Índice editorial global — galería 4 volúmenes y lista en Chromium (320–1920)
+        run: node --check scripts/series-index-desktop-browser.mjs && node scripts/series-index-desktop-browser.mjs
+      - name: Capturas de índice en escritorio — evidencia temporal
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: indice-escritorio-qa
+          path: qa-capturas/indice-escritorio-*.png
+          retention-days: 1
+          if-no-files-found: warn
       - name: Ficha pública — pestañas y descargas separadas (Chromium responsive)
         run: node scripts/series-tabs-mobile-check.mjs
       - name: Compartir ficha — portal visible, móvil y teclado (Chromium)
