@@ -20,7 +20,8 @@ export function editorialChapterGroup(chapters) {
   if (!parts.length) return 'Sin secciones';
   if (parts.length===1) return editorialChapterLabel(parts[0].c);
   const numbered=parts.filter(x=>x.p.label==='Capítulo' && x.p.number);
-  const sameVolume=parts.every(x=>String(x.c.volume_id || x.c.vol || '')===String(parts[0].c.volume_id || parts[0].c.vol || ''));
+  const volumeKey=parts[0].c.volume_id ?? parts[0].c.vol;
+  const sameVolume=volumeKey != null && parts.every(x=>String(x.c.volume_id ?? x.c.vol ?? '')===String(volumeKey));
   const nums=[...new Set(numbered.map(x=>Number(x.p.number)))].sort((a,b)=>a-b);
   if (sameVolume && numbered.length===parts.length && nums.length===parts.length &&
       nums.every((n,i)=>!i || n===nums[i-1]+1)) {
