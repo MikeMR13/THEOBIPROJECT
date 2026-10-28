@@ -53,6 +53,8 @@ function inspect(S,mobile){
     const more=bottom.querySelector('.ob-tab-more'),panel=bottom.querySelector('.ob-tab-panel');
     if (header.querySelector('.ob-mbtn')) fail('Hamburguesa superior persiste');
     if (links.length!==5||!more||!panel) fail('Navegación móvil incompleta');
+    if (links.map(a=>a.querySelector('span')?.textContent).join('|') !== '家|目|書|探|人' || more.querySelector('span')?.textContent !== '他')
+      fail('Los seis kanji originales y Más deben mantenerse uniformes');
     if (new Set(links.map(a=>a.getAttribute('href'))).size!==5) fail('Destinos principales duplicados');
     const extras=[...panel.querySelectorAll('a')];
     if (extras.map(a=>a.getAttribute('href')).join('|')!=='/calendario|/ranking|/apoyar')
