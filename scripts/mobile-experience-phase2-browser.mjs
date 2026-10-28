@@ -87,20 +87,52 @@ const page=view=>'<!doctype html><html lang="es"><head><meta name="viewport" con
  (view==='home'?home:view==='catalog'?catalog:studioView)+
  '<p id="result" data-qa="running"></p><script>'+js+'</script></body></html>';
 const cases=widths.flatMap(w=>['home','catalog','studio'].map(view=>({w,view})));
+// Polling independiente de load: un iframe puede terminar antes de registrar el listener.
+const parentScript=`(()=>{
+ const frames=[...document.querySelectorAll('iframe')];
+ const out=document.querySelector('#qa');let attempts=0;
+ const inspect=()=>{
+   const states=frames.map(f=>{
+     try{const el=f.contentDocument?.querySelector('#result');return {frame:f,state:el?.dataset.qa||'running',label:el?.textContent||'sin respuesta'};}
+     catch(e){return {frame:f,state:'running',label:String(e)};}
+   });
+   if(states.some(x=>x.state==='running') && ++attempts<600) return requestAnimationFrame(inspect);
+   const bad=states.filter(x=>x.state!=='pass').map(x=>x.frame.title+': '+x.label);
+   out.dataset.qa=bad.length?'fail':'pass';
+   out.textContent=bad.join(' | ')||'Inicio, Catálogo y Studio móviles: 320,375,390,430 OK';
+ };
+ requestAnimationFrame(inspect);
+})();`;
 const parent='<!doctype html><html><body><output id="qa" data-qa="running">RUNNING</output>'+
  cases.map(({w,view})=>'<iframe width="'+w+'" height="900" title="'+view+' '+w+'" src="/case?view='+view+'"></iframe>').join('')+
- '<script>let done=0,bad=[];document.querySelectorAll("iframe").forEach(f=>f.addEventListener("load",()=>{let n=0;const step=()=>{const q=f.contentDocument.querySelector("#result");if(q?.dataset.qa==="running"&&++n<75)return requestAnimationFrame(step);if(q?.dataset.qa!=="pass")bad.push(f.title+": "+(q?.textContent||"sin respuesta"));if(++done==='+cases.length+'){const out=document.querySelector("#qa");out.dataset.qa=bad.length?"fail":"pass";out.textContent=bad.join(" | ")||"Inicio, Catálogo y Studio móviles: 320,375,390,430 OK"}};step()}));</script></body></html>';
+ '<script>'+parentScript+'</script></body></html>';
 const server=createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');res.setHeader('Content-Security-Policy',"default-src 'none';script-src 'unsafe-inline';style-src 'unsafe-inline';frame-src 'self'");res.end(req.url.startsWith('/case')?page(new URL(req.url,'http://localhost').searchParams.get('view')):parent)});
 const bin=process.env.QA_CHROME||['chromium','google-chrome','google-chrome-stable'].map(x=>{try{return execFileSync('which',[x],{encoding:'utf8'}).trim()}catch{return''}}).find(Boolean);
 assert(bin,'Falta Chromium');
 try{
  await new Promise((ok,no)=>{server.once('error',no);server.listen(0,'127.0.0.1',ok)});
- const c=spawn(bin,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking','--window-size=1660,1100','--virtual-time-budget=16000','--dump-dom','http://127.0.0.1:'+server.address().port],{stdio:['ignore','pipe','pipe']});
- let out='',err='';c.stdout.on('data',x=>out+=String(x).slice(0,320000));c.stderr.on('data',x=>err+=String(x).slice(0,10000));
- const code=await new Promise((ok,fail)=>{const tm=setTimeout(()=>{c.kill('SIGKILL');fail(Error('Chromium timeout'))},60000);c.once('error',e=>{clearTimeout(tm);fail(e)});c.once('close',n=>{clearTimeout(tm);ok(n)})});
- assert.equal(code,0,err.slice(-700));
- const m=out.match(/<output id="qa" data-qa="(pass|fail)">([\s\S]*?)<\/output>/);
- assert(m,'No se obtuvo resultado Chromium');
- assert.equal(m[1],'pass',m[2]);
- console.log(m[2]);
+
+ // En runners compartidos a veces --dump-dom termina antes de que los 12 iframes
+ // publiquen el resultado; reintentar solo cuando NO existe resultado, nunca ante un fallo real.
+ let completed=false;
+ for (const budget of [16000,32000]) {
+   const c=spawn(bin,['--headless=new','--no-first-run','--no-sandbox','--disable-gpu',
+     '--disable-dev-shm-usage','--disable-background-networking','--window-size=1660,1100',
+     '--virtual-time-budget='+budget,'--dump-dom','http://127.0.0.1:'+server.address().port],
+     {stdio:['ignore','pipe','pipe']});
+   let out='',err='';
+   c.stdout.on('data',x=>{out+=String(x)});
+   c.stderr.on('data',x=>{err+=String(x).slice(0,12000)});
+   const code=await new Promise((ok,fail)=>{
+     const tm=setTimeout(()=>{c.kill('SIGKILL');fail(Error('Chromium timeout '+budget))},75000);
+     c.once('error',e=>{clearTimeout(tm);fail(e)});
+     c.once('close',n=>{clearTimeout(tm);ok(n)});
+   });
+   assert.equal(code,0,err.slice(-700));
+   const m=out.match(new RegExp('<output id="qa" data-qa="(pass|fail)">([^]*?)</output>'));
+   if(m){assert.equal(m[1],'pass',m[2]);console.log(m[2]);completed=true;break;}
+   if(budget===32000)throw Error('Sin resultado Chromium después de reintentar: '+out.slice(-900)+' / '+err.slice(-900));
+ }
+ assert(completed,'No se completó la prueba móvil');
+
 }finally{await new Promise(ok=>server.close(ok))}
