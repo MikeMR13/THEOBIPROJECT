@@ -22,15 +22,20 @@ PR #163: `fix/bibliotecario-operativo-visual-20261027`. No ejecutar SQL en produ
 - `.github/workflows/bibliotecario-operational-qa.yml`: PostgreSQL 17 efímero con `supabase/tests/fixtures/bibliotecario_operational_local.sql`, migración real y aserciones SQL.
 - `.github/workflows/ci.yml`: Chromium local para paginación, navegación y visual responsive, más suite general.
 
-## Orden obligatorio de despliegue
-1. Verificar PR aprobado y CI + PostgreSQL verde.
-2. Antes de aplicar SQL, registrar las definiciones actuales de `private.team_can`, `admin_add_publisher`, `admin_remove_member`, `admin_review_resolve`, y la política `series admin` en un respaldo restringido a administradores. No guardar contraseñas ni datos personales en logs.
-3. Aplicar `supabase/migrations/20261028032500_bibliotecario_operational_guardrails.sql` mediante la herramienta de migraciones de Supabase al proyecto correcto.
-4. Hacer pruebas NO destructivas de lectura de obras publicadas/borradores como Bibliotecario, y validar presencia de las nuevas RPC y guardas del rol.
-5. Fusionar el frontend y confirmar Vercel READY. Probar usuarios, capítulos, bitácora y navegación en una sesión real de Bibliotecario.
-6. Si hay regresión, revertir primero el frontend al despliegue anterior. La migración no se revierte automáticamente; restaurar únicamente las funciones y política tomadas en el paso 2, previa revisión de datos/roles, sin eliminar la tabla ni los propietarios.
+## Publicación compatible y pendiente de seguridad
+- El frontend detecta exclusivamente `PGRST202` (RPC administrativa nueva ausente) y usa temporalmente `admin_users` y `admin_audit`. Los apartados Usuarios, Equipos y Bitácora continúan funcionando con el máximo histórico de 200 registros hasta desplegar la migración.
+- Supervisión con capítulos paginados, accesibilidad, avisos y navegación funcionan sin la migración.
+- Las garantías de seguridad de la migración SQL **NO** están activas en producción por incluir la migración en el repositorio. Sólo se activan cuando se aplica en Supabase. No afirmar que el rol Bibliotecario ya perdió privilegios editoriales ni que el trigger de Propietario ya está instalado.
+- La aplicación de la migración mediante la conexión de herramientas fue bloqueada por controles de seguridad. No eludir ese bloqueo ni desplegar por otro camino sin autorización y proceso adecuados.
 
-**Importante:** una implementación frontend antes de la migración provocará errores en Usuarios/Equipos/Bitácora por ausencia de las nuevas RPC. La migración contiene controles que deben revisarse en una cuenta Bibliotecario antes de usar cambios destructivos.
+## Pasos pendientes para activar las protecciones de Supabase
+1. Respaldar las definiciones actuales de funciones y políticas, con acceso restringido.
+2. Aplicar `supabase/migrations/20261028032500_bibliotecario_operational_guardrails.sql` por el proceso de migración autorizado.
+3. Verificar `admin_users_page`, `admin_audit_page`, el bloqueo del último Propietario y la lectura global sin escritura editorial.
+4. Comprobar permisos reales con una sesión del Bibliotecario y cuentas de equipo, sin alterar datos de los lectores.
+5. Ante una regresión, revertir las definiciones según los respaldos; no eliminar datos ni miembros.
+
+**Importante:** fusionar este PR con compatibilidad hacia atrás no instala ni activa las protecciones SQL. La automatización QA de PostgreSQL prueba una instancia aislada, no la producción.
 
 ## Límites
 La prueba de Chromium utiliza cuentas, obras y capítulos ficticios. No sustituye pruebas de lectores de pantalla o revisión de un Bibliotecario autenticado en producción. No se prueban ni se modifican datos reales.
