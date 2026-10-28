@@ -819,7 +819,7 @@ export function createReader(ctx){
       complete = true;
       btn.textContent = '✓ Descargado';
       toast(`Volumen ${ch.vol} listo para leer sin conexión`);
-      document.dispatchEvent(new Event('obi-offline-change'));
+      if (typeof Event !== 'undefined') document.dispatchEvent?.(new Event('obi-offline-change'));
       navigator.storage?.persist?.().catch(() => {});
     } catch (e) {
       // Una descarga fallida no debe dejar un volumen marcado como completo.
@@ -849,7 +849,7 @@ export function createReader(ctx){
     const chapterKeys = it.nums.map(n => `/offline/${it.slug}/${n}`).filter(u => !otherChapterKeys.has(u));
     const exclusiveAssets = (it.assets || []).filter(u => !shared.has(u));
     await Promise.all([...chapterKeys, ...exclusiveAssets, ...(!sameSeries ? ['/offline/meta/' + it.slug] : [])].map(u => c.delete(u)));
-    document.dispatchEvent(new Event('obi-offline-change'));
+    if (typeof Event !== 'undefined') document.dispatchEvent?.(new Event('obi-offline-change'));
   }
   function offlineList(){
     const items = Object.entries(offIndex()).sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
