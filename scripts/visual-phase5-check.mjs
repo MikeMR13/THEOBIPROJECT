@@ -11,7 +11,7 @@ const contains = (source, str, why) => assert(source.includes(str), 'Regresión:
 
 contains(html,'<a class="ob-skip" href="#app">Saltar al contenido principal</a>','acceso directo al contenido');
 contains(html,'<main id="app" tabindex="-1" aria-live="polite"></main>','destino accesible del enlace');
-contains(html,'href="/reader-a11y.css?v=1"','carga de estilos de accesibilidad');
+assert(Number(html.match(/href="\/reader-a11y\.css\?v=(\d+)"/)?.[1]) >= 1,'Regresión: carga de estilos de accesibilidad');
 contains(a11y,'.ob-skip:focus-visible','enlace visible al usar teclado');
 contains(a11y,'.rd :is(a,button,input,select,textarea,summary,[role="button"]):focus-visible','foco accesible del lector');
 contains(a11y,'.rd-body img,.rd-body figure img','ilustraciones adaptativas');
