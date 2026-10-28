@@ -54,3 +54,19 @@
   .ob-cc .cv,.ui-card .ui-book,.rd-bar,.rd-prog i{transition:none!important}
   .ob-skip{transition:none!important}
 }
+
+/* Lector: áreas de toque cómodas sin agrandar los símbolos ni quitar herramientas. */
+.rd-panel[data-kind="toc"] a{
+  min-height:44px;display:grid;align-items:center;padding:10px 8px;
+}
+.rd-pop{max-width:calc(100vw - 16px);flex-wrap:wrap}
+.rd-pop .sw{
+  width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
+  background:transparent;position:relative;
+}
+.rd-pop .sw::before{
+  content:"";display:block;width:26px;height:26px;flex:none;
+  background:var(--swatch,#f2c230);border-radius:2px;
+}
+.rd-pop .sw.on::before{outline:2px solid #f3ecd9;outline-offset:2px}
+.rd-pop button:not(.sw){min-width:44px;min-height:44px}
