@@ -93,13 +93,14 @@ check(first<550,'Los créditos retrasaron el texto');
 const originalText=$('.rd-body')?.textContent||'';
 history.pushState({},'','/leer/obra-fixture/2');
 window.__qaStage='navegación rápida';
-const slow=reader.open('obra-fixture',2);
+const slow=reader.open('obra-fixture',2).catch(e=>errors.push('Capítulo abandonado: '+e.message));
 await sleep(45);
 history.pushState({},'','/leer/obra-fixture/3');
+window.__qaStage='abriendo capítulo 3 sin esperar al 2';
 const fast=reader.open('obra-fixture',3);
-await Promise.all([slow,fast]);
-window.__qaStage='navegación rápida terminada';
-await sleep(850);
+await fast; // la apertura descartada no tiene por qué finalizar para permitir navegar
+window.__qaStage='capítulo 3 mostrado';
+await sleep(1150); // margen para que un capítulo anterior lento intente responder
 check($('.rd-ch')?.dataset.ch==='c3','La respuesta tardía del capítulo 2 reemplazó al 3');
 check(!$('.rd-ch[data-ch="c2"]'),'Se montó el capítulo anterior tras cambiar la ruta');
 check(document.querySelectorAll('.rd-ch').length===1,'Capítulos duplicados al navegar deprisa');
