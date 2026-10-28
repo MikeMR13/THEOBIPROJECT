@@ -22,6 +22,12 @@ export async function loadVolumeCoverChoices({ sb, teamId, slug, volumeNum, gall
 }
 
 export function bindVolumeCoverGallery({sb,teamId,series,volume,box,busy,toast,confirmObi,media,esc,errMsg}){
+  // La hoja de este selector solo se carga al editar un volumen.
+  if(!document.querySelector('link[data-volume-cover-css]')){
+    const sheet=document.createElement('link');
+    sheet.rel='stylesheet';sheet.href='/volume-cover-gallery.css?v=1';
+    sheet.dataset.volumeCoverCss='1';document.head.appendChild(sheet);
+  }
   const s=series,v=volume;
   const setCover=async path=>{
     const {error}=await sb.from('volumes').update({cover_path:path}).eq('id',v.id);
