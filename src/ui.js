@@ -817,7 +817,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const cover = (s, tag) => { const t = tag || (top[s.id] ? 'TOP ' + top[s.id] : ''), image = s.cover_path || s.cover_thumb_path; return image ? `<span class="cv"><img src="${esc(media(image))}" alt="" loading="lazy" decoding="async">${t ? `<i>${t}</i>` : ''}</span>` : `<span class="cv no" style="--c:${esc(color(s))}">${t ? `<i>${t}</i>` : ''}${esc(s.short || s.title)}</span>`; };
     const cc = (s, sub, tag) => `<a class="ob-cc" href="/serie/${s.slug}">${cover(s, tag)}<b>${esc(s.title)}</b><small>${sub}</small>${creditsHTML(s, { esc, media, mode: 'carousel' })}</a>`;
     const arrows = id => `<span class="ob-arr"><button type="button" data-cs="${id}" data-d="-1" aria-controls="${id}" aria-label="Anteriores">‹</button><button type="button" data-cs="${id}" data-d="1" aria-controls="${id}" aria-label="Siguientes">›</button></span>`;
-    const head = (k, t, right = '') => `<div class="ob-st"><span class="k">${k}</span><h2>${t}</h2>${right}</div>`;
+    const head = (k, t, right = '') => `<div class="ob-st"><span class="k">${k}</span><h2>${t}</h2>${right}${right.includes('data-cs=') ? '<span class="ob-swipe-hint" aria-hidden="true">Desliza para explorar →</span>' : ''}</div>`;
     // La ruta sigue usando chapter_num interno; el carrusel muestra el número editorial.
     // Hasta tener el encabezado publicado, ofrecer una etiqueta neutra sin exponer IDs.
     const continueTitles = new Map();
@@ -1275,7 +1275,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     app.innerHTML = `<div class="ui-cath"><div><h1>Catálogo</h1><p>Fichero completo de la biblioteca OBI.</p></div><span class="kj" aria-hidden="true">目録</span></div>
       <div class="ui-filters">
         <input id="cat-q" type="search" placeholder="Buscar por título, título original, autor o etiqueta" value="${esc(F.q)}">
-        <details class="ui-fdet" ${matchMedia('(max-width:720px)').matches ? '' : 'open'}><summary>Filtros <b id="cat-nf" hidden></b></summary><div class="ui-fbody">
+        <details class="ui-fdet" ${matchMedia('(max-width:720px)').matches ? '' : 'open'}><summary>Filtros <b id="cat-nf" hidden></b><span class="ui-filter-chevron" aria-hidden="true">▾</span></summary><div class="ui-fbody">
           <div class="ui-fcols">
             ${col('Traducción', 'tl', ['active', 'paused', 'completed'].map(k => [k, TL[k][0]]))}
             ${origs.length ? col('Obra original', 'orig', origs.map(k => [k, OR[k]])) : ''}
