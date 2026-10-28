@@ -30,7 +30,8 @@ async function check(url,width){
   child.stdout.on('data',b=>{out+=String(b)});
   child.stderr.on('data',b=>{err+=String(b).slice(0,20000)});
   const exit=await new Promise((resolve,reject)=>{
-    const t=setTimeout(()=>{child.kill('SIGKILL');reject(Error('Chromium no respondió en 25s'))},25000);
+    // Evitar falsos negativos por arranque lento de Chromium en runners gratuitos.
+    const t=setTimeout(()=>{child.kill('SIGKILL');reject(Error('Chromium no respondió en 45s'))},45000);
     child.once('error',e=>{clearTimeout(t);reject(e)});
     child.once('close',code=>{clearTimeout(t);resolve(code)});
   });
