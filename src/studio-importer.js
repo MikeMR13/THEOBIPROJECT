@@ -4,6 +4,7 @@ import { renderBlock } from './blocks.js?v=2';
 import { inferSectionType } from './section-types.js?v=1';
 import { editorialForm, bindEditorialForm, saveEditorialRecord } from './editorial-announcements.js?v=1';
 import { createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
+import { planVolumeReplacement, validateImportMedia } from './import-safety.js?v=1';
 export function createImporter(deps) {
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, LIMITS, SEC } = deps;
   // ---------- importador ----------
@@ -207,7 +208,7 @@ export function createImporter(deps) {
   }
   async function parsePdf(file){
     const pdfjs = await import('https://esm.sh/pdfjs-dist@4.4.168');
-    globalThis.pdfjsWorker = await import('https://esm.sh/pdfjs-dist@4.4.168/build/pdf.worker.mjs');
+    pdfjs.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.4.168/build/pdf.worker.mjs';
     const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer(), isEvalSupported: false }).promise;
     const lines = [];
     for (let p = 1; p <= pdf.numPages; p++) {
@@ -414,18 +415,31 @@ export function createImporter(deps) {
 
     const imgType = n => ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', avif: 'image/avif' })[(n.split('.').pop() || '').toLowerCase()] || 'application/octet-stream';
     async function commit(){
-      const uploaded = [], inserted = [], inc = P.chapters.filter(c => !c.skip);
-      let job = null, createdSeries = null, createdVol = null, restoredVol = null, oldIds = [], oldGone = false, volBefore = null, seriesCoverBefore;
+      const uploaded = [], inserted = [], updatedRows = [], removedRows = [], inc = P.chapters.filter(c => !c.skip);
+      let job = null, createdSeries = null, createdVol = null, restoredVol = null, volBefore = null, seriesCoverBefore;
       if (D.pub === 'at' && (!D.at || new Date(fromLocal(D.at)) <= new Date())) throw new Error('Elige una fecha futura para programar');
       // Validar ANTES de subir archivos; la importación jamás se revierte por una falla del anuncio.
       const notice = D.pub === 'draft' ? null : D.noticeGetter?.();
       if (D.pub !== 'draft' && !notice) throw new Error('Completa el anuncio editorial antes de publicar');
       const ficha = fichaRow();
+      const keysToUpload = validateImportMedia({chapters:inc,images:P.images,cover:D.cover,
+        allImages:D.allImgs,maxBytes:LIMITS.image});
+      if(!inc.length)throw new Error('Selecciona al menos una sección para importar');
       let w = work(), vol = liveVols(w).find(v => v.num === D.vnum);
+      if(vol && D.mode==='replace'){
+        if(!can('edit'))throw new Error('Reemplazar un volumen requiere permiso para editar sus capítulos.');
+        const {data:old,error}=await sb.from('chapters').select('id,num,vol,volume_id,deleted_at').eq('series_id',w.id);
+        if(error)throw error;
+        planVolumeReplacement(old,vol.id,D.vnum,inc.length);
+      }
       const workMeta = !w ? workPayload(NW) : null;
       if (vol && D.mode === 'replace' && !await confirmObi(`Se reemplazará el Volumen ${D.vnum}: capítulos, ficha y portada. Los capítulos anteriores van a la papelera. ¿Continuar?`)) return;
       try {
-        ({ data: job } = await sb.from('import_jobs').insert({ team_id: T.team.id, created_by: getUser().id, filename: file.name, file_type: file.name.split('.').pop().toLowerCase(), mode: vol ? D.mode : 'append', status: 'running', fingerprint: fp }).select().single());
+        const {data:createdJob,error:jobError}=await sb.from('import_jobs').insert({
+          team_id:T.team.id,created_by:getUser().id,filename:file.name,file_type:file.name.split('.').pop().toLowerCase(),
+          mode:vol?D.mode:'append',status:'running',fingerprint:fp}).select().single();
+        if(jobError||!createdJob?.id)throw jobError||new Error('No se pudo registrar el trabajo');
+        job=createdJob;
         if (!w) {
           st('Creando la obra…'); const title = workMeta.title; let slug = slugify(title);
           const { data: taken } = await sb.from('series').select('id').eq('slug', slug).limit(1); if (taken?.length) slug += '-' + Date.now().toString(36).slice(-4);
@@ -438,9 +452,9 @@ export function createImporter(deps) {
         const takenNames = new Set((have || []).map(x => x.name));
         const fname = n => { const b = n.replace(/[^\w.-]/g, '_'); let x = b, i = 2; while (takenNames.has(x)) x = b.replace(/(\.\w+)?$/, m => '-' + (i++) + m); takenNames.add(x); return x; };
         const up = async (sub, name, blob, type) => { const p = dir + sub + fname(name); const { error } = await sb.storage.from('obi-media').upload(p, blob, { contentType: type }); if (error) throw error; uploaded.push(p); return p; };
-        const keys = D.allImgs ? imgKeys() : [...usedImgs()].filter(k => P.images.get(k)?.blob);
+        const keys = keysToUpload;
         const map = {}; let n = 0;
-        for (const key of keys) { const im = P.images.get(key); st(`Subiendo imágenes a Multimedia ${++n}/${keys.length}…`); if (im.blob.size > LIMITS.image) { toast(`${im.name} supera 8 MB y se omitió`); continue; } map['img:' + key] = await up('', im.name, im.blob, im.type || imgType(im.name)); }
+        for (const key of keys) { const im = P.images.get(key); st(`Subiendo imágenes a Multimedia ${++n}/${keys.length}…`); map['img:' + key] = await up('', im.name, im.blob, im.type || imgType(im.name)); }
         const fonts = []; for (const f of P.fonts) { st('Subiendo fuentes…'); const p = await up('fuentes/', f.name, new Blob([f.bytes]), /woff2/.test(f.name) ? 'font/woff2' : /woff/.test(f.name) ? 'font/woff' : /otf/.test(f.name) ? 'font/otf' : 'font/ttf'); fonts.push({ url: PUB + p, family: f.family, style: f.style, weight: f.weight, ...(f.use ? { use: f.use } : {}) }); }
         const cov = D.cover ? map[D.cover] || null : null;
         st('Guardando el volumen…');
@@ -452,13 +466,48 @@ export function createImporter(deps) {
           const r = await sb.from('volumes').insert({ ...ficha, series_id: w.id, num: D.vnum, status: 'draft', epub_fonts: fonts, cover_path: cov }).select().single();
           if (r.error) throw r.error; vol = createdVol = r.data;
         }
-        const { data: existing, error: exErr } = await sb.from('chapters').select('id,num,vol,volume_id,deleted_at').eq('series_id', w.id); if (exErr) throw exErr;
-        if (D.mode === 'replace' && !createdVol) oldIds = (existing || []).filter(c => !c.deleted_at && (c.volume_id === vol.id || c.vol === D.vnum)).map(c => c.id);
-        let num = Math.max(0, ...(existing || []).map(c => +c.num || 0));
-        const rows = inc.map((c, i) => ({ series_id: w.id, volume_id: vol.id, vol: D.vnum, num: ++num, sort_order: i, title: (c.title || 'Sin título').slice(0, 300), section_type: c.type, status: 'draft',
-          body: c.blocks.map(b => b.type === 'image' ? { ...b, url: map[b.url] ? PUB + map[b.url] : b.url } : b).filter(b => b.type !== 'image' || /^https?:/.test(b.url)) }));
-        for (let i = 0; i < rows.length; i += 10) { st(`Guardando capítulos ${Math.min(i + 10, rows.length)}/${rows.length}…`); const r = await sb.from('chapters').insert(rows.slice(i, i + 10)).select('id'); if (r.error) throw r.error; inserted.push(...r.data.map(x => x.id)); }
-        if (oldIds.length) { const r = await sb.from('chapters').update({ deleted_at: new Date().toISOString() }).in('id', oldIds); if (r.error) throw r.error; oldGone = true; }
+        const {data:existing,error:exErr}=await sb.from('chapters')
+          .select('id,num,vol,volume_id,deleted_at').eq('series_id',w.id);
+        if(exErr)throw exErr;
+        const replacing=D.mode==='replace'&&!createdVol&&!restoredVol;
+        const plan=replacing?planVolumeReplacement(existing,vol.id,D.vnum,inc.length):null;
+        const maxNum=Math.max(0,...(existing||[]).map(c=>+c.num||0));
+        const rows=inc.map((c,i)=>({
+          series_id:w.id,volume_id:vol.id,vol:D.vnum,
+          num:replacing?plan.update[i].num:maxNum+i+1,sort_order:i,
+          title:(c.title||'Sin título').slice(0,300),section_type:c.type,status:'draft',
+          body:c.blocks.map(b=>b.type==='image'?{...b,url:map[b.url]?PUB+map[b.url]:b.url}:b)
+        }));
+        if(replacing){
+          const ids=[...plan.update,...plan.remove].map(x=>x.id);
+          const {data:originals,error:backupError}=await sb.from('chapters')
+            .select('id,num,vol,volume_id,title,section_type,status,sort_order,body,deleted_at').in('id',ids);
+          if(backupError||originals?.length!==ids.length)
+            throw backupError||new Error('No se pudo respaldar el contenido anterior');
+          const originalById=new Map(originals.map(x=>[x.id,x]));
+          for(let i=0;i<rows.length;i++){
+            const old=originalById.get(plan.update[i].id);
+            updatedRows.push(old);
+            const {data:written,error}=await sb.from('chapters').update({
+              title:rows[i].title,section_type:rows[i].section_type,
+              body:rows[i].body,sort_order:i,status:'draft'
+            }).eq('id',old.id).select('id');
+            if(error||!written?.length)throw error||new Error('No se pudo reemplazar el capítulo '+old.num);
+          }
+          for(const item of plan.remove){
+            const old=originalById.get(item.id);removedRows.push(old);
+            const {data:written,error}=await sb.from('chapters').update({deleted_at:new Date().toISOString()}).eq('id',old.id).select('id');
+            if(error||!written?.length)throw error||new Error('No se pudo archivar el capítulo '+old.num);
+          }
+        }else{
+          for(let i=0;i<rows.length;i+=10){
+            st(`Guardando capítulos ${Math.min(i+10,rows.length)}/${rows.length}…`);
+            const batch=rows.slice(i,i+10),r=await sb.from('chapters').insert(batch).select('id');
+            if(r.error)throw r.error;
+            if(r.data?.length!==batch.length)throw new Error('No se guardaron todos los capítulos');
+            inserted.push(...r.data.map(x=>x.id));
+          }
+        }
         if (!createdVol) {
           const { data: vr } = await sb.from('volumes').select('*').eq('id', vol.id).single();
           const patch = {}; if (fonts.length) patch.epub_fonts = fonts; if (cov) patch.cover_path = cov;
@@ -470,20 +519,29 @@ export function createImporter(deps) {
           try { await saveEditorialRecord(sb,w.id,notice,{kind:'volume',id:vol.id,startsAt:D.pub==='at' ? fromLocal(D.at) : new Date().toISOString()}); }
           catch (e) { toast('Volumen importado y publicado, pero el anuncio no se guardó: '+(e.message||e)); }
         }
-        await sb.from('import_jobs').update({ status: 'done', media_paths: uploaded, result: { series: w.id, volume: vol.id, chapters: inserted.length, cover: cov } }).eq('id', job.id);
+        const {error:finishError}=await sb.from('import_jobs').update({status:'done',media_paths:uploaded,
+          result:{series:w.id,volume:vol.id,chapters:rows.length,cover:cov}}).eq('id',job.id);
+        // Un fallo del historial no puede deshacer capítulos que ya se publicaron.
+        if(finishError)toast('Contenido guardado; no se pudo actualizar el historial de importación');
         P.urls.forEach(u => u && URL.revokeObjectURL(u));
-        toast(`Importadas ${inserted.length} secciones${D.pub === 'now' ? ' y publicadas' : D.pub === 'at' ? ' · programadas para ' + fmtTz(fromLocal(D.at)) : ' como borrador'} · ${Object.keys(map).length} imágenes en Multimedia`);
+        toast(`Importadas ${rows.length} secciones${D.pub === 'now' ? ' y publicadas' : D.pub === 'at' ? ' · programadas para ' + fmtTz(fromLocal(D.at)) : ' como borrador'} · ${Object.keys(map).length} imágenes en Multimedia`);
         go('/estudio/obra/' + w.slug);
       } catch (er) {
-        if (inserted.length) await sb.from('chapters').delete().in('id', inserted);
-        if (oldGone) await sb.from('chapters').update({ deleted_at: null }).in('id', oldIds);
-        if (volBefore && vol) await sb.from('volumes').update(volBefore).eq('id', vol.id);
-        if (seriesCoverBefore !== undefined && !createdSeries) await sb.from('series').update({ cover_path: seriesCoverBefore }).eq('id', w.id);
-        if (createdVol) await sb.from('volumes').delete().eq('id', createdVol.id);
-        if (restoredVol) await sb.from('volumes').update({ deleted_at: new Date().toISOString() }).eq('id', restoredVol);
-        if (createdSeries) await sb.from('series').delete().eq('id', createdSeries.id);
-        if (uploaded.length) await sb.storage.from('obi-media').remove(uploaded);
-        if (job) await sb.from('import_jobs').update({ status: 'failed', result: { error: er.message } }).eq('id', job.id);
+        // Recuperar todas las filas modificadas. Reportar los fallos de rollback.
+        const rollbackErrors=[];
+        const undo=async fn=>{try{await fn()}catch(e){rollbackErrors.push(e?.message||String(e))}};
+        if(inserted.length)await undo(async()=>{const r=await sb.from('chapters').delete().in('id',inserted);if(r.error)throw r.error});
+        for(const old of [...updatedRows,...removedRows].reverse())
+          await undo(async()=>{const {id,...prior}=old;const r=await sb.from('chapters').update(prior).eq('id',id);if(r.error)throw r.error});
+        if(volBefore&&vol)await undo(async()=>{const r=await sb.from('volumes').update(volBefore).eq('id',vol.id);if(r.error)throw r.error});
+        if(seriesCoverBefore!==undefined&&!createdSeries)await undo(async()=>{const r=await sb.from('series').update({cover_path:seriesCoverBefore}).eq('id',w.id);if(r.error)throw r.error});
+        if(createdVol)await undo(async()=>{const r=await sb.from('volumes').delete().eq('id',createdVol.id);if(r.error)throw r.error});
+        if(restoredVol)await undo(async()=>{const r=await sb.from('volumes').update({deleted_at:new Date().toISOString()}).eq('id',restoredVol);if(r.error)throw r.error});
+        if(createdSeries)await undo(async()=>{const r=await sb.from('series').delete().eq('id',createdSeries.id);if(r.error)throw r.error});
+        if(uploaded.length)await undo(async()=>{const r=await sb.storage.from('obi-media').remove(uploaded);if(r.error)throw r.error});
+        if(job)await undo(async()=>{const r=await sb.from('import_jobs').update({status:'failed',
+          result:{error:er.message,rollback_errors:rollbackErrors}}).eq('id',job.id);if(r.error)throw r.error});
+        if(rollbackErrors.length)er.message+=' · Fallos al revertir: '+rollbackErrors.join(' / ');
         console.error('Importación fallida', er);
         const why = [er.message, er.details, er.hint, er.code && 'código ' + er.code].filter(Boolean).join(' · ');
         st(''); throw new Error('Se deshizo la importación: ' + why);

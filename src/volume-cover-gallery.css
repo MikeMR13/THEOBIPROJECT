@@ -1,0 +1,9 @@
+/* Editar volumen: selector táctil de imágenes ya asociadas a Multimedia. */
+.wk-vgallery{min-width:0;padding:12px;background:#14120d;border:1px solid #3d3628;border-radius:6px}
+.wk-vgallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px;max-height:440px;overflow:auto}
+.wk-vgallery-grid button{min-width:0;min-height:44px;padding:6px;display:grid;gap:6px;background:#201a12;border:2px solid #3d3628;border-radius:5px;color:#eee6d3;text-align:left;cursor:pointer}
+.wk-vgallery-grid button:focus-visible{outline:3px solid var(--gold,#f2c230);outline-offset:2px}
+.wk-vgallery-grid button[aria-pressed="true"]{border-color:var(--gold,#f2c230);background:#30270e}
+.wk-vgallery-grid img{display:block;width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:2px}
+.wk-vgallery-grid span{max-width:100%;overflow-wrap:anywhere;font:500 11px/1.4 'IBM Plex Sans',system-ui,sans-serif}
+@media(max-width:540px){.wk-vgallery{padding:8px}.wk-vgallery-grid{grid-template-columns:repeat(auto-fill,minmax(95px,1fr))}}
