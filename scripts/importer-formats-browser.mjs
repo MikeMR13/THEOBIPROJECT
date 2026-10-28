@@ -53,15 +53,34 @@ function makePdf(){
   return Buffer.from(body);
 }
 const fixtures={'/fixtures/qa.epub':epub,'/fixtures/qa.docx':docx,'/fixtures/qa.pdf':makePdf()};
+// Mismas versiones que producción, descargadas por npm en el runner gratuito.
+// No se solicita red externa desde Chromium: el servidor de QA entrega estos módulos.
+const browserModules={
+  '/__qa__/jszip.mjs':'import "/__qa__/jszip-global.js";export default window.JSZip;',
+  '/__qa__/mammoth.mjs':'import "/__qa__/mammoth-global.js";export default window.mammoth;'
+};
+const libraryFiles={
+  '/__qa__/jszip-global.js':'node_modules/jszip/dist/jszip.min.js',
+  '/__qa__/mammoth-global.js':'node_modules/mammoth/mammoth.browser.js',
+  '/__qa__/pdf.mjs':'node_modules/pdfjs-dist/build/pdf.mjs',
+  '/__qa__/pdf.worker.mjs':'node_modules/pdfjs-dist/build/pdf.worker.mjs'
+};
+for(const p of Object.values(libraryFiles)) assert(existsSync(p),'No está instalada la dependencia '+p);
 const html='<!doctype html><html lang="es"><meta charset="utf-8"><p id="qa-result" data-status="running">Leyendo EPUB/DOCX/PDF…</p><script>setTimeout(()=>{const p=document.getElementById("qa-result");if(p.dataset.status==="running"){p.dataset.status="fail";p.textContent="No completó la decodificación en 40 segundos";}},40000)</script><script type="module" src="/__qa__/test.mjs"></script></html>';
 const server=createServer((req,res)=>{
   const path=(req.url||'/').split('?')[0];res.setHeader('Cache-Control','no-store');
   if(fixtures[path]){res.setHeader('Content-Type','application/octet-stream');res.end(fixtures[path]);return;}
+  if(browserModules[path]){res.setHeader('Content-Type','text/javascript');res.end(browserModules[path]);return;}
+  if(libraryFiles[path]){res.setHeader('Content-Type','text/javascript');res.end(readFileSync(libraryFiles[path]));return;}
   if(path==='/__qa__/test.mjs'){res.setHeader('Content-Type','text/javascript');res.end(readFileSync('scripts/fixtures/importer-formats-browser-qa.mjs'));return;}
   if(path==='/studio-importer.js'){
     let src=readFileSync('src/studio-importer.js','utf8');
     assert(src.includes('  return importer;'));
     src=src.replace('  return importer;', '  return Object.assign(importer,{qaParseEpub:parseEpub,qaParseDocx:parseDocx,qaParsePdf:parsePdf});');
+    src=src.replaceAll('https://esm.sh/jszip@3.10.1','/__qa__/jszip.mjs')
+      .replaceAll('https://esm.sh/mammoth@1.8.0/mammoth.browser.js','/__qa__/mammoth.mjs')
+      .replaceAll('https://esm.sh/pdfjs-dist@4.4.168/build/pdf.worker.mjs','/__qa__/pdf.worker.mjs')
+      .replaceAll('https://esm.sh/pdfjs-dist@4.4.168','/__qa__/pdf.mjs');
     res.setHeader('Content-Type','text/javascript');res.end(src);return;
   }
   if(/^\/[\w-]+\.js$/.test(path)&&existsSync('src/'+path.slice(1))){
