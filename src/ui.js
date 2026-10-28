@@ -1467,7 +1467,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
           <div class="bd"><a class="t" href="/serie/${s.slug}">${esc(s.title)}</a>${utag(s)}<span class="mt">${esc(s.work_type || 'Novela ligera')}${s.teams?.name ? ` · <b>${esc(s.teams.name)}</b>` : ''}${fol.has(s.id) ? ' · Siguiendo' : ''}${pend[s.id] ? ` · <span class="pend">te ${pend[s.id] === 1 ? 'falta 1 capítulo' : 'faltan ' + pend[s.id] + ' capítulos'}</span>` : ''}</span>${creditsHTML(s, { esc, media, mode: 'carousel' })}
             <div class="its">${g.list.slice(0, 3).map(c => item(s, c)).join('')}${sameVol >= 3 ? `<a class="it vol" href="/serie/${s.slug}"><b>Vol. ${vnum(top)} completo</b><small>${genericSectionCount(sameVol)}</small></a>` : ''}</div>${acts(g)}</div></article>`;
       });
-      $('#rel').innerHTML = (html ? `<div class="ui-rlist${R.dense ? ' dense' : ''}">${html}</div>` : `<p class="mono">${R.mine ? 'Las series que sigues aún no tienen capítulos publicados.' : (R.hide ? 'Ya leíste todo lo publicado aquí. ' : '') + 'No hay lanzamientos con estos filtros.'}</p>`) + (list.length > R.shown ? `<button class="btn ghost ui-more" id="rel-more">Ver más · ${list.length - R.shown} ${unit(list.length - R.shown)}</button>` : '');
+      $('#rel').innerHTML = (html ? `<div class="ui-rlist${R.dense ? ' dense' : ''}">${html}</div>` : `<p class="mono">${R.mine ? 'Las series que sigues aún no tienen secciones publicadas.' : (R.hide ? 'Ya leíste todo lo publicado aquí. ' : '') + 'No hay lanzamientos con estos filtros.'}</p>`) + (list.length > R.shown ? `<button class="btn ghost ui-more" id="rel-more">Ver más · ${list.length - R.shown} ${unit(list.length - R.shown)}</button>` : '');
       $('#rel').querySelectorAll('.ui-rlist > .ui-rday').forEach(x => x.style.margin = ''); 
       $('#rel-more')?.addEventListener('click', () => { R.shown += 20; draw(); });
       $('#rel').querySelectorAll('[data-mute]').forEach(b => b.onclick = () => { const s = byId[b.dataset.mute]; muted.add(s.id); saveMuted(); toast('«' + s.title + '» silenciada · la recuperas en «Silenciadas»'); draw(); });
@@ -1483,7 +1483,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         const { error } = await sb.from('read_chapters').upsert(ids.map(chapter_id => ({ user_id: u.id, chapter_id })), { onConflict: 'user_id,chapter_id', ignoreDuplicates: true });
         if (error) { b.disabled = false; return toast(error.message); }
         ids.forEach(id => read.add(id)); await setPend();
-        toast(ids.length === 1 ? 'Capítulo marcado como leído' : ids.length + ' capítulos marcados como leídos'); draw(); refreshBadge();
+        toast(ids.length === 1 ? 'Sección marcada como leída' : ids.length + ' secciones marcadas como leídas'); draw(); refreshBadge();
       });
       $('#rel').querySelectorAll('a.cv').forEach(a => a.onclick = e => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); e.stopPropagation(); const s = byId[a.dataset.id]; quickView(s, { from: a, p: prog[s.id], lc: gi[s.id].list[0], following: () => fol.has(s.id), onFollow: () => toggleFollow(s) }); });
       document.querySelectorAll('[data-rt]').forEach(b => b.classList.toggle('on', b.dataset.rt === R.type));
@@ -1590,7 +1590,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const first = (chs || [])[0], allCh = chs || [], nRead = allCh.filter(c => read.has(c.id)).length;
     const firstNarrative = allCh.find(c => { const t=formatChapterIndex({title:c.title,sectionType:c.section_type});return t.label==='Capítulo' && !!t.number; });
     const progressChapter = allCh.find(c => c.num === p?.chapter_num);
-    const sectionCounts = editorialSectionCounts(allCh);
+    
     const pIdx = p ? allCh.findIndex(c => c.num === p.chapter_num) : -1;
     const nextUnread = allCh.slice(Math.max(0, pIdx)).find(c => !read.has(c.id) && c.num !== p?.chapter_num) || allCh.find(c => !read.has(c.id));
     const isNew = c => c.publish_at && Date.now() - new Date(c.publish_at) < 7 * 864e5 && !read.has(c.id);
@@ -1605,7 +1605,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
           <h1 data-title-size="${s.title.length > 120 ? 'xl' : s.title.length > 65 ? 'l' : 'normal'}">${esc(s.title)}</h1>${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
           <div class="ui-chips">${pill(s.translation_status)}${(s.genres || []).map(g => `<a class="ui-chip" href="/catalogo?g=${encodeURIComponent(g)}">${esc(g)}</a>`).join('')}${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</div>
           <div class="rk-bdgs" id="rk-bdg"></div><div class="rk-rate" id="rk-rate"></div>
-          <div class="acts ui-series-actions" style="display:flex;gap:10px;flex-wrap:wrap">${first ? `<a class="btn" href="/leer/${s.slug}/${p?.chapter_num || first.num}">${p ? 'Continuar · ' + editorialChapterLabel(progressChapter) + (p.pct > .02 && p.pct < .95 ? ' · ' + Math.round(p.pct * 100) + '%' : '') : (first.locked ? '🔒︎ Leer desde el inicio · solo mecenas' : 'Leer desde el inicio')}</a>` : ''}${p && nextUnread && nextUnread.num !== p.chapter_num ? `<a class="btn ghost" href="/leer/${s.slug}/${nextUnread.num}">Siguiente sin leer · Cap. ${nextUnread.num}</a>` : ''}${!p && firstNarrative && firstNarrative.num !== first?.num ? `<a class="btn ghost" href="/leer/${s.slug}/${firstNarrative.num}">Ir al primer capítulo</a>` : ''}<button class="btn ghost" id="follow">${following ? '✓ Siguiendo' : 'Seguir serie'}</button><a class="btn ghost" href="/anotaciones/${esc(s.slug)}">Mis anotaciones</a><a class="btn ghost ui-jump" href="#serie-vols">Explorar volúmenes ↓</a>${first ? offlineButton({slug:s.slug,scope:'series'}) : ''}</div>
+          <div class="acts ui-series-actions" style="display:flex;gap:10px;flex-wrap:wrap">${first ? `<a class="btn" href="/leer/${s.slug}/${p?.chapter_num || first.num}">${p ? 'Continuar · ' + editorialChapterLabel(progressChapter) + (p.pct > .02 && p.pct < .95 ? ' · ' + Math.round(p.pct * 100) + '%' : '') : (first.locked ? '🔒︎ Leer desde el inicio · solo mecenas' : 'Leer desde el inicio')}</a>` : ''}${p && nextUnread && nextUnread.num !== p.chapter_num ? `<a class="btn ghost" href="/leer/${s.slug}/${nextUnread.num}">Siguiente sin leer · ${editorialChapterLabel(nextUnread)}</a>` : ''}${!p && firstNarrative && firstNarrative.num !== first?.num ? `<a class="btn ghost" href="/leer/${s.slug}/${firstNarrative.num}">Ir al primer capítulo</a>` : ''}<button class="btn ghost" id="follow">${following ? '✓ Siguiendo' : 'Seguir serie'}</button><a class="btn ghost" href="/anotaciones/${esc(s.slug)}">Mis anotaciones</a><a class="btn ghost ui-jump" href="#serie-vols">Explorar volúmenes ↓</a>${first ? offlineButton({slug:s.slug,scope:'series'}) : ''}</div>
         </div>
       </section>
       <nav class="ui-series-nav" role="tablist" aria-label="Secciones de la obra">
