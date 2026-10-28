@@ -13,7 +13,7 @@ function cut(a,b) {
 }
 const chapter=(id,num,vol)=>({id,num,vol,title:'Capítulo '+num,volume_id:'v'+vol,updated_at:'rev'});
 const c1=chapter('c1',1,1), c2=chapter('c2',2,1), c3=chapter('c3',3,2), chapters=[c1,c2,c3];
-const S={series:{slug:'obra-qa'},chapters,vols:[],mounted:[c1],active:c1,openId:1,loadingNext:false,remote:{global:{},per_volume:{}}};
+const S={series:{slug:'obra-qa'},chapters,vols:[],mounted:[c1],active:c1,openId:1,loadingNext:false,annots:[],remote:{global:{},per_volume:{}}};
 let mode='volume', bodyFn=()=>Promise.resolve([{type:'paragraph',text:'Contenido de prueba'}]), mounts=[], tracked=[],prefetched=[], annotations=[];
 const articles=new Map(chapters.map(c=>[c.id,{dataset:{ch:c.id},isConnected:true}]));
 const rd={style:{setProperty:()=>{}}};
