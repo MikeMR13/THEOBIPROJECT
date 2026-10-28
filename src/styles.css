@@ -916,3 +916,99 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
   .ob-hero h1[data-len=l]{font-size:clamp(26px,7.2vw,38px)}
   .ob-hero h1[data-len=xl]{font-size:clamp(24px,6.3vw,33px)}
 }
+
+
+/* Navegación móvil única: cabecera de marca/cuenta, sin hamburguesa ni segunda navegación. */
+@media(max-width:760px){
+  .top:has(.ob-brand){
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) max-content!important;
+    grid-template-rows:auto!important;
+    align-items:center!important;
+    gap:6px 8px!important;
+    min-height:55px;
+    padding:7px 12px!important;
+    box-sizing:border-box;
+  }
+  .top:has(.ob-brand) .ob-brand{
+    grid-column:1;grid-row:1;order:0;
+    display:flex;align-items:center;min-width:0;margin:0;
+    gap:6px;
+  }
+  .top:has(.ob-brand) .ob-word{min-width:0}
+  .top:has(.ob-brand) .ob-word b{
+    display:block;font-size:clamp(14px,4.1vw,18px);
+    line-height:1.18;white-space:normal;overflow-wrap:normal;
+  }
+  .top:has(.ob-brand) .ob-seal{
+    flex:none;width:28px;height:28px;font-size:15px;
+  }
+  .top:has(.ob-brand) .ob-nav,
+  .top:has(.ob-brand) .ob-mbtn{display:none!important}
+  .top:has(.ob-brand) .ob-tools{
+    grid-column:2;grid-row:1;order:0;
+    display:flex!important;flex:0 0 auto!important;
+    width:auto!important;min-width:0;
+    padding:0!important;margin:0!important;
+    align-items:center;justify-content:flex-end;
+    gap:5px;
+  }
+  .top:has(.ob-brand) .ob-tools .ob-search,
+  .top:has(.ob-brand) .ob-tools .sr-pop{display:none!important}
+  .top:has(.ob-brand) #session{
+    display:flex;flex-wrap:nowrap;justify-content:flex-end;
+    gap:5px;min-width:0;max-width:100%;
+  }
+  /* Continuar se mantiene dentro de Mi biblioteca; evita que la cabecera invada la marca. */
+  .top:has(.ob-brand) #session .ob-cont{display:none!important}
+  .top:has(.ob-brand) #session :is(.ob-bell,.ob-user)>summary{min-width:36px;min-height:40px;justify-content:center}
+  .ob-tab{
+    grid-template-columns:repeat(6,minmax(0,1fr));
+    align-items:stretch;
+  }
+  .ob-tab>a,.ob-tab>.ob-tab-more{
+    display:grid;place-items:center;align-content:center;justify-items:center;
+    gap:2px;min-width:0;min-height:56px;
+    box-sizing:border-box;padding:7px 1px 6px;
+    font-size:clamp(9px,2.7vw,11px);line-height:1.2;
+    white-space:nowrap;color:#bcb19c;
+    text-decoration:none;
+  }
+  .ob-tab>.ob-tab-more{
+    background:transparent;border:0;border-radius:0;
+    font-family:inherit;font-weight:600;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .ob-tab>.ob-tab-more span{
+    font-family:'Shippori Mincho B1',serif;
+    font-size:22px;line-height:1;
+  }
+  .ob-tab>.ob-tab-more.on,
+  .ob-tab>.ob-tab-more[aria-expanded=true]{color:var(--gold)}
+  .ob-tab-panel{
+    position:absolute;bottom:calc(100% + 8px);left:8px;right:8px;
+    display:grid;grid-template-columns:1fr;gap:4px;
+    padding:10px;background:#18140d;
+    border:1px solid #7a643c;border-top:3px solid var(--gold);
+    box-shadow:0 -10px 38px rgba(0,0,0,.58);
+    max-height:min(50vh,310px);overflow-y:auto;
+    border-radius:6px;z-index:1;
+  }
+  .ob-tab-panel[hidden],.ob-tab-panel>a[hidden]{display:none!important}
+  .ob-tab-panel>a{
+    display:flex;align-items:center;justify-content:flex-start;
+    padding:12px 14px;min-height:48px;
+    font-size:15px;font-weight:600;line-height:1.35;
+    box-sizing:border-box;color:var(--paper);
+    background:#231d14;border:1px solid #463722;
+    white-space:normal;overflow-wrap:anywhere;text-decoration:none;
+  }
+  .ob-tab-panel>a.on{border-color:var(--gold);color:var(--gold)}
+  .ob-tab-panel>a:focus-visible,
+  .ob-tab>.ob-tab-more:focus-visible{
+    outline:3px solid var(--gold);outline-offset:2px;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .ob-tab-panel,.ob-tab-more{transition:none!important}
+}
