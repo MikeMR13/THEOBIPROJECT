@@ -13,7 +13,7 @@ function cut(a,b) {
 }
 const chapter=(id,num,vol)=>({id,num,vol,title:'Capítulo '+num,volume_id:'v'+vol,updated_at:'rev'});
 const c1=chapter('c1',1,1), c2=chapter('c2',2,1), c3=chapter('c3',3,2), chapters=[c1,c2,c3];
-const S={series:{slug:'obra-qa'},chapters,vols:[],mounted:[c1],active:c1,openId:1,loadingNext:false};
+const S={series:{slug:'obra-qa'},chapters,vols:[],mounted:[c1],active:c1,openId:1,loadingNext:false,remote:{global:{},per_volume:{}}};
 let mode='volume', bodyFn=()=>Promise.resolve([{type:'paragraph',text:'Contenido de prueba'}]), mounts=[], tracked=[],prefetched=[], annotations=[];
 const articles=new Map(chapters.map(c=>[c.id,{dataset:{ch:c.id},isConnected:true}]));
 const rd={style:{setProperty:()=>{}}};
@@ -49,7 +49,7 @@ api.observe();
 let gate={};gate.promise=new Promise(ok=>{gate.release=ok});
 bodyFn=()=>gate.promise;
 const delayed=getMain().fire();
-S.openId=2;flow.isConnected=false;
+S.openId=2;S.loadingNext=false;flow.isConnected=false; // open() reinicia el bloqueo al cambiar de capítulo
 gate.release([{type:'paragraph',text:'No insertar'}]);
 await delayed;
 assert.equal(mounts.length,0,'Una respuesta antigua montó un capítulo después de abandonar el lector');
