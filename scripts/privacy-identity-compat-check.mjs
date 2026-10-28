@@ -75,10 +75,14 @@ for (const path of readdirSync('src').filter(x=>x.endsWith('.js'))) {
 const patEdge=read('supabase/functions/patreon/index.ts');
 for (const needle of [
   "db.from('profiles').select('id').eq('patreon_user_id', pid)",
-  "db.from('profiles').update({ patreon_user_id: pid }).eq('id', S.user_id)",
-  "db.auth.admin.getUserById(owner.id)",
-  "return back(ret, { patreon: 'en_uso' })"
+  "db.auth.admin.getUserById(owner.id)"
 ])assert(patEdge.includes(needle),'Contrato existente de Patreon alterado: '+needle);
+const patLink = patEdge.slice(patEdge.indexOf("if (kind === 'link')"), patEdge.indexOf('// login / registro'));
+assert.ok(patLink.includes("if (!S.user_id)"), 'Patreon no puede enlazarse sin lector autenticado');
+assert.ok(patLink.includes("owner && owner.id !== S.user_id"), 'Patreon ya vinculado a otro lector debe rechazarse');
+assert.ok(patLink.includes(".update({ patreon_user_id: pid }).eq('id', S.user_id).select('id').maybeSingle()"), 'Vinculación debe apuntar al mismo lector y verificar la escritura');
+assert.ok(patLink.includes("linkError || linked?.id !== S.user_id"), 'El callback no debe confirmar una escritura fallida');
+assert.ok(!patLink.includes('admin.createUser'), 'Vincular Patreon jamás debe crear otra cuenta');
 const emailEdge=read('supabase/functions/notify-email/index.ts');
 assert(emailEdge.includes("sb.rpc('email_batch'"),'Correo de notificaciones debe conservar sus consultas internas');
 const schema=read('supabase/migrations/20261104_google_auth.sql');
