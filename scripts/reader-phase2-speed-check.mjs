@@ -102,7 +102,8 @@ const blocks = [{type:'paragraph',text:'Contenido del capítulo'}];
 // Los campos privados de progreso no pasan a los metadatos públicos.
 assert.doesNotMatch(reader,/quick\(fetchPos\(\), localPos\)/);
 assert.doesNotMatch(reader,/Promise\.all\(\[body\(ch\), quick\(/);
-assert.match(reader,/const pos = localPos\(\), posP = fetchPos\(\)/);
+assert.match(reader,/const posP = fetchPos\(\)\.then\(p => \{ readyPos = p; return p; \}, \(\) => null\)/);
+assert.match(reader,/const pos = readyPos \|\| local/);
 assert.match(reader,/const b = await body\(ch\)/);
 assert.match(reader,/S\.resumePending\?\.chapterId === ch\.id/);
 assert.match(reader,/S\.bodyFlights\.set\(key, request\)/);
