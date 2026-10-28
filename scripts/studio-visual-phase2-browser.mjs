@@ -10,7 +10,7 @@ const source=readFileSync('src/studio.js','utf8');
 for(const k of ['s2-work-primary','s2-work-recommend','s2-work-secondary','s2-feature-toggle','data-feature','team_feature_set'])assert(source.includes(k),'Falta función: '+k);
 assert(!source.includes("'gold' : 'ghost'"),'No debe usarse la clase gold para el botón activo');
 assert(css.includes('.s2 .s2-work .s2-feature-toggle[aria-pressed="true"]'),'Falta estilo de contraste');
-const widths=[320,390,768,1024,1440,1690];
+const widths=[320,375,390,430,768,1024,1440,1690];
 const title='¿Heroína? ¿Santa? ¡No, soy una sirvienta todoterreno con orgullo!';
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const field=(label,value='')=>'<label>'+label+'<input value="'+esc(value)+'"></label>';
