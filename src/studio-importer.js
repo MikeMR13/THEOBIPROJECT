@@ -2,6 +2,7 @@ import { confirmObi, inputObi } from './obi-dialog.js';
 // Importador de Studio: EPUB, DOCX y PDF, bajo demanda.
 import { renderBlock } from './blocks.js?v=2';
 import { inferSectionType } from './section-types.js?v=1';
+import { formatChapterIndex } from './chapter-title-display.js?v=1';
 import { editorialForm, bindEditorialForm, saveEditorialRecord } from './editorial-announcements.js?v=1';
 import { createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
 import { planVolumeReplacement, validateImportMedia } from './import-safety.js?v=1';
@@ -249,11 +250,11 @@ export function createImporter(deps) {
     const TAB = '/estudio/importar';
     if (!can('import')) { app.innerHTML = shell('Importar', '<p>Tu rol no permite importar archivos.</p>', TAB); bindPicker(importer); return; }
     const [{ data: works }, { data: related }] = await Promise.all([
-      sb.from('series').select('id,slug,title,cover_path,volumes(id,num,title,cover_path,deleted_at)').eq('team_id', T.team.id).is('archived_at', null).order('title'),
+      sb.from('series').select('id,slug,title,cover_path,volumes(id,num,title,cover_path,deleted_at,format_chapter_titles)').eq('team_id', T.team.id).is('archived_at', null).order('title'),
       sb.from('series').select('id,title,teams(name)').or('published.eq.true,team_id.eq.' + T.team.id).is('archived_at', null).order('title').limit(500)
     ]);
     let P = null, file = null, fp = null, step = 1, sel = 0, splitting = false, dupAt = null, V = {};
-    const D = { work: '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', notice: null, noticeGetter: null, newTitle: '', newAuthor: '' };
+    const D = { work: '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', notice: null, noticeGetter: null, newTitle: '', newAuthor: '', formatChapterTitles: false };
     let NW = createWorkData();
     app.innerHTML = shell('Importar contenido', '<ol class="imp-steps" id="steps"></ol><div id="wiz"></div><p id="status" class="mono" role="status"></p>', TAB);
     bindPicker(importer);
@@ -294,7 +295,7 @@ export function createImporter(deps) {
         const guess = (works || []).find(w => w.title && key.includes(w.title.toLowerCase().slice(0, 18)));
         D.work = guess?.id || ''; D.newTitle = P.meta.series || P.title.replace(/\s*[,:\-–]?\s*(vol(umen|ume)?\.?|tomo)\s*\d+.*$/i, '').trim() || P.title; D.newAuthor = P.meta.author || '';
         NW = createWorkData({ title: D.newTitle, author: D.newAuthor, illustrator: P.meta.illustrator || '', publisher: P.meta.publisher || '', synopsis: (P.meta.synopsis || '').slice(0, 1500) });
-        D.vnum = P.meta.index || nextVol(guess); D.cover = P.cover || null; D.workCover = !guess || !guess.cover_path; D.mode = 'replace';
+        D.vnum = P.meta.index || nextVol(guess); D.formatChapterTitles = !!liveVols(guess).find(v => v.num === D.vnum)?.format_chapter_titles; D.cover = P.cover || null; D.workCover = !guess || !guess.cover_path; D.mode = 'replace';
         V = { title: '', subtitle: '', synopsis: P.meta.synopsis || '', synopsis_spoiler: false, publisher: P.meta.publisher || '', imprint: '', illustrator: P.meta.illustrator || '', jp_release: P.meta.date || '', planned_chapters: '', is_final: false, translator_notes: '' };
         sel = Math.max(0, P.chapters.findIndex(c => !c.skip)); splitting = false;
         st(''); step = 2; render();
@@ -323,9 +324,11 @@ export function createImporter(deps) {
     };
     function s2(){
       const ch = P.chapters, inc = ch.filter(c => !c.skip), m = P.meta, cur = ch[sel];
+      const titleExample = () => { const v = formatChapterIndex({title:cur.title,sectionType:cur.type,enabled:D.formatChapterTitles}); return D.formatChapterTitles ? [v.label + (v.number ? ' ' + v.number : ''),v.heading].filter(Boolean).join(' · ') : cur.title; };
       W().innerHTML = `<div class="imp-sum"><span><b>${esc(P.title)}</b><small class="mono">${esc(file.name)} · ${inc.length} de ${ch.length} secciones · ${P.images.size} imágenes · ${P.fonts.length} fuentes</small></span>
           ${[['Autor', m.author], ['Editorial', m.publisher], ['Volumen', m.index]].filter(x => x[1]).map(([k, v]) => `<span><small class="mono">${k}</small>${esc(String(v))}</span>`).join('')}</div>
         ${fichaHTML(inc.length)}
+        <div class="imp-title-option"><label class="imp-title-switch" for="imp-format-titles"><input type="checkbox" id="imp-format-titles" ${D.formatChapterTitles ? 'checked' : ''}><span><b>Mejorar los títulos del índice público de este volumen</b><small>Opcional: reconocer «Capítulo 1», «Capitulo 01», «Captiulo 1», «Cap. 02», prólogos y epílogos. Desactivado por defecto para volúmenes nuevos.</small></span></label><p class="mono">Solo cambia cómo aparecen las secciones en la ficha pública de este volumen. Los títulos originales, el texto, el lector y los enlaces no cambian. Si agregas capítulos a un volumen existente, la elección se aplica a todo su índice.</p><div class="imp-title-example" role="status"><small>Vista previa de la sección seleccionada:</small><span id="imp-format-example">${esc(titleExample())}</span></div><small class="mono" id="imp-format-warning"></small></div>
         ${dupAt ? `<p class="imp-warn">Ya importaste este mismo archivo el ${fmtTz(dupAt, { dateStyle: 'long' })}. Puedes continuar; en el destino elige «Reemplazar» si quieres sustituirlo.</p>` : ''}
         <div class="imp-grid">
           <div class="imp-list"><div class="imp-lh"><b>Secciones</b><span class="mono">Desmarca las que no quieras importar</span></div>
@@ -339,9 +342,12 @@ export function createImporter(deps) {
         </div>
         <div class="imp-nav"><button class="btn ghost" id="back">‹ Elegir otro archivo</button><button class="btn" id="next" ${inc.length ? '' : 'disabled'}>Continuar al destino ›</button></div>`;
       bindFicha();
+      const refreshTitleExample = () => { const preview = $('#imp-format-example'); if (preview) preview.textContent = titleExample(); const warning = $('#imp-format-warning'); if (warning) warning.textContent = D.formatChapterTitles && formatChapterIndex({title:cur.title,sectionType:cur.type,enabled:true}).typo ? 'Detectamos «Captiulo»: en la ficha se mostrará «Capítulo» sin cambiar el título guardado.' : ''; };
+      $('#imp-format-titles').onchange = e => { D.formatChapterTitles = e.target.checked; refreshTitleExample(); };
+      refreshTitleExample();
       const L = W().querySelector('.imp-list');
-      L.querySelectorAll('[data-t]').forEach(i => i.oninput = () => { ch[+i.dataset.t].title = i.value; if (+i.dataset.t === sel) $('#pv h2').textContent = i.value; });
-      L.querySelectorAll('[data-k]').forEach(s => s.onchange = () => { ch[+s.dataset.k].type = s.value; if (+s.dataset.k === sel) $('#pv .rd-head .mono').textContent = s.value; });
+      L.querySelectorAll('[data-t]').forEach(i => i.oninput = () => { ch[+i.dataset.t].title = i.value; if (+i.dataset.t === sel) { $('#pv h2').textContent = i.value; refreshTitleExample(); } });
+      L.querySelectorAll('[data-k]').forEach(s => s.onchange = () => { ch[+s.dataset.k].type = s.value; if (+s.dataset.k === sel) { $('#pv .rd-head .mono').textContent = s.value; refreshTitleExample(); } });
       L.querySelectorAll('[data-inc]').forEach(c => c.onchange = () => { ch[+c.dataset.inc].skip = !c.checked; s2(); });
       L.onclick = e => {
         const b = e.target.closest('[data-mv],[data-merge]');
@@ -376,6 +382,7 @@ export function createImporter(deps) {
             <label class="tb-inl"><input type="radio" name="dm" value="append" ${D.mode === 'append' ? 'checked' : ''}> Agregar estas secciones después de las existentes (la ficha solo completa campos vacíos)</label></div>`
             : gone ? `<p class="imp-warn">Hay un Volumen ${D.vnum} en la papelera. Se recupera y se llena con este archivo; sus capítulos viejos siguen en la papelera.</p>` : `<p class="mono">Se creará el Volumen ${D.vnum}${w ? ' en ' + esc(w.title) : ''}${Object.keys(fichaRow()).length ? ', con la ficha del paso anterior' : ''}.</p>`}
         </section>
+        <p class="imp-title-option mono"><b>Índice público:</b> ${D.formatChapterTitles ? 'Mejora opcional activada' : 'Títulos originales sin cambios'}. Puedes cambiarlo en «Revisar secciones».</p>
         <section class="imp-box"><h3>Portada del volumen</h3>
           <p class="mono">${keys.length ? 'Toca la imagen que será la portada.' + (P.cover ? ' Marcamos la que el EPUB declara como portada.' : '') : 'El archivo no trae imágenes.'}</p>
           <div class="imp-covs" role="radiogroup" aria-label="Portada del volumen">
@@ -463,7 +470,7 @@ export function createImporter(deps) {
           if (gone?.length) { const r = await sb.from('volumes').update({ deleted_at: null }).eq('id', gone[0].id).select().single(); if (r.error) throw r.error; vol = r.data; restoredVol = vol.id; }
         }
         if (!vol) {
-          const r = await sb.from('volumes').insert({ ...ficha, series_id: w.id, num: D.vnum, status: 'draft', epub_fonts: fonts, cover_path: cov }).select().single();
+          const r = await sb.from('volumes').insert({ ...ficha, series_id: w.id, num: D.vnum, status: 'draft', epub_fonts: fonts, cover_path: cov, format_chapter_titles: !!D.formatChapterTitles }).select().single();
           if (r.error) throw r.error; vol = createdVol = r.data;
         }
         const {data:existing,error:exErr}=await sb.from('chapters')
@@ -511,6 +518,7 @@ export function createImporter(deps) {
         if (!createdVol) {
           const { data: vr } = await sb.from('volumes').select('*').eq('id', vol.id).single();
           const patch = {}; if (fonts.length) patch.epub_fonts = fonts; if (cov) patch.cover_path = cov;
+           if (!!vr?.format_chapter_titles !== !!D.formatChapterTitles) patch.format_chapter_titles = !!D.formatChapterTitles;
           const over = D.mode === 'replace' || !!restoredVol; for (const [k, v] of Object.entries(ficha)) if ((over || vr?.[k] == null || vr[k] === '' || vr[k] === false) && v !== false) patch[k] = v;
           if (Object.keys(patch).length) { volBefore = Object.fromEntries(Object.keys(patch).map(k => [k, vr?.[k] ?? null])); const r = await sb.from('volumes').update(patch).eq('id', vol.id); if (r.error) throw r.error; }
         }
