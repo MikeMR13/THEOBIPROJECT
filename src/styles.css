@@ -251,6 +251,17 @@ select{background:#16140f;border:2px solid var(--line);color:var(--paper);paddin
 .imp-steps li.on{border-color:var(--gold);color:var(--paper)}.imp-steps li.on span{background:var(--gold);border-color:var(--gold);color:#0d0c0a}.imp-steps li.done{color:#a9d18e}
 .imp-drop{display:grid;gap:6px;justify-items:center;padding:56px 20px;border:2px dashed #3d3628;text-align:center;cursor:pointer;background:#14120d}.imp-drop b{font-size:17px}.imp-drop.on,.imp-drop:hover{border-color:var(--gold)}
 .imp-sum{display:flex;gap:10px 26px;flex-wrap:wrap;align-items:flex-end;padding:14px 16px;background:#14120d;border:1px solid #2f2a20;margin-bottom:12px}.imp-sum>span{display:grid;gap:2px;font-size:14px}.imp-sum>span:first-child{flex:1 1 260px}.imp-sum b{font-family:'Shippori Mincho B1',serif;font-weight:500;font-size:20px}.imp-sum small{font-size:11px;color:#a89f8a}
+/* Decisión explícita del traductor al importar: sin alterar títulos de origen. */
+.imp-title-option{display:grid;gap:10px;margin:0 0 14px;padding:14px;background:#17140e;border:1px solid #776039;min-width:0;overflow-wrap:anywhere}
+.imp-title-switch{display:flex;gap:12px;align-items:start;cursor:pointer;min-height:44px}
+.imp-title-switch input{flex:none;width:22px;height:22px;accent-color:var(--gold);margin:4px 0 0}
+.imp-title-switch span{display:grid;gap:4px;min-width:0}
+.imp-title-switch b{font-size:15px;color:var(--paper)}
+.imp-title-switch small,.imp-title-option .mono{margin:0;color:#d3c5a5;font-size:12px;line-height:1.6}
+.imp-title-example{display:grid;gap:4px;padding:10px 12px;background:#0c0b08;border-left:3px solid var(--gold);min-width:0}
+.imp-title-example small{color:#aaa08b;font-size:11px}
+.imp-title-example span{font-size:14px;color:var(--paper);overflow-wrap:anywhere}
+.imp-title-switch:focus-within{outline:2px solid var(--gold);outline-offset:3px}
 .imp-warn{display:grid;gap:6px;padding:10px 14px;background:#1f1a10;border:1px solid #d9922b;font-size:13px;margin:0 0 12px}
 .imp-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:16px;align-items:start}@media(max-width:1000px){.imp-grid{grid-template-columns:minmax(0,1fr)}}
 .imp-list,.imp-pvw{background:#14120d;border:1px solid #2f2a20}.imp-lh{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;padding:10px 14px;border-bottom:1px solid #2f2a20;font-size:14px}.imp-lh .mono{font-size:11px}
@@ -355,6 +366,13 @@ main>p,main>h1+p{max-width:75ch}
 .ui-vols .ui-v-index[open]>summary [aria-hidden="true"]{display:inline-block;transform:rotate(180deg)}
 .ui-vols .ui-v-index .ui-chl{margin:8px 0 14px;grid-template-columns:1fr;gap:3px}
 .ui-vols .ui-v-index .ui-chl a{min-height:42px;align-items:center}
+/* Índice opcional por volumen: el número editorial nunca cambia el enlace global. */
+.ui-series-page .ui-ch-display{display:grid;gap:3px;min-width:0;overflow-wrap:anywhere}
+.ui-series-page .ui-ch-display .ui-ch-type{display:block;color:#edca78;font:700 11px/1.3 'IBM Plex Sans',sans-serif;letter-spacing:.055em;text-transform:uppercase}
+.ui-series-page .ui-ch-display .ui-ch-name{display:block;font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+.ui-series-page .ui-ch-display .ui-ch-global{display:block;color:#aaa08b;font:11px/1.4 'IBM Plex Mono',monospace}
+@media(max-width:480px){.ui-series-page .ui-ch-display .ui-ch-name{font-size:14px}.ui-series-page .ui-v-index .ui-chl a{align-items:start;min-width:0}}
+
 .ui-vols .ui-v-index .ui-chl .fx-tag{white-space:nowrap}
 .ui-vols .ui-vol-book .ui-dl{margin:4px 0 0;min-width:0}
 .ui-vols .ui-vol-book .ui-dl-featured{margin:2px 0;padding:12px;gap:8px}
