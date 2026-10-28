@@ -5,6 +5,7 @@ import { cleanInline, renderBlock, warningsHTML, teaserHTML } from './blocks.js?
 import { attachPublicCredits, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
 import { readerPrefsKey, readReaderPrefs, readPendingReaderPrefs, stageReaderPrefs, acknowledgeReaderPrefs, sameReaderAccount, readingProgressKey, readingProgressPrefix, readerProgressKeys } from './reader-pref-cache.js?v=1';
 import { SECTION_LABELS } from './section-types.js?v=1';
+import { adjacentChapter, mergeChapterMetadata } from './reader-navigation.js?v=1';
 const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true };
 const COLORS = { gold: '#f2c230', rose: '#f29bb0', sky: '#8cc3f2', mint: '#9fdcb0' };
 const SEC_LABEL = SECTION_LABELS;
@@ -13,7 +14,7 @@ export function createReader(ctx){
   installCreditImageFallback();
   const { sb, app, $, esc, toast, go, getUser, url } = ctx;
   const media = p => p ? (/^https?:/.test(p) ? p : `${url}/storage/v1/object/public/obi-media/${encodeURI(p)}`) : '';
-  const S = { series: null, chapters: [], vols: [], bodies: new Map(), prefs: null, remote: null, mounted: [], active: null, annots: [], saveT: 0, readMarked: new Set(), historyLogged: new Set() };
+  const S = { series: null, chapters: [], vols: [], bodies: new Map(), bodyVersions: new Map(), prefs: null, remote: null, mounted: [], active: null, annots: [], saveT: 0, readMarked: new Set(), historyLogged: new Set() };
 
   // ---------- preferencias ----------
   const loadLocal = userId => readPendingReaderPrefs(localStorage, userId) || readReaderPrefs(localStorage, userId);
@@ -66,29 +67,41 @@ export function createReader(ctx){
   // ahora los tres van juntos filtrando por el slug, y la última copia queda guardada para abrir al instante la próxima vez.
   const META_KEY = slug => 'obi-meta-' + slug;
   const CH_COLS = 'id,num,vol,title,section_type,volume_id,content_warnings,teaser,teaser_on,updated_at';
+  // Una precarga de enlace y la apertura pueden solicitar la misma ficha simultáneamente.
+  // Compartir únicamente solicitudes en curso: RLS y revisiones se revalidan en el siguiente acceso.
+  const metaFlights = new Map();
   function fetchMeta(slug){
-    return Promise.all([
+    const inflight = metaFlights.get(slug);
+    if (inflight) return inflight;
+    const request = Promise.all([
       sb.from('series').select('id,slug,title,team_id,teams(name,slug,status,avatar_path,settings,reader_defaults)').eq('slug', slug).maybeSingle(),
       sb.from('chapters').select(CH_COLS + ',series!inner(slug)').eq('series.slug', slug).is('deleted_at', null).order('num'),
       sb.from('volumes').select('id,num,title,epub_fonts,series!inner(slug)').eq('series.slug', slug).is('deleted_at', null).order('num')
-    ]).then(async ([a, b, c]) => { const e = a.error || b.error || c.error; if (e) throw e; if (!a.data) return null;
-      await attachPublicCredits(sb, [a.data]);
+    ]).then(([a, b, c]) => { const e = a.error || b.error || c.error; if (e) throw e; if (!a.data) return null;
       const strip = l => (l || []).map(({ series, ...x }) => x);
       const m = { series: a.data, chapters: strip(b.data), vols: strip(c.data), at: Date.now() };
       try { const saved = { ...m, series: { ...m.series } }; delete saved.series.publicCredits; const j = JSON.stringify(saved); if (j.length < 400000) localStorage.setItem(META_KEY(slug), j); } catch {}
       return m; });
+    metaFlights.set(slug, request);
+    // finally crea otra promesa: capturar el fallo también para evitar rechazos sin observador.
+    request.finally(() => { if (metaFlights.get(slug) === request) metaFlights.delete(slug); }).catch(() => {});
+    return request;
   }
   const cachedMeta = slug => { try { return JSON.parse(localStorage.getItem(META_KEY(slug))); } catch { return null; } };
   function setSeries(m, offGl){
-    Object.assign(S, { series: m.series, chapters: m.chapters || [], vols: m.vols || [], nextAt: null, teamIds: null, bodies: S.series?.id === m.series.id ? S.bodies : new Map(), annots: [], gloss: [], glMap: new Map(), glRe: undefined, readSet: null });
+    const sameSeries = S.series?.id === m.series.id;
+    Object.assign(S, { series: m.series, chapters: m.chapters || [], vols: m.vols || [], nextAt: null, teamIds: null,
+      bodies: sameSeries ? S.bodies : new Map(), bodyVersions: sameSeries ? S.bodyVersions : new Map(),
+      active: sameSeries ? S.active : null, mounted: sameSeries ? S.mounted : [], loadingNext: false,
+      annots: [], gloss: [], glMap: new Map(), glRe: undefined, readSet: null });
   }
-  async function loadSeries(slug, num){
+  async function loadSeries(slug, num, stillCurrent = () => true){
     if (S.series?.slug === slug && (num == null || S.chapters.some(c => c.num === num))) return true;
     // Sin conexión: no consultar Supabase; la descarga tiene sus propios metadatos íntegros.
     // Esto evita esperas de red incluso si la petición nunca rechaza.
     if (!navigator.onLine) {
       const local = await offlineMeta(slug);
-      if (!local?.series || (num != null && !local.chapters?.some(c => c.num === num))) return false;
+      if (!stillCurrent() || !local?.series || (num != null && !local.chapters?.some(c => c.num === num))) return false;
       setSeries(local);
       const gl = local.gloss || [];
       Object.assign(S, { nextAt: null, gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined });
@@ -96,21 +109,59 @@ export function createReader(ctx){
       return true;
     }
     let m = null, offGl = null; const hit = cachedMeta(slug);
-    if (hit?.series && (num == null || hit.chapters.some(c => c.num === num))) {
-      // copia guardada al instante; la red la refresca por detrás (capítulos nuevos, títulos, avisos)
-      m = hit; S.metaFresh = fetchMeta(slug).then(n => { if (n && S.series?.id === n.series.id) { const act = S.active, nw = act && n.chapters.find(c => c.id === act.id); S.series = n.series; S.chapters = n.chapters; S.vols = n.vols;
-        if (act && nw && nw.updated_at !== act.updated_at) { S.bodies.delete(act.id); Object.assign(act, nw); if (S.mounted.length === 1 && scrollY < 400) body(act).then(b => { const art = b && $(`[data-ch="${act.id}"]`); if (art) { art.outerHTML = chapterHTML(act, b, effective(act.volume_id)); markTerms($(`[data-ch="${act.id}"]`)); } }); } } return n; }).catch(() => null);
-    } else {
-      try { m = await fetchMeta(slug); } catch { const o = await offlineMeta(slug); if (o) { m = { series: o.series, chapters: o.chapters, vols: o.vols }; offGl = o.gloss || null; } }
+    const hasHit = !!(hit?.series && (num == null || hit.chapters?.some(c => c.num === num)));
+    if (hasHit) m = hit;
+    else {
+      try { m = await fetchMeta(slug); }
+      catch { const o = await offlineMeta(slug); if (o) { m = { series: o.series, chapters: o.chapters, vols: o.vols }; offGl = o.gloss || null; } }
     }
-    if (!m?.series) return false;
-    setSeries(m); const s = m.series;
-    if (hit) { s.publicCredits = null; await attachPublicCredits(sb, [s]); }
-    // calendario y glosario no bloquean la apertura: llegan después y se aplican solos
+    if (!stillCurrent() || !m?.series) return false;
+    setSeries(m);
+    const s = S.series;
+    // Los créditos públicos se verifican con el servidor sin retrasar la aparición del texto.
+    // La copia local nunca guarda colaboradores: hasta recibir respuesta solo muestra al equipo principal.
+    s.publicCredits = null;
+    S.creditsFresh = attachPublicCredits(sb, [s]).then(() => {
+      if (S.series !== s || !$('.rd')) return;
+      const html = creditsHTML(s, { esc, media, mode: 'reader' });
+      document.querySelectorAll('.rd-ch').forEach(art => {
+        const old = art.querySelector('.obi-credits');
+        if (old) old.outerHTML = html;
+        else if (html) art.insertAdjacentHTML('afterbegin', html);
+      });
+    }).catch(() => {});
+    if (hasHit) {
+      // Revalidar títulos, permisos y revisiones en segundo plano sin sustituir referencias del lector.
+      S.metaFresh = fetchMeta(slug).then(n => {
+        if (!n || S.series !== s) return n;
+        const act = S.active;
+        const merged = mergeChapterMetadata(S.chapters, n.chapters, S.bodies, S.bodyVersions);
+        Object.assign(s, n.series);
+        S.chapters = merged.chapters;
+        S.vols = n.vols;
+        if (act && merged.changed.has(act.id) && S.mounted.length === 1 && scrollY < 400) {
+          body(act).then(b => {
+            if (!b || S.series !== s || S.active?.id !== act.id || S.mounted.length !== 1 || scrollY >= 400) return;
+            const art = $('[data-ch="' + act.id + '"]');
+            if (art) {
+              activeIo?.unobserve(art);
+              art.outerHTML = chapterHTML(act, b, effective(act.volume_id));
+              const updatedArt = $('[data-ch="' + act.id + '"]');
+              if (updatedArt) activeIo?.observe(updatedArt);
+              markTerms(updatedArt);
+              paintAnnots(act.id);
+            }
+          }).catch(() => {});
+        }
+        if (S.active && $('.rd')) footer();
+        return n;
+      }).catch(() => null);
+    }
+    // El calendario y el glosario tampoco son requisitos para abrir el capítulo.
     S.extras = Promise.all([
       sb.from('schedule').select('at').eq('series_id', s.id).gte('at', new Date().toISOString()).order('at').limit(1).then(r => r.data?.[0]?.at || null, () => null),
       sb.from('glossary_terms').select('term,category,definition').eq('series_id', s.id).then(r => r.data || [], () => [])
-    ]).then(([at, gl0]) => { if (S.series?.id !== s.id) return; const gl = gl0.length ? gl0 : (offGl || []); Object.assign(S, { nextAt: at, gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined }); });
+    ]).then(([at, gl0]) => { if (S.series !== s) return; const gl = gl0.length ? gl0 : (offGl || []); Object.assign(S, { nextAt: at, gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined }); });
     return true;
   }
   const early = new Map(); // slug/num → promesa del texto pedido en paralelo con la ficha
@@ -126,24 +177,57 @@ export function createReader(ctx){
     caches.open(BC).then(async c => { const ks = await c.keys(); await Promise.all(ks.filter(k => k.url.includes('/b/' + ch.id + '?')).map(k => c.delete(k)));
       await c.put(bKey(ch), new Response(JSON.stringify(b), { headers: { 'content-type': 'application/json' } }));
       if (ks.length > BC_MAX) await Promise.all(ks.slice(0, ks.length - BC_MAX).map(k => c.delete(k))); }).catch(() => {}); }
+  // Un mismo capítulo puede ser solicitado por precarga, navegación y lectura continua a la vez.
+  // La llave incluye revisión y serie para que nunca se reutilice una descarga desactualizada.
   async function body(ch){
-    if (S.bodies.has(ch.id)) return S.bodies.get(ch.id);
-    // En modo avión, el texto completo descargado es la fuente primaria.
-    // No crear ni aguardar ninguna solicitud remota aunque el navegador tarde en detectar el corte.
-    if (!navigator.onLine) {
-      const b = await offlineBody(ch) || await cacheGet(ch);
-      if (b) S.bodies.set(ch.id, b);
+    const key = [S.series?.id, ch.id, ch.updated_at || ''].join(':');
+    S.bodyFlights ||= new Map();
+    if (S.bodyFlights.has(key)) return S.bodyFlights.get(key);
+    const request = loadBody(ch);
+    S.bodyFlights.set(key, request);
+    try { return await request; }
+    finally { if (S.bodyFlights.get(key) === request) S.bodyFlights.delete(key); }
+  }
+  async function loadBody(ch){
+    const rev = ch.updated_at || null, seriesId = S.series?.id;
+    if (S.bodies.has(ch.id) && S.bodyVersions.get(ch.id) === rev) return S.bodies.get(ch.id);
+    S.bodies.delete(ch.id); S.bodyVersions.delete(ch.id);
+    // Una descarga iniciada antes de una revisión o de cambiar de obra no puede contaminar el caché actual.
+    const remember = b => {
+      if (!b || S.series?.id !== seriesId ||
+          !S.chapters.some(c => c.id === ch.id && (c.updated_at || null) === rev)) return null;
+      S.bodies.set(ch.id, b); S.bodyVersions.set(ch.id, rev);
       return b;
+    };
+    if (!navigator.onLine) {
+      return remember(await offlineBody(ch) || await cacheGet(ch));
     }
-    { const hit = await cacheGet(ch); if (hit) { S.bodies.set(ch.id, hit); return hit; } }
-    const ek = (S.series?.slug || '') + '/' + ch.num;
-    if (early.has(ek)) { const d = await early.get(ek); early.delete(ek); if (d?.id === ch.id && d.body) { S.bodies.set(ch.id, d.body); cachePut(ch, d.body); return d.body; } }
+    const ek = (S.series?.slug || '') + '/' + ch.num, warm = early.get(ek);
+    if (warm) {
+      // Cache Storage puede tardar más que la descarga iniciada con hover/touch.
+      // Elegir la primera respuesta válida evita esperar al disco o repetir una solicitud.
+      const first = await Promise.any([
+        cacheGet(ch).then(b => b ? { body: b, disk: true } : Promise.reject(null)),
+        warm.then(d => d?.id === ch.id && d.body
+          ? { body: d.body, disk: false } : Promise.reject(null))
+      ]).catch(() => null);
+      early.delete(ek);
+      if (first) {
+        const saved = remember(first.body);
+        if (saved && !first.disk) cachePut(ch, saved);
+        return saved;
+      }
+    } else {
+      const hit = await cacheGet(ch);
+      if (hit) return remember(hit);
+    }
     let b = null;
     try { const { data, error } = await sb.from('chapters').select('body').eq('id', ch.id).maybeSingle(); if (error) throw error; b = data?.body ?? null; }
     catch { b = await offlineBody(ch); }
     if (!b) b = await offlineBody(ch);
-    if (b) { S.bodies.set(ch.id, b); cachePut(ch, b); }
-    return b;
+    const saved = remember(b);
+    if (saved) cachePut(ch, saved);
+    return saved;
   }
   // texto del siguiente capítulo + sus 2 primeras ilustraciones (salvo modo ahorro de datos)
   // No descargar por anticipado el capítulo en conexiones lentas, ahorro de datos
@@ -157,8 +241,8 @@ export function createReader(ctx){
         b.filter(x => x.url || x.src).slice(0, 2).forEach(x => { const i = new Image(); i.decoding = 'async'; i.src = media(x.url || x.src); }); }).catch(() => {});
     });
   };
-  const nextOf = ch => S.chapters[S.chapters.indexOf(ch) + 1];
-  const prevOf = ch => S.chapters[S.chapters.indexOf(ch) - 1];
+  const nextOf = ch => adjacentChapter(S.chapters, ch, 1);
+  const prevOf = ch => adjacentChapter(S.chapters, ch, -1);
   const volOf = ch => S.vols.find(v => v.id === ch.volume_id) || S.vols.find(v => v.num === ch.vol);
 
   // ---------- fuentes EPUB ----------
@@ -302,33 +386,48 @@ export function createReader(ctx){
   // al pasar el cursor (o tocar) un enlace al lector: se piden ficha y texto antes del clic
   async function warm(slug, num){ if (!navigator.onLine || !slug || !num) return;
     const m = S.series?.slug === slug ? { chapters: S.chapters } : cachedMeta(slug), ch = m?.chapters?.find(c => c.num === num);
-    if (ch) { if (S.bodies.has(ch.id) || await cacheGet(ch)) return; const d = await bodyBySlug(slug, num); if (d?.body && d.id === ch.id) cachePut(ch, d.body); return; }
+    if (ch) { if (S.bodies.has(ch.id) && S.bodyVersions.get(ch.id) === (ch.updated_at || null) || await cacheGet(ch)) return; const d = await bodyBySlug(slug, num); if (d?.body && d.id === ch.id) cachePut(ch, d.body); return; }
     bodyBySlug(slug, num); fetchMeta(slug).catch(() => {}); }
   async function open(slug, num){
-    const openingUser = getUser()?.id || null;
+    const openingUser = getUser()?.id || null, openingId = (S.openId || 0) + 1;
+    S.openId = openingId;
+    const stillOpening = () => S.openId === openingId &&
+      sameReaderAccount(getUser()?.id, openingUser) &&
+      location.pathname === '/leer/' + slug + '/' + num;
+    // Los observadores de la lectura anterior no deben montar texto durante otra navegación.
+    io?.disconnect(); activeIo?.disconnect(); autoIo?.disconnect(); barRO?.disconnect(); clearInterval(autoT);
+    S.loadingNext = false;
     app.innerHTML = '<p class="mono">Abriendo capítulo…</p>';
     if (navigator.onLine && S.series?.slug !== slug && !cachedMeta(slug)) bodyBySlug(slug, num); // primera vez: texto en paralelo con la ficha
     const prefsUid = getUser()?.id || null;
     if (S.prefsOwner !== prefsUid) { clearTimeout(prefT); S.remote=null; }
     const prefsP = S.remote ? null : loadPrefs();
-    if (!(await loadSeries(slug, num))) { if ((getUser()?.id || null) !== openingUser) return; app.innerHTML = '<h1>Serie no encontrada</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
-    if (!sameReaderAccount(getUser()?.id, openingUser)) return;
+    if (!(await loadSeries(slug, num, stillOpening))) { if (!stillOpening()) return; app.innerHTML = '<h1>Serie no encontrada</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
+    if (!stillOpening()) return;
     const ch = S.chapters.find(c => c.num === num);
-    if (!ch) { const { data: L } = navigator.onLine ? await sb.rpc('lock_info', { p_slug: slug, p_num: num }).then(x => x, () => ({ data: null })) : { data: null }; if (L) { const P = await import('/patreon.js?v=1'); app.innerHTML = P.lockHTML(L, esc, slug); app.querySelector('#lk-link')?.addEventListener('click', () => P.start(sb, url, 'link', null, toast)); return; } app.innerHTML = '<h1>Capítulo no disponible</h1><p>Puede que aún no se publique. <a href="/serie/' + esc(slug) + '">Volver a la obra</a></p>'; return; }
+    if (!ch) { const { data: L } = navigator.onLine ? await sb.rpc('lock_info', { p_slug: slug, p_num: num }).then(x => x, () => ({ data: null })) : { data: null }; if (!stillOpening()) return; if (L) { const P = await import('/patreon.js?v=1'); if (!stillOpening()) return; app.innerHTML = P.lockHTML(L, esc, slug); app.querySelector('#lk-link')?.addEventListener('click', () => P.start(sb, url, 'link', null, toast)); return; } app.innerHTML = '<h1>Capítulo no disponible</h1><p>Puede que aún no se publique. <a href="/serie/' + esc(slug) + '">Volver a la obra</a></p>'; return; }
     const annP = fetchAnnots([ch.id]);
-    // ajustes y posición del servidor no frenan la apertura: si tardan más de 300 ms se usa lo de este dispositivo y lo del servidor se aplica al llegar
-    const quick = (p, fb) => Promise.race([p, new Promise(r => setTimeout(() => r(fb()), 300))]);
+    // Renderizar con la posición y las preferencias locales. Las respuestas remotas no bloquean el texto.
     const localPos = () => { try { return JSON.parse(localStorage.getItem(posKey(S.series.id))); } catch { return null; } };
-    let late = false; prefsP?.then(() => { if (late && sameReaderAccount(getUser()?.id, prefsUid) && $('.rd')) applyPrefs(); });
-    const [b, , pos] = await Promise.all([body(ch), quick(prefsP, () => (late = true, null)), quick(fetchPos(), localPos)]);
-    if (!sameReaderAccount(getUser()?.id, openingUser)) return;
+    const local = localPos();
+    let readyPos = null;
+    const posP = fetchPos().then(p => { readyPos = p; return p; }, () => null);
+    prefsP?.then(() => {
+      // La lectura continua puede cambiar la URL sin cambiar esta sesión del lector.
+      if (S.openId === openingId && sameReaderAccount(getUser()?.id, prefsUid) &&
+          sameReaderAccount(S.activeOwner, openingUser) && $('.rd')) applyPrefs();
+    }).catch(() => {});
+    const b = await body(ch);
+    if (!stillOpening()) return;
+    // Si el progreso remoto llegó durante la descarga del texto, restaurarlo de una vez.
+    const pos = readyPos || local;
     if (!b) { app.innerHTML = '<h1>Sin conexión</h1><p>Este capítulo no está descargado. <a href="/descargas">Ver mis descargas</a></p>'; return; }
     const p = effective(ch.volume_id);
     S.mounted = [ch]; S.active = ch; S.activeOwner = openingUser; S.annots = []; S.lastY = null; trackView(ch);
     const more = `<button class="btn ghost" data-act="coms">Comentarios</button><button class="btn ghost" data-act="notes">Anotaciones</button><button class="btn ghost" data-act="offline">${isVolOffline(ch) ? '✓ Descargado' : 'Descargar volumen'}</button>`;
     app.innerHTML = `<div class="rd" data-theme="${p.theme}" data-width="${p.width}" data-lh="${p.lh}" data-align="${p.align}" data-para="${p.para}" data-font="${p.font}" style="--rs:${p.size}px">
       <nav class="rd-bar">
-        <span class="rd-where"><a href="/serie/${esc(slug)}" class="rd-back">‹ ${esc(S.series.title)}</a><span class="rd-left mono"></span></span>
+        <span class="rd-where"><a href="/serie/${esc(slug)}" class="rd-back" title="${esc(S.series.title)}">‹ ${esc(S.series.title)}</a><span class="rd-left mono"></span></span>
         <div class="rd-tools">
           <button class="btn ghost" data-act="toc" aria-label="Índice">Índice</button>
           <button class="btn ghost" data-act="prefs" aria-label="Ajustes de lectura">Aa</button>
@@ -349,12 +448,26 @@ export function createReader(ctx){
       <button class="rd-zen-x" data-act="zen">Salir del modo zen</button>
     </div>`;
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-    S.pos = pos; restorePosition(ch, pos); resumeBar(ch, pos); bindBar(); footer(); progress();
+    S.pos = pos; S.resumePending = null;
+    restorePosition(ch, pos); resumeBar(ch, pos); bindBar(); footer(); progress();
+    posP.then(latest => {
+      if (!stillOpening() || !latest || S.active?.id !== ch.id || !$('.rd')) return;
+      const newer = !pos || Date.parse(latest.at || latest.updated_at || 0) > Date.parse(pos.at || pos.updated_at || 0);
+      if (!newer) return;
+      S.pos = latest;
+      if (latest.chapter_id === ch.id &&
+          (!(+latest.block > 0) || +latest.block === +(pos?.block || 0))) return;
+      if (latest.chapter_id !== ch.id &&
+          !S.chapters.some(c => c.id === latest.chapter_id || c.num === (latest.num ?? latest.chapter_num))) return;
+      // El avance remoto no se sobrescribe hasta que el lector elija continuar aquí o se desplace.
+      S.resumePending = { chapterId: ch.id, y: scrollY };
+      resumeBar(ch, latest, true);
+    }).catch(() => {});
     clearTimeout(S.saveT); S.saveT = setTimeout(saveProgress, 2500); // abrir el capítulo ya cuenta como «dónde voy»
     logHistory(ch); prefetchNext(ch);
     observe(); wake();
-    annP.then(l => { if (!S.mounted.includes(ch)) return; S.annots = S.annots.filter(a => a.chapter_id !== ch.id).concat(l); paintAnnots(ch.id); });
-    S.extras?.then(() => { if (!$('#rd-flow')) return; markTerms($('#rd-flow')); if (S.nextAt && !nextOf(S.active)) footer(); });
+    annP.then(l => { if (!stillOpening() || !S.mounted.some(c => c.id === ch.id)) return; S.annots = S.annots.filter(a => a.chapter_id !== ch.id).concat(l); paintAnnots(ch.id); });
+    S.extras?.then(() => { if (!stillOpening() || !$('#rd-flow')) return; markTerms($('#rd-flow')); if (S.nextAt && !nextOf(S.active)) footer(); });
   }
   let autoIo, autoT, autoStop = null;
   const untilTxt = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
@@ -400,26 +513,48 @@ export function createReader(ctx){
   }
 
   // ---------- lectura continua + capítulo activo ----------
-  let io, activeIo;
+  let io, activeIo, barRO;
   function observe(){
-    io?.disconnect(); activeIo?.disconnect();
+    io?.disconnect(); activeIo?.disconnect(); barRO?.disconnect();
+    // Altura real: en móviles muy estrechos la barra usa dos filas.
+    // El panel y su scroll se colocan bajo la barra sin usar una altura supuesta de 58 px.
+    const rd = $('.rd'), bar = $('.rd-bar');
+    if (rd && bar) {
+      const measure = () => rd.style.setProperty('--rd-h', Math.ceil(bar.getBoundingClientRect().height) + 'px');
+      measure();
+      if (typeof ResizeObserver !== 'undefined') {
+        barRO = new ResizeObserver(measure);
+        barRO.observe(bar);
+      }
+    }
+    const openingId = S.openId, flow = $('#rd-flow');
     io = new IntersectionObserver(async ([e]) => {
-      if (!e.isIntersecting) return;
+      if (!e.isIntersecting || openingId !== S.openId || !flow?.isConnected) return;
       const last = S.mounted[S.mounted.length - 1], nx = nextOf(last), p = effective(last.volume_id);
       if (p.continuous === 'off' || !nx || (p.continuous === 'volume' && nx.vol !== last.vol) || S.loadingNext) return;
       S.loadingNext = true;
-      const b = await body(nx); S.loadingNext = false; if (!b) return;
-      $('#rd-flow').insertAdjacentHTML('beforeend', chapterHTML(nx, b, effective(nx.volume_id)));
-      const art = $(`[data-ch="${nx.id}"]`); markTerms(art);
-      S.mounted.push(nx); trackView(nx); prefetchNext(nx);
-      fetchAnnots([nx.id]).then(l => { S.annots = S.annots.filter(a => a.chapter_id !== nx.id).concat(l); paintAnnots(nx.id); });
-      activeIo.observe(art); trimMounted();
+      try {
+        const b = await body(nx);
+        if (!b || openingId !== S.openId || !flow.isConnected || $('#rd-flow') !== flow ||
+            S.mounted[S.mounted.length - 1]?.id !== last.id || !S.chapters.some(c => c.id === nx.id)) return;
+        flow.insertAdjacentHTML('beforeend', chapterHTML(nx, b, effective(nx.volume_id)));
+        const art = $('[data-ch="' + nx.id + '"]');
+        markTerms(art);
+        S.mounted.push(nx); trackView(nx); prefetchNext(nx);
+        fetchAnnots([nx.id]).then(l => {
+          if (openingId !== S.openId || !art?.isConnected) return;
+          S.annots = S.annots.filter(a => a.chapter_id !== nx.id).concat(l); paintAnnots(nx.id);
+        });
+        activeIo.observe(art); trimMounted();
+      } finally {
+        if (openingId === S.openId) S.loadingNext = false;
+      }
     }, { rootMargin: '800px 0px' });
     io.observe($('#rd-sentinel'));
     activeIo = new IntersectionObserver(es => es.forEach(e => {
-      if (!e.isIntersecting) return;
+      if (!e.isIntersecting || openingId !== S.openId) return;
       const ch = S.chapters.find(c => c.id === e.target.dataset.ch);
-      if (ch && ch !== S.active) { S.active = ch; history.replaceState({}, '', `/leer/${S.series.slug}/${ch.num}`); logHistory(ch); footer(); }
+      if (ch && ch.id !== S.active?.id) { S.active = ch; history.replaceState({}, '', '/leer/' + S.series.slug + '/' + ch.num); logHistory(ch); footer(); }
     }), { rootMargin: '-45% 0px -50% 0px' });
     document.querySelectorAll('.rd-ch').forEach(a => activeIo.observe(a));
     removeEventListener('scroll', onScroll); addEventListener('scroll', onScroll, { passive: true });
@@ -450,6 +585,10 @@ export function createReader(ctx){
   }
   function onScroll(){
     if (!document.body.contains($('.rd'))) { removeEventListener('scroll', onScroll); wl?.release(); return; }
+    if (S.resumePending && Math.abs(scrollY - S.resumePending.y) > 40) {
+      S.resumePending = null;
+      const bar = $('#rd-resume'); if (bar) bar.hidden = true;
+    }
     clearTimeout(S.saveT); S.saveT = setTimeout(saveProgress, 1200);
     if (!S.raf) S.raf = requestAnimationFrame(frame);
   }
@@ -472,6 +611,7 @@ export function createReader(ctx){
   async function saveProgress(){
     const ch = S.active;
     if (!ch || !S.series || !sameReaderAccount(S.activeOwner, getUser()?.id) || !$(`[data-ch="${ch.id}"]`)) return; // ya no está en pantalla: no pisar el progreso con «párrafo 0»
+    if (S.resumePending?.chapterId === ch.id) return; // conservar progreso remoto pendiente de decisión
     clearTimeout(S.saveT);
     const { block: blk, pct } = currentBlock(), p = effective(ch.volume_id), at = new Date().toISOString(), user = getUser();
     const rec = { chapter_id: ch.id, num: ch.num, block: blk, pct, at, mode: p.continuous === 'off' ? 'chapter' : 'continuous', pending: !!user };
@@ -517,12 +657,22 @@ export function createReader(ctx){
   addEventListener('pagehide', () => saveProgress());
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveProgress(); });
   document.addEventListener('click', e => { if (e.target.closest?.('.rd a[href]')) saveProgress(); }, true);
-  function resumeBar(ch, pos){
-    const el = $('#rd-resume'); if (!el || !pos || pos.chapter_id === ch.id) return;
+  function resumeBar(ch, pos, synced = false){
+    const el = $('#rd-resume'); if (!el || !pos) return;
+    if (pos.chapter_id === ch.id) {
+      if (!synced || !(+pos.block > 0)) return;
+      el.innerHTML = '<span>Hay una posición de lectura más reciente en otro dispositivo.</span><button class="btn" type="button">Ir a esa posición</button><button class="btn ghost" type="button">Seguir aquí</button>';
+      el.hidden = false;
+      el.querySelectorAll('button')[0].onclick = () => {
+        S.resumePending = null; restorePosition(ch, pos); el.hidden = true;
+      };
+      el.querySelectorAll('button')[1].onclick = () => { S.resumePending = null; el.hidden = true; saveProgress(); };
+      return;
+    }
     const at = S.chapters.find(c => c.id === pos.chapter_id) || S.chapters.find(c => c.num === (pos.num ?? pos.chapter_num)); if (!at || at === ch) return;
     const pc = Math.round((pos.pct || 0) * 100);
     el.innerHTML = `<span>Te quedaste en <b>${esc(at.title)}</b>${pc ? ` · ${pc} %` : ''}</span><a class="btn" href="/leer/${S.series.slug}/${at.num}">Continuar ahí</a><button class="btn ghost" type="button" aria-label="Seguir aquí">Seguir aquí</button>`;
-    el.hidden = false; el.querySelector('button').onclick = () => { el.hidden = true; };
+    el.hidden = false; el.querySelector('button').onclick = () => { S.resumePending = null; el.hidden = true; saveProgress(); };
   }
   // se llama en el mismo cuadro en que se pinta el capítulo: sin salto visible
   function restorePosition(ch, pos){
@@ -559,7 +709,7 @@ export function createReader(ctx){
   const volTitle = n => { const v = S.vols.find(x => x.num === n); return v?.title && v.title !== String(n) ? ' · ' + esc(v.title) : ''; };
   function prefsPanel(){
     const ch = S.active, vid = ch.volume_id, p = effective(vid), scoped = !!S.remote.per_volume[vid];
-    const opt = (k, list) => `<div class="rd-opt"><span class="mono">${list.label}</span><div>${list.o.map(([v, l]) => `<button data-k="${k}" data-v="${v}" class="${String(p[k]) === String(v) ? 'on' : ''}">${l}</button>`).join('')}</div></div>`;
+    const opt = (k, list) => `<div class="rd-opt"><span class="mono">${list.label}</span><div>${list.o.map(([v, l]) => `<button data-k="${k}" data-v="${v}" class="${String(p[k]) === String(v) ? 'on' : ''}" aria-pressed="${String(p[k]) === String(v)}">${l}</button>`).join('')}</div></div>`;
     const pn = toggle({ kind: 'prefs', body: `
       ${opt('theme', { label: 'Tema', o: [['auto','Como el sistema'],['claro','Claro'],['sepia','Sepia'],['noche','Noche cálida'],['oscuro','Oscuro'],['negro','Negro (OLED)']] })}
       <div class="rd-opt"><span class="mono">Tamaño · <b data-size-l>${p.size}px</b></span><input type="range" min="14" max="30" value="${p.size}" data-k="size"></div>
@@ -592,7 +742,7 @@ export function createReader(ctx){
     const pn = panel(); if (pn.hidden || pn.dataset.kind !== 'prefs') return;
     if (k === 'continuous' || k === 'autonext') { const st = pn.scrollTop; pn.hidden = true; prefsPanel(); panel().scrollTop = st; return; }
     const p = effective(S.active.volume_id);
-    pn.querySelectorAll(`button[data-k="${k}"]`).forEach(b => b.classList.toggle('on', String(p[k]) === b.dataset.v));
+    pn.querySelectorAll(`button[data-k="${k}"]`).forEach(b => { const selected = String(p[k]) === b.dataset.v; b.classList.toggle('on', selected); b.setAttribute('aria-pressed', String(selected)); });
     if (k === 'size') pn.querySelector('[data-size-l]').textContent = p.size + 'px';
     if (k === 'autosecs') pn.querySelector('[data-autosecs-l]').textContent = Math.min(30, Math.max(3, +p.autosecs || 5)) + ' s';
   }
@@ -631,7 +781,7 @@ export function createReader(ctx){
     if (!('caches' in window)) return toast('Tu navegador no permite guardar sin conexión');
     btn.disabled = true;
     const list = S.chapters.filter(c => c.vol === ch.vol);
-    const assets = new Set(), inserted = new Set(), chapterKeys = list.map(x => offKey(x));
+    const assets = new Set(), inserted = new Set(), insertedChapters = new Set();
     const metaKey = '/offline/meta/' + S.series.slug;
     let c, previousMeta = null, metaWritten = false, complete = false;
     try {
@@ -643,7 +793,11 @@ export function createReader(ctx){
         btn.textContent = `Descargando ${++n}/${list.length}…`;
         const b = await body(x);
         if (!Array.isArray(b) || !b.length) throw new Error('No se pudo guardar el capítulo ' + x.num);
-        await c.put(offKey(x), new Response(JSON.stringify(b), { headers: { 'Content-Type': 'application/json' } }));
+        // No sobrescribir ni borrar una descarga individual previa al completar el volumen.
+        if (!await c.match(offKey(x))) {
+          await c.put(offKey(x), new Response(JSON.stringify(b), { headers: { 'Content-Type': 'application/json' } }));
+          insertedChapters.add(offKey(x));
+        }
         for (const bl of b) { const src = bl?.url || bl?.src; if (src) assets.add(media(src)); }
       }
       for (const f of volOf(ch)?.epub_fonts || []) if (f.url) assets.add(f.url);
@@ -665,11 +819,12 @@ export function createReader(ctx){
       complete = true;
       btn.textContent = '✓ Descargado';
       toast(`Volumen ${ch.vol} listo para leer sin conexión`);
+      if (typeof Event !== 'undefined') document.dispatchEvent?.(new Event('obi-offline-change'));
       navigator.storage?.persist?.().catch(() => {});
     } catch (e) {
       // Una descarga fallida no debe dejar un volumen marcado como completo.
       if (c) {
-        await Promise.allSettled(chapterKeys.map(u => c.delete(u)));
+        await Promise.allSettled([...insertedChapters].map(u => c.delete(u)));
         await Promise.allSettled([...inserted].map(u => c.delete(u)));
         if (metaWritten) {
           try { if (previousMeta) await c.put(metaKey, previousMeta); else await c.delete(metaKey); } catch {}
@@ -685,24 +840,26 @@ export function createReader(ctx){
     const idx = offIndex(), it = idx[key]; if (!it) return;
     const others = Object.entries(idx).filter(([k]) => k !== key).map(([,v]) => v);
     const shared = new Set(others.flatMap(v => v.assets || []));
+    const otherChapterKeys = new Set(others.flatMap(v => (v.nums || []).map(n => '/offline/' + v.slug + '/' + n)));
     const sameSeries = others.some(v => v.slug === it.slug);
     // Primero quitar el índice para no anunciar una descarga borrada a medias.
     const next = { ...idx }; delete next[key];
     localStorage.setItem(OFF_INDEX, JSON.stringify(next));
     const c = await caches.open(OFF_CACHE);
-    const chapterKeys = it.nums.map(n => `/offline/${it.slug}/${n}`);
+    const chapterKeys = it.nums.map(n => `/offline/${it.slug}/${n}`).filter(u => !otherChapterKeys.has(u));
     const exclusiveAssets = (it.assets || []).filter(u => !shared.has(u));
     await Promise.all([...chapterKeys, ...exclusiveAssets, ...(!sameSeries ? ['/offline/meta/' + it.slug] : [])].map(u => c.delete(u)));
+    if (typeof Event !== 'undefined') document.dispatchEvent?.(new Event('obi-offline-change'));
   }
   function offlineList(){
     const items = Object.entries(offIndex()).sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
-    if (!items.length) return '<p class="mono">No tienes volúmenes descargados. Ábrelos desde el lector con «Descargar volumen» (en el celular, dentro del menú ⋯).</p>' + ((navigator.standalone === true || matchMedia('(display-mode: standalone)').matches) && /iphone|ipad|ipod|macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 0 ? '<p class="mono" style="margin-top:8px">En iPhone y iPad la app instalada guarda sus descargas aparte de Safari: lo que bajaste en el navegador no aparece aquí. Descárgalo de nuevo desde la app.</p>' : '');
+    if (!items.length) return '<p class="mono">No tienes lecturas descargadas. Usa «Descargar» desde Obras, Mi biblioteca o el lector.</p>' + ((navigator.standalone === true || matchMedia('(display-mode: standalone)').matches) && /iphone|ipad|ipod|macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 0 ? '<p class="mono" style="margin-top:8px">En iPhone y iPad la app instalada guarda sus descargas aparte de Safari: lo que bajaste en el navegador no aparece aquí. Descárgalo de nuevo desde la app.</p>' : '');
     return `<div class="off-list">${items.map(([k, it]) => { let pos = null; try { pos = JSON.parse(localStorage.getItem(posKey(k.split(':')[0]))); } catch {}
       const here = pos && it.nums.includes(pos.num) ? pos.num : null, n = it.nums.length;
-      return `<div class="off-it"><span><b>${esc(it.title)}</b><small>Volumen ${it.vol} · ${n} ${n === 1 ? 'capítulo' : 'capítulos'} · descargado ${new Date(it.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</small></span><a class="btn" href="/leer/${esc(it.slug)}/${here || it.nums[0]}">${here ? 'Continuar · cap. ' + here : 'Empezar a leer'}</a><button class="btn ghost" data-off="${esc(k)}">Borrar</button></div>`; }).join('')}</div><p class="mono" id="off-space"></p>`;
+      return `<div class="off-it"><span><b>${esc(it.title)}</b><small>${it.kind === 'chapter' ? 'Capítulo ' + it.nums[0] + ' · Volumen ' + it.vol : 'Volumen ' + it.vol + ' · ' + n + (n === 1 ? ' capítulo' : ' capítulos')} · descargado ${new Date(it.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</small></span><a class="btn" href="/leer/${esc(it.slug)}/${here || it.nums[0]}">${here ? 'Continuar · cap. ' + here : 'Empezar a leer'}</a><button class="btn ghost" data-off="${esc(k)}">Borrar</button></div>`; }).join('')}</div><p class="mono" id="off-space"></p>`;
   }
   function bindOfflineList(root, after){
-    root.querySelectorAll('[data-off]').forEach(b => b.onclick = async () => { if (!await confirmObi('¿Borrar este volumen del dispositivo?')) return; await removeVolume(b.dataset.off); toast('Descarga eliminada'); after(); });
+    root.querySelectorAll('[data-off]').forEach(b => b.onclick = async () => { if (!await confirmObi('¿Borrar esta descarga del dispositivo?')) return; await removeVolume(b.dataset.off); toast('Descarga eliminada'); after(); });
     navigator.storage?.estimate?.().then(e => { const el = root.querySelector('#off-space'); if (el && e?.usage) el.textContent = `Espacio usado en este dispositivo: ${Math.max(1, Math.round(e.usage / 1048576))} MB`; }).catch(() => {});
   }
 
@@ -728,7 +885,14 @@ export function createReader(ctx){
     });
   }
   const pop = () => $('.rd-pop');
-  function placePop(rect){ const p = pop(); p.hidden = false; const w = p.offsetWidth; p.style.left = Math.max(8, Math.min(innerWidth - w - 8, rect.left + rect.width / 2 - w / 2)) + 'px'; p.style.top = (rect.top + scrollY - p.offsetHeight - 10) + 'px'; }
+  function placePop(rect){
+    const p = pop(); p.hidden = false;
+    const w = p.offsetWidth, h = p.offsetHeight, left = rect.left + rect.width / 2 - w / 2;
+    p.style.left = Math.max(8, Math.min(innerWidth - w - 8, left)) + 'px';
+    const above = rect.top + scrollY - h - 10, below = rect.bottom + scrollY + 10;
+    const top = above >= scrollY + 8 ? above : below;
+    p.style.top = Math.max(scrollY + 8, Math.min(scrollY + innerHeight - h - 8, top)) + 'px';
+  }
   function onSelect(){
     const sel = getSelection(); if (!sel || sel.isCollapsed) return;
     const r = sel.getRangeAt(0), bEl = r.startContainer.parentElement?.closest('[data-b]'), art = bEl?.closest('.rd-ch');
@@ -737,7 +901,7 @@ export function createReader(ctx){
     const start = textOffset(bEl, r.startContainer, r.startOffset), end = endIn ? textOffset(bEl, r.endContainer, r.endOffset) : bEl.textContent.length;
     const quote = bEl.textContent.slice(start, end).trim(); if (!quote) return;
     const draft = { chapter_id: art.dataset.ch, block: +bEl.dataset.b, start_at: start, end_at: end, quote };
-    pop().innerHTML = Object.entries(COLORS).map(([k, c]) => `<button class="sw" data-c="${k}" style="background:${c}" aria-label="Subrayar ${k}"></button>`).join('') + '<button data-x="note">Nota</button><button data-x="quote">Citar</button>';
+    pop().innerHTML = Object.entries(COLORS).map(([k, c]) => `<button class="sw" data-c="${k}" style="--swatch:${c}" aria-label="Subrayar ${k}"></button>`).join('') + '<button data-x="note">Nota</button><button data-x="quote">Citar</button>';
     placePop(r.getBoundingClientRect());
     pop().onclick = async e => {
       const c = e.target.dataset.c, x = e.target.dataset.x;
@@ -759,7 +923,7 @@ export function createReader(ctx){
   function editAnnot(a){
     const m = $(`mark[data-an="${a.id}"]`); if (!m) return;
     pop().innerHTML = `<div style="display:grid;gap:8px;width:min(320px,80vw)">
-      <div style="display:flex;gap:6px">${Object.entries(COLORS).map(([k, c]) => `<button class="sw ${a.color === k ? 'on' : ''}" data-c="${k}" style="background:${c}" aria-label="${k}"></button>`).join('')}</div>
+      <div style="display:flex;gap:6px">${Object.entries(COLORS).map(([k, c]) => `<button class="sw ${a.color === k ? 'on' : ''}" data-c="${k}" style="--swatch:${c}" aria-label="${k}"></button>`).join('')}</div>
       <textarea rows="3" placeholder="Nota privada">${esc(a.note || '')}</textarea>
       <label class="mono"><input type="checkbox" ${a.shared ? 'checked' : ''} data-share> Compartir como cita pública</label>
       <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" data-x="save">Guardar</button><button class="btn ghost" data-x="quote">Citar</button><button class="btn ghost" data-x="del">Borrar</button></div></div>`;

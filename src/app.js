@@ -2,11 +2,12 @@ import { installPublicShare } from './share.js?v=1';
 import { confirmObi, inputObi } from './obi-dialog.js';
 import { readPages } from './paging.js';
 import { prepareLibrary, selectLibraryItems } from './library-logic.js';
+import { createOfflineDownloads } from './offline-downloads.js?v=1';
 import { readingGroups, planReadingChanges, undoReadingChanges, applyReadingChanges, persistReadingChanges } from './library-read-actions.js';
 // Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
 import { createClient } from '/supabase.js?v=1';
-import { createReader } from '/reader.js?v=19';
-import { createUI } from '/ui.js?v=53';
+import { createReader } from '/reader.js?v=20';
+import { createUI } from '/ui.js?v=54';
 import { attachPublicCredits, creditsHTML, installCreditImageFallback } from '/public-collaboration-credits.js?v=1';
 import { reportHomeRead } from '/home-metrics.js?v=1';
 import { sameReaderAccount, readingProgressPrefix, readerProgressKeys } from '/reader-pref-cache.js?v=1';
@@ -18,7 +19,9 @@ const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 2800); };
 let user = null, profile = null, me = null;
 let teamMemberships = [];
-const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url });
+const offlineDownloads = createOfflineDownloads({ sb, url, toast });
+offlineDownloads.bind();
+const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url, offlineButton: offlineDownloads.button });
 let LG; const lg = async () => LG ||= await import('/legal.js?v=1');
 let PF; const pf = async () => PF ||= await import('/profile.js?v=10');
 const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, email: user.email, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
@@ -416,6 +419,10 @@ async function library(){
           <span class="lb-progress-track" aria-hidden="true"><i style="width:${pct}%"></i></span>
         </div>
         <a class="lb-card-cta" href="${esc(href)}">${done?'Ver la obra':pending?'Leer siguiente capítulo':'Continuar leyendo'}</a>
+        <div class="lb-offline-actions" role="group" aria-label="Descargas sin conexión de ${esc(w.s.title)}">
+          ${offlineDownloads.button({slug:w.s.slug,scope:'series'})}
+          ${chapter ? offlineDownloads.button({slug:w.s.slug,scope:'chapter',num:chapter.num}) : ''}
+        </div>
         ${w.tot ? `<button type="button" class="lb-read-toggle${caughtUp?' is-read':''}" data-read-work="${esc(w.s.id)}" data-read-mark="${caughtUp?'0':'1'}" aria-label="${caughtUp?'Desmarcar capítulos leídos':'Marcar novela como leída'}: ${esc(w.s.title)}">${caughtUp?'↶ Desmarcar lectura':'✓ Marcar novela como leída'}</button>` : ''}
         <span class="lb-card-sub">${caughtUp&&!done?'Al día con los capítulos publicados · la obra continúa en traducción.':'Puedes marcar lo publicado sin cambiar dónde pausaste.'}</span>
         <button type="button" class="lb-card-hide" data-hide="${esc(w.s.id)}">${HID.has(w.s.id)?'Mostrar en mi perfil':'Ocultar de mi perfil público'}</button>

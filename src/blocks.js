@@ -41,7 +41,18 @@ export function renderBlock(b, i, o = {}){
   if (t === 'separator' || t === 'sep') return `<div class="sep" data-b="${i}" aria-hidden="true">${escHtml(b.text || '※')}</div>`;
   if (t === 'note') return `<aside class="tn" data-b="${i}"><span class="mono">Nota del traductor</span>${rich(b)}</aside>`;
   if (t === 'ruby') return `<p data-b="${i}"><ruby>${escHtml(b.text || '')}<rt>${escHtml(b.reading || '')}</rt></ruby></p>`;
-  if (t === 'image' || t === 'img') { if (o.illus === false) return `<p class="mono" data-b="${i}">[Ilustración oculta]</p>`; const src = b.url || b.src; return src ? `<figure data-b="${i}"><img src="${escHtml(media(src))}" alt="${escHtml(b.alt || b.text || '')}" loading="lazy" decoding="async"${b.w && b.h ? ` width="${+b.w}" height="${+b.h}"` : ''}>${b.caption ? `<figcaption>${escHtml(b.caption)}</figcaption>` : ''}</figure>` : ''; }
+  if (t === 'image' || t === 'img') {
+    if (o.illus === false) return `<p class="mono" data-b="${i}">[Ilustración oculta]</p>`;
+    const src = b.url || b.src; if (!src) return '';
+    // EPUB antiguos usan w/h; otros importadores guardan width/height.
+    // Reservar exactamente el espacio cuando hay dimensiones válidas y una proporción provisional si no.
+    const w = Number(b.w ?? b.width), h = Number(b.h ?? b.height);
+    const measured = Number.isFinite(w) && Number.isFinite(h) &&
+      w >= 1 && h >= 1 && w <= 10000 && h <= 10000;
+    const dimension = measured ? ` width="${Math.round(w)}" height="${Math.round(h)}"`
+      : ' class="rd-img-unmeasured"';
+    return `<figure data-b="${i}"><img src="${escHtml(media(src))}" alt="${escHtml(b.alt || b.text || '')}" loading="lazy" decoding="async"${dimension}>${b.caption ? `<figcaption>${escHtml(b.caption)}</figcaption>` : ''}</figure>`;
+  }
   return b.text ? `<p data-b="${i}">${escHtml(b.text)}</p>` : '';
 }
 

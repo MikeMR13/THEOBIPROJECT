@@ -21,6 +21,12 @@ jobs:
       - name: Validar TOML de Supabase
         run: python3 -c "import tomllib; tomllib.load(open('supabase/config.toml','rb'))"
       - run: npm run check && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run studio-fields-check && npm run integration-check
+      - name: Descargas sin conexión — Obras, Biblioteca, volúmenes y capítulos (sin backend)
+        run: node scripts/offline-buttons-check.mjs
+      - name: Lector Fase 4 — lectura continua y TTS sin condiciones de carrera
+        run: node scripts/reader-phase4-continuity-check.mjs
+      - name: Lector Fase 4 — navegación rápida, latencia y acceso restringido (Chromium)
+        run: node scripts/reader-phase4-integration-browser.mjs
       - name: Difusión — Chromium confirmación multicanal sin envíos externos
         run: npm run diffusion-confirmation-browser-check
       - name: PWA optimizada — presupuesto de caché sin descargas opcionales
@@ -94,6 +100,12 @@ jobs:
         run: node scripts/phase6-studio-accounts-check.mjs
       - name: Fase 6.4 Lector y predeterminados de equipos
         run: node scripts/phase6-reader-check.mjs
+      - name: Lector — estabilidad, caché, apertura y controles táctiles
+        run: node scripts/reader-improvements-check.mjs
+      - name: Lector Fase 2 — apertura rápida y caché concurrente
+        run: node scripts/reader-phase2-speed-check.mjs
+      - name: Lector Fase 3 — visual responsive en Chromium, sin backend
+        run: node scripts/reader-phase3-visual-browser.mjs
       - name: Fase 6.5 regresión cruzada y sesiones concurrentes
         run: node scripts/phase6-regression-check.mjs
       - name: Estudio Fase 1 — geometría en seis anchuras
