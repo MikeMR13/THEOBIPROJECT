@@ -27,6 +27,8 @@ jobs:
         run: node scripts/series-cover-editor-check.mjs
       - name: Importador EPUB/DOCX/PDF — numeración, multimedia y seguridad de portada
         run: node scripts/importer-safety-check.mjs
+      - name: Fase 1 móvil — numeración editorial universal, secciones y CTA
+        run: node scripts/public-editorial-phase1-check.mjs
       - name: Índice editorial opcional — prefijos, títulos originales y persistencia
         run: node scripts/chapter-title-import-optin-check.mjs
       - name: Importador — instalar analizadores fijados para prueba de navegador (sin guardar dependencias)
