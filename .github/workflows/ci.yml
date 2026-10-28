@@ -98,6 +98,8 @@ jobs:
         run: node scripts/mobile-phase3-perf-budget.mjs
       - name: Fase 3 móvil — navegación accesible y foco en Chromium (320–1024)
         run: node scripts/mobile-phase3-a11y-browser.mjs
+      - name: Temporadas y auditoría iPhone — menú, títulos, efectos y movimiento reducido
+        run: node --check scripts/season-mobile-visual-regression-browser.mjs && node scripts/season-mobile-visual-regression-browser.mjs
       - name: Móvil — índice, botones y cabecera sin solapamientos (Chromium 320–1024)
         run: node scripts/mobile-layout-regression-check.mjs
       - name: Ficha pública — pestañas y descargas separadas (Chromium responsive)
