@@ -108,5 +108,5 @@ assert.match(reader,/S\.resumePending\?\.chapterId === ch\.id/);
 assert.match(reader,/S\.bodyFlights\.set\(key, request\)/);
 assert.match(reader,/const metaFlights = new Map\(\)/);
 assert.match(reader,/navigator\.connection\?\.saveData/);
-assert.match(reader,/\('(^|-)2g/); // marcador de red lenta; mantener precarga selectiva
+assert(reader.includes("!/(^|-)2g$/i.test("), 'La precarga respeta conexiones 2G');
 console.log('Fase 2 del lector: sincronización no bloqueante, solicitudes compartidas y recuperación segura OK');
