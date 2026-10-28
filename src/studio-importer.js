@@ -254,7 +254,7 @@ export function createImporter(deps) {
       sb.from('series').select('id,title,teams(name)').or('published.eq.true,team_id.eq.' + T.team.id).is('archived_at', null).order('title').limit(500)
     ]);
     let P = null, file = null, fp = null, step = 1, sel = 0, splitting = false, dupAt = null, V = {};
-    const D = { work: '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', notice: null, noticeGetter: null, newTitle: '', newAuthor: '', formatChapterTitles: false };
+    const D = { work: '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', notice: null, noticeGetter: null, newTitle: '', newAuthor: '', formatChapterTitles: false, formatTitlesEdited: false };
     let NW = createWorkData();
     app.innerHTML = shell('Importar contenido', '<ol class="imp-steps" id="steps"></ol><div id="wiz"></div><p id="status" class="mono" role="status"></p>', TAB);
     bindPicker(importer);
@@ -295,7 +295,7 @@ export function createImporter(deps) {
         const guess = (works || []).find(w => w.title && key.includes(w.title.toLowerCase().slice(0, 18)));
         D.work = guess?.id || ''; D.newTitle = P.meta.series || P.title.replace(/\s*[,:\-–]?\s*(vol(umen|ume)?\.?|tomo)\s*\d+.*$/i, '').trim() || P.title; D.newAuthor = P.meta.author || '';
         NW = createWorkData({ title: D.newTitle, author: D.newAuthor, illustrator: P.meta.illustrator || '', publisher: P.meta.publisher || '', synopsis: (P.meta.synopsis || '').slice(0, 1500) });
-        D.vnum = P.meta.index || nextVol(guess); D.formatChapterTitles = !!liveVols(guess).find(v => v.num === D.vnum)?.format_chapter_titles; D.cover = P.cover || null; D.workCover = !guess || !guess.cover_path; D.mode = 'replace';
+        D.vnum = P.meta.index || nextVol(guess); D.formatTitlesEdited = false; D.formatChapterTitles = !!liveVols(guess).find(v => v.num === D.vnum)?.format_chapter_titles; D.cover = P.cover || null; D.workCover = !guess || !guess.cover_path; D.mode = 'replace';
         V = { title: '', subtitle: '', synopsis: P.meta.synopsis || '', synopsis_spoiler: false, publisher: P.meta.publisher || '', imprint: '', illustrator: P.meta.illustrator || '', jp_release: P.meta.date || '', planned_chapters: '', is_final: false, translator_notes: '' };
         sel = Math.max(0, P.chapters.findIndex(c => !c.skip)); splitting = false;
         st(''); step = 2; render();
@@ -343,7 +343,7 @@ export function createImporter(deps) {
         <div class="imp-nav"><button class="btn ghost" id="back">‹ Elegir otro archivo</button><button class="btn" id="next" ${inc.length ? '' : 'disabled'}>Continuar al destino ›</button></div>`;
       bindFicha();
       const refreshTitleExample = () => { const preview = $('#imp-format-example'); if (preview) preview.textContent = titleExample(); const warning = $('#imp-format-warning'); if (warning) warning.textContent = D.formatChapterTitles && formatChapterIndex({title:cur.title,sectionType:cur.type,enabled:true}).typo ? 'Detectamos «Captiulo»: en la ficha se mostrará «Capítulo» sin cambiar el título guardado.' : ''; };
-      $('#imp-format-titles').onchange = e => { D.formatChapterTitles = e.target.checked; refreshTitleExample(); };
+      $('#imp-format-titles').onchange = e => { D.formatChapterTitles = e.target.checked; D.formatTitlesEdited = true; refreshTitleExample(); };
       refreshTitleExample();
       const L = W().querySelector('.imp-list');
       L.querySelectorAll('[data-t]').forEach(i => i.oninput = () => { ch[+i.dataset.t].title = i.value; if (+i.dataset.t === sel) { $('#pv h2').textContent = i.value; refreshTitleExample(); } });
@@ -405,9 +405,9 @@ export function createImporter(deps) {
         </section><section class="imp-box" id="imp-ann" ${D.pub === 'draft' ? 'hidden' : ''}><h3>Último paso · anuncio editorial</h3>${editorialForm(esc, 'volume', D.notice || {})}</section></div>
         <div class="imp-nav"><button class="btn ghost" id="back">‹ Revisar secciones</button><button class="btn" id="go">Importar ${inc.length} ${inc.length === 1 ? 'sección' : 'secciones'}</button></div>`;
       if (ex) sb.from('chapters').select('id', { count: 'exact', head: true }).eq('volume_id', ex.id).is('deleted_at', null).then(({ count }) => { const e = $('#exc'); if (e && count != null) e.textContent = ' con ' + count + (count === 1 ? ' capítulo' : ' capítulos'); });
-      $('#dw').onchange = e => { D.work = e.target.value; const nw = work(); D.vnum = P.meta.index || nextVol(nw); D.workCover = !nw || !nw.cover_path; s3(); };
+      $('#dw').onchange = e => { D.work = e.target.value; const nw = work(); D.vnum = P.meta.index || nextVol(nw); if (!D.formatTitlesEdited) D.formatChapterTitles = !!liveVols(nw).find(v => v.num === D.vnum)?.format_chapter_titles; D.workCover = !nw || !nw.cover_path; s3(); };
       if (!w) bindWorkFields($('#imp-new-work'), NW, esc, related || [], msg => { if (msg) toast(msg); });
-      $('#dv').onchange = e => { D.vnum = Math.max(1, Math.min(999, Math.round(+e.target.value) || 1)); s3(); };
+      $('#dv').onchange = e => { D.vnum = Math.max(1, Math.min(999, Math.round(+e.target.value) || 1)); if (!D.formatTitlesEdited) D.formatChapterTitles = !!liveVols(work()).find(v => v.num === D.vnum)?.format_chapter_titles; s3(); };
       W().querySelectorAll('[name=dm]').forEach(r => r.onchange = () => { D.mode = r.value; });
       W().querySelectorAll('[name=di]').forEach(r => r.onchange = () => { D.allImgs = r.value === 'all'; });
       D.noticeGetter = bindEditorialForm(W());
