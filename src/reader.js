@@ -407,11 +407,13 @@ export function createReader(ctx){
     const ch = S.chapters.find(c => c.num === num);
     if (!ch) { const { data: L } = navigator.onLine ? await sb.rpc('lock_info', { p_slug: slug, p_num: num }).then(x => x, () => ({ data: null })) : { data: null }; if (!stillOpening()) return; if (L) { const P = await import('/patreon.js?v=1'); if (!stillOpening()) return; app.innerHTML = P.lockHTML(L, esc, slug); app.querySelector('#lk-link')?.addEventListener('click', () => P.start(sb, url, 'link', null, toast)); return; } app.innerHTML = '<h1>Capítulo no disponible</h1><p>Puede que aún no se publique. <a href="/serie/' + esc(slug) + '">Volver a la obra</a></p>'; return; }
     const annP = fetchAnnots([ch.id]);
-    // ajustes y posición del servidor no frenan la apertura: si tardan más de 300 ms se usa lo de este dispositivo y lo del servidor se aplica al llegar
-    const quick = (p, fb) => Promise.race([p, new Promise(r => setTimeout(() => r(fb()), 300))]);
+    // Renderizar con la posición y las preferencias locales. Las respuestas remotas no bloquean el texto.
     const localPos = () => { try { return JSON.parse(localStorage.getItem(posKey(S.series.id))); } catch { return null; } };
-    let late = false; prefsP?.then(() => { if (late && stillOpening() && sameReaderAccount(getUser()?.id, prefsUid) && S.active?.id === ch.id && $('.rd')) applyPrefs(); });
-    const [b, , pos] = await Promise.all([body(ch), quick(prefsP, () => (late = true, null)), quick(fetchPos(), localPos)]);
+    const pos = localPos(), posP = fetchPos();
+    prefsP?.then(() => {
+      if (stillOpening() && sameReaderAccount(getUser()?.id, prefsUid) && S.active?.id === ch.id && $('.rd')) applyPrefs();
+    }).catch(() => {});
+    const b = await body(ch);
     if (!stillOpening()) return;
     if (!b) { app.innerHTML = '<h1>Sin conexión</h1><p>Este capítulo no está descargado. <a href="/descargas">Ver mis descargas</a></p>'; return; }
     const p = effective(ch.volume_id);
@@ -440,7 +442,18 @@ export function createReader(ctx){
       <button class="rd-zen-x" data-act="zen">Salir del modo zen</button>
     </div>`;
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-    S.pos = pos; restorePosition(ch, pos); resumeBar(ch, pos); bindBar(); footer(); progress();
+    S.pos = pos; S.resumePending = null;
+    restorePosition(ch, pos); resumeBar(ch, pos); bindBar(); footer(); progress();
+    posP.then(latest => {
+      if (!stillOpening() || !latest || S.active?.id !== ch.id || !$('.rd')) return;
+      const newer = !pos || Date.parse(latest.at || latest.updated_at || 0) > Date.parse(pos.at || pos.updated_at || 0);
+      if (!newer) return;
+      S.pos = latest;
+      if (latest.chapter_id === ch.id && +latest.block === +(pos?.block || 0)) return;
+      // El avance remoto no se sobrescribe hasta que el lector elija continuar aquí o se desplace.
+      S.resumePending = { chapterId: ch.id, y: scrollY };
+      resumeBar(ch, latest, true);
+    }).catch(() => {});
     clearTimeout(S.saveT); S.saveT = setTimeout(saveProgress, 2500); // abrir el capítulo ya cuenta como «dónde voy»
     logHistory(ch); prefetchNext(ch);
     observe(); wake();
@@ -552,6 +565,10 @@ export function createReader(ctx){
   }
   function onScroll(){
     if (!document.body.contains($('.rd'))) { removeEventListener('scroll', onScroll); wl?.release(); return; }
+    if (S.resumePending && Math.abs(scrollY - S.resumePending.y) > 40) {
+      S.resumePending = null;
+      const bar = $('#rd-resume'); if (bar) bar.hidden = true;
+    }
     clearTimeout(S.saveT); S.saveT = setTimeout(saveProgress, 1200);
     if (!S.raf) S.raf = requestAnimationFrame(frame);
   }
@@ -574,6 +591,7 @@ export function createReader(ctx){
   async function saveProgress(){
     const ch = S.active;
     if (!ch || !S.series || !sameReaderAccount(S.activeOwner, getUser()?.id) || !$(`[data-ch="${ch.id}"]`)) return; // ya no está en pantalla: no pisar el progreso con «párrafo 0»
+    if (S.resumePending?.chapterId === ch.id) return; // conservar progreso remoto pendiente de decisión
     clearTimeout(S.saveT);
     const { block: blk, pct } = currentBlock(), p = effective(ch.volume_id), at = new Date().toISOString(), user = getUser();
     const rec = { chapter_id: ch.id, num: ch.num, block: blk, pct, at, mode: p.continuous === 'off' ? 'chapter' : 'continuous', pending: !!user };
@@ -619,12 +637,22 @@ export function createReader(ctx){
   addEventListener('pagehide', () => saveProgress());
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveProgress(); });
   document.addEventListener('click', e => { if (e.target.closest?.('.rd a[href]')) saveProgress(); }, true);
-  function resumeBar(ch, pos){
-    const el = $('#rd-resume'); if (!el || !pos || pos.chapter_id === ch.id) return;
+  function resumeBar(ch, pos, synced = false){
+    const el = $('#rd-resume'); if (!el || !pos) return;
+    if (pos.chapter_id === ch.id) {
+      if (!synced || !(+pos.block > 0)) return;
+      el.innerHTML = '<span>Hay una posición de lectura más reciente en otro dispositivo.</span><button class="btn" type="button">Ir a esa posición</button><button class="btn ghost" type="button">Seguir aquí</button>';
+      el.hidden = false;
+      el.querySelectorAll('button')[0].onclick = () => {
+        S.resumePending = null; restorePosition(ch, pos); el.hidden = true;
+      };
+      el.querySelectorAll('button')[1].onclick = () => { S.resumePending = null; el.hidden = true; saveProgress(); };
+      return;
+    }
     const at = S.chapters.find(c => c.id === pos.chapter_id) || S.chapters.find(c => c.num === (pos.num ?? pos.chapter_num)); if (!at || at === ch) return;
     const pc = Math.round((pos.pct || 0) * 100);
     el.innerHTML = `<span>Te quedaste en <b>${esc(at.title)}</b>${pc ? ` · ${pc} %` : ''}</span><a class="btn" href="/leer/${S.series.slug}/${at.num}">Continuar ahí</a><button class="btn ghost" type="button" aria-label="Seguir aquí">Seguir aquí</button>`;
-    el.hidden = false; el.querySelector('button').onclick = () => { el.hidden = true; };
+    el.hidden = false; el.querySelector('button').onclick = () => { S.resumePending = null; el.hidden = true; saveProgress(); };
   }
   // se llama en el mismo cuadro en que se pinta el capítulo: sin salto visible
   function restorePosition(ch, pos){
