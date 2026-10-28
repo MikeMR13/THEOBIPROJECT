@@ -86,13 +86,13 @@ export function createReader(ctx){
       active: sameSeries ? S.active : null, mounted: sameSeries ? S.mounted : [], loadingNext: false,
       annots: [], gloss: [], glMap: new Map(), glRe: undefined, readSet: null });
   }
-  async function loadSeries(slug, num){
+  async function loadSeries(slug, num, stillCurrent = () => true){
     if (S.series?.slug === slug && (num == null || S.chapters.some(c => c.num === num))) return true;
     // Sin conexión: no consultar Supabase; la descarga tiene sus propios metadatos íntegros.
     // Esto evita esperas de red incluso si la petición nunca rechaza.
     if (!navigator.onLine) {
       const local = await offlineMeta(slug);
-      if (!local?.series || (num != null && !local.chapters?.some(c => c.num === num))) return false;
+      if (!stillCurrent() || !local?.series || (num != null && !local.chapters?.some(c => c.num === num))) return false;
       setSeries(local);
       const gl = local.gloss || [];
       Object.assign(S, { nextAt: null, gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined });
@@ -106,7 +106,7 @@ export function createReader(ctx){
       try { m = await fetchMeta(slug); }
       catch { const o = await offlineMeta(slug); if (o) { m = { series: o.series, chapters: o.chapters, vols: o.vols }; offGl = o.gloss || null; } }
     }
-    if (!m?.series) return false;
+    if (!stillCurrent() || !m?.series) return false;
     setSeries(m);
     const s = S.series;
     // Los créditos públicos se verifican con el servidor sin retrasar la aparición del texto.
@@ -357,23 +357,30 @@ export function createReader(ctx){
     if (ch) { if (S.bodies.has(ch.id) || await cacheGet(ch)) return; const d = await bodyBySlug(slug, num); if (d?.body && d.id === ch.id) cachePut(ch, d.body); return; }
     bodyBySlug(slug, num); fetchMeta(slug).catch(() => {}); }
   async function open(slug, num){
-    const openingUser = getUser()?.id || null;
+    const openingUser = getUser()?.id || null, openingId = (S.openId || 0) + 1;
+    S.openId = openingId;
+    const stillOpening = () => S.openId === openingId &&
+      sameReaderAccount(getUser()?.id, openingUser) &&
+      location.pathname === '/leer/' + slug + '/' + num;
+    // Los observadores de la lectura anterior no deben montar texto durante otra navegación.
+    io?.disconnect(); activeIo?.disconnect(); autoIo?.disconnect(); clearInterval(autoT);
+    S.loadingNext = false;
     app.innerHTML = '<p class="mono">Abriendo capítulo…</p>';
     if (navigator.onLine && S.series?.slug !== slug && !cachedMeta(slug)) bodyBySlug(slug, num); // primera vez: texto en paralelo con la ficha
     const prefsUid = getUser()?.id || null;
     if (S.prefsOwner !== prefsUid) { clearTimeout(prefT); S.remote=null; }
     const prefsP = S.remote ? null : loadPrefs();
-    if (!(await loadSeries(slug, num))) { if ((getUser()?.id || null) !== openingUser) return; app.innerHTML = '<h1>Serie no encontrada</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
-    if (!sameReaderAccount(getUser()?.id, openingUser)) return;
+    if (!(await loadSeries(slug, num, stillOpening))) { if (!stillOpening()) return; app.innerHTML = '<h1>Serie no encontrada</h1><p><a href="/catalogo">Ir al catálogo</a></p>'; return; }
+    if (!stillOpening()) return;
     const ch = S.chapters.find(c => c.num === num);
-    if (!ch) { const { data: L } = navigator.onLine ? await sb.rpc('lock_info', { p_slug: slug, p_num: num }).then(x => x, () => ({ data: null })) : { data: null }; if (L) { const P = await import('/patreon.js?v=1'); app.innerHTML = P.lockHTML(L, esc, slug); app.querySelector('#lk-link')?.addEventListener('click', () => P.start(sb, url, 'link', null, toast)); return; } app.innerHTML = '<h1>Capítulo no disponible</h1><p>Puede que aún no se publique. <a href="/serie/' + esc(slug) + '">Volver a la obra</a></p>'; return; }
+    if (!ch) { const { data: L } = navigator.onLine ? await sb.rpc('lock_info', { p_slug: slug, p_num: num }).then(x => x, () => ({ data: null })) : { data: null }; if (!stillOpening()) return; if (L) { const P = await import('/patreon.js?v=1'); if (!stillOpening()) return; app.innerHTML = P.lockHTML(L, esc, slug); app.querySelector('#lk-link')?.addEventListener('click', () => P.start(sb, url, 'link', null, toast)); return; } app.innerHTML = '<h1>Capítulo no disponible</h1><p>Puede que aún no se publique. <a href="/serie/' + esc(slug) + '">Volver a la obra</a></p>'; return; }
     const annP = fetchAnnots([ch.id]);
     // ajustes y posición del servidor no frenan la apertura: si tardan más de 300 ms se usa lo de este dispositivo y lo del servidor se aplica al llegar
     const quick = (p, fb) => Promise.race([p, new Promise(r => setTimeout(() => r(fb()), 300))]);
     const localPos = () => { try { return JSON.parse(localStorage.getItem(posKey(S.series.id))); } catch { return null; } };
-    let late = false; prefsP?.then(() => { if (late && sameReaderAccount(getUser()?.id, prefsUid) && $('.rd')) applyPrefs(); });
+    let late = false; prefsP?.then(() => { if (late && stillOpening() && sameReaderAccount(getUser()?.id, prefsUid) && S.active?.id === ch.id && $('.rd')) applyPrefs(); });
     const [b, , pos] = await Promise.all([body(ch), quick(prefsP, () => (late = true, null)), quick(fetchPos(), localPos)]);
-    if (!sameReaderAccount(getUser()?.id, openingUser)) return;
+    if (!stillOpening()) return;
     if (!b) { app.innerHTML = '<h1>Sin conexión</h1><p>Este capítulo no está descargado. <a href="/descargas">Ver mis descargas</a></p>'; return; }
     const p = effective(ch.volume_id);
     S.mounted = [ch]; S.active = ch; S.activeOwner = openingUser; S.annots = []; S.lastY = null; trackView(ch);
@@ -405,8 +412,8 @@ export function createReader(ctx){
     clearTimeout(S.saveT); S.saveT = setTimeout(saveProgress, 2500); // abrir el capítulo ya cuenta como «dónde voy»
     logHistory(ch); prefetchNext(ch);
     observe(); wake();
-    annP.then(l => { if (!S.mounted.includes(ch)) return; S.annots = S.annots.filter(a => a.chapter_id !== ch.id).concat(l); paintAnnots(ch.id); });
-    S.extras?.then(() => { if (!$('#rd-flow')) return; markTerms($('#rd-flow')); if (S.nextAt && !nextOf(S.active)) footer(); });
+    annP.then(l => { if (!stillOpening() || !S.mounted.some(c => c.id === ch.id)) return; S.annots = S.annots.filter(a => a.chapter_id !== ch.id).concat(l); paintAnnots(ch.id); });
+    S.extras?.then(() => { if (!stillOpening() || !$('#rd-flow')) return; markTerms($('#rd-flow')); if (S.nextAt && !nextOf(S.active)) footer(); });
   }
   let autoIo, autoT, autoStop = null;
   const untilTxt = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
@@ -455,23 +462,34 @@ export function createReader(ctx){
   let io, activeIo;
   function observe(){
     io?.disconnect(); activeIo?.disconnect();
+    const openingId = S.openId, flow = $('#rd-flow');
     io = new IntersectionObserver(async ([e]) => {
-      if (!e.isIntersecting) return;
+      if (!e.isIntersecting || openingId !== S.openId || !flow?.isConnected) return;
       const last = S.mounted[S.mounted.length - 1], nx = nextOf(last), p = effective(last.volume_id);
       if (p.continuous === 'off' || !nx || (p.continuous === 'volume' && nx.vol !== last.vol) || S.loadingNext) return;
       S.loadingNext = true;
-      const b = await body(nx); S.loadingNext = false; if (!b) return;
-      $('#rd-flow').insertAdjacentHTML('beforeend', chapterHTML(nx, b, effective(nx.volume_id)));
-      const art = $(`[data-ch="${nx.id}"]`); markTerms(art);
-      S.mounted.push(nx); trackView(nx); prefetchNext(nx);
-      fetchAnnots([nx.id]).then(l => { S.annots = S.annots.filter(a => a.chapter_id !== nx.id).concat(l); paintAnnots(nx.id); });
-      activeIo.observe(art); trimMounted();
+      try {
+        const b = await body(nx);
+        if (!b || openingId !== S.openId || !flow.isConnected || $('#rd-flow') !== flow ||
+            S.mounted[S.mounted.length - 1]?.id !== last.id || !S.chapters.some(c => c.id === nx.id)) return;
+        flow.insertAdjacentHTML('beforeend', chapterHTML(nx, b, effective(nx.volume_id)));
+        const art = $('[data-ch="' + nx.id + '"]');
+        markTerms(art);
+        S.mounted.push(nx); trackView(nx); prefetchNext(nx);
+        fetchAnnots([nx.id]).then(l => {
+          if (openingId !== S.openId || !art?.isConnected) return;
+          S.annots = S.annots.filter(a => a.chapter_id !== nx.id).concat(l); paintAnnots(nx.id);
+        });
+        activeIo.observe(art); trimMounted();
+      } finally {
+        if (openingId === S.openId) S.loadingNext = false;
+      }
     }, { rootMargin: '800px 0px' });
     io.observe($('#rd-sentinel'));
     activeIo = new IntersectionObserver(es => es.forEach(e => {
-      if (!e.isIntersecting) return;
+      if (!e.isIntersecting || openingId !== S.openId) return;
       const ch = S.chapters.find(c => c.id === e.target.dataset.ch);
-      if (ch && ch !== S.active) { S.active = ch; history.replaceState({}, '', `/leer/${S.series.slug}/${ch.num}`); logHistory(ch); footer(); }
+      if (ch && ch.id !== S.active?.id) { S.active = ch; history.replaceState({}, '', '/leer/' + S.series.slug + '/' + ch.num); logHistory(ch); footer(); }
     }), { rootMargin: '-45% 0px -50% 0px' });
     document.querySelectorAll('.rd-ch').forEach(a => activeIo.observe(a));
     removeEventListener('scroll', onScroll); addEventListener('scroll', onScroll, { passive: true });
