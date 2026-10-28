@@ -737,7 +737,7 @@ export function createStudio(ctx){
             toast('Portada del Volumen '+v.num+' elegida de Multimedia');
           }));
         }catch(error){galleryBox.textContent='No se pudo cargar la galería: '+(error.message||error);throw error;}
-      }));
+      });
       box.querySelector('[name=cover]').onchange = e => { const file = e.target.files[0]; e.target.value = ''; if (!file) return; const st2 = $('#vcs-' + v.id);
         busy(null, async () => { if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('Usa JPG, PNG o WebP'); if (file.size > LIMITS.image) throw new Error('La imagen pesa más de 8 MB');
           st2.textContent = 'Subiendo…'; const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type], path = `${T.team.id}/obras/${s.slug}/vol-${v.num}/portada-${Date.now()}.${ext}`;
