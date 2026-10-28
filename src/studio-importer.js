@@ -4,6 +4,7 @@ import { renderBlock } from './blocks.js?v=2';
 import { inferSectionType } from './section-types.js?v=1';
 import { editorialForm, bindEditorialForm, saveEditorialRecord } from './editorial-announcements.js?v=1';
 import { createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
+import { planVolumeReplacement, validateImportMedia } from './import-safety.js?v=1';
 export function createImporter(deps) {
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, LIMITS, SEC } = deps;
   // ---------- importador ----------
@@ -207,7 +208,7 @@ export function createImporter(deps) {
   }
   async function parsePdf(file){
     const pdfjs = await import('https://esm.sh/pdfjs-dist@4.4.168');
-    globalThis.pdfjsWorker = await import('https://esm.sh/pdfjs-dist@4.4.168/build/pdf.worker.mjs');
+    pdfjs.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.4.168/build/pdf.worker.mjs';
     const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer(), isEvalSupported: false }).promise;
     const lines = [];
     for (let p = 1; p <= pdf.numPages; p++) {
@@ -414,18 +415,30 @@ export function createImporter(deps) {
 
     const imgType = n => ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', avif: 'image/avif' })[(n.split('.').pop() || '').toLowerCase()] || 'application/octet-stream';
     async function commit(){
-      const uploaded = [], inserted = [], inc = P.chapters.filter(c => !c.skip);
-      let job = null, createdSeries = null, createdVol = null, restoredVol = null, oldIds = [], oldGone = false, volBefore = null, seriesCoverBefore;
+      const uploaded = [], inserted = [], updatedRows = [], removedRows = [], inc = P.chapters.filter(c => !c.skip);
+      let job = null, createdSeries = null, createdVol = null, restoredVol = null, volBefore = null, seriesCoverBefore;
       if (D.pub === 'at' && (!D.at || new Date(fromLocal(D.at)) <= new Date())) throw new Error('Elige una fecha futura para programar');
       // Validar ANTES de subir archivos; la importación jamás se revierte por una falla del anuncio.
       const notice = D.pub === 'draft' ? null : D.noticeGetter?.();
       if (D.pub !== 'draft' && !notice) throw new Error('Completa el anuncio editorial antes de publicar');
       const ficha = fichaRow();
+      const keysToUpload = validateImportMedia({chapters:inc,images:P.images,cover:D.cover,
+        allImages:D.allImgs,maxBytes:LIMITS.image});
+      if(!inc.length)throw new Error('Selecciona al menos una sección para importar');
       let w = work(), vol = liveVols(w).find(v => v.num === D.vnum);
+      if(vol && D.mode==='replace'){
+        const {data:old,error}=await sb.from('chapters').select('id,num,vol,volume_id,deleted_at').eq('series_id',w.id);
+        if(error)throw error;
+        planVolumeReplacement(old,vol.id,D.vnum,inc.length);
+      }
       const workMeta = !w ? workPayload(NW) : null;
       if (vol && D.mode === 'replace' && !await confirmObi(`Se reemplazará el Volumen ${D.vnum}: capítulos, ficha y portada. Los capítulos anteriores van a la papelera. ¿Continuar?`)) return;
       try {
-        ({ data: job } = await sb.from('import_jobs').insert({ team_id: T.team.id, created_by: getUser().id, filename: file.name, file_type: file.name.split('.').pop().toLowerCase(), mode: vol ? D.mode : 'append', status: 'running', fingerprint: fp }).select().single());
+        const {data:createdJob,error:jobError}=await sb.from('import_jobs').insert({
+          team_id:T.team.id,created_by:getUser().id,filename:file.name,file_type:file.name.split('.').pop().toLowerCase(),
+          mode:vol?D.mode:'append',status:'running',fingerprint:fp}).select().single();
+        if(jobError||!createdJob?.id)throw jobError||new Error('No se pudo registrar el trabajo');
+        job=createdJob;
         if (!w) {
           st('Creando la obra…'); const title = workMeta.title; let slug = slugify(title);
           const { data: taken } = await sb.from('series').select('id').eq('slug', slug).limit(1); if (taken?.length) slug += '-' + Date.now().toString(36).slice(-4);
@@ -438,9 +451,9 @@ export function createImporter(deps) {
         const takenNames = new Set((have || []).map(x => x.name));
         const fname = n => { const b = n.replace(/[^\w.-]/g, '_'); let x = b, i = 2; while (takenNames.has(x)) x = b.replace(/(\.\w+)?$/, m => '-' + (i++) + m); takenNames.add(x); return x; };
         const up = async (sub, name, blob, type) => { const p = dir + sub + fname(name); const { error } = await sb.storage.from('obi-media').upload(p, blob, { contentType: type }); if (error) throw error; uploaded.push(p); return p; };
-        const keys = D.allImgs ? imgKeys() : [...usedImgs()].filter(k => P.images.get(k)?.blob);
+        const keys = keysToUpload;
         const map = {}; let n = 0;
-        for (const key of keys) { const im = P.images.get(key); st(`Subiendo imágenes a Multimedia ${++n}/${keys.length}…`); if (im.blob.size > LIMITS.image) { toast(`${im.name} supera 8 MB y se omitió`); continue; } map['img:' + key] = await up('', im.name, im.blob, im.type || imgType(im.name)); }
+        for (const key of keys) { const im = P.images.get(key); st(`Subiendo imágenes a Multimedia ${++n}/${keys.length}…`); map['img:' + key] = await up('', im.name, im.blob, im.type || imgType(im.name)); }
         const fonts = []; for (const f of P.fonts) { st('Subiendo fuentes…'); const p = await up('fuentes/', f.name, new Blob([f.bytes]), /woff2/.test(f.name) ? 'font/woff2' : /woff/.test(f.name) ? 'font/woff' : /otf/.test(f.name) ? 'font/otf' : 'font/ttf'); fonts.push({ url: PUB + p, family: f.family, style: f.style, weight: f.weight, ...(f.use ? { use: f.use } : {}) }); }
         const cov = D.cover ? map[D.cover] || null : null;
         st('Guardando el volumen…');
