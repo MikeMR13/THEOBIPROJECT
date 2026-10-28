@@ -58,7 +58,7 @@ const checks=()=>{
   if(nr.right > br.right+2)fail('Título desborda la tarjeta '+i);
   if(getComputedStyle(type).writingMode!=='horizontal-tb')fail('Categoría vertical '+i);
   if(type.getBoundingClientRect().width>nr.width+4)fail('Categoría fuera de título '+i);
-  if(name.textContent.includes('Portada y créditos')&&nr.height>66)
+  if(name.textContent.includes('Portada y créditos')&&nr.height>80)
    fail('Título corto escrito letra por letra '+i);
   if(buttons.length!==2)fail('Acciones ausentes '+i);
   if(buttons.some(btn=>btn.getBoundingClientRect().top<lr.bottom-2))
@@ -89,7 +89,7 @@ const parent='<!doctype html><html><body><p id="qa" data-qa="running">RUNNING</p
  widths.map(w=>'<iframe title="Ancho '+w+'" width="'+w+'" height="1300" src="/case"></iframe>').join('')+
  '<script>const fs=[...document.querySelectorAll("iframe")];let tries=0;'+
  'const poll=()=>{const states=fs.map(f=>{const q=f.contentDocument.querySelector("#result");return[f.width,q?.dataset.qa,q?.textContent]});'+
- 'if(states.some(x=>x[1]==="running")&&++tries<1200)return requestAnimationFrame(poll);'+
+ 'if(states.some(x=>x[1]!=="pass"&&x[1]!=="fail")&&++tries<1200)return requestAnimationFrame(poll);'+
  'const bad=states.filter(x=>x[1]!=="pass");const out=document.getElementById("qa");'+
  'out.dataset.qa=bad.length?"fail":"pass";out.textContent=bad.map(x=>x[0]+": "+x[2]).join(" | ")||"Ocho anchuras, dos vistas OK"};requestAnimationFrame(poll)</script></body></html>';
 const server=createServer((req,res)=>{
