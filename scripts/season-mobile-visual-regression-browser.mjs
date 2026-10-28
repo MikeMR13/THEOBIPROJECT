@@ -11,8 +11,8 @@ const m = ui.match(/const CSS2 = ("(?:\\.|[^"\\])*");/);
 assert(m, 'Falta el CSS dinámico de navegación');
 const css = readFileSync('src/styles.css', 'utf8') + '\n' +
   readFileSync('src/reader-a11y.css', 'utf8') + '\n' + JSON.parse(m[1]);
-const widths = [320,375,390,430,768];
-function inspect(S){
+const widths = [320,375,390,430,760,768,1024];
+function inspect(S,mobile){
   const out = document.getElementById('result'), errors = [], fail = x => errors.push(x);
   const w = document.documentElement.clientWidth;
   const fake = { from(table){
@@ -43,28 +43,47 @@ function inspect(S){
     if (reduced && layer) fail('No se respetó movimiento reducido');
     if (!document.querySelector('#hero .obi-sea-cor'))
       fail('Faltan motivos de portada');
-    if (w <= 760) {
-      const header = document.querySelector('header.top');
-      const brand = header.querySelector('.ob-brand').getBoundingClientRect();
-      const close = header.querySelector('.ob-mbtn').getBoundingClientRect();
-      if (brand.right > close.left - 3) fail('Marca y cierre solapados');
-      const search = header.querySelector('.ob-search').getBoundingClientRect();
-      if (search.width < w * .70 || search.right > w + 2) fail('Buscador mal distribuido');
-      const nav = header.querySelector('.ob-nav');
-      if (getComputedStyle(nav).display !== 'grid') fail('No hay cuadrícula del menú');
-      for (const href of ['/','/catalogo','/biblioteca']) {
-        const a = nav.querySelector('a[href="' + href + '"]');
-        if (getComputedStyle(a).display !== 'none')
-          fail('Duplicado con la barra inferior: ' + href);
-      }
-      const links = [...nav.querySelectorAll('a')].filter(a => getComputedStyle(a).display !== 'none');
-      if (links.length < 2 || links.some(a => a.getBoundingClientRect().height < 43.5))
-        fail('Accesos secundarios demasiado pequeños');
-      if (links.some(a => a.getBoundingClientRect().right > w + 3))
-        fail('Acceso de menú fuera de pantalla');
-      const title = document.querySelector('#hero h1').getBoundingClientRect();
-      const cover = document.querySelector('#hero .ob-cov').getBoundingClientRect();
-      if (w <= 600 && title.top >= cover.top) fail('La portada desplaza el título destacado');
+    const header=document.querySelector('header.top');
+    const bottom=document.querySelector('.ob-tab');
+    const links=[...bottom.querySelectorAll(':scope > a')];
+    const more=bottom.querySelector('.ob-tab-more'),panel=bottom.querySelector('.ob-tab-panel');
+    if (header.querySelector('.ob-mbtn')) fail('Hamburguesa superior persiste');
+    if (links.length!==5||!more||!panel) fail('Navegación móvil incompleta');
+    if (new Set(links.map(a=>a.getAttribute('href'))).size!==5) fail('Destinos principales duplicados');
+    const extras=[...panel.querySelectorAll('a')];
+    if (extras.map(a=>a.getAttribute('href')).join('|')!=='/calendario|/ranking|/apoyar')
+      fail('Falta una sección secundaria');
+    if(w<=760){
+      const brand=header.querySelector('.ob-brand').getBoundingClientRect();
+      const tools=header.querySelector('.ob-tools').getBoundingClientRect();
+      if (brand.right>tools.left+2) fail('Marca y cuenta superpuestos');
+      if (header.getBoundingClientRect().height>94) fail('Cabecera demasiado alta');
+      if (getComputedStyle(header.querySelector('.ob-nav')).display!=='none') fail('Navegación superior duplicada');
+      if (getComputedStyle(header.querySelector('.ob-search')).display!=='none') fail('Buscador superior invade cabecera');
+      if (getComputedStyle(bottom).display!=='grid') fail('Falta barra inferior');
+      if (getComputedStyle(bottom).gridTemplateColumns.split(' ').length!==6) fail('Seis espacios esperados');
+      if (links.some(a=>a.getBoundingClientRect().height<43.5)||more.getBoundingClientRect().height<43.5)
+        fail('Destinos inferiores demasiado pequeños');
+      if(!panel.hidden||more.getAttribute('aria-expanded')!=='false')fail('Más debe iniciar cerrado');
+      more.click();
+      if(panel.hidden||more.getAttribute('aria-expanded')!=='true')fail('Más no abre');
+      if(extras.some(a=>a.getBoundingClientRect().height<43.5))fail('Destino secundario demasiado pequeño');
+      const pr=panel.getBoundingClientRect();
+      if(pr.left< -2||pr.right>w+2)fail('Panel se sale del móvil');
+      mobile.mark('/ranking');
+      if(!more.classList.contains('on')||extras[1].getAttribute('aria-current')!=='page')
+        fail('Falla estado activo de Ranking');
+      document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+      if(!panel.hidden||more.getAttribute('aria-expanded')!=='false'||document.activeElement!==more)
+        fail('Escape no restaura foco');
+      mobile.mark('/');
+      if(more.classList.contains('on'))fail('Más sigue activo en Inicio');
+      const title=document.querySelector('#hero h1').getBoundingClientRect();
+      const cover=document.querySelector('#hero .ob-cov').getBoundingClientRect();
+      if(w<=600&&title.top>=cover.top)fail('El título queda debajo de portada');
+    }else{
+      if(getComputedStyle(bottom).display!=='none')fail('Barra móvil en escritorio');
+      if(getComputedStyle(header.querySelector('.ob-nav')).display==='none')fail('Menú escritorio no visible');
     }
     const category = document.querySelector('.ui-ch-type');
     const heading = document.querySelector('.ui-ch-name');
@@ -86,11 +105,11 @@ function inspect(S){
 }
 const sample = '<!doctype html><html lang="es-419"><head><meta name="viewport" content="width=device-width,initial-scale=1">'+
   '<style>' + css + '\n.qa{max-width:100%;padding:12px;box-sizing:border-box}.qa .ui-vols{margin:12px 0}</style></head>'+
-  '<body><header class="top ob-open">'+
+  '<body><header class="top">'+
   '<a href="/" class="ob-brand"><span class="ob-seal">帯</span><span class="ob-word"><b>El Obi del Lector</b></span></a>'+
   '<nav class="ob-nav"><a href="/">Inicio</a><a href="/catalogo">Catálogo</a><a href="/biblioteca">Mi biblioteca</a>'+
   '<a href="/calendario">Calendario</a><a href="/ranking">Ranking</a><a class="ob-sup" href="/apoyar">Apoyar</a></nav>'+
-  '<button class="ob-mbtn" aria-label="Cerrar menú" aria-expanded="true">×</button>'+
+
   '<div class="ob-tools"><input class="ob-search" type="search" aria-label="Buscar" placeholder="Buscar títulos, autores…">'+
   '<div id="session"><button type="button" aria-label="Continuar">続</button><button type="button" aria-label="Avisos">鈴</button></div></div></header>'+
   '<main id="app" class="qa" tabindex="-1"><section class="ob-hero" id="hero">'+
@@ -103,14 +122,17 @@ const sample = '<!doctype html><html lang="es-419"><head><meta name="viewport" c
   '<button type="button" class="ui-read-chapter">✓ Leído</button><button type="button" class="obi-offline-btn">↓ Descargar capítulo</button>'+
   '</li></ul></details></div></article></section></div>'+
   '<p id="result" data-qa="running">RUNNING</p></main>'+
-  '<script type="module">import * as S from "/season.js?v=4";(' + inspect.toString() + ')(S);</script></body></html>';
+  '<script type="module">import * as S from "/season.js?v=4";import{createMobileNavigation,bindMobileNavigation}from "/mobile-navigation.js?v=1";'+
+  'const tab=createMobileNavigation();document.body.appendChild(tab);const mobile=bindMobileNavigation(tab);'+
+  'Promise.resolve((' + inspect.toString() + ')(S,mobile)).then(()=>{if(new URLSearchParams(location.search).has("panel"))mobile.button.click()});'+
+  '</script></body></html>';
 
 const parent = '<!doctype html><html lang="es"><body><p id="qa" data-qa="running">RUNNING</p>'+
   widths.map(w => '<iframe title="Ancho '+w+'" width="'+w+'" height="1350" src="/case"></iframe>').join('')+
   '<script>(()=>{const out=document.querySelector("#qa"),fs=[...document.querySelectorAll("iframe")];let turns=0;'+
   'const poll=()=>{const states=fs.map(f=>{try{const a=f.contentDocument.querySelector("#result");return[f.title,a?.dataset.qa||"running",a?.textContent||"sin resultado"]}catch(e){return[f.title,"running",String(e)]}});'+
   'if(states.some(s=>s[1]==="running")&&++turns<850)return requestAnimationFrame(poll);'+
-  'const bad=states.filter(s=>s[1]!=="pass").map(s=>s[0]+": "+s[2]);out.dataset.qa=bad.length?"fail":"pass";out.textContent=bad.join(" | ")||"Cinco anchuras OK";};requestAnimationFrame(poll)})()</script></body></html>';
+  'const bad=states.filter(s=>s[1]!=="pass").map(s=>s[0]+": "+s[2]);out.dataset.qa=bad.length?"fail":"pass";out.textContent=bad.join(" | ")||"Siete anchuras OK";};requestAnimationFrame(poll)})()</script></body></html>';
 const server = createServer((req,res)=>{
   res.setHeader('Cache-Control','no-store');
   res.setHeader('Content-Security-Policy',"default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; frame-src 'self'");
