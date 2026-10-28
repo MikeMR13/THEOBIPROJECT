@@ -1,7 +1,7 @@
 // QA de la auditoría iPhone: tema de temporada, menú y títulos con CSS real.
 // Chromium local + datos inventados; nunca conecta a Supabase ni a producción.
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { spawn, execFileSync } from 'node:child_process';
 
@@ -150,5 +150,31 @@ try {
     assert(status,'Sin resultado de DOM en Chromium '+(reduced?'reducido':'normal'));
     assert.equal(status[1],'pass',status[2]);
     console.log((reduced?'Movimiento reducido':'Normal')+': '+status[2]);
+  }
+  // Evidencia visual descargable durante 24 horas: fixture, NO captura de producción.
+  // Chromium en el runner Linux, sin servicios pagos ni credenciales reales.
+  mkdirSync('qa-capturas', {recursive:true});
+  for (const [width,reduced] of [[320,false],[390,false],[430,false],[768,false],[390,true]]) {
+    const name = 'qa-capturas/temporada-menu-titulos-' + width + (reduced?'-movimiento-reducido':'') + '.png';
+    const args = [
+      '--headless=new','--no-sandbox','--no-first-run','--disable-gpu',
+      '--disable-dev-shm-usage','--disable-background-networking',
+      '--hide-scrollbars','--window-size='+width+',1150',
+      '--virtual-time-budget=9000','--screenshot='+name
+    ];
+    if(reduced) args.push('--force-prefers-reduced-motion=reduce');
+    args.push('http://127.0.0.1:'+server.address().port+'/case');
+    const p=spawn(chrome,args,{stdio:['ignore','pipe','pipe']});
+    let stderr='';
+    p.stderr.on('data',d=>{stderr+=String(d).slice(0,12000)});
+    p.stdout.resume();
+    const code=await new Promise((ok,fail)=>{
+      const t=setTimeout(()=>{p.kill('SIGKILL');fail(Error('Timeout de captura '+name))},45000);
+      p.once('error',e=>{clearTimeout(t);fail(e)});
+      p.once('close',n=>{clearTimeout(t);ok(n)});
+    });
+    assert.equal(code,0,stderr.slice(-800));
+    assert(existsSync(name) && statSync(name).size > 4000,'Captura vacía: '+name);
+    console.log('Captura de fixture: '+name);
   }
 } finally {await new Promise(ok=>server.close(ok))}
