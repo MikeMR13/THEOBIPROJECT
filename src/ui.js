@@ -407,7 +407,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       + grp('Equipos', R.teams.map(t => `<a href="/equipo/${esc(t.slug)}"><span class="sr-ic">訳</span><span><b>${esc(t.name)}</b><small>Equipo traductor</small></span></a>`))
       + grp('Géneros y etiquetas', R.tags.map(t => `<a href="/catalogo?${t.t === 'g' ? 'g=' + encodeURIComponent(t.v) : 'q=' + encodeURIComponent(t.v)}"><span class="sr-ic">${t.t === 'g' ? '類' : '#'}</span><span><b>${esc(t.v)}</b><small>${t.t === 'g' ? 'Género' : 'Etiqueta'} · ${t.c} ${t.c === 1 ? 'obra' : 'obras'}</small></span></a>`))
       + grp('Lectores', (R.readers || []).map(r => `<a href="/lector/${encodeURIComponent(r.username)}"><span class="sr-ic" style="${r.avatar_url ? `background:center/cover url('${esc(r.avatar_url)}');color:transparent` : ''}">${esc(r.kanji || '読')}</span><span><b>${esc(r.username)}</b><small>Lector</small></span></a>`))
-      + grp('Capítulos', R.chapters.map(c => `<a href="/leer/${c.s.slug}/${c.num}"><span class="sr-ic">章</span><span><b>${esc(c.title || 'Capítulo ' + c.num)}</b><small>${esc(c.s.title)} · Cap. ${c.num}</small></span></a>`));
+      + grp('Secciones', R.chapters.map(c => `<a href="/leer/${c.s.slug}/${c.num}"><span class="sr-ic">章</span><span><b>${esc(c.title || 'Sección')}</b><small>${esc(c.s.title)} · ${esc(editorialChapterLabel(c))}</small></span></a>`));
     return html || `<p class="sr-none">Nada coincide con «${esc(q)}».</p>`;
   }
   async function search(){
