@@ -1,7 +1,7 @@
 import { confirmObi, inputObi } from './obi-dialog.js';
 import {cleanSeo, editImages, SEO_LIMITS} from './seo-settings.js?v=1';
 // SEO editorial por obra, sin modificar RLS, publicación, precios ni canonical.
-const css = '.wk-seo{display:grid;gap:14px;max-width:850px}.wk-seo label{display:grid;gap:6px}.wk-seo textarea{min-height:88px;resize:vertical}.wk-seo small{color:#b9ae94;font-size:12px}.wk-seo-preview{border:1px solid #57492d;background:#16140f;padding:16px;display:grid;gap:8px;overflow-wrap:anywhere}.wk-seo-preview strong{color:#f2c230;font-size:18px}.wk-seo-preview img{width:100%;max-height:230px;object-fit:contain;background:#0d0c0a}.wk-seo-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.wk-seo input:focus-visible,.wk-seo textarea:focus-visible,.wk-seo select:focus-visible{outline:2px solid #f2c230}';
+const css = '.wk-seo{display:grid;gap:14px;max-width:850px}.wk-seo label{display:grid;gap:6px}.wk-seo textarea{min-height:88px;resize:vertical}.wk-seo small{color:#b9ae94;font-size:12px}.wk-seo-preview{border:1px solid #57492d;background:#16140f;padding:16px;display:grid;gap:8px;overflow-wrap:anywhere}.wk-seo-preview strong{color:#f2c230;font-size:18px}.wk-seo-preview img{width:100%;max-height:230px;object-fit:contain;background:#0d0c0a}.wk-seo-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.wk-seo input:focus-visible,.wk-seo textarea:focus-visible,.wk-seo select:focus-visible{outline:2px solid #f2c230}.wk-seo .wk-seo-noindex{display:flex;align-items:flex-start;gap:10px;width:100%;min-width:0;max-width:100%}.wk-seo .wk-seo-noindex>input[type=checkbox]{width:18px!important;min-width:18px;height:18px;min-height:18px;flex:0 0 18px;margin:2px 0 0;padding:0}.wk-seo .wk-seo-noindex>span{display:block;flex:1 1 auto;min-width:0;white-space:normal;overflow-wrap:normal}';
 const field = (tag, props={}, text='') => {
   const el=document.createElement(tag);
   for(const [key,value] of Object.entries(props)) {
@@ -41,7 +41,7 @@ export function bindSeriesSeo({app,sb,series,volumes=[],canEdit=false,media,toas
   images.forEach((p,i)=>select.append(field('option',{value:p},'Imagen '+(i+1)+' · '+p.split('/').slice(-2).join('/'))));
   select.value=old.imagePath;select.disabled=!canEdit;controls.imagePath=select;
   imageLabel.append(select,field('small',{},'Se permiten únicamente imágenes existentes de la biblioteca de este equipo.'));wrap.append(imageLabel);
-  const idx=field('label',{},'');idx.style.display='flex';idx.style.alignItems='center';idx.style.gap='10px';
+  const idx=field('label',{className:'wk-seo-noindex'},'');
   const noindex=field('input',{type:'checkbox'});noindex.checked=old.noindex;noindex.disabled=!canEdit;controls.noindex=noindex;
   idx.append(noindex,field('span',{},'Ocultar en buscadores (noindex; la página sigue siendo accesible)'));wrap.append(idx);
   const preview=field('div',{className:'wk-seo-preview','aria-live':'polite'});wrap.append(field('h3',{},'Vista previa aproximada'),preview);
