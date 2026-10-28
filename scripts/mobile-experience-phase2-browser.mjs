@@ -95,12 +95,28 @@ const bin=process.env.QA_CHROME||['chromium','google-chrome','google-chrome-stab
 assert(bin,'Falta Chromium');
 try{
  await new Promise((ok,no)=>{server.once('error',no);server.listen(0,'127.0.0.1',ok)});
- const c=spawn(bin,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking','--window-size=1660,1100','--virtual-time-budget=16000','--dump-dom','http://127.0.0.1:'+server.address().port],{stdio:['ignore','pipe','pipe']});
- let out='',err='';c.stdout.on('data',x=>out+=String(x).slice(0,320000));c.stderr.on('data',x=>err+=String(x).slice(0,10000));
- const code=await new Promise((ok,fail)=>{const tm=setTimeout(()=>{c.kill('SIGKILL');fail(Error('Chromium timeout'))},60000);c.once('error',e=>{clearTimeout(tm);fail(e)});c.once('close',n=>{clearTimeout(tm);ok(n)})});
- assert.equal(code,0,err.slice(-700));
- const m=out.match(/<output id="qa" data-qa="(pass|fail)">([\s\S]*?)<\/output>/);
- assert(m,'No se obtuvo resultado Chromium');
- assert.equal(m[1],'pass',m[2]);
- console.log(m[2]);
+
+ // En runners compartidos a veces --dump-dom termina antes de que los 12 iframes
+ // publiquen el resultado; reintentar solo cuando NO existe resultado, nunca ante un fallo real.
+ let completed=false;
+ for (const budget of [16000,32000]) {
+   const c=spawn(bin,['--headless=new','--no-first-run','--no-sandbox','--disable-gpu',
+     '--disable-dev-shm-usage','--disable-background-networking','--window-size=1660,1100',
+     '--virtual-time-budget='+budget,'--dump-dom','http://127.0.0.1:'+server.address().port],
+     {stdio:['ignore','pipe','pipe']});
+   let out='',err='';
+   c.stdout.on('data',x=>{out+=String(x)});
+   c.stderr.on('data',x=>{err+=String(x).slice(0,12000)});
+   const code=await new Promise((ok,fail)=>{
+     const tm=setTimeout(()=>{c.kill('SIGKILL');fail(Error('Chromium timeout '+budget))},75000);
+     c.once('error',e=>{clearTimeout(tm);fail(e)});
+     c.once('close',n=>{clearTimeout(tm);ok(n)});
+   });
+   assert.equal(code,0,err.slice(-700));
+   const m=out.match(/<output id="qa" data-qa="(pass|fail)">([\\s\\S]*?)<\\/output>/);
+   if(m){assert.equal(m[1],'pass',m[2]);console.log(m[2]);completed=true;break;}
+   if(budget===32000)throw Error('Sin resultado Chromium después de reintentar: '+out.slice(-900)+' / '+err.slice(-900));
+ }
+ assert(completed,'No se completó la prueba móvil');
+
 }finally{await new Promise(ok=>server.close(ok))}
