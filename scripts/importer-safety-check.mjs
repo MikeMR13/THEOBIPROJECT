@@ -48,7 +48,7 @@ assert.deepEqual(folders,[root+'galeria',root+'vol-2']);
 const importer=readFileSync('src/studio-importer.js','utf8');
 const studio=readFileSync('src/studio.js','utf8');
 const galleryModule=readFileSync('src/volume-cover-gallery.js','utf8');
-const css=readFileSync('src/studio.css','utf8');
+const css=readFileSync('src/volume-cover-gallery.css','utf8');
 for(const marker of [
  'planVolumeReplacement(old,vol.id,D.vnum,inc.length)',
  'const plan=replacing?planVolumeReplacement(existing,vol.id,D.vnum,inc.length):null',
