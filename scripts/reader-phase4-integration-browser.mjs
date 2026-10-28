@@ -150,8 +150,7 @@ function html(){
     '</head><body><main id="app"></main><p id="qa-result" data-qa-status="running">Cargando</p>'+
     '<script>window.__qaStage="cargando módulo";window.addEventListener("error",e=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="Error de módulo: "+e.message;}});'+
     'window.addEventListener("unhandledrejection",e=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="Promesa no controlada: "+String(e.reason);}});'+
-    'setTimeout(()=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="No finalizó QA, etapa: "+(window.__qaStage||"desconocida")+
-      " · solicitudes: "+JSON.stringify(window.__qaHits||{});}},9500);</script>'+
+    'setTimeout(()=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="No finalizó QA, etapa: "+(window.__qaStage||"desconocida")+" · solicitudes: "+JSON.stringify(window.__qaHits||{});}},9500);</script>'+
     '<script type="module" src="/qa-browser.js"></script></body></html>';
 }
 const server=createServer((req,res)=>{
