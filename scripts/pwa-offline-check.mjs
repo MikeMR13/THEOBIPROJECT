@@ -88,7 +88,7 @@ const okResponse=path=>new Response(path.startsWith('/app.js')?'export default 1
   await Promise.resolve();
   assert.equal(requests.length, essentialDownloads, 'Activar la PWA no debe descargar módulos opcionales');
 }
-assert(!/\\bLAZY\\s*\\.\\s*forEach\\s*\\(/.test(workerSource), 'Activación no debe disparar precarga masiva');
+assert(!/\bLAZY\s*\.\s*forEach\s*\(/.test(workerSource), 'Activación no debe disparar precarga masiva');
 
 // Verificar que el artefacto compilado contiene todas las dependencias ES estáticas.
 if (existsSync('dist/sw.js')) {
