@@ -10,7 +10,8 @@ assert.match(source,/async function supervision\(epoch\)/,'Debe existir una cons
 assert.match(source,/sb\.from\('series'\)\.select\('id,title,slug,published,archived_at,team_id,teams\(name\)'\)/,'La supervisión debe leer series');
 const mod=source.split('  async function supervision(epoch){')[1]?.split('  async function solicitudes(epoch){')[0];
 assert.ok(mod,'No se pudo aislar supervisión');
+assert.match(mod,/\.range\(offset,offset\+pageSize\)/,'La consulta de capítulos debe paginar');
 assert.doesNotMatch(mod,/\.update\(|\.insert\(|\.delete\(|admin_(?:suspend|remove|intervene)/,'Supervisión no debe editar obras');
-assert.match(source,/async function temporadas\(\)/,'No eliminar Temas de temporada');
+assert.match(source,/async function temporadas\(epoch\)/,'No eliminar Temas de temporada');
 assert.match(source,/data-t=\"\$\{k\}\"/,'Conservar navegación del Mostrador');
 console.log('OK: Mostrador con supervisión de solo lectura y temporadas conservadas');
