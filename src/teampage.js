@@ -301,7 +301,7 @@ export function render(D, design, h){
   const stats = on('show_stats') ? `<div class="tp2-stats">${[[(W.length + SHARED.length), 'obras'], [caps, 'capítulos']].map(([v, k]) => `<span><b>${(+v).toLocaleString('es-MX')}</b><small>${k}</small></span>`).join('')}<span><b data-follow-count>—</b><small>seguidores</small></span><span><b>${D.mem.length.toLocaleString('es-MX')}</b><small>integrantes públicos</small></span></div>` : '';
   const nextWork = D.next && W.find(w => w.slug === D.next.series?.slug);
   const nx = D.next ? `<a class="tp2-next${E.nextStyle === 'destacado' ? ' tp2-next-feature' : ''}" id="grupo-lanzamientos" data-at="${esc(D.next.at)}" href="/serie/${esc(D.next.series.slug)}">${E.nextStyle === 'destacado' && nextWork ? `<span class="tp2-next-cv">${cover(nextWork)}</span>` : ''}<span class="tp2-next-copy"><small>PRÓXIMO LANZAMIENTO</small><b>${esc(D.next.series.title)}${D.next.label ? ' · ' + esc(D.next.label) : ''}</b><span>${new Date(D.next.at).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</span></span></a>` : '';
-  const featCard = f => `<a class="tp2-feat" href="/serie/${esc(f.slug)}">${cover(f)}<span><b>${esc(f.title)}</b><span class="tp2-syn">${esc(f.synopsis || '')}</span><span class="tp2-btn solid">Empezar a leer</span></span></a>`;
+  const featCard = f => `<a class="tp2-feat" href="/serie/${esc(f.slug)}">${cover(f)}<span><b>${esc(f.title)}</b><span class="tp2-syn">${esc(f.synopsis || '')}</span><span class="tp2-btn solid">Ver ficha de la obra</span></span></a>`;
   const featH = featList.length ? `<section class="tp2-sec tp2-feature-block" id="grupo-destacadas"><div class="tp2-sh"><h2>${featList.length > 1 ? 'Obras destacadas' : 'Obra destacada'}</h2>${featList.length > 1 ? `<span class="tp2-car-nav"><button type="button" data-car="-1" aria-label="Anterior">‹</button><button type="button" data-car="1" aria-label="Siguiente">›</button></span>` : ''}</div><div class="tp2-car" tabindex="0" aria-label="Obras destacadas">${featList.map(featCard).join('')}</div>${featList.length > 1 ? `<div class="tp2-dots">${featList.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div>` : ''}</section>` : '';
   const today = new Date().toISOString().slice(0, 10), A = d.announce;
   const ann = (A.title || A.text) && (!A.until || A.until >= today) ? `<aside class="tp2-ann tp2-ann-${C.announceStyle}" id="grupo-anuncios" aria-label="Aviso del equipo"><small>AVISO DEL EQUIPO</small>${A.title ? `<b>${esc(A.title)}</b>` : ''}${A.text ? `<p>${esc(A.text)}</p>` : ''}${A.until ? `<time datetime="${esc(A.until)}">Visible hasta el ${new Date(A.until + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</time>` : ''}${A.url ? `<a class="tp2-btn" href="${esc(A.url)}"${/^https/.test(A.url) ? ' target="_blank" rel="noopener"' : ''}>${esc(A.label || 'Ver más')}${/^https/.test(A.url) ? ' ↗' : ''}</a>` : ''}</aside>` : '';
@@ -638,6 +638,30 @@ const CSS = `
  .tp2[data-mobile-follow=mostrar] .tp2-fbar{display:flex}
  .tp2[data-mobile-follow=mostrar] .tp2-fbar .tp2-btn{min-height:44px}
  .tp2[data-mobile-follow=ocultar] .tp2-community-cta{margin-bottom:10px}
+}
+/* Fase 2: adaptar contenido real sin modificar el diseño elegido por el equipo. */
+@container (max-width:640px){
+ .tp2,.tp2-in,.tp2-composition,.tp2-composition .tp2-unit{min-width:0;max-width:100%}
+ .tp2 :is(.tp2-head,.tp2-heroin,.tp2-edt,.tp2-next-copy,.tp2-upbody){min-width:0}
+ .tp2 .tp2-name{overflow-wrap:break-word;word-break:normal;text-wrap:pretty}
+ .tp2 .tp2-motto,.tp2 .tp2-meta,.tp2 .tp2-bio{overflow-wrap:break-word;word-break:normal;line-height:1.5}
+ .tp2 .tp2-links{gap:8px;min-width:0}
+ .tp2 .tp2-links .tp2-btn{box-sizing:border-box;max-width:100%;min-height:44px;overflow-wrap:break-word;justify-content:center}
+ .tp2 .tp2-tabs{scroll-padding-inline:12px;overscroll-behavior-x:contain}
+ .tp2 .tp2-tabs a{min-height:46px}
+ .tp2 .tp2-works,.tp2 .tp2-list,.tp2 .tp2-updates{min-width:0;max-width:100%}
+ .tp2 .tp2-w,.tp2 .tp2-li,.tp2 .tp2-update,.tp2 .tp2-feat{min-width:0;max-width:100%;box-sizing:border-box}
+ .tp2 .tp2-w b,.tp2 .tp2-li b,.tp2 .tp2-feat b,.tp2 .tp2-update b{overflow-wrap:break-word;word-break:normal}
+ .tp2[data-mobile-follow=mostrar] .tp2-fbar{padding-bottom:calc(10px + env(safe-area-inset-bottom));min-width:0}
+ .tp2 .tp2-fbar span{min-width:0;overflow-wrap:break-word}
+}
+@container (max-width:390px){
+ .tp2[data-tpl=revista] .tp2-heroin{grid-template-columns:60px minmax(0,1fr);gap:10px;padding:10px 12px}
+ .tp2[data-tpl=revista] .tp2-heroin .tp2-logo{width:60px}
+ .tp2[data-tpl=revista] .tp2-heroin .tp2-name{font-size:clamp(21px,6.1cqi,28px)}
+ .tp2[data-mobile-catalog=dos] .tp2-works{gap:9px}
+ .tp2 .tp2-links .tp2-btn{flex:1 1 120px;text-align:center}
+ .tp2 .tp2-meta{font-size:11px}
 }
 
 `;
