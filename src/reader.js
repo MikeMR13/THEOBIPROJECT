@@ -411,7 +411,9 @@ export function createReader(ctx){
     const localPos = () => { try { return JSON.parse(localStorage.getItem(posKey(S.series.id))); } catch { return null; } };
     const pos = localPos(), posP = fetchPos();
     prefsP?.then(() => {
-      if (stillOpening() && sameReaderAccount(getUser()?.id, prefsUid) && S.active?.id === ch.id && $('.rd')) applyPrefs();
+      // La lectura continua puede cambiar la URL sin cambiar esta sesión del lector.
+      if (S.openId === openingId && sameReaderAccount(getUser()?.id, prefsUid) &&
+          sameReaderAccount(S.activeOwner, openingUser) && $('.rd')) applyPrefs();
     }).catch(() => {});
     const b = await body(ch);
     if (!stillOpening()) return;
