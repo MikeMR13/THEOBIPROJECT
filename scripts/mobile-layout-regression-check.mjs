@@ -9,7 +9,9 @@ const css=readFileSync('src/styles.css','utf8'), ui=readFileSync('src/ui.js','ut
 const begin='const CSS = `',a=ui.indexOf(begin),b=ui.indexOf('`;',a+begin.length);
 assert(a>=0&&b>a,'No se encontró CSS de ficha');const inline=ui.slice(a+begin.length,b);
 const match=ui.match(/const CSS2 = ("(?:\\.|[^"\\])*");/);
-assert(match,'No se encontró CSS de cabecera');const headerCSS=JSON.parse(match[1]);
+assert(match,'No se encontró CSS de cabecera');
+assert(ui.includes('createMobileNavigation()'), 'Falta una navegación inferior única');
+assert(!ui.includes('class="ob-mbtn" aria-label="Abrir menú"'), 'Se volvió a crear la hamburguesa superior');const headerCSS=JSON.parse(match[1]);
 assert(css.includes('.ui-series-page .ui-v-index .ui-chl li>a'),'No se corrigió el índice');
 const share=readFileSync('src/share.js','utf8');
 assert(share.includes("document.querySelector('.tp2-page .tp2-links')"),'Compartir debe estar con los enlaces del equipo');
