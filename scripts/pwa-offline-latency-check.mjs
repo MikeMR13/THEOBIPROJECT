@@ -37,7 +37,7 @@ async function probe(label, fn) {
 await probe('ficha de volumen desde caché local', async () => {
   let remote=0, local=0;
   const S = { series:null, chapters:[], vols:[], bodies:new Map() };
-  const snippet=slice(reader,'  async function loadSeries(slug, num){','  const early = new Map();');
+  const snippet=slice(reader,'  async function loadSeries(slug, num, stillCurrent = () => true){','  const early = new Map();');
   const ctx={
     navigator:{onLine:false},S,
     cachedMeta:()=>null,
@@ -54,7 +54,7 @@ await probe('ficha de volumen desde caché local', async () => {
 // 2. Texto descargado: debe consultarse Cache Storage antes de cualquier red.
 await probe('capítulo descargado abre con red colgada', async () => {
   let remote=0, local=0;
-  const S={series:cacheSeries.series,bodies:new Map()};
+  const S={series:cacheSeries.series,chapters:cacheSeries.chapters,bodies:new Map(),bodyVersions:new Map()};
   const snippet=slice(reader,'  async function body(ch){','  // texto del siguiente capítulo');
   const ctx={
     navigator:{onLine:false},S,early:new Map(),
