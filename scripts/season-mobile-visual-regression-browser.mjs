@@ -9,8 +9,12 @@ const index = readFileSync('src/index.html', 'utf8');
 const ui = readFileSync('src/ui.js', 'utf8');
 const m = ui.match(/const CSS2 = ("(?:\\.|[^"\\])*");/);
 assert(m, 'Falta el CSS dinámico de navegación');
+const srStart = ui.indexOf('const SR_CSS = `');
+const srEnd = ui.indexOf('`;', srStart + 'const SR_CSS = `'.length);
+assert(srStart >= 0 && srEnd > srStart, 'Falta CSS dinámico de la barra inferior');
+const srCss = ui.slice(srStart + 'const SR_CSS = `'.length, srEnd);
 const css = readFileSync('src/styles.css', 'utf8') + '\n' +
-  readFileSync('src/reader-a11y.css', 'utf8') + '\n' + JSON.parse(m[1]);
+  readFileSync('src/reader-a11y.css', 'utf8') + '\n' + JSON.parse(m[1]) + '\n' + srCss;
 const widths = [320,375,390,430,760,768,1024];
 function inspect(S,mobile){
   const out = document.getElementById('result'), errors = [], fail = x => errors.push(x);
