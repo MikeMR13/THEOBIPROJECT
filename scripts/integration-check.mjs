@@ -19,7 +19,8 @@ verifyFailure({OBI_SUPABASE_URL:'http://unsafe.invalid',OBI_SUPABASE_PUBLISHABLE
 verifyFailure({VERCEL_ENV:'preview',OBI_SUPABASE_URL:'https://qfllthjpjuaztppvpsrk.supabase.co',OBI_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_fake'},'Preview bloqueado');
 const data = readFileSync('supabase/config.toml','utf8');
 assert.equal((data.match(/^\[auth\]$/gm)||[]).length,1);
-assert(readFileSync('scripts/build.mjs','utf8').includes('studio-editor|studio-importer|studio-media'),'Optimización del SW perdida');
+assert(readFileSync('scripts/build.mjs','utf8').includes('const BOOT = new Set('),'Arranque esencial del SW no definido');
+assert(!/\/studio(?:-editor|-importer|-media)?\.js\?v=/.test(readFileSync('dist/sw.js','utf8')),'Optimización del SW perdida: Studio incluido en el precaché');
 assert(readFileSync('src/ui.js','utf8').includes('const PAGE_SIZE = 24'),'Paginación perdida');
 assert(readFileSync('.github/workflows/ci.yml','utf8').includes('npm run studio-browser-check'),'Prueba real de navegador perdida');
 assert(readFileSync('src/studio.js','utf8').includes("import('./studio-editor.js?v=1')"),'Modularización perdida');

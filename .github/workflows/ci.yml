@@ -15,13 +15,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22 }
+        # Vercel compila con Node 24: probar la misma versión en QA.
+        with: { node-version: 24 }
       - run: npm install --no-audit --no-fund
       - name: Validar TOML de Supabase
         run: python3 -c "import tomllib; tomllib.load(open('supabase/config.toml','rb'))"
       - run: npm run check && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run studio-fields-check && npm run integration-check
       - name: Difusión — Chromium confirmación multicanal sin envíos externos
         run: npm run diffusion-confirmation-browser-check
+      - name: PWA optimizada — presupuesto de caché sin descargas opcionales
+        run: node scripts/pwa-cache-budget-check.mjs
       - name: PWA sin conexión — arranque íntegro y descargas sin pérdidas
         run: npm run pwa-offline-check
       - name: PWA sin conexión — lectura local sin espera de red

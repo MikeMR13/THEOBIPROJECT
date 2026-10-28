@@ -1,5 +1,5 @@
-/*@shell*/const V='obi-dev',SHELL=['/','/manifest.webmanifest','/icon.svg'],LAZY=[];/*@end*/
-// La línea de arriba la reescribe scripts/build.mjs con la versión y la lista exacta de archivos (sin studio.js ni admin.js).
+/*@shell*/const V='obi-dev',SHELL=['/','/manifest.webmanifest','/icon.svg'];/*@end*/
+// scripts/build.mjs genera la lista de arranque esencial; los demás módulos se cachean cuando se solicitan.
 const IMG = 'obi-img', IMG_MAX = 400;
 // Una sola revalidación de cada portada durante la vida del service worker.
 const refreshedImages = new Set();
@@ -39,9 +39,9 @@ self.addEventListener('activate', e => e.waitUntil((async () => {
   const ok = (await Promise.all(SHELL.map(u => c.match(u)))).every(Boolean);
   // Solo retirar versiones antiguas si todo el arranque está guardado
   if (ok) { const ks = await caches.keys(); await Promise.all(ks.filter(k => k !== V && k !== V + '-ch' && k !== V + '-lib' && k !== IMG && k !== 'obi-bodies' && !k.startsWith('obi-offline')).map(k => caches.delete(k))); }
+  // No disparar descargas masivas al activar el worker: las rutas opcionales
+  // usan la estrategia de cacheo bajo demanda del controlador fetch.
   await self.clients.claim();
-  // el resto de módulos (calendario, perfil, captcha…) se guardan después, sin frenar el arranque
-  LAZY.forEach(u => c.match(u).then(h => h || grab(c, u)));
 })()));
 const put = (name, key, r) => { if (r && r.ok && !r.redirected) { const cp = r.clone(); caches.open(name).then(c => c.put(key, cp)); } return r; };
 const trim = c => { if (++puts % 20) return; c.keys().then(k => k.length > IMG_MAX && Promise.all(k.slice(0, k.length - IMG_MAX).map(x => c.delete(x)))); };

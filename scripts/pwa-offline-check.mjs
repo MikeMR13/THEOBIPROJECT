@@ -76,6 +76,20 @@ const okResponse=path=>new Response(path.startsWith('/app.js')?'export default 1
   assert.equal(requests,initial,'El HTML precargado no debe sustituirse por otro sin sus módulos');
   await h.lifecycle('activate');
 }
+// Activar una nueva versión no debe consultar recursos secundarios ni requerir red extra.
+{
+  const requests = [];
+  const h = workerHarness(async path => { requests.push(String(path)); return okResponse(path); });
+  await h.lifecycle('install');
+  const essentialDownloads = requests.length;
+  await h.lifecycle('activate');
+  // Dejar resolver microtareas para detectar precargas lanzadas sin waitUntil.
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(requests.length, essentialDownloads, 'Activar la PWA no debe descargar módulos opcionales');
+}
+assert(!/\bLAZY\s*\.\s*forEach\s*\(/.test(workerSource), 'Activación no debe disparar precarga masiva');
+
 // Verificar que el artefacto compilado contiene todas las dependencias ES estáticas.
 if (existsSync('dist/sw.js')) {
   const events=new Map(), sandbox={
