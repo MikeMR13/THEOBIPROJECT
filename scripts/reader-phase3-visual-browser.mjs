@@ -38,6 +38,7 @@ function qa(){
     !$('.rd-tools [data-act=prefs]')?.getClientRects().length ||
     !$('.rd-tools [data-act=zen]')?.getClientRects().length)bad('Faltan herramientas principales');
   if((width<=700) !== !!$('.rd-more summary')?.getClientRects().length)bad('Menú de herramientas incorrecto según la anchura');
+  if((width>700) !== !!$('.rd-wide [data-act=offline]')?.getClientRects().length)bad('Descargas ocultas fuera del menú esperado');
   const first=panel.getBoundingClientRect();
   if(first.width>width+1)bad('Panel de ajustes desbordado');
   if(getComputedStyle(panel).overflowY!=='auto' && getComputedStyle(panel).overflowY!=='scroll')bad('Panel sin scroll');
@@ -72,11 +73,13 @@ function sample(){
     '<button type="button"'+(i===0?' class="on"':'')+' aria-pressed="'+(i===0)+'">'+t+'</button>').join('');
   const article='<article class="rd-ch"><header class="rd-head"><h2>'+title+'</h2></header>'+
     '<div class="rd-body"><p>Un párrafo del relato con tamaño cómodo y texto legible.</p>'+known+legacy+'</div></article>';
+  const tools='<button class="btn ghost" data-act="coms">Comentarios</button><button class="btn ghost" data-act="notes">Anotaciones</button><button class="btn ghost" data-act="offline">Descargar volumen</button>';
   const bar='<nav class="rd-bar"><span class="rd-where"><a class="rd-back" title="'+title+'" href="#">‹ '+title+'</a>'+
     '<span class="rd-left mono">≈ 120 min restantes</span></span>'+
     '<div class="rd-tools"><button class="btn ghost" data-act="toc">Índice</button><button class="btn ghost" data-act="prefs">Aa</button>'+
-    '<button class="btn ghost" data-act="zen">Zen</button><details class="rd-more"><summary class="btn ghost" aria-label="Más opciones">⋯</summary>'+
-    '<div class="rd-more-m"><button class="btn">Comentarios</button><button class="btn">Anotaciones</button><button class="btn">Descargar volumen</button></div></details></div></nav>';
+    '<button class="btn ghost" data-act="zen">Zen</button><span class="rd-wide">'+tools+'</span>'+
+    '<details class="rd-more"><summary class="btn ghost" aria-label="Más opciones">⋯</summary>'+
+    '<div class="rd-more-m">'+tools+'</div></details></div></nav>';
   return '<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+
     styles+'</style></head><body><main id="app"><div class="rd" data-theme="sepia">'+bar+
     '<div class="rd-panel" data-kind="prefs"><div class="rd-opt"><span class="mono">Tema</span><div>'+opts+'</div>'+
