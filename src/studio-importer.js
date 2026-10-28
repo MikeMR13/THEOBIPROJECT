@@ -427,6 +427,7 @@ export function createImporter(deps) {
       if(!inc.length)throw new Error('Selecciona al menos una sección para importar');
       let w = work(), vol = liveVols(w).find(v => v.num === D.vnum);
       if(vol && D.mode==='replace'){
+        if(!can('edit'))throw new Error('Reemplazar un volumen requiere permiso para editar sus capítulos.');
         const {data:old,error}=await sb.from('chapters').select('id,num,vol,volume_id,deleted_at').eq('series_id',w.id);
         if(error)throw error;
         planVolumeReplacement(old,vol.id,D.vnum,inc.length);
@@ -468,7 +469,7 @@ export function createImporter(deps) {
         const {data:existing,error:exErr}=await sb.from('chapters')
           .select('id,num,vol,volume_id,deleted_at').eq('series_id',w.id);
         if(exErr)throw exErr;
-        const replacing=D.mode==='replace'&&!createdVol;
+        const replacing=D.mode==='replace'&&!createdVol&&!restoredVol;
         const plan=replacing?planVolumeReplacement(existing,vol.id,D.vnum,inc.length):null;
         const maxNum=Math.max(0,...(existing||[]).map(c=>+c.num||0));
         const rows=inc.map((c,i)=>({
@@ -487,16 +488,16 @@ export function createImporter(deps) {
           for(let i=0;i<rows.length;i++){
             const old=originalById.get(plan.update[i].id);
             updatedRows.push(old);
-            const {error}=await sb.from('chapters').update({
+            const {data:written,error}=await sb.from('chapters').update({
               title:rows[i].title,section_type:rows[i].section_type,
               body:rows[i].body,sort_order:i,status:'draft'
-            }).eq('id',old.id);
-            if(error)throw error;
+            }).eq('id',old.id).select('id');
+            if(error||!written?.length)throw error||new Error('No se pudo reemplazar el capítulo '+old.num);
           }
           for(const item of plan.remove){
             const old=originalById.get(item.id);removedRows.push(old);
-            const {error}=await sb.from('chapters').update({deleted_at:new Date().toISOString()}).eq('id',old.id);
-            if(error)throw error;
+            const {data:written,error}=await sb.from('chapters').update({deleted_at:new Date().toISOString()}).eq('id',old.id).select('id');
+            if(error||!written?.length)throw error||new Error('No se pudo archivar el capítulo '+old.num);
           }
         }else{
           for(let i=0;i<rows.length;i+=10){
