@@ -395,7 +395,7 @@ export function createReader(ctx){
       sameReaderAccount(getUser()?.id, openingUser) &&
       location.pathname === '/leer/' + slug + '/' + num;
     // Los observadores de la lectura anterior no deben montar texto durante otra navegación.
-    io?.disconnect(); activeIo?.disconnect(); autoIo?.disconnect(); clearInterval(autoT);
+    io?.disconnect(); activeIo?.disconnect(); autoIo?.disconnect(); barRO?.disconnect(); clearInterval(autoT);
     S.loadingNext = false;
     app.innerHTML = '<p class="mono">Abriendo capítulo…</p>';
     if (navigator.onLine && S.series?.slug !== slug && !cachedMeta(slug)) bodyBySlug(slug, num); // primera vez: texto en paralelo con la ficha
@@ -513,9 +513,20 @@ export function createReader(ctx){
   }
 
   // ---------- lectura continua + capítulo activo ----------
-  let io, activeIo;
+  let io, activeIo, barRO;
   function observe(){
-    io?.disconnect(); activeIo?.disconnect();
+    io?.disconnect(); activeIo?.disconnect(); barRO?.disconnect();
+    // Altura real: en móviles muy estrechos la barra usa dos filas.
+    // El panel y su scroll se colocan bajo la barra sin usar una altura supuesta de 58 px.
+    const rd = $('.rd'), bar = $('.rd-bar');
+    if (rd && bar) {
+      const measure = () => rd.style.setProperty('--rd-h', Math.ceil(bar.getBoundingClientRect().height) + 'px');
+      measure();
+      if (typeof ResizeObserver !== 'undefined') {
+        barRO = new ResizeObserver(measure);
+        barRO.observe(bar);
+      }
+    }
     const openingId = S.openId, flow = $('#rd-flow');
     io = new IntersectionObserver(async ([e]) => {
       if (!e.isIntersecting || openingId !== S.openId || !flow?.isConnected) return;
@@ -867,7 +878,14 @@ export function createReader(ctx){
     });
   }
   const pop = () => $('.rd-pop');
-  function placePop(rect){ const p = pop(); p.hidden = false; const w = p.offsetWidth; p.style.left = Math.max(8, Math.min(innerWidth - w - 8, rect.left + rect.width / 2 - w / 2)) + 'px'; p.style.top = (rect.top + scrollY - p.offsetHeight - 10) + 'px'; }
+  function placePop(rect){
+    const p = pop(); p.hidden = false;
+    const w = p.offsetWidth, h = p.offsetHeight, left = rect.left + rect.width / 2 - w / 2;
+    p.style.left = Math.max(8, Math.min(innerWidth - w - 8, left)) + 'px';
+    const above = rect.top + scrollY - h - 10, below = rect.bottom + scrollY + 10;
+    const top = above >= scrollY + 8 ? above : below;
+    p.style.top = Math.max(scrollY + 8, Math.min(scrollY + innerHeight - h - 8, top)) + 'px';
+  }
   function onSelect(){
     const sel = getSelection(); if (!sel || sel.isCollapsed) return;
     const r = sel.getRangeAt(0), bEl = r.startContainer.parentElement?.closest('[data-b]'), art = bEl?.closest('.rd-ch');
