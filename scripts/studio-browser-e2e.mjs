@@ -25,6 +25,8 @@ const whitelist = new Map([
  ['/studio-work-fields.js','src/studio-work-fields.js'],
  ['/volume-cover-gallery.js','src/volume-cover-gallery.js'],
  ['/volume-cover-gallery.css','src/volume-cover-gallery.css'],
+ ['/series-cover-editor.js','src/series-cover-editor.js'],
+ ['/series-cover-editor.css','src/series-cover-editor.css'],
  ['/section-types.js','src/section-types.js'],
   ['/editorial-announcements.js','src/editorial-announcements.js'],
  ['/studio.css','src/studio.css'],
