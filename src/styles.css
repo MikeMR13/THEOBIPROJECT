@@ -370,7 +370,12 @@ main>p,main>h1+p{max-width:75ch}
 .ui-series-page .ui-ch-display{display:grid;gap:3px;min-width:0;overflow-wrap:anywhere}
 .ui-series-page .ui-ch-display .ui-ch-type{display:block;color:#edca78;font:700 11px/1.3 'IBM Plex Sans',sans-serif;letter-spacing:.055em;text-transform:uppercase}
 .ui-series-page .ui-ch-display .ui-ch-name{display:block;font-size:14px;line-height:1.45;overflow-wrap:anywhere}
-.ui-series-page .ui-ch-display .ui-ch-global{display:block;color:#aaa08b;font:11px/1.4 'IBM Plex Mono',monospace}
+/* Número editorial destacado; el ID/ordinal global permanece solo en atributos y URL. */
+.ui-series-page .ui-v-index .ui-chl a>.n{display:flex;align-items:center;justify-content:center;flex:none;width:44px;min-width:44px;min-height:44px;padding:4px;border:1px solid #55442e;border-radius:7px;background:#211b11;color:#f0d69a;font:600 17px/1.2 'IBM Plex Mono',monospace;box-sizing:border-box}
+.ui-series-page .ui-v-index .ui-chl a>.n::before{display:none}
+.ui-series-page .ui-v-index .ui-chl a.read>.n::after{content:' ✓';font-size:11px;color:#a9d18e}
+.ui-series-page .ui-v-index .ui-chl a[data-lock]>.n{opacity:.7}
+@media(max-width:480px){.ui-series-page .ui-v-index .ui-chl a>.n{width:46px;min-width:46px;min-height:46px}}
 @media(max-width:480px){.ui-series-page .ui-ch-display .ui-ch-name{font-size:14px}.ui-series-page .ui-v-index .ui-chl a{align-items:start;min-width:0}}
 
 .ui-vols .ui-v-index .ui-chl .fx-tag{white-space:nowrap}
