@@ -962,11 +962,11 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
   /* Continuar se mantiene dentro de Mi biblioteca; evita que la cabecera invada la marca. */
   .top:has(.ob-brand) #session .ob-cont{display:none!important}
   .top:has(.ob-brand) #session :is(.ob-bell,.ob-user)>summary{min-width:36px;min-height:40px;justify-content:center}
-  .ob-tab{
+  .ob-tab.ob-tab{
     grid-template-columns:repeat(6,minmax(0,1fr));
     align-items:stretch;
   }
-  .ob-tab>a,.ob-tab>.ob-tab-more{
+  .ob-tab.ob-tab>a,.ob-tab.ob-tab>.ob-tab-more{
     display:grid;place-items:center;align-content:center;justify-items:center;
     gap:2px;min-width:0;min-height:56px;
     box-sizing:border-box;padding:7px 1px 6px;
@@ -995,7 +995,7 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
     border-radius:6px;z-index:1;
   }
   .ob-tab-panel[hidden],.ob-tab-panel>a[hidden]{display:none!important}
-  .ob-tab-panel>a{
+  .ob-tab .ob-tab-panel>a{
     display:flex;align-items:center;justify-content:flex-start;
     padding:12px 14px;min-height:48px;
     font-size:15px;font-weight:600;line-height:1.35;
@@ -1003,8 +1003,8 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
     background:#231d14;border:1px solid #463722;
     white-space:normal;overflow-wrap:anywhere;text-decoration:none;
   }
-  .ob-tab-panel>a.on{border-color:var(--gold);color:var(--gold)}
-  .ob-tab-panel>a:focus-visible,
+  .ob-tab .ob-tab-panel>a.on{border-color:var(--gold);color:var(--gold)}
+  .ob-tab .ob-tab-panel>a:focus-visible,
   .ob-tab>.ob-tab-more:focus-visible{
     outline:3px solid var(--gold);outline-offset:2px;
   }
