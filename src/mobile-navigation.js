@@ -20,7 +20,7 @@ export function createMobileNavigation(){
   tab.innerHTML =
     MAIN_TABS.map(([path, symbol, title]) =>
       `<a href="${path}"><span aria-hidden="true">${symbol}</span>${title}</a>`).join('') +
-    '<button type="button" class="ob-tab-more" aria-label="Más secciones" aria-expanded="false" aria-controls="ob-tab-panel"><span aria-hidden="true">⋯</span>Más</button>' +
+    '<button type="button" class="ob-tab-more" aria-label="Más secciones" aria-expanded="false" aria-controls="ob-tab-panel"><span aria-hidden="true">他</span>Más</button>' +
     '<div class="ob-tab-panel" id="ob-tab-panel" role="group" aria-label="Secciones adicionales" hidden>' +
     EXTRA_TABS.map(([path,title]) =>
       `<a href="${path}"${path === '/apoyar' ? ' class="ob-sup"' : ''}>${title}</a>`).join('') +
