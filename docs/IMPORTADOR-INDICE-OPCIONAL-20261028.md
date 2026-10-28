@@ -1,26 +1,34 @@
-# Importador — índice editorial opcional por volumen (28/10/2026)
+# Índice editorial universal y escaneo opcional al importar — 28/10/2026
 
-## Qué decide cada traductor
+Este documento sustituye el comportamiento del PR #169: la casilla del importador **ya no decide** el diseño público de cada volumen.
 
-En **Studio → Importar contenido → Revisar**, aparece la casilla **«Mejorar los títulos del índice público de este volumen»**, con vista previa de la sección seleccionada. Es voluntaria: para volúmenes nuevos inicia desactivada. Si se importa sobre un volumen ya existente, se muestra su preferencia actual.
+## Vista pública uniforme
 
-- **Desactivada:** la ficha pública conserva su índice habitual, con número global y título original.
-- **Activada:** la ficha separa, cuando reconoce el prefijo, el número editorial («Capítulo 01», «Capitulo 01», «Captiulo 1», «Cap. 02») del nombre; presenta prólogos y otros tipos sin repetir la etiqueta si el título empieza con ella.
-- Si el título no incluye prefijo reconocido (p. ej. «El despertar»), no se inventa un número editorial: se muestra «Sección» y el número global como metadato.
-- En la vista previa del importador, «Captiulo» se detecta y se explica que la ficha mostrará «Capítulo» sin reescribir el título original.
-- La opción se aplica al **índice de todo el volumen**. Si el equipo agrega secciones a un volumen existente, la elección actualizada afecta a todas las entradas de ese volumen.
+- Todas las obras publicadas presentan el índice con la misma estructura, también en móviles.
+- Si el título de origen comienza con `Capítulo 1`, `Capitulo 01`, `Captiulo 1`, `Cap. 02`, etc., se muestra el número editorial (01/02) en lugar de `chapters.num`. El prefijo se muestra una sola vez como categoría y se separa el subtítulo.
+- Si un capítulo no tiene prefijo reconocible, se muestra como **Sección**, sin inventar ordinal editorial. Pró­logos, epílogos e ilustraciones se muestran sin números inventados.
+- El índice público y el encabezado del lector no presentan la numeración global. El ordinal `chapters.num` permanece inalterado para enlaces, navegación, orden, lectura continua, descargas y seguimiento.
+- Las obras publicadas previamente reciben el mismo diseño, sin modificar filas ni reimportarlas.
+- Los atributos internos de cada fila (ID y número de navegación) siguen disponibles para la aplicación: no son contenido visible.
 
-## Garantías
+## Studio → Importar → Revisar
 
-- Los valores de `chapters.title`, `chapters.num`, el cuerpo `body`, los enlaces `/leer/:slug/:num`, el progreso, las revisiones y las descargas no se modifican.
-- No se reinterpreta el número editorial como identificador de capítulo. La insignia «Sección global N» permite explicar la diferencia.
-- La preferencia reside en `volumes.format_chapter_titles boolean not null default false`, con migración **aditiva**. Los volúmenes antiguos siguen apagados por defecto.
-- La casilla es decisión del traductor, no una configuración global. No habilitar automáticamente en obras existentes.
-- La importación conserva el mecanismo previo de copia/rollback del volumen. Si cambia la preferencia de un volumen existente, el valor anterior también se incluye en el respaldo para deshacer errores.
-- No se cambian políticas RLS ni se introducen servicios de pago.
+**«Escanear nombres y números de capítulos»** es una casilla opcional, apagada por defecto en cada nuevo intento de importación.
+
+- Activada: analiza las secciones seleccionadas, muestra en la vista previa la separación editorial del título y resume capítulos numerados, secciones especiales, títulos sin prefijo y errores frecuentes «Captiulo».
+- Desactivada: el traductor revisa los títulos originales sin ayuda del escaneo.
+- No existe corrección ni renumeración automática. El traductor puede editar manualmente el título durante la revisión, si lo desea.
+- Al importar con escaneo activado, se guarda un resumen técnico del escaneo dentro de `import_jobs.result.title_scan`, sin incluir cuerpos ni reescribir títulos.
+- El formato público nunca depende de la selección del traductor durante la importación.
+
+## Compatibilidad
+
+El campo de legado `volumes.format_chapter_titles` creado en el PR #169 permanece en la base por compatibilidad, pero ya **no se consulta ni actualiza** en la aplicación. No hay migración destructiva.
+
+El texto original del capítulo se conserva en `chapters.title`, así como sus bloques `body`, identificadores, permisos y fecha de publicación. Las rutas siguen usando el ordinal global interno.
 
 ## Validación
 
-`node scripts/chapter-title-import-optin-check.mjs` comprueba prefijos, títulos ambiguos, secciones, modo desactivado, persistencia y preservación de rutas.
+`node scripts/chapter-title-import-optin-check.mjs` comprueba prefijos, casos ambiguos, secciones especiales, integridad de datos, acceso a rutas y que Studio no guarde preferencias visuales.
 
-La comprobación se incorpora a GitHub Actions. El despliegue de la aplicación necesita que la migración aditiva esté aplicada **antes de desplegar** el código que consulta `format_chapter_titles`.
+La validación se integra con la compilación y los navegadores aislados en GitHub Actions; sin dependencias externas de pago.
