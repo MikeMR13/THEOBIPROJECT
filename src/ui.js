@@ -994,7 +994,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       // continuación, sin obligar a esperar toda la rotación para descubrirlo.
       const previewIds = new Set(previews.map(s => s.id));
       const published = feat.filter(s => !previewIds.has(s.id));
-      feat.splice(0, feat.length, ...published.slice(0, 1), ...previews, ...published.slice(1));
+      feat.splice(0, feat.length, ...[...published.slice(0, 1), ...previews, ...published.slice(1)].slice(0, 8));
       heroEl.style.display = '';
       const active = heroEl.dataset.heroKey;
       const selected = feat.findIndex(item => heroKey(item) === active);
@@ -1027,9 +1027,10 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         if(section) bindCars(section);
       } else teamSlot?.remove();
       const previews = feat.filter(x => x.__prelaunch);
-      const lead = feat.find(x => !x.__prelaunch);
+      // La curaduría más reciente determina la portada; no fijar una selección anterior.
+      const lead = covers[0] || feat.find(x => !x.__prelaunch);
       const unique = new Set();
-      const updated = [lead, ...previews, ...covers].filter(x => x && !unique.has(x.id) && unique.add(x.id));
+      const updated = [lead, ...previews, ...covers].filter(x => x && !unique.has(x.id) && unique.add(x.id)).slice(0, 8);
       if (!updated.length) return;
       const changed = updated.length !== feat.length || updated.some((x, i) => x.id !== feat[i]?.id);
       Object.assign(featReasons, extra.bySeries);
