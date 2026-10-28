@@ -123,12 +123,18 @@ function html(){
     '<meta name="viewport" content="width=device-width,initial-scale=1">'+
     '<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/reader-a11y.css">'+
     '</head><body><main id="app"></main><p id="qa-result" data-qa-status="running">Cargando</p>'+
-    '<script type="module">'+js+'</script></body></html>';
+    '<script>window.addEventListener("error",e=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="Error de módulo: "+e.message;}});'+
+    'window.addEventListener("unhandledrejection",e=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="Promesa no controlada: "+String(e.reason);}});'+
+    'setTimeout(()=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="El módulo de pruebas no completó su ejecución";}},9500);</script>'+
+    '<script type="module" src="/qa-browser.js"></script></body></html>';
 }
 const server=createServer((req,res)=>{
   res.setHeader('Cache-Control','no-store');
   const path=(req.url||'/').split('?')[0];
-  if(/^\/[\w-]+\.js$/.test(path) && existsSync('src/'+path.slice(1))){
+  if(path==='/qa-browser.js'){
+    res.setHeader('Content-Type','text/javascript; charset=utf-8');
+    res.end('try {\n'+js+'\n} catch (error) { const p=document.getElementById("qa-result"); p.dataset.qaStatus="fail"; p.textContent="Error del lector en QA: "+(error?.stack || error); }');
+  }else if(/^\/[\w-]+\.js$/.test(path) && existsSync('src/'+path.slice(1))){
     res.setHeader('Content-Type','text/javascript; charset=utf-8');
     res.end(readFileSync('src/'+path.slice(1)));
   }else if(['/styles.css','/reader-a11y.css'].includes(path)){
@@ -156,7 +162,7 @@ try{
   });
   assert.equal(code,0,err.slice(-1200));
   const match=out.match(/<p id="qa-result" data-qa-status="(pass|fail)">([\s\S]*?)<\/p>/);
-  assert(match,'No se completó integración del lector: '+out.slice(-1500));
+  assert(match,'No se completó integración del lector. stderr: '+err.slice(-1100)+'; qa-result: '+(out.match(/<p id="qa-result"[^>]*>[^<]*/)?.[0] || 'ausente'));
   assert.equal(match[1],'pass',match[2]);
   console.log('Fase 4 · integración Chromium aislada: '+match[2]);
 }finally{await new Promise(resolve=>server.close(resolve))}
