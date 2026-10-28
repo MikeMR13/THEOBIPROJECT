@@ -16,8 +16,14 @@ assert(ui.includes('new Date(b.at)-now <= 14*864e5'),
   'Priorizar en Inicio estrenos dentro de los próximos 14 días');
 assert(ui.includes('ESTRENO MAÑANA · VOL. ') && ui.includes('PRÓXIMO ESTRENO · VOL. '),
   'Respetar etiqueta pública y destacar las próximas 24 horas cuando se estrene mañana');
-assert(featured.includes('const freshDebuts=launches.filter(') && featured.includes('<2*MS_DAY'),
-  'El primer puesto garantizado debe caducar a las 48 horas');
+assert(featured.includes('const freshVolumes=updates.filter(') && featured.includes('<2*MS_DAY')
+  && featured.includes('...freshVolumes,...freshDebuts'),
+  'Los volúmenes recién publicados, no solo los debuts, deben liderar durante 48 horas');
+assert(ui.includes('const lead = covers[0] || feat.find('),
+  'Los datos diferidos no deben restaurar un destacado menos reciente');
+assert(ui.includes('...published.slice(1)].slice(0, 8)') &&
+  ui.includes('...previews, ...covers].filter(') && ui.includes('.slice(0, 8)'),
+  'Carrusel mixto y preestrenos deben respetar el máximo de ocho diapositivas');
 assert(featured.includes('const firstTeam=pool.team.find(') && featured.includes('teamRecommendations:pool.team'),
   'Rotar equipo destacado y conservar todos los equipos en la banda independiente');
 console.log('✓ Carrusel: prioridad 48h, adelantos cercanos y selección activa estable.');

@@ -97,8 +97,8 @@ assert(debut.entries.some(x=>x.id==='completo'&&x.kind==='release'),'Conservar o
 const afterWeek=homeFeaturedSelection({...launchInput,now:new Date('2026-11-02T21:20:00Z')});
 assert(!afterWeek.pool.release.some(x=>x.label==='Nuevo lanzamiento'),'Ningún estreno queda etiquetado como nuevo para siempre');
 
-// Editorial 2026-10-23: un estreno de menos de 48 h lidera incluso frente
-// a una traducción finalizada minutos después. La etiqueta dura siete días.
+// Editorial: los volúmenes más recientes (incluidos los que completan una
+// traducción) compiten por fecha durante 48 h. La etiqueta dura siete días.
 const competing={...launchInput,news:{entries:[
   launchInput.news.entries[0],
   {...launchInput.news.entries[1],at:'2026-10-23T21:11:00Z',
@@ -106,8 +106,27 @@ const competing={...launchInput,news:{entries:[
   launchInput.news.entries[2]
 ]}};
 const priority=homeFeaturedSelection(competing);
-assert.equal(priority.entries[0].id,'nuevo','Primeras 48 h: el debut reciente es el protagonista');
-assert.equal(priority.entries[0].label,'Nuevo lanzamiento');
+assert.equal(priority.entries[0].id,'completo','Primeras 48 h: el volumen público más reciente debe abrir el carrusel');
+assert.equal(priority.entries[1].id,'nuevo','Un debut reciente conserva la segunda posición de lanzamientos');
+assert.equal(priority.entries[0].label,'¡Novela completa!','Conservar la etiqueta de volumen finalizado cuando sea el más reciente');
+// Regresión 28/oct: un volumen 3 estrenado hoy prevalece sobre debuts y
+// novelas completas de días anteriores; no necesita ser el volumen 1.
+const newVolume={id:'antiguo',kind:'volume',at:'2026-10-23T21:18:00Z',
+  time:Date.parse('2026-10-23T21:18:00Z'),volume:{num:3,is_final:false}};
+const withVolume3=homeFeaturedSelection({...launchInput,
+  news:{...launchInput.news,entries:[newVolume,...launchInput.news.entries]}});
+assert.equal(withVolume3.entries[0].id,'antiguo','El volumen 3 recién estrenado debe ocupar el primer lugar');
+assert.equal(withVolume3.entries[0].label,'Nuevo volumen','No confundir un volumen 3 con debut ni novela completa');
+assert.equal(withVolume3.entries[1].id,'nuevo','El debut anterior conserva la segunda plaza');
+assert.equal(withVolume3.entries.filter(x=>x.kind==='release').length,2,
+  'Mantener dos cupos de lanzamientos sin eliminar otras categorías');
+assert.equal(new Set(withVolume3.entries.map(x=>x.id)).size,withVolume3.entries.length,
+  'Un volumen nuevo no debe duplicar la novela en otra categoría');
+const oldVolume=homeFeaturedSelection({...launchInput,now:new Date('2026-10-26T21:20:00Z'),
+  news:{...launchInput.news,entries:[newVolume,...launchInput.news.entries]}});
+assert.equal(oldVolume.entries[0].id,'completo',
+  'Tras las 48 h deja de ser obligatoria la primera posición para el volumen 3');
+
 const after48=homeFeaturedSelection({...competing,now:new Date('2026-10-26T21:20:00Z')});
 assert.equal(after48.entries[0].id,'completo','Pasadas 48 h ya no se fija el debut delante de novedades más pertinentes');
 assert(after48.pool.release.some(x=>x.id==='nuevo' && x.label==='Nuevo lanzamiento'),
