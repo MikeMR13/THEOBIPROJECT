@@ -17,12 +17,24 @@ export const SUGGEST = {
 const SOUTH = /^(America\/(Argentina|Santiago|Montevideo|Asuncion|Sao_Paulo|La_Paz|Lima|Punta_Arenas)|Australia\/|Pacific\/(Auckland|Fiji|Chatham)|Africa\/(Johannesburg|Maputo|Harare|Windhoek|Lusaka|Gaborone)|Antarctica\/)/;
 export const hemiOf = tz => SOUTH.test(tz || '') ? 'sur' : 'norte';
 export const INT = { sutil: 'Sutil', media: 'Media', alta: 'Alta' }, DEN = { pocas: 'Pocas', normal: 'Normal', muchas: 'Muchas' };
-let CFG = null, loading = null, stops = [];
+let CFG = null, loading = null, stops = [], loadedAt = 0;
+const SEASON_CACHE_MS = 120000; // Revalidar al navegar tras dos minutos y siempre al volver a la pestaña.
 const LUNAR = ['seollal', 'chuseok', 'tsukimi', 'dano', 'buda', 'pascua'];
 // Fechas que cambian cada año: las de la base (sincronizadas con Calendarific) reemplazan a las escritas en el código.
 async function mergeDates(sb){ try { const { data } = await sb.from('season_calendar').select('key,day').in('key', LUNAR).not('day', 'is', null); for (const r of data || []) { const s = SEASONS[r.key]; if (s?.d) s.d.years[+r.day.slice(0, 4)] = r.day.slice(5); } } catch {} }
 // Si la lectura falla (p. ej. sesión con token vencido al entrar), no se guarda el fallo: se reintenta en la siguiente carga.
-export function load(sb, force){ if (loading && !force) return loading; const p = loading = Promise.all([sb.from('platform_settings').select('seasons').eq('id', 1).maybeSingle().then(({ data, error }) => { if (error || !data) { if (loading === p) loading = null; return CFG || {}; } return (CFG = data.seasons || {}); }, () => { if (loading === p) loading = null; return CFG || {}; }), mergeDates(sb)]).then(([c]) => c); return p; }
+export function load(sb, force = false){
+  if (!force && loading && Date.now() - loadedAt < SEASON_CACHE_MS) return loading;
+  const p = loading = Promise.all([
+    sb.from('platform_settings').select('seasons').eq('id', 1).maybeSingle().then(({ data, error }) => {
+      if (error || !data) { if (loading === p) loading = null; return CFG || {}; }
+      return (CFG = data.seasons || {});
+    }, () => { if (loading === p) loading = null; return CFG || {}; }),
+    mergeDates(sb)
+  ]).then(([c]) => c);
+  loadedAt = Date.now();
+  return p;
+}
 export const config = () => CFG || {};
 // Una sola vez: antes la × del saludo apagaba los temas sin querer; se vuelven a encender. Desde Preferencias se pueden apagar de nuevo.
 try { if (!localStorage.getItem('obi-season-mig1')) { localStorage.removeItem('obi-season'); localStorage.setItem('obi-season-mig1', '1'); } } catch {}
@@ -48,7 +60,7 @@ export function apply(kind, o = {}){
     H.style.setProperty('--gold', act); stops.push(() => H.style.removeProperty('--gold'));
     return;
   }
-  const brand = document.querySelector('header.top .brand');
+  const brand = document.querySelector('header.top .ob-brand, header.top .brand');
   if (brand && mot) { const st = mk('obi-sea-stamp', brand); st.title = s.l; st.style.backgroundImage = `url('${mot}')`; }
   if (kind !== 'team') {
     H.style.setProperty('--gold', act); stops.push(() => H.style.removeProperty('--gold'));
@@ -66,15 +78,16 @@ export function apply(kind, o = {}){
   if (!still) { const layer = mk('obi-sea-layer' + (kind === 'team' ? ' over' : ''), document.body); stops.push(particles(layer, { type: s.p, color: s.ac, density: de, where: 'page', intensity: it, mobile: mob })); }
 }
 const CSS = `
-.obi-sea-layer{position:fixed;inset:0;pointer-events:none;z-index:-1}.obi-sea-layer.over{z-index:40;opacity:.6}.obi-sea-layer>canvas{position:absolute;inset:0;width:100%;height:100%}
-.obi-sea-pat{position:fixed;inset:0;pointer-events:none;z-index:-1;opacity:.07;background-repeat:repeat}
-.obi-sea-stamp{display:inline-block;width:26px;height:26px;margin-left:2px;background:center/contain no-repeat;transform:rotate(8deg);filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
+/* Capas por encima del fondo pero detrás de la cabecera y modales; no capturan clics. */
+.obi-sea-layer{position:fixed;inset:0;pointer-events:none;z-index:2;opacity:.55}.obi-sea-layer.over{z-index:40;opacity:.6}.obi-sea-layer>canvas{position:absolute;inset:0;width:100%;height:100%}
+ .obi-sea-pat{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.07;background-repeat:repeat}
+.obi-sea-stamp{display:inline-block;flex:none;width:26px;height:26px;margin-left:2px;background:center/contain no-repeat;transform:rotate(8deg);filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
 .obi-sea-greet{display:flex;gap:12px;align-items:center;margin:0 0 22px;padding:10px 12px 10px 14px;background:color-mix(in srgb,var(--sea) 14%,#16140f);border:1px solid var(--sea);font-family:'Shippori Mincho B1',serif;font-size:17px;line-height:1.35}
 .obi-sea-greet i{width:34px;height:34px;flex:none;background:center/contain no-repeat}.obi-sea-greet span{flex:1;display:grid;gap:2px}.obi-sea-greet small{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--sea)}
 .obi-sea-greet button{flex:none;width:32px;height:32px;background:none;border:1px solid #3d3628;color:#a89f8a;font-size:18px;cursor:pointer}.obi-sea-greet button:hover{border-color:var(--sea);color:var(--paper)}
-.obi-sea-cor{position:absolute;top:0;width:clamp(48px,6vw,84px);aspect-ratio:1;background:center/contain no-repeat;pointer-events:none;z-index:-1;opacity:.9;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}.obi-sea-cor.l{left:0;transform:translate(-28%,-28%) rotate(-10deg)}.obi-sea-cor.r{right:0;transform:translate(28%,-28%) rotate(12deg) scaleX(-1)}
+.obi-sea-cor{position:absolute;top:0;width:clamp(48px,6vw,84px);aspect-ratio:1;background:center/contain no-repeat;pointer-events:none;z-index:0;opacity:.9;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}.obi-sea-cor.l{left:0;transform:translate(-28%,-28%) rotate(-10deg)}.obi-sea-cor.r{right:0;transform:translate(28%,-28%) rotate(12deg) scaleX(-1)}
 html[data-season] #hero{isolation:isolate}
-.obi-sea-orn{position:absolute;left:0;right:0;bottom:0;height:clamp(34px,5vw,56px);background:center bottom/auto 100% repeat-x;pointer-events:none;z-index:-1;opacity:.75}
+.obi-sea-orn{position:absolute;left:0;right:0;bottom:0;height:clamp(34px,5vw,56px);background:center bottom/auto 100% repeat-x;pointer-events:none;z-index:0;opacity:.75}
 html[data-season] .rd-bar{border-bottom-color:color-mix(in srgb,var(--sea) 55%,var(--ln))}
 @media(max-width:700px){.obi-sea-cor.r{display:none}.obi-sea-greet{font-size:15px}}
 `;

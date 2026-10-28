@@ -98,6 +98,16 @@ jobs:
         run: node scripts/mobile-phase3-perf-budget.mjs
       - name: Fase 3 móvil — navegación accesible y foco en Chromium (320–1024)
         run: node scripts/mobile-phase3-a11y-browser.mjs
+      - name: Temporadas y auditoría iPhone — menú, títulos, efectos y movimiento reducido
+        run: node --check scripts/season-mobile-visual-regression-browser.mjs && node scripts/season-mobile-visual-regression-browser.mjs
+      - name: Guardar comparativa visual de temporada y menú (24 horas)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: temporada-menu-titulos-qa
+          path: qa-capturas/temporada-menu-titulos-*.png
+          retention-days: 1
+          if-no-files-found: warn
       - name: Móvil — índice, botones y cabecera sin solapamientos (Chromium 320–1024)
         run: node scripts/mobile-layout-regression-check.mjs
       - name: Ficha pública — pestañas y descargas separadas (Chromium responsive)

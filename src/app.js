@@ -229,6 +229,21 @@ async function afterRender(){
     return S.apply('page');
   } catch (e) { console.warn('temporada', e); }
 }
+// Al regresar a Safari desde segundo plano, la configuración del Bibliotecario
+// pudo cambiar en otra pestaña. Refrescar solo los adornos, sin volver a pintar la página.
+let seasonResumeAt = 0;
+async function resumeSeasonTheme(){
+  if (!navigator.onLine || document.hidden || Date.now() - seasonResumeAt < 30000) return;
+  seasonResumeAt = Date.now();
+  try {
+    const S = await seasons();
+    await S.load(sb, true);
+    await afterRender();
+  } catch (e) { console.warn('temporada al regresar', e); }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) void resumeSeasonTheme(); });
+addEventListener('pageshow', e => { if (e.persisted) void resumeSeasonTheme(); });
+
 async function render0(){
 const p = location.pathname; let m;
 scrollTo(0, 0); document.body.classList.remove('in-studio');
