@@ -715,3 +715,13 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
  .s2 .wk-box .tb-inl{display:flex;align-items:flex-start;gap:8px 10px;min-width:0;max-width:100%;flex-wrap:wrap;line-height:1.5;overflow-wrap:break-word}
  .s2 .wk-box .tb-inl>select{flex:1 1 100%;width:100%;max-width:100%;margin-left:28px;min-height:44px}
 }
+
+/* Edición de volumen: sinopsis cómoda de leer y editar en pantallas pequeñas. */
+@media(max-width:600px){
+ .s2 .imp-fg textarea[name="synopsis"]{
+  width:100%;min-width:0;min-height:200px;resize:vertical;
+  line-height:1.6
+ }
+ main:has(>.ob-page){padding-bottom:28px}
+ .ob-page>.ob-sec:last-child{padding-bottom:20px}
+}
