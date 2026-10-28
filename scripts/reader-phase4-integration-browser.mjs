@@ -7,6 +7,17 @@ import { spawn, execFileSync } from 'node:child_process';
 
 const js = String.raw`
 window.__qaStage='módulo iniciado';
+// Cache Storage determinista para las carreras de navegación. La API real ya se prueba
+// en pwa-offline-browser-check.mjs; aquí aislamos demoras de I/O ajenas al lector.
+const syntheticCache = new Map();
+const cacheKey = key => typeof key==='string' ? new URL(key,location.href).href : key.url;
+const volumeCache = {
+  match:async key => syntheticCache.get(cacheKey(key))?.clone() || null,
+  keys:async () => [...syntheticCache.keys()].map(url=>({url})),
+  delete:async key => syntheticCache.delete(cacheKey(key)),
+  put:async (key,value) => { syntheticCache.set(cacheKey(key),value.clone()); }
+};
+Object.defineProperty(window,'caches',{configurable:true,value:{open:async()=>volumeCache}});
 const sleep = ms => new Promise(r => setTimeout(r,ms));
 const errors=[];
 window.addEventListener('error',e=>errors.push(e.message));
@@ -26,6 +37,7 @@ const series={id:'serie-fixture',slug:'obra-fixture',title:'Obra de pruebas del 
   team_id:'equipo-fixture',teams:{name:'Equipo ficticio',slug:'equipo',status:'active',settings:{},reader_defaults:{}}};
 const volumes=[{id:'v1',num:1,title:'Volumen uno',epub_fonts:[]},{id:'v2',num:2,title:'Volumen dos',epub_fonts:[]}];
 const hits={meta:0,body:0,lock:0,credits:0};
+window.__qaHits=hits;
 function query(table) {
   const q={table,fields:'',params:{},_limit:0,
     select(fields){this.fields=fields;return this},
@@ -138,7 +150,8 @@ function html(){
     '</head><body><main id="app"></main><p id="qa-result" data-qa-status="running">Cargando</p>'+
     '<script>window.__qaStage="cargando módulo";window.addEventListener("error",e=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="Error de módulo: "+e.message;}});'+
     'window.addEventListener("unhandledrejection",e=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="Promesa no controlada: "+String(e.reason);}});'+
-    'setTimeout(()=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="No finalizó QA, etapa: "+(window.__qaStage||"desconocida");}},9500);</script>'+
+    'setTimeout(()=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="No finalizó QA, etapa: "+(window.__qaStage||"desconocida")+
+      " · solicitudes: "+JSON.stringify(window.__qaHits||{});}},9500);</script>'+
     '<script type="module" src="/qa-browser.js"></script></body></html>';
 }
 const server=createServer((req,res)=>{
