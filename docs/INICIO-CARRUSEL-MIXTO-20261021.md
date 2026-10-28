@@ -1,8 +1,8 @@
 # Portada mixta de Inicio — rotación de destacadas (21 de octubre de 2026)
 
 ## Selección visible
-- Base editorial diaria de 7 posiciones: 2 nuevos lanzamientos y una obra de cada grupo: popular de la semana, histórico, elección editorial, joya por descubrir y tendencia. **Se agregan todas las obras recomendadas por equipos** sin límite de equipos ni de diapositivas en el carrusel.
-- Hasta 3 candidatas por categoría editorial. **Los equipos no tienen límite conjunto**: cada equipo puede recomendar una obra, que aparece en el carrusel durante 7 días desde la elección y se retira automáticamente; si hay 14 equipos, las 14 recomendaciones pueden aparecer juntas.
+- Carrusel principal compacto de hasta **ocho posiciones**: dos lanzamientos recientes, una recomendación rotativa de equipo y opciones de popular semanal, histórico, elección editorial, joya por descubrir y tendencia.
+- Hasta tres candidatas por categoría editorial. Cada equipo puede recomendar una obra durante siete días desde la elección. El carrusel principal destaca un equipo rotativo, mientras que **todas las recomendaciones activas** permanecen accesibles en la banda independiente de equipos (cuando hay varias).
 - La rotación diaria es determinista en zona `America/Monterrey` y no depende de tareas programadas ni de cookies.
 - Una novela puede pertenecer a varias categorías, pero se muestra una sola vez. No se rellenan espacios duplicando novelas si el catálogo es pequeño.
 - Los lanzamientos de volúmenes publicados se anuncian como volumen, sin desglosar capítulos.
