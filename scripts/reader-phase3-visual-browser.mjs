@@ -27,14 +27,17 @@ function qa(){
     if(r.left < -2 || r.right > width+2) bad(s+' fuera de la pantalla '+Math.round(r.left)+'..'+Math.round(r.right));
   }
   for(const b of document.querySelectorAll('.rd-tools .btn,.rd-more summary,.rd-opt button,.rd-opt input[type=range],.rd-pop .sw')){
+    if(!b.getClientRects().length) continue; // el menú «⋯» solo aparece en móvil
     if(b.getBoundingClientRect().height<43.5) bad('Área táctil pequeña: '+(b.textContent||b.className));
   }
   if(width<=540){
     if(getComputedStyle(bar).display!=='grid')bad('Barra móvil no se adapta');
     if(getComputedStyle($('.rd-back')).textOverflow!=='ellipsis')bad('Título largo no se abrevia visualmente');
   }
-  if($('.rd-tools [data-act=toc]')?.hidden || $('.rd-tools [data-act=prefs]')?.hidden ||
-    $('.rd-tools [data-act=zen]')?.hidden || $('.rd-more summary')?.hidden)bad('Faltan herramientas');
+  if(!$('.rd-tools [data-act=toc]')?.getClientRects().length ||
+    !$('.rd-tools [data-act=prefs]')?.getClientRects().length ||
+    !$('.rd-tools [data-act=zen]')?.getClientRects().length)bad('Faltan herramientas principales');
+  if((width<=700) !== !!$('.rd-more summary')?.getClientRects().length)bad('Menú de herramientas incorrecto según la anchura');
   const first=panel.getBoundingClientRect();
   if(first.width>width+1)bad('Panel de ajustes desbordado');
   if(getComputedStyle(panel).overflowY!=='auto' && getComputedStyle(panel).overflowY!=='scroll')bad('Panel sin scroll');
