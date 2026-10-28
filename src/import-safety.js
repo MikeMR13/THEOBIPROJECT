@@ -5,11 +5,11 @@ export function planVolumeReplacement(existing, volumeId, volNum, count) {
   const original = (existing || []).filter(c => !c.deleted_at &&
     (c.volume_id === volumeId || (!c.volume_id && +c.vol === +volNum)))
     .sort((a,b) => +a.num - +b.num);
+  if (!original.length) throw new Error('El volumen no tiene capítulos activos que reemplazar. Elige «Agregar».');
   if (count > original.length) throw new Error(
     'El volumen tiene ' + original.length + ' capítulos y el archivo trae ' + count +
     '. Para conservar los números y enlaces, importa las secciones adicionales con «Agregar», o ajusta el archivo antes de reemplazar.'
   );
-  if (!original.length) throw new Error('El volumen no tiene capítulos activos que reemplazar. Elige «Agregar».');
   return { update: original.slice(0,count), remove: original.slice(count) };
 }
 export function validateImportMedia({ chapters, images, cover, allImages, maxBytes }) {
