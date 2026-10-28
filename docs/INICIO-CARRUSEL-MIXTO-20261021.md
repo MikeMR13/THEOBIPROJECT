@@ -7,8 +7,10 @@
 - Una novela puede pertenecer a varias categorías, pero se muestra una sola vez. No se rellenan espacios duplicando novelas si el catálogo es pequeño.
 - Los lanzamientos de volúmenes publicados se anuncian como volumen, sin desglosar capítulos.
 
-## Excepción inmediata: publicación de una novela completa
-- Ante una publicación nueva de volumen completo identificada por `volumes.is_final = true` o porque la serie está marcada `translation_status = completed`, la novela pasa al primer lugar de los lanzamientos (máximo dos visibles).
+## Prioridad inmediata de lanzamientos (actualizada 28/oct/2026)
+- Cualquier volumen anunciado y publicado en las últimas **48 horas**, sea el volumen 1, 3 o posterior, tiene prioridad sobre rankings, recomendaciones y publicaciones antiguas. Si coinciden varios, la primera diapositiva es el **volumen público más reciente**.
+- Se reservan como máximo dos lugares para lanzamientos en el carrusel principal. El debut mantiene la etiqueta «Nuevo lanzamiento» durante siete días, pero pasado el plazo de 48 horas deja de tener el primer lugar garantizado.
+- Las novelas completas (`volumes.is_final = true` o `translation_status = completed`) mantienen prioridad secundaria durante siete días; nunca deben desplazar un volumen más reciente dentro de sus primeras 48 horas.
 - La excepción se aplica al construir cada Home y también a sesiones que permanezcan abiertas: una consulta ligera por minuto detecta un `announced_at` más reciente y actualiza Inicio automáticamente.
 - Los demás grupos mantienen su lista del día. Al llegar el próximo día, se recalcula la portada con la selección más reciente.
 - Para evitar confundir contenido histórico con estreno, solo se priorizan publicaciones válidas de los últimos siete días.
