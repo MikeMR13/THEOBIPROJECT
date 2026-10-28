@@ -1,15 +1,22 @@
 // Se ejecuta en Chromium contra documentos ZIP/PDF generados en memoria, sin Supabase.
 const result=document.getElementById('qa-result');
+window.__qaStage='iniciando módulo';
 window.addEventListener('error',e=>{if(result.dataset.status==='running'){result.dataset.status='fail';result.textContent='JS: '+e.message}});
 const check=(condition,message)=>{if(!condition)throw new Error(message)};
 try{
+  window.__qaStage='importando módulo';
   const {createImporter}=await import('/studio-importer.js');
+  window.__qaStage='creando importador';
   const imp=createImporter({LIMITS:{file:80*1024*1024,entries:15000,unzipped:300*1024*1024,image:8*1024*1024}});
   async function fixture(name,method,type){
+    window.__qaStage='cargando '+name;
     const r=await fetch('/fixtures/'+name);
     check(r.ok,'Falta archivo real '+name);
     const file=new File([await r.arrayBuffer()],name,{type});
-    return await imp[method](file);
+    window.__qaStage='decodificando '+name;
+    const output=await imp[method](file);
+    window.__qaStage='decodificado '+name;
+    return output;
   }
   const epub=await fixture('qa.epub','qaParseEpub','application/epub+zip');
   check(epub.title==='Novela de validación','EPUB: título ausente');
