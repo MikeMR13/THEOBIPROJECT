@@ -21,7 +21,7 @@ assert(editor.includes('async function editor(id){'), 'Editor no preservado');
 assert(importer.includes('async function importer(){'), 'Importador no preservado');
 for (const name of ['parseEpub','parseDocx','parsePdf']) assert(importer.includes('await '+name+'(f)'), 'Importador perdió '+name);
 assert(importer.includes("await sb.rpc('publish_volume'"), 'Falta publicación de volumen');
-assert(importer.includes("await sb.from('import_jobs').update({ status: 'failed'"), 'Falta rollback');
+assert(importer.includes("status:'failed'") && importer.includes('rollbackErrors'), 'Falta rollback y registro de fallos');
 assert(!importer.includes('UI.stop?.()'), 'Temporizador no válido en parser PDF');
 assert.equal(await createEditor({ensure:async()=>false})('test'), undefined);
 assert.equal(await createImporter({ensure:async()=>false})(), undefined);
