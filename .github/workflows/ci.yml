@@ -94,6 +94,10 @@ jobs:
         run: node scripts/series-editorial-phase34-check.mjs
       - name: Fase 2 móvil — Inicio, Catálogo y Studio (Chromium 320/375/390/430)
         run: node scripts/mobile-experience-phase2-browser.mjs
+      - name: Fase 3 móvil — presupuesto del build y recursos comprimidos
+        run: node scripts/mobile-phase3-perf-budget.mjs
+      - name: Fase 3 móvil — navegación accesible y foco en Chromium (320–1024)
+        run: node scripts/mobile-phase3-a11y-browser.mjs
       - name: Móvil — índice, botones y cabecera sin solapamientos (Chromium 320–1024)
         run: node scripts/mobile-layout-regression-check.mjs
       - name: Ficha pública — pestañas y descargas separadas (Chromium responsive)

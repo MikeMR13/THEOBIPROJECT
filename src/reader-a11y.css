@@ -143,3 +143,14 @@ body.rd-zen .rd-zen-x{
   .ui-chl li>.obi-offline-btn{margin-left:auto}
   .ui-series-actions>.obi-offline-btn{flex:1 1 160px}
 }
+
+
+/* Fase 3 móvil — foco reconocible en navegación, búsqueda e índices editoriales. */
+:where(header.top nav a,.ob-mbtn,.ob-tools button,.ui-chip,.ui-fdet>summary,.ui-v-index>summary,.ui-chl a,.ui-chl button):focus-visible{
+  outline:3px solid var(--gold,#f2c230);
+  outline-offset:3px;
+}
+/* Solo en dispositivos táctiles: mejorar la superficie sin cambiar los iconos. */
+@media (pointer:coarse){
+  .ui-fdet>summary,.ui-v-index>summary,.ob-mbtn,.ob-tools button{min-height:44px}
+}
