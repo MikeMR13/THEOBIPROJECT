@@ -629,7 +629,7 @@ export function createReader(ctx){
   const volTitle = n => { const v = S.vols.find(x => x.num === n); return v?.title && v.title !== String(n) ? ' · ' + esc(v.title) : ''; };
   function prefsPanel(){
     const ch = S.active, vid = ch.volume_id, p = effective(vid), scoped = !!S.remote.per_volume[vid];
-    const opt = (k, list) => `<div class="rd-opt"><span class="mono">${list.label}</span><div>${list.o.map(([v, l]) => `<button data-k="${k}" data-v="${v}" class="${String(p[k]) === String(v) ? 'on' : ''}">${l}</button>`).join('')}</div></div>`;
+    const opt = (k, list) => `<div class="rd-opt"><span class="mono">${list.label}</span><div>${list.o.map(([v, l]) => `<button data-k="${k}" data-v="${v}" class="${String(p[k]) === String(v) ? 'on' : ''}" aria-pressed="${String(p[k]) === String(v)}">${l}</button>`).join('')}</div></div>`;
     const pn = toggle({ kind: 'prefs', body: `
       ${opt('theme', { label: 'Tema', o: [['auto','Como el sistema'],['claro','Claro'],['sepia','Sepia'],['noche','Noche cálida'],['oscuro','Oscuro'],['negro','Negro (OLED)']] })}
       <div class="rd-opt"><span class="mono">Tamaño · <b data-size-l>${p.size}px</b></span><input type="range" min="14" max="30" value="${p.size}" data-k="size"></div>
@@ -662,7 +662,7 @@ export function createReader(ctx){
     const pn = panel(); if (pn.hidden || pn.dataset.kind !== 'prefs') return;
     if (k === 'continuous' || k === 'autonext') { const st = pn.scrollTop; pn.hidden = true; prefsPanel(); panel().scrollTop = st; return; }
     const p = effective(S.active.volume_id);
-    pn.querySelectorAll(`button[data-k="${k}"]`).forEach(b => b.classList.toggle('on', String(p[k]) === b.dataset.v));
+    pn.querySelectorAll(`button[data-k="${k}"]`).forEach(b => { const selected = String(p[k]) === b.dataset.v; b.classList.toggle('on', selected); b.setAttribute('aria-pressed', String(selected)); });
     if (k === 'size') pn.querySelector('[data-size-l]').textContent = p.size + 'px';
     if (k === 'autosecs') pn.querySelector('[data-autosecs-l]').textContent = Math.min(30, Math.max(3, +p.autosecs || 5)) + ' s';
   }
@@ -807,7 +807,7 @@ export function createReader(ctx){
     const start = textOffset(bEl, r.startContainer, r.startOffset), end = endIn ? textOffset(bEl, r.endContainer, r.endOffset) : bEl.textContent.length;
     const quote = bEl.textContent.slice(start, end).trim(); if (!quote) return;
     const draft = { chapter_id: art.dataset.ch, block: +bEl.dataset.b, start_at: start, end_at: end, quote };
-    pop().innerHTML = Object.entries(COLORS).map(([k, c]) => `<button class="sw" data-c="${k}" style="background:${c}" aria-label="Subrayar ${k}"></button>`).join('') + '<button data-x="note">Nota</button><button data-x="quote">Citar</button>';
+    pop().innerHTML = Object.entries(COLORS).map(([k, c]) => `<button class="sw" data-c="${k}" style="--swatch:${c}" aria-label="Subrayar ${k}"></button>`).join('') + '<button data-x="note">Nota</button><button data-x="quote">Citar</button>';
     placePop(r.getBoundingClientRect());
     pop().onclick = async e => {
       const c = e.target.dataset.c, x = e.target.dataset.x;
@@ -829,7 +829,7 @@ export function createReader(ctx){
   function editAnnot(a){
     const m = $(`mark[data-an="${a.id}"]`); if (!m) return;
     pop().innerHTML = `<div style="display:grid;gap:8px;width:min(320px,80vw)">
-      <div style="display:flex;gap:6px">${Object.entries(COLORS).map(([k, c]) => `<button class="sw ${a.color === k ? 'on' : ''}" data-c="${k}" style="background:${c}" aria-label="${k}"></button>`).join('')}</div>
+      <div style="display:flex;gap:6px">${Object.entries(COLORS).map(([k, c]) => `<button class="sw ${a.color === k ? 'on' : ''}" data-c="${k}" style="--swatch:${c}" aria-label="${k}"></button>`).join('')}</div>
       <textarea rows="3" placeholder="Nota privada">${esc(a.note || '')}</textarea>
       <label class="mono"><input type="checkbox" ${a.shared ? 'checked' : ''} data-share> Compartir como cita pública</label>
       <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" data-x="save">Guardar</button><button class="btn ghost" data-x="quote">Citar</button><button class="btn ghost" data-x="del">Borrar</button></div></div>`;
