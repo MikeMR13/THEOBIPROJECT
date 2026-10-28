@@ -47,6 +47,7 @@ assert.deepEqual(gallery,[root+'galeria/uno.webp',root+'vol-2/dos.jpg']);
 assert.deepEqual(folders,[root+'galeria',root+'vol-2']);
 const importer=readFileSync('src/studio-importer.js','utf8');
 const studio=readFileSync('src/studio.js','utf8');
+const galleryModule=readFileSync('src/volume-cover-gallery.js','utf8');
 const css=readFileSync('src/studio.css','utf8');
 for(const marker of [
  'planVolumeReplacement(old,vol.id,D.vnum,inc.length)',
@@ -59,7 +60,9 @@ for(const marker of [
 ]) assert(importer.includes(marker),'Importador: contrato ausente '+marker);
 assert(!importer.includes('globalThis.pdfjsWorker = await import('));
 assert(!importer.includes('supera 8 MB y se omitió'),'No deben omitirse ilustraciones silenciosamente');
-for(const marker of ['data-vgallery','data-vcoverpick','loadVolumeCoverChoices(', 'aria-pressed=','await setCover(path);showCover(path)'])
+for(const marker of ['data-vgallery','bindVolumeCoverGallery('])
  assert(studio.includes(marker),'Editar volumen: contrato ausente '+marker);
+for(const marker of ['data-vcoverpick','loadVolumeCoverChoices(', 'aria-pressed=','await setCover(path);showCover(path)'])
+ assert(galleryModule.includes(marker),'Selector de portada: contrato ausente '+marker);
 assert(css.includes('.wk-vgallery-grid'),'Falta estilo responsive de portada');
 console.log('Importador seguro y portada desde Multimedia: numeración, permisos, imágenes, rollback y selector OK');
