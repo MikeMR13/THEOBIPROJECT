@@ -12,6 +12,7 @@ import { formatChapterIndex } from './chapter-title-display.js?v=1';
 import { editorialChapterLabel, editorialChapterDescription, editorialChapterGroup, editorialSectionSummary, editorialSectionCounts, genericSectionCount } from './editorial-public-labels.js?v=1';
 import { planReadingChanges, persistReadingChanges, applyReadingChanges } from './library-read-actions.js';
 import { chooseActiveEditorial } from './editorial-announcements.js?v=1';
+import { createMobileNavigation, bindMobileNavigation } from './mobile-navigation.js?v=1';
 // Géneros/etiquetas que el lector ocultó en Preferencias › Contenido.
 const hidS = s => { const H = window.__obiUI?.hide; if (!H?.length) return false; const S = new Set(H.map(x => String(x).toLowerCase())); return [...(s.genres || []), ...(Array.isArray(s.tags) ? s.tags : [])].some(g => S.has(String(g).toLowerCase())); };
 const CSS = `
@@ -353,15 +354,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const ses = document.getElementById('session');
     top.innerHTML = `<a href="/" class="ob-brand"><span class="ob-seal">帯</span><span class="ob-word"><b>El Obi del Lector</b></span></a>
       <nav class="ob-nav" id="ob-nav-m">${[['/','Inicio'],['/catalogo','Catálogo'],['/biblioteca','Mi biblioteca'],['/calendario','Calendario'],['/ranking','Ranking']].map(([h,l]) => `<a href="${h}">${l}</a>`).join('')}<a href="/apoyar" class="ob-sup">援 Apoyar</a></nav>
-      <button type="button" class="ob-mbtn" aria-label="Abrir menú" aria-expanded="false" aria-controls="ob-nav-m">☰</button>
       <div class="ob-tools"><input class="ob-search" id="ob-q" type="search" placeholder="Buscar títulos, autores…" aria-label="Buscar"></div>`;
     addEventListener('scroll', () => top.classList.toggle('ob-min', scrollY > 40), { passive: true });
-    { const mb = top.querySelector('.ob-mbtn'), set = on => { top.classList.toggle('ob-open', on); mb.setAttribute('aria-expanded', on); mb.textContent = on ? '×' : '☰'; mb.setAttribute('aria-label', on ? 'Cerrar menú' : 'Abrir menú'); };
-      mb.onclick = () => set(!top.classList.contains('ob-open')); top.querySelector('.ob-nav').addEventListener('click', e => { if (e.target.closest('a')) set(false); });
-      addEventListener('popstate', () => set(false)); addEventListener('keydown', e => { if (e.key === 'Escape' && top.classList.contains('ob-open')) { set(false); mb.focus(); } });
-      document.addEventListener('click', e => { if (top.classList.contains('ob-open') && !top.contains(e.target)) set(false); }); }
     // El encabezado no necesita solicitar configuración pública al funcionar offline.
-    if (navigator.onLine) sb.from('platform_settings').select('support').eq('id', 1).maybeSingle().then(({ data }) => { const c = data?.support || {}, b = top.querySelector('.ob-sup'); if (!b) return; if (c.show === false) b.hidden = true; if (c.label) b.textContent = c.label.slice(0, 24); if (c.mode === 'external' && /^https:\/\//.test(c.url || '')) { b.href = c.url; b.target = '_blank'; b.rel = 'noopener'; } }, () => {});
     top.querySelector('.ob-tools').appendChild(ses);
     srCss(); const q = top.querySelector('#ob-q'), tools = top.querySelector('.ob-tools'); tools.style.position = 'relative';
     const pop = document.createElement('div'); pop.className = 'sr-pop'; pop.hidden = true; tools.appendChild(pop);
@@ -370,13 +365,35 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     q.onkeydown = e => { if (e.key === 'Enter') { const v = q.value.trim(); close(); go('/buscar' + (v ? '?q=' + encodeURIComponent(v) : '')); } if (e.key === 'Escape') close(); };
     q.onfocus = () => { if (pop.innerHTML && q.value.trim().length >= 2) pop.hidden = false; };
     document.addEventListener('click', e => { if (!e.target.closest('.ob-tools')) close(); else if (e.target.closest('.sr-pop a')) { close(); q.value = ''; } });
-    const tab = document.createElement('nav'); tab.className = 'ob-tab'; tab.setAttribute('aria-label', 'Navegación');
-    tab.innerHTML = [['/', '家', 'Inicio'], ['/catalogo', '目', 'Catálogo'], ['/biblioteca', '書', 'Biblioteca'], ['/buscar', '探', 'Buscar'], ['/perfil', '人', 'Perfil']].map(([h, k, l]) => `<a href="${h}"><span aria-hidden="true">${k}</span>${l}</a>`).join('');
+    // La navegación de móvil es única; el menú de escritorio nunca se despliega encima.
+    const tab = createMobileNavigation();
     document.body.appendChild(tab);
-    const mark = () => { const p = location.pathname; top.querySelectorAll('.ob-nav a').forEach(a => { const current = a.getAttribute('href') === p || (a.textContent === 'Catálogo' && p.startsWith('/serie')); a.classList.toggle('on', current); if (current) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
-      tab.querySelectorAll('a').forEach(a => { const h = a.getAttribute('href'), current = h === '/' ? p === '/' : p.startsWith(h) || (h === '/catalogo' && p.startsWith('/serie')) || (h === '/perfil' && p.startsWith('/lector/')); a.classList.toggle('on', current); if (current) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
-      document.body.classList.toggle('no-tab', /^\/(leer|estudio)\b/.test(p)); };
-    addEventListener('popstate', mark); document.addEventListener('click', () => setTimeout(mark, 0)); mark();
+    const mobile = bindMobileNavigation(tab);
+    // La opción Apoyar del panel móvil comparte configuración con la de escritorio.
+    if (navigator.onLine) sb.from('platform_settings').select('support').eq('id', 1).maybeSingle().then(({ data }) => {
+      const c = data?.support || {};
+      document.querySelectorAll('.ob-nav .ob-sup, .ob-tab-panel .ob-sup').forEach(b => {
+        if (c.show === false) b.hidden = true;
+        if (c.label) b.textContent = c.label.slice(0, 24);
+        if (c.mode === 'external' && /^https:\/\//.test(c.url || '')) {
+          b.href = c.url; b.target = '_blank'; b.rel = 'noopener';
+        }
+      });
+    }, () => {});
+    const mark = () => {
+      const p = location.pathname;
+      top.querySelectorAll('.ob-nav a').forEach(a => {
+        const current = a.getAttribute('href') === p || (a.textContent === 'Catálogo' && p.startsWith('/serie'));
+        a.classList.toggle('on', current);
+        if (current) a.setAttribute('aria-current', 'page');
+        else a.removeAttribute('aria-current');
+      });
+      mobile.mark(p);
+      document.body.classList.toggle('no-tab', /^\/(leer|estudio)\b/.test(p));
+    };
+    addEventListener('popstate', mark);
+    document.addEventListener('click', () => setTimeout(mark, 0));
+    mark();
   }
   let SIDX = null;
   const searchIndex = () => SIDX ||= (async () => { const u = getUser();
