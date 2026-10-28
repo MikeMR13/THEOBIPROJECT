@@ -16,8 +16,7 @@ export function offlineSaved(index, slug, scope, vol, num) {
   return all.length > 0 && all.every(x => all.some(y => +y.vol === +x.vol)) &&
     new Set(all.map(x => +x.vol)).size >= +all[0].seriesVolumes;
 }
-const keysFor = (slug, chapters) => chapters.map(ch => '/offline/' + slug + '/' + ch.num);
-export function createOfflineDownloads({ sb, url, toast = () => {}, store = localStorage, cacheAPI = caches, fetcher = fetch }) {
+export function createOfflineDownloads({ sb, url, toast = () => {}, store = localStorage, cacheAPI = globalThis.caches, fetcher = globalThis.fetch }) {
   let working = false;
   const index = () => readOfflineIndex(store);
   const label = scope => scope === 'chapter' ? 'Descargar capítulo' : scope === 'volume' ? 'Descargar volumen' : 'Descargar novela';
@@ -64,7 +63,7 @@ export function createOfflineDownloads({ sb, url, toast = () => {}, store = loca
     if (!cacheAPI?.open) throw new Error('Este navegador no admite descargas sin conexión');
     if (!/^[\w-]+$/.test(slug || '')) throw new Error('Obra inválida');
     working = true;
-    let cache, before, previousMeta, metaChanged = false;
+    let cache, previousMeta, metaChanged = false;
     const inserted = new Set();
     try {
       const m = await load(slug), idx = index(), groups = new Map();
@@ -75,7 +74,7 @@ export function createOfflineDownloads({ sb, url, toast = () => {}, store = loca
         if (!groups.has(+ch.vol)) groups.set(+ch.vol, []);
         groups.get(+ch.vol).push(ch);
       }
-      const already = selected.every(ch => offlineSaved(idx,slug,'chapter',null,ch.num));
+      const already = offlineSaved(idx,slug,scope,vol,num);
       if (already) { toast('Estos capítulos ya están guardados en el dispositivo'); return { already:true }; }
       // Solo comprometer el índice una vez que el texto, imágenes y fuentes estén presentes.
       cache = await cacheAPI.open(CACHE);
@@ -116,7 +115,6 @@ export function createOfflineDownloads({ sb, url, toast = () => {}, store = loca
       const clean = {series:m.series,chapters:m.chapters,vols:m.vols,gloss};
       await cache.put(metaKey,new Response(JSON.stringify(clean),{headers:{'Content-Type':'application/json'}}));
       metaChanged = true;
-      before = idx;
       const next = {...idx};
       const total = groups.size;
       for (const [v, chapters] of groups) {
