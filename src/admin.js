@@ -331,16 +331,40 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
         <div data-detail="${w.id}" hidden></div>
       </article>`).join('') || '<p class="mono">No se encontraron obras con ese título.</p>';
       list.querySelectorAll('[data-series]').forEach(b => b.onclick = async () => {
-        const id=b.dataset.series, target=list.querySelector('[data-detail="'+id+'"]');
+        const id=b.dataset.series,target=b.closest('.bb-supercard')?.querySelector('[data-detail]');
+        if(!target)return;
         if(!target.hidden){target.hidden=true;return;}
         target.hidden=false;target.className='bb-super-detail';
         target.innerHTML='<p class="mono">Consultando capítulos…</p>';
-        const {data:chapters,error:err}=await sb.from('chapters').select('id,num,status,publish_at')
-          .eq('series_id',id).order('num').limit(50);
-        if(!target.isConnected)return;
-        target.innerHTML=err ? `<p class="mono">${esc(err.message)}</p>` :
-          `<div style="overflow-x:auto"><table class="bb-tbl"><thead><tr><th>Capítulo</th><th>Estado</th><th>Programación</th></tr></thead><tbody>
-          ${(chapters||[]).map(c=>`<tr><td>${esc(c.num)}</td><td>${esc(c.status)}</td><td>${c.publish_at ? esc(when(c.publish_at)) : '—'}</td></tr>`).join('') || '<tr><td colspan="3">No hay capítulos.</td></tr>'}</tbody></table></div>`;
+        const pageSize=30;let offset=0,fetching=false;
+        const loadChapters=async()=>{
+          if(fetching)return;
+          fetching=true;
+          const {data:chapters,error:err}=await sb.from('chapters').select('id,num,status,publish_at')
+            .eq('series_id',id).order('num').range(offset,offset+pageSize);
+          fetching=false;
+          if(!target.isConnected||target.hidden||epoch!==paneEpoch)return;
+          if(err){target.innerHTML=`<p role="alert" class="mono">${esc(err.message)}</p>`;return;}
+          const all=chapters||[],page=all.slice(0,pageSize),more=all.length>pageSize;
+          const html=page.map(c=>`<tr><td>${esc(c.num)}</td><td>${esc(c.status)}</td><td>${c.publish_at?esc(when(c.publish_at)):'—'}</td></tr>`).join('');
+          if(!offset){
+            target.innerHTML=`<div style="max-width:100%;overflow-x:auto"><table class="bb-tbl">
+              <thead><tr><th>Capítulo</th><th>Estado</th><th>Programación</th></tr></thead>
+              <tbody>${html||'<tr><td colspan="3">No hay capítulos.</td></tr>'}</tbody></table></div>
+              <div class="bb-row" style="align-items:center;margin:12px 0 0">
+                <button class="bb-mini" data-more-chapters type="button">Cargar más capítulos</button>
+                <span class="mono" data-chapter-total role="status"></span>
+              </div>`;
+          }else{
+            target.querySelector('tbody')?.insertAdjacentHTML('beforeend',html);
+          }
+          offset+=page.length;
+          const next=target.querySelector('[data-more-chapters]');
+          if(next){next.hidden=!more;next.onclick=()=>loadChapters().catch(e=>{if(target.isConnected)toast(msg(e));});}
+          const total=target.querySelector('[data-chapter-total]');
+          if(total)total.textContent=`${offset} capítulo(s) mostrados`;
+        };
+        await loadChapters();
       });
     }
     q.oninput=()=>{clearTimeout(delay);delay=setTimeout(()=>load().catch(e=>{list.textContent='No se pudo consultar: '+msg(e)}),300);};
