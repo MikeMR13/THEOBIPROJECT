@@ -11,6 +11,15 @@ assert(a>=0&&b>a,'No se encontró CSS de ficha');const inline=ui.slice(a+begin.l
 const match=ui.match(/const CSS2 = ("(?:\\.|[^"\\])*");/);
 assert(match,'No se encontró CSS de cabecera');const headerCSS=JSON.parse(match[1]);
 assert(css.includes('.ui-series-page .ui-v-index .ui-chl li>a'),'No se corrigió el índice');
+const share=readFileSync('src/share.js','utf8');
+assert(share.includes("document.querySelector('.tp2-page .tp2-links')"),'Compartir debe estar con los enlaces del equipo');
+assert(share.includes("el.dataset.placement = 'team'; target.append(el)"),'Compartir no debe flotar antes del banner');
+assert(ui.includes("const continueLabel = p =>"),'Continuar leyendo necesita número editorial');
+assert(ui.includes("formatChapterIndex({title:chapter.title,sectionType:chapter.section_type})"),'Usar datos editoriales del capítulo');
+assert(ui.includes("void hydrateContinueTitles(nextCont)"),'La numeración remota debe actualizarse tras el progreso');
+assert(!ui.includes('<span class="ob-continue-chapter">CAP. ${esc(p.chapter_num)}</span>'),'Nunca exponer global en etiqueta de Continuar');
+assert(!ui.includes('<span class="ob-continue-location">Sigue en el cap. ${esc(p.chapter_num)}</span>'),'Nunca exponer global en ubicación');
+assert(css.includes('.s2 .imp-fg textarea[name="synopsis"]'),'Sinopsis de volumen no se adaptó al móvil');
 
 const list=Array.from({length:3},(_,i)=>`<li>
   <a href="/leer/demo/${39+i}"><span class="n" aria-hidden="true">${i===1?'◆':'0'+(i+1)}</span>
