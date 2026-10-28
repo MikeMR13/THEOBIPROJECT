@@ -176,8 +176,8 @@ try {
   // Evidencia visual descargable durante 24 horas: fixture, NO captura de producción.
   // Chromium en el runner Linux, sin servicios pagos ni credenciales reales.
   mkdirSync('qa-capturas', {recursive:true});
-  for (const [width,reduced] of [[320,false],[390,false],[430,false],[768,false],[390,true]]) {
-    const name = 'qa-capturas/temporada-menu-titulos-' + width + (reduced?'-movimiento-reducido':'') + '.png';
+  for (const [width,reduced,openMore] of [[320,false,false],[390,false,false],[430,false,false],[768,false,false],[390,true,false],[390,false,true]]) {
+    const name = 'qa-capturas/temporada-menu-titulos-' + width + (reduced?'-movimiento-reducido':'') + (openMore?'-mas-abierto':'') + '.png';
     const args = [
       '--headless=new','--no-sandbox','--no-first-run','--disable-gpu',
       '--disable-dev-shm-usage','--disable-background-networking',
@@ -185,7 +185,7 @@ try {
       '--virtual-time-budget=9000','--screenshot='+name
     ];
     if(reduced) args.push('--force-prefers-reduced-motion=reduce');
-    args.push('http://127.0.0.1:'+server.address().port+'/case');
+    args.push('http://127.0.0.1:'+server.address().port+'/case'+(openMore?'?panel=more':''));
     const p=spawn(chrome,args,{stdio:['ignore','pipe','pipe']});
     let stderr='';
     p.stderr.on('data',d=>{stderr+=String(d).slice(0,12000)});
