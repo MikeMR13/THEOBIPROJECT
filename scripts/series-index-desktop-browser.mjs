@@ -28,7 +28,7 @@ function chapter([type,title,number]){
   '<button class="ui-read-chapter">↓ Descargar capítulo</button></li>';
 }
 function card(i){
- return '<article class="ui-vol ui-vol-book"><div class="ui-v-content">'+
+ return '<article class="ui-vol ui-vol-book"><span class="th ui-v-cover" aria-hidden="true"></span><div class="ui-v-content">'+
   '<div class="ui-v-heading"><h3>Volumen '+i+'</h3></div>'+
   '<div class="ui-v-actions"><a class="btn ghost" href="/leer/demo/1">Leer volumen →</a></div>'+
   '<details open class="ui-v-index"><summary>Índice de capítulos y secciones <span>3 · desplegar</span></summary>'+
