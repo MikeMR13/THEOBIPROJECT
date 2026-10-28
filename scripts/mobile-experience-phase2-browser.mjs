@@ -129,7 +129,7 @@ try{
      c.once('close',n=>{clearTimeout(tm);ok(n)});
    });
    assert.equal(code,0,err.slice(-700));
-   const m=out.match(/<output id="qa" data-qa="(pass|fail)">([\\s\\S]*?)<\\/output>/);
+   const m=out.match(new RegExp('<output id="qa" data-qa="(pass|fail)">([^]*?)</output>'));
    if(m){assert.equal(m[1],'pass',m[2]);console.log(m[2]);completed=true;break;}
    if(budget===32000)throw Error('Sin resultado Chromium después de reintentar: '+out.slice(-900)+' / '+err.slice(-900));
  }
