@@ -135,8 +135,11 @@ export function createReader(ctx){
             if (!b || S.series !== s || S.active?.id !== act.id || S.mounted.length !== 1 || scrollY >= 400) return;
             const art = $('[data-ch="' + act.id + '"]');
             if (art) {
+              activeIo?.unobserve(art);
               art.outerHTML = chapterHTML(act, b, effective(act.volume_id));
-              markTerms($('[data-ch="' + act.id + '"]'));
+              const updatedArt = $('[data-ch="' + act.id + '"]');
+              if (updatedArt) activeIo?.observe(updatedArt);
+              markTerms(updatedArt);
               paintAnnots(act.id);
             }
           }).catch(() => {});
