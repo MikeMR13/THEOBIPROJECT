@@ -6,6 +6,7 @@ import { createServer } from 'node:http';
 import { spawn, execFileSync } from 'node:child_process';
 
 const js = String.raw`
+window.__qaStage='módulo iniciado';
 const sleep = ms => new Promise(r => setTimeout(r,ms));
 const errors=[];
 window.addEventListener('error',e=>errors.push(e.message));
@@ -76,10 +77,14 @@ let reader;
 const ctx={sb,app,$,esc,toast:()=>{},url:'https://fixture.invalid',getUser:()=>null,
   go(path){history.pushState({},'',path);const match=path.match(/^\/leer\/([^/]+)\/(\d+)/);
     if(match) reader.open(match[1],Number(match[2])).catch(e=>errors.push('go: '+e.message));}};
+window.__qaStage='importando lector';
 const {createReader}=await import('/reader.js?v=19');
+window.__qaStage='creando lector';
 reader=createReader(ctx);
+window.__qaStage='abriendo capítulo 1';
 const t0=performance.now();
 await reader.open('obra-fixture',1);
+window.__qaStage='capítulo 1 mostrado';
 const first=performance.now()-t0;
 check(first<1500,'Apertura ficticia demasiado lenta: '+Math.round(first)+'ms');
 check($('.rd-ch')?.dataset.ch==='c1','No se abrió el primer capítulo');
@@ -87,11 +92,13 @@ check($('.rd-body')?.textContent.includes('lectura original'),'Texto ausente');
 check(first<550,'Los créditos retrasaron el texto');
 const originalText=$('.rd-body')?.textContent||'';
 history.pushState({},'','/leer/obra-fixture/2');
+window.__qaStage='navegación rápida';
 const slow=reader.open('obra-fixture',2);
 await sleep(45);
 history.pushState({},'','/leer/obra-fixture/3');
 const fast=reader.open('obra-fixture',3);
 await Promise.all([slow,fast]);
+window.__qaStage='navegación rápida terminada';
 await sleep(850);
 check($('.rd-ch')?.dataset.ch==='c3','La respuesta tardía del capítulo 2 reemplazó al 3');
 check(!$('.rd-ch[data-ch="c2"]'),'Se montó el capítulo anterior tras cambiar la ruta');
@@ -99,19 +106,24 @@ check(document.querySelectorAll('.rd-ch').length===1,'Capítulos duplicados al n
 check(window.__obiReaderTTS.info('c3')?.next===null,'TTS intenta saltar fuera de la obra');
 check(!window.__obiReaderTTS.nextChapter('c3',4),'TTS saltó a capítulo bloqueado');
 history.pushState({},'','/leer/obra-fixture/4');
+window.__qaStage='capítulo restringido';
 await reader.open('obra-fixture',4);
+window.__qaStage='bloqueo verificado';
 check(hits.lock===1,'No se consultó lock_info para contenido no autorizado');
 check(!$('.rd-ch'),'Se mostró un capítulo no publicado');
 check(app.textContent.includes('Capítulo no disponible'),'Falta la pantalla segura para capítulo restringido');
 history.pushState({},'','/leer/obra-fixture/1');
 const t1=performance.now();
+window.__qaStage='reapertura desde caché';
 await reader.open('obra-fixture',1);
+window.__qaStage='caché reabierta';
 const cached=performance.now()-t1;
 check(cached<700,'Reabrir desde memoria/caché ficticia demasiado lento: '+Math.round(cached)+'ms');
 check($('.rd-body')?.textContent===originalText,'El contenido perdió integridad tras cambios de ruta');
 check(!!$('.rd-bar [data-act="prefs"]')&&!!$('.rd-bar [data-act="toc"]')&&
   !!$('.rd-bar [data-act="zen"]')&&!!$('.rd-bar [data-act="offline"]'),'Se perdieron controles del lector');
 check(hits.credits>=1,'No se verificaron créditos públicos');
+window.__qaStage='resultado final';
 const pending=errors.concat(errorsByCase);
 const el=$('#qa-result');
 el.dataset.qaStatus=pending.length?'fail':'pass';
@@ -123,9 +135,9 @@ function html(){
     '<meta name="viewport" content="width=device-width,initial-scale=1">'+
     '<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/reader-a11y.css">'+
     '</head><body><main id="app"></main><p id="qa-result" data-qa-status="running">Cargando</p>'+
-    '<script>window.addEventListener("error",e=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="Error de módulo: "+e.message;}});'+
+    '<script>window.__qaStage="cargando módulo";window.addEventListener("error",e=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="Error de módulo: "+e.message;}});'+
     'window.addEventListener("unhandledrejection",e=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="Promesa no controlada: "+String(e.reason);}});'+
-    'setTimeout(()=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="El módulo de pruebas no completó su ejecución";}},9500);</script>'+
+    'setTimeout(()=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="No finalizó QA, etapa: "+(window.__qaStage||"desconocida");}},9500);</script>'+
     '<script type="module" src="/qa-browser.js"></script></body></html>';
 }
 const server=createServer((req,res)=>{
