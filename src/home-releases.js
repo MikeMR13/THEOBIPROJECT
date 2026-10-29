@@ -45,3 +45,19 @@ export function homeReleaseOverview(latest = [], volumes = [], visibleSeries = [
   entries.sort((a, b) => b.time - a.time || Number(b.kind === 'volume') - Number(a.kind === 'volume') || String(a.id).localeCompare(String(b.id)));
   return { entries, bySeries: Object.fromEntries(entries.map(e => [e.id, e])) };
 }
+
+/** Prioriza volúmenes recién anunciados, sin excluir los capítulos recientes ni modificar datos. */
+export function homeReleaseHighlights(entries = [], { now = Date.now(), limit = 10, maxVolumes = 3, freshDays = 7 } = {}) {
+  const time = +new Date(now), count = Math.max(0, Math.floor(Number(limit) || 0));
+  const max = Math.min(count, Math.max(0, Math.floor(Number(maxVolumes) || 0)));
+  if (!Number.isFinite(time) || !count) return [];
+  const seen = new Set();
+  const valid = (Array.isArray(entries) ? entries : []).filter(x => {
+    if (!x?.id || seen.has(x.id) || !Number.isFinite(+x.time) || +x.time > time) return false;
+    seen.add(x.id); return true;
+  }).sort((a,b)=>+b.time-+a.time || String(a.id).localeCompare(String(b.id)));
+  const cutoff = time - Math.max(0, Number(freshDays) || 0) * 86400000;
+  const highlighted = valid.filter(x => x.kind === 'volume' && x.volume && +x.time >= cutoff).slice(0,max);
+  const selected = new Set(highlighted.map(x => x.id));
+  return [...highlighted, ...valid.filter(x => !selected.has(x.id))].slice(0,count);
+}

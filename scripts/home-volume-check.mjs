@@ -1,6 +1,6 @@
 // Pruebas de regresión: inicio editorial, capítulos sueltos y volúmenes publicados completos.
 import assert from 'node:assert/strict';
-import { homeReleaseOverview } from '../src/home-releases.js';
+import { homeReleaseOverview, homeReleaseHighlights } from '../src/home-releases.js';
 
 const NOW = Date.parse('2026-10-21T18:00:00Z');
 const series = ['a', 'b', 'c'].map(id => ({ id, title: id }));
@@ -50,5 +50,25 @@ const d1 = '2026-10-20T12:00:00Z', d2 = '2026-10-21T10:00:00Z', d3 = '2026-10-21
   assert.equal(existing.bySeries.a.isNewSeries,false,'Volumen 2 es novedad de obra existente, no debut');
   const unannounced=homeReleaseOverview([ch('a',5,d3)], [vol('a',1,d1,null),vol('a',2,d3)], series, NOW);
   assert.equal(unannounced.bySeries.a.isNewSeries,false,'Un volumen anterior sin anuncio no convierte el segundo en debut');
+}
+
+{
+  const t=Date.parse('2026-10-21T18:00:00Z'), h=n=>t-n*3600000;
+  const rows=[
+    {id:'chapter1',kind:'chapter',time:h(1)}, {id:'chapter2',kind:'chapter',time:h(2)},
+    {id:'volume1',kind:'volume',volume:{num:2},time:h(4)}, {id:'chapter3',kind:'chapter',time:h(7)},
+    {id:'volume2',kind:'volume',volume:{num:3},time:h(24)},
+    {id:'old-volume',kind:'volume',volume:{num:1},time:h(240)},
+    {id:'future',kind:'volume',volume:{num:1},time:t+100000}
+  ];
+  const original=rows.map(x=>x.id);
+  const selected=homeReleaseHighlights(rows,{now:t,limit:5,maxVolumes:2,freshDays:7});
+  assert.deepEqual(selected.map(x=>x.id),['volume1','volume2','chapter1','chapter2','chapter3'],'volúmenes recientes primero, capítulos conservados');
+  assert.deepEqual(rows.map(x=>x.id),original,'no mutar lista original');
+  assert.deepEqual(homeReleaseHighlights(rows,{now:t,limit:3,maxVolumes:0}).map(x=>x.id),['chapter1','chapter2','volume1'],'sin prioridad, cronología');
+  assert.deepEqual(homeReleaseHighlights(rows,{now:t,limit:0}),[],'límite cero');
+  const dedup=homeReleaseHighlights([...rows,rows[0]],{now:t,limit:10});
+  assert.equal(new Set(dedup.map(x=>x.id)).size,dedup.length,'obras únicas');
+  assert(!dedup.some(x=>x.id==='future'),'no mostrar volúmenes futuros');
 }
 console.log('home-volume-check: OK');

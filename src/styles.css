@@ -1118,3 +1118,21 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
 .ui-series-page .ui-series-preview-heading h2{line-height:1.24;letter-spacing:-.01em}
 .ui-series-page .ui-series-preview-item strong{line-height:1.4}
 @media(max-width:760px){.ob-page .ob-mast{gap:4px 10px;margin-bottom:4px}.ob-page .ob-releases{padding-top:26px!important}.ob-page .ob-release-card{padding:7px}}
+
+/* Novedades editoriales: volúmenes completos primero, con escala E2 adaptable. */
+.ob-page .ob-sec{padding-block:clamp(36px,3.5vw,44px)}
+.ob-page .ob-releases{padding-top:clamp(24px,2.9vw,36px)!important}
+.ob-page .ob-band{margin-top:clamp(28px,3.4vw,44px)!important}
+.ob-page .ob-releases .ob-st{margin-bottom:12px}
+.ob-page .ob-release-intro{margin:0 0 16px;color:#d0c2a8;font:13px/1.55 'IBM Plex Sans',sans-serif}
+.ob-page .ob-release-card.is-volume{border-color:#a68340;border-top:3px solid var(--gold);background:linear-gradient(180deg,#292012,#19140d)}
+.ob-page .ob-release-card.is-volume .ob-release-type{color:#f5d17d;font-weight:700}
+.ob-page .ob-release-card.is-volume .cv i{max-width:100%;font-size:clamp(9px,.8vw,11px);overflow-wrap:anywhere}
+.ob-page .ob-release-card:not(.is-volume){border-color:#51412d}
+@media(max-width:600px){
+ .ob-page .ob-sec{padding-block:28px}
+ .ob-page .ob-releases{padding-top:24px!important}
+ .ob-page .ob-release-intro{font-size:12px;margin-bottom:12px}
+ .ob-page .ob-releases .ob-st .r2{gap:8px 12px}
+ .ob-page .ob-release-card.is-volume .cv i{font-size:10px}
+}

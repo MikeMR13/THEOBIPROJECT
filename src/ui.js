@@ -1,7 +1,7 @@
 // Vistas públicas con la identidad visual de El Obi del Lector: Inicio, Catálogo y Ficha de serie.
 import { confirmObi, inputObi } from './obi-dialog.js';
 import { publicationDate, publicationAge, publicationDay } from './publication-dates.js?v=1';
-import { homeReleaseOverview } from './home-releases.js?v=1';
+import { homeReleaseOverview, homeReleaseHighlights } from './home-releases.js?v=1';
 import { attachPublicCredits, creditTeams, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
 import { homeFeaturedSelection, homeDayKey } from './home-featured.js?v=1';
 import { createHeroRotationClock } from './home-hero-rotation.js?v=1';
@@ -866,7 +866,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     let loadedTeamSignature = teamSignature([]);
     const featReasons = featured.bySeries;
     const cont = Object.values(prog).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).filter(p => byId[p.series_id]).slice(0, 6);
-    const grp = news.entries.slice(0, 10);
+    const grp = homeReleaseHighlights(news.entries, { now: +now, limit: 10, maxVolumes: 3, freshDays: 7 });
     const caps = chs => editorialChapterGroup(chs);
     const top = {}; (top10 || []).forEach(r => { if (!top[r.series_id] || r.pos < top[r.series_id]) top[r.series_id] = r.pos; });
     const rkWv = (rkW || []).filter(r => byId[r.series_id]);
@@ -928,8 +928,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     app.innerHTML = `<div class="ob-page">
       <div class="ob-mast"><b>翻訳図書館</b><span>Biblioteca de novelas ligeras · Español latino</span></div>
       <div id="ob-fest-slot"></div>
-      <section class="ob-hero" id="hero" ${feat.length ? '' : 'style="display:none"'}></section><div id="ob-open-today"></div><div id="ob-team-recs"></div>
+      <section class="ob-hero" id="hero" ${feat.length ? '' : 'style="display:none"'}></section>
       ${grp.length ? `<section class="ob-sec ob-releases" style="border-top:none;padding-top:32px">${head('新着', 'Nuevos volúmenes y capítulos', `<span class="r2"><a class="r" href="/lanzamientos">Todos los lanzamientos →</a>${arrows('ob-release-car')}</span>`)}
+        <p class="ob-release-intro">Volúmenes completos destacados y capítulos publicados recientemente.</p>
         <div class="ob-car ob-release-car ob-anim" id="ob-release-car" role="region" aria-roledescription="carrusel" aria-label="Lanzamientos recientes" tabindex="0">${grp.map(g => {
           const s = byId[g.id], c = g.chs[0] || {}, v = g.kind === 'volume' ? g.volume : null;
           const coverPath = v?.cover_path || s.cover_thumb_path || s.cover_path;
@@ -937,15 +938,16 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
           const detail = v
             ? 'Volumen ' + esc(v.num) + (v.title && v.title.trim() && v.title.trim() !== String(v.num) && !/^volumen\s*\d+$/i.test(v.title.trim()) ? ' · ' + esc(v.title) : '')
             : esc(g.chs.length === 1 ? editorialChapterDescription(c) : caps(g.chs));
-          const href = v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + c.num;
+          const href = v ? '/serie/' + s.slug + '#serie-vols' : '/leer/' + s.slug + '/' + c.num;
           return `<a class="ob-cc ob-release-card${v ? ' is-volume' : ''}" href="${esc(href)}" style="--c:${esc(color(s))}">
             <span class="cv${coverPath ? '' : ' no'}">${coverPath ? `<img src="${esc(coverUrl)}" alt="" loading="lazy" decoding="async">` : esc(s.short || s.title)}<i>${v ? 'VOLUMEN' : esc(editorialChapterLabel(c).toLocaleUpperCase('es-MX'))}</i></span>
-            <span class="ob-release-type">${v ? '¡Nuevo volumen!' : 'Nueva sección publicada'}</span>
+            <span class="ob-release-type">${v ? (g.isNewSeries ? '¡Nueva novela · volumen 1!' : '¡Nuevo volumen!') : 'Nueva sección publicada'}</span>
             <b>${esc(s.title)}</b>
             <small class="ob-release-detail">${detail}</small>
             ${publicationDate(g.at) ? `<time datetime="${esc(g.at)}">${ago(g.at)}</time>` : ''}
           </a>`;
         }).join('')}</div></section>` : ''}
+      <div id="ob-open-today"></div><div id="ob-team-recs"></div>
       ${u ? '' : `<div class="ob-hi" style="display:grid;gap:18px"><p style="flex:none"><strong>Bienvenido a El Obi del Lector.</strong> Novelas ligeras traducidas al español por grupos de fans.</p>
         <ol style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px"><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">探</span><span><b style="display:block;font-size:15px">Descubre</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Busca por género o mira lo más leído de la semana.</span></span></li><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">追</span><span><b style="display:block;font-size:15px">Sigue una obra</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Recibe novedades de volúmenes completos y capítulos individuales.</span></span></li><li style="display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:start"><span aria-hidden="true" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--gold);color:var(--gold);font-family:'Shippori Mincho B1',serif;font-size:20px">続</span><span><b style="display:block;font-size:15px">Lee sin perderte</b><span style="font-size:13px;line-height:1.5;color:#cfc6b0">Tu progreso se guarda en todos tus dispositivos.</span></span></li></ol>
         <div><a class="a1" href="/entrar">Crear cuenta gratis</a><a class="a2" href="/catalogo" style="border-color:transparent">o explora el catálogo →</a></div></div>`}
