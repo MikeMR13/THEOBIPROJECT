@@ -77,7 +77,7 @@ async function run(){
   const HTML=`<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${siteCss}\n
   :root{--gold:#f2c230;--sea:#eb863e;--paper:#f3ecd9}body{margin:0;background:#100d09;color:#f3ecd9;font:14px Arial}
   /* La prueba mide la posición final, no la animación de entrada de 600–750 ms. */
-  .ob-page,#hero .ob-txt{animation:none!important}
+  .ob-page,#hero .ob-txt{animation:none!important}.vt-book{transition:none!important}
   .ob-page{max-width:1160px;margin:auto;padding:10px;box-sizing:border-box}
   .ob-hero{display:grid;grid-template-columns:250px minmax(0,1fr);gap:20px;padding:30px;border:1px solid #312718}
   .ob-hero-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px}
