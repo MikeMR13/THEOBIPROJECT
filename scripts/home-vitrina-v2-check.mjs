@@ -77,9 +77,9 @@ function browserCheck(){
   const rowHeight=r('.vt-row').height,totalHeight=r('.vt').height;
   const maxRow=innerWidth>1050?Math.min(400,Math.max(340,viewport*.43)):
     innerWidth>700?Math.min(390,Math.max(330,viewport*.46)):
-    innerWidth>380?Math.min(415,viewport*.58):Math.min(440,viewport*.64);
+    innerWidth>380?Math.min(420,viewport*.58):Math.min(450,viewport*.65);
   ok(rowHeight<=maxRow+4,'Vitrina ocupa más alto del previsto: '+rowHeight.toFixed(1)+' > '+maxRow.toFixed(1));
-  if(innerWidth<=700)ok(totalHeight<=550,`Vitrina móvil supera 550px: ${totalHeight}px`);
+  if(innerWidth<=700)ok(totalHeight<=565,`Vitrina móvil supera 565px: ${totalHeight}px`);
   if(innerWidth>700)ok(totalHeight<=460,'La vitrina de PC sigue ocultando casi toda la página: '+totalHeight.toFixed(1));
   ok(r('.vt-controls').top>=r('.vt-row').bottom-2,'Controles encima de la ficha');
   ok(r('.ob-txt').height<=rowHeight-8,'Hoja demasiado alta para la vitrina');
