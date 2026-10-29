@@ -1204,3 +1204,28 @@ body.rd-zen .rd-settings-dock{display:none!important}
   }
   .rd .btn.ghost.rd-settings-trigger{white-space:nowrap;padding-inline:9px}
 }
+
+
+/* Lector, barra REALMENTE fija: sticky deja de acompañar al lector cuando
+   el límite de su contenedor entra en el viewport. El modo fijo se ancla
+   al viewport y reserva el alto real de los controles medido en reader.js. */
+.rd[data-controls="fijo"]{
+  padding-top:var(--rd-h,76px);
+}
+.rd[data-controls="fijo"] .rd-bar{
+  position:fixed;
+  top:var(--top-h,62px);
+  inset-inline:0;
+  width:100%;
+  z-index:6;
+  padding:10px clamp(16px,4vw,56px);
+  transform:none!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+  box-shadow:0 6px 16px rgba(0,0,0,.25);
+}
+@media(max-width:700px){
+  .rd[data-controls="fijo"] .rd-bar{
+    top:0;
+  }
+}
