@@ -12,7 +12,7 @@ const index = read('src/index.html');
 for (const file of ['src/reader.js', 'src/ui.js', 'src/app.js']) {
   execFileSync(process.execPath, ['--check', file], { stdio: 'pipe' });
 }
-assert.match(reader, /controls:\s*'deslizable'/, 'Sin configuración predeterminada del lector');
+assert.match(reader, /controls:\s*'fijo'/, 'Sin configuración predeterminada del lector');
 assert.match(reader, /opt\('controls',[\s\S]*?\['fijo','Barra siempre visible'\]/, 'No existen ambos modos del lector');
 assert.match(reader, /controls:\s*p\.controls === 'fijo'/, 'Los controles no responden a preferencias guardadas');
 assert.match(reader, /rd-panel-close[^\n]*data-panel-close/, 'El panel carece de cierre accesible');
