@@ -510,7 +510,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
 .ob-hero .ob-hero-team-logo.is-text span{display:block;width:100%;max-width:100%;font:600 12px/1.4 'IBM Plex Mono',monospace;overflow-wrap:anywhere;text-wrap:balance}
 .ob-hero .ob-hero-team-logo:hover,.ob-hero .ob-hero-team-logo:focus-visible{color:var(--gold)}
 .ob-hero .ob-hero-team-logo:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
-.ob-hero .ob-hero-head+h1{margin-top:clamp(16px,1.5vw,20px)}
+.ob-hero .ob-hero-head+h2{margin-top:clamp(16px,1.5vw,20px)}
 @media(max-width:600px){
  .ob-hero .ob-hero-head{column-gap:10px}
  .ob-hero .ob-hero-team-logo{width:80px}
@@ -648,10 +648,10 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
 .ob-hero .ob-hero-flags .ob-utag-hero{display:inline-flex;align-items:center;align-self:flex-start;max-width:100%;min-width:0;box-sizing:border-box;padding:6px 11px;font:700 clamp(12px,1vw,15px)/1.35 'IBM Plex Mono',monospace;letter-spacing:.04em;text-transform:uppercase;white-space:normal;overflow-wrap:anywhere}
 .ob-hero .ob-hero-rank{display:flex;align-items:center;min-width:0;margin:14px 0 0}
 .ob-hero .ob-hero-rank .rk-bdg{margin:0;min-height:30px;font-size:12px}
-.ob-hero .ob-hero-flags+h1,.ob-hero .ob-hero-rank+h1{margin-top:clamp(18px,2.2vw,28px)}
-.ob-hero .ob-txt h1{max-width:100%;font-size:clamp(30px,3.4vw,50px);line-height:1.13;text-wrap:balance;overflow-wrap:break-word}
-.ob-hero .ob-txt h1[data-len=l]{font-size:clamp(28px,3.4vw,45px)}
-.ob-hero .ob-txt h1[data-len=xl]{font-size:clamp(26px,2.8vw,38px)}
+.ob-hero .ob-hero-flags+h2,.ob-hero .ob-hero-rank+h2{margin-top:clamp(18px,2.2vw,28px)}
+.ob-hero .ob-txt h2{max-width:100%;font-size:clamp(30px,3.4vw,50px);line-height:1.13;text-wrap:balance;overflow-wrap:break-word}
+.ob-hero .ob-txt h2[data-len=l]{font-size:clamp(28px,3.4vw,45px)}
+.ob-hero .ob-txt h2[data-len=xl]{font-size:clamp(26px,2.8vw,38px)}
 .ob-hero .ob-txt .ob-tag{margin:12px 0 0;line-height:1.4}
 .ob-hero .ob-txt .ob-syn{margin:14px 0 0;max-width:64ch;-webkit-line-clamp:4}
 .ob-hero .ob-txt .ob-acts{margin-top:20px}
@@ -659,16 +659,16 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
 @media(max-width:820px){
  .ob-hero{width:100%;max-width:100%;min-width:0;box-sizing:border-box;margin-inline:0!important}
  .ob-hero .ob-txt{max-width:100%;padding-inline-end:0}
- .ob-hero .ob-txt h1{font-size:clamp(30px,6vw,46px)}
- .ob-hero .ob-txt h1[data-len=l]{font-size:clamp(28px,5.4vw,40px)}
- .ob-hero .ob-txt h1[data-len=xl]{font-size:clamp(26px,4.7vw,36px)}
+ .ob-hero .ob-txt h2{font-size:clamp(30px,6vw,46px)}
+ .ob-hero .ob-txt h2[data-len=l]{font-size:clamp(28px,5.4vw,40px)}
+ .ob-hero .ob-txt h2[data-len=xl]{font-size:clamp(26px,4.7vw,36px)}
 }
 @media(max-width:480px){
  .ob-hero .ob-hero-flags{gap:10px}
  .ob-hero .ob-hero-flags .ob-badge{letter-spacing:.02em}
- .ob-hero .ob-txt h1{font-size:clamp(29px,8vw,36px);line-height:1.15}
- .ob-hero .ob-txt h1[data-len=l]{font-size:clamp(27px,7vw,33px)}
- .ob-hero .ob-txt h1[data-len=xl]{font-size:clamp(25px,6.5vw,30px)}
+ .ob-hero .ob-txt h2{font-size:clamp(29px,8vw,36px);line-height:1.15}
+ .ob-hero .ob-txt h2[data-len=l]{font-size:clamp(27px,7vw,33px)}
+ .ob-hero .ob-txt h2[data-len=xl]{font-size:clamp(25px,6.5vw,30px)}
  .ob-hero .ob-txt .ob-syn{-webkit-line-clamp:3}
  .ob-hero .ob-txt .ob-acts{gap:10px}
 }
@@ -696,14 +696,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
 .ob-hero .ob-hero-flags .ob-utag-hero{font-size:clamp(11px,.9vw,13px);padding:5px 9px}
 .ob-hero .ob-hero-rank{margin-top:7px}
 .ob-hero .ob-hero-rank .rk-bdg{font-size:11px;min-height:26px}
-.ob-hero .ob-hero-head+h1{margin-top:10px}
-.ob-hero .ob-txt h1,.ob-hero .ob-txt h1[data-len=l],.ob-hero .ob-txt h1[data-len=xl]{
+.ob-hero .ob-hero-head+h2{margin-top:10px}
+.ob-hero .ob-txt h2,.ob-hero .ob-txt h2[data-len=l],.ob-hero .ob-txt h2[data-len=xl]{
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;
   overflow:hidden;line-height:1.14;max-width:58ch;text-wrap:balance;
 }
-.ob-hero .ob-txt h1{font-size:clamp(27px,2.3vw,38px)}
-.ob-hero .ob-txt h1[data-len=l]{font-size:clamp(26px,2.15vw,35px)}
-.ob-hero .ob-txt h1[data-len=xl]{font-size:clamp(24px,2.05vw,34px)}
+.ob-hero .ob-txt h2{font-size:clamp(27px,2.3vw,38px)}
+.ob-hero .ob-txt h2[data-len=l]{font-size:clamp(26px,2.15vw,35px)}
+.ob-hero .ob-txt h2[data-len=xl]{font-size:clamp(24px,2.05vw,34px)}
 .ob-hero .ob-txt .ob-tag{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin:8px 0 0;font-size:clamp(14px,1vw,17px);line-height:1.33}
 .ob-hero .ob-txt .ob-syn{flex:0 1 auto;-webkit-line-clamp:2;overflow:hidden;margin:8px 0 0;max-width:62ch;font-size:clamp(13px,.95vw,16px);line-height:1.42}
 .ob-hero .ob-hero-partners{display:block;max-height:30px;overflow:hidden}
@@ -725,9 +725,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
   .ob-hero .ob-txt{height:auto;min-height:0;overflow:visible}
   .ob-hero .ob-hero-copy{overflow:visible}
   .ob-hero .ob-hero-footer{margin-top:0;padding-top:12px}
-  .ob-hero .ob-txt h1{font-size:clamp(25px,5.8vw,34px)}
-  .ob-hero .ob-txt h1[data-len=l]{font-size:clamp(24px,5.5vw,32px)}
-  .ob-hero .ob-txt h1[data-len=xl]{font-size:clamp(22px,5.1vw,29px)}
+  .ob-hero .ob-txt h2{font-size:clamp(25px,5.8vw,34px)}
+  .ob-hero .ob-txt h2[data-len=l]{font-size:clamp(24px,5.5vw,32px)}
+  .ob-hero .ob-txt h2[data-len=xl]{font-size:clamp(22px,5.1vw,29px)}
   .ob-hero .ob-txt .ob-syn{-webkit-line-clamp:2}
 }
 @media(max-width:380px){
@@ -744,7 +744,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
   }
   .ob-page #hero .ob-txt{height:auto;overflow:visible}
   .ob-page #hero .ob-hero-copy{overflow:visible}
-  .ob-page #hero .ob-txt h1{
+  .ob-page #hero .ob-txt h2{
     display:block;-webkit-line-clamp:unset;overflow:visible;
   }
 }
@@ -755,7 +755,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
   }
   .ob-page #hero .ob-txt{height:auto;overflow:visible}
   .ob-page #hero .ob-hero-copy{overflow:visible}
-  .ob-page #hero .ob-txt h1{
+  .ob-page #hero .ob-txt h2{
     display:block;-webkit-line-clamp:unset;overflow:visible;
   }
   .ob-page #hero .ob-pager2{
@@ -775,7 +775,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
 }
 
 `;
-  const SKEL = `<div class="ob-page ob-skel" aria-busy="true" aria-label="Cargando la biblioteca"><div class="ob-mast"><b>翻訳図書館</b><span>Biblioteca de novelas ligeras · Español latino</span></div><div class="sk sk-hero"></div><div class="sk sk-h"></div><div class="sk-row">${'<div class="sk sk-ln"></div>'.repeat(4)}</div><div class="sk sk-h"></div><div class="sk-row c">${'<div class="sk sk-cv"></div>'.repeat(6)}</div></div>`;
+  const SKEL = `<div class="ob-page ob-skel" aria-busy="true" aria-label="Cargando la biblioteca"><div class="ob-mast"><h1 class="sr">El Obi del Lector — Novelas ligeras en español latino</h1><b>翻訳図書館</b><span>Biblioteca de novelas ligeras · Español latino</span></div><div class="sk sk-hero"></div><div class="sk sk-h"></div><div class="sk-row">${'<div class="sk sk-ln"></div>'.repeat(4)}</div><div class="sk sk-h"></div><div class="sk-row c">${'<div class="sk sk-cv"></div>'.repeat(6)}</div></div>`;
   async function home(){
     const navigation = performance.getEntriesByType('navigation')[0];
     const initial = firstHomeVisit && navigation && new URL(navigation.name).pathname === '/';
@@ -1244,7 +1244,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     el.innerHTML = `<span class="ob-vk" aria-hidden="true">${pre ? "予告" : "新刊案内"}</span>
       <div class="ob-cov"><div class="f" style="${art ? `background-image:url('${esc(heroCover)}')` : ''}"></div></div>
       <div class="ob-txt"><div class="ob-hero-copy"><div class="ob-hero-head"><div class="ob-hero-meta"><span class="ob-kick">${pre ? 'ESTRENO · ' + preWhen : v ? '第' + KN(v.num) + '巻 · 新刊' : esc(editorialChapterLabel(lc)) + (fresh ? ' · 新刊' : '')}</span><div class="ob-hero-flags"><span class="ob-badge${pre ? ' ob-badge-vol' : v ? ' ob-badge-vol' : ''}" ${pre ? 'style="background:#8cc3f2;color:#0d0c0a"' : ''}>${pre ? (preTomorrow ? 'ESTRENO MAÑANA · VOL. ' : 'PRÓXIMO ESTRENO · VOL. ') + pre.vnum : reason?.kind !== 'release' ? esc(reason?.label || 'Destacado') : reason?.label === 'Nuevo lanzamiento' ? '¡NUEVO LANZAMIENTO! · VOL. ' + v?.num : reason?.urgent ? '¡NOVELA COMPLETA! · VOL. ' + v.num : v ? (fresh ? '¡NUEVO VOLUMEN! · VOL. ' : 'VOLUMEN DISPONIBLE · VOL. ') + v.num : currentNotice(s)?.kind === 'chapter' ? 'CAPÍTULO PUBLICADO' : fresh ? 'NUEVO · ' + esc(editorialChapterLabel(lc).toLocaleUpperCase('es-MX')) : esc(editorialChapterLabel(lc).toLocaleUpperCase('es-MX')) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${pre ? '' : heroTag(s)}</div>${!pre && top[s.id] ? `<div class="ob-hero-rank"><a class="rk-bdg" href="/ranking"><b>#${top[s.id]}</b>Top de la semana</a></div>` : ''}</div>${teamLogo}</div>${s.publicCredits?.some(c => !c.is_primary) ? `<span class="ob-hero-partners">${creditsHTML({publicCredits:s.publicCredits.filter(c=>!c.is_primary)}, {esc,media,mode:'hero'})}</span>` : ''}
-        <h1 data-len="${(s.title.length + (v ? 12 + String(v.num).length : 0)) > 70 ? 'xl' : (s.title.length + (v ? 12 + String(v.num).length : 0)) > 40 ? 'l' : ''}"><a class="ob-h1a" href="/serie/${s.slug}" title="${esc(s.title + (v ? ' — Volumen ' + v.num : ''))}">${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}</a></h1>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn" style="white-space:pre-line">${esc(s.synopsis ? (synT.slice(tag.length).replace(/^\s+/, '').replace(/\n{3,}/g, '\n\n') || synT) : pre ? 'Conoce la historia antes de su estreno. Los capítulos permanecen bloqueados hasta la fecha indicada.' : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), genericSectionCount(s.chapters?.[0]?.count) + ' en español'].filter(Boolean).join(' · ') + '.')}</p></div><div class="ob-hero-footer">
+        <h2 data-len="${(s.title.length + (v ? 12 + String(v.num).length : 0)) > 70 ? 'xl' : (s.title.length + (v ? 12 + String(v.num).length : 0)) > 40 ? 'l' : ''}"><a class="ob-h1a" href="/serie/${s.slug}" title="${esc(s.title + (v ? ' — Volumen ' + v.num : ''))}">${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}</a></h2>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn" style="white-space:pre-line">${esc(s.synopsis ? (synT.slice(tag.length).replace(/^\s+/, '').replace(/\n{3,}/g, '\n\n') || synT) : pre ? 'Conoce la historia antes de su estreno. Los capítulos permanecen bloqueados hasta la fecha indicada.' : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), genericSectionCount(s.chapters?.[0]?.count) + ' en español'].filter(Boolean).join(' · ') + '.')}</p></div><div class="ob-hero-footer">
         ${pre ? `<p class="ob-prelaunch-timer" style="margin:8px 0;color:#8cc3f2;font-size:13px">🔒 Lectura bloqueada · Estreno: ${esc(preWhen)} · Faltan ${esc(preLeft)}</p><div class="ob-acts"><a class="a1" href="/serie/${encodeURIComponent(s.slug)}">Ver primer vistazo →</a><a class="a2" href="/calendario?f=prog">Ver en el calendario</a></div>` : `<div class="ob-acts"><a class="a1" href="${v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + n}">${v ? 'Ver volumen ' + v.num : p ? 'Continuar lectura' : 'Leer ' + esc(editorialChapterLabel(lc).toLocaleLowerCase('es-MX'))}</a>${v && (p || lc) ? `<a class="a2" href="/leer/${s.slug}/${n}">${p ? 'Continuar lectura' : 'Empezar a leer'}</a>` : `<a class="a2" href="/serie/${s.slug}">Ver la serie</a>`}</div>`}</div></div>
       ${feat.length > 1 ? `<div class="ob-pager2" style="position:absolute;left:clamp(16px,4vw,56px);right:clamp(16px,4vw,56px);bottom:14px;z-index:2;display:flex;align-items:center;gap:10px"><button data-dir="-1" aria-label="Anterior" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">‹</button><span style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">${feat.length > 10 ? `<span class="mono" aria-label="Diapositiva ${i+1} de ${feat.length}" style="min-width:70px;text-align:center;font:600 12px 'IBM Plex Mono',monospace;color:var(--paper)">${i+1} / ${feat.length}</span>` : feat.map((f, j) => `<button data-j="${j}" data-hero-target="${esc(heroKey(f))}" aria-label="${esc(f.title)}" aria-current="${j === i}" style="height:10px;flex:${j === i ? '0 1 160px' : '0 0 10px'};min-width:10px;padding:0;border:none;cursor:pointer;position:relative;overflow:hidden;background:${j === i ? '#3d3628' : '#5a5244'}">${j === i ? `<i class="ob-hp" style="position:absolute;inset:0;background:var(--gold);transform-origin:left;transform:scaleX(${heroPaused ? 1 : 0});${heroPaused || matchMedia('(prefers-reduced-motion: reduce)').matches ? '' : 'animation:obHp 5s linear forwards'}"></i>` : ''}</button>`).join('')}</span><button data-hp aria-label="${heroPaused ? 'Reanudar' : 'Pausar'}" style="height:40px;padding:0 12px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">${heroPaused ? '▶ Reanudar' : 'Ⅱ Pausar'}</button><button data-dir="1" aria-label="Siguiente" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">›</button></div>` : ''}`;
     // La Vitrina V2 conserva el HTML editorial, preestrenos, créditos, enlaces
