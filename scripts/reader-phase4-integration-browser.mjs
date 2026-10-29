@@ -146,6 +146,9 @@ check(Math.abs(fixedBar.getBoundingClientRect().top)<3,
 check(getComputedStyle(fixedBar).opacity==='1' && fixedBar.getBoundingClientRect().bottom>0,
   'La barra fija queda oculta después del desplazamiento');
 scrollTo(0,0);
+// En Chromium con --virtual-time-budget un scroll programático no siempre
+// despacha el evento inmediatamente. Simular la notificación del navegador.
+dispatchEvent(new Event('scroll'));
 await sleep(75);
 check(Math.abs(fixedBar.getBoundingClientRect().top-visibleHeaderBottom())<3,
   'La barra no vuelve junto a la cabecera al subir: barra '+Math.round(fixedBar.getBoundingClientRect().top)+'px, cabecera '+visibleHeaderBottom()+'px, scroll '+Math.round(scrollY)+'px');
