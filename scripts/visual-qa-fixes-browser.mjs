@@ -16,7 +16,8 @@ const css=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(css2[1])+'\n'+ra
 assert(app.includes('class="ob-auth-page"'),'Formulario sin clase protectora');
 const appVersion=Number(index.match(/app\.js\?v=(\d+)/)?.[1]||0);
 const uiVersion=Number(index.match(/ui\.js\?v=(\d+)/)?.[1]||0);
-assert(appVersion>=34&&uiVersion>=56&&index.includes('styles.css?v=25'),
+const stylesVersion=Number(index.match(/styles\.css\?v=(\d+)/)?.[1]||0);
+assert(appVersion>=34&&uiVersion>=56&&stylesVersion>=25,
  'Versiones de módulos no renovadas');
 assert(app.includes('/ui.js?v='+uiVersion),'El app.js no coincide con la UI precargada');
 const names=['Más leídas','Tendencia','Mejor calificadas','Más terminadas','Novedades en ascenso','Por equipo'];

@@ -103,6 +103,21 @@ check($('.rd-ch')?.dataset.ch==='c1','No se abrió el primer capítulo');
 check($('.rd-body')?.textContent.includes('lectura original'),'Texto ausente');
 check(first<550,'Los créditos retrasaron el texto');
 const originalText=$('.rd-body')?.textContent||'';
+check($('.rd-ch-end .rd-to-series')?.getAttribute('href')==='/serie/obra-fixture',
+  'Falta Regresar a la serie al final del capítulo');
+$('.rd-bar [data-act="prefs"]')?.click();
+check(!$('.rd-panel')?.hidden,'El menú Aa no abrió los ajustes');
+check(getComputedStyle($('.rd-panel')).position==='fixed',
+  'Los ajustes empujan el capítulo en vez de superponerse');
+check($('.rd-body')?.textContent===originalText,'Los ajustes ocultaron o reemplazaron el texto');
+const fixedButton=$('.rd-panel [data-k="controls"][data-v="fijo"]');
+check(!!fixedButton,'No está la opción de barra siempre visible');
+fixedButton?.click();
+check($('.rd')?.dataset.controls==='fijo','No se aplicó en vivo la barra siempre visible');
+check($('.rd-body')?.textContent===originalText,'Cambiar el modo borró el capítulo');
+$('.rd-panel [data-panel-close]')?.click();
+check($('.rd-panel')?.hidden,'El menú deslizable no se pudo cerrar');
+
 history.pushState({},'','/leer/obra-fixture/2');
 window.__qaStage='navegación rápida';
 const slow=reader.open('obra-fixture',2).catch(e=>errors.push('Capítulo abandonado: '+e.message));

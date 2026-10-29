@@ -39,6 +39,8 @@ jobs:
         run: node scripts/offline-buttons-check.mjs
       - name: Lector Fase 4 — lectura continua y TTS sin condiciones de carrera
         run: node scripts/reader-phase4-continuity-check.mjs
+      - name: Calidad lector, imágenes e Inicio/Catálogo (sin backend)
+        run: node scripts/reader-quality-phase134-check.mjs
       - name: Lector Fase 4 — navegación rápida, latencia y acceso restringido (Chromium)
         run: node scripts/reader-phase4-integration-browser.mjs
       - name: Difusión — Chromium confirmación multicanal sin envíos externos
