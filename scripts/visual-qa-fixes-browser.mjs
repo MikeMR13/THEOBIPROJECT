@@ -14,8 +14,8 @@ assert(navStart>=0,'CSS de navegación móvil no encontrado');
 const navCss=ui.slice(navStart+navMarker.length).split(q+';')[0];
 const css=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(css2[1])+'\n'+rankingCSS+'\n'+navCss;
 assert(app.includes('class="ob-auth-page"'),'Formulario sin clase protectora');
-const appVersion=Number(index.match(/app\\.js\\?v=(\\d+)/)?.[1]||0);
-const uiVersion=Number(index.match(/ui\\.js\\?v=(\\d+)/)?.[1]||0);
+const appVersion=Number(index.match(/app\.js\?v=(\d+)/)?.[1]||0);
+const uiVersion=Number(index.match(/ui\.js\?v=(\d+)/)?.[1]||0);
 assert(appVersion>=34&&uiVersion>=56&&index.includes('styles.css?v=25'),
  'Versiones de módulos no renovadas');
 assert(app.includes('/ui.js?v='+uiVersion),'El app.js no coincide con la UI precargada');
