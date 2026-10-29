@@ -38,7 +38,7 @@ assert(ui.includes("tag === null ? ''"),'La recomendación no puede heredar la i
 assert(ui.includes('El Obi del Lector — Novelas ligeras en español latino'),'Falta H1 fijo');
 assert(ui.includes('<h2 data-len='),'El título rotativo no debe ser H1');
 assert(home.includes("querySelector('h2')"),'Vitrina debe conservar el título editorial');
-assert(css.includes('.ob-hero .ob-txt h2'),'El H2 debe conservar el estilo del título');
+assert(ui.includes('.ob-hero .ob-txt h2') && home.includes('.vt-side .ob-txt h2'),'El H2 debe conservar sus estilos en el hero y la vitrina');
 assert(app.includes("optimizeAvatar(file)"),'No se optimizan los avatares');
 const pkg=JSON.parse(read('package.json'));
 assert.equal(pkg.scripts.build,'node scripts/build.mjs');
