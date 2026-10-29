@@ -9,7 +9,10 @@ assert(css2,'CSS2 no encontrada');
 const q=String.fromCharCode(96), marker='const RK_CSS = '+q;
 let i=ui.indexOf(marker);assert(i>=0,'Ranking CSS no encontrado');
 let rankingCSS=ui.slice(i+marker.length).split(q+';')[0];
-const css=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(css2[1])+'\n'+rankingCSS;
+const navMarker='const SR_CSS = '+q,navStart=ui.indexOf(navMarker);
+assert(navStart>=0,'CSS de navegación móvil no encontrado');
+const navCss=ui.slice(navStart+navMarker.length).split(q+';')[0];
+const css=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(css2[1])+'\n'+rankingCSS+'\n'+navCss;
 assert(app.includes('class="ob-auth-page"'),'Formulario sin clase protectora');
 assert(index.includes('app.js?v=33')&&index.includes('styles.css?v=25'),'Caché no renovada');
 const names=['Más leídas','Tendencia','Mejor calificadas','Más terminadas','Novedades en ascenso','Por equipo'];
@@ -28,7 +31,7 @@ const page='<!doctype html><html lang="es"><head><meta name="viewport" content="
  'const chips=[...document.querySelectorAll("#rk .ui-chip")];let n=0;'+
  'for(const b of chips){if(b.getBoundingClientRect().height<43.5)throw Error("Filtro "+b.textContent+" demasiado bajo");b.onclick=()=>n++;b.click()}'+
  'if(n!==6)throw Error("Seis filtros no reciben clic");'+
- 'document.getElementById("rk").hidden=true;const button=document.getElementById("go");'+
+ 'document.getElementById("rk").style.display="none";const button=document.getElementById("go");'+
  'button.scrollIntoView({block:"center",behavior:"instant"});'+
  'const r=button.getBoundingClientRect(),t=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);'+
  'if(!(t===button||button.contains(t)))throw Error("Entrar está tapado");'+
