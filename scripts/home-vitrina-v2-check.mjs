@@ -26,6 +26,15 @@ function browserCheck(){
   ok(visible(a1),'El botón Ver volumen está oculto');
   ok(visible(ranking),'El enlace Top de la semana está oculto');
   ok(getComputedStyle(a1).backgroundColor!=='rgba(0, 0, 0, 0)','Ver volumen no tiene fondo visible');
+  // Esta comprobación faltaba: una textura fixed con z-index:0 puede
+  // pintarse por ENCIMA de colores CSS opacos si el contenido no tiene capa propia.
+  const seasonalPattern=document.querySelector('.obi-sea-pat');
+  const appLayer=document.getElementById('app');
+  ok(!!seasonalPattern && !!appLayer,'Falta reproducir el patrón Halloween sobre la vitrina');
+  ok(getComputedStyle(seasonalPattern).position==='fixed','Patrón estacional no está en capa fixed');
+  ok(getComputedStyle(appLayer).position==='relative' &&
+    Number(getComputedStyle(appLayer).zIndex)>Number(getComputedStyle(seasonalPattern).zIndex),
+    'El patrón Ichimatsu de Halloween sigue por encima de botones y ficha');
   const a2=s.querySelector('.ob-acts .a2');
   const opacityOf=el=>Number((getComputedStyle(el).backgroundColor.match(/rgba?\\(([^)]+)\\)/)?.[1]?.split(',')[3])||1);
   ok(!!a2&&visible(a2),'El segundo CTA está oculto');
@@ -96,9 +105,13 @@ async function run(){
   const {createServer}=await import('node:http');
   const {spawn,execFileSync}=await import('node:child_process');
   const ui=readFileSync('src/ui.js','utf8'),v=readFileSync('src/home-vitrina.js','utf8');
+  assert(ui.includes('background:#2c2115;color:#fff4e5'), 'El segundo CTA del Inicio carece de fondo sólido antes de montar la vitrina');
   const cssMatch=ui.match(/const CSS2 = ("(?:\\.|[^"\\])*");/);
   assert(cssMatch,'Estilos reales de Inicio no encontrados');
-  const siteCss=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(cssMatch[1]);
+  const seasonSrc=readFileSync('src/season.js','utf8');
+  const seasonCssMatch=seasonSrc.match(/const CSS = \`([\\s\\S]*?)\`;/);
+  assert(seasonCssMatch,'Faltan estilos reales de temporada');
+  const siteCss=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(cssMatch[1])+'\n'+seasonCssMatch[1];
   for(const needle of [
     "home-vitrina.js?v=6","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
     "el.dataset.vtKeys === feat.map(heroKey).join('|')","el.__vtStop?.()",
@@ -115,7 +128,7 @@ async function run(){
   }).find(Boolean);
   assert(chrome,'No hay Chromium / Google Chrome disponible');
   const long='Una historia de novelas ligeras con muchos personajes y un nombre demasiado largo para un móvil ';
-  const HTML=`<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${siteCss}\n
+  const HTML=`<!doctype html><html lang="es" data-season="halloween"><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${siteCss}\n
   :root{--gold:#f2c230;--sea:#eb863e;--paper:#f3ecd9}body{margin:0;background:#100d09;color:#f3ecd9;font:14px Arial}
   /* La prueba mide la posición final, no la animación de entrada de 600–750 ms. */
   .ob-page,#hero .ob-txt{animation:none!important}.vt-book{transition:none!important}
@@ -129,7 +142,7 @@ async function run(){
   .ob-acts{display:flex;gap:9px;flex-wrap:wrap}.ob-acts a{display:inline-flex;padding:9px;border:1px solid #8c7d5f;color:inherit}
   .ob-pager2{display:flex;gap:8px;align-items:center}.ob-pager2>span{display:flex;gap:8px;flex:1;justify-content:center}
   .ob-pager2 button{min-height:44px;min-width:44px}
-  </style></head><body><main class="ob-page"><section class="ob-hero" id="hero">
+  </style></head><body><main id="app" class="ob-page"><section class="ob-hero" id="hero">
   <span class="ob-vk">新刊</span><div class="ob-cov"><div class="f"></div></div>
   <div class="ob-txt"><div class="ob-hero-copy"><div class="ob-hero-head"><div class="ob-hero-meta">
   <span class="ob-kick">第２巻 · 新刊</span><div class="ob-hero-flags"><span class="ob-badge">¡NUEVO VOLUMEN!</span></div><div class="ob-hero-rank"><a class="rk-bdg" href="/ranking">#2 Top de la semana</a></div></div>
@@ -139,7 +152,7 @@ async function run(){
   <p class="ob-syn">${long.repeat(3)}</p></div>
   <div class="ob-hero-footer"><div class="ob-acts"><a class="a1" href="/serie/obra">Ver volumen 2</a><a class="a2" href="/leer/obra/14">Continuar lectura</a></div></div></div>
   <div class="ob-pager2"><button data-dir="-1">‹</button><span><button data-j="0">1</button><button data-j="1">2</button><button data-j="2">3</button></span><button data-hp aria-label="Pausar">Ⅱ Pausar</button><button data-dir="1">›</button></div>
-  </section></main><div id="result" data-status="running"></div><script type="module">
+  </section></main><span class="obi-sea-pat" aria-hidden="true" style="background-image:conic-gradient(#eb863e 25%,transparent 0 50%,#eb863e 0 75%,transparent 0);background-size:28px 28px"></span><div id="result" data-status="running"></div><script type="module">
   import {enhanceHomeVitrina} from '/home-vitrina.js';
   const books=[{id:1,title:'Primera obra',slug:'primera-obra',cover_path:'first.svg',theme:{color:'#a97941'}},
   {id:2,title:'Segunda obra',slug:'segunda-obra',cover_path:'second.svg',theme:{color:'#47456a'}},
