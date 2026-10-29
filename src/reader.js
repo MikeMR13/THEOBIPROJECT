@@ -8,7 +8,7 @@ import { SECTION_LABELS } from './section-types.js?v=1';
 import { formatChapterIndex } from './chapter-title-display.js?v=2';
 import { adjacentChapter, mergeChapterMetadata } from './reader-navigation.js?v=1';
 import { isPubliclyReadableChapter } from './prelaunch-access.js?v=1';
-const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true };
+const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true, controls: 'deslizable' };
 const COLORS = { gold: '#f2c230', rose: '#f29bb0', sky: '#8cc3f2', mint: '#9fdcb0' };
 const SEC_LABEL = SECTION_LABELS;
 
@@ -289,7 +289,8 @@ export function createReader(ctx){
       <header class="rd-head"><span class="mono">Volumen ${ch.vol} · ${esc(label)}</span><h2${(() => { const f = (blocks || []).find(b => (b.type || b.t) === 'heading')?.html?.match(/data-epub-family="(\d+)"/)?.[1]; return f ? ` style="font-family:var(--f${f})"` : ''; })()}>${esc(shown.heading || (shown.number ? "" : ch.title))}</h2></header>
       ${warningsHTML(ch.content_warnings, p.cw)}
       <div class="rd-body">${(blocks || []).map((b, i) => block(b, i, p)).join('')}</div>
-      ${ch.teaser_on && ch.teaser ? teaserHTML(ch.teaser, nextWhen()) : ''}</article>`;
+      ${ch.teaser_on && ch.teaser ? teaserHTML(ch.teaser, nextWhen()) : ''}
+      <nav class="rd-ch-end" aria-label="Opciones al terminar el capítulo"><a class="btn ghost rd-to-series" href="/serie/${esc(S.series.slug)}">← Regresar a la serie</a></nav></article>`;
   }
 
   // ---------- glosario en el texto ----------
@@ -346,7 +347,7 @@ export function createReader(ctx){
   function trackView(ch){ if (!navigator.onLine) return; const k = 'obi-v-' + ch.id, d = new Date().toDateString(); try { if (localStorage.getItem(k) === d) return; localStorage.setItem(k, d); } catch {} sb.rpc('track_view', { p_chapter: ch.id, p_device: devId() }).then(() => {}, () => {}); }
   // ---------- modo zen y pantalla encendida ----------
   function zen(on = !document.body.classList.contains('rd-zen')){
-    document.body.classList.toggle('rd-zen', on); if (on) { const pn = panel(); if (pn) pn.hidden = true; }
+    document.body.classList.toggle('rd-zen', on); if (on) closePanel();
     if (on) document.documentElement.requestFullscreen?.().catch(() => {}); else if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   }
   document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) document.body.classList.remove('rd-zen'); });
@@ -359,9 +360,10 @@ export function createReader(ctx){
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && $('.rd')) wake(); });
   // ← → capítulo anterior/siguiente · Z modo zen · Esc cierra panel o sale del zen
   document.addEventListener('keydown', e => {
-    if (!$('.rd') || !S.active || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+    if (!$('.rd') || !S.active || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
     const pn = panel();
-    if (e.key === 'Escape') { if (pn && !pn.hidden) pn.hidden = true; else if (document.body.classList.contains('rd-zen')) zen(false); return; }
+    if (e.key === 'Escape') { if (pn && !pn.hidden) { e.preventDefault(); closePanel(); } else if (document.body.classList.contains('rd-zen')) zen(false); return; }
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
     if (pn && !pn.hidden) return;
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { const c = e.key === 'ArrowRight' ? nextOf(S.active) : prevOf(S.active); if (c) { e.preventDefault(); go(`/leer/${S.series.slug}/${c.num}`); } }
     if (e.key === 'z' || e.key === 'Z') zen();
@@ -442,19 +444,19 @@ export function createReader(ctx){
     const p = effective(ch.volume_id);
     S.mounted = [ch]; S.active = ch; S.activeOwner = openingUser; S.annots = []; S.lastY = null; trackView(ch);
     const more = `<button class="btn ghost" data-act="coms">Comentarios</button><button class="btn ghost" data-act="notes">Anotaciones</button><button class="btn ghost" data-act="offline">${isVolOffline(ch) ? '✓ Descargado' : 'Descargar volumen'}</button>`;
-    app.innerHTML = `<div class="rd" data-theme="${p.theme}" data-width="${p.width}" data-lh="${p.lh}" data-align="${p.align}" data-para="${p.para}" data-font="${p.font}" style="--rs:${p.size}px">
+    app.innerHTML = `<div class="rd" data-theme="${p.theme}" data-width="${p.width}" data-lh="${p.lh}" data-align="${p.align}" data-para="${p.para}" data-font="${p.font}" data-controls="${p.controls === 'fijo' ? 'fijo' : 'deslizable'}" style="--rs:${p.size}px">
       <nav class="rd-bar">
         <span class="rd-where"><a href="/serie/${esc(slug)}" class="rd-back" title="${esc(S.series.title)}">‹ ${esc(S.series.title)}</a><span class="rd-left mono"></span></span>
         <div class="rd-tools">
           <button class="btn ghost" data-act="toc" aria-label="Índice">Índice</button>
-          <button class="btn ghost" data-act="prefs" aria-label="Ajustes de lectura">Aa</button>
+          <button class="btn ghost" data-act="prefs" aria-label="Ajustes de lectura" aria-controls="rd-panel" aria-expanded="false">Aa</button>
           <button class="btn ghost" data-act="zen" title="Modo zen · tecla Z">Zen</button>
           <span class="rd-wide">${more}</span>
           <details class="rd-more"><summary class="btn ghost" aria-label="Más opciones">⋯</summary><div class="rd-more-m">${more}</div></details>
         </div>
       </nav>
       <div class="rd-prog" aria-hidden="true"><i></i></div>
-      <div class="rd-panel" hidden></div>
+      <div class="rd-panel" id="rd-panel" role="region" aria-label="Herramientas de lectura" hidden></div>
       <p id="rd-resume" class="rd-resume" hidden></p>
       <p id="rd-earlier" hidden></p>
       <div id="rd-flow">${chapterHTML(ch, b, p)}</div>
@@ -613,7 +615,8 @@ export function createReader(ctx){
   function frame(){
     S.raf = 0; const rd = $('.rd'); if (!rd || !S.active) return;
     const y = scrollY; if (S.lastY == null) S.lastY = y; const d = y - S.lastY;
-    if (Math.abs(d) > 6) { S.lastY = y; rd.dataset.bar = d > 0 && y > 240 && panel().hidden && pop().hidden ? 'hide' : ''; }
+    if (Math.abs(d) > 6) { S.lastY = y; rd.dataset.bar = rd.dataset.controls === 'fijo' ? '' : (d > 0 && y > 240 && panel().hidden && pop().hidden ? 'hide' : ''); }
+    if (rd.dataset.controls === 'fijo') rd.dataset.bar = '';
     if (innerHeight + y >= document.documentElement.scrollHeight - 40) rd.dataset.bar = '';
     progress(); wake();
   }
@@ -707,9 +710,24 @@ export function createReader(ctx){
   // ---------- barra, índice y ajustes ----------
   function bindBar(){
     document.querySelectorAll('.rd-bar [data-act], .rd-zen-x').forEach(b => b.onclick = () => { b.closest('details')?.removeAttribute('open'); ({ toc, prefs: prefsPanel, coms: comments, notes: () => go('/anotaciones/' + S.series.slug), offline: toggleOffline, zen: () => zen() })[b.dataset.act](); });
+    panel()?.addEventListener('click', e => { if (e.target.closest('[data-panel-close]')) closePanel(); });
   }
   const panel = () => $('.rd-panel');
-  function toggle(html){ const pn = panel(); if (!pn.hidden && pn.dataset.kind === html.kind) { pn.hidden = true; return null; } pn.dataset.kind = html.kind; pn.innerHTML = html.body; pn.hidden = false; return pn; }
+  function closePanel(){
+    const pn = panel(); if (!pn) return;
+    pn.hidden = true;
+    document.querySelectorAll('.rd-bar [aria-controls="rd-panel"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+  }
+  function toggle(html){
+    const pn = panel(); if (!pn) return null;
+    if (!pn.hidden && pn.dataset.kind === html.kind) { closePanel(); return null; }
+    pn.dataset.kind = html.kind;
+    pn.innerHTML = '<div class="rd-panel-head"><strong>' + (html.kind === 'prefs' ? 'Ajustes de lectura' : 'Índice de capítulos') + '</strong><button class="rd-panel-close" type="button" data-panel-close aria-label="Cerrar panel">✕</button></div>' + html.body;
+    pn.hidden = false;
+    document.querySelectorAll('.rd-bar [aria-controls="rd-panel"]').forEach(b => b.setAttribute('aria-expanded', String(b.dataset.act === html.kind)));
+    $('.rd').dataset.bar = '';
+    return pn;
+  }
   function tocHTML(){
     const byVol = {}; S.chapters.forEach(c => (byVol[c.vol] ||= []).push(c));
     const done = c => S.readSet?.has(c.id) || S.readMarked.has(c.id);
@@ -728,6 +746,7 @@ export function createReader(ctx){
     const ch = S.active, vid = ch.volume_id, p = effective(vid), scoped = !!S.remote.per_volume[vid];
     const opt = (k, list) => `<div class="rd-opt"><span class="mono">${list.label}</span><div>${list.o.map(([v, l]) => `<button data-k="${k}" data-v="${v}" class="${String(p[k]) === String(v) ? 'on' : ''}" aria-pressed="${String(p[k]) === String(v)}">${l}</button>`).join('')}</div></div>`;
     const pn = toggle({ kind: 'prefs', body: `
+      ${opt('controls', { label: 'Controles del lector', o: [['deslizable','Menú deslizable'],['fijo','Barra siempre visible']] })}
       ${opt('theme', { label: 'Tema', o: [['auto','Como el sistema'],['claro','Claro'],['sepia','Sepia'],['noche','Noche cálida'],['oscuro','Oscuro'],['negro','Negro (OLED)']] })}
       <div class="rd-opt"><span class="mono">Tamaño · <b data-size-l>${p.size}px</b></span><input type="range" min="14" max="30" value="${p.size}" data-k="size"></div>
       ${opt('font', { label: 'Tipografía', o: [['original','Original del EPUB'],['Literata','Literata'],['serif','Serif'],['sans','Sans']] })}
@@ -757,7 +776,7 @@ export function createReader(ctx){
   // el panel Aa queda abierto: solo se actualiza la opción tocada
   function refreshPrefs(k){
     const pn = panel(); if (pn.hidden || pn.dataset.kind !== 'prefs') return;
-    if (k === 'continuous' || k === 'autonext') { const st = pn.scrollTop; pn.hidden = true; prefsPanel(); panel().scrollTop = st; return; }
+    if (k === 'continuous' || k === 'autonext') { const st = pn.scrollTop; closePanel(); prefsPanel(); panel().scrollTop = st; return; }
     const p = effective(S.active.volume_id);
     pn.querySelectorAll(`button[data-k="${k}"]`).forEach(b => { const selected = String(p[k]) === b.dataset.v; b.classList.toggle('on', selected); b.setAttribute('aria-pressed', String(selected)); });
     if (k === 'size') pn.querySelector('[data-size-l]').textContent = p.size + 'px';
@@ -765,7 +784,7 @@ export function createReader(ctx){
   }
   async function applyPrefs(k){
     const p = effective(S.active.volume_id), rd = $('.rd');
-    Object.assign(rd.dataset, { theme: p.theme, width: p.width, lh: p.lh, align: p.align, para: p.para }); rd.style.setProperty('--rs', p.size + 'px');
+    Object.assign(rd.dataset, { theme: p.theme, width: p.width, lh: p.lh, align: p.align, para: p.para, controls: p.controls === 'fijo' ? 'fijo' : 'deslizable' }); if (rd.dataset.controls === 'fijo') rd.dataset.bar = ''; rd.style.setProperty('--rs', p.size + 'px');
     rd.dataset.font = p.font;
     if (k === 'awake') { if (p.awake === false) wl?.release(); else wake(); }
     // cambiar de fuente solo actualiza variables CSS, sin redibujar el texto
