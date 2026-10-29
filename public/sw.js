@@ -55,10 +55,10 @@ async function nav(e, req, u){
   const timeout = setTimeout(() => ac.abort(), 1800);
   try {
     const fresh = await fetch(req, { signal: ac.signal });
-    if (fresh.ok && !fresh.redirected && /text\\/html/i.test(fresh.headers.get('content-type') || '')) {
+    if (fresh.ok && !fresh.redirected && (fresh.headers.get('content-type') || '').toLowerCase().includes('text/html')) {
       // Un desafío de acceso no es HTML de la aplicación. No mostrarlo como lector.
       const html = await fresh.clone().text();
-      if (/id=["']app["']/.test(html) && /app\\.js/.test(html)) return fresh;
+      if ((html.includes('id="app"') || html.includes("id='app'")) && html.includes('app.js')) return fresh;
     }
   } catch {} finally { clearTimeout(timeout); }
   return hit || Response.error();
