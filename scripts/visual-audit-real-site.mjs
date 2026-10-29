@@ -26,6 +26,7 @@ const contexts=[
 ];
 function clean(str){return String(str||'').replace(/\s+/g,' ').trim().slice(0,180)}
 const inspect=()=> {
+ const MAX=32,clean=str=>String(str||'').replace(/\s+/g,' ').trim().slice(0,180);
  const W=document.documentElement.clientWidth,H=innerHeight;
  const app=document.querySelector('#app');
  const visible=el=>{
