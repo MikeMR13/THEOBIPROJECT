@@ -124,24 +124,34 @@ $('.rd-panel [data-panel-close]')?.click();
 check($('.rd-panel')?.hidden,'El menú deslizable no se pudo cerrar');
 // Comprobar el comportamiento que ve el usuario, no solo un atributo o clase CSS.
 const fixedBar=$('.rd-bar');
+const siteHeader=document.querySelector('body > header.top');
+const visibleHeaderBottom=()=>Math.max(0,Math.min(innerHeight,Math.ceil(siteHeader.getBoundingClientRect().bottom)));
 const barTopBefore=fixedBar?.getBoundingClientRect().top ?? -999;
 const barBottomBefore=fixedBar?.getBoundingClientRect().bottom ?? -999;
 check(getComputedStyle(fixedBar).position==='fixed','Siempre visible debe usar position:fixed, no sticky');
+check(Math.abs(barTopBefore-visibleHeaderBottom())<3,'La barra no inicia pegada a la cabecera visible');
 check($('.rd-body').getBoundingClientRect().top >= barBottomBefore - 2,
   'La barra fija está tapando el texto del capítulo');
+// En escritorio la cabecera puede salir de pantalla en navegadores que no
+// conservan el sticky. Simulamos exactamente la captura aportada.
+if(innerWidth>700) siteHeader.style.position='relative';
 const scrollAvailable=Math.max(0,document.documentElement.scrollHeight-innerHeight);
 check(scrollAvailable>480,'El capítulo de prueba no tiene suficiente altura para comprobar scroll');
 scrollTo(0,Math.min(750,scrollAvailable-40));
 await sleep(75);
 check(scrollY>200,'Chromium no desplazó la lectura de prueba');
-check(Math.abs(fixedBar.getBoundingClientRect().top-barTopBefore)<3,
-  'La barra fija desaparece o cambia su posición al bajar por el capítulo');
+check(visibleHeaderBottom()===0,'El escenario debe ocultar completamente la cabecera global');
+check(Math.abs(fixedBar.getBoundingClientRect().top)<3,
+  'La barra deja un hueco arriba cuando la cabecera ya desapareció');
 check(getComputedStyle(fixedBar).opacity==='1' && fixedBar.getBoundingClientRect().bottom>0,
   'La barra fija queda oculta después del desplazamiento');
 scrollTo(0,0);
-await sleep(30);
-check(Math.abs(fixedBar.getBoundingClientRect().top-barTopBefore)<3,
-  'La barra fija se pierde al volver al inicio');
+// En Chromium con --virtual-time-budget un scroll programático no siempre
+// despacha el evento inmediatamente. Simular la notificación del navegador.
+dispatchEvent(new Event('scroll'));
+await sleep(75);
+check(Math.abs(fixedBar.getBoundingClientRect().top-visibleHeaderBottom())<3,
+  'La barra no vuelve junto a la cabecera al subir: barra '+Math.round(fixedBar.getBoundingClientRect().top)+'px, cabecera '+visibleHeaderBottom()+'px, scroll '+Math.round(scrollY)+'px');
 $('.rd-settings-trigger')?.click();
 $('.rd-panel [data-k="controls"][data-v="deslizable"]')?.click();
 check($('.rd')?.dataset.controls==='deslizable','La barra deslizable no se aplicó');
@@ -197,7 +207,7 @@ function html(){
   return '<!doctype html><html lang="es"><head><meta charset="utf-8">'+
     '<meta name="viewport" content="width=device-width,initial-scale=1">'+
     '<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/reader-a11y.css">'+
-    '</head><body><main id="app"></main><p id="qa-result" data-qa-status="running">Cargando</p>'+
+    '</head><body><header class="top" style="min-height:64px">El Obi del Lector</header><main id="app"></main><p id="qa-result" data-qa-status="running">Cargando</p>'+
     '<script>window.__qaStage="cargando módulo";window.addEventListener("error",e=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="Error de módulo: "+e.message;}});'+
     'window.addEventListener("unhandledrejection",e=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="Promesa no controlada: "+String(e.reason);}});'+
     'setTimeout(()=>{const p=document.getElementById("qa-result");if(p?.dataset.qaStatus==="running"){p.dataset.qaStatus="fail";p.textContent="No finalizó QA, etapa: "+(window.__qaStage||"desconocida")+" · solicitudes: "+JSON.stringify(window.__qaHits||{});}},9500);</script>'+
