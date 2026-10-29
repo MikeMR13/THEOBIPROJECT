@@ -55,6 +55,17 @@ function browserCheck(){
   h1.textContent=originalTitle;
   ok(Math.abs(r('.vt-row').height-fixedHeight)<1,'Cambió la altura con un título largo');
   ok(getComputedStyle(s.querySelector('.vt-row')).height!=='auto','Altura sin reserva estable');
+  // La vitrina no debe ocupar casi toda la portada: el resto del Inicio
+  // debe aparecer sin un desplazamiento largo para llegar a Novedades.
+  const viewport=window.innerHeight;
+  const rowHeight=r('.vt-row').height,totalHeight=r('.vt').height;
+  const maxRow=innerWidth>1050?Math.min(400,Math.max(340,viewport*.43)):
+    innerWidth>700?Math.min(390,Math.max(330,viewport*.46)):
+    innerWidth>380?Math.min(510,viewport*.72):Math.min(535,viewport*.78);
+  ok(rowHeight<=maxRow+4,'Vitrina ocupa más alto del previsto: '+rowHeight.toFixed(1)+' > '+maxRow.toFixed(1));
+  if(innerWidth>700)ok(totalHeight<=460,'La vitrina de PC sigue ocultando casi toda la página: '+totalHeight.toFixed(1));
+  ok(r('.vt-controls').top>=r('.vt-row').bottom-2,'Controles encima de la ficha');
+  ok(r('.ob-txt').height<=rowHeight-8,'Hoja demasiado alta para la vitrina');
   ok(s.querySelector('.ob-txt').dataset.vtFit==='ready','No se ejecutó el ajuste de tipografía');
   ok(r('.ob-acts').bottom<=paper.bottom-4,'Botones sobresalen de la hoja');
   ok(r('.ob-acts').top>=paper.top,'Botones colocados fuera de la hoja');
@@ -82,7 +93,7 @@ async function run(){
   assert(cssMatch,'Estilos reales de Inicio no encontrados');
   const siteCss=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(cssMatch[1]);
   for(const needle of [
-    "home-vitrina.js?v=4","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
+    "home-vitrina.js?v=5","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
     "el.dataset.vtKeys === feat.map(heroKey).join('|')","el.__vtStop?.()",
     "heroPaused = true;","homeMetrics.shown(heroKey(s)","homeMetrics.clicked(s.slug",
     "prelaunch_calendar","creditsHTML({publicCredits:","heroClock.show({"
