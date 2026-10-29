@@ -1,0 +1,18 @@
+// Regresión del contrato de novedades: solo lectura, ningún envío ni acceso a Supabase.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const p=readFileSync('src/profile.js','utf8');
+const app=readFileSync('src/app.js','utf8');
+const email=readFileSync('supabase/functions/notify-email/index.ts','utf8');
+const sql=readFileSync('sql/reader-follow-notifications-candidate.sql','utf8');
+const req=(src,need,label)=>need.forEach(x=>assert(src.includes(x),label+': falta '+x));
+req(p, ["['volumen', 'Volúmenes completos nuevos'", "'fc-' + s.id", "'fv-' + s.id", "ch.chapters=!enabled", "N.email[k]"],'Preferencias');
+req(app, ['data-av-channel="web"','data-av-channel="volumes"',"if(key==='web')ch.chapters=i.checked"],'Biblioteca');
+req(email, ["volumen: 'Volúmenes completos nuevos'",'https://elobidellector.com',"if (!SECRET || req.headers.get('x-cron-secret') !== SECRET)"],'Correo seguro');
+req(sql, ['private.follow_volume_delivered','on conflict do nothing',"new.kind := 'volumen'","'#serie-vols'","v.announced_at is null","coalesce(f.channels->>'chapters'","coalesce(f.channels->>'volumes'","new.archived_at is not null","new.kind <> 'moderacion'","n->'email'->>new.kind","new.link->>'slug'"],'Enrutamiento');
+assert(!sql.includes('cron.schedule('),'Prohibido crear un cron o servicio adicional');
+assert(!sql.includes('service_role'),'Prohibido usar credenciales privilegiadas en el navegador');
+assert(sql.includes("coalesce(s.access,'public') = 'public'") && sql.includes("coalesce(v.access,'public') = 'public'") && sql.includes("coalesce(c.access,'public') = 'public'"),'No avisar contenido de acceso exclusivo');
+assert(/primary key \(volume_id, user_id\)/.test(sql),'Deduplicación por usuario y volumen');
+assert(sql.includes("old.published is distinct from new.published"),'Transición privada a pública');
+console.log('Avisos capítulos/volúmenes: contratos de seguridad, enlaces, deduplicación y preferencias OK');
