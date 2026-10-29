@@ -94,7 +94,8 @@ try {
   assert.match(ui,/offlineButton\(\{slug:s\.slug,scope:'chapter'/);
   assert.match(reader,/otherChapterKeys/,'Borrar un volumen no puede borrar otro capítulo compartido');
   assert.match(reader,/it\.kind === 'chapter'/,'Mis descargas distingue capítulos');
-  assert.match(html,/reader-a11y\.css\?v=2/);
+  const a11yVersion=Number(html.match(/reader-a11y\\.css\\?v=(\\d+)/)?.[1]||0);
+  assert(a11yVersion>=3,'CSS accesible sin versionar tras retirar cinta antigua');
   console.log('QA offline Obras y Biblioteca: novela, volúmenes, capítulo, RLS, rollback, recursos e índice compartido OK');
 } finally {
   Object.defineProperty(globalThis,'navigator',{configurable:true,value:originalNav});
