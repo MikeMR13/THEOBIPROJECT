@@ -79,7 +79,8 @@ export function apply(kind, o = {}){
 }
 const CSS = `
 /* Capas por encima del fondo pero detrás de la cabecera y modales; no capturan clics. */
-.obi-sea-layer{position:fixed;inset:0;pointer-events:none;z-index:2;opacity:.55}.obi-sea-layer.over{z-index:40;opacity:.6}.obi-sea-layer>canvas{position:absolute;inset:0;width:100%;height:100%}
+/* Partículas y patrones siempre DETRÁS de paneles, menús, botones y diálogos. */
+.obi-sea-layer{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.55}.obi-sea-layer.over{z-index:0;opacity:.6}.obi-sea-layer>canvas{position:absolute;inset:0;width:100%;height:100%}
  /* La textura estacional se usa SOLO como fondo. Antes, un elemento
     fixed con z-index:0 se pintaba encima de <main> y mezclaba el patrón
     Ichimatsu con botones de color sólido, dejándolos a cuadros. */

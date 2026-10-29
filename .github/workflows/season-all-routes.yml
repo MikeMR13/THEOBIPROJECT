@@ -1,0 +1,45 @@
+name: Auditoría de temporadas · cobertura transversal
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'scripts/season-all-routes-browser-check.mjs'
+      - '.github/workflows/season-all-routes.yml'
+  push:
+    branches:
+      - main
+      - 'test/auditoria-temporadas-*'
+    paths:
+      - 'src/**'
+      - 'scripts/season-all-routes-browser-check.mjs'
+      - '.github/workflows/season-all-routes.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: temporadas-global-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  matrix:
+    name: Temas × rutas × controles (Chromium local)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validar sintaxis
+        run: |
+          node --check src/season.js
+          node --check scripts/season-all-routes-browser-check.mjs
+      - name: Auditar temas, rutas, pestañas y botones, sin backend
+        run: node scripts/season-all-routes-browser-check.mjs
+      - name: Guardar matriz auditada (24 horas)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: temporadas-auditoria-todas-rutas
+          path: qa-capturas/auditoria-todos-temas.json
+          retention-days: 1
+          if-no-files-found: ignore
