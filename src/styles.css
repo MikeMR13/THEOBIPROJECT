@@ -1182,3 +1182,25 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
 
 /* El estilo del panel móvil prevalece sobre los límites antiguos del lector accesible. */
 @media(max-width:700px){.rd .rd-panel{max-height:min(76dvh,calc(100dvh - var(--rd-h,58px) - 12px));padding:16px max(16px,env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}}
+
+
+/* Corrección de visibilidad del lector: CTA de ajustes siempre identificable. */
+.rd .btn.ghost.rd-settings-trigger{
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  min-height:44px;border-color:var(--gold,#f2c230);color:var(--fg);
+  font-size:14px;font-weight:700;
+}
+.rd .btn.ghost.rd-settings-trigger[aria-expanded="true"]{background:var(--gold,#f2c230);color:#0d0c0a}
+.rd-settings-dock{display:none;position:fixed;right:max(16px,env(safe-area-inset-right,0px));
+  bottom:max(22px,env(safe-area-inset-bottom,0px));z-index:12;min-height:48px;padding:10px 15px;
+  color:#14110a;background:var(--gold,#f2c230);border:2px solid #14110a;
+  box-shadow:0 5px 20px rgba(0,0,0,.55);font:700 14px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.rd[data-controls="deslizable"][data-bar="hide"]:not([data-panel-open]) .rd-settings-dock{display:flex;align-items:center;justify-content:center}
+body.rd-zen .rd-settings-dock{display:none!important}
+.rd-settings-dock:focus-visible{outline:3px solid var(--gold,#f2c230);outline-offset:3px}
+@media(max-width:700px){
+  .rd[data-controls="deslizable"][data-bar="hide"]:not([data-panel-open]) .rd-settings-dock{
+    bottom:calc(74px + env(safe-area-inset-bottom,0px));
+  }
+  .rd .btn.ghost.rd-settings-trigger{white-space:nowrap;padding-inline:9px}
+}
