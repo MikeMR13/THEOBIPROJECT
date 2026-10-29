@@ -57,18 +57,18 @@ assert(ui.includes('.ob-hero .ob-txt h1[data-len=xl]{font-size:clamp(26px,2.8vw,
 // Inicio compacto: dejar toda la descripción en el DOM, y reservar los controles.
 assert(ui.includes('class="ob-hero-copy"') && ui.includes('class="ob-hero-footer"'),
  'Separar contenido descriptivo y acciones para evitar que desaparezcan al abreviar textos');
-assert(ui.includes('height:clamp(480px,36vw,540px)') && ui.includes('grid-template-columns:minmax(180px,290px)'),
- 'El carrusel de escritorio debe ser compacto y su portada no puede crecer indefinidamente');
+assert(ui.includes('grid-template-columns:minmax(180px,min(27vw,300px)) minmax(0,1fr)') && ui.includes('max-width:300px'),
+ 'El carrusel de escritorio debe mantener dos columnas y una portada acotada');
 assert(ui.includes('height:auto;min-height:0;max-height:none') && ui.includes('@media(max-width:700px)'),
  'El móvil no debe aplicar una altura fija que oculte controles');
-assert(ui.includes('-webkit-line-clamp:3') && ui.includes('-webkit-line-clamp:2'),
- 'Limitar visualmente títulos y sinopsis sin truncar sus datos');
+assert(ui.includes('-webkit-line-clamp:unset') && ui.includes('-webkit-line-clamp:2'),
+ 'Mostrar títulos íntegros y limitar solo la descripción editorial breve');
 assert(ui.includes('title="${esc(s.title +'),
  'Conservar el título completo disponible al mantener el cursor sobre la novela');
 assert(ui.includes('.ob-hero .ob-hero-footer{flex:none;margin-top:auto'),
  'Los botones deben mantener su espacio incluso con titulares extensos');
-assert(qa.includes('el destacado excede la altura compacta') && qa.includes('footer invade controles'),
- 'La QA responsive debe detectar regresiones de altura y botones ocultos');
+assert(qa.includes('el carrusel vuelve a altura máxima fija') && qa.includes('footer invade controles') && qa.includes('controles fuera de hero'),
+ 'La QA responsive debe impedir altura fija, recorte y superposición de controles');
 // En colaboraciones, agrandar solamente el PNG del propietario, no los
 // colaboradores ni el fallback con el nombre del equipo.
 assert(ui.includes('@media(min-width:1101px)') &&
