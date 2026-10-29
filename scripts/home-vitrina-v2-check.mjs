@@ -65,7 +65,7 @@ function browserCheck(){
   ok(r('.ob-hero-team-logo').right<=r('.vt-side').right+3,`Logo desbordado: ${r('.ob-hero-team-logo').right.toFixed(1)}/${r('.vt-side').right.toFixed(1)}; vt ${r('.vt').left.toFixed(1)}-${r('.vt').right.toFixed(1)}`);
   // El título debe encoger sin modificar la altura global entre obras.
   const fixedHeight=r('.vt-row').height, paper=r('.ob-txt');
-  const h1=s.querySelector('.ob-txt h1'),originalTitle=h1.textContent;
+  const h1=s.querySelector('.ob-txt h2'),originalTitle=h1.textContent;
   h1.textContent='Título breve';
   ok(Math.abs(r('.vt-row').height-fixedHeight)<1,'Cambió la altura con un título corto');
   h1.textContent=originalTitle;
@@ -86,11 +86,11 @@ function browserCheck(){
   ok(s.querySelector('.ob-txt').dataset.vtFit==='ready','No se ejecutó el ajuste de tipografía');
   ok(r('.ob-acts').bottom<=paper.bottom-4,'Botones sobresalen de la hoja');
   ok(r('.ob-acts').top>=paper.top,'Botones colocados fuera de la hoja');
-  ok(r('.ob-txt h1').bottom<=r('.ob-hero-footer').top+2,`Título sobrepuesto: título ${r('.ob-txt h1').top.toFixed(0)}-${r('.ob-txt h1').bottom.toFixed(0)}, pie ${r('.ob-hero-footer').top.toFixed(0)}-${r('.ob-hero-footer').bottom.toFixed(0)}, papel ${r('.ob-txt').top.toFixed(0)}-${r('.ob-txt').bottom.toFixed(0)}, font ${getComputedStyle(h1).fontSize}, display ${getComputedStyle(h1).display}, clamp ${getComputedStyle(h1).webkitLineClamp}`);
+  ok(r('.ob-txt h2').bottom<=r('.ob-hero-footer').top+2,`Título sobrepuesto: título ${r('.ob-txt h2').top.toFixed(0)}-${r('.ob-txt h2').bottom.toFixed(0)}, pie ${r('.ob-hero-footer').top.toFixed(0)}-${r('.ob-hero-footer').bottom.toFixed(0)}, papel ${r('.ob-txt').top.toFixed(0)}-${r('.ob-txt').bottom.toFixed(0)}, font ${getComputedStyle(h1).fontSize}, display ${getComputedStyle(h1).display}, clamp ${getComputedStyle(h1).webkitLineClamp}`);
   const logoWidth=r('.ob-hero-team-logo').width;
   ok(logoWidth>=(innerWidth<=700?86:110),'PNG del traductor demasiado pequeño: '+logoWidth.toFixed(1)+'px');
 
-  ok(r('.ob-txt h1').right<=document.documentElement.clientWidth+3,`Título desbordado: ${r('.ob-txt h1').right.toFixed(1)}/${document.documentElement.clientWidth}`);
+  ok(r('.ob-txt h2').right<=document.documentElement.clientWidth+3,`Título desbordado: ${r('.ob-txt h2').right.toFixed(1)}/${document.documentElement.clientWidth}`);
   if(innerWidth<=700){
     ok(getComputedStyle(s.querySelector('.vt-books')).scrollSnapType.includes('mandatory'),'Falta scroll-snap');
     ok(getComputedStyle(books[0]).position==='relative','Diseño móvil incorrecto');
@@ -139,7 +139,7 @@ async function run(){
   .ob-hero-team-logo{display:block;width:75px;color:inherit}.ob-hero-team-logo img{width:100%;aspect-ratio:1;object-fit:contain}
   .ob-hero-flags{display:flex;flex-direction:column;align-items:start;gap:6px}
   .ob-badge{background:#f2c230;color:#111;padding:6px}.ob-hero-rank{margin:9px 0}
-  .ob-h1a{color:inherit}.ob-txt h1{font-size:28px;overflow-wrap:anywhere}.ob-syn{line-height:1.5}
+  .ob-h1a{color:inherit}.ob-txt h2{font-size:28px;overflow-wrap:anywhere}.ob-syn{line-height:1.5}
   .ob-acts{display:flex;gap:9px;flex-wrap:wrap}.ob-acts a{display:inline-flex;padding:9px;border:1px solid #8c7d5f;color:inherit}
   .ob-pager2{display:flex;gap:8px;align-items:center}.ob-pager2>span{display:flex;gap:8px;flex:1;justify-content:center}
   .ob-pager2 button{min-height:44px;min-width:44px}
@@ -149,7 +149,7 @@ async function run(){
   <span class="ob-kick">第２巻 · 新刊</span><div class="ob-hero-flags"><span class="ob-badge">¡NUEVO VOLUMEN!</span></div><div class="ob-hero-rank"><a class="rk-bdg" href="/ranking">#2 Top de la semana</a></div></div>
   <a class="ob-hero-team-logo" href="/equipo/equipo"><img alt="" src="/covers/team.svg"></a></div>
   <div class="ob-hero-partners"><a href="/equipo/colaborador">Créditos de colaborador</a></div>
-  <h1><a class="ob-h1a" href="/serie/obra">${long.repeat(2)}</a></h1>
+  <h2><a class="ob-h1a" href="/serie/obra">${long.repeat(2)}</a></h2>
   <p class="ob-syn">${long.repeat(3)}</p></div>
   <div class="ob-hero-footer"><div class="ob-acts"><a class="a1" href="/serie/obra">Ver volumen 2</a><a class="a2" href="/leer/obra/14">Continuar lectura</a></div></div></div>
   <div class="ob-pager2"><button data-dir="-1">‹</button><span><button data-j="0">1</button><button data-j="1">2</button><button data-j="2">3</button></span><button data-hp aria-label="Pausar">Ⅱ Pausar</button><button data-dir="1">›</button></div>
