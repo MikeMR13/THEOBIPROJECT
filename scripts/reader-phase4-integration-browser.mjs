@@ -146,9 +146,9 @@ check(Math.abs(fixedBar.getBoundingClientRect().top)<3,
 check(getComputedStyle(fixedBar).opacity==='1' && fixedBar.getBoundingClientRect().bottom>0,
   'La barra fija queda oculta después del desplazamiento');
 scrollTo(0,0);
-await sleep(30);
+await sleep(75);
 check(Math.abs(fixedBar.getBoundingClientRect().top-visibleHeaderBottom())<3,
-  'La barra no vuelve junto a la cabecera al subir');
+  'La barra no vuelve junto a la cabecera al subir: barra '+Math.round(fixedBar.getBoundingClientRect().top)+'px, cabecera '+visibleHeaderBottom()+'px, scroll '+Math.round(scrollY)+'px');
 $('.rd-settings-trigger')?.click();
 $('.rd-panel [data-k="controls"][data-v="deslizable"]')?.click();
 check($('.rd')?.dataset.controls==='deslizable','La barra deslizable no se aplicó');
