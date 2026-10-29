@@ -19,7 +19,18 @@ async function realCoverValidation() {
  ['El caballero imperial retirado se convierte en el líder de las tres grandes organizaciones del imperio Las chicas que una vez salvó fundaron esas organizaciones para devolverle el favor','50a58d51-5f9d-4f9b-b97e-ead2ada7220c/obras/el-caballero-imperial-retirado-se-convierte-en-el-/vol-1/image-0-0.jpg','50a58d51-5f9d-4f9b-b97e-ead2ada7220c/thumbs/9233cad3-a942-419c-8f29-68ca4e9ea326-1792635528118.webp'],
  ['Sayonara Princess','50a58d51-5f9d-4f9b-b97e-ead2ada7220c/obras/sayonara-princess/vol-1/cover.jpeg','50a58d51-5f9d-4f9b-b97e-ead2ada7220c/thumbs/2ae1d994-043a-4d14-a338-256808d1c0ce-1792634908498.webp']
  ];
- const books=rows.map(([title,cover,thumb],i)=>({id:String(i+1),title,cover_path:base+cover,cover_thumb_path:base+thumb,theme:{color:'#f2c230'}}));
+ // Descargar una vez los objetos públicos antes de abrir Chromium. Así, las
+ // capturas no dependen de latencias remotas ni de DNS dentro del navegador.
+ const requests=rows.map((r,i)=>({key:i+'/thumb',path:r[2]})).concat([{key:'3/full',path:rows[3][1]}]);
+ const assets=new Map();
+ await Promise.all(requests.map(async item=>{
+  const resp=await fetch(base+encodeURI(item.path),{signal:AbortSignal.timeout(10000)});
+  assert(resp.ok,'Portada pública '+item.key+' HTTP '+resp.status);
+  const bytes=Buffer.from(await resp.arrayBuffer());
+  assert(bytes.length>1500,'Portada vacía: '+item.key);
+  assets.set(item.key,{bytes,type:item.path.endsWith('.webp')?'image/webp':item.path.endsWith('.jpeg')?'image/jpeg':'image/jpeg'});
+ }));
+ const books=rows.map(([title],i)=>({id:String(i+1),title,cover_path:'/covers/'+i+'/full',cover_thumb_path:'/covers/'+i+'/thumb',theme:{color:'#f2c230'}}));
  const title=books[3].title;
  const HTML=`<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}\n${css2}\n${homeCss}\n:root{--gold:#f2c230;--sea:#d8a75c;--paper:#f3ecd9;--line:#3d3628}body{background:#0d0c0a;margin:0}.ob-page{max-width:1160px;padding:12px;box-sizing:border-box;margin:auto}</style></head>
  <body><main class="ob-page"><section id="hero" class="ob-hero"><div class="ob-cov"></div>
@@ -41,7 +52,15 @@ async function realCoverValidation() {
  if(btn.bottom>bar.top+3)errs.push('Acciones superpuestas');
  const result=document.querySelector('#result');result.dataset.status=errs.length?'fail':'pass';result.textContent=errs.join(' | ')||('Portada real: '+active.naturalWidth+'×'+active.naturalHeight);
  </script></body></html>`;
- const server=createServer((req,res)=>{if(req.url==='/home-vitrina.js'){res.writeHead(200,{'Content-Type':'text/javascript'});res.end(v);}else{res.writeHead(200,{'Content-Type':'text/html;charset=utf-8'});res.end(HTML);}});
+ const server=createServer((req,res)=>{
+  if(req.url==='/home-vitrina.js'){res.writeHead(200,{'Content-Type':'text/javascript'});return res.end(v);}
+  if(req.url?.startsWith('/covers/')){
+   const a=assets.get(req.url.slice('/covers/'.length));
+   if(!a){res.writeHead(404);return res.end('No encontrado');}
+   res.writeHead(200,{'Content-Type':a.type,'Cache-Control':'public,max-age=3600'});return res.end(a.bytes);
+  }
+  res.writeHead(200,{'Content-Type':'text/html;charset=utf-8'});res.end(HTML);
+ });
  const bin=process.env.QA_CHROME||['chromium','google-chrome','google-chrome-stable'].map(x=>{try{return execFileSync('which',[x],{encoding:'utf8'}).trim()}catch{return ''}}).find(Boolean);
  assert(bin,'Chromium no disponible');
  const go=async(args)=>{
@@ -55,11 +74,11 @@ async function realCoverValidation() {
   mkdirSync('qa-capturas',{recursive:true});
   for(const width of [390,1440]){
    const url='http://127.0.0.1:'+server.address().port+'/';
-   const html=await go(['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking',`--window-size=${width},1150`,'--virtual-time-budget=15000','--dump-dom',url]);
+   const html=await go(['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking',`--window-size=${width},1150`,'--virtual-time-budget=5000','--dump-dom',url]);
    const m=html.match(/<div id="result" data-status="(pass|fail|loading)">([^<]*)<\/div>/);assert(m,'Sin resultado visual a '+width);
    assert.equal(m[1],'pass',width+'px: '+m[2]);
    const path='qa-capturas/vitrina-portadas-reales-'+width+'.png';
-   await go(['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage',`--window-size=${width},1150`,'--virtual-time-budget=15000','--screenshot='+path,url]);
+   await go(['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage',`--window-size=${width},1150`,'--virtual-time-budget=5000','--screenshot='+path,url]);
    assert(statSync(path).size>8000,'Captura vacía');
    console.log('✓ Vitrina con portada pública '+width+'px: '+m[2]);
   }
