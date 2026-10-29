@@ -1,4 +1,5 @@
 import { attachPublicCredits, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
+import { publicSectionCounts } from './public-section-counts.js?v=1';
 import { SEASONS, PARTS, ANIMS, INTENS, DENS, activeSeason, ornURL, motifURL, stripURL, CSS as ACSS } from './anim.js?v=8';
 export { SEASONS, PARTS, ANIMS, INTENS, DENS, activeSeason };
 // Página pública del equipo: diseño compartido entre el sitio y el editor de Preferencias (vista previa idéntica).
@@ -245,10 +246,11 @@ export async function loadTeamData(sb, slug){
   const { data: t } = await sb.from('teams').select('id,slug,name,bio,color,langs,settings,design,avatar_path,banner_path,status').eq('slug', slug).maybeSingle();
   if (!t) return null;
   const S = t.settings || {};
-  const [{ data: works }, { data: mem }, { data: next }] = await Promise.all([
+  const [{ data: rawWorks }, { data: mem }, { data: next }] = await Promise.all([
     sb.from('series').select('id,slug,title,short,synopsis,cover_path,translation_status,views,chapters(count)').eq('team_id', t.id).eq('published', true).is('archived_at', null).order('title'),
     S.show_members !== false ? sb.rpc('team_public_members', { p_team: t.id }) : { data: [] },
     sb.from('schedule').select('at,label,series!inner(team_id,slug,title)').eq('series.team_id', t.id).gte('at', new Date().toISOString()).order('at').limit(1)]);
+  const works = await publicSectionCounts(sb, rawWorks || []);
   // Preservar el contrato del render sin exponer la tabla privada profiles.
   const members=(mem||[]).map(m=>({
     role:m.role,
@@ -268,7 +270,7 @@ export async function loadTeamData(sb, slug){
         .select('id,team_id,slug,title,short,synopsis,cover_path,translation_status,views,chapters(count),teams(name,slug,avatar_path)')
         .in('id', ids).eq('published', true).is('archived_at', null).order('title');
       if (sharedError) throw sharedError;
-      collaborations = (shared || []).filter(w => !(works || []).some(o => o.id === w.id));
+      collaborations = await publicSectionCounts(sb, (shared || []).filter(w => !(works || []).some(o => o.id === w.id)));
       await attachPublicCredits(sb, collaborations);
     }
   } catch (e) { console.warn('Créditos públicos de colaboración no disponibles:', e?.message || e); }
