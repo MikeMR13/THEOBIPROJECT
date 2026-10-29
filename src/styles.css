@@ -1172,3 +1172,10 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
 }
 @keyframes rd-sheet-in{from{opacity:.7;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.rd-panel{animation:none!important}}
+
+
+/* Catálogo A3: un único disparador de filtros; conservar los detalles accesibles por el botón principal. */
+.ui-cat-advanced #cat-filters>summary{display:none}
+.ui-cat-quick-filter:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+/* Mantener los metadatos editoriales cómodos de leer en tarjetas pequeñas. */
+.ob-page .ob-cc small,.ob-page .ob-rank small{font-size:max(12px,0.75rem);line-height:1.5}
