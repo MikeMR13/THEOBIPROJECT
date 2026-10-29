@@ -1651,9 +1651,15 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     if (!stillHere()) return;
     // El equipo puede consultar borradores, pero la ficha PÚBLICA de un
     // preestreno no debe ofrecer enlaces a capítulos privados.
-    if (PRE && (s.published === false || !(vols || []).length)) {
-      PRE.landing(pre, app, esc, media);
-      PRE.bind(pre, app, sb, getUser, go, toast);
+    if (s.published === false || (PRE && !(vols || []).length)) {
+      // Si el RPC del anuncio falla, nunca volver al HTML de capítulos
+      // internos de una obra inédita, aunque el visitante sea colaborador.
+      if (PRE) {
+        PRE.landing(pre, app, esc, media);
+        PRE.bind(pre, app, sb, getUser, go, toast);
+      } else {
+        app.innerHTML = '<div class="ui-wrap"><h1>Lectura aún no disponible</h1><p>La obra todavía no se ha publicado. Los capítulos permanecen bloqueados.</p><a class="btn" href="/calendario">Ver calendario de estrenos →</a></div>';
+      }
       return;
     }
     (vols || []).sort((a, b) => (parseFloat(b.num) || 0) - (parseFloat(a.num) || 0));
