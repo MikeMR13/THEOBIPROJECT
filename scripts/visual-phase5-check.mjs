@@ -17,7 +17,6 @@ contains(a11y,'.rd :is(a,button,input,select,textarea,summary,[role="button"]):f
 contains(a11y,'.rd-body img,.rd-body figure img','ilustraciones adaptativas');
 contains(a11y,'.rd-more>summary','menú de lectura en teléfono');
 contains(a11y,'@media(prefers-reduced-motion:reduce)','respeto a la preferencia del usuario');
-contains(a11y,'.ob-track{animation:none!important','cinta quieta solo con reducción solicitada');
 contains(a11y,'.ob-page,.ob-seal,.ob-anim>*','señales para desactivar movimiento en modo accesible');
 contains(a11y,'.ob-car,.ui-fich,.rd,.rd-ch{scroll-behavior:auto!important}','desplazamiento accesible');
 assert(!a11y.includes('display:none!important'),'No eliminar secciones mediante CSS');
@@ -28,6 +27,6 @@ contains(reader,'function chapterHTML(ch, blocks, p)','montaje original del cap�
 contains(reader,'function saveProgress()','persistencia original de lectura');
 contains(reader,'function progress()','progreso original del capítulo');
 contains(ui,'heroSlide(feat','carrusel principal');
-contains(ui,'@keyframes obTicker','cinta deslizante');
+assert(!ui.includes('obTicker') && !a11y.includes('.ob-track'), 'La cinta deslizante eliminada no debe regresar');
 contains(ui,"fill('ob-s-ann'",'anuncios de equipos');
 console.log('Fase visual 5: foco, accesibilidad, lectura y animaciones existentes protegidos.');

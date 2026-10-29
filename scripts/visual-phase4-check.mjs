@@ -1,4 +1,4 @@
-// Fase visual 4: validación de fechas de novedades y componentes que NO se deben retirar.
+// Fase visual 4: fechas y componentes conservados, sin volver a la cinta redundante.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { publicationDate, publicationAge, publicationDay } from '../src/publication-dates.js';
@@ -22,11 +22,12 @@ const markers=[
   'const featured = homeFeaturedSelection(',
   'const freshDate = publicationDate(pub?.at || lc?.publish_at)',
   'publicationDate(g.at) ? `<time datetime=',
-  'homeReleaseOverview(latest || [], VR?.data || [], list)','obTicker','ob-track','ob-tick','heroSlide(feat','bindCars(app)',
+  'homeReleaseOverview(latest || [], VR?.data || [], list)','heroSlide(feat','bindCars(app)',
   "fill('ob-s-ann'", 'ob-anns', 'ob-hero', 'ob-car', 'ob-s-rev',
   'ui-grid','ui-fich','ui-sh','ui-vol','ui-chl'
 ];
 for(const mark of markers)assert(ui.includes(mark),'Se perdió un componente del Inicio o su protección de fecha: '+mark);
+for(const old of ['obTicker','ob-track','ob-tick'])assert(!ui.includes(old),'La cinta eliminada regresó: '+old);
 assert(styles.includes('.rd-team img{'),'Logotipo del lector eliminado');
 assert(studio.includes('.s2-work{'),'Tarjetas de Studio eliminadas');
 const p = JSON.parse(readFileSync('package.json','utf8'));

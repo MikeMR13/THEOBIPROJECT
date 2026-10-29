@@ -10,9 +10,6 @@ const requireSource = (source, marker, label) => assert(source.includes(marker),
 
 // Nunca se sustituye Inicio por una pantalla estática.
 for (const [mark, label] of [
-  ['.ob-tick{', 'cinta deslizante'], ['.ob-track{', 'pista animada'],
-  ['@keyframes obTicker', 'animación infinita de cinta'],
-  ['.ob-tick:focus-within .ob-track', 'pausa de cinta por teclado'],
   ['heroSlide(feat', 'carrusel destacado dinámico'],
   ['.ob-car{', 'carruseles secundarios'],
   ['bindCars(app)', 'vinculación de carruseles'],
@@ -26,6 +23,11 @@ for (const [mark, label] of [
   ['.ui-sh{', 'ficha de serie'],
   ['.ui-vol{', 'volúmenes de la ficha']
 ]) requireSource(ui, mark, label);
+// El usuario retiró la barra textual repetitiva: el hero y el listado de
+// lanzamientos siguen vivos, pero la cinta no debe reaparecer.
+for (const legacy of ['ob-tick', 'ob-track', 'obTicker', 'tickerNotice'])
+  assert(!ui.includes(legacy),'Regresión: volvió la cinta de novedades ('+legacy+')');
+requireSource(ui,'Nuevos volúmenes y capítulos','lanzamientos siguen disponibles');
 requireSource(ui, ".ui-book.has-art .ui-obi", 'cinta obi reducida sobre ilustración');
 requireSource(ui, ".ui-book.no-art .ui-obi", 'cinta obi completa sin ilustración');
 requireSource(ui, ".ob-ann:hover,.ob-ann:focus-within", 'avisos refinados');
@@ -55,4 +57,4 @@ for (const c of cases) {
 }
 const weak=normalize({bg:'propio',accent:'#888888',custom:{bg:'#888888',sf:'#888888',fg:'#888888'}});
 assert(textContrast(weak)<4.5,'La alerta del editor debe seguir reflejando el valor guardado');
-console.log('Fase visual 3: cinta, carruseles, avisos, portadas, obi, logos y contraste AA OK');
+console.log('Fase visual 3: sin cinta duplicada; carruseles, avisos, portadas, obi, logos y contraste AA OK');

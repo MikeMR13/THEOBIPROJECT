@@ -26,7 +26,8 @@ expect('src/studio.js',["my_team_permissions","team_design_publish","team_design
 expect('src/reader.js',["reading_progress","reader_prefs","read_chapters","epub_fonts","per_volume"]);
 expect('src/profile.js',["reader_prefs","ui_prefs"]);
 expect('src/season.js',["season_calendar","platform_settings","isOff()"]);
-expect('src/ui.js',["obTicker","heroSlide","ob-s-ann"]);
+expect('src/ui.js',["heroSlide","ob-s-ann","Nuevos volúmenes y capítulos"]);
+assert(!get('src/ui.js').includes('obTicker'),'No reintroducir la cinta móvil eliminada');
 expect('src/blocks.js',["'STRONG'","'RUBY'"]);
 const w=get('src/app.js');
 for(const route of ['/catalogo','/studio','/preferencias','/biblioteca','/leer/'])assert(w.includes(route),'Ruta existente perdida '+route);
