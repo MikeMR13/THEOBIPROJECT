@@ -1,0 +1,34 @@
+// Regresión pública de preestrenos: sin mocks de backend ni servicios pagados.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { isPubliclyReadableChapter, announcedVolumeIds } from '../src/prelaunch-access.js';
+
+const now=Date.parse('2026-10-28T21:00:00Z');
+const pending={id:'pre-1',status:'scheduled',published_at:'2026-11-22T18:30:00Z'};
+const available={id:'pub-1',status:'published',published_at:'2026-10-01T18:30:00Z'};
+const released={num:1,status:'published',volume_id:'pub-1',publish_at:'2026-10-15T09:00:00Z'};
+const unpublished={num:1,status:'draft',volume_id:'pre-1',publish_at:null};
+const future={num:2,status:'published',volume_id:'pub-1',publish_at:'2026-12-01T09:00:00Z'};
+const unknown={num:3,status:'published',volume_id:'pre-1'};
+assert.equal(isPubliclyReadableChapter(unpublished,{seriesPublished:false,volume:pending,now}),false,'Obra no publicada');
+assert.equal(isPubliclyReadableChapter(unpublished,{seriesPublished:true,volume:pending,now}),false,'Borrador en volumen anunciado');
+assert.equal(isPubliclyReadableChapter({...unpublished,status:'published'},{seriesPublished:true,volume:pending,now}),false,'Volumen programado');
+assert.equal(isPubliclyReadableChapter(future,{seriesPublished:true,volume:available,now}),false,'Capítulo con fecha futura');
+assert.equal(isPubliclyReadableChapter(unknown,{seriesPublished:true,volume:pending,now}),false,'Volumen programado aunque capítulo esté publicado');
+assert.equal(isPubliclyReadableChapter(released,{seriesPublished:true,volume:available,now}),true,'No bloquear volúmenes ya estrenados');
+assert.equal(isPubliclyReadableChapter({...released,publish_at:null},{seriesPublished:true,volume:available,now}),true,'Conservar lectura histórica publicada');
+assert.deepEqual([...announcedVolumeIds({volumes:[pending,{id:'pub-1',published_at:'2026-10-01T00:00:00Z'}]},now)],['pre-1'],'Solo bloquear anuncio todavía vigente');
+const ui=readFileSync('src/ui.js','utf8');
+const reader=readFileSync('src/reader.js','utf8');
+const vitrina=readFileSync('src/home-vitrina.js','utf8');
+assert.match(ui,/s\.published === false \|\| \(PRE && !\(vols \|\| \[\]\)\.length\)/,'Preestreno exclusivo usa ficha sin CTA');
+assert.match(ui,/PRE\.landing\(pre, app, esc, media\)/,'El lector público ve la ficha de anuncio');
+assert.match(ui,/const allCh = \(chs \|\| \[\]\)\.filter/,'Los capítulos se filtran por volumen publicado');
+assert.match(ui,/!coming\.has\(String\(volume\.id\)\)/,'Capítulos del futuro excluidos del índice público');
+assert.match(reader,/const blockedByPrelaunch = !isPubliclyReadableChapter/,'Bloqueo también al ingresar con URL directa');
+assert.match(reader,/status,publish_at,content_warnings/,'Estado/fecha real del capítulo');
+assert.match(reader,/status,published_at,epub_fonts/,'Estado/fecha real del volumen');
+assert.match(reader,/hit\.series\.published != null/,'Caché antigua no evade el bloqueo');
+assert.match(vitrina,/#ffa23a/,'CTA principal con fondo sólido');
+assert.match(vitrina,/#2c2115/,'CTA secundario con fondo sólido');
+console.log('✓ Preestreno: acceso de ficha, fechas, capítulos y rutas directas protegidos; CTA opacos.');

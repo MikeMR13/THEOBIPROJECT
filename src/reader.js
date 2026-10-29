@@ -7,6 +7,7 @@ import { readerPrefsKey, readReaderPrefs, readPendingReaderPrefs, stageReaderPre
 import { SECTION_LABELS } from './section-types.js?v=1';
 import { formatChapterIndex } from './chapter-title-display.js?v=2';
 import { adjacentChapter, mergeChapterMetadata } from './reader-navigation.js?v=1';
+import { isPubliclyReadableChapter } from './prelaunch-access.js?v=1';
 const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true };
 const COLORS = { gold: '#f2c230', rose: '#f29bb0', sky: '#8cc3f2', mint: '#9fdcb0' };
 const SEC_LABEL = SECTION_LABELS;
@@ -67,7 +68,7 @@ export function createReader(ctx){
   // Ficha de la obra (serie + lista de capítulos + volúmenes). Antes eran 2 viajes encadenados (serie → capítulos);
   // ahora los tres van juntos filtrando por el slug, y la última copia queda guardada para abrir al instante la próxima vez.
   const META_KEY = slug => 'obi-meta-' + slug;
-  const CH_COLS = 'id,num,vol,title,section_type,volume_id,content_warnings,teaser,teaser_on,updated_at';
+  const CH_COLS = 'id,num,vol,title,section_type,volume_id,status,publish_at,content_warnings,teaser,teaser_on,updated_at';
   // Una precarga de enlace y la apertura pueden solicitar la misma ficha simultáneamente.
   // Compartir únicamente solicitudes en curso: RLS y revisiones se revalidan en el siguiente acceso.
   const metaFlights = new Map();
@@ -75,9 +76,9 @@ export function createReader(ctx){
     const inflight = metaFlights.get(slug);
     if (inflight) return inflight;
     const request = Promise.all([
-      sb.from('series').select('id,slug,title,team_id,teams(name,slug,status,avatar_path,settings,reader_defaults)').eq('slug', slug).maybeSingle(),
+      sb.from('series').select('id,slug,title,published,team_id,teams(name,slug,status,avatar_path,settings,reader_defaults)').eq('slug', slug).maybeSingle(),
       sb.from('chapters').select(CH_COLS + ',series!inner(slug)').eq('series.slug', slug).is('deleted_at', null).order('num'),
-      sb.from('volumes').select('id,num,title,epub_fonts,series!inner(slug)').eq('series.slug', slug).is('deleted_at', null).order('num')
+      sb.from('volumes').select('id,num,title,status,published_at,epub_fonts,series!inner(slug)').eq('series.slug', slug).is('deleted_at', null).order('num')
     ]).then(([a, b, c]) => { const e = a.error || b.error || c.error; if (e) throw e; if (!a.data) return null;
       const strip = l => (l || []).map(({ series, ...x }) => x);
       const m = { series: a.data, chapters: strip(b.data), vols: strip(c.data), at: Date.now() };
@@ -110,7 +111,10 @@ export function createReader(ctx){
       return true;
     }
     let m = null, offGl = null; const hit = cachedMeta(slug);
-    const hasHit = !!(hit?.series && (num == null || hit.chapters?.some(c => c.num === num)));
+    const hasHit = !!(hit?.series && hit.series.published != null &&
+      Array.isArray(hit.chapters) && hit.chapters.every(c => c.status != null) &&
+      Array.isArray(hit.vols) && hit.vols.every(v => v.status != null) &&
+      (num == null || hit.chapters.some(c => c.num === num)));
     if (hasHit) m = hit;
     else {
       try { m = await fetchMeta(slug); }
@@ -408,6 +412,17 @@ export function createReader(ctx){
     if (!stillOpening()) return;
     const ch = S.chapters.find(c => c.num === num);
     if (!ch) { const { data: L } = navigator.onLine ? await sb.rpc('lock_info', { p_slug: slug, p_num: num }).then(x => x, () => ({ data: null })) : { data: null }; if (!stillOpening()) return; if (L) { const P = await import('/patreon.js?v=1'); if (!stillOpening()) return; app.innerHTML = P.lockHTML(L, esc, slug); app.querySelector('#lk-link')?.addEventListener('click', () => P.start(sb, url, 'link', null, toast)); return; } app.innerHTML = '<h1>Capítulo no disponible</h1><p>Puede que aún no se publique. <a href="/serie/' + esc(slug) + '">Volver a la obra</a></p>'; return; }
+    // El anuncio editorial no equivale a publicación del contenido. También
+    // bloquear accesos por URL directa y cachés anteriores a la apertura.
+    const chVolume = S.vols.find(v => String(v.id) === String(ch.volume_id)) ||
+      (!ch.volume_id ? S.vols.find(v => Number(v.num) === Number(ch.vol)) : null);
+    const blockedByPrelaunch = !isPubliclyReadableChapter(ch, {
+      seriesPublished: S.series?.published, volume: chVolume
+    }) || (navigator.onLine && !!ch.volume_id && !chVolume);
+    if (blockedByPrelaunch) {
+      app.innerHTML = '<section class="ui-wrap" role="status"><h1>🔒 Lectura aún no disponible</h1><p>Esta novela o volumen sigue en preestreno. Sus capítulos permanecerán bloqueados hasta su publicación.</p><p><a class="btn" href="/serie/' + esc(slug) + '">Ver primer vistazo y fecha del estreno →</a></p></section>';
+      return;
+    }
     const annP = fetchAnnots([ch.id]);
     // Renderizar con la posición y las preferencias locales. Las respuestas remotas no bloquean el texto.
     const localPos = () => { try { return JSON.parse(localStorage.getItem(posKey(S.series.id))); } catch { return null; } };

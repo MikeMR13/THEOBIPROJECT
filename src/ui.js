@@ -12,7 +12,8 @@ import { formatChapterIndex } from './chapter-title-display.js?v=1';
 import { editorialChapterLabel, editorialChapterDescription, editorialChapterGroup, editorialSectionSummary, editorialSectionCounts, genericSectionCount } from './editorial-public-labels.js?v=1';
 import { planReadingChanges, persistReadingChanges, applyReadingChanges } from './library-read-actions.js';
 import { chooseActiveEditorial } from './editorial-announcements.js?v=1';
-import { enhanceHomeVitrina } from './home-vitrina.js?v=5';
+import { enhanceHomeVitrina } from './home-vitrina.js?v=6';
+import { isPubliclyReadableChapter, announcedVolumeIds } from './prelaunch-access.js?v=1';
 import { createMobileNavigation, bindMobileNavigation } from './mobile-navigation.js?v=1';
 // Géneros/etiquetas que el lector ocultó en Preferencias › Contenido.
 const hidS = s => { const H = window.__obiUI?.hide; if (!H?.length) return false; const S = new Set(H.map(x => String(x).toLowerCase())); return [...(s.genres || []), ...(Array.isArray(s.tags) ? s.tags : [])].some(g => S.has(String(g).toLowerCase())); };
@@ -347,7 +348,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
   const ageTag = (d, prefix = ' · ') => { const label = ago(d); return label ? prefix + label : ''; };
   const book = (s, sub, slim) => `<div class="ui-book ${s.cover_path ? 'has-art' : 'no-art'}" style="--c:${esc(color(s))};background-image:${s.cover_path ? `url('${esc(media(s.cover_path))}')` : 'none'}"><div class="ui-obi${slim || s.cover_path ? ' slim' : ''}"><small>${esc(sub || s.teams?.name || 'El Obi del Lector')}</small>${s.cover_path ? '' : esc(s.short || s.title)}</div></div>`;
   const pill = st => { const [l, c] = TL[st] || TL.active; return `<span class="ui-pill" style="color:${c}">${l}</span>`; };
-  const SERIES = 'id,team_id,slug,title,short,original,author,illustrator,publisher,synopsis,genres,tags,theme,cover_path,cover_thumb_path,adult,work_type,demographic,translation_status,original_status,sequel_status,views,teams(name,slug,color,avatar_path),chapters(count),volumes(count)';
+  const SERIES = 'id,published,team_id,slug,title,short,original,author,illustrator,publisher,synopsis,genres,tags,theme,cover_path,cover_thumb_path,adult,work_type,demographic,translation_status,original_status,sequel_status,views,teams(name,slug,color,avatar_path),chapters(count),volumes(count)';
   function chrome(){
     const top = document.querySelector('header.top'); if (!top || top.dataset.ob) return; top.dataset.ob = '1';
     let topQ = 0; const topH = () => { if (topQ) return; topQ = requestAnimationFrame(() => { topQ = 0; document.documentElement.style.setProperty('--top-h', Math.ceil(top.getBoundingClientRect().height) + 'px'); }); }; topH(); const topRO = window.ResizeObserver ? new ResizeObserver(topH) : null; topRO?.observe(top, { box: 'border-box' }); top.addEventListener('transitionend', topH); top.addEventListener('transitionrun', () => { const t0 = performance.now(), f = () => { topQ = 0; document.documentElement.style.setProperty('--top-h', Math.ceil(top.getBoundingClientRect().height) + 'px'); if (performance.now() - t0 < 400) requestAnimationFrame(f); }; requestAnimationFrame(f); }); addEventListener('resize', topH); addEventListener('orientationchange', topH); new MutationObserver(() => { topH(); if (topRO) [...top.children].forEach(c => topRO.observe(c)); }).observe(top, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
@@ -1648,15 +1649,36 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     if (preError) console.warn('prelaunch_series', preError.message);
     const PRE = pre?.volumes?.length ? await import('./prelaunch.js?v=1') : null;
     if (!stillHere()) return;
+    // El equipo puede consultar borradores, pero la ficha PÚBLICA de un
+    // preestreno no debe ofrecer enlaces a capítulos privados.
+    if (s.published === false || (PRE && !(vols || []).length)) {
+      // Si el RPC del anuncio falla, nunca volver al HTML de capítulos
+      // internos de una obra inédita, aunque el visitante sea colaborador.
+      if (PRE) {
+        PRE.landing(pre, app, esc, media);
+        PRE.bind(pre, app, sb, getUser, go, toast);
+      } else {
+        app.innerHTML = '<div class="ui-wrap"><h1>Lectura aún no disponible</h1><p>La obra todavía no se ha publicado. Los capítulos permanecen bloqueados.</p><a class="btn" href="/calendario">Ver calendario de estrenos →</a></div>';
+      }
+      return;
+    }
     (vols || []).sort((a, b) => (parseFloat(b.num) || 0) - (parseFloat(a.num) || 0));
     const buyOf = v => (buys || []).filter(b => b.volume_id === v.id || (!b.volume_id && b.vol === v.num));
     // capítulos sin leer de ESTA obra (solo con sesión): publicados, no marcados como leídos y después de donde vas
-    const unread = u ? (() => { const rs = new Set((readR?.data || []).map(x => x.chapter_id)), at = prog?.[s.id]?.chapter_num ?? -Infinity, now = Date.now(); return (chs || []).filter(c => (!c.publish_at || new Date(c.publish_at) <= now) && !rs.has(c.id) && c.num > at).length; })() : null;
+    const coming = announcedVolumeIds(pre);
+    const visibleVolumes = new Map((vols || []).map(v => [String(v.id), v]));
+    const allCh = (chs || []).filter(c => {
+      const volume = c.volume_id ? visibleVolumes.get(String(c.volume_id))
+        : (vols || []).find(v => Number(v.num) === Number(c.vol));
+      return !!volume && !coming.has(String(volume.id)) &&
+        isPubliclyReadableChapter(c, { seriesPublished: s.published, volume });
+    });
+    const unread = u ? (() => { const rs = new Set((readR?.data || []).map(x => x.chapter_id)), at = prog?.[s.id]?.chapter_num ?? -Infinity; return allCh.filter(c => !rs.has(c.id) && c.num > at).length; })() : null;
     const dlOf = v => (dls || []).filter(d => d.volume_id === v.id || (!d.volume_id && d.vol === v.num));
     const patronLink = (() => { const fallback = s.teams?.slug ? '/equipo/' + encodeURIComponent(s.teams.slug) : '/serie/' + encodeURIComponent(s.slug); try { const u = new URL(pt?.url); return u.protocol === 'https:' && /(^|\.)patreon\.com$/i.test(u.hostname) ? u.toString() : fallback; } catch { return fallback; } })();
     let savedReadRows=(readR.data || []).filter(r=>r.chapter_id);
     const read = new Set(savedReadRows.map(r => r.chapter_id)), p = prog[s.id], following = !!(folR.data || []).length;
-    const first = (chs || [])[0], allCh = chs || [], nRead = allCh.filter(c => read.has(c.id)).length;
+    const first = allCh[0], nRead = allCh.filter(c => read.has(c.id)).length;
     const firstNarrative = allCh.find(c => { const t=formatChapterIndex({title:c.title,sectionType:c.section_type});return t.label==='Capítulo' && !!t.number; });
     const progressChapter = allCh.find(c => c.num === p?.chapter_num);
     
@@ -1701,7 +1723,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       ${s.synopsis ? `<section id="serie-sinopsis" class="ui-series-panel ui-series-synopsis" role="tabpanel" aria-labelledby="serie-tab-sinopsis" tabindex="0" hidden><div class="ui-h2"><h2>Sinopsis</h2></div><p class="ui-syn">${esc(s.synopsis)}</p></section>` : ''}
       <section id="serie-vols" class="ui-series-panel ui-series-library" role="tabpanel" aria-labelledby="serie-tab-vols" tabindex="0" hidden><div class="ui-h2"><h2>Volúmenes</h2>${u && allCh.length ? `<span class="fx-prog"><span class="mono">${nRead} de ${allCh.length} secciones leídas</span><span class="fx-bar"><i style="width:${Math.round(nRead / allCh.length * 100)}%"></i></span>${nRead ? `<label class="ui-tog"><input type="checkbox" id="fx-hide" ${hideRead ? 'checked' : ''}> Ocultar leídos</label>` : ''}</span>` : ''}</div><div class="ui-series-tools" role="search" aria-label="Explorar capítulos y secciones"><label for="ui-series-search">Buscar capítulo<input id="ui-series-search" type="search" autocomplete="off" spellcheck="false" placeholder="Título o número del capítulo"></label><label for="ui-series-state">Estado<select id="ui-series-state"><option value="all">Todas las secciones</option>${u ? '<option value="unread">Sin leer</option><option value="read">Leídas</option>' : ''}<option value="new">Novedades</option></select></label><label for="ui-series-order">Orden de volúmenes<select id="ui-series-order"><option value="desc" ${volumeOrder === 'desc' ? 'selected' : ''}>Más recientes primero</option><option value="asc" ${volumeOrder === 'asc' ? 'selected' : ''}>Desde el volumen 1</option></select></label><button type="button" class="ui-series-clear" id="ui-series-clear" disabled>Limpiar filtros</button></div><p class="mono ui-series-results" id="ui-series-result" role="status" aria-live="polite" aria-atomic="true"></p><div class="ui-series-shelfbar"><span class="mono">Colección de ${(vols || []).length} ${(vols || []).length === 1 ? 'libro' : 'libros'}</span><div class="ui-series-views" role="group" aria-label="Vista de volúmenes"><button type="button" data-series-view="galeria" aria-pressed="${volumeView === 'galeria'}">▦ Galería</button><button type="button" data-series-view="lista" aria-pressed="${volumeView === 'lista'}">☷ Lista</button></div></div><div class="ui-vols is-${volumeView}${hideRead && nRead ? ' fx-hide' : ''}" id="fx-vols">
         ${(vols || []).map(v => {
-          const list = (chs || []).filter(c => c.volume_id === v.id || (!c.volume_id && c.vol === v.num));
+          const list = allCh.filter(c => c.volume_id === v.id || (!c.volume_id && c.vol === v.num));
           const vLk = list.length > 0 && list.every(c => c.locked);
           const firstVol = list[0], hereVol = list.find(c => p?.chapter_num === c.num);
           const firstNarrativeVol = list.find(c => { const t=formatChapterIndex({title:c.title,sectionType:c.section_type});return t.label==='Capítulo' && !!t.number; });
@@ -1727,7 +1749,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         <div class="ui-h2"><h2>Descargas</h2><span class="mono">${dlError ? 'Enlaces no disponibles' : (vols || []).reduce((n, v) => n + dlOf(v).length, 0) + ' enlaces disponibles'}</span></div>
         <p class="ui-dl-intro">Selecciona el volumen y el formato que deseas descargar. Los enlaces disponibles pertenecen al equipo traductor de esta obra.</p>
         ${dlError ? '<p class="ui-dl-empty" role="alert">No pudimos consultar los enlaces de descarga. Intenta recargar la página.</p>' : (vols || []).length ? `<div class="ui-dl-library">${(vols || []).map(v => {
-          const list = (chs || []).filter(c => c.volume_id === v.id || (!c.volume_id && c.vol === v.num));
+          const list = allCh.filter(c => c.volume_id === v.id || (!c.volume_id && c.vol === v.num));
           const vLk = list.length > 0 && list.every(c => c.locked);
           const dl = dlOf(v), name = v.title && v.title !== String(v.num) && v.title.length > 2 ? v.title : 'Volumen ' + v.num;
           return `<article class="ui-dl-volume" id="descarga-vol-${esc(v.num)}"><div class="ui-dl-volume-head"><div><span class="ui-lbl">Volumen ${esc(v.num)}</span><h3>${esc(name)}</h3></div><span class="ui-dl-count">${dl.length ? dl.length + (dl.length === 1 ? ' formato' : ' formatos') : 'Sin descargas'}</span></div>${dl.length ? `<div class="ui-dl ui-dl-featured" role="group" aria-label="Descargas del volumen ${v.num}"><span class="ui-lbl ui-dl-title">↓ Descargar Volumen ${v.num}</span>${dl.map(d => d.locked || vLk ? `<a class="ui-dlb lock" href="${esc(patronLink)}" ${patronLink.startsWith('https://') ? 'target="_blank" rel="noopener noreferrer"' : ''} title="Solo para mecenas del Patreon del equipo">🔒 ${esc(d.fmt)}<small>${esc(d.label || d.provider || '')} · Patreon del equipo</small></a>` : `<button type="button" class="ui-dlb ui-dlb-dl" data-dl="${d.id}" aria-label="Descargar volumen ${v.num} en ${esc(d.fmt)}">↓ ${esc(d.fmt)}<small>${esc(d.label || d.provider || '')}${d.patreon_only ? ' · Patreon del equipo' : ''}</small></button>`).join('')}</div>` : '<p class="ui-dl-unavailable">Aún no hay enlaces de descarga para este volumen.</p>'}</article>`;
@@ -1777,7 +1799,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
           }
           const p=card.querySelector('.ui-volume-progress');
           if(p){
-            const counts=volumeProgress((chs||[]).filter(c=>c.volume_id===card.dataset.volId||(!c.volume_id&&String(c.vol)===card.dataset.volNum)),read);
+            const counts=volumeProgress(allCh.filter(c=>c.volume_id===card.dataset.volId||(!c.volume_id&&String(c.vol)===card.dataset.volNum)),read);
             p.setAttribute('aria-label','Progreso del volumen '+card.dataset.volNum+': '+counts.read+' de '+counts.total+' capítulos leídos');
             const label=p.querySelector('span');if(label)label.textContent=counts.read+' de '+counts.total+' leídos';
             const pct=p.querySelector('b');if(pct)pct.textContent=counts.pct+'%';

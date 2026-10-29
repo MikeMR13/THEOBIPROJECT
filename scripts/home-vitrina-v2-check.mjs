@@ -26,6 +26,13 @@ function browserCheck(){
   ok(visible(a1),'El botón Ver volumen está oculto');
   ok(visible(ranking),'El enlace Top de la semana está oculto');
   ok(getComputedStyle(a1).backgroundColor!=='rgba(0, 0, 0, 0)','Ver volumen no tiene fondo visible');
+  const a2=s.querySelector('.ob-acts .a2');
+  const opacityOf=el=>Number((getComputedStyle(el).backgroundColor.match(/rgba?\\(([^)]+)\\)/)?.[1]?.split(',')[3])||1);
+  ok(!!a2&&visible(a2),'El segundo CTA está oculto');
+  ok(opacityOf(a1)>=1&&opacityOf(a2)>=1,'Los botones deben ser completamente opacos');
+  ok(getComputedStyle(a1).backgroundImage==='none'&&getComputedStyle(a2).backgroundImage==='none','Los CTA no deben heredar transparencias/gradientes');
+  ok(getComputedStyle(a1).backgroundColor!==getComputedStyle(a2).backgroundColor,'Los CTA requieren jerarquía visual');
+
   const canHit=el=>{if(!el)return false;const q=el.getBoundingClientRect();const hit=document.elementFromPoint(q.left+q.width/2,q.top+q.height/2);return !!hit&&(el===hit||el.contains(hit));};
   ok(canHit(books[1]),'La portada activa está tapada: no se puede hacer clic');
   ok(canHit(a1),'Un elemento tapa el botón Ver volumen');
@@ -93,7 +100,7 @@ async function run(){
   assert(cssMatch,'Estilos reales de Inicio no encontrados');
   const siteCss=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(cssMatch[1]);
   for(const needle of [
-    "home-vitrina.js?v=5","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
+    "home-vitrina.js?v=6","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
     "el.dataset.vtKeys === feat.map(heroKey).join('|')","el.__vtStop?.()",
     "heroPaused = true;","homeMetrics.shown(heroKey(s)","homeMetrics.clicked(s.slug",
     "prelaunch_calendar","creditsHTML({publicCredits:","heroClock.show({"
