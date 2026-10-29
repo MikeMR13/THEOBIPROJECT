@@ -732,14 +732,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
    nunca queda detrás de la navegación fija con kanji. */
 .ob-page #hero.ob-hero{
   height:auto;min-height:0;max-height:none;
-  grid-template-columns:minmax(180px,min(27vw,300px)) minmax(0,1fr);
+  grid-template-columns:minmax(180px,min(27vw,290px)) minmax(0,1fr);
   column-gap:clamp(24px,3.2vw,52px);
   row-gap:clamp(14px,1.7vw,24px);
   align-items:start;
   padding-top:clamp(20px,2.4vw,32px);
   padding-bottom:clamp(18px,2vw,30px);
 }
-.ob-page #hero .ob-cov{align-self:start;justify-self:center;max-width:300px;min-width:0}
+.ob-page #hero .ob-cov{align-self:start;justify-self:center;max-width:290px;min-width:0}
 .ob-page #hero .ob-txt{
   min-width:0;height:auto;min-height:0;align-self:start;
   overflow:visible;max-width:none;
