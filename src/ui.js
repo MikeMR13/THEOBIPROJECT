@@ -727,6 +727,144 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
 @media(max-width:380px){
   .ob-hero .ob-acts .a1,.ob-hero .ob-acts .a2{padding:8px 11px;font-size:12px}
 }
+
+/* Inicio: carrusel fluido en PC y móvil. El paginador participa en el flujo:
+   nunca queda detrás de la navegación fija con kanji. */
+.ob-page #hero.ob-hero{
+  height:auto;min-height:0;max-height:none;
+  grid-template-columns:minmax(180px,min(27vw,300px)) minmax(0,1fr);
+  column-gap:clamp(24px,3.2vw,52px);
+  row-gap:clamp(14px,1.7vw,24px);
+  align-items:center;
+  padding-top:clamp(20px,2.4vw,32px);
+  padding-bottom:clamp(18px,2vw,30px);
+}
+.ob-page #hero .ob-cov{align-self:center;justify-self:center;max-width:300px;min-width:0}
+.ob-page #hero .ob-txt{
+  min-width:0;height:auto;min-height:0;align-self:center;
+  overflow:visible;max-width:none;
+}
+.ob-page #hero .ob-hero-copy{overflow:visible;min-height:0}
+.ob-page #hero .ob-hero-footer{
+  margin-top:clamp(12px,1.7vw,24px);padding-top:0;
+}
+.ob-page #hero .ob-txt h1,
+.ob-page #hero .ob-txt h1[data-len=l],
+.ob-page #hero .ob-txt h1[data-len=xl]{
+  display:block;-webkit-line-clamp:unset;
+  overflow:visible;max-width:68ch;
+  line-height:1.17;overflow-wrap:break-word;
+}
+.ob-page #hero .ob-txt h1{font-size:clamp(29px,2.65vw,42px)}
+.ob-page #hero .ob-txt h1[data-len=l]{font-size:clamp(27px,2.4vw,39px)}
+.ob-page #hero .ob-txt h1[data-len=xl]{font-size:clamp(25px,2.2vw,36px)}
+.ob-page #hero .ob-txt .ob-tag{
+  -webkit-line-clamp:2;line-height:1.4;
+  font-size:clamp(15px,1.12vw,18px);
+}
+.ob-page #hero .ob-txt .ob-syn{
+  -webkit-line-clamp:3;line-height:1.55;
+  font-size:clamp(14px,1vw,17px);
+}
+.ob-page #hero .ob-pager2{
+  position:relative!important;
+  grid-column:1/-1;
+  left:auto!important;right:auto!important;bottom:auto!important;
+  justify-self:center;align-self:end;
+  width:min(100%,850px);max-width:100%;min-width:0;
+  box-sizing:border-box;margin:4px 0 0;
+  padding:4px 0;gap:8px;display:flex;
+  align-items:center;justify-content:center;
+  flex-wrap:nowrap;z-index:2;
+}
+.ob-page #hero .ob-pager2>button{
+  flex:none;min-width:44px;min-height:44px;
+  box-sizing:border-box;
+}
+.ob-page #hero .ob-pager2>span{
+  display:flex;min-width:0;max-width:100%;
+  align-items:center;justify-content:center;gap:6px;
+}
+.ob-page #hero .ob-pager2>span button[data-j]{
+  height:44px!important;min-width:24px!important;
+  flex:1 1 28px!important;max-width:160px;
+  background:transparent!important;
+  overflow:hidden!important;
+}
+.ob-page #hero .ob-pager2>span button[data-j]::before{
+  content:'';position:absolute;left:2px;right:2px;top:17px;
+  height:9px;border-radius:2px;background:#5a5244;
+}
+.ob-page #hero .ob-pager2>span button[data-j][aria-current="true"]::before{
+  background:#3d3628;
+}
+.ob-page #hero .ob-pager2>span button[data-j] .ob-hp{
+  top:17px!important;bottom:auto!important;
+  left:2px!important;right:2px!important;
+  height:9px!important;border-radius:2px;
+}
+/* El texto ocupa su espacio natural; la imagen y los controles no compiten
+   por el área de lectura en tablets. */
+@media(max-width:820px){
+ .ob-page #hero.ob-hero{
+   grid-template-columns:minmax(0,1fr);max-width:100%;
+   padding-top:18px;padding-bottom:20px;
+ }
+ .ob-page #hero .ob-cov{max-width:200px}
+ .ob-page #hero .ob-txt{width:100%}
+ .ob-page #hero .ob-txt h1{font-size:clamp(26px,4.5vw,35px)}
+ .ob-page #hero .ob-txt h1[data-len=l]{font-size:clamp(25px,4.2vw,33px)}
+ .ob-page #hero .ob-txt h1[data-len=xl]{font-size:clamp(23px,3.9vw,30px)}
+}
+@media(max-width:700px){
+ .ob-page #hero.ob-hero{
+   display:flex;flex-direction:column;align-items:stretch;
+   gap:clamp(10px,3vw,16px);
+   padding:16px 16px 20px;
+ }
+ .ob-page #hero>.ob-txt{order:0;flex:none}
+ .ob-page #hero>.ob-cov{
+   order:1;flex:none;align-self:center;
+   width:clamp(132px,44vw,190px);
+   max-width:190px;margin:2px 0;
+ }
+ .ob-page #hero>.ob-pager2{
+   order:2;flex:none;width:100%;
+   margin-top:2px;max-width:100%;
+   flex-wrap:wrap;row-gap:0!important;
+   padding-bottom:0;
+ }
+ .ob-page #hero .ob-hero-footer{margin-top:12px}
+ .ob-page #hero .ob-txt h1{font-size:clamp(25px,6vw,32px)}
+ .ob-page #hero .ob-txt h1[data-len=l]{font-size:clamp(24px,5.6vw,30px)}
+ .ob-page #hero .ob-txt h1[data-len=xl]{font-size:clamp(22px,5.2vw,28px)}
+ .ob-page #hero .ob-txt .ob-syn{
+   -webkit-line-clamp:2;font-size:14px;line-height:1.5;
+ }
+ .ob-page #hero .ob-txt .ob-tag{
+   font-size:15px;line-height:1.4;
+ }
+ .ob-page #hero .ob-acts .a1,
+ .ob-page #hero .ob-acts .a2{
+   min-height:44px;flex:1 1 138px;
+ }
+ .ob-page #hero .ob-pager2>span{
+   order:5;flex:1 0 100%!important;
+   height:36px;overflow-x:auto;
+   justify-content:safe center;
+ }
+ .ob-page #hero .ob-pager2>span button[data-j]{
+   min-width:34px!important;flex:0 1 52px!important;
+   height:36px!important;
+ }
+ .ob-page #hero .ob-pager2>span button[data-j]::before{top:14px}
+ .ob-page #hero .ob-pager2>span button[data-j] .ob-hp{top:14px!important}
+ .ob-page #hero .ob-pager2>button{min-height:44px}
+}
+@media(prefers-reduced-motion:reduce){
+ .ob-page #hero .ob-pager2 .ob-hp{animation:none!important}
+}
+
 `;
   const SKEL = `<div class="ob-page ob-skel" aria-busy="true" aria-label="Cargando la biblioteca"><div class="ob-mast"><b>翻訳図書館</b><span>Biblioteca de novelas ligeras · Español latino</span></div><div class="sk sk-hero"></div><div class="sk sk-h"></div><div class="sk-row">${'<div class="sk sk-ln"></div>'.repeat(4)}</div><div class="sk sk-h"></div><div class="sk-row c">${'<div class="sk sk-cv"></div>'.repeat(6)}</div></div>`;
   async function home(){
@@ -1191,7 +1329,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       <div class="ob-txt"><div class="ob-hero-copy"><div class="ob-hero-head"><div class="ob-hero-meta"><span class="ob-kick">${pre ? 'ESTRENO · ' + preWhen : v ? '第' + KN(v.num) + '巻 · 新刊' : esc(editorialChapterLabel(lc)) + (fresh ? ' · 新刊' : '')}</span><div class="ob-hero-flags"><span class="ob-badge${pre ? ' ob-badge-vol' : v ? ' ob-badge-vol' : ''}" ${pre ? 'style="background:#8cc3f2;color:#0d0c0a"' : ''}>${pre ? (preTomorrow ? 'ESTRENO MAÑANA · VOL. ' : 'PRÓXIMO ESTRENO · VOL. ') + pre.vnum : reason?.kind !== 'release' ? esc(reason?.label || 'Destacado') : reason?.label === 'Nuevo lanzamiento' ? '¡NUEVO LANZAMIENTO! · VOL. ' + v?.num : reason?.urgent ? '¡NOVELA COMPLETA! · VOL. ' + v.num : v ? (fresh ? '¡NUEVO VOLUMEN! · VOL. ' : 'VOLUMEN DISPONIBLE · VOL. ') + v.num : currentNotice(s)?.kind === 'chapter' ? 'CAPÍTULO PUBLICADO' : fresh ? 'NUEVO · ' + esc(editorialChapterLabel(lc).toLocaleUpperCase('es-MX')) : esc(editorialChapterLabel(lc).toLocaleUpperCase('es-MX')) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${pre ? '' : heroTag(s)}</div>${!pre && top[s.id] ? `<div class="ob-hero-rank"><a class="rk-bdg" href="/ranking"><b>#${top[s.id]}</b>Top de la semana</a></div>` : ''}</div>${teamLogo}</div>${s.publicCredits?.some(c => !c.is_primary) ? `<span class="ob-hero-partners">${creditsHTML({publicCredits:s.publicCredits.filter(c=>!c.is_primary)}, {esc,media,mode:'hero'})}</span>` : ''}
         <h1 data-len="${(s.title.length + (v ? 12 + String(v.num).length : 0)) > 70 ? 'xl' : (s.title.length + (v ? 12 + String(v.num).length : 0)) > 40 ? 'l' : ''}"><a class="ob-h1a" href="/serie/${s.slug}" title="${esc(s.title + (v ? ' — Volumen ' + v.num : ''))}">${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}</a></h1>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn" style="white-space:pre-line">${esc(s.synopsis ? (synT.slice(tag.length).replace(/^\s+/, '').replace(/\n{3,}/g, '\n\n') || synT) : pre ? 'Conoce la historia antes de su estreno. Los capítulos permanecen bloqueados hasta la fecha indicada.' : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), genericSectionCount(s.chapters?.[0]?.count) + ' en español'].filter(Boolean).join(' · ') + '.')}</p></div><div class="ob-hero-footer">
         ${pre ? `<p class="ob-prelaunch-timer" style="margin:8px 0;color:#8cc3f2;font-size:13px">🔒 Lectura bloqueada · Estreno: ${esc(preWhen)} · Faltan ${esc(preLeft)}</p><div class="ob-acts"><a class="a1" href="/serie/${encodeURIComponent(s.slug)}">Ver primer vistazo →</a><a class="a2" href="/calendario?f=prog">Ver en el calendario</a></div>` : `<div class="ob-acts"><a class="a1" href="${v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + n}">${v ? 'Ver volumen ' + v.num : p ? 'Continuar lectura' : 'Leer ' + esc(editorialChapterLabel(lc).toLocaleLowerCase('es-MX'))}</a>${v && (p || lc) ? `<a class="a2" href="/leer/${s.slug}/${n}">${p ? 'Continuar lectura' : 'Empezar a leer'}</a>` : `<a class="a2" href="/serie/${s.slug}">Ver la serie</a>`}</div>`}</div></div>
-      ${feat.length > 1 ? `<div class="ob-pager2" style="position:absolute;left:clamp(16px,4vw,56px);right:clamp(16px,4vw,56px);bottom:14px;z-index:2;display:flex;align-items:center;gap:10px"><button data-dir="-1" aria-label="Anterior" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">‹</button><span style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">${feat.length > 10 ? `<span class="mono" aria-label="Diapositiva ${i+1} de ${feat.length}" style="min-width:70px;text-align:center;font:600 12px 'IBM Plex Mono',monospace;color:var(--paper)">${i+1} / ${feat.length}</span>` : feat.map((f, j) => `<button data-j="${j}" data-hero-target="${esc(heroKey(f))}" aria-label="${esc(f.title)}" aria-current="${j === i}" style="height:10px;flex:${j === i ? '0 1 160px' : '0 0 10px'};min-width:10px;padding:0;border:none;cursor:pointer;position:relative;overflow:hidden;background:${j === i ? '#3d3628' : '#5a5244'}">${j === i ? `<i class="ob-hp" style="position:absolute;inset:0;background:var(--gold);transform-origin:left;transform:scaleX(${heroPaused ? 1 : 0});${heroPaused || matchMedia('(prefers-reduced-motion: reduce)').matches ? '' : 'animation:obHp 5s linear forwards'}"></i>` : ''}</button>`).join('')}</span><button data-hp aria-label="${heroPaused ? 'Reanudar' : 'Pausar'}" style="height:40px;padding:0 12px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">${heroPaused ? '▶ Reanudar' : 'Ⅱ Pausar'}</button><button data-dir="1" aria-label="Siguiente" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">›</button></div>` : ''}`;
+      ${feat.length > 1 ? `<div class="ob-pager2" role="group" aria-label="Controles del carrusel destacado"><button data-dir="-1" aria-label="Anterior" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">‹</button><span style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">${feat.length > 10 ? `<span class="mono" aria-label="Diapositiva ${i+1} de ${feat.length}" style="min-width:70px;text-align:center;font:600 12px 'IBM Plex Mono',monospace;color:var(--paper)">${i+1} / ${feat.length}</span>` : feat.map((f, j) => `<button data-j="${j}" data-hero-target="${esc(heroKey(f))}" aria-label="${esc(f.title)}" aria-current="${j === i}" style="height:10px;flex:${j === i ? '0 1 160px' : '0 0 10px'};min-width:10px;padding:0;border:none;cursor:pointer;position:relative;overflow:hidden;background:${j === i ? '#3d3628' : '#5a5244'}">${j === i ? `<i class="ob-hp" style="position:absolute;inset:0;background:var(--gold);transform-origin:left;transform:scaleX(${heroPaused ? 1 : 0});${heroPaused || matchMedia('(prefers-reduced-motion: reduce)').matches ? '' : 'animation:obHp 5s linear forwards'}"></i>` : ''}</button>`).join('')}</span><button data-hp aria-label="${heroPaused ? 'Reanudar' : 'Pausar'}" style="height:40px;padding:0 12px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">${heroPaused ? '▶ Reanudar' : 'Ⅱ Pausar'}</button><button data-dir="1" aria-label="Siguiente" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">›</button></div>` : ''}`;
     // Si el recurso deja de existir, convertirlo en nombre sin perder el enlace.
     el.querySelector('.ob-hero-team-logo img')?.addEventListener('error', event => {
       const img = event.currentTarget, anchor = img.closest('.ob-hero-team-logo');
