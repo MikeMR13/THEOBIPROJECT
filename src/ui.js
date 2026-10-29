@@ -711,6 +711,10 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
 .ob-hero .ob-prelaunch-timer{margin:0 0 8px!important;line-height:1.35;font-size:12px!important}
 .ob-hero .ob-txt .ob-acts{margin-top:0;gap:9px}
 .ob-hero .ob-acts .a1,.ob-hero .ob-acts .a2{display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;padding:9px 15px;font-size:13px;line-height:1.25}
+/* CTA opacos aunque la vitrina progresiva todavía no se haya montado. */
+.ob-hero .ob-acts .a1{background:#ffa23a;color:#1e140a;border:2px solid #bc6510;background-image:none}
+.ob-hero .ob-acts .a2{background:#2c2115;color:#fff4e5;border:2px solid #7e6036;background-image:none}
+.ob-hero .ob-acts .a1:focus-visible,.ob-hero .ob-acts .a2:focus-visible{outline:3px solid #fff2d2;outline-offset:3px}
 @media(min-width:701px) and (max-width:820px){
   .ob-hero{grid-template-columns:minmax(165px,220px) minmax(0,1fr)}
   .ob-hero .ob-cov{max-width:220px}
