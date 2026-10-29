@@ -1648,7 +1648,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     // Preestrenos se consultan en paralelo pero no retienen el primer render.
     const preQuery = Promise.resolve(sb.rpc('prelaunch_series', { p_slug: slug }))
       .catch(error => ({ data: null, error }));
-    const { data: s, error: seriesError } = await seriesMeta(slug);
+    let { data: s, error: seriesError } = await seriesMeta(slug);
     if (!stillHere()) return;
     if (seriesError) {
       app.innerHTML = '<p class="mono" role="alert">No pudimos cargar esta novela. <a href="' + esc(targetPath) + '">Reintentar →</a></p>';
@@ -1678,6 +1678,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     await attachPublicCredits(sb, [s]);
     if (!stillHere()) return;
     const u = getUser();
+    const countsRequest = publicSectionCounts(sb, [s]);
     const details = await Promise.all([
       preQuery,
       sb.from('volumes').select('id,num,title,cover_path,synopsis,status,external_url,external_site,external_only').eq('series_id', s.id).eq('status', 'published').is('deleted_at', null).order('num', { ascending: false }),
@@ -1697,6 +1698,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       return null;
     });
     if (!details || !stillHere()) return;
+    s = (await countsRequest)[0];
+    if (!stillHere()) return;
     const [{ data: pre, error: preError }, { data: vols }, { data: chs }, prog, readR, folR, { data: dls, error: dlError }, { data: buys }, { data: pt }] = details;
     if (preError) console.warn('prelaunch_series', preError.message);
     const PRE = pre?.volumes?.length ? await import('./prelaunch.js?v=1') : null;
