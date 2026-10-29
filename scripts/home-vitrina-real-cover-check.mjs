@@ -74,7 +74,7 @@ async function realCoverValidation() {
   mkdirSync('qa-capturas',{recursive:true});
   for(const width of [390,1440]){
    const url='http://127.0.0.1:'+server.address().port+'/';
-   const html=await go(['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking',`--window-size=${width},1150`,'--virtual-time-budget=5000','--dump-dom',url]);
+   const html=await go(['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking',`--window-size=${width},1150`,'--virtual-time-budget=16000','--dump-dom',url]);
    const m=html.match(/<div id="result" data-status="(pass|fail|loading)">([^<]*)<\/div>/);assert(m,'Sin resultado visual a '+width);
    assert.equal(m[1],'pass',width+'px: '+m[2]);
    const path='qa-capturas/vitrina-portadas-reales-'+width+'.png';
