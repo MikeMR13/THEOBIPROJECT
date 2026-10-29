@@ -12,6 +12,9 @@ req(email, ["volumen: 'Volúmenes completos nuevos'",'https://elobidellector.com
 req(sql, ['private.follow_volume_delivered','on conflict do nothing',"new.kind := 'volumen'","'#serie-vols'","v.announced_at is null","coalesce(f.channels->>'chapters'","coalesce(f.channels->>'volumes'","new.archived_at is not null","new.kind <> 'moderacion'","n->'email'->>new.kind","new.link->>'slug'"],'Enrutamiento');
 assert(!sql.includes('cron.schedule('),'Prohibido crear un cron o servicio adicional');
 assert(!sql.includes('service_role'),'Prohibido usar credenciales privilegiadas en el navegador');
+assert(sql.includes("new.kind = 'Capítulo' then return null"),'Bloquear webhook antiguo sin seguridad');
+assert(sql.includes('coalesce(p.adult_ok,false)') && sql.includes('p.delete_requested_at is null'),'Solo avisar +18 a cuentas autorizadas y activas');
+assert(sql.includes('ch.status = \'published\'') && sql.includes('ch.access_until'),'Volumen completo no debe divulgar capítulos exclusivos');
 assert(sql.includes("coalesce(s.access,'public') = 'public'") && sql.includes("coalesce(v.access,'public') = 'public'") && sql.includes("coalesce(c.access,'public') = 'public'"),'No avisar contenido de acceso exclusivo');
 assert(/primary key \(volume_id, user_id\)/.test(sql),'Deduplicación por usuario y volumen');
 assert(sql.includes("old.published is distinct from new.published"),'Transición privada a pública');

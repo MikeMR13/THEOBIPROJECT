@@ -4,7 +4,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
 const KEY = Deno.env.get('RESEND_API_KEY')!;
-const FROM = Deno.env.get('EMAIL_FROM') ?? 'El Obi del Lector <biblioteca@TU-DOMINIO>';
+const FROM = Deno.env.get('EMAIL_FROM') ?? 'El Obi del Lector <avisos@elobidellector.com>';
 const SITE = (Deno.env.get('SITE_URL') ?? 'https://elobidellector.com').replace(/\/$/, '');
 const SECRET = Deno.env.get('CRON_SECRET'); // obligatorio: función expuesta sin JWT a llamadas programadas
 const LBL: Record<string, string> = { capitulo: 'Capítulos nuevos', volumen: 'Volúmenes completos nuevos', Volumen: 'Volúmenes completos nuevos', respuesta: 'Respuestas', errata: 'Erratas', tablero: 'Estudio', moderacion: 'Tu cuenta' };

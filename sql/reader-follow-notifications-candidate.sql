@@ -14,6 +14,9 @@ create or replace function private.notify_route()
 returns trigger language plpgsql security definer set search_path = '' as $$
 declare n jsonb; h text; v record;
 begin
+  -- El antiguo Worker enviaba directamente «Capítulo», sin controles de acceso;
+  -- su equivalente seguro se produce exclusivamente desde private.notify_chapter.
+  if new.kind = 'Capítulo' then return null; end if;
   if new.kind in ('Volumen','volumen') then
     -- Aceptar las llamadas antiguas, pero nunca confiar en su slug/volumen.
     select vo.id, vo.series_id, vo.num, se.title, se.slug
@@ -28,6 +31,17 @@ begin
       -- Avisos generalizados solo para novedades libremente visibles; no revelar acceso mecenas.
       and (coalesce(se.access,'public') = 'public' or (se.access_until is not null and se.access_until <= now()))
       and (coalesce(vo.access,'public') = 'public' or (vo.access_until is not null and vo.access_until <= now()))
+      and exists (
+        select 1 from public.profiles p
+        where p.id = new.user_id and p.delete_requested_at is null
+          and (not coalesce(se.adult,false) or coalesce(p.adult_ok,false))
+      )
+      and not exists (
+        select 1 from public.chapters ch
+        where (ch.volume_id = vo.id or (ch.volume_id is null and ch.series_id = vo.series_id and ch.vol = vo.num))
+          and ch.deleted_at is null and ch.status = 'published'
+          and not (coalesce(ch.access,'public') = 'public' or (ch.access_until is not null and ch.access_until <= now()))
+      )
     limit 1;
     if v.id is null then return null; end if;
     if not exists (
@@ -102,6 +116,11 @@ begin
     where f.series_id = s.id
       and coalesce(f.channels->>'web','true') <> 'false'
       and coalesce(f.channels->>'chapters','true') <> 'false'
+      and exists (
+        select 1 from public.profiles p
+        where p.id = f.user_id and p.delete_requested_at is null
+          and (not coalesce(s.adult,false) or coalesce(p.adult_ok,false))
+      )
       and not exists (
         select 1 from public.team_members m
         where m.team_id = s.team_id and m.user_id = f.user_id
