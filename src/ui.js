@@ -12,7 +12,7 @@ import { formatChapterIndex } from './chapter-title-display.js?v=1';
 import { editorialChapterLabel, editorialChapterDescription, editorialChapterGroup, editorialSectionSummary, editorialSectionCounts, genericSectionCount } from './editorial-public-labels.js?v=1';
 import { planReadingChanges, persistReadingChanges, applyReadingChanges } from './library-read-actions.js';
 import { chooseActiveEditorial } from './editorial-announcements.js?v=1';
-import { enhanceHomeVitrina } from './home-vitrina.js?v=6';
+import { enhanceHomeVitrina } from './home-vitrina.js?v=7';
 import { isPubliclyReadableChapter, announcedVolumeIds } from './prelaunch-access.js?v=1';
 import { createMobileNavigation, bindMobileNavigation } from './mobile-navigation.js?v=1';
 // Géneros/etiquetas que el lector ocultó en Preferencias › Contenido.
@@ -192,7 +192,10 @@ const RK_D = { leidas: 'Lecturas únicas diarias acumuladas: cada lector o dispo
 const RK_E = { calificadas: 'Todavía ninguna obra llega a 25 votos en este periodo. Califica las que leas desde su ficha.', tendencia: 'Ninguna obra ganó lecturas frente al periodo anterior.', novedades: 'No hay obras nuevas con lecturas en este periodo.' };
 const RK_CSS = `
 .rk-bar{display:grid;gap:12px;margin:0 0 26px}.rk-row{display:flex;gap:12px 18px;flex-wrap:wrap;align-items:center}
-.rk-seg{display:inline-flex;flex-wrap:wrap;border:1px solid #3d3628}.rk-seg button{min-height:40px;padding:0 14px;background:none;border:0;border-right:1px solid #3d3628;color:#cfc6b0;font:inherit;font-size:13px;font-weight:600;cursor:pointer}.rk-seg button:last-child{border-right:0}.rk-seg button.on{background:var(--gold);color:#0d0c0a}.rk-seg button:disabled{opacity:.35;cursor:not-allowed}
+/* Ranking: áreas táctiles de 44px reales en todas las pestañas, también a 320px. */
+.rk-bar .ui-chips>.ui-chip{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:9px 12px;line-height:1.25;white-space:normal;text-align:center}
+.rk-bar .ui-chips>.ui-chip:focus-visible,.rk-bar .rk-seg button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.rk-seg{display:inline-flex;flex-wrap:wrap;border:1px solid #3d3628}.rk-seg button{min-height:44px;padding:8px 14px;background:none;border:0;border-right:1px solid #3d3628;color:#cfc6b0;font:inherit;font-size:13px;font-weight:600;cursor:pointer}.rk-seg button:last-child{border-right:0}.rk-seg button.on{background:var(--gold);color:#0d0c0a}.rk-seg button:disabled{opacity:.35;cursor:not-allowed}
 .rk-sel{display:flex;gap:8px;align-items:center}.rk-sel select{min-height:40px;font-size:13px}
 .rk-desc{margin:0;font-size:12px;color:#a89f8a;line-height:1.5}\n#rk-filters[hidden],#rk[hidden],#rk-teams[hidden],#rk-autoh[hidden]{display:none!important}\n.rk-team-panel{display:grid;gap:20px;padding:22px;border:1px solid var(--line);border-top:3px solid var(--gold);background:#14120e}\n.rk-team-header{display:flex;align-items:end;justify-content:space-between;flex-wrap:wrap;gap:14px}\n.rk-team-header h2{margin:0;font-size:clamp(23px,3vw,32px)}\n.rk-team-select{display:grid;gap:7px;min-width:min(100%,240px);font:600 13px 'IBM Plex Sans',sans-serif}\n.rk-team-select select{min-height:44px;width:100%;max-width:380px}\n.rk-team-note{font:12px/1.5 'IBM Plex Mono',monospace;color:var(--mute);margin:0}\n.rk-team-panel .rk-grid{margin-top:8px}\n@media(max-width:600px){.rk-team-panel{padding:14px}.rk-team-select{width:100%}}
 .rk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,168px),1fr));gap:30px 20px}
@@ -274,7 +277,7 @@ const RK_CSS = `
 .rk-extras{display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;min-width:0}
 .rk-extras .rk-sel select{max-width:190px}
 .rk-filter-toggle{display:none}
-.rk-clear{padding:7px 9px;background:transparent;color:#d3c0a0;border:1px solid #56452f;min-height:40px;font:600 12px 'IBM Plex Sans',sans-serif;cursor:pointer}
+ .rk-clear{padding:8px 10px;background:transparent;color:#d3c0a0;border:1px solid #56452f;min-height:44px;font:600 12px 'IBM Plex Sans',sans-serif;cursor:pointer}
 .rk-clear:hover{border-color:var(--gold);color:var(--paper)}
 .rk-clear[hidden]{display:none!important}
 .rk-summary{display:grid;gap:5px;margin:3px 0 19px;padding:11px 14px;background:#15120e;border:1px solid #493927;border-left:3px solid var(--gold)}

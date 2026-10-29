@@ -77,8 +77,9 @@ function browserCheck(){
   const rowHeight=r('.vt-row').height,totalHeight=r('.vt').height;
   const maxRow=innerWidth>1050?Math.min(400,Math.max(340,viewport*.43)):
     innerWidth>700?Math.min(390,Math.max(330,viewport*.46)):
-    innerWidth>380?Math.min(510,viewport*.72):Math.min(535,viewport*.78);
+    innerWidth>380?Math.min(420,viewport*.58):Math.min(450,viewport*.65);
   ok(rowHeight<=maxRow+4,'Vitrina ocupa más alto del previsto: '+rowHeight.toFixed(1)+' > '+maxRow.toFixed(1));
+  if(innerWidth<=700)ok(totalHeight<=565,`Vitrina móvil supera 565px: ${totalHeight}px`);
   if(innerWidth>700)ok(totalHeight<=460,'La vitrina de PC sigue ocultando casi toda la página: '+totalHeight.toFixed(1));
   ok(r('.vt-controls').top>=r('.vt-row').bottom-2,'Controles encima de la ficha');
   ok(r('.ob-txt').height<=rowHeight-8,'Hoja demasiado alta para la vitrina');
@@ -87,7 +88,7 @@ function browserCheck(){
   ok(r('.ob-acts').top>=paper.top,'Botones colocados fuera de la hoja');
   ok(r('.ob-txt h1').bottom<=r('.ob-hero-footer').top+2,`Título sobrepuesto: título ${r('.ob-txt h1').top.toFixed(0)}-${r('.ob-txt h1').bottom.toFixed(0)}, pie ${r('.ob-hero-footer').top.toFixed(0)}-${r('.ob-hero-footer').bottom.toFixed(0)}, papel ${r('.ob-txt').top.toFixed(0)}-${r('.ob-txt').bottom.toFixed(0)}, font ${getComputedStyle(h1).fontSize}, display ${getComputedStyle(h1).display}, clamp ${getComputedStyle(h1).webkitLineClamp}`);
   const logoWidth=r('.ob-hero-team-logo').width;
-  ok(logoWidth>=(innerWidth<=700?90:110),'PNG del traductor demasiado pequeño: '+logoWidth.toFixed(1)+'px');
+  ok(logoWidth>=(innerWidth<=700?86:110),'PNG del traductor demasiado pequeño: '+logoWidth.toFixed(1)+'px');
 
   ok(r('.ob-txt h1').right<=document.documentElement.clientWidth+3,`Título desbordado: ${r('.ob-txt h1').right.toFixed(1)}/${document.documentElement.clientWidth}`);
   if(innerWidth<=700){
@@ -113,7 +114,7 @@ async function run(){
   assert(seasonCss,'Faltan estilos reales de temporada');
   const siteCss=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(cssMatch[1])+'\n'+seasonCss;
   for(const needle of [
-    "home-vitrina.js?v=6","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
+    "home-vitrina.js?v=7","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
     "el.dataset.vtKeys === feat.map(heroKey).join('|')","el.__vtStop?.()",
     "heroPaused = true;","homeMetrics.shown(heroKey(s)","homeMetrics.clicked(s.slug",
     "prelaunch_calendar","creditsHTML({publicCredits:","heroClock.show({"

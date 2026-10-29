@@ -4,6 +4,10 @@ on:
     paths:
       - 'src/home-vitrina.js'
       - 'src/ui.js'
+      - 'src/app.js'
+      - 'src/styles.css'
+      - 'src/index.html'
+      - 'scripts/visual-qa-fixes-browser.mjs'
       - 'src/reader.js'
       - 'src/prelaunch-access.js'
       - 'scripts/prelaunch-access-check.mjs'
@@ -16,6 +20,10 @@ on:
     paths:
       - 'src/home-vitrina.js'
       - 'src/ui.js'
+      - 'src/app.js'
+      - 'src/styles.css'
+      - 'src/index.html'
+      - 'scripts/visual-qa-fixes-browser.mjs'
       - 'src/reader.js'
       - 'src/prelaunch-access.js'
       - 'scripts/prelaunch-access-check.mjs'
@@ -44,9 +52,12 @@ jobs:
           node --check src/prelaunch-access.js
           node --check scripts/prelaunch-access-check.mjs
           node --check scripts/home-vitrina-v2-check.mjs
+          node --check scripts/visual-qa-fixes-browser.mjs
           node --check scripts/home-vitrina-real-cover-check.mjs
       - name: Verificar bloqueo de preestrenos y enlaces opacos
         run: node scripts/prelaunch-access-check.mjs
+      - name: Validar Ranking y formulario móvil de 320 a 1440 px
+        run: node scripts/visual-qa-fixes-browser.mjs
       - name: Validar cinco tamaños en navegador
         run: node scripts/home-vitrina-v2-check.mjs
       - name: Validar portadas reales públicas y capturas
