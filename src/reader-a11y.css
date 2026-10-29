@@ -41,10 +41,9 @@
   .rd :is(a,button,input,select,textarea,summary):focus-visible{outline-width:4px;outline-offset:3px}
   .rd-prog i{background:#f2c230}
 }
-/* No eliminar la cinta, el carrusel ni animaciones existentes.
-   Solo quienes soliciten reducir movimiento reciben una presentación estática. */
+/* Preservar carruseles y efectos editoriales existentes.
+   Quien solicite movimiento reducido recibe una presentación estática. */
 @media(prefers-reduced-motion:reduce){
-  .ob-track{animation:none!important;transform:none!important;will-change:auto!important}
   .ob-page,.ob-seal,.ob-anim>*,.ob-shelf>.ob-spine,
   .ob-hero .ob-cov,.ob-hero .ob-txt,
   .ui-fc,.ui-rl,.ui-book{
