@@ -14,7 +14,11 @@ assert(navStart>=0,'CSS de navegación móvil no encontrado');
 const navCss=ui.slice(navStart+navMarker.length).split(q+';')[0];
 const css=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(css2[1])+'\n'+rankingCSS+'\n'+navCss;
 assert(app.includes('class="ob-auth-page"'),'Formulario sin clase protectora');
-assert(index.includes('app.js?v=33')&&index.includes('styles.css?v=25'),'Caché no renovada');
+const appVersion=Number(index.match(/app\\.js\\?v=(\\d+)/)?.[1]||0);
+const uiVersion=Number(index.match(/ui\\.js\\?v=(\\d+)/)?.[1]||0);
+assert(appVersion>=34&&uiVersion>=56&&index.includes('styles.css?v=25'),
+ 'Versiones de módulos no renovadas');
+assert(app.includes('/ui.js?v='+uiVersion),'El app.js no coincide con la UI precargada');
 const names=['Más leídas','Tendencia','Mejor calificadas','Más terminadas','Novedades en ascenso','Por equipo'];
 const chips=names.map(n=>'<button class="ui-chip">'+n+'</button>').join('');
 const page='<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+css+'</style></head><body>'+
