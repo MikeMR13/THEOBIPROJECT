@@ -45,15 +45,23 @@ self.addEventListener('activate', e => e.waitUntil((async () => {
 })()));
 const put = (name, key, r) => { if (r && r.ok && !r.redirected) { const cp = r.clone(); caches.open(name).then(c => c.put(key, cp)); } return r; };
 const trim = c => { if (++puts % 20) return; c.keys().then(k => k.length > IMG_MAX && Promise.all(k.slice(0, k.length - IMG_MAX).map(x => c.delete(x)))); };
-// Páginas: se abre AL INSTANTE la copia guardada y se actualiza en segundo plano para la próxima vez.
-// (Antes se esperaba a la red hasta 4 s; con el desafío de Cloudflare eso hacía lenta cada visita y la app instalada no abría sin internet.)
+// Navegación: pedir HTML vigente con tiempo acotado y utilizar la copia
+// completa de la PWA si falla la red. La versión anterior nunca debe
+// inmovilizar la interfaz durante meses mientras el dominio ya está actualizado.
 async function nav(e, req, u){
   if (u.pathname.includes('.')) return fetch(req);
   const c = await caches.open(V), hit = await c.match('/');
-  // HTML y módulos son una unidad: el HTML no cambia hasta que se active un
-  // nuevo SW con todas sus dependencias, evitando arranques a medias offline.
-  if (hit) return hit;
-  try { return await fetch(req); } catch { return Response.error(); }
+  const ac = new AbortController();
+  const timeout = setTimeout(() => ac.abort(), 1800);
+  try {
+    const fresh = await fetch(req, { signal: ac.signal });
+    if (fresh.ok && !fresh.redirected && /text\\/html/i.test(fresh.headers.get('content-type') || '')) {
+      // Un desafío de acceso no es HTML de la aplicación. No mostrarlo como lector.
+      const html = await fresh.clone().text();
+      if (/id=["']app["']/.test(html) && /app\\.js/.test(html)) return fresh;
+    }
+  } catch {} finally { clearTimeout(timeout); }
+  return hit || Response.error();
 }
 // Portadas: la guardada al instante y se actualiza en segundo plano. Se piden en modo CORS para no guardar respuestas opacas.
 function image(e, req){
