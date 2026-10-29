@@ -23,7 +23,7 @@ const offlineDownloads = createOfflineDownloads({ sb, url, toast });
 offlineDownloads.bind();
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url, offlineButton: offlineDownloads.button });
 let LG; const lg = async () => LG ||= await import('/legal.js?v=1');
-let PF; const pf = async () => PF ||= await import('/profile.js?v=10');
+let PF; const pf = async () => PF ||= await import('/profile.js?v=11');
 const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, email: user.email, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
 let ST; const st = async () => ST ||= (await import('/studio.js?v=47')).createStudio(CTX());
 let AG; const ag = async () => AG ||= await import('/agenda.js?v=1');

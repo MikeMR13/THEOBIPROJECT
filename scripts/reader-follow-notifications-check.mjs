@@ -7,6 +7,7 @@ const email=readFileSync('supabase/functions/notify-email/index.ts','utf8');
 const sql=readFileSync('supabase/migrations/20261029193456_reader_follow_notifications_hardened.sql','utf8');
 const req=(src,need,label)=>need.forEach(x=>assert(src.includes(x),label+': falta '+x));
 req(p, ["['volumen', 'Volúmenes completos nuevos'", "'fc-' + s.id", "'fv-' + s.id", "ch.chapters=!enabled", "N.email[k]"],'Preferencias');
+req(app, ["import('/profile.js?v=11'"],'Preferencias actualizadas sin caché antigua');
 req(app, ['data-av-channel="web"','data-av-channel="volumes"',"if(key==='web')ch.chapters=i.checked",".lb-ai{grid-template-columns:minmax(0,1fr) auto auto auto}"],'Biblioteca');
 req(email, ["volumen: 'Volúmenes completos nuevos'",'https://elobidellector.com',"if (!SECRET || req.headers.get('x-cron-secret') !== SECRET)"],'Correo seguro');
 req(sql, ['private.follow_volume_delivered','on conflict do nothing',"new.kind := 'volumen'","'#serie-vols'","v.announced_at is null","coalesce(f.channels->>'chapters'","coalesce(f.channels->>'volumes'","new.archived_at is not null","new.kind <> 'moderacion'","n->'email'->>new.kind","new.link->>'slug'"],'Enrutamiento');
