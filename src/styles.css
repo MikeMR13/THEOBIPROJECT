@@ -1012,3 +1012,18 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
 @media(prefers-reduced-motion:reduce){
   .ob-tab-panel,.ob-tab-more{transition:none!important}
 }
+
+
+/* Auditoría visual: acceso en móvil pequeño sin solapamiento con la barra fija.
+   El widget de Turnstile mantiene su altura; se reserva espacio para el CTA. */
+.ob-auth-page{max-width:380px;min-width:0}
+.ob-auth-page #f,.ob-auth-page .ob-auth-providers{width:100%;box-sizing:border-box}
+.ob-auth-page #go{min-height:44px;width:100%;box-sizing:border-box}
+.ob-auth-page #cf-ts{max-width:100%;min-width:0;overflow:visible}
+@media(max-width:760px){
+  #app:has(>.ob-auth-page){padding-top:16px;padding-bottom:max(104px,calc(88px + env(safe-area-inset-bottom)))}
+  .ob-auth-page h1{margin:0 0 13px}
+  .ob-auth-page .ob-auth-providers{gap:9px!important;margin-bottom:9px!important}
+  .ob-auth-page #f{gap:7px!important}
+  .ob-auth-page #go{scroll-margin-bottom:calc(84px + env(safe-area-inset-bottom))}
+}
