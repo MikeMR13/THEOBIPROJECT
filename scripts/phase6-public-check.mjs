@@ -19,7 +19,7 @@ assert(s.includes(".eq('period', 'semana').in('series_id', ids)"),'Ranking por e
 const releases=s.slice(s.indexOf('  async function home(){'),s.indexOf('  let heroPaused'));
 assert(releases.includes('const grp = homeReleaseHighlights(news.entries, { now: +now, limit: 10, maxVolumes: 3, freshDays: 7 })'),'Inicio debe priorizar volúmenes recientes sin descartar capítulos');
 assert(releases.indexOf('id="hero"') < releases.indexOf('ob-releases') && releases.indexOf('ob-releases') < releases.indexOf('id="ob-open-today"'),'La vitrina y las novedades deben aparecer antes del calendario y los equipos');
-assert(releases.includes('ob-release-intro') && css.includes('.ob-page .ob-release-card.is-volume{'),'Falta realce editorial de volúmenes');
+assert(releases.includes('ob-release-intro') && css.includes('.ob-page .ob-release-card.is-volume{') && releases.includes('Ajustar avisos de mis obras →'),'Falta realce editorial o acceso a avisos');
 assert(releases.includes('ob-car ob-release-car ob-anim') && releases.includes('ob-cc ob-release-card'),'El carrusel debe reutilizar las tarjetas de otras secciones');
 assert(releases.includes("arrows('ob-release-car')") && releases.includes('role="region" aria-roledescription="carrusel"'),'Faltan flechas o accesibilidad del carrusel');
 assert(releases.includes("releaseCar?.addEventListener('keydown'") && releases.includes('prefers-reduced-motion: reduce'),'Falta teclado o compatibilidad con movimiento reducido');

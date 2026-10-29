@@ -1,7 +1,7 @@
 // Vistas públicas con la identidad visual de El Obi del Lector: Inicio, Catálogo y Ficha de serie.
 import { confirmObi, inputObi } from './obi-dialog.js';
 import { publicationDate, publicationAge, publicationDay } from './publication-dates.js?v=1';
-import { homeReleaseOverview, homeReleaseHighlights } from './home-releases.js?v=1';
+import { homeReleaseOverview, homeReleaseHighlights } from './home-releases.js?v=2';
 import { attachPublicCredits, creditTeams, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
 import { homeFeaturedSelection, homeDayKey } from './home-featured.js?v=1';
 import { createHeroRotationClock } from './home-hero-rotation.js?v=1';
@@ -930,7 +930,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       <div id="ob-fest-slot"></div>
       <section class="ob-hero" id="hero" ${feat.length ? '' : 'style="display:none"'}></section>
       ${grp.length ? `<section class="ob-sec ob-releases" style="border-top:none;padding-top:32px">${head('新着', 'Nuevos volúmenes y capítulos', `<span class="r2"><a class="r" href="/lanzamientos">Todos los lanzamientos →</a>${arrows('ob-release-car')}</span>`)}
-        <p class="ob-release-intro">Volúmenes completos destacados y capítulos publicados recientemente.</p>
+        <p class="ob-release-intro">Volúmenes completos destacados y capítulos publicados recientemente.${u ? ` <a href="/biblioteca?t=avisos" class="ob-release-manage">Ajustar avisos de mis obras →</a>` : ''}</p>
         <div class="ob-car ob-release-car ob-anim" id="ob-release-car" role="region" aria-roledescription="carrusel" aria-label="Lanzamientos recientes" tabindex="0">${grp.map(g => {
           const s = byId[g.id], c = g.chs[0] || {}, v = g.kind === 'volume' ? g.volume : null;
           const coverPath = v?.cover_path || s.cover_thumb_path || s.cover_path;

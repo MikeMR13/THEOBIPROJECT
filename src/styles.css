@@ -1136,3 +1136,6 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
  .ob-page .ob-releases .ob-st .r2{gap:8px 12px}
  .ob-page .ob-release-card.is-volume .cv i{font-size:10px}
 }
+
+.ob-page .ob-release-intro a.ob-release-manage{display:inline-block;margin-left:6px;min-height:26px;color:var(--gold);text-underline-offset:3px;font-weight:700}
+@media(max-width:600px){.ob-page .ob-release-intro a.ob-release-manage{display:block;margin:7px 0 0;min-height:32px}}
