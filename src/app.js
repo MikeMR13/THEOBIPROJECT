@@ -6,7 +6,7 @@ import { createOfflineDownloads } from './offline-downloads.js?v=1';
 import { readingGroups, planReadingChanges, undoReadingChanges, applyReadingChanges, persistReadingChanges } from './library-read-actions.js';
 // Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
 import { createClient } from '/supabase.js?v=1';
-import { createReader } from '/reader.js?v=23';
+import { createReader } from '/reader.js?v=24';
 import { createUI } from '/ui.js?v=57';
 import { attachPublicCredits, creditsHTML, installCreditImageFallback } from '/public-collaboration-credits.js?v=1';
 import { reportHomeRead } from '/home-metrics.js?v=1';
@@ -25,7 +25,7 @@ const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () 
 let LG; const lg = async () => LG ||= await import('/legal.js?v=1');
 let PF; const pf = async () => PF ||= await import('/profile.js?v=11');
 const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, email: user.email, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
-let ST; const st = async () => ST ||= (await import('/studio.js?v=47')).createStudio(CTX());
+let ST; const st = async () => ST ||= (await import('/studio.js?v=48')).createStudio(CTX());
 let AG; const ag = async () => AG ||= await import('/agenda.js?v=1');
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=10')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
