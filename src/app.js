@@ -182,7 +182,7 @@ export function go(path){ history.pushState({}, '', path); render(); }
 document.addEventListener('click', e => { const a = e.target.closest('a[href^="/"]'); if (a && !a.target) { e.preventDefault(); go(a.getAttribute('href')); } });
 addEventListener('popstate', render);
 document.addEventListener('click', e => { document.querySelectorAll('.ob-user[open],.ob-bell[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
-let PS = null; const seasons = async () => PS ||= await import('/season.js?v=4');
+let PS = null; const seasons = async () => PS ||= await import('/season.js?v=5');
 addEventListener('obi-season', () => { afterRender(); });
 // Se dibuja la página sin esperar la temporada; afterRender la aplica cuando llega.
 function render(){
