@@ -6,7 +6,7 @@ import { attachPublicCredits, creditsHTML, installCreditImageFallback } from './
 import { readerPrefsKey, readReaderPrefs, readPendingReaderPrefs, stageReaderPrefs, acknowledgeReaderPrefs, sameReaderAccount, readingProgressKey, readingProgressPrefix, readerProgressKeys } from './reader-pref-cache.js?v=1';
 import { SECTION_LABELS } from './section-types.js?v=1';
 import { formatChapterIndex } from './chapter-title-display.js?v=2';
-import { repeatedOpeningHeading } from './reader-headings.js?v=1';
+import { repeatedOpeningHeading } from './reader-headings.js?v=2';
 import { adjacentChapter, mergeChapterMetadata } from './reader-navigation.js?v=1';
 import { isPubliclyReadableChapter } from './prelaunch-access.js?v=1';
 const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true, controls: 'fijo' };
