@@ -33,7 +33,7 @@ export function enhanceHomeVitrina(root, entries, activeIndex, {esc, media, news
   const mq=matchMedia('(max-width:700px)'),stage=vt.querySelector('.vt-stage'),track=vt.querySelector('.vt-books'),buttons=[...vt.querySelectorAll('.vt-book')];
   let settle=0,frame=0,ignore=false,disposed=false;
   const sheet=vt.querySelector('.vt-side .ob-txt'),editorial=vt.querySelector('.vt-side .ob-hero-copy');
-  const title=editorial?.querySelector('h1'),synopsis=editorial?.querySelector('.ob-syn');
+  const title=editorial?.querySelector('h2'),synopsis=editorial?.querySelector('.ob-syn');
   // Altura fija por tamaño de pantalla. La tipografía se ajusta dentro de la hoja;
   // nunca se desplaza el pie con sus enlaces.
   const fitCopy=()=>{
