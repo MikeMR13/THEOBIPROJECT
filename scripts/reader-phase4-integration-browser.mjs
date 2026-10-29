@@ -127,8 +127,8 @@ const fixedBar=$('.rd-bar');
 const barTopBefore=fixedBar?.getBoundingClientRect().top ?? -999;
 const barBottomBefore=fixedBar?.getBoundingClientRect().bottom ?? -999;
 check(getComputedStyle(fixedBar).position==='fixed','Siempre visible debe usar position:fixed, no sticky');
-check($('.rd-ch').getBoundingClientRect().top >= barBottomBefore - 2,
-  'La barra fija está tapando el comienzo del capítulo');
+check($('.rd-body').getBoundingClientRect().top >= barBottomBefore - 2,
+  'La barra fija está tapando el texto del capítulo');
 const scrollAvailable=Math.max(0,document.documentElement.scrollHeight-innerHeight);
 check(scrollAvailable>480,'El capítulo de prueba no tiene suficiente altura para comprobar scroll');
 scrollTo(0,Math.min(750,scrollAvailable-40));
