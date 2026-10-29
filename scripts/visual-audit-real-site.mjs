@@ -68,7 +68,8 @@ const inspect=()=> {
   broken,issues:bad};
 };
 async function shot(context,item,theme){
- const [name,route]=item,ctx=await browser.newContext({...context,locale:'es-MX',
+ const [name,route]=item,ctx=await browser.newContext({viewport:{width:context.width,height:context.height},
+  isMobile:!!context.isMobile,deviceScaleFactor:context.deviceScaleFactor||1,locale:'es-MX',
   reducedMotion:theme?'reduce':'no-preference',serviceWorkers:'block'});
  const page=await ctx.newPage();page.setDefaultTimeout(15000);
  const errors=[],failed=[];
@@ -93,6 +94,11 @@ async function shot(context,item,theme){
    observed.team ||=teams.find(Boolean)||null;
    observed.reader ||=reads.find(Boolean)||null;
   }
+  if((name==='inicio'||name==='catalogo')&&!theme&&context.width!==320){
+   const jpg=await page.screenshot({type:'jpeg',quality:27,fullPage:false});
+   // Miniatura REAL del sitio en los logs; se puede inspeccionar sin confundirla con un fixture.
+   console.log('THUMB_'+context.name+'_'+name+'='+jpg.toString('base64'));
+  }
   // Vista posterior al carrusel: importante para apreciar cuánto ocupa en PC.
   if(name==='inicio'&&!theme&&context.width>=390){
    await page.evaluate(()=>scrollTo(0,Math.round(innerHeight*.7)));
@@ -110,11 +116,7 @@ async function shot(context,item,theme){
   console.log('AUDIT_CASE',JSON.stringify({viewport:context.name,route,theme:theme||'normal',
    status,heroHeight:row.heroHeight,vitrinaHeight:row.vitrinaHeight,
    h1:row.h1.slice(0,1),controls:row.visibleControls,issues:row.issues.slice(0,8),jsErrors:row.jsErrors.slice(0,3)}));
-  if((name==='inicio'||name==='catalogo')&&!theme&&context.width!==320){
-   const jpg=await page.screenshot({type:'jpeg',quality:27,fullPage:false});
-   // Miniatura REAL del sitio en los logs; se puede inspeccionar sin confundirla con un fixture.
-   console.log('THUMB_'+context.name+'_'+name+'='+jpg.toString('base64'));
-  }
+
  }catch(e){
   navError=clean(String(e));issues.push({viewport:context.name,route,theme:theme||'normal',issue:navError});
   all.push({viewport:context.name,name,route,theme:theme||'normal',status,navError});
