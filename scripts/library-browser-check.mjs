@@ -15,6 +15,13 @@ const card=(i)=>'<article class="lb-card"><a class="lb-cover-link" href="/serie/
  '<span class="lb-card-sub">Continuar · Capítulo '+(i+4)+'</span><div class="lb-progress" aria-label="8 de 24 capítulos"><span class="lb-progress-head"><span>8 de 24 capítulos</span><span>33 %</span></span>'+
  '<span class="lb-progress-track" aria-hidden="true"><i style="width:33%"></i></span></div><a class="lb-card-cta" href="/leer/obra-'+i+'/5">Continuar leyendo</a>'+
  '<button type="button" class="lb-read-toggle" data-read-work="work-'+i+'" data-read-mark="1" aria-label="Marcar novela como leída">✓ Marcar novela como leída</button><button type="button" class="lb-card-hide">Ocultar de mi perfil público</button></div></article>';
+// Vista S3: recrear los tres estantes con las clases reales y portadas sintéticas.
+const shelf=(key,title,count)=>'<article class="lb-collection" data-collection="'+key+'">'+
+ '<header class="lb-collection-head"><div><h2>'+title+'</h2><p>Obras disponibles en esta estantería</p></div><span class="lb-collection-count" aria-label="Obras: '+count+'">'+count+'</span></header>'+
+ '<div class="lb-collection-books">'+Array.from({length:Math.min(count,3)},(_,i)=>'<a class="lb-collection-book" href="/serie/obra-'+(i+1)+'" aria-label="Ver ficha de '+title+'">'+
+ '<span class="lb-collection-cover"><img src="'+svg(i+1)+'" alt="" loading="lazy" decoding="async"></span>'+
+ '<span class="lb-collection-book-title">'+(i===2?'Una novela ligera con título extraordinariamente extenso':'Obra editorial '+(i+1))+'</span></a>').join('')+'</div>'+
+ '<a class="lb-collection-more" href="/biblioteca?t='+key+'">Ver estantería completa →</a></article>';
 const qa=[
  "const e=[];const w=document.documentElement.clientWidth;",
  "const direct=[...document.querySelectorAll('.lb-read-toggle')];if(direct.length!==5)e.push('botones por novela faltantes');",
@@ -29,6 +36,13 @@ const qa=[
  "const first=all[0]?.getBoundingClientRect();if(w<=480&&first.width>w-15)e.push('tarjeta demasiado ancha');",
  "if(w<=480&&all[0]?.getBoundingClientRect().top>=all[1]?.getBoundingClientRect().top)e.push('tarjetas móviles superpuestas');",
  "if(w>=1024&&all[0]?.getBoundingClientRect().top!==all[1]?.getBoundingClientRect().top)e.push('escritorio sin múltiples columnas');",
+ "const shelves=document.querySelectorAll('.lb-collection');const collection=document.querySelector('.lb-collections-desktop');",
+ "if(shelves.length!==3)e.push('no se muestran tres estantes');",
+ "if(w>=960&&getComputedStyle(collection).display!=='grid')e.push('faltan estantes de escritorio');",
+ "if(w<960&&getComputedStyle(collection).display!=='none')e.push('los estantes invaden la pantalla móvil');",
+ "if(w>=960){const boxes=[...shelves].map(s=>s.getBoundingClientRect());if(boxes.some(b=>b.width<185))e.push('estantes demasiado estrechos');if(boxes.some(b=>Math.abs(b.top-boxes[0].top)>3))e.push('estantes no alineados en escritorio');}",
+ "if(w>=960&&[...shelves].some(s=>!s.querySelector('.lb-collection-more')||!s.querySelector('.lb-collection-book img')))e.push('faltan portadas o enlace a estante');",
+ "if(w>=960&&[...document.querySelectorAll('.lb-collection-cover img')].some(im=>getComputedStyle(im).objectFit!=='contain'))e.push('portadas de estantería recortadas');",
  "const nav=document.querySelector('.lb-tabs');if(!nav?.querySelector('[aria-current=page]'))e.push('pestaña sin aria-current');",
  "const links=[...nav.querySelectorAll('a')];if(w<=480&&(links.some(a=>Math.abs(a.getBoundingClientRect().top-links[0].getBoundingClientRect().top)>2)||getComputedStyle(nav).flexWrap!=='nowrap'))e.push('pestañas móviles en varias filas');",
  "if(w<=480&&nav.scrollWidth<=nav.clientWidth+10)e.push('pestañas sin desplazamiento horizontal');",
@@ -39,6 +53,8 @@ const qa=[
 function sample(){
  return '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+css+'</style></head><body>'+
  '<main id="app"><div class="ui-cath"><div><h1>Mi biblioteca</h1><p>28 capítulos leídos · 9 obras seguidas</p></div><span class="kj" aria-hidden="true">書庫</span></div>'+
+ '<section class="lb-collections-desktop" aria-label="Obras de tus tres estanterías">'+
+ shelf('leyendo','Leyendo',3)+shelf('pendientes','Pendientes',2)+shelf('terminadas','Terminadas',1)+'</section>'+
  '<nav class="lb-tabs" aria-label="Secciones de Mi biblioteca"><a class="on" aria-current="page" href="/biblioteca">Leyendo <em>5</em></a><a href="?t=pendientes">Pendientes <em>4</em></a><a href="?t=terminadas">Terminadas</a><a href="?t=avisos">Avisos</a><a href="?t=offline">Sin conexión</a><a href="?t=historial">Historial</a></nav>'+
  '<p class="lb-navhelp">Desliza las pestañas para ver todas las secciones →</p>'+
  '<div class="lb-toolbar"><label>Buscar en esta sección<input type="search" placeholder="Título u organización"></label><label>Ordenar por<select><option>Actividad reciente</option></select></label></div>'+
