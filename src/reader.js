@@ -534,6 +534,18 @@ export function createReader(ctx){
 
   // ---------- lectura continua + capítulo activo ----------
   let io, activeIo, barRO;
+  // La cabecera global no siempre permanece visible durante el desplazamiento.
+  // La barra fija debe ocupar su borde inferior real, no un hueco constante de 62 px.
+  function syncFixedBarTop(){
+    const rd = $('.rd');
+    if (!rd || rd.dataset.controls !== 'fijo') return;
+    const header = document.querySelector('body > header.top');
+    const visible = header && getComputedStyle(header).display !== 'none' &&
+      getComputedStyle(header).visibility !== 'hidden';
+    const bottom = visible ? header.getBoundingClientRect().bottom : 0;
+    const top = Math.max(0, Math.min(innerHeight, Math.ceil(bottom)));
+    rd.style.setProperty('--rd-fixed-top', top + 'px');
+  }
   function observe(){
     io?.disconnect(); activeIo?.disconnect(); barRO?.disconnect();
     // Altura real: en móviles muy estrechos la barra usa dos filas.
@@ -542,6 +554,7 @@ export function createReader(ctx){
     if (rd && bar) {
       const measure = () => rd.style.setProperty('--rd-h', Math.ceil(bar.getBoundingClientRect().height) + 'px');
       measure();
+      syncFixedBarTop();
       if (typeof ResizeObserver !== 'undefined') {
         barRO = new ResizeObserver(measure);
         barRO.observe(bar);
@@ -578,6 +591,7 @@ export function createReader(ctx){
     }), { rootMargin: '-45% 0px -50% 0px' });
     document.querySelectorAll('.rd-ch').forEach(a => activeIo.observe(a));
     removeEventListener('scroll', onScroll); addEventListener('scroll', onScroll, { passive: true });
+    removeEventListener('resize', syncFixedBarTop); addEventListener('resize', syncFixedBarTop, { passive: true });
   }
   // lectura continua: máximo 3 capítulos en la página; los que quedan muy atrás se retiran sin mover lo que se está leyendo
   function trimMounted(){
@@ -604,7 +618,11 @@ export function createReader(ctx){
     return { block: blk, pct };
   }
   function onScroll(){
-    if (!document.body.contains($('.rd'))) { removeEventListener('scroll', onScroll); wl?.release(); return; }
+    if (!document.body.contains($('.rd'))) {
+      removeEventListener('scroll', onScroll);
+      removeEventListener('resize', syncFixedBarTop);
+      wl?.release(); return;
+    }
     if (S.resumePending && Math.abs(scrollY - S.resumePending.y) > 40) {
       S.resumePending = null;
       const bar = $('#rd-resume'); if (bar) bar.hidden = true;
@@ -615,6 +633,7 @@ export function createReader(ctx){
   // barra que se esconde al bajar y vuelve al subir (o al llegar al final)
   function frame(){
     S.raf = 0; const rd = $('.rd'); if (!rd || !S.active) return;
+    syncFixedBarTop();
     const y = scrollY; if (S.lastY == null) S.lastY = y; const d = y - S.lastY;
     if (Math.abs(d) > 6) { S.lastY = y; rd.dataset.bar = rd.dataset.controls === 'fijo' ? '' : (d > 0 && y > 240 && panel().hidden && pop().hidden ? 'hide' : ''); }
     if (rd.dataset.controls === 'fijo') rd.dataset.bar = '';
@@ -787,7 +806,7 @@ export function createReader(ctx){
   }
   async function applyPrefs(k){
     const p = effective(S.active.volume_id), rd = $('.rd');
-    Object.assign(rd.dataset, { theme: p.theme, width: p.width, lh: p.lh, align: p.align, para: p.para, controls: p.controls === 'fijo' ? 'fijo' : 'deslizable' }); if (rd.dataset.controls === 'fijo') rd.dataset.bar = ''; rd.style.setProperty('--rs', p.size + 'px');
+    Object.assign(rd.dataset, { theme: p.theme, width: p.width, lh: p.lh, align: p.align, para: p.para, controls: p.controls === 'fijo' ? 'fijo' : 'deslizable' }); if (rd.dataset.controls === 'fijo') rd.dataset.bar = ''; syncFixedBarTop(); rd.style.setProperty('--rs', p.size + 'px');
     rd.dataset.font = p.font;
     if (k === 'awake') { if (p.awake === false) wl?.release(); else wake(); }
     // cambiar de fuente solo actualiza variables CSS, sin redibujar el texto
