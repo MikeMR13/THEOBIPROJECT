@@ -36,7 +36,7 @@ function workerHarness(fetcher,shell=['/','/app.js?v=123','/styles.css?v=123']){
   };
   const code = workerSource.replace(/\/\*@shell\*\/[\s\S]*?\/\*@end\*\//,
     `const V='obi-pwa-test',SHELL=${JSON.stringify(shell)},LAZY=[];`);
-  const ctx = {self,caches:storage,fetch:fetcher,Response,URL,location:{origin},console};
+  const ctx = {self,caches:storage,fetch:(req, options)=>fetcher(typeof req === 'string' ? req : new URL(req.url).pathname, options),Response,URL,AbortController,setTimeout,clearTimeout,location:{origin},console};
   vm.runInNewContext(code+'\n;globalThis.__nav=nav;',ctx);
   const lifecycle = async name => {
     let promise;
@@ -46,7 +46,7 @@ function workerHarness(fetcher,shell=['/','/app.js?v=123','/styles.css?v=123']){
   };
   return {storage,events,ctx,lifecycle,get skipped(){return skipped;}};
 }
-const okResponse=path=>new Response(path.startsWith('/app.js')?'export default 1':path.startsWith('/styles.css')?'body{}':'<!doctype html><title>Obi</title>',{
+const okResponse=path=>new Response(path.startsWith('/app.js')?'export default 1':path.startsWith('/styles.css')?'body{}':'<!doctype html><title>Obi</title><main id="app"></main><script src="/app.js?v=123"></script>',{
   status:200,headers:{'content-type':path.startsWith('/app.js')?'application/javascript':path.startsWith('/styles.css')?'text/css':'text/html'}
 });
 {
@@ -73,8 +73,15 @@ const okResponse=path=>new Response(path.startsWith('/app.js')?'export default 1
   const initial=requests;
   const page=await h.ctx.__nav({}, {url:origin+'/catalogo'},new URL(origin+'/catalogo'));
   assert.ok((await page.text()).includes('Obi'));
-  assert.equal(requests,initial,'El HTML precargado no debe sustituirse por otro sin sus módulos');
+  assert.equal(requests,initial+1,'La navegación online debe solicitar HTML vigente');
   await h.lifecycle('activate');
+}
+// Cuando la red falla el lector instalado conserva su HTML de arranque.
+{
+  const h=workerHarness(async path => path === '/catalogo' ? Promise.reject(new Error('sin conexión')) : okResponse(path));
+  await h.lifecycle('install');
+  const page=await h.ctx.__nav({}, {url:origin+'/catalogo'},new URL(origin+'/catalogo'));
+  assert.ok((await page.text()).includes('Obi'),'Sin red debe abrir HTML guardado');
 }
 // Activar una nueva versión no debe consultar recursos secundarios ni requerir red extra.
 {

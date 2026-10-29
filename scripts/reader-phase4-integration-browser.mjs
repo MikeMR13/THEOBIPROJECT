@@ -103,6 +103,11 @@ check($('.rd-ch')?.dataset.ch==='c1','No se abrió el primer capítulo');
 check($('.rd-body')?.textContent.includes('lectura original'),'Texto ausente');
 check(first<550,'Los créditos retrasaron el texto');
 const originalText=$('.rd-body')?.textContent||'';
+const settingsButton=$('.rd-settings-trigger');
+check(settingsButton?.textContent.includes('Ajustes'),'El botón Aa carece de etiqueta visible');
+check(settingsButton && getComputedStyle(settingsButton).display!=='none',
+  'El acceso a los ajustes está oculto');
+check($('.rd')?.dataset.controls==='fijo','La barra no permanece visible por defecto');
 check($('.rd-ch-end .rd-to-series')?.getAttribute('href')==='/serie/obra-fixture',
   'Falta Regresar a la serie al final del capítulo');
 $('.rd-bar [data-act="prefs"]')?.click();
@@ -117,6 +122,16 @@ check($('.rd')?.dataset.controls==='fijo','No se aplicó en vivo la barra siempr
 check($('.rd-body')?.textContent===originalText,'Cambiar el modo borró el capítulo');
 $('.rd-panel [data-panel-close]')?.click();
 check($('.rd-panel')?.hidden,'El menú deslizable no se pudo cerrar');
+$('.rd-settings-trigger')?.click();
+$('.rd-panel [data-k="controls"][data-v="deslizable"]')?.click();
+check($('.rd')?.dataset.controls==='deslizable','La barra deslizable no se aplicó');
+$('.rd-panel [data-panel-close]')?.click();
+$('.rd').dataset.bar='hide';
+check(getComputedStyle($('.rd-settings-dock')).display!=='none','No aparece el acceso flotante al ocultarse la barra');
+$('.rd-settings-dock')?.click();
+check(!$('.rd-panel')?.hidden && $('.rd').dataset.panelOpen==='prefs','El acceso flotante no abre Ajustes');
+check($('.rd-body')?.textContent===originalText,'El menú flotante alteró el texto');
+$('.rd-panel [data-panel-close]')?.click();
 
 history.pushState({},'','/leer/obra-fixture/2');
 window.__qaStage='navegación rápida';

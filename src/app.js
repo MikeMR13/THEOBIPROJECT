@@ -6,7 +6,7 @@ import { createOfflineDownloads } from './offline-downloads.js?v=1';
 import { readingGroups, planReadingChanges, undoReadingChanges, applyReadingChanges, persistReadingChanges } from './library-read-actions.js';
 // Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
 import { createClient } from '/supabase.js?v=1';
-import { createReader } from '/reader.js?v=21';
+import { createReader } from '/reader.js?v=22';
 import { createUI } from '/ui.js?v=57';
 import { attachPublicCredits, creditsHTML, installCreditImageFallback } from '/public-collaboration-credits.js?v=1';
 import { reportHomeRead } from '/home-metrics.js?v=1';
@@ -983,7 +983,16 @@ toast(open ? 'Solicitud actualizada' : 'Solicitud enviada · te avisaremos aquí
 $('#rqcancel')?.addEventListener('click', async () => { if (!await confirmObi('¿Retirar tu solicitud?')) return; const { error } = await sb.rpc('cancel_translator_request'); if (error) return toast(error.message); toast('Solicitud retirada'); solicitud(); });
 }
 function notFound(){ app.innerHTML = '<h1>Esta página no está en el estante</h1><p><a href="/">Volver al inicio</a></p>'; }
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+// Una PWA abierta antes del despliegue debe adoptar el nuevo lector sin quedarse en HTML antiguo.
+if ('serviceWorker' in navigator) {
+  let changedController = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (changedController) return;
+    changedController = true;
+    location.reload();
+  });
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
 // precarga del capítulo al apuntar o tocar cualquier enlace al lector (Continuar, índice, fichas…)
 let warmT = 0; const warmOn = e => { const l = e.target.closest?.('a[href^="/leer/"]'); if (!l) return; const m = l.getAttribute('href').match(/^\/leer\/([\w-]+)\/(\d+(?:\.\d+)?)/); if (!m) return; clearTimeout(warmT); warmT = setTimeout(() => rd().warm(m[1], +m[2]), e.type === 'pointerover' ? 80 : 0); };
 document.addEventListener('pointerover', warmOn, { passive: true }); document.addEventListener('touchstart', warmOn, { passive: true }); document.addEventListener('focusin', warmOn);

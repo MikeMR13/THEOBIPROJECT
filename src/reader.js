@@ -8,7 +8,7 @@ import { SECTION_LABELS } from './section-types.js?v=1';
 import { formatChapterIndex } from './chapter-title-display.js?v=2';
 import { adjacentChapter, mergeChapterMetadata } from './reader-navigation.js?v=1';
 import { isPubliclyReadableChapter } from './prelaunch-access.js?v=1';
-const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true, controls: 'deslizable' };
+const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true, controls: 'fijo' };
 const COLORS = { gold: '#f2c230', rose: '#f29bb0', sky: '#8cc3f2', mint: '#9fdcb0' };
 const SEC_LABEL = SECTION_LABELS;
 
@@ -449,13 +449,14 @@ export function createReader(ctx){
         <span class="rd-where"><a href="/serie/${esc(slug)}" class="rd-back" title="${esc(S.series.title)}">‹ ${esc(S.series.title)}</a><span class="rd-left mono"></span></span>
         <div class="rd-tools">
           <button class="btn ghost" data-act="toc" aria-label="Índice">Índice</button>
-          <button class="btn ghost" data-act="prefs" aria-label="Ajustes de lectura" aria-controls="rd-panel" aria-expanded="false">Aa</button>
+          <button class="btn ghost rd-settings-trigger" data-act="prefs" aria-label="Abrir ajustes de lectura" aria-controls="rd-panel" aria-expanded="false"><span aria-hidden="true">Aa</span> Ajustes</button>
           <button class="btn ghost" data-act="zen" title="Modo zen · tecla Z">Zen</button>
           <span class="rd-wide">${more}</span>
           <details class="rd-more"><summary class="btn ghost" aria-label="Más opciones">⋯</summary><div class="rd-more-m">${more}</div></details>
         </div>
       </nav>
       <div class="rd-prog" aria-hidden="true"><i></i></div>
+      <button type="button" class="rd-settings-dock" data-act="prefs" aria-label="Abrir ajustes de lectura" aria-controls="rd-panel" aria-expanded="false">Aa Ajustes</button>
       <div class="rd-panel" id="rd-panel" role="region" aria-label="Herramientas de lectura" hidden></div>
       <p id="rd-resume" class="rd-resume" hidden></p>
       <p id="rd-earlier" hidden></p>
@@ -709,14 +710,15 @@ export function createReader(ctx){
 
   // ---------- barra, índice y ajustes ----------
   function bindBar(){
-    document.querySelectorAll('.rd-bar [data-act], .rd-zen-x').forEach(b => b.onclick = () => { b.closest('details')?.removeAttribute('open'); ({ toc, prefs: prefsPanel, coms: comments, notes: () => go('/anotaciones/' + S.series.slug), offline: toggleOffline, zen: () => zen() })[b.dataset.act](); });
+    document.querySelectorAll('.rd-bar [data-act], .rd-settings-dock, .rd-zen-x').forEach(b => b.onclick = () => { b.closest('details')?.removeAttribute('open'); ({ toc, prefs: prefsPanel, coms: comments, notes: () => go('/anotaciones/' + S.series.slug), offline: toggleOffline, zen: () => zen() })[b.dataset.act](); });
     panel()?.addEventListener('click', e => { if (e.target.closest('[data-panel-close]')) closePanel(); });
   }
   const panel = () => $('.rd-panel');
   function closePanel(){
     const pn = panel(); if (!pn) return;
     pn.hidden = true;
-    document.querySelectorAll('.rd-bar [aria-controls="rd-panel"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+    const rd = $('.rd'); if (rd) delete rd.dataset.panelOpen;
+    document.querySelectorAll('.rd [aria-controls="rd-panel"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
   }
   function toggle(html){
     const pn = panel(); if (!pn) return null;
@@ -724,7 +726,8 @@ export function createReader(ctx){
     pn.dataset.kind = html.kind;
     pn.innerHTML = '<div class="rd-panel-head"><strong>' + (html.kind === 'prefs' ? 'Ajustes de lectura' : 'Índice de capítulos') + '</strong><button class="rd-panel-close" type="button" data-panel-close aria-label="Cerrar panel">✕</button></div>' + html.body;
     pn.hidden = false;
-    document.querySelectorAll('.rd-bar [aria-controls="rd-panel"]').forEach(b => b.setAttribute('aria-expanded', String(b.dataset.act === html.kind)));
+    document.querySelectorAll('.rd [aria-controls="rd-panel"]').forEach(b => b.setAttribute('aria-expanded', String(b.dataset.act === html.kind)));
+    $('.rd').dataset.panelOpen = html.kind;
     $('.rd').dataset.bar = '';
     return pn;
   }
