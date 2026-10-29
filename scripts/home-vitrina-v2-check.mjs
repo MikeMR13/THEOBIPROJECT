@@ -38,8 +38,8 @@ function browserCheck(){
   ok(keyboard,'Teclado no avanza');
   ok(document.documentElement.scrollWidth<=document.documentElement.clientWidth+3,'Desbordamiento horizontal');
   ok(r('.ob-acts').bottom<=r('.vt').bottom+3,'Acciones recortadas');
-  ok(r('.ob-hero-team-logo').right<=r('.vt-side').right+3,'Logo desbordado');
-  ok(r('.ob-txt h1').right<=document.documentElement.clientWidth+3,'Título desbordado');
+  ok(r('.ob-hero-team-logo').right<=r('.vt-side').right+3,`Logo desbordado: ${r('.ob-hero-team-logo').right.toFixed(1)}/${r('.vt-side').right.toFixed(1)}; vt ${r('.vt').left.toFixed(1)}-${r('.vt').right.toFixed(1)}`);
+  ok(r('.ob-txt h1').right<=document.documentElement.clientWidth+3,`Título desbordado: ${r('.ob-txt h1').right.toFixed(1)}/${document.documentElement.clientWidth}`);
   if(innerWidth<=700){
     ok(getComputedStyle(s.querySelector('.vt-books')).scrollSnapType.includes('mandatory'),'Falta scroll-snap');
     ok(getComputedStyle(books[0]).position==='relative','Diseño móvil incorrecto');
