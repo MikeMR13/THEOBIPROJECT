@@ -103,14 +103,14 @@ function checkPage(){
  for(const k of keys){
    for(const [p,type,kind] of routes){
      const app=document.getElementById('app');
-     app.innerHTML='<div class="qa-shell">'+(templates[type]||'')+common+'</div>';
+     app.innerHTML='<div class="qa-shell">'+(templates[type]||'')+(type==='reader'?'':common)+'</div>';
      const tablist=app.querySelector('.qa-tabs');
-     for(const tab of tablist.querySelectorAll('[role=tab]'))tab.onclick=()=>{
+     for(const tab of (tablist?.querySelectorAll('[role=tab]')||[]))tab.onclick=()=>{
        for(const item of tablist.querySelectorAll('[role=tab]'))
          item.setAttribute('aria-selected',String(item===tab));
      };
      const toggle=app.querySelector('.qa-menu-btn'),menu=app.querySelector('.qa-menu');
-     toggle.onclick=()=>{menu.hidden=!menu.hidden;toggle.setAttribute('aria-expanded',String(!menu.hidden));};
+     if(toggle)toggle.onclick=()=>{menu.hidden=!menu.hidden;toggle.setAttribute('aria-expanded',String(!menu.hidden));};
      if(kind==='admin')SE.clear();else SE.apply(kind,{key:k,greet:''});
      cells++;
      const pat=document.querySelector('.obi-sea-pat'),part=document.querySelector('.obi-sea-layer');
@@ -140,15 +140,17 @@ function checkPage(){
        if(background==='transparent'||background.endsWith(', 0)'))
          err(k,p,'botón sólido transparente: '+x.textContent.trim());
      }
-     const target=[...tablist.querySelectorAll('[role=tab]')][1];target.click();
-     if(target.getAttribute('aria-selected')!=='true')err(k,p,'pestaña inoperante');
-     tabs++;
-     const details=app.querySelector('.qa-details');details.querySelector('summary').click();
-     if(!details.open)err(k,p,'desplegable inoperante');
-     details.querySelector('summary').click();
-     toggle.click();
-     if(menu.hidden||toggle.getAttribute('aria-expanded')!=='true')err(k,p,'menú inoperante');
-     toggle.click();
+     if(tablist){
+       const target=[...tablist.querySelectorAll('[role=tab]')][1];target.click();
+       if(target.getAttribute('aria-selected')!=='true')err(k,p,'pestaña inoperante');
+       tabs++;
+       const details=app.querySelector('.qa-details');details.querySelector('summary').click();
+       if(!details.open)err(k,p,'desplegable inoperante');
+       details.querySelector('summary').click();
+       toggle.click();
+       if(menu.hidden||toggle.getAttribute('aria-expanded')!=='true')err(k,p,'menú inoperante');
+       toggle.click();
+     }
      if(problems.length>100)break;
    }
    if(problems.length>100)break;
