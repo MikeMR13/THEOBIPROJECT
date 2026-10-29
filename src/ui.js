@@ -1464,8 +1464,30 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       // Al abrir filtros desde una posición baja, llevar el panel al área visible.
       if (opening) requestAnimationFrame(() => det.scrollIntoView({ block: 'start', behavior: 'auto' }));
     };
-    det.addEventListener('toggle', syncQuickFilters);
+    det.addEventListener('toggle', () => { syncQuickFilters(); compactBar(); });
+    // La búsqueda queda visible; en móviles el orden se repliega al avanzar
+    // por las obras. Los filtros continúan siendo alcanzables con un toque.
+    const quickbar = $('.ui-cat-quickbar'), catalogueTitle = $('.ui-cath');
+    const compactBar = () => {
+      if (!quickbar?.isConnected || !catalogueTitle?.isConnected) {
+        removeEventListener('scroll', onCatalogueScroll);
+        removeEventListener('resize', onCatalogueScroll);
+        return;
+      }
+      const compact = matchMedia('(max-width:760px)').matches
+        && catalogueTitle.getBoundingClientRect().bottom < 12
+        && !det.open;
+      quickbar.classList.toggle('is-compact', compact);
+    };
+    let compactFrame = 0;
+    const onCatalogueScroll = () => {
+      if (compactFrame) return;
+      compactFrame = requestAnimationFrame(() => { compactFrame = 0; compactBar(); });
+    };
+    addEventListener('scroll', onCatalogueScroll, { passive:true });
+    addEventListener('resize', onCatalogueScroll);
     syncQuickFilters();
+    compactBar();
     $('#cat-quick-sort').onchange = e => { F.sort = e.target.value; draw(); };
     document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; localStorage.setItem('obi-cat-view', view); draw(); });
     $('.ui-qv').addEventListener('click', e => { if (e.target.classList.contains('ui-qv')) closeQV(); });

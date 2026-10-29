@@ -345,6 +345,32 @@ const LB_CSS = `
 @media(max-width:700px){.lb-navhelp{display:block}.lb-tabs{margin-bottom:7px}}
 @media(max-width:480px){.lb-toolbar{grid-template-columns:1fr}.lb-grid{grid-template-columns:1fr;gap:13px}.lb-card{grid-template-columns:92px minmax(0,1fr);padding:12px;gap:12px}.lb-title{font-size:15px}.lb-cover-link{max-width:92px}}
 @media(prefers-reduced-motion:reduce){.lb-card,.lb-cover-link img{transition:none}}
+/* Vista editorial C/S3: solo Mi biblioteca. */
+.lb-spotlight{display:grid;grid-template-columns:clamp(112px,14vw,172px) minmax(0,1fr);gap:clamp(14px,2.4vw,26px);align-items:center;padding:clamp(14px,2.5vw,24px);margin:4px 0 18px;background:linear-gradient(115deg,#291f12,#17120c);border:1px solid #806236;min-width:0}
+.lb-spotlight-cover{display:block;max-width:172px;width:100%;aspect-ratio:2/3;border:1px solid #a18348;background:#130e09;overflow:hidden}
+.lb-spotlight-cover img{display:block;width:100%;height:100%;object-fit:contain}
+.lb-spotlight-fallback{display:grid;place-items:center;width:100%;height:100%;color:var(--gold);font:48px 'Shippori Mincho B1',serif}
+.lb-spotlight-info{display:grid;gap:10px;min-width:0}
+.lb-spotlight-kicker{font:700 11px/1.45 'IBM Plex Mono',monospace;letter-spacing:.08em;color:var(--gold)}
+.lb-spotlight-info h2{font:500 clamp(22px,2.8vw,33px)/1.2 'Shippori Mincho B1',serif;margin:0;overflow-wrap:anywhere}
+.lb-spotlight-info h2 a{color:var(--paper);text-decoration:none}
+.lb-spotlight-info p{font:13px/1.6 'IBM Plex Sans',sans-serif;color:#d1c5ab;margin:0}
+.lb-spotlight-progress{height:7px;background:#4a3824;overflow:hidden}
+.lb-spotlight-progress span{display:block;height:100%;background:var(--gold)}
+.lb-spotlight-cta{display:inline-flex;align-items:center;justify-content:center;min-height:44px;max-width:420px;background:var(--gold);color:#17120a!important;font:700 13px/1.4 'IBM Plex Sans',sans-serif;text-decoration:none;padding:10px 14px}
+.lb-shelf-showcase{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0 0 24px}
+.lb-shelf-summary{position:relative;display:grid;gap:5px;align-content:center;min-width:0;min-height:125px;padding:16px;background:#19140e;border:1px solid #564328;color:var(--paper);text-decoration:none;overflow:hidden}
+.lb-shelf-summary.on,.lb-shelf-summary:hover{border-color:var(--gold);background:#231a0e}
+.lb-shelf-summary:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.lb-shelf-kanji{position:absolute;right:10px;top:7px;font:44px 'Shippori Mincho B1',serif;color:#796036;opacity:.65;pointer-events:none}
+.lb-shelf-summary strong{font:500 31px/1.2 'Shippori Mincho B1',serif;color:var(--gold)}
+.lb-shelf-summary-title{font:700 15px/1.3 'IBM Plex Sans',sans-serif}
+.lb-shelf-summary small{font:12px/1.4 'IBM Plex Sans',sans-serif;color:#c3b69a;overflow-wrap:anywhere}
+@media(min-width:1024px){.lb-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:18px}.lb-card{grid-template-columns:clamp(105px,10vw,128px) minmax(0,1fr);gap:16px;padding:16px}}
+@media(max-width:760px){.lb-shelf-showcase{display:none}}
+@media(max-width:390px){.lb-spotlight{grid-template-columns:84px minmax(0,1fr);gap:12px;padding:12px}.lb-spotlight-info{gap:7px}.lb-spotlight-info h2{font-size:20px}.lb-spotlight-info p{font-size:12px}.lb-spotlight-cta{padding:9px 8px;font-size:12px}}
+@media(prefers-reduced-motion:reduce){.lb-spotlight,.lb-shelf-summary{transition:none}}
+
 
 `;
 const lbCss = () => { if (document.getElementById('lb-css')) return; const s = document.createElement('style'); s.id = 'lb-css'; s.textContent = LB_CSS; document.head.appendChild(s); };
@@ -407,7 +433,31 @@ async function library(){
   const worksById=new Map(ser.map(w=>[w.id,w]));
   const HID=new Set(profile?.hidden_series || []);
   const count = k => L[k]?.length ?? null;
+  // Vista C: foco en una lectura REAL (nunca estadísticas ficticias).
+  const latest = L.leyendo[0] || null, latestChapter = latest?.resume;
+  const latestHref = latest
+    ? (latestChapter ? '/leer/' + encodeURIComponent(latest.s.slug) + '/' + latestChapter.num
+      : '/serie/' + encodeURIComponent(latest.s.slug)) : '';
+  const latestCoverPath = latest?.s?.cover_path || latest?.s?.cover_thumb_path;
+  const latestCover = latestCoverPath
+    ? '<img src="' + esc(MED(latestCoverPath)) + '" alt="" loading="lazy" decoding="async">'
+    : '<span class="lb-spotlight-fallback" aria-hidden="true">帯</span>';
+  const latestPct = latest?.tot ? Math.min(100,Math.max(0,Math.round(latest.nr / latest.tot * 100))) : 0;
   app.innerHTML = `<div class="ui-cath"><div><h1>Mi biblioteca</h1><p>${read.size.toLocaleString('es-MX')} capítulos leídos · ${F.size.toLocaleString('es-MX')} obras seguidas</p></div><span class="kj" aria-hidden="true">書庫</span></div>
+  ${latest ? `<section class="lb-spotlight" aria-label="Reanudar última lectura">
+    <a class="lb-spotlight-cover" href="${esc(latestHref)}" aria-label="Continuar ${esc(latest.s.title)}">${latestCover}</a>
+    <div class="lb-spotlight-info"><span class="lb-spotlight-kicker">続読 · REANUDAR ÚLTIMA LECTURA</span>
+      <h2><a href="${esc(latestHref)}">${esc(latest.s.title)}</a></h2>
+      <p>${latestChapter ? 'Capítulo ' + esc(latestChapter.num) : 'Consultar ficha'} · ${latest.nr} de ${latest.tot} capítulos publicados leídos</p>
+      <div class="lb-spotlight-progress" role="meter" aria-label="Capítulos publicados leídos" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${latestPct}"><span style="width:${latestPct}%"></span></div>
+      <a class="lb-spotlight-cta" href="${esc(latestHref)}">Continuar donde quedaste →</a>
+    </div></section>` : ''}
+  <section class="lb-shelf-showcase" aria-label="Resumen de tus estanterías">
+    ${[['leyendo','Leyendo','Lecturas en curso','読'],['pendientes','Pendientes','Capítulos sin leer de obras seguidas','未'],['terminadas','Terminadas','Obras completas leídas','済']].map(([k,title,desc,kanji]) =>
+      `<a class="lb-shelf-summary${tab===k?' on':''}" data-shelf="${k}" href="/biblioteca${k==='leyendo'?'':'?t='+k}"${tab===k?' aria-current="page"':''}>
+        <span class="lb-shelf-kanji" aria-hidden="true">${kanji}</span><strong>${count(k) || 0}</strong>
+        <span class="lb-shelf-summary-title">${title}</span><small>${desc}</small></a>`).join('')}
+  </section>
   <nav class="lb-tabs" aria-label="Secciones de Mi biblioteca"><div class="lb-tab-group lb-tab-shelves" role="group" aria-label="Estanterías">${TABS.slice(0,3).map(([k,label])=>`<a href="/biblioteca${k==='leyendo'?'':'?t='+k}" class="${k===tab?'on':''}"${k===tab?' aria-current="page"':''}>${label}${count(k)?`<em>${count(k)}</em>`:''}</a>`).join('')}</div><div class="lb-tab-group lb-tab-tools" role="group" aria-label="Herramientas de lectura">${TABS.slice(3).map(([k,label])=>`<a href="/biblioteca?t=${k}" class="${k===tab?'on':''}"${k===tab?' aria-current="page"':''}>${label}</a>`).join('')}</div></nav>
   <p id="lb-pending-explain" class="lb-pending-explain" ${tab==='pendientes'?'':'hidden'}>Pendientes reúne obras que sigues con capítulos publicados aún sin leer; no es una lista de deseos.</p>
   <p class="lb-navhelp">Desliza las pestañas para ver todas las secciones →</p>
@@ -462,6 +512,31 @@ async function library(){
     ({ lists:L, read, followed:F }=prepareLibrary({progress:prog,follows:fol,readRows,series:ser,chapters:chs}));
     const total=app.querySelector('.ui-cath p');
     if(total)total.textContent=`${read.size.toLocaleString('es-MX')} capítulos leídos · ${F.size.toLocaleString('es-MX')} obras seguidas`;
+    app.querySelectorAll('.lb-shelf-summary[data-shelf]').forEach(a => {
+      const number = a.querySelector('strong');
+      if (number) number.textContent = String(count(a.dataset.shelf) || 0);
+    });
+    // Mantener el resumen de lectura al día tras marcar capítulos como leídos.
+    const current = L.leyendo[0], spotlight = app.querySelector('.lb-spotlight');
+    if (spotlight && !current) spotlight.remove();
+    else if (spotlight && current) {
+      if (spotlight.querySelector('h2 a')?.textContent !== current.s.title) spotlight.remove();
+      else {
+        const next = current.resume;
+        const href = next ? '/leer/' + encodeURIComponent(current.s.slug) + '/' + next.num
+          : '/serie/' + encodeURIComponent(current.s.slug);
+        const pct = current.tot ? Math.min(100, Math.max(0, Math.round(current.nr/current.tot*100))) : 0;
+        const summary = spotlight.querySelector('.lb-spotlight-info p');
+        if (summary) summary.textContent = (next ? 'Capítulo ' + next.num : 'Consultar ficha') +
+          ' · ' + current.nr + ' de ' + current.tot + ' capítulos publicados leídos';
+        const meter = spotlight.querySelector('.lb-spotlight-progress');
+        if (meter) {
+          meter.setAttribute('aria-valuenow', String(pct));
+          meter.querySelector('span')?.style.setProperty('width', pct + '%');
+        }
+        spotlight.querySelectorAll('a').forEach(a => { a.href = href; });
+      }
+    }
     nav.querySelectorAll('a').forEach(a=>{
       const k=new URL(a.href,location.origin).searchParams.get('t')||'leyendo';
       const n=count(k),em=a.querySelector('em');
@@ -534,6 +609,12 @@ async function library(){
   const paintTab = async next => {
     if (!live()) return;
     tab=next;
+    app.querySelectorAll('.lb-shelf-summary[data-shelf]').forEach(a => {
+      const active = a.dataset.shelf === tab;
+      a.classList.toggle('on', active);
+      if (active) a.setAttribute('aria-current','page');
+      else a.removeAttribute('aria-current');
+    });
     const explanation = app.querySelector('#lb-pending-explain');
     if (explanation) explanation.hidden = tab !== 'pendientes';
     const request=++tabRequest;
@@ -629,6 +710,15 @@ async function library(){
     e.preventDefault();e.stopPropagation();
     history.pushState({},'',url.pathname+url.search);
     paintTab(url.searchParams.get('t')||'leyendo');
+  });
+  app.querySelector('.lb-shelf-showcase')?.addEventListener('click', e => {
+    const link = e.target.closest('a[data-shelf]');
+    if (!link) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const target = link.dataset.shelf;
+    history.pushState({}, '', target === 'leyendo' ? '/biblioteca' : '/biblioteca?t=' + target);
+    void paintTab(target);
   });
   paintTab(tab);
 }

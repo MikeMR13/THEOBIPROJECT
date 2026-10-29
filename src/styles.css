@@ -1078,3 +1078,17 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
 /* Mantener el encabezado y la barra de búsqueda visibles al abrir los filtros desde abajo. */
 .ui-cat-advanced .ui-fdet{scroll-margin-top:calc(var(--top-h,62px) + 100px)}
 @media(max-width:760px){.ui-cat-advanced .ui-fdet{scroll-margin-top:calc(var(--top-h,62px) + 152px)}}
+
+/* Catálogo A3: al desplazarse en móvil, mantener búsqueda y filtros; orden en panel avanzado. */
+@media(max-width:760px){
+ .ui-cat-quickbar.is-compact{grid-template-columns:minmax(0,1fr) auto;gap:7px;padding:6px 8px;margin-bottom:8px}
+ .ui-cat-quickbar.is-compact .ui-cat-quick-order,.ui-cat-quickbar.is-compact .ui-cat-quick-count{display:none}
+ .ui-cat-quickbar.is-compact .ui-cat-quick-search{grid-column:1;grid-row:1}
+ .ui-cat-quickbar.is-compact .ui-cat-quick-filter{grid-column:2;grid-row:1}
+ .ui-cat-quickbar.is-compact :is(input,button){min-height:44px}
+}
+@media(prefers-reduced-motion:reduce){.ui-cat-quickbar{scroll-behavior:auto}}
+/* Inicio A: enfatizar composición editorial sin sustituir Vitrina V2 ni sus controles. */
+.ob-page #hero .vt{border-radius:4px}
+.ob-page .ob-releases{scroll-margin-top:calc(var(--top-h,62px) + 12px)}
+.ob-page .ob-releases .ob-st h2{line-height:1.22;text-wrap:balance}
