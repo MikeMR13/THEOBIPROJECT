@@ -122,6 +122,26 @@ check($('.rd')?.dataset.controls==='fijo','No se aplicó en vivo la barra siempr
 check($('.rd-body')?.textContent===originalText,'Cambiar el modo borró el capítulo');
 $('.rd-panel [data-panel-close]')?.click();
 check($('.rd-panel')?.hidden,'El menú deslizable no se pudo cerrar');
+// Comprobar el comportamiento que ve el usuario, no solo un atributo o clase CSS.
+const fixedBar=$('.rd-bar');
+const barTopBefore=fixedBar?.getBoundingClientRect().top ?? -999;
+const barBottomBefore=fixedBar?.getBoundingClientRect().bottom ?? -999;
+check(getComputedStyle(fixedBar).position==='fixed','Siempre visible debe usar position:fixed, no sticky');
+check($('.rd-ch').getBoundingClientRect().top >= barBottomBefore - 2,
+  'La barra fija está tapando el comienzo del capítulo');
+const scrollAvailable=Math.max(0,document.documentElement.scrollHeight-innerHeight);
+check(scrollAvailable>480,'El capítulo de prueba no tiene suficiente altura para comprobar scroll');
+scrollTo(0,Math.min(750,scrollAvailable-40));
+await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+check(scrollY>200,'Chromium no desplazó la lectura de prueba');
+check(Math.abs(fixedBar.getBoundingClientRect().top-barTopBefore)<3,
+  'La barra fija desaparece o cambia su posición al bajar por el capítulo');
+check(getComputedStyle(fixedBar).opacity==='1' && fixedBar.getBoundingClientRect().bottom>0,
+  'La barra fija queda oculta después del desplazamiento');
+scrollTo(0,0);
+await new Promise(resolve=>requestAnimationFrame(resolve));
+check(Math.abs(fixedBar.getBoundingClientRect().top-barTopBefore)<3,
+  'La barra fija se pierde al volver al inicio');
 $('.rd-settings-trigger')?.click();
 $('.rd-panel [data-k="controls"][data-v="deslizable"]')?.click();
 check($('.rd')?.dataset.controls==='deslizable','La barra deslizable no se aplicó');
@@ -204,7 +224,7 @@ try{
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve)});
   const url='http://127.0.0.1:'+server.address().port+'/leer/obra-fixture/1';
   const opts=['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage',
-    '--disable-background-networking','--no-proxy-server','--incognito','--window-size=390,850',
+    '--disable-background-networking','--no-proxy-server','--incognito','--window-size='+(process.env.OBI_READER_VIEWPORT==='desktop'?'1440,900':'390,850'),
     '--virtual-time-budget=11000','--dump-dom',url];
   const child=spawn(bin,opts,{stdio:['ignore','pipe','pipe']});
   let out='',err='';
