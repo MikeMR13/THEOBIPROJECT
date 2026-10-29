@@ -5,11 +5,14 @@ function bookData(item, newsBySeries, reasons, media, noticeOf) {
   const pre = item.__prelaunch, news = newsBySeries[item.id];
   const vol = pre ? { cover_path: pre.cover_path } : news?.kind === 'volume' ? news.volume : null;
   const path = vol?.cover_path || item.cover_path || item.cover_thumb_path;
+  // Para vecinos, utilizar miniaturas solo cuando corresponden a esta portada.
+  // Los volúmenes y preestrenos conservan su propia ilustración sin sustituciones.
+  const preview = path === item.cover_path ? (item.cover_thumb_path || path) : path;
   const notice = pre ? null : noticeOf?.(item);
   const base = /^#[\da-f]{6}$/i.test(notice?.color || '') ? notice.color : '#f2c230';
   const accent = notice?.season ? `var(--sea,${base})` : base;
   const num = parseInt(base.slice(1),16), bright = (0.299*(num>>16)+0.587*((num>>8)&255)+0.114*(num&255))/255 > .55;
-  return {key:keyOf(item),title:item.title||'Obra destacada',cover:path?media(path):'',color:/^#[\da-f]{6}$/i.test(item.theme?.color||'')?item.theme.color:'#30251b',label:pre?'Próximo estreno':reasons[item.id]?.label||'Destacado',notice:notice?.text?.trim().slice(0,40)||'',accent,noticeBG:notice?.style==='outline'?'#15110c':accent,noticeInk:notice?.style==='outline'?accent:notice?.season?'#0d0c0a':bright?'#0d0c0a':'#fbf6e9'};
+  return {key:keyOf(item),title:item.title||'Obra destacada',cover:path?media(path):'',preview:preview?media(preview):'',color:/^#[\da-f]{6}$/i.test(item.theme?.color||'')?item.theme.color:'#30251b',label:pre?'Próximo estreno':reasons[item.id]?.label||'Destacado',notice:notice?.text?.trim().slice(0,40)||'',accent,noticeBG:notice?.style==='outline'?'#15110c':accent,noticeInk:notice?.style==='outline'?accent:notice?.season?'#0d0c0a':bright?'#0d0c0a':'#fbf6e9'};
 }
 export function enhanceHomeVitrina(root, entries, activeIndex, {esc, media, newsBySeries={}, reasons={}, activeNotice=()=>null}={}) {
   const copy=root?.querySelector(':scope > .ob-txt');
@@ -20,7 +23,7 @@ export function enhanceHomeVitrina(root, entries, activeIndex, {esc, media, news
   const data=entries.map(s=>bookData(s,newsBySeries,reasons,media,activeNotice));
   const active=Math.max(0,Math.min(data.length-1,activeIndex));
   const pager=root.querySelector(':scope > .ob-pager2');
-  const booksHTML=data.map((x,i)=>`<button class="vt-book" type="button" data-j="${i}" data-hero-target="${esc(x.key)}" aria-label="Exhibir ${esc(x.title)}" aria-current="${i===active}" style="--book-color:${x.color}">${x.cover?`<img src="${esc(x.cover)}" alt="" loading="${Math.abs(i-active)<2?'eager':'lazy'}" decoding="async">`:`<span class="vt-missing">${esc(x.title)}</span>`}${x.notice?`<span class="vt-obi" style="--obi-line:${x.accent};--obi-bg:${x.noticeBG};--obi-ink:${x.noticeInk}">${esc(x.notice)}</span>`:''}</button>`).join('');
+  const booksHTML=data.map((x,i)=>`<button class="vt-book" type="button" data-j="${i}" data-hero-target="${esc(x.key)}" aria-label="Exhibir ${esc(x.title)}" aria-current="${i===active}" style="--book-color:${x.color}">${x.cover?`<img src="${esc(i===active?x.cover:x.preview||x.cover)}" alt="" loading="${i===active?'eager':'lazy'}" fetchpriority="${i===active?'high':'low'}" decoding="async">`:`<span class="vt-missing">${esc(x.title)}</span>`}${x.notice?`<span class="vt-obi" style="--obi-line:${x.accent};--obi-bg:${x.noticeBG};--obi-ink:${x.noticeInk}">${esc(x.notice)}</span>`:''}</button>`).join('');
   const vt=document.createElement('div');vt.className='vt';
   vt.innerHTML=`<div class="vt-row"><div class="vt-stage" role="region" aria-roledescription="carrusel" tabindex="0" aria-label="Obras destacadas. Usa las flechas del teclado o desliza para explorar"><div class="vt-glow" aria-hidden="true"></div><div class="vt-books">${booksHTML}</div><span class="vt-stand" aria-hidden="true"></span><span class="vt-shelf" aria-hidden="true"></span><span class="vt-plaque" aria-hidden="true">${esc(data[active].label)}</span></div><div class="vt-side"></div></div><div class="vt-controls" aria-label="Controles del carrusel"></div>`;
   vt.querySelector('.vt-side').appendChild(copy);
