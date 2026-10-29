@@ -41,6 +41,8 @@ jobs:
         run: node scripts/reader-phase4-continuity-check.mjs
       - name: Calidad lector, imágenes e Inicio/Catálogo (sin backend)
         run: node scripts/reader-quality-phase134-check.mjs
+      - name: Cinco fases auditoría — contratos sin backend ni servicios de pago
+        run: node scripts/auditoria-cinco-fases-check.mjs
       - name: Lector Fase 4 — navegación rápida, latencia y acceso restringido (Chromium)
         run: node scripts/reader-phase4-integration-browser.mjs
       - name: Lector — barra fija visible con scroll real en escritorio 1440px (Chromium)
