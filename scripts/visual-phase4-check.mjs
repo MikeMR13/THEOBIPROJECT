@@ -18,7 +18,7 @@ assert.equal(publicationAge('2000-06-18T00:00:00Z',now).includes('2000'),true,'A
 assert.equal(publicationDate('2026-10-20T18:33:00Z',now)?.getUTCFullYear(),2026,'Tolerancia de 5 minutos');
 assert.equal(publicationDate('2026-10-20T18:40:00Z',now),null,'No presentar un lanzamiento futuro como publicación antigua');
 const markers=[
-  'const ago = d => publicationAge(d)', 'const grp = news.entries.slice(0, 10)', 'aria-roledescription="carrusel" aria-label="Lanzamientos recientes"',
+  'const ago = d => publicationAge(d)', 'const grp = homeReleaseHighlights(news.entries, { now: +now, limit: 10, maxVolumes: 3, freshDays: 7 })', 'aria-roledescription="carrusel" aria-label="Lanzamientos recientes"',
   'const featured = homeFeaturedSelection(',
   'const freshDate = publicationDate(pub?.at || lc?.publish_at)',
   'publicationDate(g.at) ? `<time datetime=',
@@ -27,6 +27,7 @@ const markers=[
   'ui-grid','ui-fich','ui-sh','ui-vol','ui-chl'
 ];
 for(const mark of markers)assert(ui.includes(mark),'Se perdió un componente del Inicio o su protección de fecha: '+mark);
+assert(ui.includes("home-releases.js?v=2"),'La vista debe cargar el selector editorial actualizado');
 for(const old of ['obTicker','ob-track','ob-tick'])assert(!ui.includes(old),'La cinta eliminada regresó: '+old);
 assert(styles.includes('.rd-team img{'),'Logotipo del lector eliminado');
 assert(studio.includes('.s2-work{'),'Tarjetas de Studio eliminadas');
