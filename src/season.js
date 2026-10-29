@@ -80,7 +80,11 @@ export function apply(kind, o = {}){
 const CSS = `
 /* Capas por encima del fondo pero detrás de la cabecera y modales; no capturan clics. */
 .obi-sea-layer{position:fixed;inset:0;pointer-events:none;z-index:2;opacity:.55}.obi-sea-layer.over{z-index:40;opacity:.6}.obi-sea-layer>canvas{position:absolute;inset:0;width:100%;height:100%}
+ /* La textura estacional se usa SOLO como fondo. Antes, un elemento
+    fixed con z-index:0 se pintaba encima de <main> y mezclaba el patrón
+    Ichimatsu con botones de color sólido, dejándolos a cuadros. */
  .obi-sea-pat{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.07;background-repeat:repeat}
+ html[data-season] #app,html[data-season] .foot{position:relative;z-index:1}
 .obi-sea-stamp{display:inline-block;flex:none;width:26px;height:26px;margin-left:2px;background:center/contain no-repeat;transform:rotate(8deg);filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
 .obi-sea-greet{display:flex;gap:12px;align-items:center;margin:0 0 22px;padding:10px 12px 10px 14px;background:color-mix(in srgb,var(--sea) 14%,#16140f);border:1px solid var(--sea);font-family:'Shippori Mincho B1',serif;font-size:17px;line-height:1.35}
 .obi-sea-greet i{width:34px;height:34px;flex:none;background:center/contain no-repeat}.obi-sea-greet span{flex:1;display:grid;gap:2px}.obi-sea-greet small{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--sea)}
