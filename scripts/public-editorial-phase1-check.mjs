@@ -33,7 +33,8 @@ const ui=readFileSync('src/ui.js','utf8');
 const styles=readFileSync('src/styles.css','utf8');
 for(const marker of [
  "const caps = chs => editorialChapterGroup(chs)",
- 'const readingLabel = continueLabel(p)',
+ 'continueLabel(p)',
+ 'Capítulo terminado · revisar lectura',
  'editorialChapterDescription(c)',
  'editorialChapterLabel(progressChapter)',
  'editorialChapterLabel(nextUnread)',
