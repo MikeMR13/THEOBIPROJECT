@@ -58,6 +58,7 @@ function browserCheck(){
   ok(s.querySelector('.ob-txt').dataset.vtFit==='ready','No se ejecutó el ajuste de tipografía');
   ok(r('.ob-acts').bottom<=paper.bottom-4,'Botones sobresalen de la hoja');
   ok(r('.ob-acts').top>=paper.top,'Botones colocados fuera de la hoja');
+  ok(r('.ob-txt h1').bottom<=r('.ob-hero-footer').top+2,'Título sobrepuesto a los CTA');
   const logoWidth=r('.ob-hero-team-logo').width;
   ok(logoWidth>=(innerWidth<=700?90:110),'PNG del traductor demasiado pequeño: '+logoWidth.toFixed(1)+'px');
 
@@ -81,7 +82,7 @@ async function run(){
   assert(cssMatch,'Estilos reales de Inicio no encontrados');
   const siteCss=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(cssMatch[1]);
   for(const needle of [
-    "home-vitrina.js?v=3","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
+    "home-vitrina.js?v=4","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
     "el.dataset.vtKeys === feat.map(heroKey).join('|')","el.__vtStop?.()",
     "heroPaused = true;","homeMetrics.shown(heroKey(s)","homeMetrics.clicked(s.slug",
     "prelaunch_calendar","creditsHTML({publicCredits:","heroClock.show({"
