@@ -17,6 +17,15 @@ function browserCheck(){
   ok(s.querySelector('.ob-acts .a2')?.getAttribute('href')==='/leer/obra/14','Progreso de lectura modificado');
   ok(!!s.querySelector('.ob-pager2 button[data-hp]'),'Pausa no disponible');
   ok(books[1].getAttribute('aria-current')==='true','Estado activo incorrecto');
+  ok(books[1].tagName==='A'&&books[1].getAttribute('href')==='/serie/segunda-obra','La portada activa no abre su novela');
+  ok(books[0].tagName==='BUTTON'&&books[0].hasAttribute('data-j'),'Las portadas laterales no permiten seleccionar');
+  const width=book=>book.getBoundingClientRect().width;
+  ok(width(books[1])>=width(books[0])*1.14,'La portada visible no destaca al menos un 14% sobre las vecinas');
+  const a1=s.querySelector('.ob-acts .a1'),ranking=s.querySelector('.rk-bdg');
+  const visible=el=>{if(!el)return false;const st=getComputedStyle(el),r=el.getBoundingClientRect();return st.visibility==='visible'&&Number(st.opacity)>0.9&&r.width>35&&r.height>=30;};
+  ok(visible(a1),'El botón Ver volumen está oculto');
+  ok(visible(ranking),'El enlace Top de la semana está oculto');
+  ok(getComputedStyle(a1).backgroundColor!=='rgba(0, 0, 0, 0)','Ver volumen no tiene fondo visible');
   let selected='';
   s.querySelectorAll('.vt-book').forEach(b=>b.addEventListener('click',()=>selected=b.dataset.heroTarget));
   books[0].click();
@@ -46,6 +55,9 @@ async function run(){
   const {createServer}=await import('node:http');
   const {spawn,execFileSync}=await import('node:child_process');
   const ui=readFileSync('src/ui.js','utf8'),v=readFileSync('src/home-vitrina.js','utf8');
+  const cssMatch=ui.match(/const CSS2 = ("(?:\\.|[^"\\])*");/);
+  assert(cssMatch,'Estilos reales de Inicio no encontrados');
+  const siteCss=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(cssMatch[1]);
   for(const needle of [
     "home-vitrina.js?v=2","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
     "el.dataset.vtKeys === feat.map(heroKey).join('|')","el.__vtStop?.()",
@@ -62,7 +74,7 @@ async function run(){
   }).find(Boolean);
   assert(chrome,'No hay Chromium / Google Chrome disponible');
   const long='Una historia de novelas ligeras con muchos personajes y un nombre demasiado largo para un móvil ';
-  const HTML=`<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+  const HTML=`<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${siteCss}\n
   :root{--gold:#f2c230;--sea:#eb863e;--paper:#f3ecd9}body{margin:0;background:#100d09;color:#f3ecd9;font:14px Arial}
   .ob-page{max-width:1160px;margin:auto;padding:10px;box-sizing:border-box}
   .ob-hero{display:grid;grid-template-columns:250px minmax(0,1fr);gap:20px;padding:30px;border:1px solid #312718}
@@ -77,7 +89,7 @@ async function run(){
   </style></head><body><main class="ob-page"><section class="ob-hero" id="hero">
   <span class="ob-vk">新刊</span><div class="ob-cov"><div class="f"></div></div>
   <div class="ob-txt"><div class="ob-hero-copy"><div class="ob-hero-head"><div class="ob-hero-meta">
-  <span class="ob-kick">第２巻 · 新刊</span><div class="ob-hero-flags"><span class="ob-badge">¡NUEVO VOLUMEN!</span></div><div class="ob-hero-rank"><a href="/ranking">#2 Top de la semana</a></div></div>
+  <span class="ob-kick">第２巻 · 新刊</span><div class="ob-hero-flags"><span class="ob-badge">¡NUEVO VOLUMEN!</span></div><div class="ob-hero-rank"><a class="rk-bdg" href="/ranking">#2 Top de la semana</a></div></div>
   <a class="ob-hero-team-logo" href="/equipo/equipo"><img alt="" src="/covers/team.svg"></a></div>
   <div class="ob-hero-partners"><a href="/equipo/colaborador">Créditos de colaborador</a></div>
   <h1><a class="ob-h1a" href="/serie/obra">${long.repeat(2)}</a></h1>
@@ -86,9 +98,9 @@ async function run(){
   <div class="ob-pager2"><button data-dir="-1">‹</button><span><button data-j="0">1</button><button data-j="1">2</button><button data-j="2">3</button></span><button data-hp aria-label="Pausar">Ⅱ Pausar</button><button data-dir="1">›</button></div>
   </section></main><div id="result" data-status="running"></div><script type="module">
   import {enhanceHomeVitrina} from '/home-vitrina.js';
-  const books=[{id:1,title:'Primera obra',cover_path:'first.svg',theme:{color:'#a97941'}},
-  {id:2,title:'Segunda obra',cover_path:'second.svg',theme:{color:'#47456a'}},
-  {id:3,title:'Tercera obra',cover_path:'third.svg',__prelaunch:{volume_id:3,cover_path:'pre.svg'},theme:{color:'#544631'}}];
+  const books=[{id:1,title:'Primera obra',slug:'primera-obra',cover_path:'first.svg',theme:{color:'#a97941'}},
+  {id:2,title:'Segunda obra',slug:'segunda-obra',cover_path:'second.svg',theme:{color:'#47456a'}},
+  {id:3,title:'Tercera obra',slug:'tercera-obra',cover_path:'third.svg',__prelaunch:{volume_id:3,cover_path:'pre.svg'},theme:{color:'#544631'}}];
   enhanceHomeVitrina(document.querySelector('#hero'),books,1,{esc:s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),media:s=>'/covers/'+s,newsBySeries:{2:{kind:'volume',volume:{cover_path:'volume.svg'}}},reasons:{2:{label:'Nuevo volumen'}},activeNotice:s=>s.id===2?{text:'AVISO EDITORIAL',color:'#f2c230',style:'solid'}:null});
   (${browserCheck.toString()})();
   </script></body></html>`;
