@@ -6,6 +6,7 @@ import { attachPublicCredits, creditTeams, creditsHTML, installCreditImageFallba
 import { homeFeaturedSelection, homeDayKey } from './home-featured.js?v=1';
 import { createHeroRotationClock } from './home-hero-rotation.js?v=1';
 import { createHomeMetrics, homeMetricCategory } from './home-metrics.js?v=1';
+import { publicSectionCounts } from './public-section-counts.js?v=1';
 import { initSeriesOrganization, volumeProgress } from './series-organization.js?v=1';
 import { initSeriesTabs } from './series-tabs.js?v=1';
 import { formatChapterIndex } from './chapter-title-display.js?v=1';
@@ -184,7 +185,7 @@ const TL = { active: ['En traducción', '#a9d18e'], paused: ['En pausa', '#f2c23
 const OR = { publishing: 'En publicación', completed: 'Completada', paused: 'En pausa', cancelled: 'Cancelada' };
 const SQ = { waiting: 'En espera de secuela', none: 'Sin secuela confirmada', announced: 'Secuela anunciada', publishing: 'Secuela en publicación', completed: 'Secuela completada' };
 
-const RK_L = { leidas: 'Más leídas', tendencia: 'Tendencia', calificadas: 'Mejor calificadas', terminadas: 'Más terminadas', novedades: 'Novedades en ascenso' };
+const RK_L = { leidas: 'Más leídas', tendencia: 'Tendencia', calificadas: 'Mejor calificadas', terminadas: 'Más completadas por lectores', novedades: 'Novedades en ascenso' };
 const RK_P = { hoy: 'Hoy', semana: 'Semana', mes: 'Mes', anio: 'Año', historico: 'Histórico' };
 const RK_PF = { hoy: 'de hoy', semana: 'de la semana', mes: 'del mes', anio: 'del año', historico: 'de todos los tiempos' };
 const RK_OK = { tendencia: ['hoy', 'semana', 'mes'], novedades: ['hoy', 'semana', 'mes'] };
@@ -868,7 +869,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const cont = Object.values(prog).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).filter(p => byId[p.series_id]).slice(0, 6);
     const grp = homeReleaseHighlights(news.entries, { now: +now, limit: 10, maxVolumes: 3, freshDays: 7 });
     const caps = chs => editorialChapterGroup(chs);
-    const top = {}; (top10 || []).forEach(r => { if (!top[r.series_id] || r.pos < top[r.series_id]) top[r.series_id] = r.pos; });
+    const top = {}; (top10 || []).filter(r => r.list === 'leidas').forEach(r => { if (!top[r.series_id] || r.pos < top[r.series_id]) top[r.series_id] = r.pos; });
     const rkWv = (rkW || []).filter(r => byId[r.series_id]);
     const rkUse = rkWv.length ? { rows: rkWv, per: 'semana', lbl: 'lectores distintos · esta semana' } : { rows: (rkH || []).filter(r => byId[r.series_id]), per: 'historico', lbl: 'vistas · de todos los tiempos' };
     const rk = rkUse.rows.slice(0, 6);
@@ -881,7 +882,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const gc = new Map(); list.forEach(x => (x.genres || []).forEach(g => gc.set(g, (gc.get(g) || 0) + 1)));
     const genres = [...gc].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es')).slice(0, 6);
     const done = list.filter(x => x.translation_status === 'completed').sort((a, b) => new Date(lastCh[b.id]?.publish_at || 0) - new Date(lastCh[a.id]?.publish_at || 0) || (b.views || 0) - (a.views || 0)).slice(0, 15);
-    const cover = (s, tag) => { const t = tag || (top[s.id] ? 'POPULAR' : ''), image = s.cover_path || s.cover_thumb_path; return image ? `<span class="cv"><img src="${esc(media(image))}" alt="" loading="lazy" decoding="async" width="264" height="352" fetchpriority="low">${t ? `<i>${t}</i>` : ''}</span>` : `<span class="cv no" style="--c:${esc(color(s))}">${t ? `<i>${t}</i>` : ''}${esc(s.short || s.title)}</span>`; };
+    const cover = (s, tag) => { const t = tag === null ? '' : (tag || (top[s.id] ? 'POPULAR' : '')), image = s.cover_thumb_path || s.cover_path; return image ? `<span class="cv"><img src="${esc(media(image))}" alt="" loading="lazy" decoding="async" width="264" height="352" fetchpriority="low">${t ? `<i>${t}</i>` : ''}</span>` : `<span class="cv no" style="--c:${esc(color(s))}">${t ? `<i>${t}</i>` : ''}${esc(s.short || s.title)}</span>`; };
     const cc = (s, sub, tag) => `<a class="ob-cc" href="/serie/${s.slug}">${cover(s, tag)}<b>${esc(s.title)}</b><small>${sub}</small>${creditsHTML(s, { esc, media, mode: 'carousel' })}</a>`;
     const arrows = id => `<span class="ob-arr"><button type="button" data-cs="${id}" data-d="-1" aria-controls="${id}" aria-label="Anteriores">‹</button><button type="button" data-cs="${id}" data-d="1" aria-controls="${id}" aria-label="Siguientes">›</button></span>`;
     const head = (k, t, right = '') => `<div class="ob-st"><span class="k">${k}</span><h2>${t}</h2>${right}${right.includes('data-cs=') ? '<span class="ob-swipe-hint" aria-hidden="true">Desliza para explorar →</span>' : ''}</div>`;
@@ -895,15 +896,16 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       const shown = formatChapterIndex({title:chapter.title,sectionType:chapter.section_type});
       if (shown.label === 'Capítulo' && shown.number)
         return {badge:'CAP. ' + shown.number,location:'Sigue en el cap. ' + shown.number,spoken:'capítulo ' + shown.number};
-      const special = shown.label === 'Sección' ? 'SECCIÓN' : shown.label.toLocaleUpperCase('es-MX');
-      return {badge:special,location:shown.label === 'Sección' ? 'Retomar lectura' : 'Sigue en ' + shown.label.toLocaleLowerCase('es-MX'),spoken:shown.label.toLocaleLowerCase('es-MX')};
+      const special = shown.label === 'Sección' ? 'PARTE' : shown.label.toLocaleUpperCase('es-MX');
+      const where = shown.label === 'Sección' ? (shown.heading || chapter.title || 'Parte').slice(0, 65) : shown.label.toLocaleLowerCase('es-MX');
+      return {badge:special,location:'Sigue en ' + where,spoken:where};
     };
     const continueHTML = rows => {
       if (!rows.length) return '';
       const cards = rows.map(p => {
         const s = byId[p.series_id];
         const pct = Math.max(0, Math.min(100, Math.round((Number(p.pct) || 0) * 100)));
-        const readingLabel = continueLabel(p);
+        const readingLabel = (p.pct || 0) >= .98 ? { badge:'TERMINADO', location:'Capítulo terminado · revisar lectura', spoken:'capítulo terminado' } : continueLabel(p);
         // La miniatura puede llevar un recorte incorporado: utilizar la portada original.
         const coverPath = s.cover_path || s.cover_thumb_path;
         const coverMarkup = coverPath
@@ -920,7 +922,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         </a>`;
       }).join('');
       return `
-        <div class="ob-band" style="display:flex;align-items:baseline;gap:14px;margin:56px 0 0;padding-bottom:10px;border-bottom:2px solid var(--gold)"><span aria-hidden="true" style="font-family:'Shippori Mincho B1',serif;font-size:28px;color:var(--gold)">君</span><h2 style="margin:0;font-size:clamp(26px,3vw,40px);font-family:'Shippori Mincho B1',serif;font-weight:500">Para ti</h2></div>
+        <div class="ob-band" style="display:flex;align-items:baseline;gap:14px;margin:56px 0 0;padding-bottom:10px;border-bottom:2px solid var(--gold)"><span aria-hidden="true" style="font-family:'Shippori Mincho B1',serif;font-size:28px;color:var(--gold)">君</span><h2 style="margin:0;font-size:clamp(26px,3vw,40px);font-family:'Shippori Mincho B1',serif;font-weight:500">Tu lectura</h2></div>
         <section class="ob-sec ob-continue" style="border-top:none">
           ${head('続読', 'Continuar leyendo', `<span class="r2"><a class="r" href="/biblioteca">Mi biblioteca →</a>${arrows('ob-continue-car')}</span>`)}
           <div class="ob-car ob-continue-car ob-anim" id="ob-continue-car" role="region" aria-roledescription="carrusel" aria-label="Continuar leyendo" tabindex="0">${cards}</div>
@@ -1202,7 +1204,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       if (fav.length) { const wk = Object.fromEntries(rkWv.map(r => [r.series_id, +r.score]));
         const score = x => (x.genres || []).reduce((n, g) => n + (fav.length - Math.max(0, fav.indexOf(g))) * (fav.includes(g) ? 1 : 0), 0);
         const F = list.filter(x => !seen.has(x.id) && score(x) > 0).sort((a, b) => score(b) - score(a) || (wk[b.id] || 0) - (wk[a.id] || 0) || (b.views || 0) - (a.views || 0)).slice(0, 15);
-        if (F.length) fill('ob-s-foryou', `<section class="ob-sec" data-from="ob-s-foryou">${head('推薦', 'Para ti', `<span class="r2"><span class="mono" style="font-size:12px">porque lees ${esc(fav.slice(0, 2).join(' y '))}</span>${arrows('ob-car-fy')}</span>`)}<div class="ob-car" id="ob-car-fy">${F.map(x => cc(x, esc((x.genres || []).filter(g => fav.includes(g)).slice(0, 2).join(' · ')))).join('')}</div></section>`); }
+        if (F.length) fill('ob-s-foryou', `<section class="ob-sec" data-from="ob-s-foryou">${head('推薦', 'Para ti', `<span class="r2"><span class="mono" style="font-size:12px">porque lees ${esc(fav.slice(0, 2).join(' y '))}</span>${arrows('ob-car-fy')}</span>`)}<div class="ob-car" id="ob-car-fy">${F.map(x => cc(x, esc((x.genres || []).filter(g => fav.includes(g)).slice(0, 2).join(' · ')), null)).join('')}</div></section>`); }
     });
   }
   let heroPaused = false;
@@ -1297,7 +1299,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
   const card = (s, st, lc, p) => `<a class="ui-card" href="/serie/${s.slug}" data-id="${s.id}">${st ? `<span class="ui-st ${st[1]}">${esc(st[0])}</span>` : ''}${book(s, null, true)}${progBar(s, p)}<h3>${esc(s.title)}</h3>${creditsHTML(s, { esc, media, mode: 'carousel' })}<span class="meta">${pill(s.translation_status)}<span>${genericSectionCount(s.chapters?.[0]?.count)}</span>${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</span>${lc ? `<span class="last">Última actualización${ageTag(lc.publish_at)}</span>` : ''}</a>`;
 
   // franja de avance en la serie: capítulo donde vas / capítulos publicados
-  const progBar = (s, p) => { const t = s.chapters?.[0]?.count || 0; if (!p || !t) return ''; const f = Math.min(1, Math.max(0.02, (p.chapter_num - 1 + (p.pct || 0)) / t)); return `<span class="ui-prog" role="img" aria-label="Progreso de lectura de la obra"><i style="width:${(f * 100).toFixed(1)}%"></i></span>`; };
+  const progBar = (s, p) => { const t = s.chapters?.[0]?.count || 0; if (!p || !t) return ''; const f = Math.min(1, Math.max(0.02, (p.chapter_num - 1 + (p.pct || 0)) / t)); return `<span class="ui-prog" role="progressbar" aria-label="Progreso estimado por posición de lectura" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(f * 100)}"><i style="width:${(f * 100).toFixed(1)}%"></i></span>`; };
   const ficha = (s, st, lc, i, p) => `<a class="ui-fc" href="/serie/${s.slug}" data-id="${s.id}" style="--c:${esc(color(s))};--d:${Math.min(i, 8) * 0.05}s">
       <span class="cv" style="${s.cover_path ? `background-image:url('${esc(thumb(s))}')` : ''}"></span>
       <span class="bd"><span class="t">${esc(s.title)}</span>${s.original || s.author ? `<span class="o">${esc([s.original, s.author].filter(Boolean).join(' · '))}</span>` : ''}${s.synopsis ? `<span class="sy">${esc(s.synopsis)}</span>` : ''}
@@ -1333,7 +1335,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       u ? sb.from('follows').select('series_id').eq('user_id', u.id) : { data: [] },
       sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'semana'), sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'historico')]);
     const rkRows = (rkw || []).length ? rkw : (rkh || []), RK = Object.fromEntries(rkRows.map(r => [r.series_id, r.pos])), rkLbl = (rkw || []).length ? 'de la semana' : 'histórico';
-    const all = (data || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) && (!hidS(s) || F.gin.some(g => (s.genres || []).includes(g))));
+    const all = await publicSectionCounts(sb, (data || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) && (!hidS(s) || F.gin.some(g => (s.genres || []).includes(g))));
     await attachPublicCredits(sb, all);
     const last = {}; (latest || []).forEach(c => { last[c.series_id] ||= c; });
     const fol = new Set((folR.data || []).map(r => r.series_id)), nCh = s => s.chapters?.[0]?.count || 0;
