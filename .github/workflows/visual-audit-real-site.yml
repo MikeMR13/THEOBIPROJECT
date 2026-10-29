@@ -34,7 +34,7 @@ jobs:
             echo "Capturas sobre dominio principal"
           else
             echo "::warning::El dominio principal no permite la auditoría automatizada (HTTP $status). Se verifica en Vercel el mismo commit de producción, sin eludir Cloudflare."
-            echo "AUDIT_BASE_URL=https://theobiproject-5jigrdx0v-cronica.vercel.app" >> "$GITHUB_ENV"
+            echo "AUDIT_BASE_URL=https://theobiproject-c7z8fiflv-cronica.vercel.app" >> "$GITHUB_ENV"
           fi
       - name: Inspeccionar la web publicada en Chromium (móvil y escritorio)
         run: node scripts/visual-audit-real-site.mjs
