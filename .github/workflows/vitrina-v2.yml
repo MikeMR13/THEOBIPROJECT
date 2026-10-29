@@ -12,6 +12,7 @@ on:
       - 'src/prelaunch-access.js'
       - 'scripts/prelaunch-access-check.mjs'
       - 'scripts/home-vitrina-v2-check.mjs'
+      - 'scripts/home-without-ticker-check.mjs'
       - 'scripts/home-vitrina-real-cover-check.mjs'
       - '.github/workflows/vitrina-v2.yml'
   push:
@@ -28,6 +29,7 @@ on:
       - 'src/prelaunch-access.js'
       - 'scripts/prelaunch-access-check.mjs'
       - 'scripts/home-vitrina-v2-check.mjs'
+      - 'scripts/home-without-ticker-check.mjs'
       - '.github/workflows/vitrina-v2.yml'
   workflow_dispatch:
 
@@ -52,12 +54,15 @@ jobs:
           node --check src/prelaunch-access.js
           node --check scripts/prelaunch-access-check.mjs
           node --check scripts/home-vitrina-v2-check.mjs
+          node --check scripts/home-without-ticker-check.mjs
           node --check scripts/visual-qa-fixes-browser.mjs
           node --check scripts/home-vitrina-real-cover-check.mjs
       - name: Verificar bloqueo de preestrenos y enlaces opacos
         run: node scripts/prelaunch-access-check.mjs
       - name: Validar Ranking y formulario móvil de 320 a 1440 px
         run: node scripts/visual-qa-fixes-browser.mjs
+      - name: Comprobar retiro de cinta sin perder contenidos
+        run: node scripts/home-without-ticker-check.mjs
       - name: Validar cinco tamaños en navegador
         run: node scripts/home-vitrina-v2-check.mjs
       - name: Validar portadas reales públicas y capturas
