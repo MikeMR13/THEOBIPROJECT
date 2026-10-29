@@ -76,9 +76,9 @@ const server=createServer((req,res)=>{
  const url=new URL(req.url||'/', 'http://127.0.0.1');
  res.setHeader('Cache-Control','no-store');
  res.setHeader('Content-Security-Policy',"default-src 'self'; connect-src 'none'; img-src 'self' data:; font-src 'self' data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-src 'self'; object-src 'none'");
- if(['/teampage.js','/anim.js','/public-collaboration-credits.js'].includes(url.pathname)){
+ if(['/teampage.js','/anim.js','/public-collaboration-credits.js','/public-section-counts.js'].includes(url.pathname)){
   res.setHeader('Content-Type','text/javascript; charset=utf-8');
-  const modules={'/teampage.js':'src/teampage.js','/anim.js':'src/anim.js','/public-collaboration-credits.js':'src/public-collaboration-credits.js'};
+  const modules={'/teampage.js':'src/teampage.js','/anim.js':'src/anim.js','/public-collaboration-credits.js':'src/public-collaboration-credits.js','/public-section-counts.js':'src/public-section-counts.js'};
   res.end(readFileSync(modules[url.pathname]));return;
  }
  res.setHeader('Content-Type','text/html; charset=utf-8');res.end(url.pathname==='/sample'?sample:parent);

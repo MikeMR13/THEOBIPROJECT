@@ -6,7 +6,7 @@ import { createOfflineDownloads } from './offline-downloads.js?v=1';
 import { readingGroups, planReadingChanges, undoReadingChanges, applyReadingChanges, persistReadingChanges } from './library-read-actions.js';
 // Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
 import { createClient } from '/supabase.js?v=1';
-import { createReader } from '/reader.js?v=23';
+import { createReader } from '/reader.js?v=24';
 import { createUI } from '/ui.js?v=57';
 import { attachPublicCredits, creditsHTML, installCreditImageFallback } from '/public-collaboration-credits.js?v=1';
 import { reportHomeRead } from '/home-metrics.js?v=1';
@@ -25,7 +25,7 @@ const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () 
 let LG; const lg = async () => LG ||= await import('/legal.js?v=1');
 let PF; const pf = async () => PF ||= await import('/profile.js?v=11');
 const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, email: user.email, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
-let ST; const st = async () => ST ||= (await import('/studio.js?v=47')).createStudio(CTX());
+let ST; const st = async () => ST ||= (await import('/studio.js?v=48')).createStudio(CTX());
 let AG; const ag = async () => AG ||= await import('/agenda.js?v=1');
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=10')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
@@ -919,8 +919,11 @@ $('#f').onsubmit = async e => { e.preventDefault(); const pw = e.target.password
 async function uploadAvatar(file){
 if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('Usa una imagen JPG, PNG o WebP.');
 if (file.size > 2 * 1024 * 1024) throw new Error('La foto pesa más de 2 MB.');
-const path = user.id + '/avatar-' + Date.now() + '.' + file.type.split('/')[1];
-const { error } = await sb.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type });
+const { optimizeAvatar } = await import('/avatar-image.js?v=1');
+const payload = await optimizeAvatar(file);
+const ext = payload.type === 'image/webp' ? 'webp' : payload.type === 'image/png' ? 'png' : 'jpeg';
+const path = user.id + '/avatar-' + Date.now() + '.' + ext;
+const { error } = await sb.storage.from('avatars').upload(path, payload, { upsert: true, contentType: payload.type });
 if (error) throw error;
 const { data } = sb.storage.from('avatars').getPublicUrl(path);
 const { error: e2 } = await sb.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', user.id);

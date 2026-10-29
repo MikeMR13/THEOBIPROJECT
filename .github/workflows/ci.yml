@@ -20,7 +20,7 @@ jobs:
       - run: npm install --no-audit --no-fund
       - name: Validar TOML de Supabase
         run: python3 -c "import tomllib; tomllib.load(open('supabase/config.toml','rb'))"
-      - run: npm run check && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run studio-fields-check && npm run integration-check
+      - run: npm run check && npm run quality-gates && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run studio-fields-check && npm run integration-check
       - name: SEO — Noindex sin texto vertical ni desbordamiento (Chromium)
         run: node scripts/seo-noindex-layout-browser.mjs
       - name: Obras — portada principal en Datos, multimedia y permisos (sin backend)
@@ -41,6 +41,8 @@ jobs:
         run: node scripts/reader-phase4-continuity-check.mjs
       - name: Calidad lector, imágenes e Inicio/Catálogo (sin backend)
         run: node scripts/reader-quality-phase134-check.mjs
+      - name: Cinco fases auditoría — contratos sin backend ni servicios de pago
+        run: node scripts/auditoria-cinco-fases-check.mjs
       - name: Lector Fase 4 — navegación rápida, latencia y acceso restringido (Chromium)
         run: node scripts/reader-phase4-integration-browser.mjs
       - name: Lector — barra fija visible con scroll real en escritorio 1440px (Chromium)

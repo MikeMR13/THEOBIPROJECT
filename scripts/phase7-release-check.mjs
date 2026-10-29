@@ -45,7 +45,7 @@ for(const [path,needle] of [
 
 const ci=read('.github/workflows/ci.yml');
 for(const required of [
- 'npm run check && npm run build && npm run verify',
+ 'npm run check && npm run quality-gates && npm run build && npm run verify',
  'visual-integration-preferences.mjs',
  'visual-phase5-browser.mjs',
  'phase6-public-check.mjs',

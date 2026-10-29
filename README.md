@@ -50,8 +50,16 @@ Los reportes de erratas solo los ve el equipo dueño de la serie, los moderadore
 - Primer admin: `update public.profiles set role='admin' where username='TU_USUARIO';`
 
 ## Despliegue actual
-- Vercel sirve index.html, app.js, config.js, sw.js, manifest e icono.
-- reader.js, studio.js y styles.css se publican en el bucket público `obi-app` de Supabase (función `publish-asset`).
-- Al conectar GitHub, se puede volver a servir todo desde Vercel con `npm run build`.
 
-- app.js carga reader.js, ui.js y studio.js desde obi-app con ?v=4 (top-level await). Para cambiar vistas públicas: editar src/ui.js, copiar a dist-min/ y republicar con publish-asset; no hace falta redeploy en Vercel.
+- El código activo está en `src/`, `public/` y `scripts/`. No editar `ui.js` de la raíz ni `dist-min/` como si fuesen los archivos publicados.
+- GitHub `main` se despliega por integración Git de Vercel (`theobiproject`); `node scripts/build.mjs` crea `dist/`, minifica y asigna sellos de caché por contenido a los recursos.
+- `npm run quality-gates` conserva las 27 validaciones editoriales, que se ejecutan en el CI gratuito de GitHub Actions antes de dar por aprobado el PR. `npm run build` realiza solo la compilación estática, sin repetir todas las pruebas en Vercel.
+- Las compilaciones necesitan `OBI_SUPABASE_URL` y `OBI_SUPABASE_PUBLISHABLE_KEY` explícitas. Una vista previa no puede usar el Supabase de producción. Nunca pasar claves secretas al navegador.
+- Para cambios con migraciones de base de datos, revisar y probar las migraciones de forma independiente antes de publicar código que dependa de ellas.
+- Mantener los despliegues y la QA dentro de las cuotas ya incluidas; no habilitar add-ons ni servicios con cargos adicionales.
+
+## Auditorías y mantenimiento
+
+- Las pruebas automatizadas están en `scripts/*-check.mjs` y `.github/workflows/`.
+- Trabajar en una rama basada en `main`, abrir PR, verificar todos los checks y fusionar por squash. Revisar el despliegue `READY` y la asignación de dominio antes de anunciar publicación.
+- Los archivos antiguos permanecen temporalmente como referencia; eliminarlos solo después de demostrar que ningún script o documento depende de ellos.

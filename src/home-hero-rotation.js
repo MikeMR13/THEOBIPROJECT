@@ -7,9 +7,9 @@ export function createHeroRotationClock({
   cancel = id => clearTimeout(id)
 } = {}) {
   let timer = null, startedAt = 0, remaining = duration;
-  let enabled = false, paused = false;
+  let enabled = false, paused = false, focusPaused = false;
   let advance = () => {}, onState = () => {};
-  const blocked = () => !enabled || paused;
+  const blocked = () => !enabled || paused || focusPaused;
   const stop = () => {
     if (timer === null) return;
     remaining = Math.max(0, remaining - Math.max(0, now() - startedAt));
@@ -28,6 +28,7 @@ export function createHeroRotationClock({
     onState(blocked());
   };
   return {
+    setFocusPaused(value) { focusPaused = Boolean(value); if (focusPaused) { stop(); onState(blocked()); } else run(); },
     show({ next, canRotate, isPaused = false, stateChanged = () => {} }) {
       stop();
       remaining = duration;

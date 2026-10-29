@@ -34,7 +34,7 @@ async function realCoverValidation() {
  const title=books[3].title;
  const HTML=`<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}\n${css2}\n${homeCss}\n:root{--gold:#f2c230;--sea:#d8a75c;--paper:#f3ecd9;--line:#3d3628}body{background:#0d0c0a;margin:0}.ob-page{max-width:1160px;padding:12px;box-sizing:border-box;margin:auto}</style></head>
  <body><main class="ob-page"><section id="hero" class="ob-hero"><div class="ob-cov"></div>
- <div class="ob-txt"><div class="ob-hero-copy"><div class="ob-hero-head"><div class="ob-hero-meta"><span class="ob-kick">NUEVO VOLUMEN</span><div class="ob-hero-flags"><span class="ob-badge ob-badge-vol">SELECCIÓN EDITORIAL</span></div></div><a href="/equipo/ox-mr" class="ob-hero-team-logo is-text"><span>OX-MR TRADUCCIONES</span></a></div><h1 data-len="xl"><a class="ob-h1a" href="/serie/caballero">${title}</a></h1><p class="ob-syn">Obra publicada y portada pública de El Obi del Lector. Comprobación de longitud real del título, encuadre del arte y adaptación móvil.</p></div><div class="ob-hero-footer"><div class="ob-acts"><a class="a1" href="/serie/caballero">Ver volumen</a><a class="a2" href="/leer/caballero/1">Empezar a leer</a></div></div></div>
+ <div class="ob-txt"><div class="ob-hero-copy"><div class="ob-hero-head"><div class="ob-hero-meta"><span class="ob-kick">NUEVO VOLUMEN</span><div class="ob-hero-flags"><span class="ob-badge ob-badge-vol">SELECCIÓN EDITORIAL</span></div></div><a href="/equipo/ox-mr" class="ob-hero-team-logo is-text"><span>OX-MR TRADUCCIONES</span></a></div><h2 data-len="xl"><a class="ob-h1a" href="/serie/caballero">${title}</a></h2><p class="ob-syn">Obra publicada y portada pública de El Obi del Lector. Comprobación de longitud real del título, encuadre del arte y adaptación móvil.</p></div><div class="ob-hero-footer"><div class="ob-acts"><a class="a1" href="/serie/caballero">Ver volumen</a><a class="a2" href="/leer/caballero/1">Empezar a leer</a></div></div></div>
  <div class="ob-pager2"><button data-dir="-1">‹</button><span><button data-j="0">1</button><button data-j="1">2</button><button data-j="2">3</button><button data-j="3">4</button><button data-j="4">5</button></span><button data-hp aria-label="Pausar">Ⅱ</button><button data-dir="1">›</button></div></section></main>
  <div id="result" data-status="loading"></div>
  <script type="module">
@@ -46,7 +46,7 @@ async function realCoverValidation() {
  const errs=[];
  if(active.naturalWidth<30)errs.push('Portada pública no cargada');
  if(document.querySelectorAll('.vt-book').length!==5)errs.push('Obras incompletas');
- if(document.querySelector('h1')?.textContent!==b[3].title)errs.push('Título alterado');
+ if(document.querySelector('.ob-txt h2')?.textContent!==b[3].title)errs.push('Título alterado');
  if(document.documentElement.scrollWidth>document.documentElement.clientWidth+3)errs.push('Desbordamiento horizontal');
  const btn=document.querySelector('.ob-acts').getBoundingClientRect(),bar=document.querySelector('.vt-controls').getBoundingClientRect();
  if(btn.bottom>bar.top+3)errs.push('Acciones superpuestas');

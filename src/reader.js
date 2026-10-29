@@ -6,6 +6,7 @@ import { attachPublicCredits, creditsHTML, installCreditImageFallback } from './
 import { readerPrefsKey, readReaderPrefs, readPendingReaderPrefs, stageReaderPrefs, acknowledgeReaderPrefs, sameReaderAccount, readingProgressKey, readingProgressPrefix, readerProgressKeys } from './reader-pref-cache.js?v=1';
 import { SECTION_LABELS } from './section-types.js?v=1';
 import { formatChapterIndex } from './chapter-title-display.js?v=2';
+import { repeatedOpeningHeading } from './reader-headings.js?v=2';
 import { adjacentChapter, mergeChapterMetadata } from './reader-navigation.js?v=1';
 import { isPubliclyReadableChapter } from './prelaunch-access.js?v=1';
 const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true, controls: 'fijo' };
@@ -284,11 +285,12 @@ export function createReader(ctx){
     const vol = volOf(ch); ensureFonts(vol);
     const shown = formatChapterIndex({title:ch.title,sectionType:ch.section_type});
     const label = shown.label + (shown.number ? ' ' + shown.number : '');
+    const repeated = repeatedOpeningHeading(blocks, ch);
     return `<article class="rd-ch" lang="es" data-ch="${ch.id}" style="${vol ? fontVars(vol, p) : ''}">
-      ${teamHTML()}
+      ${S.mounted[0]?.id === ch.id ? teamHTML() : ''}
       <header class="rd-head"><span class="mono">Volumen ${ch.vol} · ${esc(label)}</span><h2${(() => { const f = (blocks || []).find(b => (b.type || b.t) === 'heading')?.html?.match(/data-epub-family="(\d+)"/)?.[1]; return f ? ` style="font-family:var(--f${f})"` : ''; })()}>${esc(shown.heading || (shown.number ? "" : ch.title))}</h2></header>
       ${warningsHTML(ch.content_warnings, p.cw)}
-      <div class="rd-body">${(blocks || []).map((b, i) => block(b, i, p)).join('')}</div>
+      <div class="rd-body">${(blocks || []).map((b, i) => i === repeated ? '' : block(b, i, p)).join('')}</div>
       ${ch.teaser_on && ch.teaser ? teaserHTML(ch.teaser, nextWhen()) : ''}
       <nav class="rd-ch-end" aria-label="Opciones al terminar el capítulo"><a class="btn ghost rd-to-series" href="/serie/${esc(S.series.slug)}">← Regresar a la serie</a></nav></article>`;
   }

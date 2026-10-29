@@ -3,6 +3,7 @@ import { confirmObi, inputObi } from './obi-dialog.js';
 import { renderBlock } from './blocks.js?v=2';
 import { inferSectionType } from './section-types.js?v=1';
 import { formatChapterIndex, scanImportedChapterTitles } from './chapter-title-display.js?v=2';
+import { repeatedOpeningHeading, smartTitleBlocks } from './reader-headings.js?v=2';
 import { editorialForm, bindEditorialForm, saveEditorialRecord } from './editorial-announcements.js?v=1';
 import { createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
 import { planVolumeReplacement, validateImportMedia } from './import-safety.js?v=1';
@@ -254,7 +255,7 @@ export function createImporter(deps) {
       sb.from('series').select('id,title,teams(name)').or('published.eq.true,team_id.eq.' + T.team.id).is('archived_at', null).order('title').limit(500)
     ]);
     let P = null, file = null, fp = null, step = 1, sel = 0, splitting = false, dupAt = null, V = {};
-    const D = { work: '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', notice: null, noticeGetter: null, newTitle: '', newAuthor: '', scanChapterTitles: false };
+    const D = { work: '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', notice: null, noticeGetter: null, newTitle: '', newAuthor: '', scanChapterTitles: false, smartTitles: false };
     let NW = createWorkData();
     app.innerHTML = shell('Importar contenido', '<ol class="imp-steps" id="steps"></ol><div id="wiz"></div><p id="status" class="mono" role="status"></p>', TAB);
     bindPicker(importer);
@@ -295,7 +296,7 @@ export function createImporter(deps) {
         const guess = (works || []).find(w => w.title && key.includes(w.title.toLowerCase().slice(0, 18)));
         D.work = guess?.id || ''; D.newTitle = P.meta.series || P.title.replace(/\s*[,:\-–]?\s*(vol(umen|ume)?\.?|tomo)\s*\d+.*$/i, '').trim() || P.title; D.newAuthor = P.meta.author || '';
         NW = createWorkData({ title: D.newTitle, author: D.newAuthor, illustrator: P.meta.illustrator || '', publisher: P.meta.publisher || '', synopsis: (P.meta.synopsis || '').slice(0, 1500) });
-        D.vnum = P.meta.index || nextVol(guess); D.scanChapterTitles = false; D.cover = P.cover || null; D.workCover = !guess || !guess.cover_path; D.mode = 'replace';
+        D.vnum = P.meta.index || nextVol(guess); D.scanChapterTitles = false; D.smartTitles = false; D.cover = P.cover || null; D.workCover = !guess || !guess.cover_path; D.mode = 'replace';
         V = { title: '', subtitle: '', synopsis: P.meta.synopsis || '', synopsis_spoiler: false, publisher: P.meta.publisher || '', imprint: '', illustrator: P.meta.illustrator || '', jp_release: P.meta.date || '', planned_chapters: '', is_final: false, translator_notes: '' };
         sel = Math.max(0, P.chapters.findIndex(c => !c.skip)); splitting = false;
         st(''); step = 2; render();
@@ -329,6 +330,7 @@ export function createImporter(deps) {
       W().innerHTML = `<div class="imp-sum"><span><b>${esc(P.title)}</b><small class="mono">${esc(file.name)} · ${inc.length} de ${ch.length} secciones · ${P.images.size} imágenes · ${P.fonts.length} fuentes</small></span>
           ${[['Autor', m.author], ['Editorial', m.publisher], ['Volumen', m.index]].filter(x => x[1]).map(([k, v]) => `<span><small class="mono">${k}</small>${esc(String(v))}</span>`).join('')}</div>
         ${fichaHTML(inc.length)}
+        <div class="imp-title-option"><label class="imp-title-switch" for="imp-smart-titles"><input type="checkbox" id="imp-smart-titles" ${D.smartTitles ? 'checked' : ''}><span><b>Títulos inteligentes</b><small>Opcional · al leer, ocultar solo el primer título del EPUB cuando repita el encabezado del capítulo. No modifica el archivo ni elimina texto; solo se aplica a los capítulos de esta importación.</small></span></label><p class="mono" id="imp-smart-count" role="status">${D.smartTitles ? inc.filter(c => repeatedOpeningHeading(smartTitleBlocks(c.blocks,{title:c.title,section_type:c.type},true),{title:c.title,section_type:c.type}) >= 0).length+' secciones con títulos duplicados identificados.' : 'Desactivado: se conservan todos los títulos del EPUB en el lector.'}</p></div>
         <div class="imp-title-option"><label class="imp-title-switch" for="imp-scan-titles"><input type="checkbox" id="imp-scan-titles" ${D.scanChapterTitles ? 'checked' : ''}><span><b>Escanear nombres y números de capítulos</b><small>Opcional · detectar «Capítulo 1», «Capitulo 01», «Captiulo 1», «Cap. 02», prólogos y epílogos antes de importar.</small></span></label><p class="mono">Es una herramienta de revisión, no una configuración de apariencia. Todas las novelas usan el mismo índice público. El escaneo no reescribe títulos ni cambia enlaces; puedes corregir manualmente cualquier encabezado en la lista.</p><p class="mono" id="imp-scan-count" role="status">${D.scanChapterTitles ? esc((()=>{const a=scanResults();return a.numbered+' capítulos numerados · '+a.special+' secciones especiales · '+a.typo+' errores «Captiulo» · '+a.unrecognized+' sin prefijo claro';})()) : 'Escaneo desactivado: revisión manual de títulos.'}</p><div class="imp-title-example"><small>Vista previa del análisis de la sección seleccionada:</small><span id="imp-format-example">${esc(titleExample())}</span></div><small class="mono" id="imp-format-warning"></small></div>
         ${dupAt ? `<p class="imp-warn">Ya importaste este mismo archivo el ${fmtTz(dupAt, { dateStyle: 'long' })}. Puedes continuar; en el destino elige «Reemplazar» si quieres sustituirlo.</p>` : ''}
         <div class="imp-grid">
@@ -339,11 +341,12 @@ export function createImporter(deps) {
               <select data-k="${i}" aria-label="Tipo">${SEC.map(s => `<option ${s === c.type ? 'selected' : ''}>${s}</option>`).join('')}</select>
               <span class="imp-a"><button class="ed-btn" data-mv="${i}" data-d="-1" title="Subir" ${i ? '' : 'disabled'}>↑</button><button class="ed-btn" data-mv="${i}" data-d="1" title="Bajar" ${i < ch.length - 1 ? '' : 'disabled'}>↓</button><button class="ed-btn" data-merge="${i}" title="Unir con la siguiente" ${i < ch.length - 1 ? '' : 'disabled'}>Unir ↓</button></span></li>`; }).join('')}</ol></div>
           <div class="imp-pvw"><div class="imp-lh"><b>Vista previa · ${sel + 1} de ${ch.length}</b><button class="ed-btn ${splitting ? 'on' : ''}" id="split">${splitting ? 'Toca el párrafo donde empieza la nueva sección · Cancelar' : 'Dividir esta sección…'}</button></div>
-            <div class="imp-pv${splitting ? ' splitting' : ''}" id="pv"><div class="rd" data-theme="oscuro" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="${P.fontVars || ''}--rs:17px"><article class="rd-ch"><header class="rd-head"><span class="mono">${esc(cur.type)}</span><h2 ${headFont(cur.blocks)}>${esc(cur.title)}</h2></header><div class="rd-body">${cur.blocks.map((b, i) => renderBlock(b, i, { media: src })).join('')}</div></article></div></div></div>
+            <div class="imp-pv${splitting ? ' splitting' : ''}" id="pv"><div class="rd" data-theme="oscuro" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="${P.fontVars || ''}--rs:17px"><article class="rd-ch"><header class="rd-head"><span class="mono">${esc(cur.type)}</span><h2 ${headFont(cur.blocks)}>${esc(cur.title)}</h2></header><div class="rd-body">${(()=>{const blocks=smartTitleBlocks(cur.blocks,{title:cur.title,section_type:cur.type},D.smartTitles);const skip=repeatedOpeningHeading(blocks,{title:cur.title,section_type:cur.type});return blocks.map((b,i)=>i===skip?'':renderBlock(b,i,{media:src})).join('');})()}</div></article></div></div></div>
         </div>
         <div class="imp-nav"><button class="btn ghost" id="back">‹ Elegir otro archivo</button><button class="btn" id="next" ${inc.length ? '' : 'disabled'}>Continuar al destino ›</button></div>`;
       bindFicha();
       const refreshTitleExample = () => { const preview = $('#imp-format-example'); if (preview) preview.textContent = titleExample(); const warning = $('#imp-format-warning'); if (warning) warning.textContent = D.scanChapterTitles && formatChapterIndex({title:cur.title,sectionType:cur.type}).typo ? 'Detectamos «Captiulo». Puedes corregir el encabezado en la lista; el original no se modifica automáticamente.' : ''; const count=$('#imp-scan-count'); if(count && D.scanChapterTitles){const a=scanResults();count.textContent=a.numbered+' capítulos numerados · '+a.special+' secciones especiales · '+a.typo+' errores «Captiulo» · '+a.unrecognized+' sin prefijo claro';} };
+      $('#imp-smart-titles').onchange = e => { D.smartTitles = e.target.checked; s2(); };
       $('#imp-scan-titles').onchange = e => { D.scanChapterTitles = e.target.checked; s2(); };
       refreshTitleExample();
       const L = W().querySelector('.imp-list');
@@ -383,7 +386,8 @@ export function createImporter(deps) {
             <label class="tb-inl"><input type="radio" name="dm" value="append" ${D.mode === 'append' ? 'checked' : ''}> Agregar estas secciones después de las existentes (la ficha solo completa campos vacíos)</label></div>`
             : gone ? `<p class="imp-warn">Hay un Volumen ${D.vnum} en la papelera. Se recupera y se llena con este archivo; sus capítulos viejos siguen en la papelera.</p>` : `<p class="mono">Se creará el Volumen ${D.vnum}${w ? ' en ' + esc(w.title) : ''}${Object.keys(fichaRow()).length ? ', con la ficha del paso anterior' : ''}.</p>`}
         </section>
-        <p class="imp-title-option mono"><b>Escaneo de encabezados:</b> ${D.scanChapterTitles ? 'Activado para revisión; no modifica el contenido automáticamente.' : 'Desactivado.'} El índice público es uniforme para todas las novelas.</p>
+        <p class="imp-title-option mono"><b>Títulos inteligentes:</b> ${D.smartTitles ? 'Activados · solo se marcarán los encabezados duplicados en esta importación.' : 'Desactivados · conservar todos los encabezados al leer.'}</p>
+          <p class="imp-title-option mono"><b>Escaneo de encabezados:</b> ${D.scanChapterTitles ? 'Activado para revisión; no modifica el contenido automáticamente.' : 'Desactivado.'} El índice público es uniforme para todas las novelas.</p>
         <section class="imp-box"><h3>Portada del volumen</h3>
           <p class="mono">${keys.length ? 'Toca la imagen que será la portada.' + (P.cover ? ' Marcamos la que el EPUB declara como portada.' : '') : 'El archivo no trae imágenes.'}</p>
           <div class="imp-covs" role="radiogroup" aria-label="Portada del volumen">
@@ -484,7 +488,7 @@ export function createImporter(deps) {
           series_id:w.id,volume_id:vol.id,vol:D.vnum,
           num:replacing?plan.update[i].num:maxNum+i+1,sort_order:i,
           title:(c.title||'Sin título').slice(0,300),section_type:c.type,status:'draft',
-          body:c.blocks.map(b=>b.type==='image'?{...b,url:map[b.url]?PUB+map[b.url]:b.url}:b)
+          body:smartTitleBlocks(c.blocks,{title:c.title,section_type:c.type},D.smartTitles).map(b=>b.type==='image'?{...b,url:map[b.url]?PUB+map[b.url]:b.url}:b)
         }));
         if(replacing){
           const ids=[...plan.update,...plan.remove].map(x=>x.id);
