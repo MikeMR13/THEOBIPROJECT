@@ -57,7 +57,7 @@ assert(ui.includes('.ob-hero .ob-txt h1[data-len=xl]{font-size:clamp(26px,2.8vw,
 // Inicio compacto: dejar toda la descripción en el DOM, y reservar los controles.
 assert(ui.includes('class="ob-hero-copy"') && ui.includes('class="ob-hero-footer"'),
  'Separar contenido descriptivo y acciones para evitar que desaparezcan al abreviar textos');
-assert(ui.includes('grid-template-columns:minmax(180px,min(27vw,300px)) minmax(0,1fr)') && ui.includes('max-width:300px'),
+assert(ui.includes('grid-template-columns:minmax(180px,min(27vw,290px)) minmax(0,1fr)') && ui.includes('max-width:290px'),
  'El carrusel de escritorio debe mantener dos columnas y una portada acotada');
 assert(ui.includes('height:auto;min-height:0;max-height:none') && ui.includes('@media(max-width:700px)'),
  'El móvil no debe aplicar una altura fija que oculte controles');
