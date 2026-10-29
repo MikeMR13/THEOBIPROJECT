@@ -43,6 +43,8 @@ jobs:
         run: node scripts/reader-quality-phase134-check.mjs
       - name: Lector Fase 4 — navegación rápida, latencia y acceso restringido (Chromium)
         run: node scripts/reader-phase4-integration-browser.mjs
+      - name: Lector — barra fija visible con scroll real en escritorio 1440px (Chromium)
+        run: OBI_READER_VIEWPORT=desktop node scripts/reader-phase4-integration-browser.mjs
       - name: Difusión — Chromium confirmación multicanal sin envíos externos
         run: npm run diffusion-confirmation-browser-check
       - name: PWA optimizada — presupuesto de caché sin descargas opcionales
