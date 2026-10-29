@@ -1,6 +1,6 @@
 // QA responsive del carrusel compacto: seis tamaños, tres longitudes, anuncio y controles visibles.
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,mkdirSync,statSync} from 'node:fs';
 import {createServer} from 'node:http';
 import {spawn,execFileSync} from 'node:child_process';
 
@@ -86,6 +86,24 @@ try {
  assert(result,'Sin resultados de Chromium');
  assert.equal(result[1],'pass',result[2]);
  console.log(result[2]);
+ // Capturas efímeras de Chromium para comparar móvil y PC en el mismo CI.
+ mkdirSync('qa-capturas',{recursive:true});
+ for(const w of [390,1440,1873]){
+   const name='qa-capturas/carrusel-responsive-'+w+'.png';
+   const snap=spawn(bin,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--hide-scrollbars',
+     '--window-size='+w+',1600','--virtual-time-budget=4500','--screenshot='+name,
+     'http://127.0.0.1:'+server.address().port+'/case'],{stdio:['ignore','pipe','pipe']});
+   let output='';
+   snap.stdout.resume();snap.stderr.on('data',data=>output+=String(data).slice(0,800));
+   const c=await new Promise((ok,no)=>{
+     const timeout=setTimeout(()=>{snap.kill('SIGKILL');no(Error('Timeout captura '+w))},45000);
+     snap.once('error',e=>{clearTimeout(timeout);no(e)});
+     snap.once('close',code=>{clearTimeout(timeout);ok(code)});
+   });
+   assert.equal(c,0,'Fallo captura '+w+': '+output.slice(-400));
+   assert(statSync(name).size>5000,'Imagen vacía '+w);
+   console.log('Captura de QA '+name);
+ }
 } finally {
  await new Promise(ok=>server.close(ok));
 }
