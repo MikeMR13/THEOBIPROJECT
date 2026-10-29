@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
-      AUDIT_BASE_URL: https://elobidellector.com
+      AUDIT_BASE_URL: https://theobiproject-5jigrdx0v-cronica.vercel.app
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,6 +25,14 @@ jobs:
         run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
       - name: Verificar la sintaxis
         run: node --check scripts/visual-audit-real-site.mjs
+      - name: Verificar que el despliegue real es accesible (sin capa de seguridad)
+        run: |
+          status=$(curl -L -sS --max-time 18 -o /tmp/audit-home.html -w "%{http_code}" "$AUDIT_BASE_URL/")
+          echo "Acceso a despliegue Vercel: HTTP $status"
+          if [ "$status" != "200" ]; then
+            echo "::error::Despliegue bloqueado (HTTP $status). No se puede presentar como auditoría visual."
+            exit 1
+          fi
       - name: Inspeccionar la web publicada en Chromium (móvil y escritorio)
         run: node scripts/visual-audit-real-site.mjs
       - name: Guardar capturas de producción e informe (7 días)
