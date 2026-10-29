@@ -109,9 +109,9 @@ async function run(){
   const cssMatch=ui.match(/const CSS2 = ("(?:\\.|[^"\\])*");/);
   assert(cssMatch,'Estilos reales de Inicio no encontrados');
   const seasonSrc=readFileSync('src/season.js','utf8');
-  const seasonCssMatch=seasonSrc.match(/const CSS = \`([\\s\\S]*?)\`;/);
-  assert(seasonCssMatch,'Faltan estilos reales de temporada');
-  const siteCss=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(cssMatch[1])+'\n'+seasonCssMatch[1];
+  const seasonCss=seasonSrc.split('const CSS = `')[1]?.split('`;')[0];
+  assert(seasonCss,'Faltan estilos reales de temporada');
+  const siteCss=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(cssMatch[1])+'\n'+seasonCss;
   for(const needle of [
     "home-vitrina.js?v=6","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
     "el.dataset.vtKeys === feat.map(heroKey).join('|')","el.__vtStop?.()",
