@@ -1712,7 +1712,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       return '<a class="ui-series-preview-item" href="#serie-vols" aria-label="Explorar volumen ' + esc(v.num) + '">' +
         (image ? '<span class="ui-series-preview-cover"><img src="' + esc(image) + '" alt="" loading="lazy" decoding="async"></span>' : '<span class="ui-series-preview-cover ui-series-preview-missing" aria-hidden="true">帯</span>') +
         '<span class="ui-series-preview-label">LIBRO ' + esc(v.num) + '</span>' +
-        '<strong>' + esc(v.title && !/^volumen\\s*\\d+$/i.test(v.title) ? v.title : 'Volumen ' + v.num) + '</strong></a>';
+        '<strong>' + esc(v.title && !/^volumen\s*\d+$/i.test(v.title) ? v.title : 'Volumen ' + v.num) + '</strong></a>';
     }).join('');
     fxCss();
     app.innerHTML = `<div class="ui-wrap ui-series-page">
