@@ -132,14 +132,14 @@ check($('.rd-body').getBoundingClientRect().top >= barBottomBefore - 2,
 const scrollAvailable=Math.max(0,document.documentElement.scrollHeight-innerHeight);
 check(scrollAvailable>480,'El capítulo de prueba no tiene suficiente altura para comprobar scroll');
 scrollTo(0,Math.min(750,scrollAvailable-40));
-await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+await sleep(75);
 check(scrollY>200,'Chromium no desplazó la lectura de prueba');
 check(Math.abs(fixedBar.getBoundingClientRect().top-barTopBefore)<3,
   'La barra fija desaparece o cambia su posición al bajar por el capítulo');
 check(getComputedStyle(fixedBar).opacity==='1' && fixedBar.getBoundingClientRect().bottom>0,
   'La barra fija queda oculta después del desplazamiento');
 scrollTo(0,0);
-await new Promise(resolve=>requestAnimationFrame(resolve));
+await sleep(30);
 check(Math.abs(fixedBar.getBoundingClientRect().top-barTopBefore)<3,
   'La barra fija se pierde al volver al inicio');
 $('.rd-settings-trigger')?.click();
