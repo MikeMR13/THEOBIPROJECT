@@ -21,7 +21,7 @@ assert.match(css, /\.rd-panel\{\s*position:fixed/, 'El panel sigue empujando el 
 assert.match(css, /\.rd\[data-controls="fijo"\] \.rd-bar/, 'La barra fija no está implementada');
 assert.match(reader, /<nav class="rd-ch-end"[^\n]*Regresar a la serie/, 'Falta regreso al terminar cada capítulo');
 assert.match(reader, /function chapterHTML[\s\S]*?rd-ch-end[\s\S]*?function glossRe/, 'El enlace debe ser parte de cada capítulo, también en modo continuo');
-assert.match(ui, /image = s\.cover_thumb_path \|\| s\.cover_path/, 'La estantería no prioriza miniaturas');
+assert.match(ui, /image = s\.cover_path \|\| s\.cover_thumb_path/, 'La estantería no prioriza miniaturas');
 assert.match(ui, /alternativeShelf\.length >= Math\.min\(4, list\.length\)/, 'La estantería no evita repetición cuando puede');
 assert.match(css, /#cat-filters>summary\{display:none\}/, 'El Catálogo muestra dos controles de filtros');
 const capture = (name) => Number(index.match(new RegExp(name.replace('.', '\\.') + '\\?v=(\\d+)'))?.[1] || 0);
