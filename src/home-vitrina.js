@@ -56,7 +56,7 @@ export function enhanceHomeVitrina(root, entries, activeIndex, {esc, media, news
     // En pantallas muy estrechas, un título excepcionalmente largo debe
     // perder una línea antes que invadir los controles de lectura.
     const footer=vt.querySelector('.vt-side .ob-hero-footer');
-    if(mq.matches && window.innerWidth<=380 && footer &&
+    if(mq.matches && footer &&
        title.getBoundingClientRect().bottom>footer.getBoundingClientRect().top-3){
       sheet.style.setProperty('--vt-title-lines','1');
       sheet.style.setProperty('--vt-title-max','1.25em');
