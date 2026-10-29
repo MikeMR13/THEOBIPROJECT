@@ -623,6 +623,9 @@ export function createReader(ctx){
       removeEventListener('resize', syncFixedBarTop);
       wl?.release(); return;
     }
+    // Mover inmediatamente los controles con la cabecera real en cada scroll.
+    // No esperar al requestAnimationFrame: al subir rápido dejaba la barra arriba.
+    syncFixedBarTop();
     if (S.resumePending && Math.abs(scrollY - S.resumePending.y) > 40) {
       S.resumePending = null;
       const bar = $('#rd-resume'); if (bar) bar.hidden = true;
