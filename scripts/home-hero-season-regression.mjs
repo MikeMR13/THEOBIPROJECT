@@ -32,6 +32,9 @@ const sandbox={
   genericSectionCount:()=> '1 sección',
   homeMetricCategory:()=> 'release',
   homeMetrics:{shown() {},clicked() {}},
+  // En esta prueba VM se ejecuta heroSlide aislado, sin imports ESM ni DOM real.
+  // Simular solo la capa visual; la transformación real se valida en Chromium.
+  enhanceHomeVitrina:()=>()=>{},
   createHeroRotationClock:()=>({show(){},dispose(){}}),
   matchMedia:()=>({matches:false}),
   window:{obiTZ:()=> 'America/Monterrey'},
