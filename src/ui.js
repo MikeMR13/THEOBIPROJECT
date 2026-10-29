@@ -1167,7 +1167,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
   function heroSlide(feat, i, prog, lastCh, top = {}, newsBySeries = {}, featReasons = {}){
     const el = $('#hero'); if (!el || !feat[i]) return;
     el.dataset.heroKey = heroKey(feat[i]);
-    const s = feat[i], pre = s.__prelaunch || null, reason = featReasons[s.id], p = pre ? null : prog[s.id], lc = pre ? null : lastCh[s.id], n = p?.chapter_num || lc?.num || 1; const pub = pre ? null : newsBySeries[s.id], v = pre ? { num: pre.vnum, cover_path: pre.cover_path } : pub?.kind === 'volume' ? pub.volume : null, art = v?.cover_path || s.cover_path; const heroCover = media(art); // Portada original, sin recortes de miniatura. const freshDate = publicationDate(pub?.at || lc?.publish_at), fresh = !!freshDate && Date.now() - freshDate.getTime() < 7 * 864e5;
+    const s = feat[i], pre = s.__prelaunch || null, reason = featReasons[s.id], p = pre ? null : prog[s.id], lc = pre ? null : lastCh[s.id], n = p?.chapter_num || lc?.num || 1; const pub = pre ? null : newsBySeries[s.id], v = pre ? { num: pre.vnum, cover_path: pre.cover_path } : pub?.kind === 'volume' ? pub.volume : null, art = v?.cover_path || s.cover_path; const heroCover = media(art); // Portada original, sin recortes de miniatura.
+    const freshDate = publicationDate(pub?.at || lc?.publish_at);
+    const fresh = !!freshDate && Date.now() - freshDate.getTime() < 7 * 864e5;
     const preAt = pre && new Date(pre.at), preWhen = preAt ? preAt.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: window.obiTZ?.() || undefined }) : '';
     const preTime = preAt ? Math.max(0, preAt - Date.now()) : 0, preDays = Math.ceil(preTime / 864e5), preHours = Math.ceil(preTime / 36e5), preLeft = preTime > 864e5 ? preDays + (preDays === 1 ? ' día' : ' días') : preTime > 36e5 ? preHours + (preHours === 1 ? ' hora' : ' horas') : Math.max(1, Math.ceil(preTime / 6e4)) + ' min';
     const dateInTZ=d=>new Intl.DateTimeFormat('en-CA',{timeZone:window.obiTZ?.()||'America/Monterrey',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);

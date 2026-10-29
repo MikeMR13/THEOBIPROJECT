@@ -53,6 +53,8 @@ jobs:
         run: node scripts/pwa-offline-browser-check.mjs
       - name: "Inicio editorial: espaciado de etiquetas, ranking y títulos en 5 tamaños"
         run: npm run home-hero-layout-check
+      - name: Inicio crítico — ejecutar carrusel real antes del tema de temporada
+        run: node --check scripts/home-hero-season-regression.mjs && node scripts/home-hero-season-regression.mjs
       - name: "Inicio mixto: rotación diaria, equipos y novela completa inmediata"
         run: npm run home-featured-check
       - name: "Publicaciones editoriales: volúmenes antes que capítulos"
