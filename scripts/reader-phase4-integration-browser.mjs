@@ -30,7 +30,7 @@ const chapters=[
 ];
 for(const c of chapters)readings.set(c.id,[
   {type:'paragraph',text:'Esta es la lectura original del capítulo '+c.num+'. '+
-    'Una historia de ejemplo sin conectarse a cuentas reales. '.repeat(25)},
+    'Una historia de ejemplo sin conectarse a cuentas reales. '.repeat(65)},
   {type:'paragraph',text:'El texto debe conservarse aun si llegan solicitudes atrasadas.'}
 ]);
 const series={id:'serie-fixture',slug:'obra-fixture',title:'Obra de pruebas del lector',
