@@ -371,6 +371,27 @@ const LB_CSS = `
 @media(max-width:390px){.lb-spotlight{grid-template-columns:84px minmax(0,1fr);gap:12px;padding:12px}.lb-spotlight-info{gap:7px}.lb-spotlight-info h2{font-size:20px}.lb-spotlight-info p{font-size:12px}.lb-spotlight-cta{padding:9px 8px;font-size:12px}}
 @media(prefers-reduced-motion:reduce){.lb-spotlight,.lb-shelf-summary{transition:none}}
 
+/* S3 escritorio: tres estantes simultáneos con portadas publicadas, sin duplicar lógica. */
+.lb-collections-desktop{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(12px,1.5vw,22px);margin:0 0 28px;min-width:0}
+.lb-collection{display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:14px;padding:clamp(12px,1.3vw,18px);min-width:0;background:#18140e;border:1px solid #65502c;border-top:3px solid #ba8d3a}
+.lb-collection-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;min-width:0}
+.lb-collection-head h2{font:500 clamp(19px,2vw,25px)/1.25 'Shippori Mincho B1',serif;margin:0}
+.lb-collection-head p{font:12px/1.5 'IBM Plex Sans',sans-serif;color:#c6b69a;margin:6px 0 0;overflow-wrap:anywhere}
+.lb-collection-count{flex:none;color:var(--gold);font:500 24px/1.2 'Shippori Mincho B1',serif}
+.lb-collection-books{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-content:start;min-width:0}
+.lb-collection-book{display:grid;grid-template-rows:auto 2.7em;gap:7px;min-width:0;color:var(--paper);text-decoration:none;font:600 11px/1.35 'IBM Plex Sans',sans-serif}
+.lb-collection-book:focus-visible,.lb-collection-more:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.lb-collection-cover{display:grid;place-items:center;aspect-ratio:2/3;min-width:0;background:#211b12;border:1px solid #56412b;overflow:hidden}
+.lb-collection-cover img{width:100%;height:100%;object-fit:contain}
+.lb-collection-fallback{display:grid;place-items:center;width:100%;height:100%;padding:5px;color:#e9dcc6;font:500 11px/1.4 'Shippori Mincho B1',serif;overflow-wrap:anywhere;text-align:center}
+.lb-collection-book-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
+.lb-collection-book:hover .lb-collection-book-title{color:var(--gold)}
+.lb-collection-empty{grid-column:1/-1;display:grid;place-items:center;min-height:130px;padding:12px;margin:0;text-align:center;color:#bfb197;border:1px dashed #483a2a;font:13px/1.5 'IBM Plex Sans',sans-serif}
+.lb-collection-more{display:inline-flex;align-self:end;align-items:center;min-height:44px;color:var(--gold);font:700 12px/1.5 'IBM Plex Sans',sans-serif;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:959px){.lb-collections-desktop{display:none}}
+@media(min-width:960px) and (max-width:1140px){.lb-collection-books{gap:7px}}
+
+
 
 `;
 const lbCss = () => { if (document.getElementById('lb-css')) return; const s = document.createElement('style'); s.id = 'lb-css'; s.textContent = LB_CSS; document.head.appendChild(s); };
@@ -434,6 +455,34 @@ async function library(){
   const HID=new Set(profile?.hidden_series || []);
   const count = k => L[k]?.length ?? null;
   // Vista C: foco en una lectura REAL (nunca estadísticas ficticias).
+
+  // S3: cada estantería muestra obras reales. Una obra puede estar en Leyendo y Pendientes.
+  const SHELF_DEFS = [
+    ['leyendo','Leyendo','Lecturas en curso'],
+    ['pendientes','Pendientes','Capítulos pendientes de obras seguidas'],
+    ['terminadas','Terminadas','Obras completas leídas']
+  ];
+  const shelfPreviewHtml = k => {
+    const books = (L[k] || []).slice(0,3);
+    if (!books.length) return '<p class="lb-collection-empty">Esta estantería todavía está vacía.</p>';
+    return books.map(w => {
+      const path = w.s.cover_path || w.s.cover_thumb_path;
+      const picture = path ? '<img src="' + esc(MED(path)) + '" alt="" loading="lazy" decoding="async">'
+        : '<span class="lb-collection-fallback">' + esc(w.s.short || w.s.title) + '</span>';
+      return '<a class="lb-collection-book" href="/serie/' + encodeURIComponent(w.s.slug) +
+        '" aria-label="Ver ficha de ' + esc(w.s.title) + '">' +
+        '<span class="lb-collection-cover">' + picture + '</span>' +
+        '<span class="lb-collection-book-title">' + esc(w.s.title) + '</span></a>';
+    }).join('');
+  };
+  const desktopShelvesHTML = SHELF_DEFS.map(([k,label,help]) =>
+    '<article class="lb-collection" data-collection="' + k + '">' +
+    '<header class="lb-collection-head"><div><h2>' + label + '</h2><p>' + help + '</p></div>' +
+    '<span class="lb-collection-count" aria-label="Obras: ' + (count(k) || 0) + '">' + (count(k) || 0) + '</span></header>' +
+    '<div class="lb-collection-books">' + shelfPreviewHtml(k) + '</div>' +
+    '<a class="lb-collection-more" href="/biblioteca' + (k === 'leyendo' ? '' : '?t=' + k) +
+    '">Ver estantería completa →</a></article>'
+  ).join('');
   const latest = L.leyendo[0] || null, latestChapter = latest?.resume;
   const latestHref = latest
     ? (latestChapter ? '/leer/' + encodeURIComponent(latest.s.slug) + '/' + latestChapter.num
@@ -457,6 +506,9 @@ async function library(){
       `<a class="lb-shelf-summary${tab===k?' on':''}" data-shelf="${k}" href="/biblioteca${k==='leyendo'?'':'?t='+k}"${tab===k?' aria-current="page"':''}>
         <span class="lb-shelf-kanji" aria-hidden="true">${kanji}</span><strong>${count(k) || 0}</strong>
         <span class="lb-shelf-summary-title">${title}</span><small>${desc}</small></a>`).join('')}
+  </section>
+  <section class="lb-collections-desktop" aria-label="Obras de tus tres estanterías">
+    ${desktopShelvesHTML}
   </section>
   <nav class="lb-tabs" aria-label="Secciones de Mi biblioteca"><div class="lb-tab-group lb-tab-shelves" role="group" aria-label="Estanterías">${TABS.slice(0,3).map(([k,label])=>`<a href="/biblioteca${k==='leyendo'?'':'?t='+k}" class="${k===tab?'on':''}"${k===tab?' aria-current="page"':''}>${label}${count(k)?`<em>${count(k)}</em>`:''}</a>`).join('')}</div><div class="lb-tab-group lb-tab-tools" role="group" aria-label="Herramientas de lectura">${TABS.slice(3).map(([k,label])=>`<a href="/biblioteca?t=${k}" class="${k===tab?'on':''}"${k===tab?' aria-current="page"':''}>${label}</a>`).join('')}</div></nav>
   <p id="lb-pending-explain" class="lb-pending-explain" ${tab==='pendientes'?'':'hidden'}>Pendientes reúne obras que sigues con capítulos publicados aún sin leer; no es una lista de deseos.</p>
@@ -515,6 +567,16 @@ async function library(){
     app.querySelectorAll('.lb-shelf-summary[data-shelf]').forEach(a => {
       const number = a.querySelector('strong');
       if (number) number.textContent = String(count(a.dataset.shelf) || 0);
+    });
+    app.querySelectorAll('.lb-collection[data-collection]').forEach(section => {
+      const k = section.dataset.collection;
+      const number = section.querySelector('.lb-collection-count');
+      const grid = section.querySelector('.lb-collection-books');
+      if (number) {
+        number.textContent = String(count(k) || 0);
+        number.setAttribute('aria-label', 'Obras: ' + (count(k) || 0));
+      }
+      if (grid) grid.innerHTML = shelfPreviewHtml(k);
     });
     // Mantener el resumen de lectura al día tras marcar capítulos como leídos.
     const current = L.leyendo[0], spotlight = app.querySelector('.lb-spotlight');

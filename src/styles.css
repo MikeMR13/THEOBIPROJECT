@@ -1092,3 +1092,29 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
 .ob-page #hero .vt{border-radius:4px}
 .ob-page .ob-releases{scroll-margin-top:calc(var(--top-h,62px) + 12px)}
 .ob-page .ob-releases .ob-st h2{line-height:1.22;text-wrap:balance}
+
+/* Diseño A/T2/E2/C3: pulido editorial de Inicio, Catálogo y Ficha exclusivamente. */
+.ob-page .ob-mast{padding:14px 0 18px;margin-bottom:8px;border-bottom:1px solid #3b3020;min-width:0}
+.ob-page .ob-mast b{font-family:'Shippori Mincho B1',serif;font-size:clamp(14px,1.35vw,18px);line-height:1.3;letter-spacing:.09em;color:#dfba60}
+.ob-page #hero.ob-hero:has(.vt){margin-top:18px!important}
+.ob-page #hero .vt{border-color:#775a31;border-top-color:var(--sea,var(--gold));box-shadow:0 12px 28px #0006}
+.ob-page #hero .vt-side .ob-txt{background:repeating-linear-gradient(180deg,transparent 0 31px,#7d66451a 31px 32px),#efe6cf}
+.ob-page #hero .vt-side .ob-txt h1{font-family:'Shippori Mincho B1',serif!important;letter-spacing:-.015em}
+.ob-page #hero .vt-side .ob-acts a{min-height:44px}
+.ob-page .ob-releases{padding-top:clamp(28px,3vw,42px)!important}
+.ob-page .ob-releases .ob-st{border-bottom:1px solid #72562c;padding-bottom:10px;margin-bottom:18px}
+.ob-page .ob-releases .ob-st h2{font-family:'Shippori Mincho B1',serif;letter-spacing:-.014em;line-height:1.24}
+.ob-page .ob-release-card{padding:8px;border:1px solid #624b29;background:#18140e}
+.ob-page .ob-release-card:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.ob-page .ob-release-card .ob-release-type{font-size:11px;line-height:1.5;letter-spacing:.06em}
+.ob-page .ob-release-card b{font-size:clamp(13px,1.1vw,15px);line-height:1.35;overflow-wrap:anywhere}
+.ob-page .ob-release-card .ob-release-detail{font-size:13px;line-height:1.55}
+.ui-cath:has(+ .ui-cat-quickbar) h1,.ui-cath:has(+ .lb-spotlight) h1{font-family:'Shippori Mincho B1',serif;letter-spacing:-.014em;line-height:1.12}
+.ui-cath:has(+ .ui-cat-quickbar) p,.ui-cath:has(+ .lb-spotlight) p{font-size:clamp(14px,1.2vw,16px);line-height:1.55}
+#cat-grid .ui-fc{border-top-color:var(--c,var(--gold));box-shadow:0 9px 22px #0006}
+#cat-grid .ui-fc .t{font-family:'Shippori Mincho B1',serif;line-height:1.3;text-wrap:pretty}
+#cat-grid .ui-fc .m,#cat-grid .ui-fc .o{line-height:1.55}
+.ui-series-page .ui-series-preview{margin-top:clamp(20px,3vw,34px);padding:clamp(16px,2.4vw,26px)}
+.ui-series-page .ui-series-preview-heading h2{line-height:1.24;letter-spacing:-.01em}
+.ui-series-page .ui-series-preview-item strong{line-height:1.4}
+@media(max-width:760px){.ob-page .ob-mast{gap:4px 10px;margin-bottom:4px}.ob-page .ob-releases{padding-top:26px!important}.ob-page .ob-release-card{padding:7px}}

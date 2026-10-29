@@ -16,6 +16,9 @@ req(tabs, ['paneForHash', "return 'serie-descargas'", 'tab.setAttribute(\'aria-s
 req(nav, ["['/', '家', 'Inicio']", "['/catalogo', '目', 'Catálogo']", "['/biblioteca', '書', 'Biblioteca']", "['/buscar', '探', 'Buscar']", "['/perfil', '人', 'Perfil']"], 'Navegación N1');
 req(ui, ['const compactBar = () =>', "quickbar.classList.toggle('is-compact', compact)", "addEventListener('scroll', onCatalogueScroll"], 'Catálogo contraído');
 req(app, ['lb-spotlight', 'lb-shelf-showcase', 'lb-shelf-summary', "app.querySelector('.lb-shelf-showcase')?.addEventListener('click'", 'latestPct', "app.querySelectorAll('.lb-shelf-summary[data-shelf]').forEach"], 'Estantes S3 y lectura actual');
+req(app, ['lb-collections-desktop', 'const shelfPreviewHtml = k =>', 'desktopShelvesHTML', 'lb-collection-book', "app.querySelectorAll('.lb-collection[data-collection]').forEach"], 'Estantes con obras reales y actualización dinámica');
+req(app, ['@media(max-width:959px){.lb-collections-desktop{display:none}', 'loading="lazy"', 'const SHELF_DEFS = ['], 'Estanterías adaptativas S3');
+req(css, ['/* Diseño A/T2/E2/C3', '.ob-page #hero .vt{', '.ob-page .ob-release-card{', '.ui-series-page .ui-series-preview{'], 'Inicio A y T2/E2/C3');
 req(css, ['.ui-cat-quickbar.is-compact', '.ui-cat-quickbar{position:sticky', 'var(--top-h,62px)', '.ui-series-page .ui-series-preview{', '@media(max-width:370px)', '#cat-grid{scroll-margin-top:'], 'CSS acotado');
 const serie = ui.slice(ui.indexOf('async function series(slug){'), ui.indexOf('async function reviews(', ui.indexOf('async function series(slug){')) > 0 ? ui.indexOf('async function reviews(', ui.indexOf('async function series(slug){')) : undefined);
 const hero = serie.slice(serie.indexOf('<div class="acts ui-series-actions"'), serie.indexOf('</section>',serie.indexOf('<div class="acts ui-series-actions"')));
