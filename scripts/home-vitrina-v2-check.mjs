@@ -26,6 +26,14 @@ function browserCheck(){
   ok(visible(a1),'El botón Ver volumen está oculto');
   ok(visible(ranking),'El enlace Top de la semana está oculto');
   ok(getComputedStyle(a1).backgroundColor!=='rgba(0, 0, 0, 0)','Ver volumen no tiene fondo visible');
+  const canHit=el=>{if(!el)return false;const q=el.getBoundingClientRect();const hit=document.elementFromPoint(q.left+q.width/2,q.top+q.height/2);return !!hit&&(el===hit||el.contains(hit));};
+  ok(canHit(books[1]),'La portada activa está tapada: no se puede hacer clic');
+  ok(canHit(a1),'Un elemento tapa el botón Ver volumen');
+  ok(canHit(ranking),'Un elemento tapa Top de la semana');
+  let opened=false;
+  books[1].addEventListener('click',e=>{e.preventDefault();opened=true;},{once:true});
+  books[1].click();
+  ok(opened,'El clic de la portada activa no llega al enlace');
   let selected='';
   s.querySelectorAll('.vt-book').forEach(b=>b.addEventListener('click',()=>selected=b.dataset.heroTarget));
   books[0].click();
@@ -114,12 +122,12 @@ async function run(){
   try{
     await new Promise((ok,no)=>{server.once('error',no);server.listen(0,'127.0.0.1',ok);});
     for(const w of [320,390,768,1024,1440]){
-      const args=['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking',`--window-size=${w},1100`,'--dump-dom',`http://127.0.0.1:${server.address().port}`];
+      const args=['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking','--virtual-time-budget=2200',`--window-size=${w},1100`,'--dump-dom',`http://127.0.0.1:${server.address().port}`];
       const child=spawn(chrome,args,{stdio:['ignore','pipe','pipe']});let out='',err='';
       child.stdout.on('data',x=>out+=String(x));
       child.stderr.on('data',x=>err+=String(x).slice(0,3000));
       const code=await new Promise((ok,no)=>{
-        const timeout=setTimeout(()=>{child.kill('SIGKILL');no(Error(`Chromium timeout ${w}`));},25000);
+        const timeout=setTimeout(()=>{child.kill('SIGKILL');no(Error(`Chromium timeout ${w}`));},45000);
         child.once('error',e=>{clearTimeout(timeout);no(e);});
         child.once('close',c=>{clearTimeout(timeout);ok(c);});
       });
