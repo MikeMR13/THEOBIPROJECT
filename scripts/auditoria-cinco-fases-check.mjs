@@ -2,12 +2,26 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const read = p => readFileSync(p, 'utf8');
-const { repeatedOpeningHeading } = await import('../src/reader-headings.js');
+const { repeatedOpeningHeading, smartTitleBlocks } = await import('../src/reader-headings.js');
 const { publicSectionCounts } = await import('../src/public-section-counts.js');
 const { createHeroRotationClock } = await import('../src/home-hero-rotation.js');
 
 const chapter = { title:'Capítulo 3: Un triángulo amoroso', section_type:'Capítulo' };
-assert.equal(repeatedOpeningHeading([{type:'heading',text:'Capítulo 03 — Un triángulo amoroso'},{type:'paragraph',text:'Hola'}],chapter),0);
+const rawBlocks = [{type:'heading',text:'Capítulo 03 — Un triángulo amoroso'},{type:'paragraph',text:'Hola'}];
+const originalBlocks = JSON.stringify(rawBlocks);
+assert.equal(repeatedOpeningHeading(rawBlocks,chapter),-1,'Sin casilla, conservar los títulos incluso en importaciones anteriores');
+const unchanged = smartTitleBlocks(rawBlocks,chapter);
+assert.deepEqual(unchanged,rawBlocks,'Por defecto no se alteran los bloques');
+const optedIn = smartTitleBlocks(rawBlocks,chapter,true);
+assert.equal(repeatedOpeningHeading(optedIn,chapter),0,'La casilla debe ocultar solo el encabezado repetido');
+assert.equal(optedIn[0].smart_title,true,'La marca se conserva con los bloques importados');
+assert.equal(optedIn[1].smart_title,undefined,'El contenido del capítulo no se marca');
+assert.equal(repeatedOpeningHeading(optedIn,{...chapter,title:'Capítulo 3: Otro título'}),-1,
+  'Si el título editorial cambia, no ocultar un heading diferente');
+assert.equal(JSON.stringify(rawBlocks),originalBlocks,'No alterar el archivo o los bloques originales');
+assert.deepEqual(smartTitleBlocks(optedIn,chapter,false),rawBlocks,'La opción se puede desactivar antes de importar');
+assert.equal(repeatedOpeningHeading(smartTitleBlocks([{type:'heading',text:'Introducción nueva'}],chapter,true),chapter),-1);
+assert.equal(repeatedOpeningHeading(smartTitleBlocks([{type:'heading',text:'Capítulo 3'}],{title:'Capítulo 3'},true),{title:'Capítulo 3'}),-1);
 assert.equal(repeatedOpeningHeading([{type:'heading',text:'Una carta misteriosa'}],chapter),-1);
 assert.equal(repeatedOpeningHeading([{type:'paragraph',text:'Un triángulo amoroso'}],chapter),-1);
 assert.equal(repeatedOpeningHeading([{type:'heading',text:'Otro título'}],{title:'Prólogo',section_type:'Prólogo'}),-1);
@@ -32,6 +46,11 @@ const ui=read('src/ui.js'),reader=read('src/reader.js'),team=read('src/teampage.
 const css=read('src/styles.css'),app=read('src/app.js'),home=read('src/home-vitrina.js');
 assert(ui.includes("import { publicSectionCounts }"),'Catálogo y ficha deben reconciliar conteos');
 assert(team.includes('publicSectionCounts(sb, rawWorks'),'Los equipos deben usar el conteo público');
+const importer=read('src/studio-importer.js');
+for (const token of ['id="imp-smart-titles"', 'D.smartTitles = e.target.checked',
+  'smartTitleBlocks(cur.blocks', 'body:smartTitleBlocks(c.blocks','D.smartTitles = false']) {
+  assert(importer.includes(token), 'Checkbox inteligente sin integrar: '+token);
+}
 assert(reader.includes('repeatedOpeningHeading(blocks, ch)'),'Lector sin deduplicación de EPUB');
 assert(reader.includes("i === repeated ? '' : block(b, i, p)"),'No modificar bloques guardados al omitir título');
 assert(ui.includes("tag === null ? ''"),'La recomendación no puede heredar la insignia del ranking');
