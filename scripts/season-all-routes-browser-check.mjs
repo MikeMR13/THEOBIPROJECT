@@ -127,7 +127,7 @@ function checkPage(){
        if(Number(getComputedStyle(part).zIndex)>=Number(getComputedStyle(app).zIndex))
          err(k,p,'partículas cubren botones');
      }
-     const interactives=[...app.querySelectorAll('a,button,summary,input')].filter(x=>!x.closest('[hidden]'));
+     const interactives=[...app.querySelectorAll('a,button,summary,input')].filter(x=>!x.closest('[hidden]')&&(!x.closest('details:not([open])')||x.matches('summary')));
      for(const x of interactives){
        const style=getComputedStyle(x),rect=x.getBoundingClientRect();
        if(style.visibility==='hidden'||rect.width<1||rect.height<1||style.pointerEvents==='none')
