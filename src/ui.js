@@ -1295,6 +1295,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         if (progress) progress.style.animationPlayState = blocked ? 'paused' : 'running';
       }
     });
+    // No cambiar la obra mientras el lector de teclado utiliza el hero.
+    el.onfocusin = () => heroClock?.setFocusPaused?.(true);
+    el.onfocusout = event => { if (!el.contains(event.relatedTarget)) heroClock?.setFocusPaused?.(false); };
   }
   const card = (s, st, lc, p) => `<a class="ui-card" href="/serie/${s.slug}" data-id="${s.id}">${st ? `<span class="ui-st ${st[1]}">${esc(st[0])}</span>` : ''}${book(s, null, true)}${progBar(s, p)}<h3>${esc(s.title)}</h3>${creditsHTML(s, { esc, media, mode: 'carousel' })}<span class="meta">${pill(s.translation_status)}<span>${genericSectionCount(s.chapters?.[0]?.count)}</span>${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</span>${lc ? `<span class="last">Última actualización${ageTag(lc.publish_at)}</span>` : ''}</a>`;
 
