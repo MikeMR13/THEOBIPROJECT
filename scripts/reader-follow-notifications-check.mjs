@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 const p=readFileSync('src/profile.js','utf8');
 const app=readFileSync('src/app.js','utf8');
 const email=readFileSync('supabase/functions/notify-email/index.ts','utf8');
-const sql=readFileSync('sql/reader-follow-notifications-candidate.sql','utf8');
+const sql=readFileSync('supabase/migrations/20261029193456_reader_follow_notifications_hardened.sql','utf8');
 const req=(src,need,label)=>need.forEach(x=>assert(src.includes(x),label+': falta '+x));
 req(p, ["['volumen', 'Volúmenes completos nuevos'", "'fc-' + s.id", "'fv-' + s.id", "ch.chapters=!enabled", "N.email[k]"],'Preferencias');
 req(app, ['data-av-channel="web"','data-av-channel="volumes"',"if(key==='web')ch.chapters=i.checked",".lb-ai{grid-template-columns:minmax(0,1fr) auto auto auto}"],'Biblioteca');
