@@ -1,0 +1,50 @@
+name: Vitrina V2 · QA gratuita
+on:
+  pull_request:
+    paths:
+      - 'src/home-vitrina.js'
+      - 'src/ui.js'
+      - 'scripts/home-vitrina-v2-check.mjs'
+      - 'scripts/home-vitrina-real-cover-check.mjs'
+      - '.github/workflows/vitrina-v2.yml'
+  push:
+    branches:
+      - 'feat/vitrina-v2-*'
+    paths:
+      - 'src/home-vitrina.js'
+      - 'src/ui.js'
+      - 'scripts/home-vitrina-v2-check.mjs'
+      - '.github/workflows/vitrina-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  responsive:
+    name: Contrato editorial y Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar sintaxis
+        run: |
+          node --check src/home-vitrina.js
+          node --check src/ui.js
+          node --check scripts/home-vitrina-v2-check.mjs
+          node --check scripts/home-vitrina-real-cover-check.mjs
+      - name: Validar cinco tamaños en navegador
+        run: node scripts/home-vitrina-v2-check.mjs
+      - name: Validar portadas reales públicas y capturas
+        run: node scripts/home-vitrina-real-cover-check.mjs
+      - name: Guardar capturas para revisión visual
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitrina-v2-capturas-reales
+          path: qa-capturas/vitrina-portadas-reales-*.png
+          if-no-files-found: ignore
+          retention-days: 1

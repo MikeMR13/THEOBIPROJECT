@@ -12,6 +12,7 @@ import { formatChapterIndex } from './chapter-title-display.js?v=1';
 import { editorialChapterLabel, editorialChapterDescription, editorialChapterGroup, editorialSectionSummary, editorialSectionCounts, genericSectionCount } from './editorial-public-labels.js?v=1';
 import { planReadingChanges, persistReadingChanges, applyReadingChanges } from './library-read-actions.js';
 import { chooseActiveEditorial } from './editorial-announcements.js?v=1';
+import { enhanceHomeVitrina } from './home-vitrina.js?v=2';
 import { createMobileNavigation, bindMobileNavigation } from './mobile-navigation.js?v=1';
 // Géneros/etiquetas que el lector ocultó en Preferencias › Contenido.
 const hidS = s => { const H = window.__obiUI?.hide; if (!H?.length) return false; const S = new Set(H.map(x => String(x).toLowerCase())); return [...(s.genres || []), ...(Array.isArray(s.tags) ? s.tags : [])].some(g => S.has(String(g).toLowerCase())); };
@@ -779,6 +780,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     clearInterval(homeRotationTimer);
     heroClock?.dispose(); heroClock = null; heroClockEl = null;
     rkCss(); if (!document.getElementById('ob2-css')) { const st = document.createElement('style'); st.id = 'ob2-css'; st.textContent = HOME_CSS; document.head.appendChild(st); }
+    app.querySelector('#hero')?.__vtStop?.();
     app.innerHTML = SKEL;
     const u = getUser(), now = new Date();
     // Fase 1: lo que se ve primero. home_feed trae todo lo público en una consulta; si falla, las consultas de siempre.
@@ -1202,11 +1204,13 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
   function refreshHeroKeepingActive(feat, i, prog, lastCh, top, newsBySeries, featReasons) {
     const el = $('#hero'), active = el?.dataset.heroKey;
     if (active && feat.some(item => heroKey(item) === active)
-      && Boolean(el.querySelector('.ob-pager2')) === (feat.length > 1)) return;
+      && Boolean(el.querySelector('.ob-pager2')) === (feat.length > 1)
+      && (!el.querySelector('.vt') || el.dataset.vtKeys === feat.map(heroKey).join('|'))) return;
     heroSlide(feat, i, prog, lastCh, top, newsBySeries, featReasons);
   }
   function heroSlide(feat, i, prog, lastCh, top = {}, newsBySeries = {}, featReasons = {}){
     const el = $('#hero'); if (!el || !feat[i]) return;
+    el.__vtStop?.(); el.__vtStop = null;
     el.dataset.heroKey = heroKey(feat[i]);
     const s = feat[i], pre = s.__prelaunch || null, reason = featReasons[s.id], p = pre ? null : prog[s.id], lc = pre ? null : lastCh[s.id], n = p?.chapter_num || lc?.num || 1; const pub = pre ? null : newsBySeries[s.id], v = pre ? { num: pre.vnum, cover_path: pre.cover_path } : pub?.kind === 'volume' ? pub.volume : null, art = v?.cover_path || s.cover_path; const heroCover = media(art); // Portada original, sin recortes de miniatura.
     const freshDate = publicationDate(pub?.at || lc?.publish_at);
@@ -1233,6 +1237,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         <h1 data-len="${(s.title.length + (v ? 12 + String(v.num).length : 0)) > 70 ? 'xl' : (s.title.length + (v ? 12 + String(v.num).length : 0)) > 40 ? 'l' : ''}"><a class="ob-h1a" href="/serie/${s.slug}" title="${esc(s.title + (v ? ' — Volumen ' + v.num : ''))}">${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}</a></h1>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn" style="white-space:pre-line">${esc(s.synopsis ? (synT.slice(tag.length).replace(/^\s+/, '').replace(/\n{3,}/g, '\n\n') || synT) : pre ? 'Conoce la historia antes de su estreno. Los capítulos permanecen bloqueados hasta la fecha indicada.' : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), genericSectionCount(s.chapters?.[0]?.count) + ' en español'].filter(Boolean).join(' · ') + '.')}</p></div><div class="ob-hero-footer">
         ${pre ? `<p class="ob-prelaunch-timer" style="margin:8px 0;color:#8cc3f2;font-size:13px">🔒 Lectura bloqueada · Estreno: ${esc(preWhen)} · Faltan ${esc(preLeft)}</p><div class="ob-acts"><a class="a1" href="/serie/${encodeURIComponent(s.slug)}">Ver primer vistazo →</a><a class="a2" href="/calendario?f=prog">Ver en el calendario</a></div>` : `<div class="ob-acts"><a class="a1" href="${v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + n}">${v ? 'Ver volumen ' + v.num : p ? 'Continuar lectura' : 'Leer ' + esc(editorialChapterLabel(lc).toLocaleLowerCase('es-MX'))}</a>${v && (p || lc) ? `<a class="a2" href="/leer/${s.slug}/${n}">${p ? 'Continuar lectura' : 'Empezar a leer'}</a>` : `<a class="a2" href="/serie/${s.slug}">Ver la serie</a>`}</div>`}</div></div>
       ${feat.length > 1 ? `<div class="ob-pager2" style="position:absolute;left:clamp(16px,4vw,56px);right:clamp(16px,4vw,56px);bottom:14px;z-index:2;display:flex;align-items:center;gap:10px"><button data-dir="-1" aria-label="Anterior" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">‹</button><span style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">${feat.length > 10 ? `<span class="mono" aria-label="Diapositiva ${i+1} de ${feat.length}" style="min-width:70px;text-align:center;font:600 12px 'IBM Plex Mono',monospace;color:var(--paper)">${i+1} / ${feat.length}</span>` : feat.map((f, j) => `<button data-j="${j}" data-hero-target="${esc(heroKey(f))}" aria-label="${esc(f.title)}" aria-current="${j === i}" style="height:10px;flex:${j === i ? '0 1 160px' : '0 0 10px'};min-width:10px;padding:0;border:none;cursor:pointer;position:relative;overflow:hidden;background:${j === i ? '#3d3628' : '#5a5244'}">${j === i ? `<i class="ob-hp" style="position:absolute;inset:0;background:var(--gold);transform-origin:left;transform:scaleX(${heroPaused ? 1 : 0});${heroPaused || matchMedia('(prefers-reduced-motion: reduce)').matches ? '' : 'animation:obHp 5s linear forwards'}"></i>` : ''}</button>`).join('')}</span><button data-hp aria-label="${heroPaused ? 'Reanudar' : 'Pausar'}" style="height:40px;padding:0 12px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">${heroPaused ? '▶ Reanudar' : 'Ⅱ Pausar'}</button><button data-dir="1" aria-label="Siguiente" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">›</button></div>` : ''}`;
+    // La Vitrina V2 conserva el HTML editorial, preestrenos, créditos, enlaces
+    // y paginador anteriores; únicamente reorganiza su presentación.
+    el.__vtStop = enhanceHomeVitrina(el, feat, i, { esc, media, newsBySeries, reasons: featReasons, activeNotice: currentNotice });
     // Si el recurso deja de existir, convertirlo en nombre sin perder el enlace.
     el.querySelector('.ob-hero-team-logo img')?.addEventListener('error', event => {
       const img = event.currentTarget, anchor = img.closest('.ob-hero-team-logo');
@@ -1253,6 +1260,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       const target = b.hasAttribute('data-dir')
         ? (Math.max(0, current) + Number(b.dataset.dir) + feat.length) % feat.length
         : Math.max(0, feat.findIndex(item => heroKey(item) === b.dataset.heroTarget));
+      // Una selección manual detiene el avance hasta usar Reanudar.
+      heroPaused = true;
       heroSlide(feat, target, prog, lastCh, top, newsBySeries, featReasons);
     });
     el.querySelector('[data-hp]')?.addEventListener('click', () => { heroPaused = !heroPaused; heroSlide(feat, i, prog, lastCh, top, newsBySeries, featReasons); });
