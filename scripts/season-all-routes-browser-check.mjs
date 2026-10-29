@@ -29,17 +29,29 @@ const routes=[
 ['/estudio','studio','studio'],['/estudio/obras','studio','studio'],
 ['/estudio/flujo','studio','studio'],['/estudio/preferencias','studio','studio'],
 ['/estudio/comunidad','studio','studio'],['/estudio/difusion','studio','studio'],
-['/bibliotecario','admin','admin']
+['/bibliotecario','admin','admin'],['/admin','admin','admin'],
+['/restablecer','account','page'],['/biblioteca?t=guardadas','library','page'],
+['/biblioteca?t=finalizadas','library','page'],
+['/preferencias?s=avisos','preferences','page'],
+['/preferencias?s=apariencia','preferences','page'],
+['/estudio/nueva','studio','studio'],['/estudio/importar','studio','studio'],
+['/estudio/multimedia','studio','studio'],['/estudio/equipo','studio','studio'],
+['/estudio/bitacora','studio','studio'],['/estudio/perfil','studio','studio'],
+['/estudio/anuncios','studio','studio'],['/estudio/estadisticas','studio','studio'],
+['/estudio/descargas','studio','studio'],['/estudio/glosario','studio','studio'],
+['/estudio/glosario/obra','studio','studio'],
+['/estudio/obra/obra','studio','studio'],['/estudio/editar/obra','studio','studio']
 ];
 for(const [route] of routes){
-  assert(app.includes("'"+route+"'") ||
-    (route.startsWith('/serie/')&&app.includes("p.match(/^\\/serie\\/")) ||
-    (route.startsWith('/equipo/')&&app.includes("p.match(/^\\/equipo\\/")) ||
-    (route.startsWith('/lector/')&&app.includes("p.match(/^\\/lector\\/")) ||
-    (route.startsWith('/leer/')&&app.includes("p.match(/^\\/leer\\/")) ||
-    (route.startsWith('/anotaciones/')&&app.includes("p.match(/^\\/anotaciones\\/")) ||
-    (route.startsWith('/estudio/')&&app.includes("p.startsWith('/estudio')")) ||
-    (route==='/descargas'&&app.includes("p === '/descargas'")),
+  const path=route.split('?')[0];
+  assert(app.includes("'"+path+"'") ||
+    (path.startsWith('/serie/')&&app.includes("p.match(/^\\/serie\\/")) ||
+    (path.startsWith('/equipo/')&&app.includes("p.match(/^\\/equipo\\/")) ||
+    (path.startsWith('/lector/')&&app.includes("p.match(/^\\/lector\\/")) ||
+    (path.startsWith('/leer/')&&app.includes("p.match(/^\\/leer\\/")) ||
+    (path.startsWith('/anotaciones/')&&app.includes("p.match(/^\\/anotaciones\\/")) ||
+    (path.startsWith('/estudio/')&&app.includes("p.startsWith('/estudio')")) ||
+    (path==='/descargas'&&app.includes("p === '/descargas'")),
     'Ruta no encontrada en app: '+route);
 }
 const design=normalize({theme:'tinta',seasons:{manual:'halloween',deco:'full'}},'#ff7a1a');
@@ -149,6 +161,7 @@ function checkPage(){
        details.querySelector('summary').click();
        toggle.click();
        if(menu.hidden||toggle.getAttribute('aria-expanded')!=='true')err(k,p,'menú inoperante');
+       if(!hit(menu.querySelector('a')))err(k,p,'opción del menú tapada por temporada');
        toggle.click();
      }
      if(problems.length>100)break;
