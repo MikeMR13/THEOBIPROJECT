@@ -1214,7 +1214,8 @@ body.rd-zen .rd-settings-dock{display:none!important}
 }
 .rd[data-controls="fijo"] .rd-bar{
   position:fixed;
-  top:var(--top-h,62px);
+  /* Actualizar según la cabecera visible evita el hueco negro al desplazarse. */
+  top:var(--rd-fixed-top,0px);
   inset-inline:0;
   width:100%;
   z-index:6;
@@ -1227,5 +1228,17 @@ body.rd-zen .rd-settings-dock{display:none!important}
 @media(max-width:700px){
   .rd[data-controls="fijo"] .rd-bar{
     top:0;
+  }
+}
+
+/* El panel de ajustes también sigue el borde real de la barra fija. */
+.rd[data-controls="fijo"] .rd-panel{
+  top:calc(var(--rd-fixed-top,0px) + var(--rd-h,58px) + 8px);
+  max-height:calc(100dvh - var(--rd-fixed-top,0px) - var(--rd-h,58px) - 20px);
+}
+@media(max-width:700px){
+  .rd[data-controls="fijo"] .rd-panel{
+    top:auto;
+    max-height:min(76dvh,calc(100dvh - var(--rd-h,58px) - 12px));
   }
 }
