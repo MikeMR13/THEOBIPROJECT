@@ -8,7 +8,7 @@ const tabs = readFileSync('src/series-tabs.js','utf8');
 const logic = readFileSync('src/library-logic.js','utf8');
 const nav = readFileSync('src/mobile-navigation.js','utf8');
 const req = (s, pieces, label) => pieces.forEach(p => assert(s.includes(p), label + ': falta ' + p));
-req(ui, ['id="cat-q"', 'id="cat-filters"', 'id="cat-quick-sort"', 'id="cat-quick-filters"', "det.addEventListener('toggle', syncQuickFilters)", 'data-view="fichero"', 'data-view="portadas"', 'data-sort=', 'data-g=', 'cat-clear', 'cat-pages', 'F.gout.includes(g)'], 'Catálogo');
+req(ui, ['id="cat-q"', 'id="cat-filters"', 'id="cat-quick-sort"', 'id="cat-quick-filters"', "det.addEventListener('toggle', syncQuickFilters)", 'data-view="fichero"', 'data-view="portadas"', 'data-sort=', 'data-g=', 'cat-clear', 'cat-pages', "det.scrollIntoView({ block: 'start', behavior: 'auto' })", 'F.gout.includes(g)'], 'Catálogo');
 req(ui, ['ui-series-context-links', 'ui-series-preview', 'previewBooks', 'ui-series-preview-item', 'id="serie-vols"', 'id="serie-descargas"', 'id="follow"', 'offlineButton({slug:s.slug,scope:', 'id="serie-tab-reviews"'], 'Ficha');
 req(app, ['lb-tab-group lb-tab-shelves', 'lb-tab-group lb-tab-tools', 'id="lb-pending-explain"', "tab !== 'pendientes'", 'offlineDownloads.button', 'lb-read-toggle', 'lb-card-hide', "tab==='avisos'", "tab==='offline'", 'rd().historyList'], 'Biblioteca');
 req(logic, ['w.fol&&w.unread>0&&!w.done', 'w.hasReading&&!w.done', 'w.done'], 'Progreso preservado');

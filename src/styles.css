@@ -1074,3 +1074,7 @@ a.obi-credit:focus-visible{outline:2px solid var(--gold,#f2c230);outline-offset:
   .ui-series-page .ui-series-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 }
 @media(prefers-reduced-motion:reduce){.ui-cat-quick-filter span{transition:none}}
+
+/* Mantener el encabezado y la barra de búsqueda visibles al abrir los filtros desde abajo. */
+.ui-cat-advanced .ui-fdet{scroll-margin-top:calc(var(--top-h,62px) + 100px)}
+@media(max-width:760px){.ui-cat-advanced .ui-fdet{scroll-margin-top:calc(var(--top-h,62px) + 152px)}}

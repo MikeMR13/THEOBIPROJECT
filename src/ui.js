@@ -1458,7 +1458,12 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       quickFilters.setAttribute('aria-expanded', String(det.open));
       quickFilters.classList.toggle('on', det.open);
     };
-    quickFilters.onclick = () => { det.open = !det.open; };
+    quickFilters.onclick = () => {
+      const opening = !det.open;
+      det.open = opening;
+      // Al abrir filtros desde una posición baja, llevar el panel al área visible.
+      if (opening) requestAnimationFrame(() => det.scrollIntoView({ block: 'start', behavior: 'auto' }));
+    };
     det.addEventListener('toggle', syncQuickFilters);
     syncQuickFilters();
     $('#cat-quick-sort').onchange = e => { F.sort = e.target.value; draw(); };
