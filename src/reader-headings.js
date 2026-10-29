@@ -11,7 +11,9 @@ export function repeatedOpeningHeading(blocks, chapter) {
   const first = blocks.findIndex(b => String(b?.text || b?.html || '').trim());
   if (first < 0 || !['heading', 'h'].includes(blocks[first]?.type || blocks[first]?.t)) return -1;
   const shown = formatChapterIndex({title:chapter?.title,sectionType:chapter?.section_type});
-  const visible = plain(shown.heading || chapter?.title);
+  // Si el título editorial solo contiene el número, no hay H2 visible equivalente.
+  if (!String(shown.heading || '').trim()) return -1;
+  const visible = plain(shown.heading);
   const b = blocks[first];
   const rendered = plain(b.text || b.html);
   const editorial = formatChapterIndex({title:b.text || b.html,sectionType:chapter?.section_type});
