@@ -16,13 +16,13 @@ const cssEnd=ui.indexOf(quote+';',cssStart+1);
 assert(cssEnd>cssStart);
 const homeCss=ui.slice(cssStart+1,cssEnd);
 assert(ui.includes('<div class="ob-hero-flags">') && ui.includes('<div class="ob-hero-rank">'),'El carrusel debe separar avisos y ranking');
-assert(ui.includes('ob-hero-flags .ob-utag-hero') && ui.includes('ob-txt h1[data-len=xl]'),'Faltan reglas responsive de etiquetas o títulos');
+assert(ui.includes('ob-hero-flags .ob-utag-hero') && ui.includes('ob-txt h2[data-len=xl]'),'Faltan reglas responsive de etiquetas o títulos');
 
 const viewport=[320,390,768,1024,1440,1873];
 const checks=[
 "const get=s=>document.querySelector(s),rect=s=>get(s).getBoundingClientRect(),err=[];",
 "const test=(pass,text)=>{if(!pass)err.push(text)};",
-"const badge=rect('.ob-badge-vol'), custom=rect('.ob-utag-hero'),rank=rect('.ob-hero-rank'),title=rect('.ob-txt h1'),actions=rect('.ob-acts'),pager=rect('.ob-pager2'),logo=rect('.ob-hero-team-logo'),meta=rect('.ob-hero-meta'),cover=rect('.ob-cov'),footer=rect('.ob-hero-footer'),hero=rect('.ob-hero');",
+"const badge=rect('.ob-badge-vol'), custom=rect('.ob-utag-hero'),rank=rect('.ob-hero-rank'),title=rect('.ob-txt h2'),actions=rect('.ob-acts'),pager=rect('.ob-pager2'),logo=rect('.ob-hero-team-logo'),meta=rect('.ob-hero-meta'),cover=rect('.ob-cov'),footer=rect('.ob-hero-footer'),hero=rect('.ob-hero');",
 "const max=document.documentElement.clientWidth, tol=3;",
 "test(badge.height>20&&custom.height>15,'etiquetas sin altura');",
 "test(custom.top-badge.bottom>=5,'etiquetas pegadas/solapadas');",
@@ -44,8 +44,8 @@ const checks=[
 "test(actions.bottom<=pager.top+tol,'botones y controles superpuestos');",
 "test(footer.bottom<=pager.top+tol,'footer y controles superpuestos');",
 "test(pager.bottom<=hero.bottom+tol,'controles fuera de hero');",
-"test(get('.ob-txt h1').scrollHeight<=get('.ob-txt h1').clientHeight+3,'titulo recortado');",
-"test(['none','unset'].includes(getComputedStyle(get('.ob-txt h1')).webkitLineClamp),'el título no debe recortarse');",
+"test(get('.ob-txt h2').scrollHeight<=get('.ob-txt h2').clientHeight+3,'titulo recortado');",
+"test(['none','unset'].includes(getComputedStyle(get('.ob-txt h2')).webkitLineClamp),'el título no debe recortarse');",
 "test(getComputedStyle(get('.ob-syn')).webkitLineClamp==='2','la sinopsis no tiene la longitud responsive esperada');",
 "test(cover.width<=292,'portada demasiado ancha');",
 "if(innerWidth>=701){test(getComputedStyle(get('.ob-hero')).maxHeight==='none','el carrusel vuelve a altura máxima fija');test(Math.abs(actions.bottom-footer.bottom)<=3,'acciones fuera del footer');}",
@@ -53,18 +53,18 @@ const checks=[
 "const over=[...document.querySelectorAll('.ob-hero *')].filter(n=>n.getBoundingClientRect().right>max+tol).slice(0,3).map(n=>n.className||n.tagName).join(',');",
 "test(document.documentElement.scrollWidth<=max+tol,'scroll horizontal: contenido '+document.documentElement.scrollWidth+' viewport '+max+' ['+over+']');",
 "test(parseFloat(getComputedStyle(get('.ob-utag-hero')).fontSize)<=16,'aviso secundario desproporcionado');",
-"test(parseFloat(getComputedStyle(get('.ob-txt h1')).fontSize)<=43,'título desproporcionado');",
+"test(parseFloat(getComputedStyle(get('.ob-txt h2')).fontSize)<=43,'título desproporcionado');",
 "const link=get('.ob-hero-team-logo'), img=link.querySelector('img'), href=link.getAttribute('href');",
 "test(!!img&&!link.querySelector('span'),'PNG y nombre aparecen al mismo tiempo');",
 "const name=document.createElement('span');name.textContent='Equipo de traducción de prueba con nombre muy largo';link.classList.add('is-text');img.replaceWith(name);",
-"const textRect=rect('.ob-hero-team-logo'),metaRect=rect('.ob-hero-meta'),titleRect=rect('.ob-txt h1');",
+"const textRect=rect('.ob-hero-team-logo'),metaRect=rect('.ob-hero-meta'),titleRect=rect('.ob-txt h2');",
 "test(link.getAttribute('href')===href&&!link.querySelector('img')&&!!link.querySelector('span'),'logo y texto no conservan el mismo hipervínculo');",
 "test(getComputedStyle(name).display!=='none'&&name.getBoundingClientRect().height>0,'nombre oculto en móvil');",
 "test(textRect.left>=metaRect.right-3&&rect('.ob-badge-vol').right<=textRect.left-6&&rect('.ob-utag-hero').right<=textRect.left-6&&rect('.ob-hero-rank').right<=textRect.left-6,'texto y aviso se superponen');",
 "test(textRect.bottom<=titleRect.top-6,'nombre se superpone al título');",
 "if(innerWidth>1100){test(textRect.width<=102,'el fallback textual no debe crecer con el PNG de escritorio');test(logoSize.width>=170&&logoSize.width<=190,'PNG principal fuera de escala en escritorio');test(getComputedStyle(link).position!=='absolute','el fallback de nombre sigue en el flujo del encabezado');}",
 "test(document.documentElement.scrollWidth<=max+tol,'nombre desborda el viewport');",
-"const H=get('.ob-txt h1'),HLink=H.querySelector('a');",
+"const H=get('.ob-txt h2'),HLink=H.querySelector('a');",
 "for(const [len,titleText] of [['','Sayonara Princess'],['l','Los secretos de la Bruja del Silencio — Volumen 2'],['xl','Para crear una organización que actuará en secreto desde las sombras, crié y entrené a unas chicas con los más altos conocimientos de asesinato, y terminaron convirtiéndose en una gran potencia — Volumen 1']]){H.dataset.len=len;HLink.textContent=titleText;const tr=H.getBoundingClientRect(),lr=rect('.ob-hero-team-logo'),pr=rect('.ob-pager2');test(tr.left>=-tol&&tr.right<=max+tol,'título '+len+' sale del ancho');test(lr.bottom<=tr.top-6,'logo se superpone al título '+len);test(rect('.ob-acts').bottom<=pr.top+tol,'acciones invaden controles con título '+len);test(rect('.ob-hero-footer').bottom<=pr.top+tol,'footer invade controles con título '+len);test(document.documentElement.scrollWidth<=max+tol,'scroll horizontal con título '+len);}",
 "const result=get('#result');result.dataset.status=err.length?'fail':'pass';result.textContent=err.join(' | ')||'OK';"
 ].join('\n');
