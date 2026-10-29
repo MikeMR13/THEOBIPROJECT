@@ -4,6 +4,9 @@ on:
     paths:
       - 'src/home-vitrina.js'
       - 'src/ui.js'
+      - 'src/reader.js'
+      - 'src/prelaunch-access.js'
+      - 'scripts/prelaunch-access-check.mjs'
       - 'scripts/home-vitrina-v2-check.mjs'
       - 'scripts/home-vitrina-real-cover-check.mjs'
       - '.github/workflows/vitrina-v2.yml'
@@ -13,6 +16,9 @@ on:
     paths:
       - 'src/home-vitrina.js'
       - 'src/ui.js'
+      - 'src/reader.js'
+      - 'src/prelaunch-access.js'
+      - 'scripts/prelaunch-access-check.mjs'
       - 'scripts/home-vitrina-v2-check.mjs'
       - '.github/workflows/vitrina-v2.yml'
   workflow_dispatch:
@@ -34,8 +40,13 @@ jobs:
         run: |
           node --check src/home-vitrina.js
           node --check src/ui.js
+          node --check src/reader.js
+          node --check src/prelaunch-access.js
+          node --check scripts/prelaunch-access-check.mjs
           node --check scripts/home-vitrina-v2-check.mjs
           node --check scripts/home-vitrina-real-cover-check.mjs
+      - name: Verificar bloqueo de preestrenos y enlaces opacos
+        run: node scripts/prelaunch-access-check.mjs
       - name: Validar cinco tamaños en navegador
         run: node scripts/home-vitrina-v2-check.mjs
       - name: Validar portadas reales públicas y capturas
