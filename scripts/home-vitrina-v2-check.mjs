@@ -47,6 +47,21 @@ function browserCheck(){
   ok(document.documentElement.scrollWidth<=document.documentElement.clientWidth+3,'Desbordamiento horizontal');
   ok(r('.ob-acts').bottom<=r('.vt').bottom+3,'Acciones recortadas');
   ok(r('.ob-hero-team-logo').right<=r('.vt-side').right+3,`Logo desbordado: ${r('.ob-hero-team-logo').right.toFixed(1)}/${r('.vt-side').right.toFixed(1)}; vt ${r('.vt').left.toFixed(1)}-${r('.vt').right.toFixed(1)}`);
+  // El título debe encoger sin modificar la altura global entre obras.
+  const fixedHeight=r('.vt-row').height, paper=r('.ob-txt');
+  const h1=s.querySelector('.ob-txt h1'),originalTitle=h1.textContent;
+  h1.textContent='Título breve';
+  ok(Math.abs(r('.vt-row').height-fixedHeight)<1,'Cambió la altura con un título corto');
+  h1.textContent=originalTitle;
+  ok(Math.abs(r('.vt-row').height-fixedHeight)<1,'Cambió la altura con un título largo');
+  ok(getComputedStyle(s.querySelector('.vt-row')).height!=='auto','Altura sin reserva estable');
+  ok(s.querySelector('.ob-txt').dataset.vtFit==='ready','No se ejecutó el ajuste de tipografía');
+  ok(r('.ob-acts').bottom<=paper.bottom-4,'Botones sobresalen de la hoja');
+  ok(r('.ob-acts').top>=paper.top,'Botones colocados fuera de la hoja');
+  ok(r('.ob-txt h1').bottom<=r('.ob-hero-footer').top+2,'Título sobrepuesto a los CTA');
+  const logoWidth=r('.ob-hero-team-logo').width;
+  ok(logoWidth>=(innerWidth<=700?90:110),'PNG del traductor demasiado pequeño: '+logoWidth.toFixed(1)+'px');
+
   ok(r('.ob-txt h1').right<=document.documentElement.clientWidth+3,`Título desbordado: ${r('.ob-txt h1').right.toFixed(1)}/${document.documentElement.clientWidth}`);
   if(innerWidth<=700){
     ok(getComputedStyle(s.querySelector('.vt-books')).scrollSnapType.includes('mandatory'),'Falta scroll-snap');
@@ -67,7 +82,7 @@ async function run(){
   assert(cssMatch,'Estilos reales de Inicio no encontrados');
   const siteCss=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(cssMatch[1]);
   for(const needle of [
-    "home-vitrina.js?v=3","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
+    "home-vitrina.js?v=4","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
     "el.dataset.vtKeys === feat.map(heroKey).join('|')","el.__vtStop?.()",
     "heroPaused = true;","homeMetrics.shown(heroKey(s)","homeMetrics.clicked(s.slug",
     "prelaunch_calendar","creditsHTML({publicCredits:","heroClock.show({"

@@ -12,7 +12,7 @@ import { formatChapterIndex } from './chapter-title-display.js?v=1';
 import { editorialChapterLabel, editorialChapterDescription, editorialChapterGroup, editorialSectionSummary, editorialSectionCounts, genericSectionCount } from './editorial-public-labels.js?v=1';
 import { planReadingChanges, persistReadingChanges, applyReadingChanges } from './library-read-actions.js';
 import { chooseActiveEditorial } from './editorial-announcements.js?v=1';
-import { enhanceHomeVitrina } from './home-vitrina.js?v=3';
+import { enhanceHomeVitrina } from './home-vitrina.js?v=4';
 import { createMobileNavigation, bindMobileNavigation } from './mobile-navigation.js?v=1';
 // Géneros/etiquetas que el lector ocultó en Preferencias › Contenido.
 const hidS = s => { const H = window.__obiUI?.hide; if (!H?.length) return false; const S = new Set(H.map(x => String(x).toLowerCase())); return [...(s.genres || []), ...(Array.isArray(s.tags) ? s.tags : [])].some(g => S.has(String(g).toLowerCase())); };
