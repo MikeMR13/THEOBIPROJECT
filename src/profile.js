@@ -753,7 +753,7 @@ export async function preferences(C){
     return;
   }
   if (tab === 'avisos') {
-    const KINDS = [['capitulo', 'Capítulos nuevos', 'De las obras que sigues.', true], ['respuesta', 'Respuestas a tus comentarios', 'Cuando alguien contesta lo que escribiste.', true], ['errata', 'Erratas que reportaste', 'Cuando el equipo revisa tu reporte.', true], ['tablero', 'Estudio y equipos', 'Tablero, temporadas y ranking. Solo si formas parte de un equipo.', false]];
+    const KINDS = [['capitulo', 'Capítulos nuevos', 'De las obras que sigues.', true], ['volumen', 'Volúmenes completos nuevos', 'Cuando las obras que sigues publican un volumen completo.', false], ['respuesta', 'Respuestas a tus comentarios', 'Cuando alguien contesta lo que escribiste.', true], ['errata', 'Erratas que reportaste', 'Cuando el equipo revisa tu reporte.', true], ['tablero', 'Estudio y equipos', 'Tablero, temporadas y ranking. Solo si formas parte de un equipo.', false]];
     const FREQ = [['off', 'Nunca', 'Solo en la campana.'], ['inmediato', 'Al momento', 'Un correo en cuanto llega el aviso.'], ['diario', 'Resumen diario', 'Un solo correo a las 9:00, si hay novedades.'], ['semanal', 'Resumen semanal', 'Los lunes a las 9:00, si hay novedades.']];
     const N = { web: {}, email: {}, freq: 'off', ...(P.notify || {}) }; N.web = { ...N.web }; N.email = { ...N.email };
     const onW = k => N.web[k] !== false, onE = (k, d) => N.email[k] ?? d;
@@ -775,16 +775,31 @@ export async function preferences(C){
       <div style="display:grid;gap:10px"><h3>Qué te avisamos</h3>${KINDS.map(([k, l, d, de]) => `<div class="pf-row" style="justify-content:space-between"><span style="display:grid;gap:3px;flex:1 1 240px"><b style="font-size:14px">${l}</b><span class="pf-note" style="font-size:13px">${d}</span></span><span style="display:flex;gap:18px"><span class="mono" style="${lbl}">CAMPANA${tg('w-' + k, onW(k), l + ' en la campana')}</span><span class="mono ${off ? 'pf-mail-off' : ''}" style="${lbl}">CORREO${tg('e-' + k, onE(k, de), l + ' por correo' + (off ? ', pausado hasta activar correo' : ''), off)}</span></span></div>`).join('')}
       <p class="pf-note" style="font-size:13px">Los avisos de moderación sobre tu cuenta siempre llegan a la campana.</p></div>
       <div style="display:grid;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h3>Obras que sigues</h3><span class="mono" style="font-size:11px">${FL.length} ${FL.length === 1 ? 'OBRA' : 'OBRAS'}</span></div>
-      ${!onW('capitulo') && off ? '<p class="pf-note" style="font-size:13px">Tienes desactivados los avisos de capítulos nuevos: estos interruptores no tendrán efecto hasta que los actives arriba.</p>' : ''}
-      ${FL.length ? `<div style="display:grid;gap:8px">${FL.map(({ r, s }) => `<div class="pf-row" style="justify-content:space-between"><a href="/serie/${esc(s.slug)}" style="flex:1 1 200px;font-weight:600">${esc(s.title)}</a><span style="display:flex;gap:12px;align-items:center"><button type="button" class="ui-lnk" data-unf="${s.id}" style="font-size:12px;color:var(--mute)">Dejar de seguir</button>${tg('f-' + s.id, r.channels?.web !== false, 'Avisos de ' + s.title)}</span></div>`).join('')}</div>` : '<p class="pf-note">Aún no sigues ninguna obra. Usa «Seguir serie» en la ficha de una obra.</p>'}</div>`);
+      ${!onW('capitulo') && off ? '<p class="pf-note" style="font-size:13px">Tienes desactivados los avisos generales de capítulos: los interruptores por obra no generarán alertas hasta que los actives arriba.</p>' : ''}
+      ${FL.length ? `<div style="display:grid;gap:8px">${FL.map(({ r, s }) => `<div class="pf-row" style="justify-content:space-between"><a href="/serie/${esc(s.slug)}" style="flex:1 1 200px;font-weight:600">${esc(s.title)}</a><span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button type="button" class="ui-lnk" data-unf="${s.id}" style="font-size:12px;color:var(--mute)">Dejar de seguir</button><span style="display:grid;justify-items:center;gap:3px;font-size:11px">Capítulos${tg('fc-' + s.id, r.channels?.web !== false && r.channels?.chapters !== false, 'Avisos de capítulos de ' + s.title)}</span><span style="display:grid;justify-items:center;gap:3px;font-size:11px">Volúmenes${tg('fv-' + s.id, r.channels?.volumes !== false, 'Avisos de volúmenes de ' + s.title)}</span></span></div>`).join('')}</div>` : '<p class="pf-note">Aún no sigues ninguna obra. Usa «Seguir serie» en la ficha de una obra.</p>'}</div>`);
       const $ = s => app.querySelector(s);
       app.querySelectorAll('[name="fq"]').forEach(i => i.onchange = async () => { const prev = N.freq; N.freq = i.value; if (await save()) { toast(i.value === 'off' ? 'Ya no recibirás correos' : 'Frecuencia de correo guardada'); draw(); } else N.freq = prev; });
       KINDS.forEach(([k, , , de]) => {
         $('#w-' + k).onclick = async e => { const b = e.currentTarget; N.web[k] = !onW(k); if (await save()) { flip(b); draw(); } else N.web[k] = !N.web[k]; };
         $('#e-' + k).onclick = async e => { if (off) return; const b = e.currentTarget; N.email[k] = !onE(k, de); if (await save()) { flip(b); draw(); } else N.email[k] = !N.email[k]; };
       });
-      FL.forEach(({ r, s }) => { $('#f-' + s.id).onclick = async e => { const b = e.currentTarget, ch = { ...(r.channels || {}), web: r.channels?.web === false };
-        const { error } = await sb.from('follows').update({ channels: ch }).eq('user_id', user.id).eq('series_id', s.id); if (error) return toast(error.message); r.channels = ch; flip(b); }; });
+      FL.forEach(({ r, s }) => {
+        for (const [prefix,key] of [['fc-','web'],['fv-','volumes']]) {
+          $('#' + prefix + s.id).onclick = async e => {
+            const b=e.currentTarget, enabled=key==='web'
+              ? r.channels?.web!==false && r.channels?.chapters!==false : r.channels?.volumes!==false;
+            const ch={...(r.channels||{}),[key]:!enabled};
+            if(key==='web')ch.chapters=!enabled;
+            b.disabled=true;
+            try {
+              const {error}=await sb.from('follows').update({channels:ch}).eq('user_id',user.id).eq('series_id',s.id);
+              if(error)throw error;
+              r.channels=ch;flip(b);
+            }catch{toast('No se pudieron actualizar los avisos de esta obra.');}
+            finally{b.disabled=false;}
+          };
+        }
+      });
       app.querySelectorAll('[data-unf]').forEach(b => b.onclick = async () => { if (!await confirmObi('¿Dejar de seguir esta obra?')) return; const id = b.dataset.unf; const { error } = await sb.from('follows').delete().eq('user_id', user.id).eq('series_id', id); if (error) return toast(error.message); FL.splice(FL.findIndex(x => x.s.id === id), 1); toast('Ya no sigues esta obra'); draw(); });
     };
     draw(); return;

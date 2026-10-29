@@ -717,16 +717,25 @@ async function library(){
       input.oninput=repaint;sort.onchange=repaint;repaint();
     } else if(tab==='avisos'){
       const FL=fol.map(r=>({r,s:ser.find(x=>x.id===r.series_id)})).filter(x=>x.s).sort((a,b)=>a.s.title.localeCompare(b.s.title,'es'));
-      box.innerHTML=FL.length?`<p class="mono" style="margin:0 0 14px;font-size:13px">Elige de qué obras recibir avisos cuando se publique un capítulo. <a href="/preferencias?s=avisos">Más opciones de avisos y correo</a>.</p>
+      box.innerHTML=FL.length?`<p class="mono" style="margin:0 0 14px;font-size:13px">Elige si quieres recibir avisos de capítulos y de volúmenes completos en cada obra que sigues. <a href="/preferencias?s=avisos">Más opciones de avisos y correo</a>.</p>
         <div class="lb-av">${FL.map(({r,s})=>`<div class="lb-ai"><a href="/serie/${esc(s.slug)}">${esc(s.title)}</a>
-          <label class="ui-tog"><input type="checkbox" data-av="${esc(s.id)}" ${r.channels?.web!==false?'checked':''}> Avisarme</label>
+          <label class="ui-tog"><input type="checkbox" data-av="${esc(s.id)}" data-av-channel="web" ${r.channels?.web!==false&&r.channels?.chapters!==false?'checked':''}> Capítulos</label>
+          <label class="ui-tog"><input type="checkbox" data-av="${esc(s.id)}" data-av-channel="volumes" ${r.channels?.volumes!==false?'checked':''}> Volúmenes</label>
           <button type="button" class="ui-lnk" data-unf="${esc(s.id)}">Dejar de seguir</button></div>`).join('')}</div>`
         :'<div class="lb-empty">Aún no sigues ninguna obra. Usa «Seguir serie» en su ficha.</div>';
       box.querySelectorAll('[data-av]').forEach(i=>i.onchange=async()=>{
-        const r=fol.find(x=>x.series_id===i.dataset.av),ch={...(r.channels||{}),web:i.checked};
+        const r=fol.find(x=>x.series_id===i.dataset.av);
+        if(!r)return;
+        const key=i.dataset.avChannel;
+        if(!['web','volumes'].includes(key))return;
+        const ch={...(r.channels||{}),[key]:i.checked};
+        if(key==='web')ch.chapters=i.checked;
         i.disabled=true;
-        try{const {error}=await sb.from('follows').update({channels:ch}).eq('user_id',uid).eq('series_id',i.dataset.av);if(error)throw error;r.channels=ch;toast(i.checked?'Recibirás avisos de esta obra':'Ya no recibirás avisos de esta obra');}
-        catch(e){i.checked=!i.checked;toast('No se pudieron guardar los avisos.');}
+        try{
+          const {error}=await sb.from('follows').update({channels:ch}).eq('user_id',uid).eq('series_id',i.dataset.av);
+          if(error)throw error;
+          r.channels=ch;toast(i.checked?'Avisos activados para esta obra':'Avisos desactivados para esta obra');
+        }catch(e){i.checked=!i.checked;toast('No se pudieron guardar los avisos.');}
         finally{i.disabled=false;}
       });
       box.querySelectorAll('[data-unf]').forEach(b=>b.onclick=async()=>{

@@ -5,9 +5,9 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
 const KEY = Deno.env.get('RESEND_API_KEY')!;
 const FROM = Deno.env.get('EMAIL_FROM') ?? 'El Obi del Lector <biblioteca@TU-DOMINIO>';
-const SITE = (Deno.env.get('SITE_URL') ?? 'https://theobiproject-cronica.vercel.app').replace(/\/$/, '');
+const SITE = (Deno.env.get('SITE_URL') ?? 'https://elobidellector.com').replace(/\/$/, '');
 const SECRET = Deno.env.get('CRON_SECRET'); // obligatorio: función expuesta sin JWT a llamadas programadas
-const LBL: Record<string, string> = { capitulo: 'Capítulos nuevos', respuesta: 'Respuestas', errata: 'Erratas', tablero: 'Estudio', moderacion: 'Tu cuenta' };
+const LBL: Record<string, string> = { capitulo: 'Capítulos nuevos', volumen: 'Volúmenes completos nuevos', Volumen: 'Volúmenes completos nuevos', respuesta: 'Respuestas', errata: 'Erratas', tablero: 'Estudio', moderacion: 'Tu cuenta' };
 const esc = (s: string) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const link = (h?: string) => h && /^\/(?!\/)/.test(h) ? SITE + h : SITE + '/';
 const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
