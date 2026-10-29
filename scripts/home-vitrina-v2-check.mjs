@@ -69,7 +69,7 @@ function browserCheck(){
   ok(s.querySelector('.ob-txt').dataset.vtFit==='ready','No se ejecutó el ajuste de tipografía');
   ok(r('.ob-acts').bottom<=paper.bottom-4,'Botones sobresalen de la hoja');
   ok(r('.ob-acts').top>=paper.top,'Botones colocados fuera de la hoja');
-  ok(r('.ob-txt h1').bottom<=r('.ob-hero-footer').top+2,'Título sobrepuesto a los CTA');
+  ok(r('.ob-txt h1').bottom<=r('.ob-hero-footer').top+2,`Título sobrepuesto: título ${r('.ob-txt h1').top.toFixed(0)}-${r('.ob-txt h1').bottom.toFixed(0)}, pie ${r('.ob-hero-footer').top.toFixed(0)}-${r('.ob-hero-footer').bottom.toFixed(0)}, papel ${r('.ob-txt').top.toFixed(0)}-${r('.ob-txt').bottom.toFixed(0)}, font ${getComputedStyle(h1).fontSize}, display ${getComputedStyle(h1).display}, clamp ${getComputedStyle(h1).webkitLineClamp}`);
   const logoWidth=r('.ob-hero-team-logo').width;
   ok(logoWidth>=(innerWidth<=700?90:110),'PNG del traductor demasiado pequeño: '+logoWidth.toFixed(1)+'px');
 
