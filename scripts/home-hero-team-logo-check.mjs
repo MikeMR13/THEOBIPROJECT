@@ -67,8 +67,8 @@ assert(ui.includes('title="${esc(s.title +'),
  'Conservar el título completo disponible al mantener el cursor sobre la novela');
 assert(ui.includes('.ob-hero .ob-hero-footer{flex:none;margin-top:auto'),
  'Los botones deben mantener su espacio incluso con titulares extensos');
-assert(qa.includes('el destacado excede la altura compacta') && qa.includes('footer invade controles'),
- 'La QA responsive debe detectar regresiones de altura y botones ocultos');
+assert(qa.includes('el carrusel vuelve a altura máxima fija') && qa.includes('footer invade controles') && qa.includes('controles fuera de hero'),
+ 'La QA responsive debe detectar recortes y controles superpuestos en la composición original');
 // En colaboraciones, agrandar solamente el PNG del propietario, no los
 // colaboradores ni el fallback con el nombre del equipo.
 assert(ui.includes('@media(min-width:1101px)') &&

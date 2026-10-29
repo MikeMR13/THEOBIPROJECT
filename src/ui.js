@@ -727,6 +727,47 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
 @media(max-width:380px){
   .ob-hero .ob-acts .a1,.ob-hero .ob-acts .a2{padding:8px 11px;font-size:12px}
 }
+
+/* Reparación conservadora: mantener composición original, tipografía, portada
+   y controles del carrusel. Solo corregir el recorte y su posición móvil. */
+@media(min-width:821px){
+  .ob-page #hero.ob-hero{
+    height:auto;
+    min-height:clamp(480px,36vw,540px);
+    max-height:none;
+  }
+  .ob-page #hero .ob-txt{height:auto;overflow:visible}
+  .ob-page #hero .ob-hero-copy{overflow:visible}
+  .ob-page #hero .ob-txt h1{
+    display:block;-webkit-line-clamp:unset;overflow:visible;
+  }
+}
+@media(max-width:820px){
+  .ob-page #hero.ob-hero{
+    height:auto;min-height:0;max-height:none;
+    padding-bottom:clamp(18px,3vw,26px);
+  }
+  .ob-page #hero .ob-txt{height:auto;overflow:visible}
+  .ob-page #hero .ob-hero-copy{overflow:visible}
+  .ob-page #hero .ob-txt h1{
+    display:block;-webkit-line-clamp:unset;overflow:visible;
+  }
+  .ob-page #hero .ob-pager2{
+    position:relative!important;
+    left:auto!important;right:auto!important;bottom:auto!important;
+    grid-column:1/-1;
+    width:100%;max-width:100%;min-width:0;
+    box-sizing:border-box;justify-self:center;
+    margin:4px 0 0;padding:2px 0 0;
+  }
+}
+@media(max-width:600px){
+  /* Respeta el título antes de la cubierta y deja el paginador al final. */
+  .ob-page #hero>.ob-pager2{
+    order:2;align-self:stretch;
+  }
+}
+
 `;
   const SKEL = `<div class="ob-page ob-skel" aria-busy="true" aria-label="Cargando la biblioteca"><div class="ob-mast"><b>翻訳図書館</b><span>Biblioteca de novelas ligeras · Español latino</span></div><div class="sk sk-hero"></div><div class="sk sk-h"></div><div class="sk-row">${'<div class="sk sk-ln"></div>'.repeat(4)}</div><div class="sk sk-h"></div><div class="sk-row c">${'<div class="sk sk-cv"></div>'.repeat(6)}</div></div>`;
   async function home(){
