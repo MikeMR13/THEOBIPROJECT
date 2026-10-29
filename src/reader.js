@@ -538,7 +538,7 @@ export function createReader(ctx){
   // La barra fija debe ocupar su borde inferior real, no un hueco constante de 62 px.
   function syncFixedBarTop(){
     const rd = $('.rd');
-    if (!rd || rd.dataset.controls !== 'fijo') return;
+    if (!rd?.dataset || rd.dataset.controls !== 'fijo') return;
     const header = document.querySelector('body > header.top');
     const visible = header && getComputedStyle(header).display !== 'none' &&
       getComputedStyle(header).visibility !== 'hidden';
