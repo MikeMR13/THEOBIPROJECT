@@ -919,8 +919,11 @@ $('#f').onsubmit = async e => { e.preventDefault(); const pw = e.target.password
 async function uploadAvatar(file){
 if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('Usa una imagen JPG, PNG o WebP.');
 if (file.size > 2 * 1024 * 1024) throw new Error('La foto pesa más de 2 MB.');
-const path = user.id + '/avatar-' + Date.now() + '.' + file.type.split('/')[1];
-const { error } = await sb.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type });
+const { optimizeAvatar } = await import('/avatar-image.js?v=1');
+const payload = await optimizeAvatar(file);
+const ext = payload.type === 'image/webp' ? 'webp' : payload.type === 'image/png' ? 'png' : 'jpeg';
+const path = user.id + '/avatar-' + Date.now() + '.' + ext;
+const { error } = await sb.storage.from('avatars').upload(path, payload, { upsert: true, contentType: payload.type });
 if (error) throw error;
 const { data } = sb.storage.from('avatars').getPublicUrl(path);
 const { error: e2 } = await sb.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', user.id);
