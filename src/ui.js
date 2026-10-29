@@ -1345,9 +1345,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     let view = localStorage.getItem('obi-cat-view') === 'portadas' ? 'portadas' : 'fichero';
     const col = (label, f, opts, all = 'Todas') => `<div class="ui-fcol"><span class="ui-lbl">${label}</span><div class="ui-chips"><button class="ui-chip" data-f="${f}" data-v="">${all}</button>${opts.map(([v, l]) => `<button class="ui-chip" data-f="${f}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div></div>`;
     app.innerHTML = `<div class="ui-cath"><div><h1>Catálogo</h1><p>Fichero completo de la biblioteca OBI.</p></div><span class="kj" aria-hidden="true">目録</span></div>
-      <div class="ui-filters">
-        <input id="cat-q" type="search" placeholder="Buscar por título, título original, autor o etiqueta" value="${esc(F.q)}">
-        <details class="ui-fdet" ${matchMedia('(max-width:720px)').matches ? '' : 'open'}><summary>Filtros <b id="cat-nf" hidden></b><span class="ui-filter-chevron" aria-hidden="true">▾</span></summary><div class="ui-fbody">
+      <div class="ui-cat-quickbar" role="search" aria-label="Explorar el catálogo">
+        <label class="ui-cat-quick-search"><span class="sr">Buscar en el catálogo</span><input id="cat-q" type="search" placeholder="Título, autor, género o etiqueta" value="${esc(F.q)}"></label>
+        <label class="ui-cat-quick-order"><span>Ordenar</span><select id="cat-quick-sort" aria-label="Ordenar catálogo">${Object.entries(SORT).map(([k, [l]]) => `<option value="${k}">${esc(l)}</option>`).join('')}</select></label>
+        <button type="button" id="cat-quick-filters" class="ui-cat-quick-filter" aria-controls="cat-filters" aria-expanded="false">Filtros <b id="cat-quick-filter-count" hidden></b><span aria-hidden="true">▾</span></button>
+        <span id="cat-quick-count" class="ui-cat-quick-count" aria-live="polite"></span>
+      </div>
+      <div class="ui-filters ui-cat-advanced">
+        <details class="ui-fdet" id="cat-filters"><summary>Filtros <b id="cat-nf" hidden></b><span class="ui-filter-chevron" aria-hidden="true">▾</span></summary><div class="ui-fbody">
           <div class="ui-fcols">
             ${col('Traducción', 'tl', ['active', 'paused', 'completed'].map(k => [k, TL[k][0]]))}
             ${origs.length ? col('Obra original', 'orig', origs.map(k => [k, OR[k]])) : ''}
@@ -1404,10 +1409,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         document.getElementById('cat-grid')?.scrollIntoView({ block: 'start', behavior: 'auto' });
       });
       $('#cat-count').textContent = `${list.length} de ${all.length} obras`;
+      $('#cat-quick-count').textContent = `${list.length} obras`;
+      $('#cat-quick-sort').value = F.sort;
       document.querySelectorAll('[data-f]').forEach(b => b.classList.toggle('on', F[b.dataset.f] === b.dataset.v));
       document.querySelectorAll('[data-sort]').forEach(b => b.classList.toggle('on', F.sort === b.dataset.sort));
       document.querySelectorAll('[data-g]').forEach(b => { const g = b.dataset.g, i = F.gin.includes(g), o = F.gout.includes(g); b.classList.toggle('on', i); b.classList.toggle('out', o); b.setAttribute('aria-pressed', i ? 'true' : o ? 'mixed' : 'false'); });
-      const nf = act.filter(([l]) => !l.startsWith('la búsqueda')).length; $('#cat-nf').hidden = !nf; $('#cat-nf').textContent = nf;
+      const nf = act.filter(([l]) => !l.startsWith('la búsqueda')).length;
+      $('#cat-nf').hidden = !nf; $('#cat-nf').textContent = nf;
+      $('#cat-quick-filter-count').hidden = !nf; $('#cat-quick-filter-count').textContent = nf;
       $('#cat-clear').hidden = !act.length;
       writeF(F);
     };
@@ -1444,8 +1453,15 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       if (!p) { const { data: f } = await sb.from('chapters').select('num').eq('series_id', s.id).eq('status', 'published').is('deleted_at', null).order('num').limit(1); if (!qv.hidden) { paint(f?.[0]?.num || null, fol.has(s.id)); qv.querySelector('.ui-qx').focus({ preventScroll: true }); } }
     }
     $('#cat-grid').addEventListener('click', e => { const a = e.target.closest('a.ui-card, a.ui-fc'); if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button) return; e.preventDefault(); e.stopPropagation(); openQV(a.dataset.id, a); });
-    const mq = matchMedia('(max-width:720px)'), det = $('.ui-fdet'), onMq = e => { if (!e.matches && det && document.body.contains(det)) det.open = true; else if (!document.body.contains(det)) mq.removeEventListener('change', onMq); };
-    mq.addEventListener('change', onMq);
+    const det = $('#cat-filters'), quickFilters = $('#cat-quick-filters');
+    const syncQuickFilters = () => {
+      quickFilters.setAttribute('aria-expanded', String(det.open));
+      quickFilters.classList.toggle('on', det.open);
+    };
+    quickFilters.onclick = () => { det.open = !det.open; };
+    det.addEventListener('toggle', syncQuickFilters);
+    syncQuickFilters();
+    $('#cat-quick-sort').onchange = e => { F.sort = e.target.value; draw(); };
     document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; localStorage.setItem('obi-cat-view', view); draw(); });
     $('.ui-qv').addEventListener('click', e => { if (e.target.classList.contains('ui-qv')) closeQV(); });
     const onKey = e => { if (!document.body.contains($('.ui-qv'))) return removeEventListener('keydown', onKey); if (e.key === 'Escape') closeQV(); };
@@ -1690,6 +1706,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const hideRead = localStorage.getItem('obi-hide-read') === '1';
     const volumeView = localStorage.getItem('obi-serie-vol-view') === 'lista' ? 'lista' : 'galeria';
     const volumeOrder = localStorage.getItem('obi-serie-vol-order') === 'asc' ? 'asc' : 'desc';
+    // Vista previa exclusivamente de navegación: no duplica permisos ni motor de capítulos.
+    const previewBooks = (vols || []).slice(0, 4).map(v => {
+      const image = v.cover_path ? thumb(v) : s.cover_path ? thumb(s) : '';
+      return '<a class="ui-series-preview-item" href="#serie-vols" aria-label="Explorar volumen ' + esc(v.num) + '">' +
+        (image ? '<span class="ui-series-preview-cover"><img src="' + esc(image) + '" alt="" loading="lazy" decoding="async"></span>' : '<span class="ui-series-preview-cover ui-series-preview-missing" aria-hidden="true">帯</span>') +
+        '<span class="ui-series-preview-label">LIBRO ' + esc(v.num) + '</span>' +
+        '<strong>' + esc(v.title && !/^volumen\\s*\\d+$/i.test(v.title) ? v.title : 'Volumen ' + v.num) + '</strong></a>';
+    }).join('');
     fxCss();
     app.innerHTML = `<div class="ui-wrap ui-series-page">
       <section class="ui-sh ui-series-hero" id="serie-portada" style="--c:${esc(color(s))};--bg:${s.cover_path ? `url('${esc(thumb(s))}')` : 'none'}">
@@ -1698,7 +1722,12 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
           <h1 data-title-size="${s.title.length > 120 ? 'xl' : s.title.length > 65 ? 'l' : 'normal'}">${esc(s.title)}</h1>${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
           <div class="ui-chips">${pill(s.translation_status)}${(s.genres || []).map(g => `<a class="ui-chip" href="/catalogo?g=${encodeURIComponent(g)}">${esc(g)}</a>`).join('')}${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</div>
           <div class="rk-bdgs" id="rk-bdg"></div><div class="rk-rate" id="rk-rate"></div>
-          <div class="acts ui-series-actions" style="display:flex;gap:10px;flex-wrap:wrap">${first ? `<a class="btn" href="/leer/${s.slug}/${p?.chapter_num || first.num}">${p ? 'Continuar · ' + editorialChapterLabel(progressChapter) + (p.pct > .02 && p.pct < .95 ? ' · ' + Math.round(p.pct * 100) + '%' : '') : (first.locked ? '🔒︎ Leer desde el inicio · solo mecenas' : 'Leer desde el inicio')}</a>` : ''}${p && nextUnread && nextUnread.num !== p.chapter_num ? `<a class="btn ghost" href="/leer/${s.slug}/${nextUnread.num}">Siguiente sin leer · ${editorialChapterLabel(nextUnread)}</a>` : ''}${!p && firstNarrative && firstNarrative.num !== first?.num ? `<a class="btn ghost" href="/leer/${s.slug}/${firstNarrative.num}">Ir al primer capítulo</a>` : ''}<button class="btn ghost" id="follow">${following ? '✓ Siguiendo' : 'Seguir serie'}</button><a class="btn ghost" href="/anotaciones/${esc(s.slug)}">Mis anotaciones</a><a class="btn ghost ui-jump" href="#serie-vols">Explorar volúmenes ↓</a>${first ? offlineButton({slug:s.slug,scope:'series'}) : ''}</div>
+          <div class="acts ui-series-actions" style="display:flex;gap:10px;flex-wrap:wrap">${first ? `<a class="btn" href="/leer/${s.slug}/${p?.chapter_num || first.num}">${p ? 'Continuar · ' + editorialChapterLabel(progressChapter) + (p.pct > .02 && p.pct < .95 ? ' · ' + Math.round(p.pct * 100) + '%' : '') : (first.locked ? '🔒︎ Leer desde el inicio · solo mecenas' : 'Leer desde el inicio')}</a>` : ''}<button class="btn ghost" id="follow">${following ? '✓ Siguiendo' : 'Seguir serie'}</button><a class="btn ghost" href="/anotaciones/${esc(s.slug)}">Mis anotaciones</a>${first ? offlineButton({slug:s.slug,scope:'series'}) : ''}</div>
+          <nav class="ui-series-context-links" aria-label="Opciones de lectura y colección">
+            ${p && nextUnread && nextUnread.num !== p.chapter_num ? `<a class="ui-series-context-link" href="/leer/${s.slug}/${nextUnread.num}">Siguiente sin leer · ${editorialChapterLabel(nextUnread)}</a>` : ''}
+            ${!p && firstNarrative && firstNarrative.num !== first?.num ? `<a class="ui-series-context-link" href="/leer/${s.slug}/${firstNarrative.num}">Ir al primer capítulo</a>` : ''}
+            <a class="ui-series-context-link" href="#serie-vols">Explorar volúmenes ↓</a>
+          </nav>
         </div>
       </section>
       <nav class="ui-series-nav" role="tablist" aria-label="Secciones de la obra">
@@ -1721,6 +1750,10 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
             ${unread != null ? `<div><span class="ui-lbl">Secciones sin leer</span><b${unread ? ' style="color:var(--gold)"' : ''}>${unread || 'Al día'}</b></div>` : ''}
           </div>
         <div id="lock-sec"></div><div id="media-sec"></div><div id="rel-sec"></div>
+        <section class="ui-series-preview" aria-labelledby="serie-preview-title">
+          <div class="ui-series-preview-heading"><h2 id="serie-preview-title">Libros disponibles</h2><a href="#serie-vols">Ver colección completa →</a></div>
+          ${previewBooks ? `<div class="ui-series-preview-grid">${previewBooks}</div>` : '<p class="mono">Los volúmenes aparecerán aquí cuando estén publicados.</p>'}
+        </section>
       </section>
       ${s.synopsis ? `<section id="serie-sinopsis" class="ui-series-panel ui-series-synopsis" role="tabpanel" aria-labelledby="serie-tab-sinopsis" tabindex="0" hidden><div class="ui-h2"><h2>Sinopsis</h2></div><p class="ui-syn">${esc(s.synopsis)}</p></section>` : ''}
       <section id="serie-vols" class="ui-series-panel ui-series-library" role="tabpanel" aria-labelledby="serie-tab-vols" tabindex="0" hidden><div class="ui-h2"><h2>Volúmenes</h2>${u && allCh.length ? `<span class="fx-prog"><span class="mono">${nRead} de ${allCh.length} secciones leídas</span><span class="fx-bar"><i style="width:${Math.round(nRead / allCh.length * 100)}%"></i></span>${nRead ? `<label class="ui-tog"><input type="checkbox" id="fx-hide" ${hideRead ? 'checked' : ''}> Ocultar leídos</label>` : ''}</span>` : ''}</div><div class="ui-series-tools" role="search" aria-label="Explorar capítulos y secciones"><label for="ui-series-search">Buscar capítulo<input id="ui-series-search" type="search" autocomplete="off" spellcheck="false" placeholder="Título o número del capítulo"></label><label for="ui-series-state">Estado<select id="ui-series-state"><option value="all">Todas las secciones</option>${u ? '<option value="unread">Sin leer</option><option value="read">Leídas</option>' : ''}<option value="new">Novedades</option></select></label><label for="ui-series-order">Orden de volúmenes<select id="ui-series-order"><option value="desc" ${volumeOrder === 'desc' ? 'selected' : ''}>Más recientes primero</option><option value="asc" ${volumeOrder === 'asc' ? 'selected' : ''}>Desde el volumen 1</option></select></label><button type="button" class="ui-series-clear" id="ui-series-clear" disabled>Limpiar filtros</button></div><p class="mono ui-series-results" id="ui-series-result" role="status" aria-live="polite" aria-atomic="true"></p><div class="ui-series-shelfbar"><span class="mono">Colección de ${(vols || []).length} ${(vols || []).length === 1 ? 'libro' : 'libros'}</span><div class="ui-series-views" role="group" aria-label="Vista de volúmenes"><button type="button" data-series-view="galeria" aria-pressed="${volumeView === 'galeria'}">▦ Galería</button><button type="button" data-series-view="lista" aria-pressed="${volumeView === 'lista'}">☷ Lista</button></div></div><div class="ui-vols is-${volumeView}${hideRead && nRead ? ' fx-hide' : ''}" id="fx-vols">

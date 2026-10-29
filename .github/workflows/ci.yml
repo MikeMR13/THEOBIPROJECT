@@ -96,6 +96,8 @@ jobs:
           path: qa-capturas/biblioteca-*.png
           retention-days: 1
           if-no-files-found: error
+      - name: Compatibilidad visual A3/C3/S3 sin backend
+        run: node scripts/library-design-compat-check.mjs
       - name: Fase 6.1 QA Inicio y Catálogo (Chromium)
         run: node scripts/phase6-public-check.mjs
       - name: Ficha pública Fases 1–2 — galería, lista y descargas en 5 tamaños

@@ -280,7 +280,12 @@ return (routes[p] || notFound)();
 }
 const MED = p => p ? (/^https?:/.test(p) ? p : url + '/storage/v1/object/public/obi-media/' + encodeURI(p)) : '';
 const LB_CSS = `
-.lb-tabs{display:flex;gap:0;overflow-x:auto;border-bottom:1px solid #2f2a20;margin:0 0 24px;scrollbar-width:none}.lb-tabs a{flex:none;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;color:#a89f8a;text-decoration:none;border-bottom:2px solid transparent;font-weight:600}
+.lb-tabs{display:flex;gap:12px;overflow-x:auto;border-bottom:1px solid #2f2a20;margin:0 0 18px;scrollbar-width:none}
+.lb-tab-group{display:flex;align-items:stretch;gap:0;flex:none;min-width:0}
+.lb-tab-tools{border-left:1px solid #58472f;padding-left:12px}
+.lb-pending-explain{margin:0 0 18px;padding:11px 14px;border-left:3px solid var(--gold);background:#201a11;color:#e4d8bd;font:14px/1.6 'IBM Plex Sans',sans-serif}
+.lb-pending-explain[hidden]{display:none!important}
+@media(max-width:700px){.lb-tabs{gap:8px;margin-bottom:10px}.lb-tab-tools{padding-left:8px}}.lb-tabs a{flex:none;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;color:#a89f8a;text-decoration:none;border-bottom:2px solid transparent;font-weight:600}
 .lb-tabs a.on{color:var(--paper);border-color:var(--gold)}.lb-tabs a em{font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:1px 6px;background:#2f2a20;color:var(--paper)}.lb-tabs a.on em{background:var(--gold);color:#0d0c0a}
 .lb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,150px),1fr));gap:26px 18px}
 .lb-c{display:grid;gap:8px;align-content:start;color:var(--paper);text-decoration:none}.lb-c:hover{color:var(--paper)}.lb-c .cv{position:relative;aspect-ratio:2/3;background:#1c1a14 center/cover no-repeat;border:1px solid #2f2a20;transition:transform .25s}.lb-c:hover .cv{transform:translateY(-4px)}
@@ -403,7 +408,8 @@ async function library(){
   const HID=new Set(profile?.hidden_series || []);
   const count = k => L[k]?.length ?? null;
   app.innerHTML = `<div class="ui-cath"><div><h1>Mi biblioteca</h1><p>${read.size.toLocaleString('es-MX')} capítulos leídos · ${F.size.toLocaleString('es-MX')} obras seguidas</p></div><span class="kj" aria-hidden="true">書庫</span></div>
-  <nav class="lb-tabs" aria-label="Secciones de Mi biblioteca">${TABS.map(([k,label])=>`<a href="/biblioteca${k==='leyendo'?'':'?t='+k}" class="${k===tab?'on':''}"${k===tab?' aria-current="page"':''}>${label}${count(k)?`<em>${count(k)}</em>`:''}</a>`).join('')}</nav>
+  <nav class="lb-tabs" aria-label="Secciones de Mi biblioteca"><div class="lb-tab-group lb-tab-shelves" role="group" aria-label="Estanterías">${TABS.slice(0,3).map(([k,label])=>`<a href="/biblioteca${k==='leyendo'?'':'?t='+k}" class="${k===tab?'on':''}"${k===tab?' aria-current="page"':''}>${label}${count(k)?`<em>${count(k)}</em>`:''}</a>`).join('')}</div><div class="lb-tab-group lb-tab-tools" role="group" aria-label="Herramientas de lectura">${TABS.slice(3).map(([k,label])=>`<a href="/biblioteca?t=${k}" class="${k===tab?'on':''}"${k===tab?' aria-current="page"':''}>${label}</a>`).join('')}</div></nav>
+  <p id="lb-pending-explain" class="lb-pending-explain" ${tab==='pendientes'?'':'hidden'}>Pendientes reúne obras que sigues con capítulos publicados aún sin leer; no es una lista de deseos.</p>
   <p class="lb-navhelp">Desliza las pestañas para ver todas las secciones →</p>
   <div id="lb-read-feedback" class="lb-read-feedback" role="status" aria-live="polite" hidden></div>
   <div id="lb-body"></div>`;
@@ -528,6 +534,8 @@ async function library(){
   const paintTab = async next => {
     if (!live()) return;
     tab=next;
+    const explanation = app.querySelector('#lb-pending-explain');
+    if (explanation) explanation.hidden = tab !== 'pendientes';
     const request=++tabRequest;
     nav.querySelectorAll('a').forEach(a=>{
       const k=new URL(a.href,location.origin).searchParams.get('t')||'leyendo';

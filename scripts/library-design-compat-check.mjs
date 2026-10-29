@@ -1,0 +1,23 @@
+// Contratos de compatibilidad del diseño aprobado: no conecta servicios ni altera datos.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const ui = readFileSync('src/ui.js','utf8');
+const app = readFileSync('src/app.js','utf8');
+const css = readFileSync('src/styles.css','utf8');
+const tabs = readFileSync('src/series-tabs.js','utf8');
+const logic = readFileSync('src/library-logic.js','utf8');
+const nav = readFileSync('src/mobile-navigation.js','utf8');
+const req = (s, pieces, label) => pieces.forEach(p => assert(s.includes(p), label + ': falta ' + p));
+req(ui, ['id="cat-q"', 'id="cat-filters"', 'id="cat-quick-sort"', 'id="cat-quick-filters"', "det.addEventListener('toggle', syncQuickFilters)", 'data-view="fichero"', 'data-view="portadas"', 'data-sort=', 'data-g=', 'cat-clear', 'cat-pages', 'F.gout.includes(g)'], 'Catálogo');
+req(ui, ['ui-series-context-links', 'ui-series-preview', 'previewBooks', 'ui-series-preview-item', 'id="serie-vols"', 'id="serie-descargas"', 'id="follow"', 'offlineButton({slug:s.slug,scope:', 'id="serie-tab-reviews"'], 'Ficha');
+req(app, ['lb-tab-group lb-tab-shelves', 'lb-tab-group lb-tab-tools', 'id="lb-pending-explain"', "tab !== 'pendientes'", 'offlineDownloads.button', 'lb-read-toggle', 'lb-card-hide', "tab==='avisos'", "tab==='offline'", 'rd().historyList'], 'Biblioteca');
+req(logic, ['w.fol&&w.unread>0&&!w.done', 'w.hasReading&&!w.done', 'w.done'], 'Progreso preservado');
+req(tabs, ['paneForHash', "return 'serie-descargas'", 'tab.setAttribute(\'aria-selected\'', 'tab.tabIndex'], 'Pestañas originales');
+req(nav, ["['/', '家', 'Inicio']", "['/catalogo', '目', 'Catálogo']", "['/biblioteca', '書', 'Biblioteca']", "['/buscar', '探', 'Buscar']", "['/perfil', '人', 'Perfil']"], 'Navegación N1');
+req(css, ['.ui-cat-quickbar{position:sticky', 'var(--top-h,62px)', '.ui-series-page .ui-series-preview{', '@media(max-width:370px)', '#cat-grid{scroll-margin-top:'], 'CSS acotado');
+const serie = ui.slice(ui.indexOf('async function series(slug){'), ui.indexOf('async function reviews(', ui.indexOf('async function series(slug){')) > 0 ? ui.indexOf('async function reviews(', ui.indexOf('async function series(slug){')) : undefined);
+const hero = serie.slice(serie.indexOf('<div class="acts ui-series-actions"'), serie.indexOf('</section>',serie.indexOf('<div class="acts ui-series-actions"')));
+assert.equal((hero.match(/class="btn" href="\/leer\//g)||[]).length, 1, 'Solo una CTA de lectura principal en hero');
+assert(!hero.includes('class="btn ghost" href="/leer/'), 'Enlaces secundarios de lectura no deben parecer botones primarios');
+assert(!app.includes('No tienes obras pendientes por empezar'), 'Pendientes no es lista de deseos');
+console.log('Diseño A3/C3/S3: contratos de catálogo, accesibilidad, pestañas, biblioteca y CTA preservados');
