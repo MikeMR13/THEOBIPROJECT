@@ -52,7 +52,10 @@ requires(st,[
 "optimizeStudioCover(cover)"
 ],'Estudio');
 requires(view,["qs('q').oninput","qs('att').onchange","'obi-studio-works-view'",
-"w.cover_thumb_path || w.cover_path","data-view","data-shift","data-dir='up'","data-dir='down'"],'Vistas extraídas');
+"w.cover_thumb_path || w.cover_path","s2-more","s2-work-alert"],'Vistas extraídas');
+assert(st.includes('data-view="${state.view}"'),'La vista actual debe aparecer en el contenedor de Obras');
+assert(st.includes('data-shift') && st.includes("data-dir='up'") && st.includes("data-dir='down'"),
+  'No eliminar las acciones de teclado para reordenación');
 requires(imp,[
 "new URLSearchParams(location.search).get('obra')",
 "(works || []).find(w => w.id === contextualId)",
