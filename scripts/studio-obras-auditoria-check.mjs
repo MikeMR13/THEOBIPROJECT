@@ -86,6 +86,6 @@ assert(st.includes('await saveWorkWithRelations(sb, s.id, T.team.id, patch)'), '
 assert(read('src/studio-related-works.js').includes('if (!saved?.id) throw new Error'), 'El guardado debe detectar actualizaciones sin permisos');
 assert(read('src/studio-related-works.js').includes('if (!verified?.id || !sameRelatedWorks'), 'Las relaciones deben releerse de la base antes de confirmar');
 assert(st.includes('/studio-obras.css?v=7'),'CSS Obras debe cargarse de forma versionada');
-assert(read('src/app.js').includes("/studio.js?v=60"));
+assert(read('src/app.js').includes("/studio.js?v=61"));
 assert(read('src/index.html').includes('/app.js?v=51'));
 console.log('✓ Auditoría Estudio Obras: filtros, permisos, móvil, importación, publicación y rendimiento');
