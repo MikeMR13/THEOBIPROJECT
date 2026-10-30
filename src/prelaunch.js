@@ -1,6 +1,6 @@
 import { creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
 // Primer vistazo: esta vista nunca consulta ni expone capítulos borrador.
-const css = '.pre-card{display:grid;grid-template-columns:90px minmax(0,1fr);gap:16px;padding:16px;background:#16140f;border:1px solid #3d3628;margin:12px 0}.pre-cover{aspect-ratio:2/3;background:#29251d center/cover no-repeat}.pre-info{display:grid;gap:9px;align-content:start}.pre-info h3{margin:0}.pre-timer{color:#8cc3f2;font:700 15px monospace}.pre-lock{color:#cfc6b0;font:12px monospace}@media(max-width:560px){.pre-card{grid-template-columns:65px minmax(0,1fr);gap:10px;padding:10px}}';
+const css = '.pre-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0}.pre-actions .btn{min-height:44px}.pre-actions-note{font-size:12px;color:#a89f8a;line-height:1.5;margin:4px 0 0}.pre-card{display:grid;grid-template-columns:90px minmax(0,1fr);gap:16px;padding:16px;background:#16140f;border:1px solid #3d3628;margin:12px 0}.pre-cover{aspect-ratio:2/3;background:#29251d center/cover no-repeat}.pre-info{display:grid;gap:9px;align-content:start}.pre-info h3{margin:0}.pre-timer{color:#8cc3f2;font:700 15px monospace}.pre-lock{color:#cfc6b0;font:12px monospace}@media(max-width:560px){.pre-card{grid-template-columns:65px minmax(0,1fr);gap:10px;padding:10px}}';
 function style(){if(document.getElementById('pre-css'))return;const s=document.createElement('style');s.id='pre-css';s.textContent=css;document.head.appendChild(s);}
 export function cards(pre, esc, media){
  if(!pre?.volumes?.length)return '';
@@ -16,10 +16,39 @@ export function landing(pre, app, esc, media){
  const s=pre.series,cover=s.cover_path||pre.volumes[0]?.cover_path;
  const translated={...s,teams:s.teams||{name:s.team_name,slug:s.team_slug}};
  const translator=creditsHTML(translated,{esc,media,mode:'detail'});
- app.innerHTML=`<div class="ui-wrap"><section class="ui-sh" style="--c:#8cc3f2;--bg:none"><span class="ui-book" style="${cover?`background-image:url('${esc(media(cover))}')`:''}"></span><div><span class="ui-lbl" style="color:#8cc3f2">PRÓXIMO ESTRENO · PRIMER VISTAZO</span><h1>${esc(s.title)}</h1><p>${esc(s.work_type||'Novela ligera')}${Array.isArray(s.genres)&&s.genres.length?' · '+s.genres.map(esc).join(' · '):''}${s.adult?' · +18':''}</p><p class="ui-syn">${esc(s.synopsis||'Descubre esta obra próximamente.')}</p><p class="mono">${s.author?'Autor: '+esc(s.author)+' · ':''}${s.illustrator?'Ilustración: '+esc(s.illustrator)+' · ':''}</p><div class="pre-credits"><span class="ui-lbl">Traducción</span>${translator}</div><p class="mono">Ficha pública de anuncio. La lectura aún está bloqueada.</p></div></section><section><div class="ui-h2"><h2>Volúmenes anunciados</h2></div>${cards(pre,esc,media)}</section></div>`;
+ app.innerHTML=`<div class="ui-wrap ui-series-page"><section class="ui-sh" style="--c:#8cc3f2;--bg:none"><span class="ui-book" style="${cover?`background-image:url('${esc(media(cover))}')`:''}"></span><div><span class="ui-lbl" style="color:#8cc3f2">PRÓXIMO ESTRENO · PRIMER VISTAZO</span><h1>${esc(s.title)}</h1><p>${esc(s.work_type||'Novela ligera')}${Array.isArray(s.genres)&&s.genres.length?' · '+s.genres.map(esc).join(' · '):''}${s.adult?' · +18':''}</p><p class="ui-syn">${esc(s.synopsis||'Descubre esta obra próximamente.')}</p><p class="mono">${s.author?'Autor: '+esc(s.author)+' · ':''}${s.illustrator?'Ilustración: '+esc(s.illustrator)+' · ':''}</p><div class="pre-credits"><span class="ui-lbl">Traducción</span>${translator}</div><p class="mono">Ficha pública de anuncio. La lectura aún está bloqueada.</p><div class="ui-series-actions pre-actions"><button type="button" class="btn ghost" data-pre-follow aria-pressed="false" aria-label="Seguir esta obra para enterarte de sus publicaciones">＋ Seguir obra</button><a class="btn ghost" href="/equipo/${encodeURIComponent(s.team_slug||s.teams?.slug||'')}">Ver equipo traductor</a></div><p class="pre-actions-note">Sigue la obra para encontrarla en tu biblioteca. «Compartir» utiliza únicamente el enlace público de primer vistazo; nunca incluye capítulos borrador.</p></div></section><section><div class="ui-h2"><h2>Volúmenes anunciados</h2></div>${cards(pre,esc,media)}</section></div>`;
 }
 export function bind(pre,app,sb,getUser,go,toast){
  if(!pre?.volumes?.length)return;
+ const follow = app.querySelector('[data-pre-follow]');
+ if (follow) {
+  let active = false, busy = false;
+  const paint = () => { follow.textContent = active ? '✓ Siguiendo obra' : '＋ Seguir obra'; follow.setAttribute('aria-pressed', String(active)); };
+  const initialUser = getUser();
+  if (initialUser) {
+   follow.disabled = true;
+   Promise.resolve(sb.from('follows').select('series_id').eq('user_id', initialUser.id).eq('series_id', pre.series.id).maybeSingle())
+    .then(({ data, error }) => { if (error) throw error; if (follow.isConnected && getUser()?.id === initialUser.id) { active = !!data; paint(); } })
+    .catch(e => { if (follow.isConnected) toast(e.message || 'No se pudo comprobar el seguimiento'); })
+    .finally(() => { if (follow.isConnected) follow.disabled = false; });
+  }
+  follow.onclick = async () => {
+   const user = getUser();
+   if (!user) { toast('Entra para seguir esta obra'); return go('/entrar'); }
+   if (busy) return;
+   busy = true; follow.disabled = true;
+   try {
+    const res = active
+     ? await sb.from('follows').delete().eq('user_id', user.id).eq('series_id', pre.series.id)
+     : await sb.from('follows').upsert({ user_id: user.id, series_id: pre.series.id });
+    if (res.error) throw res.error;
+    if (follow.isConnected && getUser()?.id === user.id) {
+     active = !active; paint(); toast(active ? 'Obra añadida a tus seguidas' : 'Ya no sigues esta obra');
+    }
+   } catch (e) { if (follow.isConnected) toast(e.message || 'No se pudo guardar el seguimiento'); }
+   finally { busy = false; if (follow.isConnected) follow.disabled = false; }
+  };
+ }
  const target=app.querySelector('[data-pre-time]');if(!target)return;
  let lastCheck=0;
  const draw=()=>{if(!target.isConnected){clearInterval(timer);return;}let expired=false;app.querySelectorAll('[data-pre-time]').forEach(el=>{
