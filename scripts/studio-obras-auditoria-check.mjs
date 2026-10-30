@@ -17,6 +17,7 @@ const chapters=[
 const schedules=[{series_id:'c',at:'2026-10-31T09:00:00Z'},{series_id:'a',at:'2026-11-03T09:00:00Z'}];
 assert.equal(workStats(works[0],chapters,schedules,now).volumes,1,'No contar volúmenes enviados a papelera');
 assert.equal(workStats(works[0],chapters,schedules,now).correction,1);
+assert.equal(workStats({...works[2],id:'sin-capitulos'},[],[],now).attention,true,'Una obra sin capítulos debe aparecer entre las pendientes');
 assert.equal(normalizeWorkText('SÚEÑOS'),'suenos');
 const ids=o=>selectStudioWorks(works,chapters,schedules,o,now).map(r=>r.work.id).join(',');
 assert.equal(ids({q:'suenos'}),'b','Buscar sin acentos');
