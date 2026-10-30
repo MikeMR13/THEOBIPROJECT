@@ -39,6 +39,8 @@ jobs:
         run: node scripts/editor-phase5-writing-check.mjs
       - name: Estudio · parche barra sticky con scroll de 3000px (1470/390/320, Chromium)
         run: node scripts/editor-visual-sticky-browser.mjs
+      - name: Editor visual · entrega 1 títulos, vista previa fija y sincronización (Chromium)
+        run: node scripts/editor-visual-entrega1-browser.mjs
       - name: Fase 1 móvil — numeración editorial universal, secciones y CTA
         run: node scripts/public-editorial-phase1-check.mjs
       - name: Índice editorial opcional — prefijos, títulos originales y persistencia
