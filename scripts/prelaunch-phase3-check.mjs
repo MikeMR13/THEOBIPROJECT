@@ -60,8 +60,8 @@ try{
  assert.match(preview,/\.eq\('user_id',u\.id\)\.maybeSingle\(\)/);
  assert.match(preview,/if\(!ready\)\{await sync\(\);if\(!ready\)return;\}/);
  assert.doesNotMatch(preview,/\.from\('chapters'\)/);
- assert.match(read('src/app.js'),/\/ui\.js\?v=60/);
- assert.match(read('src/index.html'),/\/app\.js\?v=49/);
+ assert.match(read('src/app.js'),/\/ui\.js\?v=61/);
+ assert.match(read('src/index.html'),/\/app\.js\?v=50/);
  console.log('✓ Fase 3: sitemap público, JSON-LD sin lectura anticipada y avisos idempotentes.');
 }finally{
  globalThis.fetch=original.fetch;
