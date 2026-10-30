@@ -38,8 +38,9 @@ BEGIN
       HINT = 'El capítulo contiene tipos de bloque desconocidos o excede los límites';
   END IF;
 
-  IF TG_OP = 'UPDATE' AND NEW.body IS DISTINCT FROM OLD.body
-     AND NEW.version = OLD.version THEN
+  IF TG_OP = 'UPDATE' THEN
+    IF (NEW.body IS DISTINCT FROM OLD.body OR NEW.title IS DISTINCT FROM OLD.title)
+       AND NEW.version = OLD.version THEN
     -- La versión actual puede no tener historial: protegerla antes del reemplazo.
     INSERT INTO public.chapter_revisions
       (chapter_id, created_by, title, body, note, kind, version, lint_count)
@@ -59,10 +60,11 @@ BEGIN
       (NEW.id, auth.uid(), NEW.title, NEW.body,
        'Estado tras reemplazo directo del contenido', 'import',
        NEW.version, NEW.lint_count);
+    END IF;
   END IF;
   RETURN NEW;
 END;
-$$;
+$;
 
 CREATE OR REPLACE FUNCTION private.editor_phase0_initial_revision()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
@@ -79,7 +81,7 @@ $$;
 
 DROP TRIGGER IF EXISTS chapters_editor_phase0_guard ON public.chapters;
 CREATE TRIGGER chapters_editor_phase0_guard
-  BEFORE INSERT OR UPDATE OF body ON public.chapters
+  BEFORE INSERT OR UPDATE OF body, title ON public.chapters
   FOR EACH ROW EXECUTE FUNCTION private.editor_phase0_guard_body();
 
 DROP TRIGGER IF EXISTS chapters_editor_phase0_initial ON public.chapters;
