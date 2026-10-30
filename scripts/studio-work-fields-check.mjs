@@ -131,7 +131,7 @@ assert(creator.includes('await saveWorkWithRelations(sb, s.id, T.team.id, patch)
 assert(!creator.includes("id=\"rel-save\""), 'No debe existir un guardado de relaciones separado y confuso');
 assert(creator.includes('id="rel-save-all"'), 'Las relaciones necesitan una acción local de guardar todos los cambios');
 assert(creator.includes("$('#rel-save-all')?.addEventListener('click', () => $('#wk-savebtn')?.click())"), 'La acción local debe usar el mismo guardado que toda la ficha');
-assert(creator.includes('RL.push({ id: x.id, kind: relKind }); mark();'),
+assert(creator.includes('RL.push({ id: x.id, kind: relKind });') && creator.includes('mark(); drawRel();'),
   'Agregar una relación debe activar la advertencia de cambios sin guardar');
 assert(creator.includes('RL.splice(+x.dataset.rx, 1); mark();'),
   'Quitar una relación debe activar la advertencia de cambios sin guardar');
