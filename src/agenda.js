@@ -391,7 +391,7 @@ export async function agenda(ctx){
     if (!list.length) return toast('No hay eventos próximos con estos filtros');
     const f = d => new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''), e = t => String(t).replace(/[\\,;]/g, m => '\\' + m).replace(/\n/g, '\\n');
     const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//El Obi del Lector//Calendario//ES', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:El Obi del Lector'];
-    for (const g of list) { const allDay = g.kind === 'aniv'; L.push('BEGIN:VEVENT', 'UID:' + g.k.replace(/\|/g, '-') + '@obidellector.com', 'DTSTAMP:' + f(Date.now()), allDay ? 'DTSTART;VALUE=DATE:' + g.day.replace(/-/g, '') : 'DTSTART:' + f(g.at), allDay ? 'DTEND;VALUE=DATE:' + addK(g.day, 1).replace(/-/g, '') : 'DTEND:' + f(new Date(new Date(g.at).getTime() + 30 * 6e4)), 'SUMMARY:' + e(evTitle(g)), 'URL:' + SITE + hrefOf(g), 'END:VEVENT'); }
+    for (const g of list) { const allDay = g.kind === 'aniv'; L.push('BEGIN:VEVENT', 'UID:' + g.k.replace(/\|/g, '-') + '@elobidellector.com', 'DTSTAMP:' + f(Date.now()), allDay ? 'DTSTART;VALUE=DATE:' + g.day.replace(/-/g, '') : 'DTSTART:' + f(g.at), allDay ? 'DTEND;VALUE=DATE:' + addK(g.day, 1).replace(/-/g, '') : 'DTEND:' + f(new Date(new Date(g.at).getTime() + 30 * 6e4)), 'SUMMARY:' + e(evTitle(g)), 'URL:' + SITE + hrefOf(g), 'END:VEVENT'); }
     L.push('END:VCALENDAR');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([L.join('\r\n')], { type: 'text/calendar' })); a.download = 'obi-calendario.ics'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
