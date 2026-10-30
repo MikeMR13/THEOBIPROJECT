@@ -1348,3 +1348,19 @@ body.rd-zen .rd-settings-dock{display:none!important}
 .ed-approval-list{max-height:600px;overflow:auto}
 .ed-board-review{display:block;border-left:2px solid var(--gold);padding-left:8px;color:#e3c990}
 @media(max-width:600px){.ed-approval-settings,.ed-approval-form{padding:12px}.ed-approval-list .ed-sug-row{padding:12px}.ed-approval-list .btn{min-height:44px}}
+
+/* Editor Fase 5: control opcional y glosario mientras se escribe. */
+.ed-writing-settings{display:flex;flex-wrap:wrap;align-items:center;gap:8px 15px;padding:9px 12px;border:1px solid #403729;background:#17130e;min-width:0}
+.ed-writing-toggle{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:600;cursor:pointer}
+.ed-writing-toggle input{width:18px;height:18px;accent-color:var(--gold)}
+.ed-writing-caption{font-size:12px;color:#bdb39f;flex:1 1 230px;line-height:1.5}
+.ed-gloss-inline{display:flex;align-items:center;flex-wrap:wrap;gap:7px;border:1px solid #51462f;background:#1b1710;padding:9px 10px;max-height:160px;overflow-y:auto}
+.ed-gloss-inline[hidden]{display:none!important}
+.ed-gloss-intro{font-size:12px;font-weight:600;color:#e9ce8f;flex-basis:100%}
+.ed-gloss-option{display:grid;gap:3px;min-height:44px;max-width:250px;text-align:left;white-space:normal;min-width:0;border:1px solid #5e4c29;color:var(--paper);padding:6px 9px;background:#252015;border-radius:4px;cursor:pointer}
+.ed-gloss-option small{color:#bfb39b;font-size:11px;overflow-wrap:anywhere}
+.ed-gloss-option:hover{border-color:var(--gold)}
+.ed-gloss-option:focus-visible,.ed-writing-toggle input:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+::highlight(obi-ed-glossary-current){text-decoration:underline wavy #d8ae56;text-decoration-thickness:1px;text-underline-offset:3px}
+@media(max-width:760px){.ed-writing-settings{padding:8px 10px}.ed-gloss-option{max-width:100%;flex:1 1 150px}}
+@media(prefers-reduced-motion:reduce){.ed-gloss-option{transition:none}}
