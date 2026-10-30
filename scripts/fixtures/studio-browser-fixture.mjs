@@ -41,7 +41,7 @@ function factory({create=true,importRole=true,edit=true,publish=true,deleteRole=
         _select:'',_insert:null,_update:null,_type:'',_count:false,
         select(columns,opts){this._select=columns;this._count=!!opts?.head;return this;},
         update(patch){this._update=patch;return this;},
-        eq(){return this;},is(){return this;},order(){return this;},not(){return this;},
+        eq(){return this;},is(){return this;},order(){return this;},not(){return this;},filter(){return this;},
         gte(){return this;},or(){return this;},ilike(){return this;},limit(){return this;},in(){return this;},
         range(from,to){
           const related = [{id:'00000000-0000-4000-8000-000000000090',title:'Magia de la Bruja del Viento',teams:{name:'Grupo Ónix'}},
@@ -185,8 +185,9 @@ try {
   const editOwner=factory({existingWork:true});
   history.replaceState({},'', '/estudio/obra/obra-test?tab=datos');
   await editOwner.studio.work('obra-test');
-  await until(()=>app.querySelector('#wk-rel-b [data-related-query]') && 
-    app.querySelector('.srp-result')===null, 'ficha de edición y buscador');
+  await until(()=>app.querySelector('#wk-rel-b [data-related-query]') &&
+    app.querySelector('#wk-rel-b [data-related-status]')?.textContent.includes('2 obras'),
+    'ficha de edición y catálogo de obras relacionadas');
   const query=app.querySelector('#wk-related-search');
   ok(!!query,'Falta buscador de obras relacionadas en Editar datos');
   query.value='bruja'; query.dispatchEvent(new Event('input',{bubbles:true}));
