@@ -226,7 +226,7 @@ function structuredData(data, canonical, kind, origin) {
   // prestaciones especiales de Google Books.
   if (data.type === 'Book') {
     const book = { '@type': 'Book', '@id': canonical + '#book', name: data.heading, url: canonical,
-      inLanguage: 'es', description: data.description, image: data.image, isAccessibleForFree: true };
+      inLanguage: 'es', description: data.description, image: data.image, isAccessibleForFree: !data.prelaunch };
     if (data.author) book.author = { '@type': 'Person', name: data.author };
     if (data.genres?.length) book.genre = data.genres.slice(0,12);
     node['@graph'].push(book);

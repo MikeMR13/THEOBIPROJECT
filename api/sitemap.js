@@ -50,6 +50,30 @@ function entry(loc, lastmod) {
   const date = iso(lastmod);
   return '<url><loc>' + xml(CANON + loc) + '</loc>' + (date ? '<lastmod>' + date + '</lastmod>' : '') + '</url>';
 }
+// Solo se admiten slugs autorizados por el contrato público endurecido.
+// Sin nuevas consultas a series privadas ni volúmenes borrador.
+async function getUpcomingPrelaunch() {
+  const { base, key } = client();
+  const target = base + '/rest/v1/rpc/prelaunch_calendar';
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), API_TIMEOUT_MS);
+  try {
+    const r = await fetch(target, {
+      method: 'POST',
+      headers: { apikey: key, Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        p_from: new Date().toISOString(),
+        p_to: new Date(Date.now() + 180 * 864e5).toISOString()
+      }),
+      signal: ctrl.signal
+    });
+    if (!r.ok) throw new Error('RPC prelaunch_calendar: HTTP ' + r.status);
+    const rows = await r.json();
+    if (!Array.isArray(rows)) throw new Error('Calendario público inesperado');
+    return rows.filter(v => v?.kind === 'volp' && v.adult === false && v.acc === 'public' &&
+      v.can_read === false && goodSlug(v.slug) && goodSlug(v.team_slug) &&
+      Number.isFinite(Date.parse(v.at)) && Date.parse(v.at) > Date.now());
+  } finally { clearTimeout(timer); }
+}
 async function generate() {
   // Consultar la identidad de la serie para validar RLS y evitar publicar slugs huérfanos.
   const [series, teams] = await Promise.all([
@@ -62,6 +86,16 @@ async function generate() {
   const add = (path, changed = null) => { if (!links.has(path)) links.set(path, entry(path,changed)); };
   for (const path of ['/', '/catalogo', '/calendario', '/lanzamientos', '/ranking', '/apoyar']) add(path);
   for (const s of series) if (safe.has(s.id)) add('/serie/' + encodeURIComponent(s.slug));
+  // Si el RPC falla, mantener el sitemap publicado habitual: falla cerrado
+  // solo el descubrimiento de preestrenos (sin exponer obras internas).
+  let upcoming = [];
+  try { upcoming = await getUpcomingPrelaunch(); }
+  catch (e) { console.warn('Sitemap: preestrenos no disponibles', e.message); }
+  const teamSlugs = new Set(teams.filter(t => goodSlug(t.slug) && t.status !== 'Proyecto privado' &&
+    t.settings?.seo?.noindex !== true).map(t => t.slug));
+  for (const p of upcoming) {
+    if (teamSlugs.has(p.team_slug)) add('/serie/' + encodeURIComponent(p.slug));
+  }
   for (const t of teams) if (goodSlug(t.slug) && t.status !== 'Proyecto privado' && t.settings?.seo?.noindex !== true)
     add('/equipo/' + encodeURIComponent(t.slug));
   if (safe.size) {
