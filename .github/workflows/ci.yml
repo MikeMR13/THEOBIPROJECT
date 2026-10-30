@@ -41,6 +41,8 @@ jobs:
         run: node scripts/editor-visual-sticky-browser.mjs
       - name: Editor visual · entrega 1 títulos, vista previa fija y sincronización (Chromium)
         run: node scripts/editor-visual-entrega1-browser.mjs
+      - name: Editor Productividad · Entrega 2 (sin backend)
+        run: node scripts/editor-productividad-entrega2-check.mjs
       - name: Fase 1 móvil — numeración editorial universal, secciones y CTA
         run: node scripts/public-editorial-phase1-check.mjs
       - name: Índice editorial opcional — prefijos, títulos originales y persistencia
