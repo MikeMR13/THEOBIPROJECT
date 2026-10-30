@@ -9,7 +9,7 @@ const VIEWS = [['semana', 'Semana'], ['linea', 'Agenda'], ['mes', 'Mes']];
 const PERIODS = [['', 'Todo el periodo'], ['next', 'Próximos'], ['past', 'Anteriores']];
 const ACCESS = [['', 'Cualquier acceso'], ['readable', 'Puedo leer ahora'], ['restricted', 'Restringidos']];
 const TAG = { pub: 'Publicado', pat: 'Solo mecenas', open: 'Se abre a todo público', prog: 'Programado', vol: 'Volumen completo', aniv: 'Aniversario' };
-const DAY = 864e5, PAST = 30, FUT = 60, SITE = 'https://obidellector.com';
+const DAY = 864e5, PAST = 30, FUT = 60, SITE = 'https://elobidellector.com';
 const JOIN = u => { try { const x = new URL(u); if (!/(^|\.)patreon\.com$/.test(x.hostname) || x.searchParams.has('u') || /\/(membership|join|checkout)(\/|$)/.test(x.pathname)) return u; x.pathname = x.pathname.replace(/\/+$/, '') + '/membership'; return x.toString(); } catch { return u; } };
 const CSS = `
 .ag-h{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 18px;align-items:flex-end}.ag-h h1{margin:0}.ag-h p{margin:4px 0 0;color:var(--mute,#a89f8a)}
