@@ -38,7 +38,7 @@ const scheduled=[{...volume[0],status:'scheduled',announce_prelaunch:true,publis
 assert.match(seriesPublicationHTML({...series,published:false},scheduled,()=>true,enc,x=>x.slice(0,16),()=>''),/Reprogramada · Preestreno/);
 
 const fields=Object.fromEntries(['#wk-sp-mode','#wk-sp-volume','#wk-sp-at','#wk-sp-save','#wk-sp-note','#wk-sp-volwrap','#wk-sp-prewrap'].map(k=>[k,{value:'',hidden:false,disabled:false,textContent:''}]));
-fields['#wk-sp-mode'].value='draft';
+fields['#wk-sp-mode'].value='published';
 fields['#wk-sp-volume'].value='v1';
 const root={querySelector:k=>fields[k]};
 const calls=[];
@@ -53,12 +53,19 @@ const bind=can=>bindSeriesPublication({
 bind(()=>false);
 assert.equal(fields['#wk-sp-save'].onclick,undefined);
 bind(()=>true);
+assert.equal(fields['#wk-sp-save'].disabled,true,'No permitir guardar el mismo estado de publicación');
+await fields['#wk-sp-save'].onclick({currentTarget:{}});
+assert.equal(calls.length,0,'Un clic sin cambios nunca debe escribir en Supabase');
+fields['#wk-sp-mode'].value='draft';
+fields['#wk-sp-mode'].onchange();
+assert.equal(fields['#wk-sp-save'].disabled,false);
 await fields['#wk-sp-save'].onclick({currentTarget:{}});
 assert.deepEqual(calls[0],{name:'series_publication_transition',args:{p_series:'s',p_mode:'draft',p_volume:null,p_at:null}});
 fields['#wk-sp-mode'].value='prelaunch';
 fields['#wk-sp-mode'].onchange();
 assert.equal(fields['#wk-sp-prewrap'].hidden,false);
 fields['#wk-sp-at'].value=future.slice(0,16);
+fields['#wk-sp-at'].oninput();
 await fields['#wk-sp-save'].onclick({currentTarget:{}});
 assert.equal(calls[1].args.p_mode,'prelaunch');
 assert.equal(calls[1].args.p_volume,'v1');
