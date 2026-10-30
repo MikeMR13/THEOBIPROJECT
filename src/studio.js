@@ -243,7 +243,6 @@ export function createStudio(ctx){
     return T.userId === uid && getUser()?.id === uid && T.team?.id === team.id;
   }
 
-  // ---------- obras ----------
   const DAY = 864e5, ago = d => { const s = (Date.now() - new Date(d)) / 1000; if (s < 3600) return 'hace ' + Math.max(1, Math.round(s / 60)) + ' min'; if (s < 86400) return 'hace ' + Math.round(s / 3600) + ' h'; const n = Math.round(s / 86400); return n === 1 ? 'ayer' : 'hace ' + n + ' días'; };
   const until = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
   const MON = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
@@ -1058,7 +1057,6 @@ export function createStudio(ctx){
     on('[data-revoke]', async b => { const { error } = await sb.from('collaborations').update({ status: COLLABORATION_STATUS.revoked }).eq('id', b.dataset.revoke); if (error) throw error; again(); });
   }
 
-  // borrar con limpieza de multimedia referenciada
   async function deleteChapters(ids, extra = []){
     let paths = extra.filter(Boolean);
     if (ids.length) {
@@ -1074,7 +1072,6 @@ export function createStudio(ctx){
     return free.length;
   }
 
-  // ---------- editor de capítulo, importación dinámica ----------
   async function names(ids){
     ids = [...new Set(ids.filter(Boolean))];
     if (!ids.length) return {};
