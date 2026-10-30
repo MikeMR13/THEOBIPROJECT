@@ -8,7 +8,8 @@ import { cleanSeo } from './seo-settings.js?v=1';
 import { SECTION_TYPES } from './section-types.js?v=1';
 import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
 import { askEditorialAnnouncement, saveEditorialRecord, chooseActiveEditorial } from './editorial-announcements.js?v=1';
-import { WORK_GENRES, WORK_DEMOGRAPHICS, createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
+import { WORK_GENRES, WORK_DEMOGRAPHICS, createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=2';
+import { loadRelatedWorks, relatedSearchHTML, mountRelatedSearch } from './studio-related-works.js?v=1';
 import { bindVolumeCoverGallery } from './volume-cover-gallery.js?v=1';
 import { mountSeriesCoverEditor, uploadSeriesCover } from './series-cover-editor.js?v=3';
 import { optimizeStudioCover } from './studio-cover-image.js?v=1';
@@ -310,10 +311,10 @@ export function createStudio(ctx){
     if (!(await ensure())) return;
     const TAB = '/estudio/obras';
     if (!can('create')) { app.innerHTML = shell('Nueva obra', can('import') ? '<p>Tu rol solo permite importar. <a href="/estudio/importar">Importar un archivo →</a></p>' : '<p>Tu rol no permite crear obras.</p>', TAB); bindPicker(newWork); return; }
-    const N = createWorkData(), relatedQuery = await sb.from('series')
-      .select('id,title,teams(name)').or('published.eq.true,team_id.eq.' + T.team.id)
-      .is('archived_at', null).order('title').limit(500);
-    const related = relatedQuery.data || [];
+    const N = createWorkData();
+    let related = [], relatedError = '';
+    try { related = await loadRelatedWorks(sb, T.team.id); }
+    catch (e) { relatedError = errMsg(e); toast('No se pudo cargar el catálogo de obras relacionadas: ' + relatedError); }
     let made = null, cover = null, vtitle = '';
     const steps = n => '<ol class="st-steps" style="margin:0 0 22px">' +
       ['Obra', 'Primer volumen', 'Primer capítulo'].map((l,i) =>
@@ -325,7 +326,7 @@ export function createStudio(ctx){
         (can('import') ? '<a class="wk-box" href="/estudio/importar" style="text-decoration:none;color:var(--paper)"><b>Importar un archivo →</b><small class="mono">EPUB, DOCX o PDF con la misma ficha editorial completa.</small></a>' : '') +
         '</div>';
       app.innerHTML = shell('Nueva obra', steps(0) + choices +
-        '<h2 class="s2-h2">Datos de la obra</h2><div class="wf-creator" id="nw-fields">' + renderWorkFields(N,esc,related) + '</div>' +
+        '<h2 class="s2-h2">Datos de la obra</h2><div class="wf-creator" id="nw-fields">' + renderWorkFields(N,esc,related) + (relatedError ? '<p role="alert">No se pudieron cargar las obras para relacionar. ' + esc(relatedError) + '</p>' : '') + '</div>' +
         box('Portada de la obra (opcional)', '<label>JPG, PNG o WebP · máximo 8 MB<input type="file" id="nw-cover" accept="image/png,image/jpeg,image/webp"></label><small class="mono">Si no tienes portada, puedes agregarla después o usar la del volumen importado.</small>') +
         '<div class="wf-create-actions"><button class="btn" id="nw-go">Guardar obra privada y continuar →</button><a class="btn ghost" href="/estudio/obras">Cancelar</a></div>', TAB);
       bindPicker(newWork);
@@ -999,18 +1000,24 @@ export function createStudio(ctx){
       }).catch(e => { if (B()) B().innerHTML = `<p class="wk-access-warning" role="alert">${esc(errMsg(e))}</p>`; });
     }
     if (tab === 'datos') {
-      { const KINDS = [['precuela','Precuela'],['secuela','Secuela'],['spinoff','Spin-off'],['universo','Mismo universo'],['paralela','Historia paralela'],['adaptacion','Adaptación'],['alterna','Versión alternativa'],['otra','Relacionada']], RL = [...(Array.isArray(s.relations) ? s.relations : [])]; let all = [], relDirty = false;
+      { const KINDS = [['precuela','Precuela'],['secuela','Secuela'],['spinoff','Spin-off'],['universo','Mismo universo'],['paralela','Historia paralela'],['adaptacion','Adaptación'],['alterna','Versión alternativa'],['otra','Relacionada']], RL = [...(Array.isArray(s.relations) ? s.relations : [])]; let all = [], relDirty = false, relKind = 'precuela', relatedError = '';
         const drawRel = () => { const b = $('#wk-rel-b'); if (!b) return; const by = Object.fromEntries(all.map(x => [x.id, x])), ed = can('edit');
           b.innerHTML = `<div style="display:grid;gap:8px;margin-top:8px">${RL.map((r, i) => { const x = by[r.id]; return `<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px;border:1px solid #2f2a20;background:#16140f"><span><b>${esc(x?.title || 'Obra no disponible')}</b><br><small class="mono">${esc(x?.teams?.name || '')}</small></span><span style="display:flex;gap:6px;align-items:center"><select data-rk="${i}" ${ed ? '' : 'disabled'} aria-label="Relación">${KINDS.map(([k, l]) => `<option value="${k}" ${r.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>${ed ? `<button type="button" class="lnk danger" data-rx="${i}">Quitar</button>` : ''}</span></div>`; }).join('') || '<p class="mono" style="margin:0">Sin obras relacionadas.</p>'}
-            ${ed && RL.length < 12 ? `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><select id="rel-w" style="flex:1 1 220px"><option value="">Elige una obra…</option>${all.filter(x => x.id !== s.id && !RL.some(r => r.id === x.id)).map(x => `<option value="${x.id}">${esc(x.title)}${x.teams?.name ? ' · ' + esc(x.teams.name) : ''}</option>`).join('')}</select><select id="rel-k">${KINDS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select><button type="button" class="btn ghost sm" id="rel-add">Agregar</button></div>` : ''}
+            ${relatedError ? `<p class="mono srp-error" role="alert">No se pudo cargar el catálogo: ${esc(relatedError)}</p>` : ''}
+            ${ed && RL.length < 12 && !relatedError ? `<div class="wk-rel-add"><label class="srp-kind">Tipo de relación<select id="rel-k">${KINDS.map(([k, l]) => `<option value="${k}" ${relKind === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>${relatedSearchHTML('wk-related-search')}</div>` : ''}
             ${ed ? `<span style="display:flex;gap:8px;align-items:center"><button type="button" class="btn sm" id="rel-save" ${relDirty ? '' : 'disabled'}>Guardar relaciones</button><span class="mono" style="font-size:12px">${relDirty ? 'Cambios sin guardar' : ''}</span></span>` : ''}</div>`;
           b.querySelectorAll('[data-rk]').forEach(x => x.onchange = () => { RL[+x.dataset.rk].kind = x.value; relDirty = true; drawRel(); });
           b.querySelectorAll('[data-rx]').forEach(x => x.onclick = () => { RL.splice(+x.dataset.rx, 1); relDirty = true; drawRel(); });
-          $('#rel-add')?.addEventListener('click', () => { const id = $('#rel-w').value; if (!id) return toast('Elige una obra'); RL.push({ id, kind: $('#rel-k').value }); relDirty = true; drawRel(); });
+          $('#rel-k')?.addEventListener('change', e => { relKind = e.target.value; });
+          mountRelatedSearch(b.querySelector('[data-related-search]'), {
+            works: all, esc, exclude: () => [s.id, ...RL.map(r => r.id)],
+            onPick: x => { if (RL.length >= 12 || RL.some(r => r.id === x.id)) return; RL.push({ id: x.id, kind: relKind }); relDirty = true; drawRel(); }
+          });
           $('#rel-save')?.addEventListener('click', e => busy(e.currentTarget, async () => {
             const { data: up, error } = await sb.from('series').update({ relations: RL }).eq('id', s.id).select('id'); if (error) throw new Error(/relations/.test(error.message || '') ? 'Falta ejecutar el SQL 20261111_obras_relacionadas.sql' : errMsg(error));
             if (!up?.length) throw new Error('No se guardó (permiso de la tabla «series»)'); s.relations = [...RL]; relDirty = false; toast('Relaciones guardadas'); drawRel(); })); };
-        sb.from('series').select('id,title,teams(name)').or('published.eq.true,team_id.eq.' + T.team.id).is('archived_at', null).order('title').then(({ data }) => { all = data || []; drawRel(); });
+        loadRelatedWorks(sb, T.team.id).then(data => { all = data; relatedError = ''; drawRel(); })
+          .catch(e => { relatedError = errMsg(e); drawRel(); });
         sb.from('series').select('id,title,relations,teams(name)').filter('relations', 'cs', JSON.stringify([{ id: s.id }])).then(({ data }) => { const l = (data || []).filter(x => x.id !== s.id && !RL.some(r => r.id === x.id)); if (!l.length) return; const INV = { precuela: 'Secuela', secuela: 'Precuela', adaptacion: 'Obra original' }, KL = Object.fromEntries(KINDS);
           $('#wk-rel-b')?.insertAdjacentHTML('afterend', `<div style="display:grid;gap:6px;margin-top:12px"><span class="mono" style="font-size:11px">Enlazada desde otras obras · se muestran solas en la ficha pública</span>${l.map(x => { const k = (x.relations || []).find(r => r?.id === s.id)?.kind; return `<div style="display:flex;justify-content:space-between;gap:8px;padding:8px;border:1px dashed #2f2a20"><span><b>${esc(x.title)}</b><br><small class="mono">${esc(x.teams?.name || '')}</small></span><span class="mono" style="font-size:12px">${esc(INV[k] || KL[k] || 'Relacionada')}</span></div>`; }).join('')}</div>`); }); }
       let dirty = false; const mark = () => { dirty = true; const d = $('#wk-dirty'); if (d) d.textContent = 'Cambios sin guardar'; };
