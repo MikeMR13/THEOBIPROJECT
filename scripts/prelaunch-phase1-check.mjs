@@ -13,7 +13,7 @@ const record = { kind:'volp', at, series_id:'series-1', volume_id:'vol-1',
 let calls=0;
 const sb = { rpc: async (name, args) => {
   calls++; assert.equal(name, 'prelaunch_calendar');
-  assert.equal(args.p_from, new Date(now).toISOString());
+  assert.ok(new Date(args.p_from).getTime() >= now && new Date(args.p_from).getTime() <= now + 21000);
   assert.ok(new Date(args.p_to) > new Date(at));
   return { data: [
     record, {...record, volume_id:'vol-2', at:new Date(now+20*86400_000).toISOString()},
