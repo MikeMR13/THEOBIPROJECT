@@ -129,6 +129,8 @@ await assert.rejects(saveWorkWithRelations(makeSeriesDb().sb,seriesId,teamId,{re
 assert(creator.includes('relations: RL.map('), 'El botón Guardar datos debe incluir las obras relacionadas');
 assert(creator.includes('await saveWorkWithRelations(sb, s.id, T.team.id, patch)'), 'El botón guarda y verifica todas las relaciones');
 assert(!creator.includes("id=\"rel-save\""), 'No debe existir un guardado de relaciones separado y confuso');
+assert(creator.includes('id="rel-save-all"'), 'Las relaciones necesitan una acción local de guardar todos los cambios');
+assert(creator.includes("$('#rel-save-all')?.addEventListener('click', () => $('#wk-savebtn')?.click())"), 'La acción local debe usar el mismo guardado que toda la ficha');
 assert(creator.includes('RL.push({ id: x.id, kind: relKind }); mark();'),
   'Agregar una relación debe activar la advertencia de cambios sin guardar');
 assert(creator.includes('RL.splice(+x.dataset.rx, 1); mark();'),
