@@ -1008,10 +1008,11 @@ export function createStudio(ctx){
           b.innerHTML = `<div style="display:grid;gap:8px;margin-top:8px">${RL.map((r, i) => { const x = by[r.id]; return `<div class="srp-selected-row"><span class="srp-selected-info"><b title="${esc(x?.title || 'Obra no disponible')}">${esc(x?.title || 'Obra no disponible')}</b><small class="mono">${esc(x?.teams?.name || '')}</small></span><span class="srp-selected-actions"><select data-rk="${i}" ${ed ? '' : 'disabled'} aria-label="Relación">${KINDS.map(([k, l]) => `<option value="${k}" ${r.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>${ed ? `<button type="button" class="lnk danger" data-rx="${i}">Quitar</button>` : ''}</span></div>`; }).join('') || '<p class="mono" style="margin:0">Sin obras relacionadas.</p>'}
             ${relatedError ? `<p class="mono srp-error" role="alert">No se pudo cargar el catálogo: ${esc(relatedError)}</p>` : ''}
             ${ed && RL.length < 12 && !relatedError ? `<div class="wk-rel-add"><label class="srp-kind">Tipo de relación<select id="rel-k">${KINDS.map(([k, l]) => `<option value="${k}" ${relKind === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>${relatedSearchHTML('wk-related-search')}</div>` : ''}
-            ${ed ? '<p class="mono srp-status">Las relaciones se guardan junto con el resto de la ficha mediante «Guardar datos».</p>' : ''}</div>`;
+            ${ed ? '<div class="srp-save"><button type="button" class="btn sm" id="rel-save-all">Guardar datos y relaciones</button><small class="mono">Guarda toda la ficha de esta obra.</small></div>' : ''}</div>`;
           b.querySelectorAll('[data-rk]').forEach(x => x.onchange = () => { RL[+x.dataset.rk].kind = x.value; mark(); drawRel(); });
           b.querySelectorAll('[data-rx]').forEach(x => x.onclick = () => { RL.splice(+x.dataset.rx, 1); mark(); drawRel(); });
           $('#rel-k')?.addEventListener('change', e => { relKind = e.target.value; });
+          $('#rel-save-all')?.addEventListener('click', () => $('#wk-savebtn')?.click());
           mountRelatedSearch(b.querySelector('[data-related-search]'), {
             works: all, esc, exclude: () => [s.id, ...RL.map(r => r.id)],
             onPick: x => { if (RL.length >= 12 || RL.some(r => r.id === x.id)) return; RL.push({ id: x.id, kind: relKind }); mark(); drawRel(); }
