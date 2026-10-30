@@ -2,6 +2,7 @@ import { confirmObi, inputObi } from './obi-dialog.js';
 // Editor de Studio. Se carga únicamente al abrir un capítulo.
 import { blocksToEditor, editorToBlocks, pasteToEditor, renderBlock, warningsHTML, teaserHTML, figureHTML, makesBlock, FONTS, CW } from './blocks.js?v=2';
 import { askEditorialAnnouncement, saveEditorialRecord } from './editorial-announcements.js?v=1';
+import {setupEditorialCollaboration} from './editorial-suggestion-panel.js?v=1';
 export function createEditor(deps) {
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, names, home, errMsg, rpc, LIMITS, SEC } = deps;
   // ---------- editor de página: vista previa del lector, revisión automática, historial, avance y marcadores ----------
@@ -45,12 +46,14 @@ export function createEditor(deps) {
         <span class="ed-state" id="state" role="status">✓ Guardado</span>
         <button class="btn ghost" id="b-rev" aria-expanded="false" aria-controls="p-rev">✓ Revisar</button>
         <button class="btn ghost" id="b-hist" aria-expanded="false" aria-controls="p-hist">◷ Historial</button>
+        <button class="btn ghost" id="b-sug" aria-expanded="false" aria-controls="p-sug">✎ Sugerencias</button>
         <button class="btn ghost" id="save" title="Ctrl/Cmd+S">Guardar</button>
         <button class="btn ghost" id="b-zen" title="Modo concentración · Ctrl+Shift+F" aria-pressed="false">⛶ Concentración</button>
         <span class="ed-pub" id="pub"></span>
       </div>
       <div class="ed-box" id="p-rev" hidden></div>
       <div class="ed-box" id="p-hist" hidden></div>
+      <section class="ed-box" id="p-sug" aria-label="Sugerencias del equipo" hidden></section>
       <details class="ed-box" id="p-set"><summary>Ajustes del capítulo · avance y marcadores de contenido <span class="mono" id="setsum"></span></summary>
         <div class="ed-set">
           <div style="display:grid;gap:8px;align-content:start"><label style="display:grid;gap:6px;font-size:13px;font-weight:600">Avance del próximo capítulo<textarea id="teaser" rows="4" maxlength="1000" placeholder="Unas líneas para dejar con ganas…">${esc(meta.teaser)}</textarea></label>
@@ -195,9 +198,16 @@ export function createEditor(deps) {
       const box = $('#p-hist'); box.innerHTML = '<p class="ed-note">Cargando historial…</p>';
       const { data } = await sb.from('chapter_revisions').select('id,created_at,kind,version,title,lint_count,created_by,note').eq('chapter_id', id).order('created_at', { ascending: false }).limit(60);
       const nm = await names((data || []).map(r => r.created_by));
-      box.innerHTML = `<div class="ed-bh" style="cursor:default"><b>Historial de versiones</b><span class="mono">${(data || []).length} versiones · autoguardado cada 10 min</span></div><div class="ed-side">${(data || []).map(r => `<div class="ed-row"><span><b>${r.version ? 'v' + r.version + ' · ' : ''}${REV_KIND[r.kind] || r.kind}</b> · ${esc(nm[r.created_by] || 'alguien')}<br><small>${fmtTz(r.created_at, { dateStyle: 'medium', timeStyle: 'short' })}${r.note ? ' · ' + esc(r.note) : ''}${r.lint_count ? ' · ' + r.lint_count + ' aviso(s)' : ''}</small></span><span class="a"><button class="btn ghost" data-hv="${r.id}">Ver</button><button class="btn ghost" data-hr="${r.id}">Restaurar</button></span></div>`).join('') || '<p class="ed-note">Aún no hay versiones. Se crea una cada vez que pulsas Guardar.</p>'}</div>`;
+      box.innerHTML = `<div class="ed-bh" style="cursor:default"><b>Historial de versiones</b><span class="mono">${(data || []).length} versiones · autoguardado cada 10 min</span></div><div class="ed-side">${(data || []).map(r => `<div class="ed-row"><span><b>${r.version ? 'v' + r.version + ' · ' : ''}${REV_KIND[r.kind] || r.kind}</b> · ${esc(nm[r.created_by] || 'alguien')}<br><small>${fmtTz(r.created_at, { dateStyle: 'medium', timeStyle: 'short' })}${r.note ? ' · ' + esc(r.note) : ''}${r.lint_count ? ' · ' + r.lint_count + ' aviso(s)' : ''}</small></span><span class="a"><button class="btn ghost" data-hv="${r.id}">Ver</button><button class="btn ghost" data-hd="${r.id}">Comparar</button><button class="btn ghost" data-hr="${r.id}">Restaurar</button></span></div>`).join('') || '<p class="ed-note">Aún no hay versiones. Se crea una cada vez que pulsas Guardar.</p>'}</div><div id="ed-history-compare" role="status"></div>`;
     }
     const getRev = async rid => { const { data, error } = await sb.from('chapter_revisions').select('id,version,title,body,created_at').eq('id', rid).single(); if (error) throw error; return data; };
+    setupEditorialCollaboration({
+      sb,id,root,box:$('#p-sug'),button:$('#b-sug'),historyBox:$('#p-hist'),
+      can,names,esc,toast,fmtTz,confirmObi,userId:meU?.id,
+      getVersion:()=>version,getDirty:()=>dirty,getConflict:()=>conflict,
+      getBody:()=>editorToBlocks(doc),getTitle:title,getSelected:()=>lastRange?.toString()||'',
+      getRevision:getRev,findText:q=>findText(q)
+    });
     const restore = async r => { load(r.body); $('#ttl').value = r.title || $('#ttl').value; viewing = null; $('#ctx').innerHTML = ''; changed(); await doSave(true, 'restore', 'Restaurada desde la versión ' + (r.version || '')); toast('Versión restaurada'); };
 
     // lectores: erratas y comentarios
