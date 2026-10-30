@@ -28,6 +28,7 @@ const sb = { from(table) {
 let editor, relations = [];
 const view = () => {
   editor?.destroy();
+  document.getElementById('panel').innerHTML = '<p>Reabriendo ficha…</p>';
   relations = structuredClone(stored.relations);
   editor = mountWorkRelationsEditor({
     container: document.getElementById('panel'), sb, teamId, seriesId:id,
