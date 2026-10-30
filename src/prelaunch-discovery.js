@@ -12,10 +12,10 @@ export async function loadPublicUpcoming(sb, options = {}) {
   if (prev && prev.days === days && now >= prev.at && now - prev.at < TTL_MS) {
     return (await prev.promise).filter(r => new Date(r.at).getTime() > now);
   }
-  const promise = Promise.resolve(sb.rpc('prelaunch_calendar', {
+  const promise = Promise.resolve().then(() => sb.rpc('prelaunch_calendar', {
     p_from: new Date(now).toISOString(),
     p_to: new Date(now + days * 86400_000).toISOString()
-  })).then(({ data, error }) => {
+  }))).then(({ data, error }) => {
     if (error) throw error;
     // Defensa adicional del cliente: la autorización efectiva siempre es de la RPC.
     return (Array.isArray(data) ? data : []).filter(r =>
