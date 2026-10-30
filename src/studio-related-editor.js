@@ -115,7 +115,10 @@ export function mountWorkRelationsEditor({ container, sb, teamId, seriesId, rela
   });
   return {
     setStatus,
-    pendingSearchText: () => searchArea?.querySelector('[data-related-query]')?.value.trim() || '',
+    pendingSearchText: () => {
+      const field = searchArea?.querySelector('[data-related-query]');
+      return field && !field.dataset.relatedSelected ? field.value.trim() : '';
+    },
     destroy: () => {
       disposed = true;
       picker?.destroy();
