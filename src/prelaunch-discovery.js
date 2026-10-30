@@ -15,7 +15,7 @@ export async function loadPublicUpcoming(sb, options = {}) {
   const promise = Promise.resolve().then(() => sb.rpc('prelaunch_calendar', {
     p_from: new Date(now).toISOString(),
     p_to: new Date(now + days * 86400_000).toISOString()
-  }))).then(({ data, error }) => {
+  })).then(({ data, error }) => {
     if (error) throw error;
     // Defensa adicional del cliente: la autorización efectiva siempre es de la RPC.
     return (Array.isArray(data) ? data : []).filter(r =>
