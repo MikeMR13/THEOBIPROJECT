@@ -107,7 +107,19 @@ try {
   ok(parseInt(getComputedStyle(resultPanel).maxHeight, 10) <= 290,
     'La lista debe tener una altura máxima y scroll interno');
 
-  relatedButton.click();
+  // Reproducir el orden de eventos de un toque/clic real (pointerdown →
+  // blur del buscador → microtarea → click). El test anterior usaba .click()
+  // directamente y omitía el focusout que ocultaba la opción antes del clic.
+  relatedInput.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'mouse'}));
+  relatedButton.querySelector('.srp-select-action').dispatchEvent(
+    new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch'}));
+  relatedInput.blur();
+  await Promise.resolve();
+  ok(!resultPanel.hidden && relatedButton.isConnected,
+    'El resultado desaparece al perder el foco antes de poder pulsar Seleccionar obra');
+  relatedButton.querySelector('.srp-select-action').dispatchEvent(
+    new PointerEvent('pointerup',{bubbles:true,pointerType:'touch'}));
+  relatedButton.querySelector('.srp-select-action').click();
   ok(app.querySelector('[data-w-rel-list]')?.textContent.includes('Grupo Ónix'), 'No se añadió la obra relacionada con el equipo visible');
   ok(app.querySelector('[data-related-results]').hidden, 'El panel debe cerrarse después de agregar la obra');
 
@@ -199,8 +211,16 @@ try {
     'Se permitió guardar una búsqueda no seleccionada: estado=' + app.querySelector('#wk-rel-save-status')?.textContent +
     ', consulta=' + app.querySelector('#wk-related-search')?.value + ', toast=' + editOwner.messages.slice(-3).join(' | '));
   ok(editOwner.savedPatches.length===0,'No debe guardarse una búsqueda escrita pero no seleccionada');
+  query.focus(); // Enfocar redibuja los botones: obtener el elemento DESPUÉS del focus.
   const pick=app.querySelector('#wk-rel-b .srp-result');
-  pick.click();
+  ok(!!pick && pick.isConnected, 'No hay resultado visible para seleccionar en Editar datos');
+  pick.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch'}));
+  query.blur();
+  await Promise.resolve();
+  ok(pick.isConnected && !app.querySelector('#wk-rel-b [data-related-results]').hidden,
+    'Editar datos cierra la lista de resultados antes de finalizar el toque');
+  pick.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerType:'touch'}));
+  pick.querySelector('.srp-select-action').click();
   ok(app.querySelector('.srp-selected-info')?.textContent.includes('Bruja'),
     'Editar datos no muestra la obra seleccionada');
   ok(app.querySelector('#wk-dirty')?.textContent.includes('Cambios sin guardar'),
