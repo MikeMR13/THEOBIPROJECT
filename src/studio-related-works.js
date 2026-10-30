@@ -80,9 +80,17 @@ export function mountRelatedSearch(root, { works = [], exclude = () => [], onPic
   };
   input.addEventListener('focus', () => {
     if (ignoreNextFocus) { ignoreNextFocus = false; return; }
+    if (input.dataset.relatedSelected) {
+      // El último título sí quedó elegido: conservarlo hasta iniciar otra búsqueda.
+      input.select();
+      return;
+    }
     draw();
   });
-  input.addEventListener('input', draw);
+  input.addEventListener('input', () => {
+    delete input.dataset.relatedSelected;
+    draw();
+  });
   input.addEventListener('keydown', event => {
     if (event.key === 'Escape') { event.preventDefault(); hide(); return; }
     if (event.key === 'ArrowDown') {
@@ -111,9 +119,21 @@ export function mountRelatedSearch(root, { works = [], exclude = () => [], onPic
     if (!button) return;
     const selected = works.find(w => w.id === button.dataset.relatedId);
     if (!selected || new Set(exclude()).has(selected.id)) return;
-    input.value = '';
-    hide();
-    onPick(selected);
+    try {
+      // No dejar el campo en blanco ni anunciar éxito antes de registrar el ID.
+      const accepted = onPick(selected);
+      if (accepted === false) {
+        status.textContent = 'No se añadió la obra. Comprueba el límite de relaciones e inténtalo de nuevo.';
+        return;
+      }
+      input.value = selected.title;
+      input.dataset.relatedSelected = selected.id;
+      hide();
+      status.textContent = '✓ ' + selected.title + ' seleccionada y añadida a la lista. Recuerda guardar los cambios.';
+    } catch (error) {
+      status.textContent = 'No se pudo seleccionar la obra: ' + (error?.message || String(error));
+      status.setAttribute('role','alert');
+    }
   });
 
   status.textContent = works.length
