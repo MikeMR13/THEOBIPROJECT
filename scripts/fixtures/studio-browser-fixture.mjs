@@ -155,6 +155,10 @@ try {
   ok(owner.inserted[0].row.slug==='cronicas-del-dragon','Slug incorrecto');
   ok(owner.inserted[0].row.work_type==='Novela ligera','Tipo editorial incompleto');
   ok(owner.inserted[0].row.published===false,'La obra no nace privada');
+  ok(owner.inserted[0].row.relations?.[0]?.id==='00000000-0000-4000-8000-000000000090',
+    'La relación elegida debe viajar en el INSERT de la obra nueva');
+  ok(owner.inserted[0].row.relations?.[0]?.kind==='precuela',
+    'La relación conserva el tipo seleccionado');
   checks++;
   app.querySelector('#nw-v').click();
   await until(()=>owner.redirects.includes('/estudio/editar/00000000-0000-4000-8000-000000000004'),
