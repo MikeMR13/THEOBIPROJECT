@@ -29,7 +29,7 @@ assert.equal(ids({sort:'activity'}),'a,b,c');
 assert.equal(importWorkUrl('id con espacios'),'/estudio/importar?obra=id%20con%20espacios');
 const file={type:'image/jpeg',size:1024};
 assert.equal(await optimizeStudioCover(file),file,'Sin API de imagen, conservar archivo original');
-const st=read('src/studio.js'),imp=read('src/studio-importer.js'),css=read('src/studio.css');
+const st=read('src/studio.js'),imp=read('src/studio-importer.js'),css=read('src/studio.css')+'\n'+read('src/studio-obras.css');
 const pub=read('src/studio-series-publication.js'),cover=read('src/series-cover-editor.js'),view=read('src/studio-works-view.js');
 const requires=(source,checks,name)=>checks.forEach(s=>assert(source.includes(s),name+': '+s));
 requires(st,[
@@ -74,6 +74,7 @@ requires(css,[
 ".wk-row-more"
 ],'Estilos');
 assert(cover.includes('optimizeStudioCover(file)'),'La portada principal se convierte en navegador');
+assert(st.includes('/studio-obras.css?v=1'),'CSS Obras debe cargarse de forma versionada');
 assert(read('src/app.js').includes("/studio.js?v=49"));
 assert(read('src/index.html').includes('/app.js?v=39'));
 console.log('✓ Auditoría Estudio Obras: filtros, permisos, móvil, importación, publicación y rendimiento');
