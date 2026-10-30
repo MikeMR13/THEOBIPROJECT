@@ -1123,7 +1123,7 @@ export function createStudio(ctx){
   // ---------- EPUB/DOCX/PDF, importación dinámica ----------
   let importerTask = null;
   async function importer(){
-    if (!importerTask) importerTask = import('./studio-importer.js?v=2')
+    if (!importerTask) importerTask = import('./studio-importer.js?v=3')
       .then(m => m.createImporter({ sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, LIMITS, SEC }))
       .catch(e => { importerTask = null; throw e; });
     return (await importerTask)();
