@@ -68,11 +68,12 @@ export function mountWorkRelationsEditor({ container, sb, teamId, seriesId, rela
       picker = mountRelatedSearch(searchArea.querySelector('[data-related-search]'), {
         works, esc, exclude: () => [seriesId, ...relations.map(r => r.id)],
         onPick: chosen => {
-          if (disposed || relations.length >= 12 || relations.some(r => r.id === chosen.id)) return;
+          if (disposed || relations.length >= 12 || relations.some(r => r.id === chosen.id)) return false;
           relations.push({ id:chosen.id, kind:relationKind });
-          setStatus('Obra añadida a la lista. Falta pulsar «Guardar datos y relaciones».');
           onDirty();
           drawRows();
+          setStatus('✓ ' + chosen.title + ' añadida a Obras relacionadas. Falta guardar los cambios.');
+          return true;
         }
       });
     }
