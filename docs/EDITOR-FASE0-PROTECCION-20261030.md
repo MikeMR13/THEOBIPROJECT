@@ -2,8 +2,8 @@
 
 ## Estado de entrega
 - Rama aislada desde `main` (`b5b1e4a`).
-- **Sin aplicar** SQL a producción, sin desplegar, sin modificar el editor del lector.
-- Implementación: migración `20261030213000_editor_phase0_content_protection.sql`, etiqueta de historial y QA PostgreSQL aislado.
+- **Aplicada** la migración a Supabase en producción y verificadas sus invariantes; la interfaz del lector permanece sin cambios hasta fusionar la rama.
+- Implementación: migración `20261030205428_editor_phase0_content_protection_20261030.sql`, etiqueta de historial y QA PostgreSQL aislado.
 - Objetivo: conservar el contenido ya presente y proteger futuras importaciones/reemplazos con el mínimo cambio de arquitectura.
 
 ## Datos previos observados (solo lectura)
@@ -72,3 +72,10 @@ FROM public.chapters c WHERE NOT EXISTS (
 
 ## Contingencia
 Ante un comportamiento inesperado **antes de fusionar**, no aplicar migraciones ni fusionar el PR. Ante una incidencia posterior a la activación, detener nuevas importaciones y evaluar desactivar temporalmente solo los dos triggers `chapters_editor_phase0_guard` y `chapters_editor_phase0_initial`, preservando las copias en `private` y las revisiones; nunca borrar respaldos automáticamente. Cualquier restauración de capítulos debe ser revisada por el equipo autorizado.
+
+## Activación efectuada el 30 de octubre de 2026
+- Plan existente de Supabase: Pro (incluye respaldos diarios); no se puede certificar desde el conector una copia diaria individual.
+- Migración aplicada con éxito y registrada con versión `20261030205428`.
+- 490 capítulos sin cambios de estado o número; 490 copias privadas íntegras; 491 revisiones (490 baseline y 1 auto previo).
+- Zero capítulos sin revisión equivalente; copias no legibles para anon o authenticated; BD de 44 MB a 63 MB.
+- Solo quedan pendientes fusión de código y confirmación de despliegue; no se ha contratado ningún complemento.
