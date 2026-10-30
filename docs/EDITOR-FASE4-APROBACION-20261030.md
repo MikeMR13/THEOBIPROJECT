@@ -38,3 +38,9 @@ La opción de equipo está protegida por trigger incluso frente a un UPDATE dire
 - La ejecución de las pruebas usa usuarios ficticios. Una prueba manual con dos cuentas reales del equipo sigue siendo recomendable.
 - El equipo puede seguir publicando como antes mientras `require_approval=false`; la fase no activa esa política sin consentimiento de la persona administradora.
 - La comparación de versiones y sugerencias de Fase 3 se conservan sin aplicación automática.
+
+## Activación real verificada (30 de octubre de 2026)
+- La migración productiva se registró bajo versión `20261030224017`.
+- 490 capítulos, 491 revisiones, 490 respaldos íntegros, cero solicitudes previas y cero equipos con aprobación obligatoria activada.
+- RLS activo; rol anónimo sin lectura, usuarios autenticados sin UPDATE/INSERT directo; RPCs concedidos solo a authenticated.
+- Se preservaron la base de ~63 MB, publicaciones y programación. Sin servicios ni cargos añadidos.
