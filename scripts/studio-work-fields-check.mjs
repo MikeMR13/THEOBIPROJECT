@@ -139,7 +139,7 @@ assert(creator.includes("const pendingQuery = $('#wk-related-search')?.value?.tr
   'Impedir guardar texto buscado sin elegir una obra');
 assert(creator.includes("work.relatedSaved ="), 'La confirmación debe sobrevivir a la recarga de Editar datos');
 assert(creator.includes('id="wk-rel-save-status"'), 'La ficha debe mostrar estado persistente del guardado');
-const auditMigration = readFileSync('supabase/migrations/20261030071500_studio_related_relations_audit.sql','utf8');
+const auditMigration = readFileSync('supabase/migrations/20261030071009_studio_related_relations_audit_20261030.sql','utf8');
 assert(auditMigration.includes('after insert or update of relations on public.series'),
   'El registro debe dispararse con cambios de relaciones');
 assert(auditMigration.includes('private.log(') && auditMigration.includes('old.relations is not distinct from new.relations'),
