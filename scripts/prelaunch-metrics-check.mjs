@@ -40,7 +40,7 @@ assert.match(panel,/Obras anunciadas/);
 assert.match(panel,/Seguimientos registrados/);
 assert.match(panel,/Recordatorios pendientes/);
 assert.match(panel,/15/);
-assert.match(panel,/no personas únicas ni visitas/);
+assert.match(panel,/no visitantes únicos/);
 assert.doesNotMatch(panel,/999|private-other-team|user_id/);
 assert.equal(createPrelaunchMetricsPanel(new Set(),ok),'');
 const work={id:'a',slug:'ejemplo',title:'Obra futura',published:false,translation_status:'active',volumes:[],cover_path:null};
