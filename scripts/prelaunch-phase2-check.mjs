@@ -26,7 +26,7 @@ try {
     const state={filters:[],select(){return this;},eq(k,v){this.filters.push([k,v]);return this;},
       async maybeSingle(){return {data:hasFollow?{series_id:'s1'}:null,error:followError?new Error('fallo lectura'):null};},
       async upsert(row){actions.push(['upsert',row]);if(followError)return {error:new Error('fallo escritura')};hasFollow=true;return {error:null};},
-      delete(){return {eq:(k,v)=>{this.filters.push([k,v]);if(this.filters.length===2){actions.push(['delete',this.filters]);hasFollow=false;}return this;},error:null};}
+      delete(){const filters=[];const q={error:null,eq(k,v){filters.push([k,v]);if(filters.length===2){actions.push(['delete',filters]);hasFollow=false;}return q;}};return q;}
     };
     return state;
   }};
