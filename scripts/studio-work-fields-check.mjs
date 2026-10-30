@@ -43,7 +43,7 @@ assert(html.includes('data-related-query') && html.includes('data-related-result
 assert(!html.includes('data-w-rel-pick'), 'No usar listas nativas gigantes en el editor de obra');
 assert(relatedSearchHTML('test-related').includes('type="search"'), 'El campo debe permitir búsqueda por título o equipo');
 assert(html.includes('id="nw-title"'),'La QA con navegador debe poder encontrar el título');
-const creator=readFileSync('src/studio.js','utf8');
+const creator=readFileSync('src/studio.js','utf8')+readFileSync('src/studio-new-work.js','utf8');
 const importer=readFileSync('src/studio-importer.js','utf8');
 assert(creator.includes('renderWorkFields(N,esc,related)'));
 assert(importer.includes('renderWorkFields(NW, esc,'));
