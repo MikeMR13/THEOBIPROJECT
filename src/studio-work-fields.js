@@ -163,11 +163,12 @@ export function bindWorkFields(root, state, esc, related = [], notify = () => {}
     exclude: () => (state.relations || []).map(r => r.id),
     esc,
     onPick: work => {
-      if (state.relations.length >= 12) return notify('Máximo 12 obras relacionadas');
-      if (state.relations.some(r => r.id === work.id)) return;
+      if (state.relations.length >= 12) { notify('Máximo 12 obras relacionadas'); return false; }
+      if (state.relations.some(r => r.id === work.id)) return false;
       state.relations.push({ id: work.id, kind: root.querySelector('[data-w-rel-kind]').value });
       redraw();
       notify();
+      return true;
     }
   });
   redraw();
