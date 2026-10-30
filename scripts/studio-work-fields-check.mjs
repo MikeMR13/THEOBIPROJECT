@@ -5,7 +5,7 @@ import {
   WORK_GENRES, WORK_DEMOGRAPHICS, WORK_REL_KINDS,
   createWorkData, renderWorkFields, workPayload
 } from '../src/studio-work-fields.js';
-import { loadRelatedWorks, searchRelatedWorks, normalizeRelatedText, relatedSearchHTML } from '../src/studio-related-works.js';
+import { loadRelatedWorks, searchRelatedWorks, normalizeRelatedText, relatedSearchHTML, sameRelatedWorks, saveWorkWithRelations } from '../src/studio-related-works.js';
 
 const demo = WORK_DEMOGRAPHICS.map(x => x[0]);
 assert(['Kodomo','Shōnen','Shōjo','Seinen','Josei','Juvenil','Young Adult','New Adult','General'].every(x => demo.includes(x)));
@@ -78,4 +78,61 @@ assert(creator.includes('loadRelatedWorks(sb, T.team.id)'), 'Nueva obra y Datos 
 assert(importer.includes('loadRelatedWorks(sb, T.team.id)'), 'Importación usa catálogo paginado');
 assert(!creator.includes('.order(\'title\').limit(500)'), 'No truncar las obras nuevas');
 console.log('✓ Relaciones: búsqueda accesible, paginación >500, RLS, edición y importación');
+
+const seriesId = '00000000-0000-4000-8000-000000000020';
+const teamId = '00000000-0000-4000-8000-000000000001';
+const relationship = { id: seed.relations[0].id, kind: 'secuela' };
+assert(sameRelatedWorks([{kind:'secuela',id:relationship.id}], [relationship]),
+  'El orden de las propiedades JSONB no debe causar falsos fallos de guardado');
+
+function makeSeriesDb({ deny = false, wrongUpdate = false, wrongRead = false } = {}) {
+  const state = { id:seriesId, team_id:teamId, title:'Antes', relations: [] };
+  const writes = [], reads = [];
+  const sb = { from(table) {
+    assert.equal(table,'series');
+    const query = { mode:'read', criteria:{}, fields:'' };
+    const chain = {
+      update(patch) { query.mode='update';query.patch=patch;return this; },
+      select(fields) { query.fields=fields;return this; },
+      eq(name, value) { query.criteria[name]=value;return this; },
+      async maybeSingle() {
+        const permitted = !deny && query.criteria.id === state.id && query.criteria.team_id === state.team_id;
+        if (query.mode === 'update') {
+          writes.push({ ...query });
+          if (!permitted) return { data:null, error:null };
+          Object.assign(state,query.patch);
+          return { data:{ id:state.id,title:state.title,relations:wrongUpdate ? [] : state.relations },error:null };
+        }
+        reads.push({ ...query });
+        if (!permitted) return {data:null,error:null};
+        return { data:{id:state.id,relations:wrongRead ? [] : state.relations},error:null };
+      }
+    };
+    return chain;
+  }};
+  return { sb, state, writes, reads };
+}
+{
+  const db = makeSeriesDb();
+  const saved = await saveWorkWithRelations(db.sb, seriesId, teamId, {title:'Después', relations:[relationship]});
+  assert.equal(db.state.title,'Después', 'Los metadatos se guardan en la misma operación');
+  assert.deepEqual(db.state.relations,[relationship], 'La relación se escribe en la tabla');
+  assert.deepEqual(saved.relations,[relationship], 'La segunda lectura confirma persistencia real');
+  assert.equal(db.writes.length,1, 'Una sola actualización atómica de metadatos y relaciones');
+  assert.equal(db.reads.length,1, 'Se debe verificar con una segunda lectura independiente');
+  assert.deepEqual(db.writes[0].criteria,{id:seriesId,team_id:teamId}, 'La actualización queda acotada al equipo');
+}
+await assert.rejects(saveWorkWithRelations(makeSeriesDb({deny:true}).sb,seriesId,teamId,{relations:[relationship]}),/permisos/);
+await assert.rejects(saveWorkWithRelations(makeSeriesDb({wrongUpdate:true}).sb,seriesId,teamId,{relations:[relationship]}),/no confirmó/);
+await assert.rejects(saveWorkWithRelations(makeSeriesDb({wrongRead:true}).sb,seriesId,teamId,{relations:[relationship]}),/no permanecieron/);
+await assert.rejects(saveWorkWithRelations(makeSeriesDb().sb,seriesId,teamId,{relations:[relationship,relationship]}),/no es válida/);
+assert(creator.includes('relations: RL.map('), 'El botón Guardar datos debe incluir las obras relacionadas');
+assert(creator.includes('await saveWorkWithRelations(sb, s.id, T.team.id, patch)'), 'El botón guarda y verifica todas las relaciones');
+assert(!creator.includes("id=\"rel-save\""), 'No debe existir un guardado de relaciones separado y confuso');
+assert(creator.includes('RL.push({ id: x.id, kind: relKind }); mark();'),
+  'Agregar una relación debe activar la advertencia de cambios sin guardar');
+assert(creator.includes('RL.splice(+x.dataset.rx, 1); mark();'),
+  'Quitar una relación debe activar la advertencia de cambios sin guardar');
+console.log('✓ Guardado de relaciones: escritura, lectura posterior, RLS denegado y prevención de falsos éxitos');
+
 console.log('Contrato de ficha compartida: campos, demografías, géneros, relaciones y guardado OK');
