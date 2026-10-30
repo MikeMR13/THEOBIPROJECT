@@ -1002,13 +1002,14 @@ export function createStudio(ctx){
       let dirty = false;
       const mark = () => { dirty = true; const d = $('#wk-dirty'); if (d) d.textContent = 'Cambios sin guardar'; };
       const RL = [...(Array.isArray(s.relations) ? s.relations : [])];
-      { const KINDS = [['precuela','Precuela'],['secuela','Secuela'],['spinoff','Spin-off'],['universo','Mismo universo'],['paralela','Historia paralela'],['adaptacion','Adaptación'],['alterna','Versión alternativa'],['otra','Relacionada']]; let all = [], relKind = 'precuela', relatedError = '';
         let relStatus = work.relatedSaved?.id === s.id ? work.relatedSaved.text : '';
         if (work.relatedSaved?.id === s.id) delete work.relatedSaved;
         const setRelStatus = (message, isError = false) => {
           relStatus = message; const status = $('#wk-rel-save-status');
           if (status) { status.textContent = message; status.dataset.error = String(isError); }
         };
+      { const KINDS = [['precuela','Precuela'],['secuela','Secuela'],['spinoff','Spin-off'],['universo','Mismo universo'],['paralela','Historia paralela'],['adaptacion','Adaptación'],['alterna','Versión alternativa'],['otra','Relacionada']]; let all = [], relKind = 'precuela', relatedError = '';
+
         const drawRel = () => { const b = $('#wk-rel-b'); if (!b) return; const by = Object.fromEntries(all.map(x => [x.id, x])), ed = can('edit');
           b.innerHTML = `<div style="display:grid;gap:8px;margin-top:8px">${RL.map((r, i) => { const x = by[r.id]; return `<div class="srp-selected-row"><span class="srp-selected-info"><b title="${esc(x?.title || 'Obra no disponible')}">${esc(x?.title || 'Obra no disponible')}</b><small class="mono">${esc(x?.teams?.name || '')}</small></span><span class="srp-selected-actions"><select data-rk="${i}" ${ed ? '' : 'disabled'} aria-label="Relación">${KINDS.map(([k, l]) => `<option value="${k}" ${r.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>${ed ? `<button type="button" class="lnk danger" data-rx="${i}">Quitar</button>` : ''}</span></div>`; }).join('') || '<p class="mono" style="margin:0">Sin obras relacionadas.</p>'}
             ${relatedError ? `<p class="mono srp-error" role="alert">No se pudo cargar el catálogo: ${esc(relatedError)}</p>` : ''}
