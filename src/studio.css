@@ -1070,3 +1070,12 @@ body.in-studio .s2-main > *{min-width:0;max-width:100%}
  .s2 .s2-team>span.s2-bib{font-size:11px}
 }
 @media(prefers-reduced-motion:reduce){.s2 .s2-work,.s2 .wk-row-more summary{transition:none}}
+
+.s2 .s2-work-alert{font:600 11px/1.4 'IBM Plex Mono',monospace;color:#efd68c;border-left:3px solid #d7a92c;padding-left:8px;overflow-wrap:anywhere}
+.s2 .s2-works[data-view=table] .s2-work-alert{grid-column:1}
+.s2 .wk-publication-change{display:grid;gap:12px}
+.s2 .wk-publication-change>summary{list-style:none;padding:11px 14px;border:1px solid #5b4c32;background:#201b13;color:var(--paper);cursor:pointer;font-weight:600}
+.s2 .wk-publication-change>summary::-webkit-details-marker{display:none}
+.s2 .wk-publication-change>summary:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.s2 .wk-publication-change[open]{padding-bottom:8px}
+.s2 #wk-sp-save:disabled{opacity:.6;cursor:not-allowed}
