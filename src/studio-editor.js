@@ -108,7 +108,7 @@ export function createEditor(deps) {
     load(c.body);
     const blocksEls = () => [...doc.childNodes].filter(makesBlock);
     const title = () => $('#ttl').value.trim() || 'Sin título';
-    const titleCount=()=>{const n=$('#ttl').value.length;$('#ttlcount').textContent=n+' / 300';$('#ttlcount').classList.toggle('over',n>300);};
+    const titleCount=()=>{const el=$('#ttl'),n=el.value.length;$('#ttlcount').textContent=n+' / 300';$('#ttlcount').classList.toggle('over',n>300);el.style.height='auto';el.style.height=Math.min(218,Math.max(72,el.scrollHeight))+'px';};
     titleCount();
     const setState = (cls, msg) => { const s = $('#state'); if (!s) return; s.className = 'ed-state ' + cls; s.textContent = msg; };
     const topOf = n => { while (n && n.parentNode !== doc) n = n.parentNode; return n; };
@@ -125,7 +125,7 @@ export function createEditor(deps) {
       pv.querySelectorAll('.ed-pv-active').forEach(n=>n.classList.remove('ed-pv-active'));
       target.classList.add('ed-pv-active');
       const destination=previewBlockScrollTop(pv,target);
-      if(destination!==null&&Math.abs(pv.scrollTop-destination)>24)pv.scrollTo({top:destination,behavior:'instant'});
+      if(destination!==null&&Math.abs(pv.scrollTop-destination)>24)pv.scrollTo({top:destination,behavior:'auto'});
     };
     const queuePreviewSync=()=>{
       clearTimeout(previewSyncT);
