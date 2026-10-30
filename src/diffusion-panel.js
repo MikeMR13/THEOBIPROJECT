@@ -85,7 +85,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     return;
   }
   const header = () => '<div class="df-title"><div><small>DIFUSIÓN · ' + (official ? 'BIBLIOTECARIO' : 'ESTUDIO') + '</small>'
-    + '<p class="df-subtitle"> + safe(scope) + '</p></div><span class="df-stage">DISCORD Y TELEGRAM · MANUAL / PROGRAMADO</span></div>'
+    + '<p class="df-subtitle">' + safe(scope) + '</p></div><span class="df-stage">DISCORD Y TELEGRAM · MANUAL / PROGRAMADO</span></div>'
     + '<nav class="df-tabs" aria-label="Secciones de Difusión">'
     + tabs.map(([id,name])=>'<button type="button" data-dtab="' + id + '" class="' + (tab===id?'on':'')
       + '" aria-current="' + (tab===id?'page':'false') + '">' + name + '</button>').join('') + '</nav>'
