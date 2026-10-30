@@ -1093,6 +1093,7 @@ export function createStudio(ctx){
   }
   let editorTask = null;
   async function editor(id){
+    if(!app.querySelector('.ed')) app.innerHTML=shell('Editar capítulo','<div class="ed-loading" role="status" aria-label="Cargando editor"><span class="ed-load-bar"></span><span class="ed-load-line"></span><span class="ed-load-page"></span></div>','/estudio/obras');
     if (!editorTask) editorTask = import('./studio-editor.js?v=1')
       .then(m => m.createEditor({ sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, names, home, errMsg, rpc, LIMITS, SEC }))
       .catch(e => { editorTask = null; throw e; });
