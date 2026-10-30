@@ -138,3 +138,15 @@
 .s2 .s2-private-note{font-size:12px;line-height:1.45;color:#c6b99e}
 .s2 .s2-worktools #s2-work-release{min-width:0}
 @media(max-width:700px){.s2 .s2-prelaunch-badge{font-size:10px}.s2 .s2-more-content{max-width:min(90vw,340px)}}
+
+/* Métricas editoriales opt-in de preestrenos: agregados, sin datos del lector. */
+.s2 .s2-pre-metrics{margin:0 0 18px;padding:16px;border:1px solid #5a4c31;background:#17140f;min-width:0}
+.s2 .s2-pre-metrics-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.s2 .s2-pre-metrics-head h2{margin:0;font-size:17px;color:#f3ecd9}
+.s2 .s2-pre-metrics-head>span{font-size:11px;color:#a9dbff}
+.s2 .s2-pre-metrics-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0}
+.s2 .s2-pre-metrics-grid>div{min-width:0;padding:12px;border:1px solid #453b2a;background:#211b13}
+.s2 .s2-pre-metrics dt{font-size:11px;color:#c2b9aa}
+.s2 .s2-pre-metrics dd{font-size:25px;font-weight:700;font-variant-numeric:tabular-nums;color:#f2c230;margin:4px 0 0;overflow-wrap:anywhere}
+.s2 .s2-pre-metrics p{font-size:11px;line-height:1.5;color:#c8bda9;margin:0}
+@media(max-width:520px){.s2 .s2-pre-metrics{padding:12px}.s2 .s2-pre-metrics-grid{grid-template-columns:1fr;gap:7px}.s2 .s2-pre-metrics-grid>div{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px}.s2 .s2-pre-metrics dd{font-size:20px;margin:0}}
