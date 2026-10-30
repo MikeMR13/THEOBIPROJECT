@@ -1000,3 +1000,8 @@ body.in-studio .s2-main > *{min-width:0;max-width:100%}
 .wk-inv-details{display:grid;gap:2px;min-width:0}.wk-inv-details b,.wk-inv-details small{overflow-wrap:anywhere}.wk-inv-details small,.wk-inv-reason{color:#bdb39f;font:11px 'IBM Plex Mono',monospace}.wk-inv-reason{max-width:120px;text-align:right}.wk-inv-empty{padding:9px;margin:0;font-size:12px}
 @media(max-width:480px){.wk-inv #invite{flex:1 1 100%}.wk-inv-option{grid-template-columns:34px minmax(0,1fr)}.wk-inv-reason{grid-column:2;text-align:left;max-width:none}}
 
+
+/* Auditoría Studio: instrucciones visibles y controles accesibles en formularios. */
+.s2 .st-field-caption{display:grid;gap:7px;min-width:0;font-weight:600;color:var(--paper)}
+.s2 .st-field-caption input,.s2 .st-field-caption textarea{width:100%;min-width:0;font-weight:400}
+@media(max-width:700px){.s2 .s2-main{padding-top:16px}.s2 .s2-head{margin-bottom:15px}}
