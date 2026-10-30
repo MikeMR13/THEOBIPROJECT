@@ -9,7 +9,7 @@ const oldSetInterval = globalThis.setInterval, oldClearInterval = globalThis.cle
 const escape = s => String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pre = { series: {id:'s1',slug:'public-work',title:'Primer vistazo',team_slug:'equipo',team_name:'Equipo'}, volumes:[{id:'v1',num:1,published_at:'2027-01-01T12:00:00Z'}]};
 try {
-  globalThis.document = {getElementById:()=>null,createElement:()=>({}),head:{appendChild(){}}};
+  globalThis.document = {getElementById:()=>null,createElement:()=>({}),head:{appendChild(){}},addEventListener(){}};
   globalThis.window = {obiTZ:()=> 'America/Monterrey'};
   globalThis.setInterval = () => 1; globalThis.clearInterval=()=>{};
   let html = '', followAttrs = {}, messages=[], actions=[], uid={id:'me'}, hasFollow=false, followError=false;
