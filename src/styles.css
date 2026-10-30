@@ -1313,3 +1313,24 @@ body.rd-zen .rd-settings-dock{display:none!important}
 @media(max-width:380px){.ed-mobile-view{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(pointer:coarse){.ed .ed-bar .ed-btn,.ed .ed-mobile-view .ed-btn,.ed .ed-pvbar .ed-btn{min-width:44px;min-height:44px}}
 @media(prefers-reduced-motion:reduce){.ed .ed-bar{scroll-behavior:auto}.ed .ed-doc .hl{transition:none}}
+
+/* Editor fase 3: propuestas privadas entre integrantes y diferencias visuales. */
+.ed-sug-form{display:grid;gap:12px;padding:14px}
+.ed-sug-form label{display:grid;gap:5px;min-width:0;font-weight:600;font-size:13px}
+.ed-sug-form textarea{display:block;width:100%;max-width:100%;min-width:0;resize:vertical;padding:10px;background:#110f0b;color:var(--paper);border:1px solid #62533b;font:14px/1.5 'IBM Plex Sans',sans-serif}
+.ed-sug-form textarea:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.ed-sug-form button{justify-self:start;min-height:44px}
+.ed-sug-list{max-height:650px;overflow:auto}
+.ed-sug-row{padding:12px 14px;border-top:1px solid #30291b;min-width:0}
+.ed-sug-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;font-size:13px}
+.ed-sug-change,.ed-diff{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ed-sug-change{margin:10px 0}
+.ed-sug-change>div,.ed-diff>div{min-width:0;padding:10px;border:1px solid #3d3628;background:#100e0b}
+.ed-sug-change small{color:#a89f8a}
+.ed-sug-change p,.ed-diff p{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0 0;font:14px/1.55 Literata,serif}
+.ed-sug-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.ed-sug-actions small{margin-right:auto;color:#bdb39f}
+.ed-sug-actions .btn{min-height:40px}
+#ed-history-compare .ed-bh{margin-top:10px}
+#ed-history-compare .ed-diff{padding:12px}
+@media(max-width:640px){.ed-sug-form{padding:12px}.ed-sug-change,.ed-diff{grid-template-columns:minmax(0,1fr)}.ed-sug-actions .btn{min-height:44px}}
