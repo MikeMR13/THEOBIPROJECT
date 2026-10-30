@@ -1,4 +1,4 @@
-import { relatedSearchHTML, mountRelatedSearch } from './studio-related-works.js?v=3';
+import { relatedSearchHTML, mountRelatedSearch } from './studio-related-works.js?v=4';
 // Catálogo y ficha común para la creación manual e importación de obras.
 // Solo HTML/CSS/JavaScript nativo. Se conservan los valores ya publicados.
 export const WORK_GENRES = [
