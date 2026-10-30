@@ -17,17 +17,36 @@ export function createStudioWorksToolbar({state,TLS,esc,can}) {
   return toolbar;
 }
 
-export function createStudioWorkCard({chs,sched,prelaunchById=new Map(),featuredSeriesId,TLS,wcolor,esc,media,until,ago,can}) {
+export function createPrelaunchMetricsPanel(ids, metrics) {
+  const count = ids?.size || 0;
+  if (!count) return '';
+  const rows = metrics?.available ? [...ids].map(id => metrics.counts.get(id)) : [];
+  const valid = metrics?.available && rows.length === count && rows.every(Boolean);
+  const follows = valid ? rows.reduce((n,r)=>n+r.followers,0).toLocaleString('es-MX') : '—';
+  const reminders = valid ? rows.reduce((n,r)=>n+r.reminders,0).toLocaleString('es-MX') : '—';
+  return `<section class="s2-pre-metrics" aria-label="Métricas editoriales de preestrenos">
+    <div class="s2-pre-metrics-head"><h2>Primeros vistazos · seguimiento</h2><span class="mono">Solo tu equipo</span></div>
+    <dl class="s2-pre-metrics-grid"><div><dt>Obras anunciadas</dt><dd>${count.toLocaleString('es-MX')}</dd></div>
+    <div><dt>Seguimientos registrados</dt><dd>${follows}</dd></div>
+    <div><dt>Recordatorios pendientes</dt><dd>${reminders}</dd></div></dl>
+    <p class="mono">${valid
+      ? 'Cifras actuales por obra, no personas únicas ni visitas. Los recordatorios corresponden a volúmenes anunciados.'
+      : 'No se pudieron verificar los totales. Vuelve a abrir Mis obras; no se muestran cifras estimadas.'}</p>
+  </section>`;
+}
+
+export function createStudioWorkCard({chs,sched,prelaunchById=new Map(),prelaunchMetrics={available:false,counts:new Map()},featuredSeriesId,TLS,wcolor,esc,media,until,ago,can}) {
     const card = (w,stats) => { const c = chs.filter(x => x.series_id === w.id), pub = c.filter(x => x.status === 'published'), dr = c.filter(x => x.status === 'draft').length;
       const nx = [...c.filter(x => x.status === 'scheduled' && new Date(x.publish_at) > Date.now()).map(x => ({ at: x.publish_at, l: 'Cap. ' + x.num })), ...sched.filter(e => e.series_id === w.id).map(e => ({ at: e.at, l: e.label }))].sort((a, b) => new Date(a.at) - new Date(b.at))[0];
       const last = pub.sort((a, b) => new Date(b.publish_at) - new Date(a.publish_at))[0], st = TLS[w.translation_status] || TLS.active;
       const announcement = prelaunchById.get(w.id);
+      const preCount = announcement && prelaunchMetrics.available ? prelaunchMetrics.counts.get(w.id) : null;
       return `<article class="s2-work" style="--c:${wcolor(w)}"><a class="cv" href="/estudio/obra/${w.slug}" style="${w.cover_path ? `background-image:url('${esc(media(w.cover_thumb_path || w.cover_path))}')` : ''}">${w.cover_path ? '' : `<span>${esc(w.short || w.title)}</span>`}</a>
         <div class="bd"><span class="tg"><span class="pl" style="--p:${st[1]}">${st[0]}</span>${announcement ? '<span class="s2-prelaunch-badge">◷ En preestreno</span>' : ''}<small>${(w.volumes||[]).filter(v=>!v.deleted_at).length} vol. · ${c.length} cap.${w.published ? '' : announcement ? ' · anunciado' : ' · privada'}</small></span>
           ${stats?.attention ? `<span class="s2-work-alert">⚑ Necesita atención${stats.correction ? ' · Corrección' : stats.drafts ? ' · Borradores' : !w.cover_path ? ' · Sin portada' : !w.published ? ' · Privada' : ''}</span>` : ''}
           <h2 title="${esc(w.title)}"><a href="/estudio/obra/${w.slug}">${esc(w.title)}</a></h2>${w.synopsis ? `<p>${esc(w.synopsis)}</p>` : ''}
           ${(w.genres || []).length ? `<span class="gn">${w.genres.slice(0, 5).map(g => `<span>${esc(g)}</span>`).join('')}</span>` : ''}
-          <dl>${nx ? `<div><dt>PRÓXIMO</dt><dd class="s2-next-set">${esc(nx.l) + ' · ' + until(nx.at)}</dd></div>` : ''}<div><dt>BORRADORES</dt><dd>${dr}</dd></div><div><dt>LECTURAS</dt><dd>${(w.views || 0).toLocaleString('es-MX')}</dd></div><div><dt>ÚLTIMO PUBLICADO</dt><dd>${last ? 'Cap. ' + last.num + ' · ' + ago(last.publish_at) : '—'}</dd></div></dl>
+          <dl>${nx ? `<div><dt>PRÓXIMO</dt><dd class="s2-next-set">${esc(nx.l) + ' · ' + until(nx.at)}</dd></div>` : ''}<div><dt>BORRADORES</dt><dd>${dr}</dd></div><div><dt>LECTURAS</dt><dd>${(w.views || 0).toLocaleString('es-MX')}</dd></div><div><dt>ÚLTIMO PUBLICADO</dt><dd>${last ? 'Cap. ' + last.num + ' · ' + ago(last.publish_at) : '—'}</dd></div>${announcement ? `<div><dt>SIGUEN ESTA OBRA</dt><dd>${preCount ? preCount.followers.toLocaleString('es-MX') : '—'}</dd></div><div><dt>AVISOS DE ESTRENO</dt><dd>${preCount ? preCount.reminders.toLocaleString('es-MX') : '—'}</dd></div>` : ''}</dl>
           <div class="s2-work-actions">
             <div class="s2-work-primary">
               ${can('create') ? `<button class="btn" data-new="${w.id}">＋ Nuevo capítulo</button>` : ''}
