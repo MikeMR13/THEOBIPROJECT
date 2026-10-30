@@ -48,7 +48,7 @@ for(const [src,marker] of [
  [importer,"lint,lint_count,deleted_at"],
  [importer,"editorial_quality:{"],
  [editor,"f.dataset.decorative !== '1'"],
- [editor,"id=\\\"askdeco\\\""],
+ [editor,'id="askdeco"'],
  [editor,"['all','gloss'].includes(d.fix) && !await confirmObi"],
  [shared,"data-decorative="],
  [shared,"decorative:true"],
