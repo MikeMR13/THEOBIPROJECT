@@ -2,7 +2,7 @@ name: Editor fase 0 — PostgreSQL aislado (sin producción)
 on:
   pull_request:
     paths:
-      - 'supabase/migrations/20261030213000_editor_phase0_content_protection.sql'
+      - 'supabase/migrations/20261030205428_editor_phase0_content_protection_20261030.sql'
       - 'scripts/qa/editor-phase0-*.sql'
       - '.github/workflows/editor-phase0-qa.yml'
   workflow_dispatch:
@@ -41,8 +41,8 @@ jobs:
           set -euo pipefail
           command -v psql >/dev/null || { echo 'psql no disponible'; exit 1; }
           psql -v ON_ERROR_STOP=1 -f scripts/qa/editor-phase0-fixture.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261030213000_editor_phase0_content_protection.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261030205428_editor_phase0_content_protection_20261030.sql
           # El backfill y los triggers deben poder reejecutarse sin duplicados.
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261030213000_editor_phase0_content_protection.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261030205428_editor_phase0_content_protection_20261030.sql
           psql -v ON_ERROR_STOP=1 -f scripts/qa/editor-phase0-assertions.sql
           echo 'Fase 0 validada, sin credenciales ni acceso a Supabase productivo'
