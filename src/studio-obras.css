@@ -152,3 +152,32 @@
 @media(max-width:520px){.s2 .s2-pre-metrics{padding:12px}.s2 .s2-pre-metrics-grid{grid-template-columns:1fr;gap:7px}.s2 .s2-pre-metrics-grid>div{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px}.s2 .s2-pre-metrics dd{font-size:20px;margin:0}}
 
 @media(min-width:521px) and (max-width:900px){.s2 .s2-pre-metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* Embudo de interés: razones de agregados no enlazables, sin identificar visitantes. */
+.s2 .s2-pre-funnel{min-width:0;margin:0 0 22px;padding:18px;background:#131b21;border:1px solid #395164}
+.s2 .s2-pre-funnel-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;margin-bottom:16px}
+.s2 .s2-pre-funnel-head h2{margin:0;color:#e6f3fb;font-size:clamp(17px,2vw,21px);line-height:1.3}
+.s2 .s2-pre-funnel-head .mono{font-size:11px;color:#a9cee9}
+.s2 .s2-pre-funnel-stages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;min-width:0}
+.s2 .s2-pre-funnel-stage{min-width:0;padding:12px;background:#17242d;border:1px solid #354b59}
+.s2 .s2-pre-funnel-stage-label{display:flex;justify-content:space-between;align-items:start;gap:8px;flex-wrap:wrap;color:#e2ecf1;font-size:12px;line-height:1.45}
+.s2 .s2-pre-funnel-stage-label strong{font-size:20px;color:#f4d47f;font-variant-numeric:tabular-nums}
+.s2 .s2-pre-funnel-track{height:8px;background:#0d151b;border:1px solid #395164;margin:10px 0 8px;overflow:hidden}
+.s2 .s2-pre-funnel-track>span{display:block;height:100%;background:#8ebddc;max-width:100%}
+.s2 .s2-pre-funnel-stage-followers .s2-pre-funnel-track>span{background:#e1be72}
+.s2 .s2-pre-funnel-stage-reminders .s2-pre-funnel-track>span{background:#a4c9a7}
+.s2 .s2-pre-funnel-stage-sub{display:block;font-size:11px;color:#c2cfdb;line-height:1.4}
+.s2 .s2-pre-funnel-guide{margin:12px 0 18px;padding:10px 12px;border-left:3px solid #e1be72;background:#1b2530;font-size:12px;line-height:1.6;color:#f1e6d6}
+.s2 .s2-pre-funnel h3{font-size:15px;color:#e2ecf1;margin:18px 0 10px}
+.s2 .s2-pre-funnel-table-wrap{max-width:100%;overflow-x:auto;border:1px solid #395164;scrollbar-width:thin}
+.s2 .s2-pre-funnel-table-wrap:focus-visible{outline:2px solid #e1be72;outline-offset:2px}
+.s2 .s2-pre-funnel-table{width:100%;min-width:730px;border-collapse:collapse;font-size:12px;text-align:left}
+.s2 .s2-pre-funnel-table th,.s2 .s2-pre-funnel-table td{padding:10px 12px;border-bottom:1px solid #354552;vertical-align:top}
+.s2 .s2-pre-funnel-table thead th{color:#d0dde8;background:#202f39;font-weight:700}
+.s2 .s2-pre-funnel-table tbody th{font-weight:600;max-width:220px;overflow-wrap:anywhere}
+.s2 .s2-pre-funnel-table tbody a{color:#c2dbef;text-decoration:underline;text-underline-offset:3px}
+.s2 .s2-pre-funnel-table tbody tr:nth-child(even){background:#192731}
+.s2 .s2-pre-funnel-table tbody td{font-variant-numeric:tabular-nums;color:#e7e2d7}
+.s2 .s2-pre-funnel-note{font-size:11px;color:#c9d4dc;line-height:1.6;margin:12px 0 0}
+@media(max-width:720px){.s2 .s2-pre-funnel{padding:12px}.s2 .s2-pre-funnel-stages{grid-template-columns:1fr}.s2 .s2-pre-funnel-stage{padding:10px}.s2 .s2-pre-funnel-head{margin-bottom:12px}}
