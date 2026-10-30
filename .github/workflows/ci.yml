@@ -90,6 +90,8 @@ jobs:
       - name: Bibliotecario · paginación, navegación y móvil real (Chromium)
         run: node scripts/bibliotecario-browser-check.mjs
       - run: npm run studio-browser-check
+      - name: Studio · selección real de relaciones con ratón y toque móvil (Chromium CDP)
+        run: node scripts/studio-related-pointer-e2e.mjs
       - name: QA visual responsive (5 anchuras, datos ficticios)
         run: npm run visual-browser-check
       - name: Perfil público de grupos — Chromium responsive y orden de teclado
