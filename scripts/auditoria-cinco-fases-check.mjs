@@ -61,6 +61,7 @@ assert(ui.includes('.ob-hero .ob-txt h2') && home.includes('.vt-side .ob-txt h2'
 assert(app.includes("optimizeAvatar(file)"),'No se optimizan los avatares');
 const pkg=JSON.parse(read('package.json'));
 assert.equal(pkg.scripts.build,'node scripts/build.mjs');
-assert.equal(pkg.scripts['quality-gates'].split(' && ').length,27);
+assert.ok(pkg.scripts['quality-gates'].split(' && ').length >= 27, 'Conservar las 27 pruebas de calidad originales al añadir regresiones');
+assert.ok(pkg.scripts['quality-gates'].includes('node scripts/prelaunch-phase0-check.mjs'), 'Integrar regresiones de seguridad de preestreno');
 assert(read('.github/workflows/ci.yml').includes('npm run quality-gates && npm run build'),'Los checks deben estar en GitHub Actions');
 console.log('✓ Cinco fases: datos públicos, títulos, QA, Inicio, avatares y accesibilidad');
