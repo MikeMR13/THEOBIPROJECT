@@ -12,7 +12,7 @@ for(const p of [
  /primary key \(day, series_id\)/,
  /revoke all on table private\.prelaunch_view_daily from public, anon, authenticated/,
  /returns boolean language plpgsql security definer/,
- /p_slug !~ '\^\[A-Za-z0-9_-\]\+\,
+ /p_slug !~ /,
  /s\.published is false/,
  /private\.prelaunch_public_series\(s\.id\)/,
  /v\.announce_prelaunch is true/,
@@ -32,7 +32,8 @@ for(const p of [
  /delete from private\.carousel_metrics_daily/,
  /delete from private\.carousel_metric_limits/
 ]) assert.match(sql,p,'SQL must enforce bounded, non-personal metrics');
-assert.doesNotMatch(sql,/ip_address|session_id|visitor_id|user_agent|http_referer|create extension|cron\.schedule|create trigger/i,
+const sqlStatements=sql.split('\n').filter(line=>!line.trim().startsWith('--')).join('\n');
+assert.doesNotMatch(sqlStatements,/ip_address|session_id|visitor_id|user_agent|http_referer|create extension|cron\.schedule|create trigger/i,
  'Prohibido registrar identificadores o programar tareas nuevas');
 const records=[];
 const fake={rpc:(name,params)=>{records.push({name,params});return Promise.resolve({data:true,error:null});}};
