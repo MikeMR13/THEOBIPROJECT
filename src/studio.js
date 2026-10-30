@@ -8,8 +8,8 @@ import { cleanSeo } from './seo-settings.js?v=1';
 import { SECTION_TYPES } from './section-types.js?v=1';
 import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
 import { askEditorialAnnouncement, saveEditorialRecord, chooseActiveEditorial } from './editorial-announcements.js?v=1';
-import { WORK_GENRES, WORK_DEMOGRAPHICS, createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=2';
-import { loadRelatedWorks, relatedSearchHTML, mountRelatedSearch, saveWorkWithRelations } from './studio-related-works.js?v=1';
+import { WORK_GENRES, WORK_DEMOGRAPHICS, createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=3';
+import { loadRelatedWorks, relatedSearchHTML, mountRelatedSearch, saveWorkWithRelations } from './studio-related-works.js?v=2';
 import { bindVolumeCoverGallery } from './volume-cover-gallery.js?v=1';
 import { mountSeriesCoverEditor, uploadSeriesCover } from './series-cover-editor.js?v=3';
 import { optimizeStudioCover } from './studio-cover-image.js?v=1';
@@ -83,7 +83,7 @@ export function createStudio(ctx){
     }
     if (!document.getElementById('st2-works-css')) {
       const worksLink = document.createElement('link');
-      worksLink.id = 'st2-works-css'; worksLink.rel = 'stylesheet'; worksLink.href = '/studio-obras.css?v=2';
+      worksLink.id = 'st2-works-css'; worksLink.rel = 'stylesheet'; worksLink.href = '/studio-obras.css?v=3';
       const worksReady = new Promise(resolve=>{
         worksLink.addEventListener('load', resolve, {once:true});
         worksLink.addEventListener('error', resolve, {once:true});
@@ -1092,7 +1092,7 @@ export function createStudio(ctx){
   // ---------- EPUB/DOCX/PDF, importación dinámica ----------
   let importerTask = null;
   async function importer(){
-    if (!importerTask) importerTask = import('./studio-importer.js?v=4')
+    if (!importerTask) importerTask = import('./studio-importer.js?v=5')
       .then(m => m.createImporter({ sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, LIMITS, SEC }))
       .catch(e => { importerTask = null; throw e; });
     return (await importerTask)();
