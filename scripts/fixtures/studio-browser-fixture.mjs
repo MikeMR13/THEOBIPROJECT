@@ -15,10 +15,12 @@ const until = async (fn, label) => {
   throw new Error('No se completó: '+label);
 };
 
-function factory({create=true,importRole=true,edit=true,publish=true,deleteRole=false}={}) {
+function factory({create=true,importRole=true,edit=true,publish=true,deleteRole=false,existingWork=false}={}) {
   const calls = [], inserted=[], redirects=[], messages=[];
   const team={id:'00000000-0000-4000-8000-000000000001',slug:'equipo-qa',name:'Equipo QA',role:'owner'};
   const permissions={view:true,create,import:importRole,edit,publish,schedule:true,delete:deleteRole,review:true};
+  const persisted = { id:'00000000-0000-4000-8000-000000000020', team_id:team.id,slug:'obra-test', title:'Obra de prueba',short:'Obra de prueba',published:true, genres:[],tags:[],relations:[],translation_status:'active' };
+  const savedPatches = [];
   const sb={
     rpc(name){
       calls.push('rpc:'+name);
@@ -36,8 +38,9 @@ function factory({create=true,importRole=true,edit=true,publish=true,deleteRole=
     from(table){
       calls.push('from:'+table);
       const q={
-        _select:'',_insert:null,_type:'',_count:false,
+        _select:'',_insert:null,_update:null,_type:'',_count:false,
         select(columns,opts){this._select=columns;this._count=!!opts?.head;return this;},
+        update(patch){this._update=patch;return this;},
         eq(){return this;},is(){return this;},order(){return this;},not(){return this;},
         gte(){return this;},or(){return this;},ilike(){return this;},limit(){return this;},in(){return this;},
         range(from,to){
@@ -47,6 +50,15 @@ function factory({create=true,importRole=true,edit=true,publish=true,deleteRole=
         },
         insert(row){this._insert=row;calls.push('insert:'+table);inserted.push({table,row});return this;},
         one(){
+          if(existingWork && table==='series' && this._update) {
+            savedPatches.push(this._update);
+            Object.assign(persisted,this._update);
+            return { data:{ id:persisted.id,title:persisted.title,relations:persisted.relations },error:null };
+          }
+          if(existingWork && table==='series' && this._select==='*')
+            return {data:{...persisted,relations:[...persisted.relations]},error:null};
+          if(existingWork && table==='series' && this._select==='id,relations')
+            return {data:{id:persisted.id,relations:[...persisted.relations]},error:null};
           if(this._insert){
             return {data:table==='series'
               ? {id:'00000000-0000-4000-8000-000000000002',slug:this._insert.slug,title:this._insert.title}
@@ -74,7 +86,7 @@ function factory({create=true,importRole=true,edit=true,publish=true,deleteRole=
     getUser:()=>({id:'00000000-0000-4000-8000-000000000005'}),getMe:()=>({platform_role:'member'}),
     url:'https://no-backend.invalid'
   };
-  return {studio:createStudio(ctx),calls,inserted,redirects,messages};
+  return {studio:createStudio(ctx),calls,inserted,redirects,messages,persisted,savedPatches};
 }
 let checks=0;
 try {
@@ -168,6 +180,41 @@ try {
   ok(owner.inserted[1].row.status==='draft' && owner.inserted[2].row.status==='draft',
     'Volumen/capítulo publicado por defecto');
   checks++;
+
+  // Editar datos: ciclo completo de selección, guardado y recarga con base simulada.
+  const editOwner=factory({existingWork:true});
+  history.replaceState({},'', '/estudio/obra/obra-test?tab=datos');
+  await editOwner.studio.work('obra-test');
+  await until(()=>app.querySelector('#wk-rel-b [data-related-query]') && 
+    app.querySelector('.srp-result')===null, 'ficha de edición y buscador');
+  const query=app.querySelector('#wk-related-search');
+  ok(!!query,'Falta buscador de obras relacionadas en Editar datos');
+  query.value='bruja'; query.dispatchEvent(new Event('input',{bubbles:true}));
+  ok(!!app.querySelector('#wk-rel-b .srp-result'),'No se mostraron resultados de obras relacionadas');
+  app.querySelector('#rel-save-all').click();
+  await until(()=>app.querySelector('#wk-rel-save-status')?.textContent.includes('no se ha añadido'),
+    'impedir guardar una búsqueda sin selección');
+  ok(editOwner.savedPatches.length===0,'No debe guardarse una búsqueda escrita pero no seleccionada');
+  const pick=app.querySelector('#wk-rel-b .srp-result');
+  pick.click();
+  ok(app.querySelector('.srp-selected-info')?.textContent.includes('Bruja'),
+    'Editar datos no muestra la obra seleccionada');
+  ok(app.querySelector('#wk-dirty')?.textContent.includes('Cambios sin guardar'),
+    'Seleccionar obra debe marcar la ficha como modificada');
+  app.querySelector('#rel-save-all').click();
+  await until(()=>editOwner.savedPatches.length===1 && app.querySelector('#wk-rel-save-status')?.textContent.includes('Guardado confirmado'),
+    'guardar y verificar obra relacionada');
+  ok(editOwner.persisted.relations.length===1 &&
+    editOwner.persisted.relations[0].id==='00000000-0000-4000-8000-000000000090',
+    'La relación no llegó a la escritura de la serie');
+  ok(editOwner.savedPatches[0].title==='Obra de prueba' &&
+    editOwner.savedPatches[0].relations[0].kind==='precuela',
+    'Guardar datos debe incluir metadatos y tipo de relación');
+  await editOwner.studio.work('obra-test');
+  await until(()=>app.querySelector('.srp-selected-info')?.textContent.includes('Bruja'),
+    'la relación guardada reaparece al reabrir Editar datos');
+  checks++;
+  history.replaceState({},'', '/');
 
   const denied=factory({create:false,importRole:false,edit:false,publish:false});
   await denied.studio.newWork();
