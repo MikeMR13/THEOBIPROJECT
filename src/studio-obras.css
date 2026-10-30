@@ -120,3 +120,7 @@
 .s2 .wf-rel-item>span b{font-weight:600}
 .s2 .wf-rel-item>span small{font-size:11px;color:#bdb39f}
 @media(max-width:640px){.s2 .srp-selected-row{grid-template-columns:minmax(0,1fr)}.s2 .srp-selected-actions select{max-width:100%;flex:1 1 130px}}
+
+.s2 .srp-save{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-top:8px}
+.s2 .srp-save small{font-size:11px;line-height:1.45;color:#c6b99e}
+@media(max-width:640px){.s2 .srp-save .btn{flex:1 1 100%}}
