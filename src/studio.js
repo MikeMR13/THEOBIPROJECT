@@ -83,7 +83,7 @@ export function createStudio(ctx){
     }
     if (!document.getElementById('st2-works-css')) {
       const worksLink = document.createElement('link');
-      worksLink.id = 'st2-works-css'; worksLink.rel = 'stylesheet'; worksLink.href = '/studio-obras.css?v=1';
+      worksLink.id = 'st2-works-css'; worksLink.rel = 'stylesheet'; worksLink.href = '/studio-obras.css?v=2';
       const worksReady = new Promise(resolve=>{
         worksLink.addEventListener('load', resolve, {once:true});
         worksLink.addEventListener('error', resolve, {once:true});
@@ -1073,7 +1073,7 @@ export function createStudio(ctx){
   // ---------- EPUB/DOCX/PDF, importación dinámica ----------
   let importerTask = null;
   async function importer(){
-    if (!importerTask) importerTask = import('./studio-importer.js?v=3')
+    if (!importerTask) importerTask = import('./studio-importer.js?v=4')
       .then(m => m.createImporter({ sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, LIMITS, SEC }))
       .catch(e => { importerTask = null; throw e; });
     return (await importerTask)();
