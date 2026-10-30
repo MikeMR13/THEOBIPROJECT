@@ -88,6 +88,12 @@ try {
   relatedInput.focus(); relatedInput.value = 'brujá'; relatedInput.dispatchEvent(new Event('input', { bubbles:true }));
   const relatedButton = app.querySelector('.srp-result');
   ok(!!relatedButton && relatedButton.textContent.includes('Bruja'), 'La búsqueda debe encontrar títulos sin acentos');
+  const resultPanel = app.querySelector('[data-related-results]');
+  ok(resultPanel.getBoundingClientRect().right <= document.documentElement.clientWidth + 2,
+    'El buscador se sale horizontalmente del viewport');
+  ok(parseInt(getComputedStyle(resultPanel).maxHeight, 10) <= 290,
+    'La lista debe tener una altura máxima y scroll interno');
+
   relatedButton.click();
   ok(app.querySelector('[data-w-rel-list]')?.textContent.includes('Grupo Ónix'), 'No se añadió la obra relacionada con el equipo visible');
   ok(app.querySelector('[data-related-results]').hidden, 'El panel debe cerrarse después de agregar la obra');
