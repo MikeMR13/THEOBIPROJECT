@@ -1008,3 +1008,6 @@ body.in-studio .s2-main > *{min-width:0;max-width:100%}
 
 .s2 a.s2-kpi-link{display:grid;text-decoration:none;color:inherit;cursor:pointer;transition:border-color .15s ease}
 .s2 a.s2-kpi-link:hover,.s2 a.s2-kpi-link:focus-visible{border-color:var(--gold);outline-offset:3px}
+
+.s2 .dl-field{display:grid;gap:5px;min-width:0;font-size:12px;font-weight:600;color:var(--paper)}
+.s2 .dl-field input{width:100%;min-width:0;font-weight:400}
