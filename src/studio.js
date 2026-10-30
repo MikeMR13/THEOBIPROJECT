@@ -71,7 +71,7 @@ export function createStudio(ctx){
       link.addEventListener('error', resolve, { once: true });
     });
     if (!existing) {
-      link.id = 'st2-css'; link.rel = 'stylesheet'; link.href = '/studio.css?v=4';
+      link.id = 'st2-css'; link.rel = 'stylesheet'; link.href = '/studio.css?v=5';
       document.head.appendChild(link);
     }
     if (!document.getElementById('st2-access-css')) {
