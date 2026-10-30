@@ -83,7 +83,7 @@ assert(st.includes('seriesId:created.id, file:cover'),'Nueva obra comparte el gu
 assert(st.includes('href="${esc(importWorkUrl(s.id))}"'),'La ficha debe interpolar el enlace al importador de volumen');
 assert(!st.includes(`href="\${importWorkUrl(s.id)}"`),'El enlace no debe ser texto literal dentro de comillas simples');
 assert(st.includes("if (!saved?.id) throw new Error"),'Editar datos debe verificar la persistencia');
-assert(st.includes('/studio-obras.css?v=1'),'CSS Obras debe cargarse de forma versionada');
-assert(read('src/app.js').includes("/studio.js?v=49"));
-assert(read('src/index.html').includes('/app.js?v=39'));
+assert(st.includes('/studio-obras.css?v=2'),'CSS Obras debe cargarse de forma versionada');
+assert(read('src/app.js').includes("/studio.js?v=50"));
+assert(read('src/index.html').includes('/app.js?v=40'));
 console.log('✓ Auditoría Estudio Obras: filtros, permisos, móvil, importación, publicación y rendimiento');
