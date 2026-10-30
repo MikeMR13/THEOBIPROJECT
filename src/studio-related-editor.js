@@ -55,7 +55,7 @@ export function mountWorkRelationsEditor({ container, sb, teamId, seriesId, rela
       (editable && !error ? '<div class="wk-rel-add" data-rel-search-area>' +
         '<label class="srp-kind">Tipo de relación<select data-rel-kind>' + options + '</select></label>' +
         relatedSearchHTML('wk-related-search') + '</div>' : '') +
-      (editable ? '<div class="srp-save"><button type="button" class="btn sm" data-rel-save>Guardar datos y relaciones</button>' +
+      (editable ? '<div class="srp-save"><button type="button" class="btn sm" id="rel-save-all" data-rel-save>Guardar datos y relaciones</button>' +
         '<small class="mono" data-rel-count></small></div>' +
         '<p class="mono srp-save-message" id="wk-rel-save-status" role="status" aria-live="polite"></p>' : '') +
       '</div>';
