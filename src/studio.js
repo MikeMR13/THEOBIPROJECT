@@ -80,6 +80,16 @@ export function createStudio(ctx){
       accessLink.id = 'st2-access-css'; accessLink.rel = 'stylesheet'; accessLink.href = '/studio-access.css?v=1';
       document.head.appendChild(accessLink);
     }
+    if (!document.getElementById('st2-works-css')) {
+      const worksLink = document.createElement('link');
+      worksLink.id = 'st2-works-css'; worksLink.rel = 'stylesheet'; worksLink.href = '/studio-obras.css?v=1';
+      const worksReady = new Promise(resolve=>{
+        worksLink.addEventListener('load', resolve, {once:true});
+        worksLink.addEventListener('error', resolve, {once:true});
+      });
+      document.head.appendChild(worksLink);
+      styleTask = Promise.all([styleTask,worksReady]);
+    }
     return styleTask;
   };
   const shell = (title, body, tab) => { css(); document.body.classList.add('in-studio'); const t = tab === '/estudio/obra' ? '/estudio/obras' : tab; const me = getMe?.();
