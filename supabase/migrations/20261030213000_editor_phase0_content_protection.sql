@@ -64,7 +64,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION private.editor_phase0_initial_revision()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
