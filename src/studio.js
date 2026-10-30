@@ -11,6 +11,7 @@ import { askEditorialAnnouncement, saveEditorialRecord, chooseActiveEditorial } 
 import { WORK_GENRES, WORK_DEMOGRAPHICS, createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
 import { bindVolumeCoverGallery } from './volume-cover-gallery.js?v=1';
 import { mountSeriesCoverEditor } from './series-cover-editor.js?v=1';
+import { optimizeStudioCover } from './studio-cover-image.js?v=1';
 import { selectStudioWorks, importWorkUrl } from './studio-works-utils.js?v=1';
 document.addEventListener('click', e => { const i = e.target.closest?.('input[type=date],input[type=datetime-local]'); if (i && !i.disabled && !i.readOnly) try { i.showPicker(); } catch {} });
 const LIMITS = { file: 80 * 1024 * 1024, entries: 15000, unzipped: 300 * 1024 * 1024, image: 8 * 1024 * 1024 };
@@ -336,9 +337,10 @@ export function createStudio(ctx){
         if (error) throw new Error(errMsg(error));
         made = { s: created }; T.works = null;
         if (cover) {
-          const ext = { 'image/jpeg':'jpg', 'image/png':'png', 'image/webp':'webp' }[cover.type];
+          const prepared = await optimizeStudioCover(cover);
+           const ext = { 'image/jpeg':'jpg', 'image/png':'png', 'image/webp':'webp' }[prepared.type];
           const path = T.team.id + '/obras/' + slug + '/portada-' + Date.now() + '.' + ext;
-          const u = await sb.storage.from('obi-media').upload(path,cover,{contentType:cover.type,cacheControl:'31536000'});
+          const u = await sb.storage.from('obi-media').upload(path,prepared,{contentType:prepared.type,cacheControl:'31536000'});
           if (!u.error) {
             const p = await sb.from('series').update({ cover_path:path }).eq('id',created.id);
             if (p.error) toast('Obra creada, pero no se pudo asignar la portada');
@@ -752,8 +754,8 @@ export function createStudio(ctx){
       });
       box.querySelector('[name=cover]').onchange = e => { const file = e.target.files[0]; e.target.value = ''; if (!file) return; const st2 = $('#vcs-' + v.id);
         busy(null, async () => { if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('Usa JPG, PNG o WebP'); if (file.size > LIMITS.image) throw new Error('La imagen pesa más de 8 MB');
-          st2.textContent = 'Subiendo…'; const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type], path = `${T.team.id}/obras/${s.slug}/vol-${v.num}/portada-${Date.now()}.${ext}`;
-          const { error } = await sb.storage.from('obi-media').upload(path, file, { contentType: file.type, cacheControl: '31536000' }); if (error) { st2.textContent = ''; throw new Error(errMsg(error)); }
+          st2.textContent = 'Preparando portada…'; const prepared = await optimizeStudioCover(file); const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[prepared.type], path = `${T.team.id}/obras/${s.slug}/vol-${v.num}/portada-${Date.now()}.${ext}`;
+          const { error } = await sb.storage.from('obi-media').upload(path, prepared, { contentType: prepared.type, cacheControl: '31536000' }); if (error) { st2.textContent = ''; throw new Error(errMsg(error)); }
           await setCover(path); showCover(path); st2.textContent = '✓ Portada guardada';
           if (!s.cover_path && await confirmObi('La obra aún no tiene portada. ¿Usar también esta?')) await sb.from('series').update({ cover_path: path }).eq('id', s.id);
           toast('Portada del volumen ' + v.num + ' actualizada'); }).then(() => { if (!st2.textContent.startsWith('✓')) st2.textContent = ''; }); };
