@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { spawn, execFileSync } from 'node:child_process';
 
-const css=readFileSync('src/styles.css','utf8')+'\n'+readFileSync('src/studio.css','utf8');
+const css=readFileSync('src/styles.css','utf8')+'\n'+readFileSync('src/studio.css','utf8')+'\n'+readFileSync('src/studio-obras.css','utf8');
 const source=readFileSync('src/studio.js','utf8')+'\n'+readFileSync('src/studio-works-view.js','utf8');
 for(const k of ['s2-work-primary','s2-work-secondary','s2-more','s2-worktools','s2-feature-toggle','data-feature','team_feature_set'])assert(source.includes(k),'Falta función: '+k);
 assert(!source.includes("'gold' : 'ghost'"),'No debe usarse la clase gold para el botón activo');
