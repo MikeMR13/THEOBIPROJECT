@@ -26,6 +26,8 @@ const whitelist = new Map([
  ['/studio-reader-defaults.js','src/studio-reader-defaults.js'],
  ['/reader-team-defaults.js','src/reader-team-defaults.js'],
  ['/studio-work-fields.js','src/studio-work-fields.js'],
+ ['/studio-related-works.js','src/studio-related-works.js'],
+ ['/paging.js','src/paging.js'],
  ['/volume-cover-gallery.js','src/volume-cover-gallery.js'],
  ['/volume-cover-gallery.css','src/volume-cover-gallery.css'],
  ['/series-cover-editor.js','src/series-cover-editor.js'],

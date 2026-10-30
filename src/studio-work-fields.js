@@ -1,3 +1,4 @@
+import { relatedSearchHTML, mountRelatedSearch } from './studio-related-works.js?v=1';
 // Catálogo y ficha común para la creación manual e importación de obras.
 // Solo HTML/CSS/JavaScript nativo. Se conservan los valores ya publicados.
 export const WORK_GENRES = [
@@ -106,10 +107,9 @@ export function renderWorkFields(data, esc, related = []) {
     '<section class="wk-box wf-section"><h2>Obras relacionadas</h2>' +
     '<p class="mono wf-help">Opcional. Puedes enlazar precuelas, secuelas, adaptaciones y obras de otros equipos disponibles en el catálogo.</p>' +
     '<div data-w-rel-list></div>' +
-    '<div class="wf-rel-controls"><select data-w-rel-pick aria-label="Elegir obra relacionada"><option value="">Seleccionar obra…</option>' +
-    related.filter(x => !(data.relations || []).some(r => r.id === x.id)).map(x => '<option value="' + esc(x.id) + '">' + esc(x.title + (x.teams?.name ? ' · ' + x.teams.name : '')) + '</option>').join('') + '</select>' +
-    '<select data-w-rel-kind aria-label="Tipo de relación">' + WORK_REL_KINDS.map(([v,l]) => '<option value="' + v + '">' + l + '</option>').join('') + '</select>' +
-    '<button type="button" class="btn ghost sm" data-w-rel-add>＋ Agregar</button></div>' +
+    '<div class="wf-rel-controls"><label class="srp-kind">Tipo de relación<select data-w-rel-kind aria-label="Tipo de relación">' +
+    WORK_REL_KINDS.map(([v,l]) => '<option value="' + v + '">' + l + '</option>').join('') +
+    '</select></label>' + relatedSearchHTML('wf-related-search') + '</div>' +
     '<small class="mono">' + (related.length ? 'Hasta 12 obras relacionadas.' : 'No hay obras disponibles para enlazar. Puedes hacerlo más adelante.') + '</small></section>' +
     '</div>';
 }
@@ -142,29 +142,33 @@ export function bindWorkFields(root, state, esc, related = [], notify = () => {}
     root.querySelector('[data-w-gen-count]').textContent = state.genres.length + ' de 4 géneros seleccionados';
     notify();
   });
+  let picker;
   const redraw = () => {
-    const list = root.querySelector('[data-w-rel-list]'), pick = root.querySelector('[data-w-rel-pick]');
-    if (!list || !pick) return;
+    const list = root.querySelector('[data-w-rel-list]');
+    if (!list) return;
     list.innerHTML = (state.relations || []).map((r,i) => {
       const x = related.find(x => x.id === r.id);
-      return '<div class="wf-rel-item"><span>' + esc(x?.title || 'Obra seleccionada') +
-        '</span><select data-w-rel-kind-i="' + i + '" aria-label="Tipo de relación">' +
+      return '<div class="wf-rel-item"><span><b>' + esc(x?.title || 'Obra seleccionada') +
+        '</b><small class="mono">' + esc(x?.teams?.name || '') + '</small></span><select data-w-rel-kind-i="' + i + '" aria-label="Tipo de relación">' +
         WORK_REL_KINDS.map(([v,l]) => '<option value="' + v + '"' + (r.kind === v ? ' selected' : '') + '>' + l + '</option>').join('') +
         '</select><button class="lnk danger" type="button" data-w-rel-remove="' + i + '">Quitar</button></div>';
     }).join('') || '<p class="mono">Todavía no hay obras relacionadas.</p>';
-    [...pick.options].forEach(o => { if (o.value) o.hidden = state.relations.some(x => x.id === o.value); });
-    pick.value = '';
+    picker?.refresh();
   };
   const list = root.querySelector('[data-w-rel-list]');
   list?.addEventListener('click', e => { const b = e.target.closest('[data-w-rel-remove]'); if (!b) return; state.relations.splice(+b.dataset.wRelRemove,1); redraw(); notify(); });
   list?.addEventListener('change', e => { const el = e.target.closest('[data-w-rel-kind-i]'); if (!el) return; state.relations[+el.dataset.wRelKindI].kind = el.value; notify(); });
-  root.querySelector('[data-w-rel-add]')?.addEventListener('click', () => {
-    const id = root.querySelector('[data-w-rel-pick]').value;
-    if (!id) return notify('Selecciona una obra relacionada');
-    if (state.relations.length >= 12) return notify('Máximo 12 obras relacionadas');
-    if (state.relations.some(x => x.id === id)) return;
-    state.relations.push({ id, kind: root.querySelector('[data-w-rel-kind]').value });
-    redraw(); notify();
+  picker = mountRelatedSearch(root.querySelector('[data-related-search]'), {
+    works: related,
+    exclude: () => (state.relations || []).map(r => r.id),
+    esc,
+    onPick: work => {
+      if (state.relations.length >= 12) return notify('Máximo 12 obras relacionadas');
+      if (state.relations.some(r => r.id === work.id)) return;
+      state.relations.push({ id: work.id, kind: root.querySelector('[data-w-rel-kind]').value });
+      redraw();
+      notify();
+    }
   });
   redraw();
 }

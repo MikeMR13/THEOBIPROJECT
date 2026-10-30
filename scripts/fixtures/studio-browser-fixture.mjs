@@ -40,6 +40,11 @@ function factory({create=true,importRole=true,edit=true,publish=true,deleteRole=
         select(columns,opts){this._select=columns;this._count=!!opts?.head;return this;},
         eq(){return this;},is(){return this;},order(){return this;},not(){return this;},
         gte(){return this;},or(){return this;},ilike(){return this;},limit(){return this;},in(){return this;},
+        range(from,to){
+          const related = [{id:'00000000-0000-4000-8000-000000000090',title:'Magia de la Bruja del Viento',teams:{name:'Grupo Ónix'}},
+            {id:'00000000-0000-4000-8000-000000000091',title:'La Fortaleza del Norte',teams:{name:'Otro equipo'}}];
+          return Promise.resolve({data:table==='series' && this._select==='id,title,teams(name)' ? related.slice(from,to+1) : [],error:null});
+        },
         insert(row){this._insert=row;calls.push('insert:'+table);inserted.push({table,row});return this;},
         one(){
           if(this._insert){
@@ -78,6 +83,22 @@ try {
   await owner.studio.newWork();
   checks++;
   ok(!!app.querySelector('#nw-title'),'Nueva obra no se renderiza');
+  const relatedInput = app.querySelector('[data-related-query]');
+  ok(!!relatedInput && !app.querySelector('[data-w-rel-pick]'), 'El formulario debe usar el buscador compacto');
+  relatedInput.focus(); relatedInput.value = 'brujá'; relatedInput.dispatchEvent(new Event('input', { bubbles:true }));
+  const relatedButton = app.querySelector('.srp-result');
+  ok(!!relatedButton && relatedButton.textContent.includes('Bruja'), 'La búsqueda debe encontrar títulos sin acentos');
+  await until(() => !!document.getElementById('st2-works-css')?.sheet, 'estilos de obras relacionadas');
+  const resultPanel = app.querySelector('[data-related-results]');
+  ok(resultPanel.getBoundingClientRect().right <= document.documentElement.clientWidth + 2,
+    'El buscador se sale horizontalmente del viewport');
+  ok(parseInt(getComputedStyle(resultPanel).maxHeight, 10) <= 290,
+    'La lista debe tener una altura máxima y scroll interno');
+
+  relatedButton.click();
+  ok(app.querySelector('[data-w-rel-list]')?.textContent.includes('Grupo Ónix'), 'No se añadió la obra relacionada con el equipo visible');
+  ok(app.querySelector('[data-related-results]').hidden, 'El panel debe cerrarse después de agregar la obra');
+
   // El menú compacto conserva el estado accesible, puede cerrarse con Escape
   // y permite volver al sitio sin abandonar las pantallas de Estudio.
   const navBtn=app.querySelector('#s2-mobile-toggle'), sidebar=app.querySelector('.s2-side');
@@ -134,6 +155,10 @@ try {
   ok(owner.inserted[0].row.slug==='cronicas-del-dragon','Slug incorrecto');
   ok(owner.inserted[0].row.work_type==='Novela ligera','Tipo editorial incompleto');
   ok(owner.inserted[0].row.published===false,'La obra no nace privada');
+  ok(owner.inserted[0].row.relations?.[0]?.id==='00000000-0000-4000-8000-000000000090',
+    'La relación elegida debe viajar en el INSERT de la obra nueva');
+  ok(owner.inserted[0].row.relations?.[0]?.kind==='precuela',
+    'La relación conserva el tipo seleccionado');
   checks++;
   app.querySelector('#nw-v').click();
   await until(()=>owner.redirects.includes('/estudio/editar/00000000-0000-4000-8000-000000000004'),

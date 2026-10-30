@@ -89,3 +89,38 @@
 
 .s2 .dl-field{display:grid;gap:5px;min-width:0;font-size:12px;font-weight:600;color:var(--paper)}
 .s2 .dl-field input{width:100%;min-width:0;font-weight:400}
+
+
+/* Obras relacionadas: buscador accesible, sin desplegables nativos gigantes. */
+.s2 .srp,.s2 .wk-rel-add{min-width:0}
+.s2 .wk-rel-add{display:grid;gap:12px;margin:12px 0}
+.s2 .wf-rel-controls{display:grid;grid-template-columns:minmax(155px,200px) minmax(0,1fr);align-items:start;gap:12px}
+.s2 .srp-kind,.s2 .srp-label{display:grid;gap:7px;min-width:0;color:var(--paper);font-size:13px;font-weight:600}
+.s2 .srp-kind select,.s2 .srp-label input{width:100%;max-width:100%;min-width:0;min-height:44px;border:1px solid #665535;background:#18150f;color:var(--paper);padding:10px 12px;font:inherit;font-weight:400}
+.s2 .srp-label input:focus-visible,.s2 .srp-kind select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.s2 .srp-results{margin-top:8px;max-height:290px;overflow-y:auto;overscroll-behavior:contain;border:1px solid #584c32;background:#15120d;scrollbar-width:thin}
+.s2 .srp-results[hidden]{display:none!important}
+.s2 .srp-result{display:grid;gap:3px;width:100%;min-width:0;padding:10px 12px;border:0;border-bottom:1px solid #332c20;background:transparent;color:var(--paper);text-align:left;cursor:pointer;font:inherit}
+.s2 .srp-result:last-child{border-bottom:0}
+.s2 .srp-result:hover,.s2 .srp-result:focus-visible{background:#302819;outline:2px solid var(--gold);outline-offset:-2px}
+.s2 .srp-title{display:block;font-size:13px;line-height:1.4;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.s2 .srp-result small{display:block;color:#c6b99e;font:11px/1.4 'IBM Plex Mono',monospace;overflow-wrap:anywhere}
+.s2 .srp-status{margin:7px 0 0;font-size:11px;line-height:1.5;color:#c6b99e}
+.s2 .srp-empty{margin:0;padding:13px;line-height:1.5}
+.s2 .srp-error{padding:10px;border-left:3px solid #f59e7a;color:#f59e7a}
+@media(max-width:700px){.s2 .wf-rel-controls{grid-template-columns:minmax(0,1fr)}.s2 .wk-rel-add{gap:10px}.s2 .srp-results{max-height:240px}}
+
+.s2 .srp-selected-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px;border:1px solid #453923;background:#1d1811;min-width:0}
+.s2 .srp-selected-info{display:grid;gap:4px;min-width:0}
+.s2 .srp-selected-info b{font-size:13px;line-height:1.4;overflow-wrap:anywhere}
+.s2 .srp-selected-info small{font-size:11px;color:#bdb39f;overflow-wrap:anywhere}
+.s2 .srp-selected-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.s2 .srp-selected-actions select{max-width:190px;min-width:0;min-height:40px}
+.s2 .wf-rel-item>span{display:grid;gap:4px;overflow-wrap:anywhere}
+.s2 .wf-rel-item>span b{font-weight:600}
+.s2 .wf-rel-item>span small{font-size:11px;color:#bdb39f}
+@media(max-width:640px){.s2 .srp-selected-row{grid-template-columns:minmax(0,1fr)}.s2 .srp-selected-actions select{max-width:100%;flex:1 1 130px}}
+
+.s2 .srp-save{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-top:8px}
+.s2 .srp-save small{font-size:11px;line-height:1.45;color:#c6b99e}
+@media(max-width:640px){.s2 .srp-save .btn{flex:1 1 100%}}
