@@ -12,7 +12,7 @@ export function workStats(work, chapters = [], schedules = [], now = Date.now())
   const drafts = ch.filter(c => c.status === 'draft').length;
   const correction = ch.filter(c => c.status === 'draft' && c.stage === 'correccion').length;
   const attention = drafts > 0 || correction > 0 || !work.published || !work.cover_path ||
-    (ch.length > 0 && now - latest > 30 * 864e5);
+    ch.length === 0 || now - latest > 30 * 864e5;
   return {drafts,correction,latest,next,lastPublished:Math.max(0,...dates.map(d => Date.parse(d)||0)),
     attention, chapters:ch.length,volumes:(work.volumes||[]).filter(v => !v.deleted_at).length};
 }
