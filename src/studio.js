@@ -278,15 +278,15 @@ export function createStudio(ctx){
     const now = Date.now(), pub = chs.filter(c => c.status === 'published'), drafts = chs.filter(c => c.status === 'draft').sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
     const up = [...chs.filter(c => c.status === 'scheduled' && new Date(c.publish_at) > now).map(c => ({ at: c.publish_at, what: `Cap. ${c.num} — ${c.title}`, s: byId[c.series_id] })), ...sched.map(e => ({ at: e.at, what: e.label, s: byId[e.series_id] }))].sort((a, b) => new Date(a.at) - new Date(b.at));
     const week = pub.filter(c => now - new Date(c.publish_at) < 7 * DAY).length, views = works.reduce((a, w) => a + (w.views || 0), 0);
-    const kpi = (l, v, n, c) => `<div class="s2-kpi" style="--c:${c}"><small>${l}</small><b>${v}</b><span>${n}</span></div>`;
+    const kpi = (l, v, n, c, href) => `<a class="s2-kpi s2-kpi-link" href="${href}" style="--c:${c}" aria-label="${l}: ${v}. Abrir sección"><small>${l}</small><b>${v}</b><span>${n}</span></a>`;
     const who = await names(drafts.slice(0, 5).map(c => c.assigned_to)); const STG = { traduciendo: ['Traduciendo', 25, '#f2c230'], correccion: ['En corrección', 60, '#8cc3f2'], listo: ['Listo', 90, '#a9d18e'] };
     const dsum = daily.reduce((a, x) => a + (+x.n || 0), 0), dmax = Math.max(1, ...daily.map(x => +x.n || 0)), dl = x => x ? fmtTz(x.day + 'T12:00:00', { day: 'numeric', month: 'short' }) : '';
     const body = `<div class="s2-kpis">
-        ${kpi('Capítulos publicados', pub.length.toLocaleString('es-MX'), week ? `+${week} esta semana` : 'Ninguno esta semana', '#a9d18e')}
-        ${kpi('Programados', up.length, up[0] ? 'Próximo ' + until(up[0].at) : 'Nada en agenda', '#f2c230')}
-        ${kpi('Borradores', drafts.length, drafts[0] ? 'Último ' + ago(drafts[0].updated_at) : 'Sin borradores', '#8cc3f2')}
-        ${kpi('Erratas abiertas', reps.length, reps.length ? 'Revísalas pronto' : 'Todo al día', reps.length ? '#f59e7a' : '#a9d18e')}
-        ${kpi('Lecturas totales', views.toLocaleString('es-MX'), works.length + (works.length === 1 ? ' obra' : ' obras'), '#cfc6b0')}
+        ${kpi('Capítulos publicados', pub.length.toLocaleString('es-MX'), week ? `+${week} esta semana` : 'Ninguno esta semana', '#a9d18e', '/estudio/obras')}
+        ${kpi('Programados', up.length, up[0] ? 'Próximo ' + until(up[0].at) : 'Nada en agenda', '#f2c230', '/estudio/obras')}
+        ${kpi('Borradores', drafts.length, drafts[0] ? 'Último ' + ago(drafts[0].updated_at) : 'Sin borradores', '#8cc3f2', '/estudio/flujo')}
+        ${kpi('Erratas abiertas', reps.length, reps.length ? 'Revísalas pronto' : 'Todo al día', reps.length ? '#f59e7a' : '#a9d18e', '/estudio/comunidad')}
+        ${kpi('Lecturas totales', views.toLocaleString('es-MX'), works.length + (works.length === 1 ? ' obra' : ' obras'), '#cfc6b0', '/estudio/estadisticas')}
       </div>
       <div class="s2-cols">
         <section class="s2-box"><div class="s2-bh"><h2>Próximos lanzamientos</h2><a href="/estudio/obras">Programar →</a></div>
