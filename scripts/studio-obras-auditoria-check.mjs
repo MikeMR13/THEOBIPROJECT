@@ -35,7 +35,7 @@ const pub=read('src/studio-series-publication.js'),cover=read('src/series-cover-
 const requires=(source,checks,name)=>checks.forEach(s=>assert(source.includes(s),name+': '+s));
 requires(st,[
 "import { selectStudioWorks, importWorkUrl }",
-"selectStudioWorks(list, chs, sched, state)",
+"selectStudioWorks(list, chs, sched, { ...state, prelaunchIds })",
 
 
 
