@@ -71,6 +71,15 @@ export function createEditor(deps) {
             <div class="ed-chips" id="cw">${CW.map(w => `<button type="button" class="ed-chip ${meta.content_warnings.includes(w) ? 'on' : ''}" aria-pressed="${meta.content_warnings.includes(w)}" data-cw="${esc(w)}">${esc(w)}</button>`).join('')}</div>
             <span style="font-size:12px;color:#a89f8a;line-height:1.45">Aparecen como aviso plegable al inicio del capítulo. Cada lector decide en sus ajustes si los ve plegados, solo como icono o nunca.</span></div>
         </div></details>
+      <details class="ed-box ed-productivity" id="p-outline"><summary>Índice del capítulo · ir a una sección</summary><nav id="ed-outline-list" class="ed-outline-list" aria-label="Índice navegable del capítulo"></nav></details>
+      <details class="ed-box ed-productivity" id="p-glossary"><summary>Fichas de glosario · ${(gl || []).length} términos</summary><label class="ed-productivity-search">Buscar término<input type="search" id="ed-gloss-search" placeholder="Nombre, categoría o definición" autocomplete="off"></label><div id="ed-gloss-cards" class="ed-gloss-cards"></div></details>
+      <details class="ed-box ed-productivity" id="p-shortcuts"><summary>Ayuda · atajos de teclado</summary><div class="ed-shortcut-grid">
+        <span>Guardar capítulo</span><kbd>Ctrl/Cmd + S</kbd>
+        <span>Concentración</span><kbd>Ctrl/Cmd + Mayús + F</kbd>
+        <span>Negrita / cursiva / subrayado</span><kbd>Ctrl/Cmd + B / I / U</kbd>
+        <span>Capítulo anterior / siguiente</span><kbd>Ctrl/Cmd + Alt + ← / →</kbd>
+        <span>Salir de concentración o de búsqueda</span><kbd>Esc</kbd>
+      </div><p class="ed-note">Los atajos no sustituyen los botones accesibles en móvil. La aplicación solo intercepta los comandos que ya implementa.</p></details>
       <div class="ed-mobile-view" role="group" aria-label="Modo de edición en pantalla pequeña"><button type="button" class="ed-btn" data-view="edit" aria-controls="split">Editor</button><button type="button" class="ed-btn" data-view="preview" aria-controls="split">Vista previa</button><button type="button" class="ed-btn" data-view="split" aria-controls="split">Ambos</button><button type="button" class="ed-btn" data-view="orig" aria-controls="split">Original</button></div>
       <p class="ed-toolbar-hint" id="ed-toolbar-hint">Desliza la barra de formato horizontalmente para ver más herramientas.</p>
       <div class="ed-bar" role="toolbar" aria-label="Formato" aria-describedby="ed-toolbar-hint">
@@ -107,6 +116,38 @@ export function createEditor(deps) {
     const load = blocks => { doc.innerHTML = blocksToEditor(blocks, media); };
     load(c.body);
     const blocksEls = () => [...doc.childNodes].filter(makesBlock);
+    const renderOutline = () => {
+      const panel = $('#ed-outline-list');
+      if (!panel) return;
+      const children = [...doc.children];
+      const places = children.map((node,index)=>({node,index})).filter(({node,index})=>
+        /^H[1-6]$/.test(node.tagName) || node.classList.contains('sep') || index === 0 || index % 25 === 0).slice(0,80);
+      panel.innerHTML = places.map(({node,index}) => {
+        const label = node.classList.contains('sep') ? 'Separador de escena' : (node.textContent || '').trim().replace(/\s+/g,' ').slice(0,75) || 'Párrafo '+(index+1);
+        return '<button type="button" data-outline-index="'+index+'"><span class="mono">'+(index+1)+'</span><span>'+esc(label)+'</span></button>';
+      }).join('') || '<p class="ed-note">Este capítulo todavía no tiene bloques para navegar.</p>';
+    };
+    $('#ed-outline-list')?.addEventListener('click',e=>{
+      const b=e.target.closest('[data-outline-index]'); if(!b)return;
+      const node=doc.children[Number(b.dataset.outlineIndex)]; if(!node)return;
+      if(UI.view==='preview'){UI.view='edit';views();}
+      node.scrollIntoView({block:'center',behavior:'smooth'});
+      node.classList.add('hl'); setTimeout(()=>node.classList.remove('hl'),1600);
+    });
+    const renderGlossary = () => {
+      const box = $('#ed-gloss-cards'); if(!box)return;
+      const q=($('#ed-gloss-search')?.value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+      const found=(gl||[]).filter(g=>(g.term+' '+(g.category||'')+' '+(g.definition||'')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(q));
+      box.innerHTML = found.slice(0,60).map(g=>'<article class="ed-gloss-card"><b>'+esc(g.term)+'</b><small>'+esc(g.category||'Sin categoría')+'</small><p>'+esc(g.definition||'Sin definición')+'</p><button class="btn ghost" type="button" data-gloss-find="'+esc(g.term)+'">Buscar en capítulo</button></article>').join('') || '<p class="ed-note">No hay términos que coincidan.</p>';
+      if(found.length>60)box.insertAdjacentHTML('beforeend','<p class="ed-note">Se muestran 60 de '+found.length+' resultados. Escribe para filtrar.</p>');
+    };
+    $('#ed-gloss-search')?.addEventListener('input',renderGlossary);
+    $('#ed-gloss-cards')?.addEventListener('click',e=>{
+      const b=e.target.closest('[data-gloss-find]');if(!b)return;
+      if(UI.view==='preview'){UI.view='edit';views();}
+      if(!findText(b.dataset.glossFind))toast('Término no encontrado en el capítulo');
+    });
+    renderGlossary();
     const title = () => $('#ttl').value.trim() || 'Sin título';
     const titleCount=()=>{const el=$('#ttl'),n=el.value.length;$('#ttlcount').textContent=n+' / 300';$('#ttlcount').classList.toggle('over',n>300);el.style.height='auto';el.style.height=Math.min(218,Math.max(72,el.scrollHeight))+'px';};
     titleCount();
@@ -141,6 +182,7 @@ export function createEditor(deps) {
       pv.innerHTML = `<div class="rd" data-theme="${UI.theme}" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="--rs:${UI.device === 'mobile' ? 17 : 19}px"><article class="rd-ch"><header class="rd-head"><span class="mono">Volumen ${c.vol} · ${esc(model.label)}</span><h2>${esc(model.heading)}</h2></header>${warningsHTML(meta.content_warnings, 'show')}<div class="rd-body">${model.blocks.map(({block,index})=>tagPreviewBlock(renderBlock(block,index,{media}),index)).join('')||'<p class="mono">Capítulo vacío.</p>'}</div>${meta.teaser_on && meta.teaser.trim() ? teaserHTML(meta.teaser, nextWhen) : ''}</article></div>`;
       pv.scrollTop=scrollPosition;
       queuePreviewSync();
+      renderOutline();
       const words = blocks.reduce((a, b) => a + (b.text || '').split(/\s+/).filter(Boolean).length, 0);
       $('#count').textContent = `${words.toLocaleString('es-MX')} palabras · ${Math.max(1, Math.round(words / 230))} min de lectura · ${blocks.filter(b => b.type === 'image').length} imágenes`;
       const on2 = $('#orig-n'); if (on2) { const P2 = origParas(); on2.textContent = P2.length ? `${P2.length} párr. · traducción ${blocksEls().length}` : ''; }
