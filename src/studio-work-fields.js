@@ -148,8 +148,8 @@ export function bindWorkFields(root, state, esc, related = [], notify = () => {}
     if (!list) return;
     list.innerHTML = (state.relations || []).map((r,i) => {
       const x = related.find(x => x.id === r.id);
-      return '<div class="wf-rel-item"><span>' + esc(x?.title || 'Obra seleccionada') +
-        '</span><select data-w-rel-kind-i="' + i + '" aria-label="Tipo de relación">' +
+      return '<div class="wf-rel-item"><span><b>' + esc(x?.title || 'Obra seleccionada') +
+        '</b><small class="mono">' + esc(x?.teams?.name || '') + '</small></span><select data-w-rel-kind-i="' + i + '" aria-label="Tipo de relación">' +
         WORK_REL_KINDS.map(([v,l]) => '<option value="' + v + '"' + (r.kind === v ? ' selected' : '') + '>' + l + '</option>').join('') +
         '</select><button class="lnk danger" type="button" data-w-rel-remove="' + i + '">Quitar</button></div>';
     }).join('') || '<p class="mono">Todavía no hay obras relacionadas.</p>';
