@@ -52,7 +52,7 @@ has(studio, "['accesos', 'Acceso y Patreon']", 'Distinguir accesos de los datos 
 has(studio, 'data-va=', 'Editar permisos de volumen en Acceso y Patreon');
 has(studio, 'data-lc=', 'Mantener permisos individuales de capítulos');
 has(studio, 'expandedGroups', 'No colapsar listas al cambiar un permiso');
-has(studio, "status: 'draft', published_at: null", 'Cancelar programación del volumen sin alterar capítulos');
+has(studio, "rpc('unschedule_volume'", 'Cancelar programación mediante RPC con permisos y sin alterar capítulos');
 lacks(studio, "await sb.from('chapters').update({ status: 'draft' }).eq('volume_id', b.dataset.unsch)", 'Nunca cancelar calendarios individuales en bloque');
 has(editor, 'Esta fecha programa solo la publicación de ESTE capítulo', 'Explicar publicación independiente en editor');
 
