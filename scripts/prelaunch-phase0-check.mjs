@@ -54,5 +54,5 @@ for (const restriction of [
 assert.match(studio, /rpc\('unschedule_volume', \{ p_volume: b\.dataset\.unsch \}\)/);
 assert.match(studio, /can\('publish'\) \|\| can\('schedule'\)/);
 assert.doesNotMatch(studio, /\.update\(\{ status: 'draft', published_at: null, announce_prelaunch: false \}\)/);
-assert.match(app, /studio\.js\?v=55/, 'Invalidate stale Studio entry module');
+assert.match(app, /studio\.js\?v=(?:5[5-9]|[6-9]\d)/, 'Invalidate stale Studio entry module');
 console.log('✓ Phase 0: shared public eligibility, adult restrictions, grants and cancellation permissions.');

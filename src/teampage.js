@@ -1,5 +1,6 @@
 import { attachPublicCredits, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
 import { publicSectionCounts } from './public-section-counts.js?v=1';
+import { loadPublicUpcoming } from './prelaunch-discovery.js?v=1';
 import { SEASONS, PARTS, ANIMS, INTENS, DENS, activeSeason, ornURL, motifURL, stripURL, CSS as ACSS } from './anim.js?v=8';
 export { SEASONS, PARTS, ANIMS, INTENS, DENS, activeSeason };
 // Página pública del equipo: diseño compartido entre el sitio y el editor de Preferencias (vista previa idéntica).
@@ -246,10 +247,11 @@ export async function loadTeamData(sb, slug){
   const { data: t } = await sb.from('teams').select('id,slug,name,bio,color,langs,settings,design,avatar_path,banner_path,status').eq('slug', slug).maybeSingle();
   if (!t) return null;
   const S = t.settings || {};
-  const [{ data: rawWorks }, { data: mem }, { data: next }] = await Promise.all([
+  const [{ data: rawWorks }, { data: mem }, { data: next }, announced] = await Promise.all([
     sb.from('series').select('id,slug,title,short,synopsis,cover_path,translation_status,views,chapters(count)').eq('team_id', t.id).eq('published', true).is('archived_at', null).order('title'),
     S.show_members !== false ? sb.rpc('team_public_members', { p_team: t.id }) : { data: [] },
-    sb.from('schedule').select('at,label,series!inner(team_id,slug,title)').eq('series.team_id', t.id).gte('at', new Date().toISOString()).order('at').limit(1)]);
+    sb.from('schedule').select('at,label,series!inner(team_id,slug,title)').eq('series.team_id', t.id).gte('at', new Date().toISOString()).order('at').limit(1),
+    loadPublicUpcoming(sb)]);
   const works = await publicSectionCounts(sb, rawWorks || []);
   // Preservar el contrato del render sin exponer la tabla privada profiles.
   const members=(mem||[]).map(m=>({
@@ -275,7 +277,18 @@ export async function loadTeamData(sb, slug){
     }
   } catch (e) { console.warn('Créditos públicos de colaboración no disponibles:', e?.message || e); }
   installCreditImageFallback();
-  return { t, works: works || [], collaborations, mem: members, next: next?.[0] || null, recent };
+  // Integrar el anuncio más próximo en el bloque editable "Próximo lanzamiento".
+  // No incorporar series no publicadas a "Obras" ni a sus estadísticas.
+  const planned = next?.[0] || null;
+  const upcoming = announced.find(r => r.team_slug === t.slug);
+  const preview = upcoming ? {
+    at: upcoming.at, label: 'Vol. ' + upcoming.vnum + ' · Primer vistazo',
+    series: { slug: upcoming.slug, title: upcoming.title, short: upcoming.short },
+    cover_path: upcoming.cover_path || upcoming.cover_thumb_path || upcoming.vcover,
+    prelaunch: true
+  } : null;
+  const nextLaunch = preview && (!planned || new Date(preview.at) <= new Date(planned.at)) ? preview : planned;
+  return { t, works: works || [], collaborations, mem: members, next: nextLaunch, recent };
 }
 
 // Diseño con el tema de temporada aplicado (si hay uno vigente). sim = clave para simular en la vista previa.
@@ -299,10 +312,10 @@ export function render(D, design, h){
   const SN0 = d.season && SEASONS[d.season], stamp0 = SN0 && d.seasons.deco !== 'min' ? `<span class="tp2-stamp"><i></i>${esc(SN0.l.toUpperCase())}</span>` : '';
   const name = `<h1 class="tp2-name">${esc(t.name)}</h1>${d.motto ? `<p class="tp2-motto">${esc(d.motto)}</p>` : ''}${L.showMeta ? `<p class="tp2-meta">${esc(meta)}</p>` : ''}${stamp0}`;
   const links = L.showLinks ? `<div class="tp2-links"><span class="tp2-fslot"></span>${LK.map(([k, l]) => `<a class="tp2-btn" href="${esc(S[k])}" target="_blank" rel="noopener">${l} ↗</a>`).join('')}</div>` : '<div class="tp2-links"><span class="tp2-fslot"></span></div>';
-  const cover = w => `<span class="tp2-cv"${w.cover_path ? ` style="background-image:url('${esc(media(w.cover_path))}')"` : ''}>${w.cover_path ? '' : `<i>${esc(w.short || w.title)}</i>`}<span class="tp2-obi" aria-hidden="true"><b>${esc(w.short || w.title)}</b><small>${w.chapters?.[0]?.count || 0} cap.</small></span></span>`;
+  const cover = w => `<span class="tp2-cv"${w.cover_path ? ` style="background-image:url('${esc(media(w.cover_path))}')"` : ''}>${w.cover_path ? '' : `<i>${esc(w.short || w.title)}</i>`}<span class="tp2-obi" aria-hidden="true"><b>${esc(w.short || w.title)}</b><small>${w.prelaunch ? 'Primer vistazo' : (w.chapters?.[0]?.count || 0) + ' cap.'}</small></span></span>`;
   const stats = on('show_stats') ? `<div class="tp2-stats">${[[(W.length + SHARED.length), 'obras'], [caps, 'capítulos']].map(([v, k]) => `<span><b>${(+v).toLocaleString('es-MX')}</b><small>${k}</small></span>`).join('')}<span><b data-follow-count>—</b><small>seguidores</small></span><span><b>${D.mem.length.toLocaleString('es-MX')}</b><small>integrantes públicos</small></span></div>` : '';
-  const nextWork = D.next && W.find(w => w.slug === D.next.series?.slug);
-  const nx = D.next ? `<a class="tp2-next${E.nextStyle === 'destacado' ? ' tp2-next-feature' : ''}" id="grupo-lanzamientos" data-at="${esc(D.next.at)}" href="/serie/${esc(D.next.series.slug)}">${E.nextStyle === 'destacado' && nextWork ? `<span class="tp2-next-cv">${cover(nextWork)}</span>` : ''}<span class="tp2-next-copy"><small>PRÓXIMO LANZAMIENTO</small><b>${esc(D.next.series.title)}${D.next.label ? ' · ' + esc(D.next.label) : ''}</b><span>${new Date(D.next.at).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</span></span></a>` : '';
+  const nextWork = D.next && (D.next.prelaunch ? { ...D.next.series, cover_path: D.next.cover_path, prelaunch: true } : W.find(w => w.slug === D.next.series?.slug));
+  const nx = D.next ? `<a class="tp2-next${E.nextStyle === 'destacado' ? ' tp2-next-feature' : ''}" id="grupo-lanzamientos" data-at="${esc(D.next.at)}" href="/serie/${esc(D.next.series.slug)}">${E.nextStyle === 'destacado' && nextWork ? `<span class="tp2-next-cv">${cover(nextWork)}</span>` : ''}<span class="tp2-next-copy"><small>${D.next.prelaunch ? 'PRÓXIMO ESTRENO · PRIMER VISTAZO' : 'PRÓXIMO LANZAMIENTO'}</small><b>${esc(D.next.series.title)}${D.next.label ? ' · ' + esc(D.next.label) : ''}</b><span>${new Date(D.next.at).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: D.next.prelaunch ? 'America/Monterrey' : undefined })}${D.next.prelaunch ? ' · Monterrey · Lectura bloqueada' : ''}</span></span></a>` : '';
   const featCard = f => `<a class="tp2-feat" href="/serie/${esc(f.slug)}">${cover(f)}<span><b>${esc(f.title)}</b><span class="tp2-syn">${esc(f.synopsis || '')}</span><span class="tp2-btn solid">Ver ficha de la obra</span></span></a>`;
   const featH = featList.length ? `<section class="tp2-sec tp2-feature-block" id="grupo-destacadas"><div class="tp2-sh"><h2>${featList.length > 1 ? 'Obras destacadas' : 'Obra destacada'}</h2>${featList.length > 1 ? `<span class="tp2-car-nav"><button type="button" data-car="-1" aria-label="Anterior">‹</button><button type="button" data-car="1" aria-label="Siguiente">›</button></span>` : ''}</div><div class="tp2-car" tabindex="0" aria-label="Obras destacadas">${featList.map(featCard).join('')}</div>${featList.length > 1 ? `<div class="tp2-dots">${featList.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div>` : ''}</section>` : '';
   const today = new Date().toISOString().slice(0, 10), A = d.announce;
