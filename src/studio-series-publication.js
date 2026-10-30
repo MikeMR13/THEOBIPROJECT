@@ -38,6 +38,7 @@ export function bindSeriesPublication({ app, sb, series, can, fromLocal, fmtTz, 
   const note = root.querySelector('#wk-sp-note');
   const volWrap = root.querySelector('#wk-sp-volwrap');
   const preWrap = root.querySelector('#wk-sp-prewrap');
+  const initial = { mode: mode.value, volume:vol?.value || '', date:date?.value || '' };
   const notes = {
     draft: 'Oculta toda la novela y cancela los estrenos de volúmenes pendientes; no borra capítulos ni sus lecturas.',
     prelaunch: 'La novela quedará privada, con ficha de preestreno y lectura bloqueada. El volumen elegido se estrenará en esta fecha; los demás publicados o programados volverán a borrador.',
@@ -48,11 +49,20 @@ export function bindSeriesPublication({ app, sb, series, can, fromLocal, fmtTz, 
     volWrap.hidden = chosen === 'draft';
     preWrap.hidden = chosen !== 'prelaunch';
     note.textContent = notes[chosen] || '';
-    save.disabled = (chosen !== 'draft' && !vol?.value) || (chosen === 'prelaunch' && !can('schedule'));
+    const changed = chosen !== initial.mode ||
+      (chosen !== 'draft' && vol?.value !== initial.volume) ||
+      (chosen === 'prelaunch' && date?.value !== initial.date);
+    const invalid = (chosen !== 'draft' && !vol?.value) ||
+      (chosen === 'prelaunch' && (!can('schedule') || !date?.value));
+    save.disabled = invalid || !changed;
+    save.textContent = changed ? 'Guardar estado de publicación' : 'Sin cambios en publicación';
   };
   mode.onchange = update;
+  if (vol) vol.onchange = update;
+  if (date) date.oninput = update;
   update();
   save.onclick = e => busy(e.currentTarget, async () => {
+    if (save.disabled) return;
     const selected = mode.value;
     if (!['draft', 'prelaunch', 'published'].includes(selected)) throw new Error('Estado inválido');
     if (selected === 'prelaunch' && !can('schedule')) throw new Error('No tienes permiso para programar');
