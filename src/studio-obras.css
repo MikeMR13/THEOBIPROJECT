@@ -77,3 +77,15 @@
 .s2 .wk-publication-change>summary:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 .s2 .wk-publication-change[open]{padding-bottom:8px}
 .s2 #wk-sp-save:disabled{opacity:.6;cursor:not-allowed}
+
+/* Estudio: mejoras visuales compartidas de auditoría */
+/* Auditoría Studio: instrucciones visibles y controles accesibles en formularios. */
+.s2 .st-field-caption{display:grid;gap:7px;min-width:0;font-weight:600;color:var(--paper)}
+.s2 .st-field-caption input,.s2 .st-field-caption textarea{width:100%;min-width:0;font-weight:400}
+@media(max-width:700px){.s2 .s2-main{padding-top:16px}.s2 .s2-head{margin-bottom:15px}}
+
+.s2 a.s2-kpi-link{display:grid;text-decoration:none;color:inherit;cursor:pointer;transition:border-color .15s ease}
+.s2 a.s2-kpi-link:hover,.s2 a.s2-kpi-link:focus-visible{border-color:var(--gold);outline-offset:3px}
+
+.s2 .dl-field{display:grid;gap:5px;min-width:0;font-size:12px;font-weight:600;color:var(--paper)}
+.s2 .dl-field input{width:100%;min-width:0;font-weight:400}
