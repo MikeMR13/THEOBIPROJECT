@@ -1,3 +1,4 @@
+import { createNewWork } from './studio-new-work.js?v=1';
 import { confirmObi, noticeObi, inputObi } from './obi-dialog.js';
 import { STUDIO_TEAM_PERMS } from './studio-team-permissions.js?v=1';
 import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=1';
@@ -311,88 +312,7 @@ export function createStudio(ctx){
 
   const slugify = s => (s || 'obra').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
 
-  async function newWork(){
-    if (!(await ensure())) return;
-    const TAB = '/estudio/obras';
-    if (!can('create')) { app.innerHTML = shell('Nueva obra', can('import') ? '<p>Tu rol solo permite importar. <a href="/estudio/importar">Importar un archivo →</a></p>' : '<p>Tu rol no permite crear obras.</p>', TAB); bindPicker(newWork); return; }
-    const N = createWorkData();
-    let related = [], relatedError = '';
-    try { related = await loadRelatedWorks(sb, T.team.id); }
-    catch (e) { relatedError = errMsg(e); toast('No se pudo cargar el catálogo de obras relacionadas: ' + relatedError); }
-    let made = null, cover = null, vtitle = '';
-    const steps = n => '<ol class="st-steps" style="margin:0 0 22px">' +
-      ['Obra', 'Primer volumen', 'Primer capítulo'].map((l,i) =>
-        '<li' + (i === n ? ' style="color:var(--gold);font-weight:700"' : '') + '>' + l + '</li>').join('') + '</ol>';
-    const box = (h,inner) => '<section class="wk-box wf-createbox"><h2>' + h + '</h2>' + inner + '</section>';
-    const step1 = () => {
-      const choices = '<div class="wf-create-choices"><div class="wk-box" style="border-top:4px solid var(--gold)">' +
-        '<b>Desde cero</b><small class="mono">Completa la ficha editorial y continúa con el primer volumen.</small></div>' +
-        (can('import') ? '<a class="wk-box" href="/estudio/importar" style="text-decoration:none;color:var(--paper)"><b>Importar un archivo →</b><small class="mono">EPUB, DOCX o PDF con la misma ficha editorial completa.</small></a>' : '') +
-        '</div>';
-      app.innerHTML = shell('Nueva obra', steps(0) + choices +
-        '<h2 class="s2-h2">Datos de la obra</h2><div class="wf-creator" id="nw-fields">' + renderWorkFields(N,esc,related) + (relatedError ? '<p role="alert">No se pudieron cargar las obras para relacionar. ' + esc(relatedError) + '</p>' : '') + '</div>' +
-        box('Portada de la obra (opcional)', '<label>JPG, PNG o WebP · máximo 8 MB<input type="file" id="nw-cover" accept="image/png,image/jpeg,image/webp"></label><small class="mono">Si no tienes portada, puedes agregarla después o usar la del volumen importado.</small>') +
-        '<div class="wf-create-actions"><button class="btn" id="nw-go">Guardar obra privada y continuar →</button><a class="btn ghost" href="/estudio/obras">Cancelar</a></div>', TAB);
-      bindPicker(newWork);
-      bindWorkFields($('#nw-fields'), N, esc, related, msg => { if (msg) toast(msg); });
-      $('#nw-cover').onchange = e => {
-        const v = e.target.files?.[0] || null;
-        if (v && (!/^image\/(jpeg|png|webp)$/.test(v.type) || v.size > LIMITS.image)) {
-          e.target.value = ''; cover = null; toast('Usa JPG, PNG o WebP de máximo 8 MB'); return;
-        }
-        cover = v;
-      };
-      $('#nw-go').onclick = e => busy(e.currentTarget, async () => {
-        const data = workPayload(N), slugBase = slugify(data.title);
-        let slug = slugBase;
-        const { data: taken, error: probeErr } = await sb.from('series').select('id').eq('slug',slug).limit(1);
-        if (probeErr) throw new Error(errMsg(probeErr));
-        if (taken?.length) slug += '-' + Date.now().toString(36).slice(-4);
-        const { data: created, error } = await sb.from('series')
-          .insert({ ...data, team_id: T.team.id, slug, published: false }).select().single();
-        if (error) throw new Error(errMsg(error));
-        made = { s: created }; T.works = null;
-        if (cover) {
-          try {
-            made.s.cover_path = await uploadSeriesCover({
-              sb, teamId:T.team.id, slug, seriesId:created.id, file:cover
-            });
-          } catch (coverError) {
-            toast('Obra privada creada, pero la portada no se guardó: ' + errMsg(coverError));
-          }
-        }
-        toast('Obra privada creada con su ficha editorial'); step2();
-      });
-      $('#nw-fields [data-w="title"]')?.focus();
-    };
-    const step2 = () => {
-      app.innerHTML = shell('Nueva obra', steps(1) +
-        box('Volumen 1 de «' + esc(made.s.title) + '»',
-          '<label>Título del volumen (opcional)<input id="nw-vt" maxlength="200" placeholder="Volumen 1" value="' + esc(vtitle) + '"></label>' +
-          '<span class="wf-create-actions"><button class="btn" id="nw-v">Crear volumen y escribir el capítulo 1 →</button>' +
-          (can('import') ? '<a class="btn ghost" href="/estudio/importar">⇪ Importar este volumen desde un archivo</a>' : '') + '</span>' +
-          '<span class="mono" style="font-size:12px">Al importar, elige «' + esc(made.s.title) + '» como obra y Volumen 1.</span>' +
-          '<a class="lnk" href="/estudio/obra/' + esc(made.s.slug) + '">Dejar sin volumen y editar la obra después</a>'), TAB);
-      bindPicker(newWork);
-      $('#nw-vt').oninput = e => { vtitle = e.target.value; };
-      $('#nw-v').onclick = e => busy(e.currentTarget, async () => {
-        if (!made.v) {
-          const vt = vtitle.trim();
-          const r = await sb.from('volumes').insert({
-            series_id: made.s.id, num: 1, status: 'draft', ...(vt ? { title: vt } : {})
-          }).select('id,num').single();
-          if (r.error) throw new Error(errMsg(r.error)); made.v = r.data;
-        }
-        const c = await sb.from('chapters').insert({
-          series_id: made.s.id, volume_id: made.v.id, vol: 1, num: 1,
-          title: 'Capítulo 1', body: [], status: 'draft', section_type: 'Capítulo'
-        }).select('id').single();
-        if (c.error) throw new Error(errMsg(c.error));
-        toast('Primer volumen y capítulo preparados'); go('/estudio/editar/' + c.data.id);
-      });
-    };
-    step1();
-  }
+  const newWork = createNewWork({ sb, app, $, esc, toast, go, getUser, T, can, ensure, shell, bindPicker, errMsg, busy, LIMITS, slugify });
 
   // ---------- obras ----------
   async function works(){
