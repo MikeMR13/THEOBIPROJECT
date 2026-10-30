@@ -10,6 +10,9 @@ import { spawn, execFileSync } from 'node:child_process';
 const root = process.cwd();
 const whitelist = new Map([
  ['/studio.js','src/studio.js'],
+ ['/studio-works-utils.js','src/studio-works-utils.js'],
+ ['/studio-works-view.js','src/studio-works-view.js'],
+ ['/studio-cover-image.js','src/studio-cover-image.js'],
  ['/obi-dialog.js','src/obi-dialog.js'],
  ['/studio-team-permissions.js','src/studio-team-permissions.js'],
  ['/studio-diffusion.js','src/studio-diffusion.js'],
@@ -32,6 +35,7 @@ const whitelist = new Map([
  ['/reader-headings.js','src/reader-headings.js'],
   ['/editorial-announcements.js','src/editorial-announcements.js'],
  ['/studio.css','src/studio.css'],
+ ['/studio-obras.css','src/studio-obras.css'],
  ['/reader-a11y.css','src/reader-a11y.css'],
  ['/studio-editor.js','src/studio-editor.js'],
  ['/studio-importer.js','src/studio-importer.js'],

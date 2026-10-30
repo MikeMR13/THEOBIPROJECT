@@ -5,9 +5,9 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { spawn, execFileSync } from 'node:child_process';
 
-const css=readFileSync('src/styles.css','utf8')+'\n'+readFileSync('src/studio.css','utf8');
-const source=readFileSync('src/studio.js','utf8');
-for(const k of ['s2-work-primary','s2-work-recommend','s2-work-secondary','s2-feature-toggle','data-feature','team_feature_set'])assert(source.includes(k),'Falta función: '+k);
+const css=readFileSync('src/styles.css','utf8')+'\n'+readFileSync('src/studio.css','utf8')+'\n'+readFileSync('src/studio-obras.css','utf8');
+const source=readFileSync('src/studio.js','utf8')+'\n'+readFileSync('src/studio-works-view.js','utf8');
+for(const k of ['s2-work-primary','s2-work-secondary','s2-more','s2-worktools','s2-feature-toggle','data-feature','team_feature_set'])assert(source.includes(k),'Falta función: '+k);
 assert(!source.includes("'gold' : 'ghost'"),'No debe usarse la clase gold para el botón activo');
 assert(css.includes('.s2 .s2-work .s2-feature-toggle[aria-pressed="true"]'),'Falta estilo de contraste');
 const widths=[320,375,390,430,768,1024,1440,1690];
@@ -80,7 +80,7 @@ const fixture='<html lang="es"><head><meta charset="utf-8"><meta name="viewport"
   'const box=document.querySelector(".wk-box input");if(parseFloat(getComputedStyle(box).minHeight)<40)err.push("input demasiado pequeño");'+
   'if(getComputedStyle(document.querySelector(".wk-tt")).whiteSpace!=="normal")err.push("titulo de capítulo truncado");'+
   'const tb=document.querySelector(".wk-tw"), tbrect=r(tb);if(tbrect.left< -2||tbrect.right>w+2)err.push("tabla fuera del viewport");'+
-  'if(w<768&&tb.scrollWidth<=tb.clientWidth)err.push("tabla móvil sin scroll interno");'+
+  'if(w<=700&&tb.scrollWidth>tb.clientWidth+2)err.push("capítulos siguen recortados a pesar de las tarjetas móviles");'+
   'const filter=r(document.querySelector(".wk-flt"));if(filter.right>w+2)err.push("filtros fuera del viewport");'+
   'const card=r(document.querySelector(".s2-work"));if(card.left< -2||card.right>w+2)err.push("tarjeta fuera del viewport");'+
   'for(const b of document.querySelectorAll(".s2-work-actions button,.s2-work-actions a")){const x=r(b);if(x.left<card.left-2||x.right>card.right+2)err.push("acción fuera: "+b.textContent);}'+

@@ -1,5 +1,6 @@
 // Portada principal de una obra: se edita sin modificar las portadas de sus volúmenes.
 import { galleryCoverPaths } from './volume-cover-gallery.js?v=1';
+import { optimizeStudioCover } from './studio-cover-image.js?v=1';
 
 export const SERIES_COVER_TYPES = Object.freeze({
   'image/jpeg':'jpg','image/png':'png','image/webp':'webp'
@@ -52,11 +53,13 @@ export async function saveSeriesCover({sb,seriesId,teamId,path}){
 }
 
 export async function uploadSeriesCover({sb,teamId,slug,seriesId,file}){
-  const ext=validateSeriesCoverFile(file);
+  validateSeriesCoverFile(file);
+  const payload=await optimizeStudioCover(file);
+  const ext=validateSeriesCoverFile(payload);
   const nonce=globalThis.crypto?.randomUUID?.()||String(Date.now())+'-'+Math.random().toString(36).slice(2);
   const path=teamId+'/obras/'+slug+'/portada-'+nonce+'.'+ext;
   const store=sb.storage.from('obi-media');
-  const {error}=await store.upload(path,file,{contentType:file.type,cacheControl:'31536000'});
+  const {error}=await store.upload(path,payload,{contentType:payload.type,cacheControl:'31536000'});
   if(error)throw error;
   try {await saveSeriesCover({sb,teamId,seriesId,path});}
   catch(err){

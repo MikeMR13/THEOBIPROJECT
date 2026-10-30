@@ -2,7 +2,7 @@ import { confirmObi, noticeObi, inputObi } from './obi-dialog.js';
 import { STUDIO_TEAM_PERMS } from './studio-team-permissions.js?v=1';
 import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=1';
 import { initCollaborationTeamPicker, COLLABORATION_STATUS } from './studio-collaboration-picker.js?v=1';
-import { seriesPublicationHTML, bindSeriesPublication } from './studio-series-publication.js?v=1';
+import { seriesPublicationHTML, bindSeriesPublication } from './studio-series-publication.js?v=2';
 import { bindSeriesSeo, teamSeoProfileHTML } from './studio-seo.js?v=1';
 import { cleanSeo } from './seo-settings.js?v=1';
 import { SECTION_TYPES } from './section-types.js?v=1';
@@ -10,7 +10,10 @@ import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
 import { askEditorialAnnouncement, saveEditorialRecord, chooseActiveEditorial } from './editorial-announcements.js?v=1';
 import { WORK_GENRES, WORK_DEMOGRAPHICS, createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
 import { bindVolumeCoverGallery } from './volume-cover-gallery.js?v=1';
-import { mountSeriesCoverEditor } from './series-cover-editor.js?v=1';
+import { mountSeriesCoverEditor } from './series-cover-editor.js?v=2';
+import { optimizeStudioCover } from './studio-cover-image.js?v=1';
+import { selectStudioWorks, importWorkUrl } from './studio-works-utils.js?v=1';
+import { createStudioWorksToolbar, createStudioWorkCard, bindStudioWorksControls } from './studio-works-view.js?v=1';
 document.addEventListener('click', e => { const i = e.target.closest?.('input[type=date],input[type=datetime-local]'); if (i && !i.disabled && !i.readOnly) try { i.showPicker(); } catch {} });
 const LIMITS = { file: 80 * 1024 * 1024, entries: 15000, unzipped: 300 * 1024 * 1024, image: 8 * 1024 * 1024 };
 const ACTIONS = [['view','Ver'],['edit','Editar'],['create','Crear'],['import','Importar'],['publish','Publicar'],['schedule','Programar'],['delete','Borrar'],['review','Revisar']];
@@ -56,7 +59,7 @@ export function createStudio(ctx){
   ];
   const studioNav = t => NAV_GROUPS.map(([name, paths]) => {
     const list = paths.map(h => NAV.find(n => n[0] === h)).filter(n => n && (!n[3] || can(n[3])));
-    return list.length ? `<div class="s2-nav-group"><span class="s2-nav-label">${name}</span>${list.map(([h, k, l]) => `<a href="${h}" class="${t === h ? 'on' : ''}" ${t === h ? 'aria-current="page"' : ''}><span class="k">${k}</span><span>${l}</span>${h === '/estudio/obras' && T.works ? `<em>${T.works}</em>` : ''}</a>`).join('')}</div>` : '';
+    return list.length ? `<div class="s2-nav-group"><span class="s2-nav-label">${name}</span>${list.map(([h, k, l]) => `<a href="${h}" class="${t === h ? 'on' : ''}" ${t === h ? 'aria-current="page"' : ''}><span class="k" aria-hidden="true">${k}</span><span>${l}</span>${h === '/estudio/obras' && T.works ? `<em>${T.works}</em>` : ''}</a>`).join('')}</div>` : '';
   }).join('');
   let styleTask = null;
   const css = () => {
@@ -69,13 +72,23 @@ export function createStudio(ctx){
       link.addEventListener('error', resolve, { once: true });
     });
     if (!existing) {
-      link.id = 'st2-css'; link.rel = 'stylesheet'; link.href = '/studio.css?v=4';
+      link.id = 'st2-css'; link.rel = 'stylesheet'; link.href = '/studio.css?v=5';
       document.head.appendChild(link);
     }
     if (!document.getElementById('st2-access-css')) {
       const accessLink = document.createElement('link');
       accessLink.id = 'st2-access-css'; accessLink.rel = 'stylesheet'; accessLink.href = '/studio-access.css?v=1';
       document.head.appendChild(accessLink);
+    }
+    if (!document.getElementById('st2-works-css')) {
+      const worksLink = document.createElement('link');
+      worksLink.id = 'st2-works-css'; worksLink.rel = 'stylesheet'; worksLink.href = '/studio-obras.css?v=1';
+      const worksReady = new Promise(resolve=>{
+        worksLink.addEventListener('load', resolve, {once:true});
+        worksLink.addEventListener('error', resolve, {once:true});
+      });
+      document.head.appendChild(worksLink);
+      styleTask = Promise.all([styleTask,worksReady]);
     }
     return styleTask;
   };
@@ -240,7 +253,7 @@ export function createStudio(ctx){
   const utagHTML = t => { const c0 = /^#[\da-f]{6}$/i.test(t.color || '') ? t.color : '#f2c230', c = t.season ? `var(--sea,${c0})` : c0, ink = t.season ? '#0d0c0a' : UTAG_INK(c0), solid = t.style !== 'outline'; return `<span class="ob-utag" style="display:inline-flex;align-items:center;margin-left:8px;padding:2px 8px;font:600 11px/1.5 'IBM Plex Mono',monospace;letter-spacing:.04em;text-transform:uppercase;vertical-align:2px;white-space:nowrap;${solid ? `background:${c};color:${ink};border:1px solid ${c}` : `background:transparent;color:${c};border:1px solid ${c}`}">${esc(t.text.trim().slice(0, 24))}</span>`; };
 
   async function teamData(){
-    const { data: works } = await sb.from('series').select('id,slug,title,short,synopsis,genres,cover_path,translation_status,published,views,theme,volumes(count)').eq('team_id', T.team.id).is('archived_at', null).order('title');
+    const { data: works } = await sb.from('series').select('id,slug,title,short,synopsis,genres,cover_path,cover_thumb_path,translation_status,published,views,theme,volumes(id,deleted_at)').eq('team_id', T.team.id).is('archived_at', null).order('title');
     const ids = (works || []).map(w => w.id);
     import('./thumbs.js?v=1').then(m => m.heal(sb, T.team.id, PUB)).catch(() => {});
     if (!ids.length) return { works: [], chs: [], sched: [], reps: [] };
@@ -335,9 +348,10 @@ export function createStudio(ctx){
         if (error) throw new Error(errMsg(error));
         made = { s: created }; T.works = null;
         if (cover) {
-          const ext = { 'image/jpeg':'jpg', 'image/png':'png', 'image/webp':'webp' }[cover.type];
+          const prepared = await optimizeStudioCover(cover);
+           const ext = { 'image/jpeg':'jpg', 'image/png':'png', 'image/webp':'webp' }[prepared.type];
           const path = T.team.id + '/obras/' + slug + '/portada-' + Date.now() + '.' + ext;
-          const u = await sb.storage.from('obi-media').upload(path,cover,{contentType:cover.type,cacheControl:'31536000'});
+          const u = await sb.storage.from('obi-media').upload(path,prepared,{contentType:prepared.type,cacheControl:'31536000'});
           if (!u.error) {
             const p = await sb.from('series').update({ cover_path:path }).eq('id',created.id);
             if (p.error) toast('Obra creada, pero no se pudo asignar la portada');
@@ -387,44 +401,20 @@ export function createStudio(ctx){
     const featuredSeriesId=selectedFeature?.series_id||null;
     const featuredExpiresAt=selectedFeature?.updated_at ? new Date(new Date(selectedFeature.updated_at).getTime()+7*864e5) : null;
     const pick = new URLSearchParams(location.search).has('nuevo');
-    const card = w => { const c = chs.filter(x => x.series_id === w.id), pub = c.filter(x => x.status === 'published'), dr = c.filter(x => x.status === 'draft').length;
-      const nx = [...c.filter(x => x.status === 'scheduled' && new Date(x.publish_at) > Date.now()).map(x => ({ at: x.publish_at, l: 'Cap. ' + x.num })), ...sched.filter(e => e.series_id === w.id).map(e => ({ at: e.at, l: e.label }))].sort((a, b) => new Date(a.at) - new Date(b.at))[0];
-      const last = pub.sort((a, b) => new Date(b.publish_at) - new Date(a.publish_at))[0], st = TLS[w.translation_status] || TLS.active;
-      return `<article class="s2-work" style="--c:${wcolor(w)}"><a class="cv" href="/estudio/obra/${w.slug}" style="${w.cover_path ? `background-image:url('${media(w.cover_path)}')` : ''}">${w.cover_path ? '' : `<span>${esc(w.short || w.title)}</span>`}</a>
-        <div class="bd"><span class="tg"><span class="pl" style="--p:${st[1]}">${st[0]}</span><small>${w.volumes?.[0]?.count ?? 0} vol. · ${c.length} cap.${w.published ? '' : ' · privada'}</small></span>
-          <h2><a href="/estudio/obra/${w.slug}">${esc(w.title)}</a></h2>${w.synopsis ? `<p>${esc(w.synopsis)}</p>` : ''}
-          ${(w.genres || []).length ? `<span class="gn">${w.genres.slice(0, 5).map(g => `<span>${esc(g)}</span>`).join('')}</span>` : ''}
-          <dl><div><dt>PRÓXIMO</dt><dd style="color:${nx ? '#f2c230' : '#a89f8a'}">${nx ? esc(nx.l) + ' · ' + until(nx.at) : 'Sin programar'}</dd></div><div><dt>BORRADORES</dt><dd>${dr}</dd></div><div><dt>LECTURAS</dt><dd>${(w.views || 0).toLocaleString('es-MX')}</dd></div><div><dt>ÚLTIMO PUBLICADO</dt><dd>${last ? 'Cap. ' + last.num + ' · ' + ago(last.publish_at) : '—'}</dd></div></dl>
-          <div class="s2-work-actions">
-            <div class="s2-work-primary">
-              ${can('create') ? `<button class="btn" data-new="${w.id}">＋ Nuevo capítulo</button>` : ''}
-              <a class="btn ghost" href="/estudio/obra/${w.slug}">Abrir ficha</a>
-            </div>
-            ${(can('edit')||can('publish')) && w.published ? `<div class="s2-work-recommend">
-              <span class="s2-work-recommend-info"><b>Recomendación del equipo</b><small>${featuredSeriesId===w.id && featuredExpiresAt ? 'Visible hasta ' + esc(fmtTz(featuredExpiresAt, {dateStyle:'medium',timeStyle:'short'})) : '7 días en Inicio · una por equipo'}</small></span>
-              <button class="btn s2-feature-toggle" type="button" data-feature="${w.id}" aria-pressed="${featuredSeriesId===w.id}" aria-label="${featuredSeriesId===w.id ? 'Quitar recomendación de la obra del carrusel de Inicio' : 'Destacar esta obra en el carrusel de Inicio'}" title="${featuredSeriesId===w.id ? 'Quitar esta obra de la recomendación del equipo' : 'Destacar esta obra durante 7 días en el carrusel de Inicio'}"><span aria-hidden="true">${featuredSeriesId===w.id ? '★' : '☆'}</span><span>${featuredSeriesId===w.id ? 'Destacada · Quitar' : 'Destacar'}</span></button>
-            </div>` : ''}
-            <div class="s2-work-secondary">
-              ${can('import') ? '<a class="btn ghost" href="/estudio/importar">Importar volumen</a>' : ''}
-              <a class="lnk" href="/serie/${w.slug}">Ver en el sitio ↗</a>
-            </div>
-          </div></div></article>`; };
+    let preferredView = 'cards';
+    try { preferredView = localStorage.getItem('obi-studio-works-view') === 'table' ? 'table' : 'cards'; } catch {}
+    const state = (works.filters ||= { q:'', status:'all', visibility:'all', sort:'title', attention:false, view:preferredView });
+    const chosen = () => selectStudioWorks(list, chs, sched, state);
+    const toolbar = createStudioWorksToolbar({state,TLS,esc,can});
+    const card = createStudioWorkCard({chs,sched,featuredSeriesId,TLS,wcolor,esc,media,until,ago,can});
     const body = `${(inv || []).map(c => `<div class="st-card"><span>${esc(c.inviter?.name || 'Un equipo')} te invita a colaborar en <strong>${esc(c.series?.title)}</strong></span><span><button class="btn" data-acc="${c.id}">Aceptar</button> <button class="btn ghost" data-rej="${c.id}">Rechazar</button></span></div>`).join('')}
       ${pick && list.length ? '<div class="st-card"><span>¿En qué obra va el nuevo capítulo? Toca «＋ Nuevo capítulo» en la obra.</span></div>' : ''}
-      ${list.length ? `<div class="s2-works">${list.map(card).join('')}${can('create') || can('import') ? '<a class="s2-add" href="/estudio/nueva"><span>＋</span>Nueva obra<small>Desde cero con el editor o importando un EPUB, DOCX o PDF</small></a>' : ''}</div>` : emptyState()}
+      ${list.length ? `${toolbar}
+       <p class="mono s2-feature-note">${featuredSeriesId ? '★ Recomendación actual: ' + esc(list.find(w=>w.id===featuredSeriesId)?.title || 'Obra destacada') + (featuredExpiresAt ? ' · hasta '+esc(fmtTz(featuredExpiresAt,{dateStyle:'medium'})) : '') : 'Puedes destacar una obra publicada durante 7 días'} · una por equipo.</p>
+       <div class="s2-works" id="s2-work-list" data-view="${state.view}"></div>` : emptyState()}
       ${(collab || []).length ? `<h2 class="s2-h2">Colaboraciones</h2><div class="s2-box">${collab.map(c => `<p><a href="/serie/${c.series.slug}">${esc(c.series.title)}</a> <span class="mono">de ${esc(c.series.teams?.name)}</span></p>`).join('')}</div>` : ''}`;
     app.innerHTML = shell('Mis obras', body, '/estudio/obras'); bindPicker(works);
-    // Se reemplaza atómicamente la elección anterior. El servidor valida equipo,
-    // obra publicada y permisos; nunca basta con esconder botones en el cliente.
-    app.querySelectorAll('[data-feature]').forEach(btn=>btn.onclick=()=>busy(btn,async()=>{
-      const teamId=T.team.id, seriesId=btn.dataset.feature, next=featuredSeriesId===seriesId?null:seriesId;
-      const {error}=await sb.rpc('team_feature_set',{p_team_id:teamId,p_series_id:next});
-      if(error)throw error;
-      if(T.team?.id!==teamId)return;
-      toast(next?'Obra destacada durante 7 días':'Recomendación retirada');
-      works();
-    }));
-    app.querySelectorAll('[data-new]').forEach(b => b.onclick = () => busy(b, () => newChapter(list.find(w => w.id === b.dataset.new))));
+    bindStudioWorksControls({app,$,state,chosen,card,list,busy,sb,T,toast,works,newChapter,featuredSeriesId});
     app.querySelectorAll('[data-acc],[data-rej]').forEach(b => b.onclick = () => busy(b, async () => { const response = b.dataset.acc ? COLLABORATION_STATUS.active : COLLABORATION_STATUS.declined; const { data: updated, error } = await sb.from('collaborations').update({ status: response }).eq('id', b.dataset.acc || b.dataset.rej).eq('status', COLLABORATION_STATUS.pending).select('id').maybeSingle(); if (error) throw error; if (!updated) throw new Error('La invitación ya fue respondida o no tienes permiso para cambiarla'); toast(b.dataset.acc ? 'Colaboración aceptada' : 'Invitación rechazada'); works(); }));
   }
 
@@ -473,13 +463,13 @@ export function createStudio(ctx){
           ${can('schedule') && v.status !== 'published' ? `<span class="wk-sch"><input type="datetime-local" data-at="${v.id}" value="${v.status === 'scheduled' && v.published_at ? esc(toLocal(v.published_at)) : ''}" aria-label="Fecha de publicación del volumen ${v.num}"><label class="tb-inl" style="font-size:12px"><input type="checkbox" data-ann="${v.id}" ${v.announce_prelaunch ? 'checked' : ''}> Anunciar próximo estreno en calendario y abrir ficha pública (sin liberar capítulos)</label>${tzHint()}<button class="btn sm" data-sch="${v.id}">◷ Programar volumen</button></span>` : ''}
           ${can('publish') && v.status === 'scheduled' ? `<button class="btn ghost sm" data-unsch="${v.id}">Cancelar programación</button>` : ''}
           ${can('publish') && v.status !== 'published' ? `<button class="btn sm green" data-pub="${v.id}">⇪ Publicar volumen</button>` : ''}
-          ${can('publish') && v.status === 'published' ? `<button class="btn ghost sm" data-hide="${v.id}">Ocultar</button>` : ''}${can('diffusion_publish') && v.status === 'published' ? `<a href="/estudio/difusion?k=v&s=${s.id}&id=${v.id}">Discord</a>` : ''}
+          ${can('publish') && v.status === 'published' ? `<button class="btn ghost sm" data-hide="${v.id}">Ocultar</button>` : ''}${can('diffusion_publish') && v.status === 'published' ? `<a href="/estudio/difusion?k=v&s=${s.id}&id=${v.id}">Anunciar</a>` : ''}
           ${can('publish') && v.status === 'hidden' ? `<button class="btn ghost sm" data-show="${v.id}">Mostrar</button>` : ''}
           ${can('delete') ? `<button class="lnk danger" data-delvol="${v.id}">Borrar volumen</button>` : ''}</div>
           <div class="wk-ve" id="ve-${v.id}" hidden></div>
           <div class="wk-tw"><div class="wk-t"><div class="wk-th"><span>${canSel && LL.length ? `<input type="checkbox" data-allv="${v.id}" aria-label="Seleccionar los capítulos del volumen ${v.num}" ${LL.every(c => SEL.has(c.id)) ? 'checked' : ''}>` : ''}</span><span>N.º</span><span>TÍTULO</span><span>ESTADO</span><span>FECHA</span><span>ACCIONES</span></div>
           ${LL.map(c => { const cs = VST[c.status] || VST.draft, sk = stg(c); return `<div class="wk-tr${SEL.has(c.id) ? ' sel' : ''}" data-row="${c.id}" data-vol="${v.id}" ${canDrag ? 'draggable="true"' : ''}><span class="wk-sel">${canDrag ? '<span class="wk-grip" title="Arrastra para reordenar o llévalo a otro volumen" aria-hidden="true">⠿</span>' : ''}${canSel ? `<input type="checkbox" data-pick="${c.id}" ${SEL.has(c.id) ? 'checked' : ''} aria-label="Seleccionar ${esc(c.title)}">` : ''}</span><span class="mono">${c.num}</span><span class="wk-tt" title="${esc(c.title)}">${c.section_type && c.section_type !== 'Capítulo' ? `<em>${esc(c.section_type)}</em> ` : ''}${esc(c.title)}${sk ? `<span class="wk-stg" style="--c:${STG[sk][2]}">${STG[sk][0]}</span>` : ''}</span><span class="mono" style="color:${cs[1]}">● ${cs[0]}</span><span class="mono">${c.status === 'draft' ? 'edit. ' + fmtD(c.updated_at) : fmtD(c.publish_at)}</span>
-            <span class="wk-ra">${can('edit') ? `<a class="btn ghost xs" href="/estudio/editar/${c.id}">Editar</a>` : ''}${can('publish') && c.status === 'draft' && v.status === 'published' ? `<button class="btn ghost xs gold" data-cpub="${c.id}">Publicar</button>` : ''}${can('diffusion_publish') && c.status === 'published' ? `<a href="/estudio/difusion?k=c&s=${s.id}&id=${c.id}">Discord</a>` : ''}${can('delete') ? `<button class="lnk danger" data-delch="${c.id}" aria-label="Enviar ${esc(c.title)} a la papelera">Borrar</button>` : ''}</span></div>`; }).join('') || (L.length ? '<p class="tb-empty">Ningún capítulo de este volumen coincide con el filtro.</p>' : '<p class="tb-empty">Este volumen aún no tiene capítulos.</p>')}</div></div>` : ''}</section>`; };
+            <span class="wk-ra">${can('edit') ? `<a class="btn ghost xs" href="/estudio/editar/${c.id}">Editar</a>` : ''}<details class='wk-row-more'><summary aria-label='Más acciones del capítulo ${esc(c.title)}'>··· Más</summary><div class='wk-row-more-content'>${can('publish') && c.status === 'draft' && v.status === 'published' ? `<button class="btn ghost xs gold" data-cpub="${c.id}">Publicar</button>` : ''}${can('diffusion_publish') && c.status === 'published' ? `<a href="/estudio/difusion?k=c&s=${s.id}&id=${c.id}">Anunciar</a>` : ''}${canDrag && LL.indexOf(c)>0 ? `<button type='button' class='btn ghost xs' data-shift='${c.id}' data-dir='up' aria-label='Subir ${esc(c.title)}'>↑ Subir</button>` : ''}${canDrag && LL.indexOf(c)<LL.length-1 ? `<button type='button' class='btn ghost xs' data-shift='${c.id}' data-dir='down' aria-label='Bajar ${esc(c.title)}'>↓ Bajar</button>` : ''}${can('delete') ? `<button class="lnk danger" data-delch="${c.id}" aria-label="Enviar ${esc(c.title)} a la papelera">Borrar</button>` : ''}</div></details></span></div>`; }).join('') || (L.length ? '<p class="tb-empty">Ningún capítulo de este volumen coincide con el filtro.</p>' : '<p class="tb-empty">Este volumen aún no tiene capítulos.</p>')}</div></div>` : ''}</section>`; };
     const D = { title: s.title || '', short: s.short || '', original: s.original || '', title_romaji: s.title_romaji || '', publisher: s.publisher || '', author: s.author || '', illustrator: s.illustrator || '', work_type: s.work_type || 'Novela ligera', demographic: s.demographic || '', translation_status: s.translation_status || 'active', original_status: s.original_status || '', synopsis: s.synopsis || '', adult: !!s.adult, genres: [...(s.genres || [])], tags: [...(s.tags || [])] };
     const sel = (k, opts) => `<select data-d="${k}">${opts.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}" ${String(D[k]) === v ? 'selected' : ''}>${esc(l)}</option>`; }).join('')}</select>`;
     const inp = (k, l, a = '') => `<label>${l}<input data-d="${k}" value="${esc(D[k])}" ${a}></label>`;
@@ -520,7 +510,7 @@ export function createStudio(ctx){
       </div>${can('delete') ? '<button type="button" class="lnk danger" id="wk-empty">Vaciar papelera</button>' : ''}</details>` : '';
     app.innerHTML = shell(esc(s.title), `<div class="wk">
       <div class="wk-top"><div class="wk-summary"><span class="pl" style="--p:${st[1]}">${st[0]}</span><span class="mono">${V.length} ${V.length === 1 ? 'volumen' : 'volúmenes'} · ${n('published')} publicados · ${n('scheduled')} programados · ${n('draft')} borradores</span></div>
-        <span class="wk-acts">${can('create') ? '<button class="btn sm" id="wk-new">＋ Nuevo capítulo</button>' : ''}${can('import') ? '<a class="btn ghost sm" href="/estudio/importar">Importar volumen</a>' : ''}<a class="btn ghost sm" href="?tab=datos" data-tab="datos">Editar datos</a><a class="lnk" href="/serie/${esc(s.slug)}">Ver en el sitio ↗</a>${s.published && can('diffusion_publish') ? `<a href="/estudio/difusion?k=o&id=${s.id}">Discord</a>` : ''}</span></div>
+        <span class="wk-acts">${can('create') ? '<button class="btn sm" id="wk-new">＋ Nuevo capítulo</button>' : ''}${can('import') ? '<a class="btn ghost sm" href="${importWorkUrl(s.id)}">Importar volumen</a>' : ''}<a class="btn ghost sm" href="?tab=datos" data-tab="datos">Editar datos</a><a class="lnk" href="/serie/${esc(s.slug)}">Ver en el sitio ↗</a>${s.published && can('diffusion_publish') ? `<a href="/estudio/difusion?k=o&id=${s.id}">Anunciar</a>` : ''}</span></div>
       <div class="wk-tabs" role="tablist">${[['caps', 'Volúmenes y capítulos'], ['datos', 'Datos de la obra'], ['seo', 'SEO y compartir'], ['accesos', 'Acceso y Patreon'], ['avisos', 'Avisos'], ['media', 'Anime y galería'], ['descargas', 'Descargas']].map(([k, l]) => `<a role="tab" aria-selected="${tab === k}" class="${tab === k ? 'on' : ''}" href="${k === 'caps' ? location.pathname : '?tab=' + k}" data-tab="${k}">${l}</a>`).join('')}</div>
       ${tab === 'caps' ? `${filterBar()}${V.map(volHTML).join('') || '<p class="tb-empty">Esta obra aún no tiene volúmenes.</p>'}${can('create') ? '<button class="wk-addv" id="addvol"><span>＋</span>Nuevo volumen</button>' : ''}${trashHTML()}<div id="wk-bulkw"></div>` : tab === 'avisos' ? avisos() : tab === 'media' ? '<div id="wk-media"><p class="mono">Cargando…</p></div>' : tab === 'seo' ? '<div id="wk-seo-form"></div>' : tab === 'descargas' ? '<div id="wk-downloads"><p class="mono">Cargando enlaces…</p></div>' : tab === 'accesos' ? accesos() : datos()}</div>`, '/estudio/obra');
     bindPicker(home);
@@ -651,6 +641,14 @@ export function createStudio(ctx){
       r.ondragleave = () => r.classList.remove('drop-a', 'drop-b');
       r.ondrop = e => { e.preventDefault(); if (!dragId) return; const af = r.classList.contains('drop-b'); r.classList.remove('drop-a', 'drop-b'); moveTo(dragId, r.dataset.row, af, r.dataset.vol); };
     });
+    // Alternativa accesible al arrastre: reordenar dentro del volumen con botones.
+    app.querySelectorAll('[data-shift]').forEach(b=>b.onclick=()=>{
+      const positions=ordered(), i=positions.findIndex(x=>x.c.id===b.dataset.shift);
+      if(i<0)return;
+      const j=i+(b.dataset.dir==='up'?-1:1),target=positions[j];
+      if(!target || target.vid!==positions[i].vid)return;
+      moveTo(b.dataset.shift,target.c.id,b.dataset.dir==='down',positions[i].vid);
+    });
     if (canDrag) app.querySelectorAll('.wk-vh').forEach(h => { h.ondragover = e => { if (dragId) { e.preventDefault(); h.classList.add('drop-v'); } }; h.ondragleave = () => h.classList.remove('drop-v'); h.ondrop = e => { e.preventDefault(); h.classList.remove('drop-v'); if (dragId) moveTo(dragId, null, true, h.dataset.tog); }; });
     // ---- papelera
     $('#wk-trash')?.addEventListener('toggle', e => { work.trashOpen = e.currentTarget.open; });
@@ -708,8 +706,8 @@ export function createStudio(ctx){
       });
       box.querySelector('[name=cover]').onchange = e => { const file = e.target.files[0]; e.target.value = ''; if (!file) return; const st2 = $('#vcs-' + v.id);
         busy(null, async () => { if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('Usa JPG, PNG o WebP'); if (file.size > LIMITS.image) throw new Error('La imagen pesa más de 8 MB');
-          st2.textContent = 'Subiendo…'; const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type], path = `${T.team.id}/obras/${s.slug}/vol-${v.num}/portada-${Date.now()}.${ext}`;
-          const { error } = await sb.storage.from('obi-media').upload(path, file, { contentType: file.type, cacheControl: '31536000' }); if (error) { st2.textContent = ''; throw new Error(errMsg(error)); }
+          st2.textContent = 'Preparando portada…'; const prepared = await optimizeStudioCover(file); const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[prepared.type], path = `${T.team.id}/obras/${s.slug}/vol-${v.num}/portada-${Date.now()}.${ext}`;
+          const { error } = await sb.storage.from('obi-media').upload(path, prepared, { contentType: prepared.type, cacheControl: '31536000' }); if (error) { st2.textContent = ''; throw new Error(errMsg(error)); }
           await setCover(path); showCover(path); st2.textContent = '✓ Portada guardada';
           if (!s.cover_path && await confirmObi('La obra aún no tiene portada. ¿Usar también esta?')) await sb.from('series').update({ cover_path: path }).eq('id', s.id);
           toast('Portada del volumen ' + v.num + ' actualizada'); }).then(() => { if (!st2.textContent.startsWith('✓')) st2.textContent = ''; }); };
@@ -1069,7 +1067,7 @@ export function createStudio(ctx){
   // ---------- EPUB/DOCX/PDF, importación dinámica ----------
   let importerTask = null;
   async function importer(){
-    if (!importerTask) importerTask = import('./studio-importer.js?v=2')
+    if (!importerTask) importerTask = import('./studio-importer.js?v=3')
       .then(m => m.createImporter({ sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, LIMITS, SEC }))
       .catch(e => { importerTask = null; throw e; });
     return (await importerTask)();

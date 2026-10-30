@@ -14,7 +14,7 @@ export function seriesPublicationHTML(series, volumes, can, esc, toLocal, tzHint
   return '<section class="wk-box" id="wk-series-publication" style="grid-column:1/-1;border-top:4px solid #8cc3f2">' +
     '<h2>Estado de publicación de la novela</h2>' +
     '<p class="mono" style="margin:0">Estado actual: <b>' + esc(label) + '</b>. Es independiente del estado de traducción.</p>' +
-    (allowed ? '<div class="wk-g2"><label>Nuevo estado<select id="wk-sp-mode" aria-label="Nuevo estado de publicación">' +
+    (allowed ? '<details class="wk-publication-change"><summary>Cambiar estado de publicación…</summary><div class="wk-g2"><label>Nuevo estado<select id="wk-sp-mode" aria-label="Nuevo estado de publicación">' +
       '<option value="draft"' + (mode === 'draft' ? ' selected' : '') + '>Regresar a borrador</option>' +
       '<option value="prelaunch"' + (mode === 'prelaunch' ? ' selected' : '') + (!can('schedule') || !options.length ? ' disabled' : '') + '>Reprogramar con preestreno</option>' +
       '<option value="published"' + (mode === 'published' ? ' selected' : '') + (!options.length ? ' disabled' : '') + '>Publicar la novela</option>' +
@@ -22,7 +22,7 @@ export function seriesPublicationHTML(series, volumes, can, esc, toLocal, tzHint
       '<div id="wk-sp-prewrap"' + (mode !== 'prelaunch' ? ' hidden' : '') + '><label>Fecha y hora del nuevo estreno<input type="datetime-local" id="wk-sp-at" value="' +
       (announced ? esc(toLocal(announced.published_at)) : '') + '"></label>' + tzHint() + '</div>' +
       '<p class="mono" id="wk-sp-note" style="margin:0;font-size:12px"></p>' +
-      '<div><button type="button" class="btn" id="wk-sp-save">Guardar estado de publicación</button></div>' :
+      '<div><button type="button" class="btn" id="wk-sp-save">Guardar estado de publicación</button></div></details>' :
       '<p class="mono" style="margin:0">Necesitas el permiso «Publicar» para cambiar este estado.</p>') +
     '<small class="mono">Se conservan capítulos, portadas, lecturas e historial. Mientras la novela o su volumen estén privados, los capítulos no podrán leerse.</small>' +
     '</section>';
@@ -38,6 +38,7 @@ export function bindSeriesPublication({ app, sb, series, can, fromLocal, fmtTz, 
   const note = root.querySelector('#wk-sp-note');
   const volWrap = root.querySelector('#wk-sp-volwrap');
   const preWrap = root.querySelector('#wk-sp-prewrap');
+  const initial = { mode: mode.value, volume:vol?.value || '', date:date?.value || '' };
   const notes = {
     draft: 'Oculta toda la novela y cancela los estrenos de volúmenes pendientes; no borra capítulos ni sus lecturas.',
     prelaunch: 'La novela quedará privada, con ficha de preestreno y lectura bloqueada. El volumen elegido se estrenará en esta fecha; los demás publicados o programados volverán a borrador.',
@@ -48,11 +49,20 @@ export function bindSeriesPublication({ app, sb, series, can, fromLocal, fmtTz, 
     volWrap.hidden = chosen === 'draft';
     preWrap.hidden = chosen !== 'prelaunch';
     note.textContent = notes[chosen] || '';
-    save.disabled = (chosen !== 'draft' && !vol?.value) || (chosen === 'prelaunch' && !can('schedule'));
+    const changed = chosen !== initial.mode ||
+      (chosen !== 'draft' && vol?.value !== initial.volume) ||
+      (chosen === 'prelaunch' && date?.value !== initial.date);
+    const invalid = (chosen !== 'draft' && !vol?.value) ||
+      (chosen === 'prelaunch' && (!can('schedule') || !date?.value));
+    save.disabled = invalid || !changed;
+    save.textContent = changed ? 'Guardar estado de publicación' : 'Sin cambios en publicación';
   };
   mode.onchange = update;
+  if (vol) vol.onchange = update;
+  if (date) date.oninput = update;
   update();
   save.onclick = e => busy(e.currentTarget, async () => {
+    if (save.disabled) return;
     const selected = mode.value;
     if (!['draft', 'prelaunch', 'published'].includes(selected)) throw new Error('Estado inválido');
     if (selected === 'prelaunch' && !can('schedule')) throw new Error('No tienes permiso para programar');
