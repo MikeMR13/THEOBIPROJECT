@@ -43,6 +43,8 @@ jobs:
         run: node scripts/reader-quality-phase134-check.mjs
       - name: Cinco fases auditoría — contratos sin backend ni servicios de pago
         run: node scripts/auditoria-cinco-fases-check.mjs
+      - name: Studio — regresiones de auditoría de secciones (sin backend)
+        run: node scripts/studio-auditoria-resto-check.mjs
       - name: Obras — filtros, importación, publicación y móvil (sin backend)
         run: node scripts/studio-obras-auditoria-check.mjs
       - name: Lector Fase 4 — navegación rápida, latencia y acceso restringido (Chromium)
