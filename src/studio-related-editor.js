@@ -1,6 +1,6 @@
 // Panel estable para relaciones de una obra existente.
 // Solo reconstruye la lista de vínculos; conserva el buscador, su foco y listeners.
-import { loadRelatedWorks, relatedSearchHTML, mountRelatedSearch } from './studio-related-works.js?v=4';
+import { loadRelatedWorks, relatedSearchHTML, mountRelatedSearch } from './studio-related-works.js?v=5';
 
 const TYPES = [
   ['precuela','Precuela'],['secuela','Secuela'],['spinoff','Spin-off'],
