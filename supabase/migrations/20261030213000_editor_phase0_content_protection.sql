@@ -3,6 +3,31 @@
 -- La copia histórica no reemplaza una copia de seguridad externa de toda la base.
 BEGIN;
 
+-- Copia privada de referencia: sin FK a chapters, sobrevive al borrado de un capítulo.
+-- Es una copia de la misma BD, NO un respaldo externo frente a pérdida total de la BD.
+CREATE TABLE IF NOT EXISTS private.editor_phase0_backups (
+  chapter_id uuid PRIMARY KEY,
+  snapshot jsonb NOT NULL,
+  checksum text NOT NULL,
+  captured_at timestamptz NOT NULL DEFAULT now()
+);
+REVOKE ALL ON TABLE private.editor_phase0_backups FROM PUBLIC, anon, authenticated;
+INSERT INTO private.editor_phase0_backups (chapter_id,snapshot,checksum)
+SELECT c.id,to_jsonb(c),md5(to_jsonb(c)::text)
+FROM public.chapters c
+ON CONFLICT (chapter_id) DO NOTHING;
+
+DO $$
+BEGIN
+ IF EXISTS (
+  SELECT 1 FROM public.chapters c WHERE NOT EXISTS (
+   SELECT 1 FROM private.editor_phase0_backups b
+   WHERE b.chapter_id=c.id AND b.checksum=md5(b.snapshot::text)
+  )
+ ) THEN RAISE EXCEPTION 'editor_phase0_private_backup_incomplete'; END IF;
+END;
+$$;
+
 -- Distinguir estados recuperados de las versiones del editor existentes.
 ALTER TABLE public.chapter_revisions
   DROP CONSTRAINT chapter_revisions_kind_check;
