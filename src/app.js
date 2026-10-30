@@ -7,7 +7,7 @@ import { readingGroups, planReadingChanges, undoReadingChanges, applyReadingChan
 // Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
 import { createClient } from '/supabase.js?v=1';
 import { createReader } from '/reader.js?v=24';
-import { createUI } from '/ui.js?v=59';
+import { createUI } from '/ui.js?v=60';
 import { attachPublicCredits, creditsHTML, installCreditImageFallback } from '/public-collaboration-credits.js?v=1';
 import { reportHomeRead } from '/home-metrics.js?v=1';
 import { sameReaderAccount, readingProgressPrefix, readerProgressKeys } from '/reader-pref-cache.js?v=1';
