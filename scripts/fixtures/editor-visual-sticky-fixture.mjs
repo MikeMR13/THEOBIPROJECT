@@ -19,7 +19,7 @@ async function test(width,height){
   const body=d.body,bar=d.querySelector('.ed-bar');
   assert(!!bar,'No existe la barra del editor');
   const before=bar.getBoundingClientRect();
-  const x=getComputedStyle.call(w,body).overflowX;
+  const x=w.getComputedStyle(body).overflowX;
   assert(x==='clip','body conserva overflow-x='+x+' en '+width+'px');
   assert(w.getComputedStyle(bar).position==='sticky','barra perdió position:sticky');
   w.scrollTo(0,3000);
