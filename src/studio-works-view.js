@@ -1,5 +1,5 @@
 // Obras: presentación y controles sin dependencias de sesiones ni de Supabase real.
-import { importWorkUrl } from './studio-works-utils.js?v=1';
+import { importWorkUrl } from './studio-works-utils.js?v=2';
 
 export function createStudioWorksToolbar({state,TLS,esc,can}) {
     const statusOptions = Object.entries(TLS).map(([k,v]) => `<option value="${k}">${esc(v[0])}</option>`).join('');
