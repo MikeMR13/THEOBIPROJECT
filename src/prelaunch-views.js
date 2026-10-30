@@ -12,7 +12,8 @@ export async function recordPrelaunchView(sb, pre, options = {}) {
   const today = new Date(options.now ?? Date.now()).toISOString().slice(0, 10);
   const key = 'obi-prelaunch-open:' + today + ':' + slug;
   if (attempted.has(key)) return false;
-  const storage = options.storage ?? globalThis.sessionStorage;
+  let storage = options.storage;
+  if (storage === undefined) try { storage = globalThis.sessionStorage; } catch {}
   try {
     if (storage?.getItem(key) === '1') return false;
   } catch {} // Los navegadores pueden bloquear el almacenamiento.
