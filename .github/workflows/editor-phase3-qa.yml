@@ -1,0 +1,44 @@
+name: Editor fase 3 — colaboración PostgreSQL aislada
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261030230000_editor_phase3_collaboration.sql'
+      - 'scripts/qa/editor-phase3-*.sql'
+      - '.github/workflows/editor-phase3-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  peer-review-db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: editor_phase3
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d editor_phase3"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: editor_phase3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validar políticas de colaboración en BD temporal
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f scripts/qa/editor-phase3-fixture.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261030230000_editor_phase3_collaboration.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/qa/editor-phase3-assertions.sql
+          echo "Propuestas y revisiones seguras; sin tocar producción"
