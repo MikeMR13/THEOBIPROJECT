@@ -15,6 +15,7 @@ import { planReadingChanges, persistReadingChanges, applyReadingChanges } from '
 import { chooseActiveEditorial } from './editorial-announcements.js?v=1';
 import { enhanceHomeVitrina } from './home-vitrina.js?v=7';
 import { isPubliclyReadableChapter, announcedVolumeIds } from './prelaunch-access.js?v=1';
+import { loadPublicUpcoming, uniqueUpcoming } from './prelaunch-discovery.js?v=1';
 import { createMobileNavigation, bindMobileNavigation } from './mobile-navigation.js?v=1';
 // Géneros/etiquetas que el lector ocultó en Preferencias › Contenido.
 const hidS = s => { const H = window.__obiUI?.hide; if (!H?.length) return false; const S = new Set(H.map(x => String(x).toLowerCase())); return [...(s.genres || []), ...(Array.isArray(s.tags) ? s.tags : [])].some(g => S.has(String(g).toLowerCase())); };
@@ -400,13 +401,19 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     document.addEventListener('click', () => setTimeout(mark, 0));
     mark();
   }
-  let SIDX = null;
-  const searchIndex = () => SIDX ||= (async () => { const u = getUser();
+  let SIDX = null, SIDXAt = 0;
+  const searchIndex = () => {
+    if (SIDX && Date.now() - SIDXAt < 20000) return SIDX;
+    SIDXAt = Date.now();
+    return SIDX = (async () => { const u = getUser();
     const [{ data: ss }, { data: ts }, pr] = await Promise.all([sb.from('series').select('id,slug,title,short,original,author,illustrator,genres,tags,adult,cover_path,translation_status,theme,teams(name,slug,color),chapters(count)').eq('published', true),
       sb.from('teams').select('slug,name,avatar_path,status'), u ? sb.rpc('my_adult_ok') : { data: null }]);
     const ok = pr?.data === true; return { series: (ss || []).filter(x => x.translation_status !== 'withdrawn' && (!x.adult || ok)), teams: (ts || []).filter(t => !t.status || /^(active|activo)$/i.test(t.status)) }; })().catch(e => { SIDX = null; throw e; });
+  };
   async function searchData(q, lim){
-    const I0 = await searchIndex(), I = { ...I0, series: I0.series.filter(x => !hidS(x)) }, n = norm(q), has = t => norm(t).includes(n), byId = Object.fromEntries(I.series.map(x => [x.id, x]));
+    const [I0, announced] = await Promise.all([searchIndex(), loadPublicUpcoming(sb)]);
+    const I = { ...I0, series: I0.series.filter(x => !hidS(x)) }, n = norm(q), has = t => norm(t).includes(n), byId = Object.fromEntries(I.series.map(x => [x.id, x]));
+    const upcoming = uniqueUpcoming(announced).filter(x => !byId[x.series_id] && !hidS(x) && has([x.title, x.short].join(' '))).slice(0, lim);
     const works = I.series.filter(x => has([x.title, x.short, x.original].join(' '))).slice(0, lim);
     await attachPublicCredits(sb, works);
     const am = new Map(); I.series.forEach(x => [x.author, x.illustrator].filter(Boolean).forEach(a => { if (has(a)) { const k = a.trim(); am.set(k, (am.get(k) || 0) + 1); } }));
@@ -418,13 +425,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const { data: ch } = like.length >= 2 ? await sb.from('chapters').select('num,title,series_id').eq('status', 'published').is('deleted_at', null).ilike('title', '%' + like + '%').limit(lim * 3) : { data: [] };
     const chapters = (ch || []).filter(c => byId[c.series_id]).slice(0, lim).map(c => ({ ...c, s: byId[c.series_id] }));
     const { data: rd } = like.length >= 2 ? await sb.rpc('search_readers', { p_q: like }) : { data: [] };
-    return { works, authors, teams, tags, chapters, readers: (rd || []).slice(0, lim) };
+    return { works, upcoming, authors, teams, tags, chapters, readers: (rd || []).slice(0, lim) };
   }
   async function searchHTML(q, lim){
     let R, prog = {}; try { [R, prog] = await Promise.all([searchData(q, lim), progressMap().catch(() => ({}))]); } catch { return '<p class="sr-none">No se pudo buscar. Intenta de nuevo.</p>'; }
     const grp = (t, items) => items.length ? `<div class="sr-g"><span class="sr-h">${t}</span>${items.join('')}</div>` : '';
     const cv = x => `<span class="sr-cv" style="${x.cover_path ? `background-image:url('${esc(thumb(x))}')` : `background:${esc(color(x))}`}"></span>`;
     const html = grp('Obras', R.works.map(x => { const p = prog[x.id]; return p ? `<a href="/leer/${x.slug}/${p.chapter_num}" title="Continuar donde te quedaste">${cv(x)}<span><b>${esc(x.title)}</b><small class="sr-cont">Retomar lectura${p.pct > 0.02 && p.pct < 0.98 ? ' · ' + Math.round(p.pct * 100) + ' %' : ''}</small>${creditsHTML(x, { esc, media, mode: 'carousel' })}</span></a>` : `<a href="/serie/${x.slug}">${cv(x)}<span><b>${esc(x.title)}</b><small>${esc([x.author, x.teams?.name].filter(Boolean).join(' · '))}</small>${creditsHTML(x, { esc, media, mode: 'carousel' })}</span></a>`; }))
+      + grp('Próximos estrenos', R.upcoming.map(x => `<a href="/serie/${encodeURIComponent(x.slug)}">${cv(x)}<span><b>${esc(x.title)}</b><small>PRÓXIMO ESTRENO · PRIMER VISTAZO · ${esc(new Date(x.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'America/Monterrey' }))} · ${esc(x.team_name || 'Equipo traductor')} · Lectura bloqueada</small></span></a>`))
       + grp('Autores', R.authors.map(([a, c]) => `<a href="/catalogo?q=${encodeURIComponent(a)}"><span class="sr-ic">著</span><span><b>${esc(a)}</b><small>${c} ${c === 1 ? 'obra' : 'obras'}</small></span></a>`))
       + grp('Equipos', R.teams.map(t => `<a href="/equipo/${esc(t.slug)}"><span class="sr-ic">訳</span><span><b>${esc(t.name)}</b><small>Equipo traductor</small></span></a>`))
       + grp('Géneros y etiquetas', R.tags.map(t => `<a href="/catalogo?${t.t === 'g' ? 'g=' + encodeURIComponent(t.v) : 'q=' + encodeURIComponent(t.v)}"><span class="sr-ic">${t.t === 'g' ? '類' : '#'}</span><span><b>${esc(t.v)}</b><small>${t.t === 'g' ? 'Género' : 'Etiqueta'} · ${t.c} ${t.c === 1 ? 'obra' : 'obras'}</small></span></a>`))
@@ -1331,15 +1339,17 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     // filtros/ordenamientos globales y se evita el límite de 1000 filas.
     const listAll = import('/paging.js?v=1').then(({ readPages }) =>
       readPages((from, to) => sb.from('series').select(SERIES).order('id').range(from, to), { size: 250 }));
-    const [{ data }, { data: latest }, prog, folR, { data: rkw }, { data: rkh }] = await Promise.all([
+    const [{ data }, { data: latest }, prog, folR, { data: rkw }, { data: rkh }, announced] = await Promise.all([
       listAll,
       catalogRecent(),
       progressMap(),
       u ? sb.from('follows').select('series_id').eq('user_id', u.id) : { data: [] },
-      sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'semana'), sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'historico')]);
+      sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'semana'), sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'historico'),
+      loadPublicUpcoming(sb)]);
     const rkRows = (rkw || []).length ? rkw : (rkh || []), RK = Object.fromEntries(rkRows.map(r => [r.series_id, r.pos])), rkLbl = (rkw || []).length ? 'de la semana' : 'histórico';
     const publicRows = (data || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) && (!hidS(s) || F.gin.some(g => (s.genres || []).includes(g))));
     const all = await publicSectionCounts(sb, publicRows);
+    const upcoming = uniqueUpcoming(announced).filter(x => !hidS(x));
     await attachPublicCredits(sb, all);
     const last = {}; (latest || []).forEach(c => { last[c.series_id] ||= c; });
     const fol = new Set((folR.data || []).map(r => r.series_id)), nCh = s => s.chapters?.[0]?.count || 0;
@@ -1356,6 +1366,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     let view = localStorage.getItem('obi-cat-view') === 'portadas' ? 'portadas' : 'fichero';
     const col = (label, f, opts, all = 'Todas') => `<div class="ui-fcol"><span class="ui-lbl">${label}</span><div class="ui-chips"><button class="ui-chip" data-f="${f}" data-v="">${all}</button>${opts.map(([v, l]) => `<button class="ui-chip" data-f="${f}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div></div>`;
     app.innerHTML = `<div class="ui-cath"><div><h1>Catálogo</h1><p>Fichero completo de la biblioteca OBI.</p></div><span class="kj" aria-hidden="true">目録</span></div>
+      <section class="ui-pre-discover" id="cat-upcoming" aria-labelledby="cat-upcoming-title" hidden></section>
       <div class="ui-cat-quickbar" role="search" aria-label="Explorar el catálogo">
         <label class="ui-cat-quick-search"><span class="sr">Buscar en el catálogo</span><input id="cat-q" type="search" placeholder="Título, autor, género o etiqueta" value="${esc(F.q)}"></label>
         <label class="ui-cat-quick-order"><span>Ordenar</span><select id="cat-quick-sort" aria-label="Ordenar catálogo">${Object.entries(SORT).map(([k, [l]]) => `<option value="${k}">${esc(l)}</option>`).join('')}</select></label>
@@ -1398,6 +1409,11 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const PAGE_SIZE = 24;
     let currentPage = 1, lastFilterKey = '';
     const draw = () => {
+      // La vitrina de primer vistazo no altera filtros, orden ni conteos de obras publicadas.
+      const visibleUpcoming = upcoming.filter(x => !F.q.trim() || norm([x.title, x.short].join(' ')).includes(norm(F.q.trim()))).slice(0, 6);
+      const preBox = $('#cat-upcoming');
+      preBox.hidden = !visibleUpcoming.length;
+      preBox.innerHTML = visibleUpcoming.length ? `<div class="ui-pre-head"><div><span class="ui-lbl">PRÓXIMO ESTRENO · PRIMER VISTAZO</span><h2 id="cat-upcoming-title">Próximamente</h2><p>Conoce las obras anunciadas; sus capítulos permanecen bloqueados hasta el estreno.</p></div><a href="/calendario">Calendario de lanzamientos →</a></div><div class="ui-pre-list">${visibleUpcoming.map(x => `<a class="ui-pre-work" href="/serie/${encodeURIComponent(x.slug)}"><span class="ui-pre-cover" style="${x.cover_thumb_path || x.cover_path ? `background-image:url('${esc(media(x.cover_thumb_path || x.cover_path))}')` : ''}" aria-hidden="true"></span><span class="ui-pre-copy"><small>PRIMER VISTAZO · VOL. ${esc(x.vnum ?? '')}</small><b>${esc(x.title)}</b><span>${esc(x.team_name || '')}</span><time datetime="${esc(x.at)}">${esc(new Date(x.at).toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Monterrey' }))} · Monterrey</time><em>Ver ficha →</em></span></a>`).join('')}</div>` : '';
       const filterKey = JSON.stringify({ F, view });
       if (filterKey !== lastFilterKey) { currentPage = 1; lastFilterKey = filterKey; }
       const list = all.filter(pass(F)).sort((SORT[F.sort] || SORT.popular)[1]), act = actives();
