@@ -90,7 +90,7 @@ try {
   ok(!!relatedButton && relatedButton.textContent.includes('Bruja'), 'La búsqueda debe encontrar títulos sin acentos');
   relatedButton.click();
   ok(app.querySelector('[data-w-rel-list]')?.textContent.includes('Grupo Ónix'), 'No se añadió la obra relacionada con el equipo visible');
-  ok(!app.querySelector('[data-related-results]').hidden, 'El panel se muestra al buscar');
+  ok(app.querySelector('[data-related-results]').hidden, 'El panel debe cerrarse después de agregar la obra');
 
   // El menú compacto conserva el estado accesible, puede cerrarse con Escape
   // y permite volver al sitio sin abandonar las pantallas de Estudio.
