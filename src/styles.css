@@ -1334,3 +1334,6 @@ body.rd-zen .rd-settings-dock{display:none!important}
 #ed-history-compare .ed-bh{margin-top:10px}
 #ed-history-compare .ed-diff{padding:12px}
 @media(max-width:640px){.ed-sug-form{padding:12px}.ed-sug-change,.ed-diff{grid-template-columns:minmax(0,1fr)}.ed-sug-actions .btn{min-height:44px}}
+
+/* En concentración se ocultan paneles editoriales, incluidos los de colaboración. */
+.ed.zen #p-sug,.ed.zen #b-sug{display:none!important}
