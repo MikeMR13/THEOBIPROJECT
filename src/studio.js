@@ -9,7 +9,8 @@ import { SECTION_TYPES } from './section-types.js?v=1';
 import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
 import { askEditorialAnnouncement, saveEditorialRecord, chooseActiveEditorial } from './editorial-announcements.js?v=1';
 import { WORK_GENRES, WORK_DEMOGRAPHICS, createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=3';
-import { loadRelatedWorks, relatedSearchHTML, mountRelatedSearch, saveWorkWithRelations } from './studio-related-works.js?v=3';
+import { loadRelatedWorks, saveWorkWithRelations } from './studio-related-works.js?v=4';
+import { mountWorkRelationsEditor } from './studio-related-editor.js?v=1';
 import { bindVolumeCoverGallery } from './volume-cover-gallery.js?v=1';
 import { mountSeriesCoverEditor, uploadSeriesCover } from './series-cover-editor.js?v=3';
 import { optimizeStudioCover } from './studio-cover-image.js?v=1';
@@ -424,6 +425,7 @@ export function createStudio(ctx){
   const VST = { draft: ['Borrador', '#f2c230'], scheduled: ['Programado', '#8cc3f2'], published: ['Publicado', '#a9d18e'], hidden: ['Oculto', '#f59e7a'] };
   async function work(slug){
     if (!(await ensure())) return;
+    work.relatedEditor?.destroy(); work.relatedEditor = null;
     const { data: s } = await sb.from('series').select('*').eq('slug', slug).maybeSingle();
     if (!s) return go('/estudio');
     const tab = ({ datos: 'datos', seo: 'seo', accesos: 'accesos', avisos: 'avisos', media: 'media', descargas: 'descargas' })[new URLSearchParams(location.search).get('tab')] || 'caps';
@@ -1005,29 +1007,17 @@ export function createStudio(ctx){
         let relStatus = work.relatedSaved?.id === s.id ? work.relatedSaved.text : '';
         if (work.relatedSaved?.id === s.id) delete work.relatedSaved;
         const setRelStatus = (message, isError = false) => {
-          relStatus = message; const status = $('#wk-rel-save-status');
-          if (status) { status.textContent = message; status.dataset.error = String(isError); }
+          relStatus = message; work.relatedEditor?.setStatus(message,isError);
         };
-      { const KINDS = [['precuela','Precuela'],['secuela','Secuela'],['spinoff','Spin-off'],['universo','Mismo universo'],['paralela','Historia paralela'],['adaptacion','Adaptación'],['alterna','Versión alternativa'],['otra','Relacionada']]; let all = [], relKind = 'precuela', relatedError = '';
-
-        const drawRel = () => { const b = $('#wk-rel-b'); if (!b) return; const by = Object.fromEntries(all.map(x => [x.id, x])), ed = can('edit');
-          b.innerHTML = `<div style="display:grid;gap:8px;margin-top:8px">${RL.map((r, i) => { const x = by[r.id]; return `<div class="srp-selected-row"><span class="srp-selected-info"><b title="${esc(x?.title || 'Obra no disponible')}">${esc(x?.title || 'Obra no disponible')}</b><small class="mono">${esc(x?.teams?.name || '')}</small></span><span class="srp-selected-actions"><select data-rk="${i}" ${ed ? '' : 'disabled'} aria-label="Relación">${KINDS.map(([k, l]) => `<option value="${k}" ${r.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>${ed ? `<button type="button" class="lnk danger" data-rx="${i}">Quitar</button>` : ''}</span></div>`; }).join('') || '<p class="mono" style="margin:0">Sin obras relacionadas.</p>'}
-            ${relatedError ? `<p class="mono srp-error" role="alert">No se pudo cargar el catálogo: ${esc(relatedError)}</p>` : ''}
-            ${ed && RL.length < 12 && !relatedError ? `<div class="wk-rel-add"><label class="srp-kind">Tipo de relación<select id="rel-k">${KINDS.map(([k, l]) => `<option value="${k}" ${relKind === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>${relatedSearchHTML('wk-related-search')}</div>` : ''}
-            ${ed ? `<div class="srp-save"><button type="button" class="btn sm" id="rel-save-all">Guardar datos y relaciones</button><small class="mono">Guarda toda la ficha de esta obra. ${RL.length} de 12 relacionadas seleccionadas.</small></div><p class="mono srp-save-message" id="wk-rel-save-status" role="status" aria-live="polite">${esc(relStatus)}</p>` : ''}</div>`;
-          b.querySelectorAll('[data-rk]').forEach(x => x.onchange = () => { RL[+x.dataset.rk].kind = x.value; mark(); drawRel(); });
-          b.querySelectorAll('[data-rx]').forEach(x => x.onclick = () => { RL.splice(+x.dataset.rx, 1); mark(); drawRel(); });
-          $('#rel-k')?.addEventListener('change', e => { relKind = e.target.value; });
-          $('#rel-save-all')?.addEventListener('click', () => $('#wk-savebtn')?.click());
-          mountRelatedSearch(b.querySelector('[data-related-search]'), {
-            works: all, esc, exclude: () => [s.id, ...RL.map(r => r.id)],
-            onPick: x => { if (RL.length >= 12 || RL.some(r => r.id === x.id)) return; RL.push({ id: x.id, kind: relKind }); relStatus = 'Obra añadida a la lista. Aún falta pulsar «Guardar datos y relaciones».'; mark(); drawRel(); }
-          });
-        };
-        loadRelatedWorks(sb, T.team.id).then(data => { all = data; relatedError = ''; drawRel(); })
-          .catch(e => { relatedError = errMsg(e); drawRel(); });
+      const relEditor = mountWorkRelationsEditor({
+        container: $('#wk-rel-b'), sb, teamId:T.team.id, seriesId:s.id,
+        relations:RL, editable:can('edit'), esc, onDirty:mark,
+        onSave:() => $('#wk-savebtn')?.click(), initialStatus:relStatus
+      });
+      work.relatedEditor = relEditor;
         sb.from('series').select('id,title,relations,teams(name)').filter('relations', 'cs', JSON.stringify([{ id: s.id }])).then(({ data }) => { const l = (data || []).filter(x => x.id !== s.id && !RL.some(r => r.id === x.id)); if (!l.length) return; const INV = { precuela: 'Secuela', secuela: 'Precuela', adaptacion: 'Obra original' }, KL = Object.fromEntries(KINDS);
-          $('#wk-rel-b')?.insertAdjacentHTML('afterend', `<div style="display:grid;gap:6px;margin-top:12px"><span class="mono" style="font-size:11px">Enlazada desde otras obras · se muestran solas en la ficha pública</span>${l.map(x => { const k = (x.relations || []).find(r => r?.id === s.id)?.kind; return `<div style="display:flex;justify-content:space-between;gap:8px;padding:8px;border:1px dashed #2f2a20"><span><b>${esc(x.title)}</b><br><small class="mono">${esc(x.teams?.name || '')}</small></span><span class="mono" style="font-size:12px">${esc(INV[k] || KL[k] || 'Relacionada')}</span></div>`; }).join('')}</div>`); }); }
+          $('#wk-rel-b')?.insertAdjacentHTML('afterend', `<div style="display:grid;gap:6px;margin-top:12px"><span class="mono" style="font-size:11px">Enlazada desde otras obras · se muestran solas en la ficha pública</span>${l.map(x => { const k = (x.relations || []).find(r => r?.id === s.id)?.kind; return `<div style="display:flex;justify-content:space-between;gap:8px;padding:8px;border:1px dashed #2f2a20"><span><b>${esc(x.title)}</b><br><small class="mono">${esc(x.teams?.name || '')}</small></span><span class="mono" style="font-size:12px">${esc(INV[k] || KL[k] || 'Relacionada')}</span></div>`; }).join('')}</div>`); });
+
       app.querySelectorAll('[data-d]').forEach(i => i[i.type === 'checkbox' || i.tagName === 'SELECT' ? 'onchange' : 'oninput'] = () => { D[i.dataset.d] = i.type === 'checkbox' ? i.checked : i.value; if (i.dataset.d === 'synopsis') $('#syncount').textContent = i.value.length + ' / 1500'; if (i.dataset.d === 'demographic') $('#wk-dem-desc').textContent = (WORK_DEMOGRAPHICS.find(x => x[0] === i.value) || WORK_DEMOGRAPHICS[0])[2]; mark(); });
       $('#wk-gen-search').oninput = e => { const q = e.target.value.toLocaleLowerCase('es'); $('#wk-gen').querySelectorAll('[data-gen]').forEach(b => b.hidden = !!q && !b.dataset.gen.toLocaleLowerCase('es').includes(q) && !b.classList.contains('on')); };
       $('#wk-gen').onclick = e => { const b = e.target.closest('[data-gen]'); if (!b) return; const g = b.dataset.gen, has = D.genres.includes(g); if (!has && D.genres.length >= 4) return toast('Máximo 4 géneros'); D.genres = has ? D.genres.filter(x => x !== g) : [...D.genres, g]; b.classList.toggle('on', !has); b.setAttribute('aria-pressed', !has); mark(); };
@@ -1037,7 +1027,7 @@ export function createStudio(ctx){
       on('#wk-savebtn', async () => {
         if (!D.title.trim()) throw new Error('El título no puede quedar vacío');
         const patch = { title: D.title.trim(), short: D.short.trim() || D.title.trim().slice(0, 26), original: D.original.trim() || null, title_romaji: D.title_romaji.trim() || null, publisher: D.publisher.trim() || null, author: D.author.trim() || null, illustrator: D.illustrator.trim() || null, work_type: D.work_type, demographic: D.demographic || null, translation_status: D.translation_status, original_status: D.original_status || null, synopsis: D.synopsis.trim() || null, adult: D.adult, genres: D.genres, tags: D.tags, relations: RL.map(r => ({ id:r.id, kind:r.kind })) };
-        const pendingQuery = $('#wk-related-search')?.value?.trim();
+        const pendingQuery = relEditor?.pendingSearchText();
         if (pendingQuery) {
           const msg = 'La búsqueda «' + pendingQuery.slice(0, 80) + '» no se ha añadido. Pulsa una obra de los resultados antes de guardar.';
           setRelStatus(msg, true); throw new Error(msg);
