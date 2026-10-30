@@ -416,34 +416,59 @@ export function createStudio(ctx){
               ${can('create') ? `<button class="btn" data-new="${w.id}">＋ Nuevo capítulo</button>` : ''}
               <a class="btn ghost" href="/estudio/obra/${w.slug}">Abrir ficha</a>
             </div>
-            ${(can('edit')||can('publish')) && w.published ? `<div class="s2-work-recommend">
-              <span class="s2-work-recommend-info"><b>${featuredSeriesId===w.id ? '★ Recomendación activa' : 'Destacar en Inicio'}</b></span>
-              <button class="btn s2-feature-toggle" type="button" data-feature="${w.id}" aria-pressed="${featuredSeriesId===w.id}" aria-label="${featuredSeriesId===w.id ? 'Quitar recomendación de la obra del carrusel de Inicio' : 'Destacar esta obra en el carrusel de Inicio'}" title="${featuredSeriesId===w.id ? 'Quitar esta obra de la recomendación del equipo' : 'Destacar esta obra durante 7 días en el carrusel de Inicio'}"><span aria-hidden="true">${featuredSeriesId===w.id ? '★' : '☆'}</span><span>${featuredSeriesId===w.id ? 'Destacada · Quitar' : 'Destacar'}</span></button>
-            </div>` : ''}
             <div class="s2-work-secondary">
               <details class="s2-more"><summary aria-label="Más acciones para ${esc(w.title)}">··· <span>Más acciones</span></summary>
                <div class="s2-more-content">
                  ${can('import') ? `<a class="btn ghost" href="${importWorkUrl(w.id)}">Importar volumen</a>` : ''}
                  <a class="btn ghost" href="/serie/${esc(w.slug)}">Ver en el sitio ↗</a>
+                 ${(can('edit')||can('publish')) && w.published ? `<button class="btn s2-feature-toggle" type="button" data-feature="${w.id}" aria-pressed="${featuredSeriesId===w.id}" aria-label="${featuredSeriesId===w.id ? 'Quitar recomendación de la obra del carrusel de Inicio' : 'Destacar esta obra en el carrusel de Inicio'}" title="${featuredSeriesId===w.id ? 'Quitar esta obra de la recomendación del equipo' : 'Destacar esta obra durante 7 días en el carrusel de Inicio'}"><span aria-hidden="true">${featuredSeriesId===w.id ? '★' : '☆'}</span><span>${featuredSeriesId===w.id ? 'Destacada · Quitar' : 'Destacar'}</span></button>` : ''}
                </div></details>
             </div>
           </div></div></article>`; };
     const body = `${(inv || []).map(c => `<div class="st-card"><span>${esc(c.inviter?.name || 'Un equipo')} te invita a colaborar en <strong>${esc(c.series?.title)}</strong></span><span><button class="btn" data-acc="${c.id}">Aceptar</button> <button class="btn ghost" data-rej="${c.id}">Rechazar</button></span></div>`).join('')}
       ${pick && list.length ? '<div class="st-card"><span>¿En qué obra va el nuevo capítulo? Toca «＋ Nuevo capítulo» en la obra.</span></div>' : ''}
-      ${list.length ? `<div class="s2-works">${list.map(card).join('')}${can('create') || can('import') ? '<a class="s2-add" href="/estudio/nueva"><span>＋</span>Nueva obra<small>Desde cero con el editor o importando un EPUB, DOCX o PDF</small></a>' : ''}</div>` : emptyState()}
+      ${list.length ? `${toolbar}
+       <p class="mono s2-feature-note">${featuredSeriesId ? '★ Recomendación actual: ' + esc(list.find(w=>w.id===featuredSeriesId)?.title || 'Obra destacada') + (featuredExpiresAt ? ' · hasta '+esc(fmtTz(featuredExpiresAt,{dateStyle:'medium'})) : '') : 'Puedes destacar una obra publicada durante 7 días'} · una por equipo.</p>
+       <div class="s2-works" id="s2-work-list" data-view="${state.view}"></div>` : emptyState()}
       ${(collab || []).length ? `<h2 class="s2-h2">Colaboraciones</h2><div class="s2-box">${collab.map(c => `<p><a href="/serie/${c.series.slug}">${esc(c.series.title)}</a> <span class="mono">de ${esc(c.series.teams?.name)}</span></p>`).join('')}</div>` : ''}`;
     app.innerHTML = shell('Mis obras', body, '/estudio/obras'); bindPicker(works);
-    // Se reemplaza atómicamente la elección anterior. El servidor valida equipo,
-    // obra publicada y permisos; nunca basta con esconder botones en el cliente.
-    app.querySelectorAll('[data-feature]').forEach(btn=>btn.onclick=()=>busy(btn,async()=>{
-      const teamId=T.team.id, seriesId=btn.dataset.feature, next=featuredSeriesId===seriesId?null:seriesId;
-      const {error}=await sb.rpc('team_feature_set',{p_team_id:teamId,p_series_id:next});
-      if(error)throw error;
-      if(T.team?.id!==teamId)return;
-      toast(next?'Obra destacada durante 7 días':'Recomendación retirada');
-      works();
-    }));
-    app.querySelectorAll('[data-new]').forEach(b => b.onclick = () => busy(b, () => newChapter(list.find(w => w.id === b.dataset.new))));
+    const results = $('#s2-work-list');
+    if (results) {
+      const qs = key => $('#s2-work-' + key);
+      qs('status').value=state.status; qs('vis').value=state.visibility;
+      qs('sort').value=state.sort; qs('view').value=state.view;
+      const renderResults = () => {
+        const rows=chosen();
+        results.dataset.view=state.view;
+        results.innerHTML=rows.length ? rows.map(({work})=>card(work)).join('') :
+          '<p class="s2-work-none" role="status">No hay obras que coincidan. Cambia los filtros para verlas.</p>';
+        qs('count').textContent=rows.length+' de '+list.length+' obras';
+      };
+      renderResults();
+      qs('q').oninput=e=>{ state.q=e.target.value; renderResults(); };
+      for(const [id,key] of [['status','status'],['vis','visibility'],['sort','sort'],['view','view']]) {
+        qs(id).onchange=e=>{
+          state[key]=e.target.value;
+          if(key==='view')try{localStorage.setItem('obi-studio-works-view',state.view);}catch{}
+          renderResults();
+        };
+      }
+      qs('att').onchange=e=>{state.attention=e.target.checked;renderResults();};
+      results.addEventListener('click',e=>{
+        const btn=e.target.closest('[data-feature],[data-new]');
+        if(!btn)return;
+        if(btn.dataset.feature){
+          busy(btn,async()=>{
+            const teamId=T.team.id,seriesId=btn.dataset.feature,next=featuredSeriesId===seriesId?null:seriesId;
+            const {error}=await sb.rpc('team_feature_set',{p_team_id:teamId,p_series_id:next});
+            if(error)throw error;
+            if(T.team?.id!==teamId)return;
+            toast(next?'Obra destacada durante 7 días':'Recomendación retirada');
+            works();
+          });
+        } else if(btn.dataset.new) busy(btn,()=>newChapter(list.find(w=>w.id===btn.dataset.new)));
+      });
+    }
     app.querySelectorAll('[data-acc],[data-rej]').forEach(b => b.onclick = () => busy(b, async () => { const response = b.dataset.acc ? COLLABORATION_STATUS.active : COLLABORATION_STATUS.declined; const { data: updated, error } = await sb.from('collaborations').update({ status: response }).eq('id', b.dataset.acc || b.dataset.rej).eq('status', COLLABORATION_STATUS.pending).select('id').maybeSingle(); if (error) throw error; if (!updated) throw new Error('La invitación ya fue respondida o no tienes permiso para cambiarla'); toast(b.dataset.acc ? 'Colaboración aceptada' : 'Invitación rechazada'); works(); }));
   }
 
