@@ -5,6 +5,7 @@ import { askEditorialAnnouncement, saveEditorialRecord } from './editorial-annou
 import {setupEditorialCollaboration} from './editorial-suggestion-panel.js?v=1';
 import {setupEditorialApproval,teamApprovalRequired} from './editorial-approval-panel.js?v=1';
 import {attachWritingTools,TYPING_PREF_KEY} from './editorial-writing-tools.js?v=1';
+import {chapterPreviewModel,tagPreviewBlock,previewBlockScrollTop} from './editorial-visual-preview.js?v=1';
 export function createEditor(deps) {
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, names, home, errMsg, rpc, LIMITS, SEC } = deps;
   // ---------- editor de página: vista previa del lector, revisión automática, historial, avance y marcadores ----------
@@ -43,16 +44,20 @@ export function createEditor(deps) {
       ${hasLocal ? `<div class="st-card" id="localcard"><span>Hay una copia local sin guardar del ${fmtTz(local.at)}${local.version !== version ? ` (hecha sobre la versión ${local.version}; la actual es ${version})` : ''}.</span><span><button class="btn" id="restore">Recuperar</button> <button class="btn ghost" id="discard">Descartar</button></span></div>` : ''}
       <div id="ctx"></div><div id="pres"></div>
       <div class="ed-top">
-        <input id="ttl" value="${esc(c.title)}" aria-label="Título del capítulo">
+        <label class="ed-title-label" for="ttl">Título del capítulo <span class="mono" id="ttlcount" aria-live="off"></span></label>
+        <textarea id="ttl" rows="2" maxlength="300" aria-describedby="ttlcount" aria-label="Título del capítulo">${esc(c.title)}</textarea>
+        <div class="ed-top-actions">
         <select id="stype" aria-label="Tipo de sección">${SEC.map(s => `<option ${s === meta.section_type ? 'selected' : ''}>${s}</option>`).join('')}</select>
         <span class="ed-state" id="state" role="status">✓ Guardado</span>
-        <button class="btn ghost" id="b-rev" aria-expanded="false" aria-controls="p-rev">✓ Revisar</button>
-        <button class="btn ghost" id="b-hist" aria-expanded="false" aria-controls="p-hist">◷ Historial</button>
-        <button class="btn ghost" id="b-sug" aria-expanded="false" aria-controls="p-sug">✎ Sugerencias</button>
-        <button class="btn ghost" id="b-approval" aria-expanded="false" aria-controls="p-approval">◎ Aprobación</button>
-        <button class="btn ghost" id="save" title="Ctrl/Cmd+S">Guardar</button>
+        <button class="btn" id="save" title="Ctrl/Cmd+S">Guardar</button>
         <button class="btn ghost" id="b-zen" title="Modo concentración · Ctrl+Shift+F" aria-pressed="false">⛶ Concentración</button>
-        <span class="ed-pub" id="pub"></span>
+        <details class="ed-panels-menu"><summary>Revisión y equipo</summary><div class="ed-panels-actions">
+          <button class="btn ghost" id="b-rev" aria-expanded="false" aria-controls="p-rev">✓ Revisar</button>
+          <button class="btn ghost" id="b-hist" aria-expanded="false" aria-controls="p-hist">◷ Historial</button>
+          <button class="btn ghost" id="b-sug" aria-expanded="false" aria-controls="p-sug">✎ Sugerencias</button>
+          <button class="btn ghost" id="b-approval" aria-expanded="false" aria-controls="p-approval">◎ Aprobación</button>
+        </div></details></div>
+        <div class="ed-pub" id="pub" aria-label="Publicación y programación"></div>
       </div>
       <div class="ed-box" id="p-rev" hidden></div>
       <div class="ed-box" id="p-hist" hidden></div>
@@ -103,17 +108,39 @@ export function createEditor(deps) {
     load(c.body);
     const blocksEls = () => [...doc.childNodes].filter(makesBlock);
     const title = () => $('#ttl').value.trim() || 'Sin título';
+    const titleCount=()=>{const n=$('#ttl').value.length;$('#ttlcount').textContent=n+' / 300';$('#ttlcount').classList.toggle('over',n>300);};
+    titleCount();
     const setState = (cls, msg) => { const s = $('#state'); if (!s) return; s.className = 'ed-state ' + cls; s.textContent = msg; };
     const topOf = n => { while (n && n.parentNode !== doc) n = n.parentNode; return n; };
     const cur = () => topOf(lastRange?.startContainer) || doc.lastElementChild;
     const textNodes = () => { const w = document.createTreeWalker(doc, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest('rt,figure,.sep') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT }); const a = []; let n; while ((n = w.nextNode())) a.push(n); return a; };
     const views = () => { $('#split').dataset.view = UI.view; root.querySelectorAll('[data-view]').forEach(b => { const on = b.dataset.view === UI.view; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); root.querySelectorAll('[data-theme]').forEach(b => { const on = b.dataset.theme === UI.theme; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); root.querySelectorAll('[data-device]').forEach(b => { const on = b.dataset.device === UI.device; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); pv.classList.toggle('mobile', UI.device === 'mobile'); };
 
-    // vista previa con el mismo render del lector
+    // Vista previa fiel al lector; nunca modifica bloques, numeración ni títulos guardados.
+    let previewManualUntil=0,previewSyncT=0;
+    const syncPreview=()=>{
+      if(UI.view!=='split'||viewing||Date.now()<previewManualUntil||!document.body.contains(doc))return;
+      const target=pv.querySelector('[data-ed-block="'+curIdx+'"]');
+      if(!target)return;
+      pv.querySelectorAll('.ed-pv-active').forEach(n=>n.classList.remove('ed-pv-active'));
+      target.classList.add('ed-pv-active');
+      const destination=previewBlockScrollTop(pv,target);
+      if(destination!==null&&Math.abs(pv.scrollTop-destination)>24)pv.scrollTo({top:destination,behavior:'instant'});
+    };
+    const queuePreviewSync=()=>{
+      clearTimeout(previewSyncT);
+      previewSyncT=setTimeout(syncPreview,100);
+    };
+    pv.addEventListener('wheel',()=>{previewManualUntil=Date.now()+2500;},{passive:true});
+    pv.addEventListener('touchstart',()=>{previewManualUntil=Date.now()+2500;},{passive:true});
+    pv.addEventListener('pointerdown',()=>{previewManualUntil=Date.now()+2500;},{passive:true});
     function preview(){
       const blocks = viewing ? viewing.body : editorToBlocks(doc), tt = viewing ? viewing.title : title();
-      const label = meta.section_type === 'Capítulo' ? 'Cap. ' + c.num : meta.section_type;
-      pv.innerHTML = `<div class="rd" data-theme="${UI.theme}" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="--rs:${UI.device === 'mobile' ? 17 : 19}px"><article class="rd-ch"><header class="rd-head"><span class="mono">Volumen ${c.vol} · ${esc(label)}</span><h2>${esc(tt)}</h2></header>${warningsHTML(meta.content_warnings, 'show')}<div class="rd-body">${blocks.map((b, i) => renderBlock(b, i, { media })).join('') || '<p class="mono">Capítulo vacío.</p>'}</div>${meta.teaser_on && meta.teaser.trim() ? teaserHTML(meta.teaser, nextWhen) : ''}</article></div>`;
+      const model=chapterPreviewModel({title:tt,sectionType:meta.section_type,blocks});
+      const scrollPosition=pv.scrollTop;
+      pv.innerHTML = `<div class="rd" data-theme="${UI.theme}" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="--rs:${UI.device === 'mobile' ? 17 : 19}px"><article class="rd-ch"><header class="rd-head"><span class="mono">Volumen ${c.vol} · ${esc(model.label)}</span><h2>${esc(model.heading)}</h2></header>${warningsHTML(meta.content_warnings, 'show')}<div class="rd-body">${model.blocks.map(({block,index})=>tagPreviewBlock(renderBlock(block,index,{media}),index)).join('')||'<p class="mono">Capítulo vacío.</p>'}</div>${meta.teaser_on && meta.teaser.trim() ? teaserHTML(meta.teaser, nextWhen) : ''}</article></div>`;
+      pv.scrollTop=scrollPosition;
+      queuePreviewSync();
       const words = blocks.reduce((a, b) => a + (b.text || '').split(/\s+/).filter(Boolean).length, 0);
       $('#count').textContent = `${words.toLocaleString('es-MX')} palabras · ${Math.max(1, Math.round(words / 230))} min de lectura · ${blocks.filter(b => b.type === 'image').length} imágenes`;
       const on2 = $('#orig-n'); if (on2) { const P2 = origParas(); on2.textContent = P2.length ? `${P2.length} párr. · traducción ${blocksEls().length}` : ''; }
@@ -158,6 +185,7 @@ export function createEditor(deps) {
     // guardado: autoguardado a los 5 s sin crear versión (salvo cada 10 min); el manual crea versión
     async function doSave(manual, kind, note){
       if (conflict) return false;
+      if($('#ttl').value.trim().length>300){setState('warn','Título superior a 300 caracteres');toast('Acorta el título a un máximo de 300 caracteres antes de guardar.');return false;}
       while (saving) await saving;
       const mine = edits, blocks = editorToBlocks(doc); lint();
       setState('busy', 'Guardando…');
@@ -246,7 +274,7 @@ export function createEditor(deps) {
     setupEditorialApproval({sb,id,teamId:c.series.team_id,root,box:$('#p-approval'),button:$('#b-approval'),
       can,role:T.team?.role,names,esc,toast,fmtTz,confirmObi,
       getVersion:()=>version,getDirty:()=>dirty,getConflict:()=>conflict,getUserId:()=>meU?.id});
-    const restore = async r => { load(r.body); $('#ttl').value = r.title || $('#ttl').value; viewing = null; $('#ctx').innerHTML = ''; changed(); await doSave(true, 'restore', 'Restaurada desde la versión ' + (r.version || '')); toast('Versión restaurada'); };
+    const restore = async r => { load(r.body); $('#ttl').value = r.title || $('#ttl').value; titleCount(); viewing = null; $('#ctx').innerHTML = ''; changed(); await doSave(true, 'restore', 'Restaurada desde la versión ' + (r.version || '')); toast('Versión restaurada'); };
 
     // lectores: erratas y comentarios
     function drawComs(){
@@ -334,7 +362,7 @@ export function createEditor(deps) {
 
     // eventos
     doc.addEventListener('input', changed);
-    function onSel(){ if (!document.body.contains(doc)) return document.removeEventListener('selectionchange', onSel); const s = getSelection(); if (s.rangeCount && doc.contains(s.anchorNode)) { lastRange = s.getRangeAt(0).cloneRange(); const tb = topOf(s.anchorNode), tg = tb?.tagName, bi = blocksEls().indexOf(tb); if (bi >= 0 && bi !== curIdx) { curIdx = bi; syncOrig(); } $('#blk').value = /^H[1-6]$/.test(tg) ? 'H3' : ['BLOCKQUOTE', 'ASIDE'].includes(tg) ? tg : 'P'; } }
+    function onSel(){ if (!document.body.contains(doc)) return document.removeEventListener('selectionchange', onSel); const s = getSelection(); if (s.rangeCount && doc.contains(s.anchorNode)) { lastRange = s.getRangeAt(0).cloneRange(); const tb = topOf(s.anchorNode), tg = tb?.tagName, bi = blocksEls().indexOf(tb); if (bi >= 0 && bi !== curIdx) { curIdx = bi; syncOrig(); queuePreviewSync(); } $('#blk').value = /^H[1-6]$/.test(tg) ? 'H3' : ['BLOCKQUOTE', 'ASIDE'].includes(tg) ? tg : 'P'; } }
     document.addEventListener('selectionchange', onSel);
     doc.addEventListener('paste', e => {
       e.preventDefault(); const html = e.clipboardData.getData('text/html'), plain = e.clipboardData.getData('text/plain'), out = pasteToEditor(html, plain);
@@ -350,7 +378,7 @@ export function createEditor(deps) {
       ask([{ label: 'Descripción', value: f.dataset.alt, ph: 'Qué se ve en la ilustración' }, { label: 'Pie', value: f.dataset.caption, ph: 'Opcional' }], ([alt, cap]) => { const decorative = !!$('#askdeco')?.checked; const t = document.createElement('template'); t.innerHTML = figureHTML(f.dataset.url, decorative ? '' : alt.trim(), cap.trim(), media, decorative); f.replaceWith(t.content.firstElementChild); changed(); }, `<label class="mono"><input type="checkbox" id="askdeco" ${f.dataset.decorative === '1' ? 'checked' : ''}> Ilustración decorativa (sin descripción por decisión editorial)</label><button class="btn ghost danger" id="figdel">Quitar ilustración</button>`);
       $('#figdel').onclick = () => { f.remove(); $('#ask').innerHTML = ''; changed(); };
     });
-    $('#ttl').addEventListener('input', changed);
+    $('#ttl').addEventListener('input',()=>{titleCount();changed();});
     $('#stype').onchange = e => { meta.section_type = e.target.value; changed(); };
     $('#teaser').oninput = e => { meta.teaser = e.target.value; changed(); };
     $('#teaser_on').onchange = e => { meta.teaser_on = e.target.checked; changed(); };
@@ -404,7 +432,7 @@ export function createEditor(deps) {
     const leave = e => { if (dirty) { flushDraft(); e.preventDefault(); e.returnValue = ''; } };
     const nav = e => { if (!alive()) return cleanup(); if (e.target.closest('a[href]')) { if (root.classList.contains('zen')) zen(false); if (dirty) doSave(false); } };
     const vis = () => { if (!alive()) return cleanup(); if (document.hidden && dirty) {flushDraft(); doSave(false);} };
-    const cleanup = () => { if(dirty)flushDraft();clearTimeout(draftTimer);writing.dispose();removeEventListener('pagehide',flushDraft);removeEventListener('keydown', key); removeEventListener('beforeunload', leave); document.removeEventListener('click', nav, true); document.removeEventListener('visibilitychange', vis); document.removeEventListener('fullscreenchange', fsc); clearTimeout(autoT); if (srcT) { clearTimeout(srcT); saveSrc(); srcT = 0; } try { if (chan) sb.removeChannel(chan); } catch {} chan = null; document.body.style.overflow = ''; };
+    const cleanup = () => {clearTimeout(previewSyncT);if(dirty)flushDraft();clearTimeout(draftTimer);writing.dispose();removeEventListener('pagehide',flushDraft);removeEventListener('keydown', key); removeEventListener('beforeunload', leave); document.removeEventListener('click', nav, true); document.removeEventListener('visibilitychange', vis); document.removeEventListener('fullscreenchange', fsc); clearTimeout(autoT); if (srcT) { clearTimeout(srcT); saveSrc(); srcT = 0; } try { if (chan) sb.removeChannel(chan); } catch {} chan = null; document.body.style.overflow = ''; };
     addEventListener('keydown', key); addEventListener('pagehide',flushDraft); addEventListener('beforeunload', leave); document.addEventListener('click', nav, true); document.addEventListener('visibilitychange', vis);
     views(); drawPub(); lint(); preview(); drawOrig();
   }
