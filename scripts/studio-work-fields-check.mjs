@@ -142,6 +142,16 @@ assert(creator.includes('work.relatedSaved ='), 'El estado confirmado sobrevive 
 assert(editor.includes('id="wk-rel-save-status"'), 'Mostrar confirmación persistente');
 assert(relatedWidget.includes('activePicker') && relatedWidget.includes('outsideController?.abort()'), 'Los listeners globales deben cancelarse');
 assert(relatedWidget.includes('ignoreNextFocus = true'), 'Escape no debe reabrir resultados');
+
+assert(relatedWidget.includes('input.value = selected.title') && relatedWidget.includes('input.dataset.relatedSelected = selected.id'),
+  'La selección confirmada debe mostrar título y conservar el ID, nunca dejar la entrada en blanco');
+assert(relatedWidget.indexOf('const accepted = onPick(selected)') < relatedWidget.indexOf('input.value = selected.title'),
+  'La confirmación visual se debe mostrar después de confirmar el alta en el estado');
+assert(editor.includes('!field.dataset.relatedSelected ? field.value.trim()'), 
+  'Un título ya seleccionado no debe confundirse con una búsqueda pendiente al guardar');
+assert(readFileSync('src/studio-work-fields.js','utf8').includes('return true;'),
+  'Nueva obra e Importar confirman el resultado al selector');
+
 const auditMigration = readFileSync('supabase/migrations/20261030071009_studio_related_relations_audit_20261030.sql','utf8');
 assert(auditMigration.includes('after insert or update of relations on public.series'),
   'El registro debe dispararse con cambios de relaciones');
