@@ -192,9 +192,12 @@ try {
   ok(!!query,'Falta buscador de obras relacionadas en Editar datos');
   query.value='bruja'; query.dispatchEvent(new Event('input',{bubbles:true}));
   ok(!!app.querySelector('#wk-rel-b .srp-result'),'No se mostraron resultados de obras relacionadas');
+  ok(!!app.querySelector('#wk-savebtn')?.onclick, 'Guardar datos no tiene controlador');
   app.querySelector('#rel-save-all').click();
-  await until(()=>app.querySelector('#wk-rel-save-status')?.textContent.includes('no se ha añadido'),
-    'impedir guardar una búsqueda sin selección');
+  await pause(80);
+  ok(app.querySelector('#wk-rel-save-status')?.textContent.includes('no se ha añadido'),
+    'Se permitió guardar una búsqueda no seleccionada: estado=' + app.querySelector('#wk-rel-save-status')?.textContent +
+    ', consulta=' + app.querySelector('#wk-related-search')?.value + ', toast=' + editOwner.messages.slice(-3).join(' | '));
   ok(editOwner.savedPatches.length===0,'No debe guardarse una búsqueda escrita pero no seleccionada');
   const pick=app.querySelector('#wk-rel-b .srp-result');
   pick.click();
