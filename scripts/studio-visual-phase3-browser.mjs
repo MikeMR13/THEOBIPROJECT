@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { spawn, execFileSync } from 'node:child_process';
 
-const css=readFileSync('src/styles.css','utf8')+'\n'+readFileSync('src/studio.css','utf8');
+const css=readFileSync('src/styles.css','utf8')+'\n'+readFileSync('src/studio.css','utf8')+'\n'+readFileSync('src/studio-obras.css','utf8');
 const widths=[320,390,768,1024,1440,1690];
 const title='¿Heroína? ¿Santa? ¡No, soy una sirvienta todoterreno con orgullo!';
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
