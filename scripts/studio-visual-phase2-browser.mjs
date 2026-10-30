@@ -80,7 +80,7 @@ const fixture='<html lang="es"><head><meta charset="utf-8"><meta name="viewport"
   'const box=document.querySelector(".wk-box input");if(parseFloat(getComputedStyle(box).minHeight)<40)err.push("input demasiado pequeño");'+
   'if(getComputedStyle(document.querySelector(".wk-tt")).whiteSpace!=="normal")err.push("titulo de capítulo truncado");'+
   'const tb=document.querySelector(".wk-tw"), tbrect=r(tb);if(tbrect.left< -2||tbrect.right>w+2)err.push("tabla fuera del viewport");'+
-  'if(w<768&&tb.scrollWidth<=tb.clientWidth)err.push("tabla móvil sin scroll interno");'+
+  'if(w<=700&&tb.scrollWidth>tb.clientWidth+2)err.push("capítulos siguen recortados a pesar de las tarjetas móviles");'+
   'const filter=r(document.querySelector(".wk-flt"));if(filter.right>w+2)err.push("filtros fuera del viewport");'+
   'const card=r(document.querySelector(".s2-work"));if(card.left< -2||card.right>w+2)err.push("tarjeta fuera del viewport");'+
   'for(const b of document.querySelectorAll(".s2-work-actions button,.s2-work-actions a")){const x=r(b);if(x.left<card.left-2||x.right>card.right+2)err.push("acción fuera: "+b.textContent);}'+
