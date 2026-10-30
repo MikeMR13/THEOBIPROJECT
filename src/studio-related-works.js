@@ -37,12 +37,32 @@ export function relatedSearchHTML(id) {
   </div>`;
 }
 
+let activePicker = null;
+
 export function mountRelatedSearch(root, { works = [], exclude = () => [], onPick, esc }) {
   if (!root) return;
   const input = root.querySelector('[data-related-query]');
   const results = root.querySelector('[data-related-results]');
   const status = root.querySelector('[data-related-status]');
-  const hide = () => { results.hidden = true; input.setAttribute('aria-expanded', 'false'); };
+  let outsideController = null, ignoreNextFocus = false;
+  const hide = () => {
+    results.hidden = true;
+    input.setAttribute('aria-expanded', 'false');
+    outsideController?.abort();
+    outsideController = null;
+    if (activePicker === hide) activePicker = null;
+  };
+  const activate = () => {
+    if (activePicker && activePicker !== hide) activePicker();
+    activePicker = hide;
+    if (outsideController) return;
+    outsideController = new AbortController();
+    const outside = event => {
+      if (!root.isConnected || !root.contains(event.target)) hide();
+    };
+    document.addEventListener('pointerdown', outside, { signal:outsideController.signal });
+    document.addEventListener('focusin', outside, { signal:outsideController.signal });
+  };
   const draw = () => {
     const { items, total } = searchRelatedWorks(works, input.value, exclude());
     results.innerHTML = items.map(w => `<button type="button" class="srp-result"
@@ -56,11 +76,15 @@ export function mountRelatedSearch(root, { works = [], exclude = () => [], onPic
       : `${total} ${total === 1 ? 'obra disponible' : 'obras disponibles'}.`;
     results.hidden = false;
     input.setAttribute('aria-expanded', 'true');
+    activate();
   };
-  input.addEventListener('focus', draw);
+  input.addEventListener('focus', () => {
+    if (ignoreNextFocus) { ignoreNextFocus = false; return; }
+    draw();
+  });
   input.addEventListener('input', draw);
   input.addEventListener('keydown', event => {
-    if (event.key === 'Escape') { hide(); return; }
+    if (event.key === 'Escape') { event.preventDefault(); hide(); return; }
     if (event.key === 'ArrowDown') {
       if (results.hidden) draw();
       const first = results.querySelector('button');
@@ -68,7 +92,19 @@ export function mountRelatedSearch(root, { works = [], exclude = () => [], onPic
     }
   });
   results.addEventListener('keydown', event => {
-    if (event.key === 'Escape') { hide(); input.focus(); }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      ignoreNextFocus = true;
+      hide();
+      input.focus();
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      const buttons = [...results.querySelectorAll('[data-related-id]')];
+      const at = buttons.indexOf(event.target.closest('[data-related-id]'));
+      const next = buttons[at + (event.key === 'ArrowDown' ? 1 : -1)];
+      if (next) { event.preventDefault(); next.focus(); }
+    }
   });
   results.addEventListener('click', event => {
     const button = event.target.closest('[data-related-id]');
@@ -79,23 +115,14 @@ export function mountRelatedSearch(root, { works = [], exclude = () => [], onPic
     hide();
     onPick(selected);
   });
-  // No ocultar al perder el foco: en Safari/iOS y ciertos clics de ratón,
-  // focusout ocurre ANTES de click y retiraba la opción bajo el puntero.
-  // Cerramos solo al pulsar o enfocar algo FUERA del componente.
-  const outside = event => {
-    if (!root.isConnected) {
-      document.removeEventListener('pointerdown', outside);
-      document.removeEventListener('focusin', outside);
-      return;
-    }
-    if (!root.contains(event.target)) hide();
-  };
-  document.addEventListener('pointerdown', outside);
-  document.addEventListener('focusin', outside);
+
   status.textContent = works.length
     ? `${works.length} obras visibles. Escribe y pulsa una obra de los resultados para añadirla.`
     : 'No hay obras visibles para enlazar.';
-  return { refresh: () => { if (!results.hidden) draw(); } };
+  return {
+    refresh: () => { if (!results.hidden) draw(); },
+    destroy: hide
+  };
 }
 
 // Compara registros JSONB independientemente del orden interno de sus claves.
