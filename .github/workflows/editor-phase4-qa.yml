@@ -2,7 +2,7 @@ name: Editor fase 4 — aprobación PostgreSQL aislada
 on:
   pull_request:
     paths:
-      - 'supabase/migrations/20261030234500_editor_phase4_approval.sql'
+      - 'supabase/migrations/20261030224017_editor_phase4_approval_20261030.sql'
       - 'scripts/qa/editor-phase4-*.sql'
       - '.github/workflows/editor-phase4-qa.yml'
   workflow_dispatch:
@@ -39,6 +39,6 @@ jobs:
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -f scripts/qa/editor-phase4-fixture.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261030234500_editor_phase4_approval.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261030224017_editor_phase4_approval_20261030.sql
           psql -v ON_ERROR_STOP=1 -f scripts/qa/editor-phase4-assertions.sql
           echo "Fase 4 PostgreSQL aprobado; ninguna conexión a Supabase real"
