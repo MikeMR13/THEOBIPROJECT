@@ -6,7 +6,7 @@ export function createEditor(deps) {
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, names, home, errMsg, rpc, LIMITS, SEC } = deps;
   // ---------- editor de página: vista previa del lector, revisión automática, historial, avance y marcadores ----------
   const LINT = [['dbl','Dobles espacios','Espacios repetidos entre palabras.'],['quotes','Comillas mezcladas','Usas «» y también "": se cambian a «».'],['dash','Guion de diálogo','Diálogos que empiezan con - o –: se cambian a raya (—).'],['dots','Puntos suspensivos','«...» se cambia por «…».'],['space','Espacio antes de signo','Espacio sobrante antes de , . ; : ? ! »'],['open','Signos de apertura','Párrafos con ? o ! sin su ¿ o ¡. Revísalos a mano.'],['alt','Ilustraciones sin descripción','Texto alternativo para lectores de pantalla. Toca la imagen para añadirlo.'],['gloss','Términos del glosario','Escritos con mayúsculas distintas a las del glosario.']];
-  const REV_KIND = { manual: 'Guardado manual', auto: 'Autoguardado', restore: 'Restauración', publish: 'Publicación' };
+  const REV_KIND = { manual: 'Guardado manual', auto: 'Autoguardado', restore: 'Restauración', publish: 'Publicación', baseline: 'Estado inicial recuperado', import: 'Importación / creación', before_import: 'Antes del reemplazo' };
   const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const agoEd = d => { const m = Math.round((Date.now() - new Date(d)) / 60000); return m < 60 ? `hace ${Math.max(1, m)} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
   async function editor(id){
