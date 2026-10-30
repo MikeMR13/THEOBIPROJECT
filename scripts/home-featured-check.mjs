@@ -162,7 +162,7 @@ const teamLeads=Array.from({length:7},(_,i)=>{
 });
 assert(new Set(teamLeads).size>1,'Cambiar el día debe rotar qué equipo aparece temprano');
 
-const studio=readFileSync('src/studio.js','utf8');
+const studio=readFileSync('src/studio.js','utf8')+'\n'+readFileSync('src/studio-works-view.js','utf8');
 const ui=readFileSync('src/ui.js','utf8');
 const sql=readFileSync('supabase/migrations/20261115_team_featured_carousel.sql','utf8');
 const expirySql=readFileSync('supabase/migrations/20261116_team_featured_expiry.sql','utf8');
