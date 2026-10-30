@@ -9,7 +9,7 @@ import { SECTION_TYPES } from './section-types.js?v=1';
 import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
 import { askEditorialAnnouncement, saveEditorialRecord, chooseActiveEditorial } from './editorial-announcements.js?v=1';
 import { WORK_GENRES, WORK_DEMOGRAPHICS, createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=2';
-import { loadRelatedWorks, relatedSearchHTML, mountRelatedSearch, sameRelatedWorks } from './studio-related-works.js?v=1';
+import { loadRelatedWorks, relatedSearchHTML, mountRelatedSearch, saveWorkWithRelations } from './studio-related-works.js?v=1';
 import { bindVolumeCoverGallery } from './volume-cover-gallery.js?v=1';
 import { mountSeriesCoverEditor, uploadSeriesCover } from './series-cover-editor.js?v=3';
 import { optimizeStudioCover } from './studio-cover-image.js?v=1';
@@ -1030,13 +1030,7 @@ export function createStudio(ctx){
       on('#wk-savebtn', async () => {
         if (!D.title.trim()) throw new Error('El título no puede quedar vacío');
         const patch = { title: D.title.trim(), short: D.short.trim() || D.title.trim().slice(0, 26), original: D.original.trim() || null, title_romaji: D.title_romaji.trim() || null, publisher: D.publisher.trim() || null, author: D.author.trim() || null, illustrator: D.illustrator.trim() || null, work_type: D.work_type, demographic: D.demographic || null, translation_status: D.translation_status, original_status: D.original_status || null, synopsis: D.synopsis.trim() || null, adult: D.adult, genres: D.genres, tags: D.tags, relations: RL.map(r => ({ id:r.id, kind:r.kind })) };
-        const { data: saved, error } = await sb.from('series').update(patch).eq('id', s.id).eq('team_id', T.team.id).select('id,title,relations').maybeSingle();
-        if (error) throw new Error(errMsg(error));
-        if (!saved?.id) throw new Error('No se guardaron los datos: comprueba los permisos del equipo');
-        if (!sameRelatedWorks(saved.relations, patch.relations)) throw new Error('El servidor no confirmó las relaciones. No abandones esta página.');
-        const { data: verified, error: verifyError } = await sb.from('series').select('id,relations').eq('id', s.id).eq('team_id', T.team.id).maybeSingle();
-        if (verifyError) throw new Error('No se pudo comprobar el guardado: ' + errMsg(verifyError));
-        if (!verified?.id || !sameRelatedWorks(verified.relations, patch.relations)) throw new Error('Las relaciones no permanecieron guardadas. Conserva los cambios y vuelve a intentarlo.');
+        await saveWorkWithRelations(sb, s.id, T.team.id, patch);
         s.relations = patch.relations; dirty = false; toast('Datos y obras relacionadas guardados'); again(); });
       const leave = e => { if (dirty && document.body.contains($('#wk-savebtn'))) { e.preventDefault(); e.returnValue = ''; } else removeEventListener('beforeunload', leave); }; addEventListener('beforeunload', leave);
     }
