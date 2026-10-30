@@ -2,7 +2,7 @@ name: Editor fase 3 — colaboración PostgreSQL aislada
 on:
   pull_request:
     paths:
-      - 'supabase/migrations/20261030230000_editor_phase3_collaboration.sql'
+      - 'supabase/migrations/20261030222055_editor_phase3_collaboration_20261030.sql'
       - 'scripts/qa/editor-phase3-*.sql'
       - '.github/workflows/editor-phase3-qa.yml'
   workflow_dispatch:
@@ -39,6 +39,6 @@ jobs:
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -f scripts/qa/editor-phase3-fixture.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261030230000_editor_phase3_collaboration.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261030222055_editor_phase3_collaboration_20261030.sql
           psql -v ON_ERROR_STOP=1 -f scripts/qa/editor-phase3-assertions.sql
           echo "Propuestas y revisiones seguras; sin tocar producción"
