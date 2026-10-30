@@ -1004,18 +1004,24 @@ export function createStudio(ctx){
       const mark = () => { dirty = true; const d = $('#wk-dirty'); if (d) d.textContent = 'Cambios sin guardar'; };
       const RL = [...(Array.isArray(s.relations) ? s.relations : [])];
       { const KINDS = [['precuela','Precuela'],['secuela','Secuela'],['spinoff','Spin-off'],['universo','Mismo universo'],['paralela','Historia paralela'],['adaptacion','Adaptación'],['alterna','Versión alternativa'],['otra','Relacionada']]; let all = [], relKind = 'precuela', relatedError = '';
+        let relStatus = work.relatedSaved?.id === s.id ? work.relatedSaved.text : '';
+        if (work.relatedSaved?.id === s.id) delete work.relatedSaved;
+        const setRelStatus = (message, isError = false) => {
+          relStatus = message; const status = $('#wk-rel-save-status');
+          if (status) { status.textContent = message; status.dataset.error = String(isError); }
+        };
         const drawRel = () => { const b = $('#wk-rel-b'); if (!b) return; const by = Object.fromEntries(all.map(x => [x.id, x])), ed = can('edit');
           b.innerHTML = `<div style="display:grid;gap:8px;margin-top:8px">${RL.map((r, i) => { const x = by[r.id]; return `<div class="srp-selected-row"><span class="srp-selected-info"><b title="${esc(x?.title || 'Obra no disponible')}">${esc(x?.title || 'Obra no disponible')}</b><small class="mono">${esc(x?.teams?.name || '')}</small></span><span class="srp-selected-actions"><select data-rk="${i}" ${ed ? '' : 'disabled'} aria-label="Relación">${KINDS.map(([k, l]) => `<option value="${k}" ${r.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>${ed ? `<button type="button" class="lnk danger" data-rx="${i}">Quitar</button>` : ''}</span></div>`; }).join('') || '<p class="mono" style="margin:0">Sin obras relacionadas.</p>'}
             ${relatedError ? `<p class="mono srp-error" role="alert">No se pudo cargar el catálogo: ${esc(relatedError)}</p>` : ''}
             ${ed && RL.length < 12 && !relatedError ? `<div class="wk-rel-add"><label class="srp-kind">Tipo de relación<select id="rel-k">${KINDS.map(([k, l]) => `<option value="${k}" ${relKind === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>${relatedSearchHTML('wk-related-search')}</div>` : ''}
-            ${ed ? '<div class="srp-save"><button type="button" class="btn sm" id="rel-save-all">Guardar datos y relaciones</button><small class="mono">Guarda toda la ficha de esta obra.</small></div>' : ''}</div>`;
+            ${ed ? `<div class="srp-save"><button type="button" class="btn sm" id="rel-save-all">Guardar datos y relaciones</button><small class="mono">Guarda toda la ficha de esta obra. ${RL.length} de 12 relacionadas seleccionadas.</small></div><p class="mono srp-save-message" id="wk-rel-save-status" role="status" aria-live="polite">${esc(relStatus)}</p>` : ''}</div>`;
           b.querySelectorAll('[data-rk]').forEach(x => x.onchange = () => { RL[+x.dataset.rk].kind = x.value; mark(); drawRel(); });
           b.querySelectorAll('[data-rx]').forEach(x => x.onclick = () => { RL.splice(+x.dataset.rx, 1); mark(); drawRel(); });
           $('#rel-k')?.addEventListener('change', e => { relKind = e.target.value; });
           $('#rel-save-all')?.addEventListener('click', () => $('#wk-savebtn')?.click());
           mountRelatedSearch(b.querySelector('[data-related-search]'), {
             works: all, esc, exclude: () => [s.id, ...RL.map(r => r.id)],
-            onPick: x => { if (RL.length >= 12 || RL.some(r => r.id === x.id)) return; RL.push({ id: x.id, kind: relKind }); mark(); drawRel(); }
+            onPick: x => { if (RL.length >= 12 || RL.some(r => r.id === x.id)) return; RL.push({ id: x.id, kind: relKind }); relStatus = 'Obra añadida a la lista. Aún falta pulsar «Guardar datos y relaciones».'; mark(); drawRel(); }
           });
         };
         loadRelatedWorks(sb, T.team.id).then(data => { all = data; relatedError = ''; drawRel(); })
@@ -1031,8 +1037,21 @@ export function createStudio(ctx){
       on('#wk-savebtn', async () => {
         if (!D.title.trim()) throw new Error('El título no puede quedar vacío');
         const patch = { title: D.title.trim(), short: D.short.trim() || D.title.trim().slice(0, 26), original: D.original.trim() || null, title_romaji: D.title_romaji.trim() || null, publisher: D.publisher.trim() || null, author: D.author.trim() || null, illustrator: D.illustrator.trim() || null, work_type: D.work_type, demographic: D.demographic || null, translation_status: D.translation_status, original_status: D.original_status || null, synopsis: D.synopsis.trim() || null, adult: D.adult, genres: D.genres, tags: D.tags, relations: RL.map(r => ({ id:r.id, kind:r.kind })) };
-        await saveWorkWithRelations(sb, s.id, T.team.id, patch);
-        s.relations = patch.relations; dirty = false; toast('Datos y obras relacionadas guardados'); again(); });
+        const pendingQuery = $('#wk-related-search')?.value?.trim();
+        if (pendingQuery) {
+          const msg = 'La búsqueda «' + pendingQuery.slice(0, 80) + '» no se ha añadido. Pulsa una obra de los resultados antes de guardar.';
+          setRelStatus(msg, true); throw new Error(msg);
+        }
+        try {
+          setRelStatus('Guardando y comprobando ' + patch.relations.length + ' obras relacionadas…');
+          await saveWorkWithRelations(sb, s.id, T.team.id, patch);
+          s.relations = patch.relations; dirty = false;
+          work.relatedSaved = { id:s.id, text:'Guardado confirmado en Supabase: ' + patch.relations.length + ' obras relacionadas. Se incluirá en la Bitácora.' };
+          toast('Datos y obras relacionadas guardados'); again();
+        } catch(error) {
+          setRelStatus('No se guardaron las obras relacionadas: ' + errMsg(error), true);
+          throw error;
+        } });
       const leave = e => { if (dirty && document.body.contains($('#wk-savebtn'))) { e.preventDefault(); e.returnValue = ''; } else removeEventListener('beforeunload', leave); }; addEventListener('beforeunload', leave);
     }
     if (can('edit')) initCollaborationTeamPicker({ sb, input: $('#inv'), list: $('#wk-inv-results'), status: $('#wk-inv-state'), invite: $('#invite'), ownTeamId: T.team.id, seriesId: s.id, collaborations: cols || [], media, toast, busy, onSuccess: again });
