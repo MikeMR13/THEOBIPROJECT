@@ -10,7 +10,7 @@ assert(!studio.includes('const STCSS'), 'CSS incrustado');
 assert(style.length > 20000 && style.includes('body.in-studio') && style.includes('.wk-vol'), 'Faltan estilos');
 assert(/link\.href\s*=\s*['"]\/studio\.css\?v=\d+['"]/.test(studio), 'CSS no se enlaza a un recurso versionado');
 assert(studio.includes('await styles;'), 'CSS debe cargarse antes del panel');
-assert(studio.includes("import('./studio-editor.js?v=1')"), 'Editor no diferido');
+assert(/import\(['"]\.\/studio-editor\.js\?v=\d+['"]\)/.test(studio), 'Editor no diferido');
 assert(/import\(['"]\.\/studio-importer\.js\?v=\d+['"]\)/.test(studio), 'Importador no diferido');
 assert(studio.includes("import('./studio-media.js?v=1')"), 'Multimedia no diferida');
 assert(multimedia.includes("sb.storage.from('obi-media').list("), 'Multimedia sin listas');
