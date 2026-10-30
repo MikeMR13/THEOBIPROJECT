@@ -49,6 +49,7 @@ export function mountRelatedSearch(root, { works = [], exclude = () => [], onPic
       data-related-id="${esc(w.id)}" title="${esc(w.title)}">
       <span class="srp-title">${esc(w.title)}</span>
       <small>${esc(w.teams?.name || 'Equipo sin nombre')}</small>
+      <span class="srp-select-action" aria-hidden="true">＋ Seleccionar obra</span>
     </button>`).join('') || '<p class="mono srp-empty">No hay obras disponibles con esta búsqueda.</p>';
     status.textContent = total > items.length
       ? `Mostrando ${items.length} de ${total} obras. Escribe para encontrar cualquiera de las demás.`
@@ -82,7 +83,7 @@ export function mountRelatedSearch(root, { works = [], exclude = () => [], onPic
     if (!root.contains(document.activeElement)) hide();
   }));
   status.textContent = works.length
-    ? `${works.length} obras visibles en el catálogo. Busca por título o equipo.`
+    ? `${works.length} obras visibles. Escribe y pulsa una obra de los resultados para añadirla.`
     : 'No hay obras visibles para enlazar.';
   return { refresh: () => { if (!results.hidden) draw(); } };
 }
