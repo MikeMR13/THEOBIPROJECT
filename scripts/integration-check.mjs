@@ -23,7 +23,7 @@ assert(readFileSync('scripts/build.mjs','utf8').includes('const BOOT = new Set('
 assert(!/\/studio(?:-editor|-importer|-media)?\.js\?v=/.test(readFileSync('dist/sw.js','utf8')),'Optimización del SW perdida: Studio incluido en el precaché');
 assert(readFileSync('src/ui.js','utf8').includes('const PAGE_SIZE = 24'),'Paginación perdida');
 assert(readFileSync('.github/workflows/ci.yml','utf8').includes('npm run studio-browser-check'),'Prueba real de navegador perdida');
-assert(readFileSync('src/studio.js','utf8').includes("import('./studio-editor.js?v=1')"),'Modularización perdida');
+assert(readFileSync('src/studio.js','utf8').includes("import('./studio-editor.js?v=2')"),'Modularización perdida');
 const html=readFileSync('dist/index.html','utf8');
 assert(html.includes('/styles.css?'),'Artefacto sin CSS');
 console.log('Integración: configuración segura, cambios de fases 1-4, QA y build: OK');
