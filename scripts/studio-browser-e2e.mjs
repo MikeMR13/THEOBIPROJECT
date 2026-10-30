@@ -35,6 +35,7 @@ const whitelist = new Map([
  ['/reader-headings.js','src/reader-headings.js'],
   ['/editorial-announcements.js','src/editorial-announcements.js'],
  ['/studio.css','src/studio.css'],
+ ['/studio-obras.css','src/studio-obras.css'],
  ['/reader-a11y.css','src/reader-a11y.css'],
  ['/studio-editor.js','src/studio-editor.js'],
  ['/studio-importer.js','src/studio-importer.js'],
