@@ -86,3 +86,10 @@ export function mountRelatedSearch(root, { works = [], exclude = () => [], onPic
     : 'No hay obras visibles para enlazar.';
   return { refresh: () => { if (!results.hidden) draw(); } };
 }
+
+// Compara registros JSONB independientemente del orden interno de sus claves.
+export function sameRelatedWorks(saved, requested) {
+  if (!Array.isArray(saved) || !Array.isArray(requested)) return false;
+  const key = value => value.map(item => [String(item?.id || ''), String(item?.kind || '')]);
+  return JSON.stringify(key(saved)) === JSON.stringify(key(requested));
+}
