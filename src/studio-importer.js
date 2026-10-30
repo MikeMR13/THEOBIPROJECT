@@ -5,7 +5,9 @@ import { inferSectionType } from './section-types.js?v=1';
 import { formatChapterIndex, scanImportedChapterTitles } from './chapter-title-display.js?v=2';
 import { repeatedOpeningHeading, smartTitleBlocks } from './reader-headings.js?v=2';
 import { editorialForm, bindEditorialForm, saveEditorialRecord } from './editorial-announcements.js?v=1';
-import { createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
+import { createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=2';
+import { loadRelatedWorks } from './studio-related-works.js?v=1';
+import { readPages } from './paging.js?v=1';
 import { planVolumeReplacement, validateImportMedia } from './import-safety.js?v=1';
 export function createImporter(deps) {
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, LIMITS, SEC } = deps;
@@ -250,9 +252,12 @@ export function createImporter(deps) {
     if (!(await ensure())) return;
     const TAB = '/estudio/importar';
     if (!can('import')) { app.innerHTML = shell('Importar', '<p>Tu rol no permite importar archivos.</p>', TAB); bindPicker(importer); return; }
-    const [{ data: works }, { data: related }] = await Promise.all([
-      sb.from('series').select('id,slug,title,cover_path,volumes(id,num,title,cover_path,deleted_at)').eq('team_id', T.team.id).is('archived_at', null).order('title'),
-      sb.from('series').select('id,title,teams(name)').or('published.eq.true,team_id.eq.' + T.team.id).is('archived_at', null).order('title').limit(500)
+    const [{ data: works }, related] = await Promise.all([
+      readPages((from, to) => sb.from('series')
+        .select('id,slug,title,cover_path,volumes(id,num,title,cover_path,deleted_at)')
+        .eq('team_id', T.team.id).is('archived_at', null)
+        .order('title').order('id').range(from, to), { size: 250 }),
+      loadRelatedWorks(sb, T.team.id)
     ]);
     let P = null, file = null, fp = null, step = 1, sel = 0, splitting = false, dupAt = null, V = {};
     const contextualId = new URLSearchParams(location.search).get('obra');
