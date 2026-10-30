@@ -18,6 +18,7 @@ import { selectStudioWorks, importWorkUrl } from './studio-works-utils.js?v=2';
 import { loadPublicUpcoming } from './prelaunch-discovery.js?v=1';
 import { loadTeamPrelaunchMetrics } from './prelaunch-metrics.js?v=1';
 import { loadTeamPrelaunchViews } from './prelaunch-views.js?v=1';
+import { renderPrelaunchInterestFunnel } from './prelaunch-funnel.js?v=1';
 import { createStudioWorksToolbar, createStudioWorkCard, createPrelaunchMetricsPanel, bindStudioWorksControls } from './studio-works-view.js?v=4';
 document.addEventListener('click', e => { const i = e.target.closest?.('input[type=date],input[type=datetime-local]'); if (i && !i.disabled && !i.readOnly) try { i.showPicker(); } catch {} });
 const LIMITS = { file: 80 * 1024 * 1024, entries: 15000, unzipped: 300 * 1024 * 1024, image: 8 * 1024 * 1024 };
@@ -87,7 +88,7 @@ export function createStudio(ctx){
     }
     if (!document.getElementById('st2-works-css')) {
       const worksLink = document.createElement('link');
-      worksLink.id = 'st2-works-css'; worksLink.rel = 'stylesheet'; worksLink.href = '/studio-obras.css?v=6';
+      worksLink.id = 'st2-works-css'; worksLink.rel = 'stylesheet'; worksLink.href = '/studio-obras.css?v=7';
       const worksReady = new Promise(resolve=>{
         worksLink.addEventListener('load', resolve, {once:true});
         worksLink.addEventListener('error', resolve, {once:true});
@@ -428,7 +429,7 @@ export function createStudio(ctx){
     };
     const body = `${(inv || []).map(c => `<div class="st-card"><span>${esc(c.inviter?.name || 'Un equipo')} te invita a colaborar en <strong>${esc(c.series?.title)}</strong></span><span><button class="btn" data-acc="${c.id}">Aceptar</button> <button class="btn ghost" data-rej="${c.id}">Rechazar</button></span></div>`).join('')}
       ${pick && list.length ? '<div class="st-card"><span>¿En qué obra va el nuevo capítulo? Toca «＋ Nuevo capítulo» en la obra.</span></div>' : ''}
-      ${list.length ? `${createPrelaunchMetricsPanel(prelaunchIds, prelaunchMetrics, prelaunchViews)}${toolbar}
+      ${list.length ? `${createPrelaunchMetricsPanel(prelaunchIds, prelaunchMetrics, prelaunchViews)}${renderPrelaunchInterestFunnel(prelaunchIds, prelaunchMetrics, prelaunchViews, list)}${toolbar}
        <p class="mono s2-feature-note">${featuredSeriesId ? '★ Recomendación actual: ' + esc(list.find(w=>w.id===featuredSeriesId)?.title || 'Obra destacada') + (featuredExpiresAt ? ' · hasta '+esc(fmtTz(featuredExpiresAt,{dateStyle:'medium'})) : '') : 'Puedes destacar una obra publicada durante 7 días'} · una por equipo.</p>
        <div class="s2-works" id="s2-work-list" data-view="${state.view}"></div>` : emptyState()}
       ${(collab || []).length ? `<h2 class="s2-h2">Colaboraciones</h2><div class="s2-box">${collab.map(c => `<p><a href="/serie/${c.series.slug}">${esc(c.series.title)}</a> <span class="mono">de ${esc(c.series.teams?.name)}</span></p>`).join('')}</div>` : ''}`;
