@@ -135,6 +135,17 @@ assert(creator.includes('RL.push({ id: x.id, kind: relKind }); mark();'),
   'Agregar una relación debe activar la advertencia de cambios sin guardar');
 assert(creator.includes('RL.splice(+x.dataset.rx, 1); mark();'),
   'Quitar una relación debe activar la advertencia de cambios sin guardar');
+assert(creator.includes("const pendingQuery = $('#wk-related-search')?.value?.trim()"),
+  'Impedir guardar texto buscado sin elegir una obra');
+assert(creator.includes("work.relatedSaved ="), 'La confirmación debe sobrevivir a la recarga de Editar datos');
+assert(creator.includes('id="wk-rel-save-status"'), 'La ficha debe mostrar estado persistente del guardado');
+const auditMigration = readFileSync('supabase/migrations/20261030071500_studio_related_relations_audit.sql','utf8');
+assert(auditMigration.includes('after insert or update of relations on public.series'),
+  'El registro debe dispararse con cambios de relaciones');
+assert(auditMigration.includes('private.log(') && auditMigration.includes('old.relations is not distinct from new.relations'),
+  'No registrar falsos movimientos, usar la bitácora existente');
+assert(auditMigration.includes('revoke all on function private.audit_series_relations() from public, anon, authenticated'),
+  'No exponer ejecución de función privilegiada a clientes');
 console.log('✓ Guardado de relaciones: escritura, lectura posterior, RLS denegado y prevención de falsos éxitos');
 
 console.log('Contrato de ficha compartida: campos, demografías, géneros, relaciones y guardado OK');
