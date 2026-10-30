@@ -1678,7 +1678,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       const { data: pre, error: preError } = await preQuery;
       if (!stillHere()) return;
       if (preError) console.warn('prelaunch_series', preError.message);
-      const PRE = pre?.volumes?.length ? await import('./prelaunch.js?v=2') : null;
+      const PRE = pre?.volumes?.length ? await import('./prelaunch.js?v=3') : null;
       if (!stillHere()) return;
       if (PRE) { await attachPublicCredits(sb, [pre.series]); if (!stillHere()) return; PRE.landing(pre, app, esc, media); PRE.bind(pre, app, sb, getUser, go, toast); return; }
       app.innerHTML = '<h1>Esta serie no está en el estante</h1><p><a href="/catalogo">Volver al catálogo</a></p>'; return;
@@ -1722,7 +1722,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     if (!stillHere()) return;
     const [{ data: pre, error: preError }, { data: vols }, { data: chs }, prog, readR, folR, { data: dls, error: dlError }, { data: buys }, { data: pt }] = details;
     if (preError) console.warn('prelaunch_series', preError.message);
-    const PRE = pre?.volumes?.length ? await import('./prelaunch.js?v=2') : null;
+    const PRE = pre?.volumes?.length ? await import('./prelaunch.js?v=3') : null;
     if (!stillHere()) return;
     // El equipo puede consultar borradores, pero la ficha PÚBLICA de un
     // preestreno no debe ofrecer enlaces a capítulos privados.
