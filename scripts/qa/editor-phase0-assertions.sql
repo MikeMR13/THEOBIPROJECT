@@ -1,3 +1,17 @@
+-- Respaldo privado independiente de borrados en chapters y checksum estable.
+DO $$
+BEGIN
+ IF (SELECT count(*) FROM private.editor_phase0_backups) <> 2
+ THEN RAISE EXCEPTION 'No generó copias privadas iniciales'; END IF;
+ IF EXISTS (SELECT 1 FROM private.editor_phase0_backups WHERE checksum <> md5(snapshot::text))
+ THEN RAISE EXCEPTION 'Checksum del respaldo inválido'; END IF;
+ IF has_table_privilege('anon','private.editor_phase0_backups','SELECT')
+ THEN RAISE EXCEPTION 'Respaldo expuesto al rol anónimo'; END IF;
+ IF (SELECT snapshot->>'title' FROM private.editor_phase0_backups
+     WHERE chapter_id='00000000-0000-0000-0000-000000000001') <> 'Capítulo sin historial'
+ THEN RAISE EXCEPTION 'Copia privada no preservó origen'; END IF;
+END $$;
+
 -- Aserciones transaccionales tras migración: no necesita datos reales.
 DO $$
 BEGIN
@@ -104,5 +118,13 @@ BEGIN
      WHERE chapter_id='00000000-0000-0000-0000-000000000001'
        AND body='[{"type":"paragraph","text":"Temporal"}]'::jsonb)
  THEN RAISE EXCEPTION 'Rollback dejó residuos'; END IF;
+END $$;
+-- Una copia privada permanece aunque se borre el registro (y su historial en cascada).
+DELETE FROM public.chapters WHERE id='00000000-0000-0000-0000-000000000002';
+DO $$
+BEGIN
+ IF NOT EXISTS (SELECT 1 FROM private.editor_phase0_backups
+   WHERE chapter_id='00000000-0000-0000-0000-000000000002')
+ THEN RAISE EXCEPTION 'Copia perdida al borrar capítulo'; END IF;
 END $$;
 SELECT 'EDITOR_PHASE0_OK' AS result;
