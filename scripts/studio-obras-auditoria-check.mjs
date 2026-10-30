@@ -30,26 +30,28 @@ assert.equal(importWorkUrl('id con espacios'),'/estudio/importar?obra=id%20con%2
 const file={type:'image/jpeg',size:1024};
 assert.equal(await optimizeStudioCover(file),file,'Sin API de imagen, conservar archivo original');
 const st=read('src/studio.js'),imp=read('src/studio-importer.js'),css=read('src/studio.css');
-const pub=read('src/studio-series-publication.js'),cover=read('src/series-cover-editor.js');
+const pub=read('src/studio-series-publication.js'),cover=read('src/series-cover-editor.js'),view=read('src/studio-works-view.js');
 const requires=(source,checks,name)=>checks.forEach(s=>assert(source.includes(s),name+': '+s));
 requires(st,[
 "import { selectStudioWorks, importWorkUrl }",
 "selectStudioWorks(list, chs, sched, state)",
-"qs('q').oninput",
-"qs('att').onchange",
-"'obi-studio-works-view'",
-"data-view=\"\u0024{state.view}\"",
+
+
+
+
 "volumes(id,deleted_at)",
 "cover_thumb_path",
-"w.cover_thumb_path || w.cover_path",
-"data-shift",
-"data-dir='up'",
-"data-dir='down'",
+
+
+
+
 "aria-hidden=\"true\"",
 ">Anunciar</a>",
 "optimizeStudioCover(file)",
 "optimizeStudioCover(cover)"
 ],'Estudio');
+requires(view,["qs('q').oninput","qs('att').onchange","'obi-studio-works-view'",
+"w.cover_thumb_path || w.cover_path","data-view","data-shift","data-dir='up'","data-dir='down'"],'Vistas extraídas');
 requires(imp,[
 "new URLSearchParams(location.search).get('obra')",
 "(works || []).find(w => w.id === contextualId)",
