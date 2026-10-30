@@ -93,3 +93,26 @@ export function sameRelatedWorks(saved, requested) {
   const key = value => value.map(item => [String(item?.id || ''), String(item?.kind || '')]);
   return JSON.stringify(key(saved)) === JSON.stringify(key(requested));
 }
+
+export async function saveWorkWithRelations(sb, seriesId, teamId, patch) {
+  const expected = patch.relations;
+  if (!Array.isArray(expected) || expected.length > 12 ||
+      expected.some(r => !r?.id || !r?.kind) ||
+      new Set(expected.map(r => r.id)).size !== expected.length) {
+    throw new Error('La lista de obras relacionadas no es válida');
+  }
+  const { data: saved, error } = await sb.from('series').update(patch)
+    .eq('id', seriesId).eq('team_id', teamId).select('id,title,relations').maybeSingle();
+  if (error) throw new Error(error.message || String(error));
+  if (!saved?.id) throw new Error('No se guardaron los datos: comprueba los permisos del equipo');
+  if (!sameRelatedWorks(saved.relations, expected)) {
+    throw new Error('El servidor no confirmó las relaciones. No abandones esta página.');
+  }
+  const { data: verified, error: verifyError } = await sb.from('series')
+    .select('id,relations').eq('id', seriesId).eq('team_id', teamId).maybeSingle();
+  if (verifyError) throw new Error('No se pudo comprobar el guardado: ' + (verifyError.message || String(verifyError)));
+  if (!verified?.id || !sameRelatedWorks(verified.relations, expected)) {
+    throw new Error('Las relaciones no permanecieron guardadas. Conserva los cambios y vuelve a intentarlo.');
+  }
+  return verified;
+}
