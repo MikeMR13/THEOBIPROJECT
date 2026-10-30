@@ -34,7 +34,7 @@ for(const mark of [
  'Recordatorios pendientes',
  'Seguimientos / 100 aperturas',
  'Recordatorios / 100 aperturas',
- '20 seguimientos y 5,8 recordatorios por cada 100 aperturas',
+ '20 seguimientos y 5.8 recordatorios por cada 100 aperturas',
  'ni conversiones de personas',
  'no tienen necesariamente el mismo periodo',
  'role="region"',
