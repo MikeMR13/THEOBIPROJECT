@@ -9,7 +9,7 @@ import { SECTION_TYPES } from './section-types.js?v=1';
 import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
 import { askEditorialAnnouncement, saveEditorialRecord, chooseActiveEditorial } from './editorial-announcements.js?v=1';
 import { WORK_GENRES, WORK_DEMOGRAPHICS, createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=2';
-import { loadRelatedWorks, relatedSearchHTML, mountRelatedSearch } from './studio-related-works.js?v=1';
+import { loadRelatedWorks, relatedSearchHTML, mountRelatedSearch, sameRelatedWorks } from './studio-related-works.js?v=1';
 import { bindVolumeCoverGallery } from './volume-cover-gallery.js?v=1';
 import { mountSeriesCoverEditor, uploadSeriesCover } from './series-cover-editor.js?v=3';
 import { optimizeStudioCover } from './studio-cover-image.js?v=1';
@@ -1000,27 +1000,27 @@ export function createStudio(ctx){
       }).catch(e => { if (B()) B().innerHTML = `<p class="wk-access-warning" role="alert">${esc(errMsg(e))}</p>`; });
     }
     if (tab === 'datos') {
-      { const KINDS = [['precuela','Precuela'],['secuela','Secuela'],['spinoff','Spin-off'],['universo','Mismo universo'],['paralela','Historia paralela'],['adaptacion','Adaptación'],['alterna','Versión alternativa'],['otra','Relacionada']], RL = [...(Array.isArray(s.relations) ? s.relations : [])]; let all = [], relDirty = false, relKind = 'precuela', relatedError = '';
+      let dirty = false;
+      const mark = () => { dirty = true; const d = $('#wk-dirty'); if (d) d.textContent = 'Cambios sin guardar'; };
+      const RL = [...(Array.isArray(s.relations) ? s.relations : [])];
+      { const KINDS = [['precuela','Precuela'],['secuela','Secuela'],['spinoff','Spin-off'],['universo','Mismo universo'],['paralela','Historia paralela'],['adaptacion','Adaptación'],['alterna','Versión alternativa'],['otra','Relacionada']]; let all = [], relKind = 'precuela', relatedError = '';
         const drawRel = () => { const b = $('#wk-rel-b'); if (!b) return; const by = Object.fromEntries(all.map(x => [x.id, x])), ed = can('edit');
           b.innerHTML = `<div style="display:grid;gap:8px;margin-top:8px">${RL.map((r, i) => { const x = by[r.id]; return `<div class="srp-selected-row"><span class="srp-selected-info"><b title="${esc(x?.title || 'Obra no disponible')}">${esc(x?.title || 'Obra no disponible')}</b><small class="mono">${esc(x?.teams?.name || '')}</small></span><span class="srp-selected-actions"><select data-rk="${i}" ${ed ? '' : 'disabled'} aria-label="Relación">${KINDS.map(([k, l]) => `<option value="${k}" ${r.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>${ed ? `<button type="button" class="lnk danger" data-rx="${i}">Quitar</button>` : ''}</span></div>`; }).join('') || '<p class="mono" style="margin:0">Sin obras relacionadas.</p>'}
             ${relatedError ? `<p class="mono srp-error" role="alert">No se pudo cargar el catálogo: ${esc(relatedError)}</p>` : ''}
             ${ed && RL.length < 12 && !relatedError ? `<div class="wk-rel-add"><label class="srp-kind">Tipo de relación<select id="rel-k">${KINDS.map(([k, l]) => `<option value="${k}" ${relKind === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>${relatedSearchHTML('wk-related-search')}</div>` : ''}
-            ${ed ? `<span style="display:flex;gap:8px;align-items:center"><button type="button" class="btn sm" id="rel-save" ${relDirty ? '' : 'disabled'}>Guardar relaciones</button><span class="mono" style="font-size:12px">${relDirty ? 'Cambios sin guardar' : ''}</span></span>` : ''}</div>`;
-          b.querySelectorAll('[data-rk]').forEach(x => x.onchange = () => { RL[+x.dataset.rk].kind = x.value; relDirty = true; drawRel(); });
-          b.querySelectorAll('[data-rx]').forEach(x => x.onclick = () => { RL.splice(+x.dataset.rx, 1); relDirty = true; drawRel(); });
+            ${ed ? '<p class="mono srp-status">Las relaciones se guardan junto con el resto de la ficha mediante «Guardar datos».</p>' : ''}</div>`;
+          b.querySelectorAll('[data-rk]').forEach(x => x.onchange = () => { RL[+x.dataset.rk].kind = x.value; mark(); drawRel(); });
+          b.querySelectorAll('[data-rx]').forEach(x => x.onclick = () => { RL.splice(+x.dataset.rx, 1); mark(); drawRel(); });
           $('#rel-k')?.addEventListener('change', e => { relKind = e.target.value; });
           mountRelatedSearch(b.querySelector('[data-related-search]'), {
             works: all, esc, exclude: () => [s.id, ...RL.map(r => r.id)],
-            onPick: x => { if (RL.length >= 12 || RL.some(r => r.id === x.id)) return; RL.push({ id: x.id, kind: relKind }); relDirty = true; drawRel(); }
+            onPick: x => { if (RL.length >= 12 || RL.some(r => r.id === x.id)) return; RL.push({ id: x.id, kind: relKind }); mark(); drawRel(); }
           });
-          $('#rel-save')?.addEventListener('click', e => busy(e.currentTarget, async () => {
-            const { data: up, error } = await sb.from('series').update({ relations: RL }).eq('id', s.id).select('id'); if (error) throw new Error(/relations/.test(error.message || '') ? 'Falta ejecutar el SQL 20261111_obras_relacionadas.sql' : errMsg(error));
-            if (!up?.length) throw new Error('No se guardó (permiso de la tabla «series»)'); s.relations = [...RL]; relDirty = false; toast('Relaciones guardadas'); drawRel(); })); };
+        };
         loadRelatedWorks(sb, T.team.id).then(data => { all = data; relatedError = ''; drawRel(); })
           .catch(e => { relatedError = errMsg(e); drawRel(); });
         sb.from('series').select('id,title,relations,teams(name)').filter('relations', 'cs', JSON.stringify([{ id: s.id }])).then(({ data }) => { const l = (data || []).filter(x => x.id !== s.id && !RL.some(r => r.id === x.id)); if (!l.length) return; const INV = { precuela: 'Secuela', secuela: 'Precuela', adaptacion: 'Obra original' }, KL = Object.fromEntries(KINDS);
           $('#wk-rel-b')?.insertAdjacentHTML('afterend', `<div style="display:grid;gap:6px;margin-top:12px"><span class="mono" style="font-size:11px">Enlazada desde otras obras · se muestran solas en la ficha pública</span>${l.map(x => { const k = (x.relations || []).find(r => r?.id === s.id)?.kind; return `<div style="display:flex;justify-content:space-between;gap:8px;padding:8px;border:1px dashed #2f2a20"><span><b>${esc(x.title)}</b><br><small class="mono">${esc(x.teams?.name || '')}</small></span><span class="mono" style="font-size:12px">${esc(INV[k] || KL[k] || 'Relacionada')}</span></div>`; }).join('')}</div>`); }); }
-      let dirty = false; const mark = () => { dirty = true; const d = $('#wk-dirty'); if (d) d.textContent = 'Cambios sin guardar'; };
       app.querySelectorAll('[data-d]').forEach(i => i[i.type === 'checkbox' || i.tagName === 'SELECT' ? 'onchange' : 'oninput'] = () => { D[i.dataset.d] = i.type === 'checkbox' ? i.checked : i.value; if (i.dataset.d === 'synopsis') $('#syncount').textContent = i.value.length + ' / 1500'; if (i.dataset.d === 'demographic') $('#wk-dem-desc').textContent = (WORK_DEMOGRAPHICS.find(x => x[0] === i.value) || WORK_DEMOGRAPHICS[0])[2]; mark(); });
       $('#wk-gen-search').oninput = e => { const q = e.target.value.toLocaleLowerCase('es'); $('#wk-gen').querySelectorAll('[data-gen]').forEach(b => b.hidden = !!q && !b.dataset.gen.toLocaleLowerCase('es').includes(q) && !b.classList.contains('on')); };
       $('#wk-gen').onclick = e => { const b = e.target.closest('[data-gen]'); if (!b) return; const g = b.dataset.gen, has = D.genres.includes(g); if (!has && D.genres.length >= 4) return toast('Máximo 4 géneros'); D.genres = has ? D.genres.filter(x => x !== g) : [...D.genres, g]; b.classList.toggle('on', !has); b.setAttribute('aria-pressed', !has); mark(); };
@@ -1029,8 +1029,15 @@ export function createStudio(ctx){
       $('#wk-tag').onkeydown = e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); const v = e.target.value.trim().replace(/^#/, '').toLowerCase(); if (v && !D.tags.includes(v)) { if (D.tags.length >= 20) return toast('Máximo 20 etiquetas'); D.tags.push(v); drawTags(); mark(); } e.target.value = ''; } };
       on('#wk-savebtn', async () => {
         if (!D.title.trim()) throw new Error('El título no puede quedar vacío');
-        const patch = { title: D.title.trim(), short: D.short.trim() || D.title.trim().slice(0, 26), original: D.original.trim() || null, title_romaji: D.title_romaji.trim() || null, publisher: D.publisher.trim() || null, author: D.author.trim() || null, illustrator: D.illustrator.trim() || null, work_type: D.work_type, demographic: D.demographic || null, translation_status: D.translation_status, original_status: D.original_status || null, synopsis: D.synopsis.trim() || null, adult: D.adult, genres: D.genres, tags: D.tags };
-        const { data: saved, error } = await sb.from('series').update(patch).eq('id', s.id).eq('team_id', T.team.id).select('id,title').maybeSingle(); if (error) throw new Error(errMsg(error)); if (!saved?.id) throw new Error('No se guardaron los datos: comprueba los permisos del equipo'); dirty = false; toast('Datos de la obra guardados'); again(); });
+        const patch = { title: D.title.trim(), short: D.short.trim() || D.title.trim().slice(0, 26), original: D.original.trim() || null, title_romaji: D.title_romaji.trim() || null, publisher: D.publisher.trim() || null, author: D.author.trim() || null, illustrator: D.illustrator.trim() || null, work_type: D.work_type, demographic: D.demographic || null, translation_status: D.translation_status, original_status: D.original_status || null, synopsis: D.synopsis.trim() || null, adult: D.adult, genres: D.genres, tags: D.tags, relations: RL.map(r => ({ id:r.id, kind:r.kind })) };
+        const { data: saved, error } = await sb.from('series').update(patch).eq('id', s.id).eq('team_id', T.team.id).select('id,title,relations').maybeSingle();
+        if (error) throw new Error(errMsg(error));
+        if (!saved?.id) throw new Error('No se guardaron los datos: comprueba los permisos del equipo');
+        if (!sameRelatedWorks(saved.relations, patch.relations)) throw new Error('El servidor no confirmó las relaciones. No abandones esta página.');
+        const { data: verified, error: verifyError } = await sb.from('series').select('id,relations').eq('id', s.id).eq('team_id', T.team.id).maybeSingle();
+        if (verifyError) throw new Error('No se pudo comprobar el guardado: ' + errMsg(verifyError));
+        if (!verified?.id || !sameRelatedWorks(verified.relations, patch.relations)) throw new Error('Las relaciones no permanecieron guardadas. Conserva los cambios y vuelve a intentarlo.');
+        s.relations = patch.relations; dirty = false; toast('Datos y obras relacionadas guardados'); again(); });
       const leave = e => { if (dirty && document.body.contains($('#wk-savebtn'))) { e.preventDefault(); e.returnValue = ''; } else removeEventListener('beforeunload', leave); }; addEventListener('beforeunload', leave);
     }
     if (can('edit')) initCollaborationTeamPicker({ sb, input: $('#inv'), list: $('#wk-inv-results'), status: $('#wk-inv-state'), invite: $('#invite'), ownTeamId: T.team.id, seriesId: s.id, collaborations: cols || [], media, toast, busy, onSuccess: again });
