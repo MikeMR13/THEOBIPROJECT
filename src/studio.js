@@ -1263,9 +1263,11 @@ export function createStudio(ctx){
     app.innerHTML = shell('Flujo de trabajo', '<p class="mono">Cargando el tablero…</p>', '/estudio/flujo'); bindPicker(board);
     const { data: works } = await sb.from('series').select('id,slug,title,short,theme').eq('team_id', T.team.id).is('archived_at', null).order('title');
     const ids = (works || []).map(w => w.id);
-    const [{ data: chs }, { mem }] = await Promise.all([
-      ids.length ? sb.from('chapters').select('id,num,vol,title,section_type,status,stage,assigned_to,stage_at,publish_at,updated_at,series_id').in('series_id', ids).in('status', ['draft','scheduled']).is('deleted_at', null).order('vol').order('num').limit(1000) : { data: [] },
-      teamMembers()]);
+    const [{ data: chs }, { mem }, {data:reviewRows}] = await Promise.all([
+      ids.length ? sb.from('chapters').select('id,num,vol,title,section_type,status,stage,assigned_to,stage_at,publish_at,updated_at,series_id,version').in('series_id', ids).in('status', ['draft','scheduled']).is('deleted_at', null).order('vol').order('num').limit(1000) : { data: [] },
+      teamMembers(),
+      ids.length ? sb.from('review_requests').select('chapter_id,status,base_version,created_at').order('created_at',{ascending:false}).limit(1500) : {data:[]}]);
+    const latestReview={};(reviewRows||[]).forEach(r=>{if(!latestReview[r.chapter_id])latestReview[r.chapter_id]=r;});
     const W = Object.fromEntries((works || []).map(w => [w.id, w])), me = getUser()?.id;
     const F = board.f || (board.f = { work: '', mine: false });
     const colOf = c => c.status === 'scheduled' ? 'programado' : c.stage || 'traduciendo';
@@ -1277,6 +1279,7 @@ export function createStudio(ctx){
       const back = i > 0 && mv && (k !== 'programado' || can('schedule')), fwd = i < 3 && mv && (i < 2 || can('schedule'));
       return `<article class="tb-card" draggable="${mv}" data-card="${c.id}" style="border-left-color:${wcolor(w)}" aria-label="${esc(label(c))}">
         <span class="mono">${esc((w?.short || w?.title || '').toUpperCase())} · VOL. ${c.vol}</span><b>${esc(label(c))}</b>
+        ${latestReview[c.id]?`<span class="mono ed-board-review">◎ ${latestReview[c.id].base_version!==c.version?'Revisión caducada':latestReview[c.id].status==='approved'?'Versión aprobada':latestReview[c.id].status==='pending'?'En revisión':'Correcciones solicitadas'}</span>`:''}
         ${k === 'programado' ? `<span class="tb-at">◷ ${fmtAt(c.publish_at)}</span>` : `<span class="mono">${c.stage_at ? 'En esta etapa ' + ago(c.stage_at) : 'Editado ' + ago(c.updated_at)}</span>`}
         ${mv ? `<select data-asg="${c.id}" aria-label="Asignar"><option value="">Sin asignar</option>${mem.map(m => `<option value="${m.user_id}" ${m.user_id === c.assigned_to ? 'selected' : ''}>${esc(m.profiles?.username || '—')}${m.user_id === me ? ' (tú)' : ''}</option>`).join('')}</select>` : `<span class="mono">${esc(mem.find(m => m.user_id === c.assigned_to)?.profiles?.username || 'Sin asignar')}</span>`}
         <span class="tb-ac">${back ? `<button class="tb-b" data-mv="${c.id}" data-dir="-1" aria-label="Mover a ${COLS[i - 1][1]}">←</button>` : '<span></span>'}<a class="tb-b" href="/estudio/editar/${c.id}">Abrir</a>${fwd ? `<button class="tb-b f" data-mv="${c.id}" data-dir="1" aria-label="Mover a ${COLS[i + 1][1]}">→</button>` : '<span></span>'}</span>
