@@ -80,6 +80,8 @@ requires(css,[
 assert(cover.includes('optimizeStudioCover(file)'),'La portada principal se convierte en navegador');
 assert(cover.includes('await saveSeriesCover({sb,teamId,seriesId,path})'),'Nueva obra comprueba que la portada quedó asociada a la ficha');
 assert(st.includes('seriesId:created.id, file:cover'),'Nueva obra comparte el guardado verificado de portadas');
+assert(st.includes('href="${esc(importWorkUrl(s.id))}"'),'La ficha debe interpolar el enlace al importador de volumen');
+assert(!st.includes(`href="\${importWorkUrl(s.id)}"`),'El enlace no debe ser texto literal dentro de comillas simples');
 assert(st.includes("if (!saved?.id) throw new Error"),'Editar datos debe verificar la persistencia');
 assert(st.includes('/studio-obras.css?v=1'),'CSS Obras debe cargarse de forma versionada');
 assert(read('src/app.js').includes("/studio.js?v=49"));
