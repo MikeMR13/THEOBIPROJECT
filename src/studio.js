@@ -462,7 +462,7 @@ export function createStudio(ctx){
           ${can('edit') ? `<button class="btn ghost sm" data-vedit="${v.id}">Editar volumen</button>` : ''}
           ${can('create') ? `<button class="btn ghost sm gold" data-addch="${v.id}" data-n="${v.num}">＋ Capítulo en este volumen</button>` : ''}
           ${can('schedule') && v.status !== 'published' ? `<span class="wk-sch"><input type="datetime-local" data-at="${v.id}" value="${v.status === 'scheduled' && v.published_at ? esc(toLocal(v.published_at)) : ''}" aria-label="Fecha de publicación del volumen ${v.num}"><label class="tb-inl" style="font-size:12px"><input type="checkbox" data-ann="${v.id}" ${v.announce_prelaunch ? 'checked' : ''}> Anunciar próximo estreno en calendario y abrir ficha pública (sin liberar capítulos)</label>${tzHint()}<button class="btn sm" data-sch="${v.id}">◷ Programar volumen</button></span>` : ''}
-          ${can('publish') && v.status === 'scheduled' ? `<button class="btn ghost sm" data-unsch="${v.id}">Cancelar programación</button>` : ''}
+          ${(can('publish') || can('schedule')) && v.status === 'scheduled' ? `<button class="btn ghost sm" data-unsch="${v.id}">Cancelar programación</button>` : ''}
           ${can('publish') && v.status !== 'published' ? `<button class="btn sm green" data-pub="${v.id}">⇪ Publicar volumen</button>` : ''}
           ${can('publish') && v.status === 'published' ? `<button class="btn ghost sm" data-hide="${v.id}">Ocultar</button>` : ''}${can('diffusion_publish') && v.status === 'published' ? `<a href="/estudio/difusion?k=v&s=${s.id}&id=${v.id}">Anunciar</a>` : ''}
           ${can('publish') && v.status === 'hidden' ? `<button class="btn ghost sm" data-show="${v.id}">Mostrar</button>` : ''}
@@ -562,7 +562,7 @@ export function createStudio(ctx){
       await recordNotice(selection,'volume',b.dataset.sch,d.toISOString());
       toast('Programado para '+fmtTz(d));again();
     });
-    on('[data-unsch]', async b => { const { error } = await sb.from('volumes').update({ status: 'draft', published_at: null, announce_prelaunch: false }).eq('id', b.dataset.unsch); if (error) throw error; toast('Programación del volumen cancelada; las fechas individuales de sus capítulos se conservan'); again(); });
+    on('[data-unsch]', async b => { const { error } = await sb.rpc('unschedule_volume', { p_volume: b.dataset.unsch }); if (error) throw new Error(errMsg(error)); toast('Programación del volumen cancelada; las fechas individuales de sus capítulos se conservan'); again(); });
     on('[data-hide]', async b => { const { error } = await sb.from('volumes').update({ status: 'hidden' }).eq('id', b.dataset.hide); if (error) throw error; again(); });
     on('[data-show]', async b => { const { error } = await sb.from('volumes').update({ status: 'published' }).eq('id', b.dataset.show); if (error) throw error; again(); });
     on('[data-addch]', async b => { const num = Math.max(0, ...allNums) + 1; const { data, error } = await sb.from('chapters').insert({ series_id: s.id, volume_id: b.dataset.addch, vol: +b.dataset.n, num, title: 'Capítulo ' + num, body: [], status: 'draft', section_type: 'Capítulo' }).select('id').single(); if (error) throw error; go('/estudio/editar/' + data.id); });

@@ -26,7 +26,8 @@ const jsonPreview = sql.split('create or replace function public.prelaunch_serie
 assert.doesNotMatch(jsonPreview, /from public\.chapters\b/i, 'No exponer datos de capítulos en preestreno');
 assert.match(studio, /schedule_prelaunch_volume/, 'Programación atómica desde Studio');
 assert.match(studio, /data-ann=/, 'Selector voluntario en Studio');
-assert.match(studio, /announce_prelaunch: false/, 'Cancelación elimina anuncio');
+assert.match(studio, /rpc\('unschedule_volume'/, 'Cancelación atómica por RPC con permisos');
+assert.doesNotMatch(studio, /from\('volumes'\)\.update\(\{ status: 'draft', published_at: null, announce_prelaunch: false \}\)/, 'La cancelación no debe actualizar la tabla directamente');
 assert.match(agenda, /prelaunch_calendar/, 'Calendario conectado a anuncios');
 assert.match(agenda, /filter\(r => r\.kind !== 'volp'\)/, 'Ocultar programación automática sin consentimiento');
 assert.match(ui, /prelaunch_series/, 'Ficha pública con primer vistazo');
