@@ -48,7 +48,7 @@ assert(ui.includes("import { publicSectionCounts }"),'Catálogo y ficha deben re
 assert(team.includes('publicSectionCounts(sb, rawWorks'),'Los equipos deben usar el conteo público');
 const importer=read('src/studio-importer.js');
 for (const token of ['id="imp-smart-titles"', 'D.smartTitles = e.target.checked',
-  'smartTitleBlocks(cur.blocks', 'body:smartTitleBlocks(c.blocks','D.smartTitles = false']) {
+  'smartTitleBlocks(cur.blocks', 'const body=smartTitleBlocks(c.blocks','D.smartTitles = false']) {
   assert(importer.includes(token), 'Checkbox inteligente sin integrar: '+token);
 }
 assert(reader.includes('repeatedOpeningHeading(blocks, ch)'),'Lector sin deduplicación de EPUB');

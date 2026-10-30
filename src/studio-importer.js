@@ -9,6 +9,7 @@ import { createWorkData, renderWorkFields, bindWorkFields, workPayload } from '.
 import { loadRelatedWorks } from './studio-related-works.js?v=5';
 import { readPages } from './paging.js?v=1';
 import { planVolumeReplacement, validateImportMedia } from './import-safety.js?v=1';
+import { EDITORIAL_RULES, inspectImport, lintImportedBlocks } from './editorial-import-quality.js?v=1';
 export function createImporter(deps) {
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, LIMITS, SEC } = deps;
   // ---------- importador ----------
@@ -333,6 +334,7 @@ export function createImporter(deps) {
     };
     function s2(){
       const ch = P.chapters, inc = ch.filter(c => !c.skip), m = P.meta, cur = ch[sel];
+      const quality = inspectImport(inc), curQuality = lintImportedBlocks(cur.blocks);
       const titleExample = () => { if (!D.scanChapterTitles) return cur.title; const v = formatChapterIndex({title:cur.title,sectionType:cur.type}); return [v.label + (v.number ? ' ' + v.number : ''),v.heading].filter(Boolean).join(' · '); };
       const scanResults = () => scanImportedChapterTitles(ch);
       W().innerHTML = `<div class="imp-sum"><span><b>${esc(P.title)}</b><small class="mono">${esc(file.name)} · ${inc.length} de ${ch.length} secciones · ${P.images.size} imágenes · ${P.fonts.length} fuentes</small></span>
@@ -341,6 +343,9 @@ export function createImporter(deps) {
         <div class="imp-title-option"><label class="imp-title-switch" for="imp-smart-titles"><input type="checkbox" id="imp-smart-titles" ${D.smartTitles ? 'checked' : ''}><span><b>Títulos inteligentes</b><small>Opcional · al leer, ocultar solo el primer título del EPUB cuando repita el encabezado del capítulo. No modifica el archivo ni elimina texto; solo se aplica a los capítulos de esta importación.</small></span></label><p class="mono" id="imp-smart-count" role="status">${D.smartTitles ? inc.filter(c => repeatedOpeningHeading(smartTitleBlocks(c.blocks,{title:c.title,section_type:c.type},true),{title:c.title,section_type:c.type}) >= 0).length+' secciones con títulos duplicados identificados.' : 'Desactivado: se conservan todos los títulos del EPUB en el lector.'}</p></div>
         <div class="imp-title-option"><label class="imp-title-switch" for="imp-scan-titles"><input type="checkbox" id="imp-scan-titles" ${D.scanChapterTitles ? 'checked' : ''}><span><b>Escanear nombres y números de capítulos</b><small>Opcional · detectar «Capítulo 1», «Capitulo 01», «Captiulo 1», «Cap. 02», prólogos y epílogos antes de importar.</small></span></label><p class="mono">Es una herramienta de revisión, no una configuración de apariencia. Todas las novelas usan el mismo índice público. El escaneo no reescribe títulos ni cambia enlaces; puedes corregir manualmente cualquier encabezado en la lista.</p><p class="mono" id="imp-scan-count" role="status">${D.scanChapterTitles ? esc((()=>{const a=scanResults();return a.numbered+' capítulos numerados · '+a.special+' secciones especiales · '+a.typo+' errores «Captiulo» · '+a.unrecognized+' sin prefijo claro';})()) : 'Escaneo desactivado: revisión manual de títulos.'}</p><div class="imp-title-example"><small>Vista previa del análisis de la sección seleccionada:</small><span id="imp-format-example">${esc(titleExample())}</span></div><small class="mono" id="imp-format-warning"></small></div>
         ${dupAt ? `<p class="imp-warn">Ya importaste este mismo archivo el ${fmtTz(dupAt, { dateStyle: 'long' })}. Puedes continuar; en el destino elige «Reemplazar» si quieres sustituirlo.</p>` : ''}
+        <section class="imp-box imp-quality" aria-label="Informe de calidad editorial"><h3>Calidad editorial · revisión previa</h3>
+          <p class="mono" role="status">${quality.total ? `${quality.total} aviso(s) en ${quality.withWarnings} sección(es).` : 'No se detectaron avisos con las reglas disponibles.'} No se reescribe ningún párrafo; puedes continuar con avisos tras confirmarlos.</p>
+          <p class="mono">${EDITORIAL_RULES.filter(([k])=>quality.counts[k]).map(([k,label])=>`${esc(label)}: ${quality.counts[k]}`).join(' · ') || 'Revisión básica superada'}.</p></section>
         <div class="imp-grid">
           <div class="imp-list"><div class="imp-lh"><b>Secciones</b><span class="mono">Desmarca las que no quieras importar</span></div>
             <ol>${ch.map((c, i) => { const ni = c.blocks.filter(b => b.type === 'image').length; return `<li class="${i === sel ? 'on' : ''}${c.skip ? ' off' : ''}" data-sel="${i}">
@@ -349,7 +354,11 @@ export function createImporter(deps) {
               <select data-k="${i}" aria-label="Tipo">${SEC.map(s => `<option ${s === c.type ? 'selected' : ''}>${s}</option>`).join('')}</select>
               <span class="imp-a"><button class="ed-btn" data-mv="${i}" data-d="-1" title="Subir" ${i ? '' : 'disabled'}>↑</button><button class="ed-btn" data-mv="${i}" data-d="1" title="Bajar" ${i < ch.length - 1 ? '' : 'disabled'}>↓</button><button class="ed-btn" data-merge="${i}" title="Unir con la siguiente" ${i < ch.length - 1 ? '' : 'disabled'}>Unir ↓</button></span></li>`; }).join('')}</ol></div>
           <div class="imp-pvw"><div class="imp-lh"><b>Vista previa · ${sel + 1} de ${ch.length}</b><button class="ed-btn ${splitting ? 'on' : ''}" id="split">${splitting ? 'Toca el párrafo donde empieza la nueva sección · Cancelar' : 'Dividir esta sección…'}</button></div>
-            <div class="imp-pv${splitting ? ' splitting' : ''}" id="pv"><div class="rd" data-theme="oscuro" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="${P.fontVars || ''}--rs:17px"><article class="rd-ch"><header class="rd-head"><span class="mono">${esc(cur.type)}</span><h2 ${headFont(cur.blocks)}>${esc(cur.title)}</h2></header><div class="rd-body">${(()=>{const blocks=smartTitleBlocks(cur.blocks,{title:cur.title,section_type:cur.type},D.smartTitles);const skip=repeatedOpeningHeading(blocks,{title:cur.title,section_type:cur.type});return blocks.map((b,i)=>i===skip?'':renderBlock(b,i,{media:src})).join('');})()}</div></article></div></div></div>
+            <div class="imp-pv${splitting ? ' splitting' : ''}" id="pv"><div class="rd" data-theme="oscuro" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="${P.fontVars || ''}--rs:17px"><article class="rd-ch"><header class="rd-head"><span class="mono">${esc(cur.type)}</span><h2 ${headFont(cur.blocks)}>${esc(cur.title)}</h2></header><div class="rd-body">${(()=>{const blocks=smartTitleBlocks(cur.blocks,{title:cur.title,section_type:cur.type},D.smartTitles);const skip=repeatedOpeningHeading(blocks,{title:cur.title,section_type:cur.type});return blocks.map((b,i)=>i===skip?'':renderBlock(b,i,{media:src})).join('');})()}</div></article></div></div>
+            <div class="imp-quality-images"><b>Ilustraciones y accesibilidad · ${curQuality.counts.alt} sin descripción</b>
+              ${cur.blocks.map((b,i) => (b.type==='image'||b.type==='img') ? `<div class="imp-quality-image"><label>Imagen ${i+1} · Descripción alternativa<input type="text" data-image-alt="${i}" maxlength="300" value="${esc(b.alt||'')}" placeholder="Describe lo que aporta la imagen"></label><label class="mono"><input type="checkbox" data-image-deco="${i}" ${b.decorative===true?'checked':''}> Decorativa: alt vacío intencional</label></div>` : '').join('') || '<p class="mono">Sin ilustraciones en esta sección.</p>'}
+              <p class="mono">La casilla decorativa se usa solo cuando la imagen no transmite información necesaria para comprender el capítulo.</p>
+            </div></div>
         </div>
         <div class="imp-nav"><button class="btn ghost" id="back">‹ Elegir otro archivo</button><button class="btn" id="next" ${inc.length ? '' : 'disabled'}>Continuar al destino ›</button></div>`;
       bindFicha();
@@ -357,6 +366,8 @@ export function createImporter(deps) {
       $('#imp-smart-titles').onchange = e => { D.smartTitles = e.target.checked; s2(); };
       $('#imp-scan-titles').onchange = e => { D.scanChapterTitles = e.target.checked; s2(); };
       refreshTitleExample();
+      W().querySelectorAll('[data-image-alt]').forEach(input=>input.onchange=()=>{const b=cur.blocks[+input.dataset.imageAlt];b.alt=input.value.trim();if(b.alt)delete b.decorative;s2();});
+      W().querySelectorAll('[data-image-deco]').forEach(input=>input.onchange=()=>{const b=cur.blocks[+input.dataset.imageDeco];if(input.checked){b.decorative=true;b.alt='';}else delete b.decorative;s2();});
       const L = W().querySelector('.imp-list');
       L.querySelectorAll('[data-t]').forEach(i => i.oninput = () => { ch[+i.dataset.t].title = i.value; if (+i.dataset.t === sel) { $('#pv h2').textContent = i.value; refreshTitleExample(); } });
       L.querySelectorAll('[data-k]').forEach(s => s.onchange = () => { ch[+s.dataset.k].type = s.value; if (+s.dataset.k === sel) { $('#pv .rd-head .mono').textContent = s.value; refreshTitleExample(); } });
@@ -394,6 +405,7 @@ export function createImporter(deps) {
             <label class="tb-inl"><input type="radio" name="dm" value="append" ${D.mode === 'append' ? 'checked' : ''}> Agregar estas secciones después de las existentes (la ficha solo completa campos vacíos)</label></div>`
             : gone ? `<p class="imp-warn">Hay un Volumen ${D.vnum} en la papelera. Se recupera y se llena con este archivo; sus capítulos viejos siguen en la papelera.</p>` : `<p class="mono">Se creará el Volumen ${D.vnum}${w ? ' en ' + esc(w.title) : ''}${Object.keys(fichaRow()).length ? ', con la ficha del paso anterior' : ''}.</p>`}
         </section>
+        <p class="imp-title-option mono"><b>Control editorial:</b> ${(()=>{const q=inspectImport(inc);return q.total ? q.total+' aviso(s) pendientes en '+q.withWarnings+' sección(es). Se solicitará confirmar antes de importar.' : 'Sin avisos en las reglas básicas.';})()}</p>
         <p class="imp-title-option mono"><b>Títulos inteligentes:</b> ${D.smartTitles ? 'Activados · solo se marcarán los encabezados duplicados en esta importación.' : 'Desactivados · conservar todos los encabezados al leer.'}</p>
           <p class="imp-title-option mono"><b>Escaneo de encabezados:</b> ${D.scanChapterTitles ? 'Activado para revisión; no modifica el contenido automáticamente.' : 'Desactivado.'} El índice público es uniforme para todas las novelas.</p>
         <section class="imp-box"><h3>Portada del volumen</h3>
@@ -445,6 +457,8 @@ export function createImporter(deps) {
       const keysToUpload = validateImportMedia({chapters:inc,images:P.images,cover:D.cover,
         allImages:D.allImgs,maxBytes:LIMITS.image});
       if(!inc.length)throw new Error('Selecciona al menos una sección para importar');
+      const qualityPreflight=inspectImport(inc);
+      if(qualityPreflight.total && !await confirmObi(`La revisión editorial detectó ${qualityPreflight.total} aviso(s) en ${qualityPreflight.withWarnings} sección(es), incluidas ${qualityPreflight.counts.alt} ilustraciones sin descripción. Se guardará el informe sin modificar el texto. ¿Continuar con esta importación?`)) return;
       let w = work(), vol = liveVols(w).find(v => v.num === D.vnum);
       if(vol && D.mode==='replace'){
         if(!can('edit'))throw new Error('Reemplazar un volumen requiere permiso para editar sus capítulos.');
@@ -492,16 +506,18 @@ export function createImporter(deps) {
         const replacing=D.mode==='replace'&&!createdVol&&!restoredVol;
         const plan=replacing?planVolumeReplacement(existing,vol.id,D.vnum,inc.length):null;
         const maxNum=Math.max(0,...(existing||[]).map(c=>+c.num||0));
-        const rows=inc.map((c,i)=>({
-          series_id:w.id,volume_id:vol.id,vol:D.vnum,
-          num:replacing?plan.update[i].num:maxNum+i+1,sort_order:i,
-          title:(c.title||'Sin título').slice(0,300),section_type:c.type,status:'draft',
-          body:smartTitleBlocks(c.blocks,{title:c.title,section_type:c.type},D.smartTitles).map(b=>b.type==='image'?{...b,url:map[b.url]?PUB+map[b.url]:b.url}:b)
-        }));
+        const rows=inc.map((c,i)=>{
+          const body=smartTitleBlocks(c.blocks,{title:c.title,section_type:c.type},D.smartTitles).map(b=>b.type==='image'?{...b,url:map[b.url]?PUB+map[b.url]:b.url}:b);
+          const report=lintImportedBlocks(body);
+          return {series_id:w.id,volume_id:vol.id,vol:D.vnum,
+            num:replacing?plan.update[i].num:maxNum+i+1,sort_order:i,
+            title:(c.title||'Sin título').slice(0,300),section_type:c.type,status:'draft',
+            body,lint:report.counts,lint_count:report.total};
+        });
         if(replacing){
           const ids=[...plan.update,...plan.remove].map(x=>x.id);
           const {data:originals,error:backupError}=await sb.from('chapters')
-            .select('id,num,vol,volume_id,title,section_type,status,sort_order,body,deleted_at').in('id',ids);
+            .select('id,num,vol,volume_id,title,section_type,status,sort_order,body,lint,lint_count,deleted_at').in('id',ids);
           if(backupError||originals?.length!==ids.length)
             throw backupError||new Error('No se pudo respaldar el contenido anterior');
           const originalById=new Map(originals.map(x=>[x.id,x]));
@@ -510,7 +526,7 @@ export function createImporter(deps) {
             updatedRows.push(old);
             const {data:written,error}=await sb.from('chapters').update({
               title:rows[i].title,section_type:rows[i].section_type,
-              body:rows[i].body,sort_order:i,status:'draft'
+              body:rows[i].body,lint:rows[i].lint,lint_count:rows[i].lint_count,sort_order:i,status:'draft'
             }).eq('id',old.id).select('id');
             if(error||!written?.length)throw error||new Error('No se pudo reemplazar el capítulo '+old.num);
           }
@@ -540,7 +556,7 @@ export function createImporter(deps) {
           catch (e) { toast('Volumen importado y publicado, pero el anuncio no se guardó: '+(e.message||e)); }
         }
         const {error:finishError}=await sb.from('import_jobs').update({status:'done',media_paths:uploaded,
-          result:{series:w.id,volume:vol.id,chapters:rows.length,cover:cov,...(D.scanChapterTitles ? {title_scan:(()=>{const a=scanImportedChapterTitles(inc);return {numbered:a.numbered,special:a.special,typos:a.typo,unrecognized:a.unrecognized,findings:a.findings.map(f=>({index:f.index,number:f.number,label:f.label,typo:f.typo}))};})()} : {})}}).eq('id',job.id);
+          result:{series:w.id,volume:vol.id,chapters:rows.length,cover:cov,editorial_quality:{warnings:rows.reduce((a,c)=>a+c.lint_count,0),chapters_with_warnings:rows.filter(c=>c.lint_count>0).length,missing_alt:rows.reduce((a,c)=>a+c.lint.alt,0)},...(D.scanChapterTitles ? {title_scan:(()=>{const a=scanImportedChapterTitles(inc);return {numbered:a.numbered,special:a.special,typos:a.typo,unrecognized:a.unrecognized,findings:a.findings.map(f=>({index:f.index,number:f.number,label:f.label,typo:f.typo}))};})()} : {})}}).eq('id',job.id);
         // Un fallo del historial no puede deshacer capítulos que ya se publicaron.
         if(finishError)toast('Contenido guardado; no se pudo actualizar el historial de importación');
         P.urls.forEach(u => u && URL.revokeObjectURL(u));

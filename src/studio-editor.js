@@ -108,7 +108,7 @@ export function createEditor(deps) {
       r.dbl = cnt(/ {2,}/g); r.quotes = tx.includes('«') ? Math.ceil(cnt(/["“”]/g) / 2) : 0; r.dash = paras.filter(p => /^\s*[-–]\s?\S/.test(p)).length + cnt(/[?!.,…]\s[-–](?=\p{L})/gu);
       r.dots = cnt(/\.{3}/g); r.space = cnt(/ +[,.;:?!»)]/g);
       r.open = paras.filter(p => cnt(/\?/g, p) > cnt(/¿/g, p) || cnt(/!/g, p) > cnt(/¡/g, p)).length;
-      r.alt = [...doc.querySelectorAll('figure')].filter(f => !f.dataset.alt).length;
+      r.alt = [...doc.querySelectorAll('figure')].filter(f => !f.dataset.alt?.trim() && f.dataset.decorative !== '1').length;
       const gloss = [];
       for (const g of terms) { const m = tx.match(new RegExp('(?<![\\p{L}\\p{N}])' + reEsc(g.term) + '(?![\\p{L}\\p{N}])', 'giu')) || []; const bad = m.filter(x => x !== g.term); if (bad.length) gloss.push({ term: g.term, cat: g.category, n: bad.length, as: bad[0] }); }
       r.gloss = gloss.reduce((a, g) => a + g.n, 0);
@@ -294,7 +294,7 @@ export function createEditor(deps) {
     doc.addEventListener('drop', e => { if (e.dataTransfer?.files?.length) { e.preventDefault(); toast('Usa «▣ Imagen» para insertar ilustraciones'); } });
     doc.addEventListener('click', e => {
       const f = e.target.closest('figure'); if (!f) return; doc.querySelectorAll('.on').forEach(x => x.classList.remove('on')); f.classList.add('on');
-      ask([{ label: 'Descripción', value: f.dataset.alt, ph: 'Qué se ve en la ilustración' }, { label: 'Pie', value: f.dataset.caption, ph: 'Opcional' }], ([alt, cap]) => { const t = document.createElement('template'); t.innerHTML = figureHTML(f.dataset.url, alt.trim(), cap.trim(), media); f.replaceWith(t.content.firstElementChild); changed(); }, '<button class="btn ghost danger" id="figdel">Quitar ilustración</button>');
+      ask([{ label: 'Descripción', value: f.dataset.alt, ph: 'Qué se ve en la ilustración' }, { label: 'Pie', value: f.dataset.caption, ph: 'Opcional' }], ([alt, cap]) => { const decorative = !!$('#askdeco')?.checked; const t = document.createElement('template'); t.innerHTML = figureHTML(f.dataset.url, decorative ? '' : alt.trim(), cap.trim(), media, decorative); f.replaceWith(t.content.firstElementChild); changed(); }, `<label class="mono"><input type="checkbox" id="askdeco" ${f.dataset.decorative === '1' ? 'checked' : ''}> Ilustración decorativa (sin descripción por decisión editorial)</label><button class="btn ghost danger" id="figdel">Quitar ilustración</button>`);
       $('#figdel').onclick = () => { f.remove(); $('#ask').innerHTML = ''; changed(); };
     });
     $('#ttl').addEventListener('input', changed);
@@ -315,7 +315,7 @@ export function createEditor(deps) {
       after(figureHTML(PUB + path, '', '', media)); toast('Ilustración insertada · tócala para añadir descripción');
     };
     root.addEventListener('mousedown', e => { if (e.target.closest('.ed-bar [data-cmd], .ed-bar [data-act="ruby"], .ed-bar [data-act="sep"]')) e.preventDefault(); });
-    root.addEventListener('click', e => {
+    root.addEventListener('click', async e => {
       const el = e.target.closest('[data-cmd],[data-act],[data-view],[data-theme],[data-device],[data-fix],[data-hv],[data-hr],[data-go],[data-apply],[data-dismiss],[data-para]'); if (!el || el.closest('#doc')) return;
       const d = el.dataset;
       if (d.cmd) { keepSel(); document.execCommand(d.cmd); changed(); }
@@ -327,7 +327,7 @@ export function createEditor(deps) {
       else if (d.view) { UI.view = d.view; localStorage.setItem('obi-ed-view', d.view); views(); if (d.view === 'orig') drawOrig(); }
       else if (d.theme) { UI.theme = d.theme; views(); preview(); }
       else if (d.device) { UI.device = d.device; views(); preview(); }
-      else if (d.fix) { fix(d.fix); toast('Revisión aplicada'); }
+      else if (d.fix) { if (['all','gloss'].includes(d.fix) && !await confirmObi('La corrección puede modificar comillas, nombres del glosario o signos. Revisa el texto y guarda una versión antes de aplicar cambios masivos. ¿Continuar?')) return; fix(d.fix); toast('Revisión aplicada · comprueba el resultado antes de guardar'); }
       else if (d.hv) busy(el, async () => { viewing = await getRev(d.hv); if (UI.view === 'edit') { UI.view = 'split'; views(); } preview(); $('#ctx').innerHTML = `<div class="ed-ctx"><span>La vista previa muestra la versión ${viewing.version || ''} del ${fmtTz(viewing.created_at, { dateStyle: 'medium', timeStyle: 'short' })}. El editor sigue con el texto actual.</span><button class="btn" id="vrest">Restaurar esta versión</button><button class="btn ghost" id="vback">Volver al texto actual</button></div>`; $('#vrest').onclick = () => busy($('#vrest'), () => restore(viewing)); $('#vback').onclick = () => { viewing = null; $('#ctx').innerHTML = ''; preview(); }; });
       else if (d.hr) busy(el, async () => { if (!await confirmObi('¿Reemplazar el texto actual por esta versión? El texto actual queda guardado en el historial.')) return; if (dirty) await doSave(true); await restore(await getRev(d.hr)); });
       else if (d.go != null) { if (!findText(d.go)) toast('No encontré ese fragmento; quizá ya se corrigió'); }
