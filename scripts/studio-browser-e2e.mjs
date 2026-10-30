@@ -11,6 +11,7 @@ const root = process.cwd();
 const whitelist = new Map([
  ['/studio.js','src/studio.js'],
  ['/studio-works-utils.js','src/studio-works-utils.js'],
+ ['/studio-works-view.js','src/studio-works-view.js'],
  ['/studio-cover-image.js','src/studio-cover-image.js'],
  ['/obi-dialog.js','src/obi-dialog.js'],
  ['/studio-team-permissions.js','src/studio-team-permissions.js'],
