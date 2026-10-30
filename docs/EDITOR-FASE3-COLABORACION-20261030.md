@@ -30,3 +30,6 @@ Fecha: 30 de octubre de 2026 · Proyecto: El Obi del Lector
 - Solo se muestran 100 sugerencias recientes para evitar un panel lento.
 - Una sugerencia obsoleta se etiqueta con su versión; una decisión de revisión no hace merge ni reescribe el capítulo.
 - No hay notificaciones push ni asignación automática de responsables. No se contrata ningún servicio.
+
+## Activación verificada
+La migración se aplicó a Supabase en producción bajo versión `20261030222055`. Verificado: 490 capítulos, 491 revisiones, 490 respaldos sin errores; tabla nueva vacía, RLS activo, anon sin lectura ni ejecución, authenticated solo lectura condicionada al equipo y RPCs. DB ~63 MB; no hay cargos nuevos.
