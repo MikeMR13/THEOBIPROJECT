@@ -92,7 +92,7 @@ export function createStudio(ctx){
     }
     return styleTask;
   };
-  const shell = (title, body, tab) => { css(); document.body.classList.add('in-studio'); const t = tab === '/estudio/obra' ? '/estudio/obras' : tab; const me = getMe?.();
+  const shell = (title, body, tab) => { css(); document.title = String(title).replace(/<[^>]*>/g, '') + ' · Estudio · El Obi del Lector'; document.body.classList.add('in-studio'); const t = tab === '/estudio/obra' ? '/estudio/obras' : tab; const me = getMe?.();
     return `<div class="s2"><aside class="s2-side">
       <div class="s2-mobile-head"><a class="s2-brand" href="/estudio"><span class="s2-seal">帯</span><span><b>Estudio Editorial</b><small>EL OBI DEL LECTOR</small></span></a><button type="button" id="s2-mobile-toggle" class="s2-mobile-toggle" aria-expanded="false" aria-controls="s2-nav"><span aria-hidden="true">☰</span> Secciones</button></div>
       <div class="s2-team"><small>EQUIPO</small>${teamPicker()}<span>Tú: ${T.team?.role === 'owner' ? 'Propietario' : esc(T.roleName || ROLE_L[T.team?.role] || 'Miembro')}${T.works != null ? ' · ' + T.works + (T.works === 1 ? ' obra' : ' obras') : ''}</span>${me?.platform_role === 'bibliotecario' ? '<span class="s2-bib">También eres <b>Bibliotecario</b>. Aquí actúas como miembro de tu equipo. <a href="/bibliotecario">Ir al Mostrador →</a></span>' : ''}</div>
@@ -1097,8 +1097,8 @@ export function createStudio(ctx){
       <div class="st-row"><select id="glser" aria-label="Obra del glosario">${works.map(w => `<option value="${w.slug}" ${w.id === s.id ? 'selected' : ''}>${esc(w.title)}</option>`).join('')}</select><span class="mono" id="glcount"></span></div>
       <p class="mono">Los términos se marcan solos en el lector. Al tocarlos, el lector ve la definición sin salir del capítulo.</p>
       ${ed ? `<div class="st-card gl-form">
-        <div class="st-row"><input id="glterm" aria-label="Término" maxlength="60" placeholder="Término tal como aparece en el texto"><select id="glcat" aria-label="Categoría del término">${opt('Personaje')}</select></div>
-        <textarea id="gldef" aria-label="Definición del término" maxlength="600" rows="3" placeholder="Definición que verá el lector"></textarea>
+        <div class="st-row"><label class="st-field-caption">Término<input id="glterm" aria-label="Término" maxlength="60" placeholder="Término tal como aparece en el texto"></label><select id="glcat" aria-label="Categoría del término">${opt('Personaje')}</select></div>
+        <label class="st-field-caption">Definición<textarea id="gldef" aria-label="Definición del término" maxlength="600" rows="3" placeholder="Definición que verá el lector"></textarea></label>
         <div class="st-row"><button class="btn" id="glsave">Añadir término</button><button class="btn ghost" id="glcancel" hidden>Cancelar</button></div>
         <details><summary class="mono">Añadir varios a la vez</summary><p class="mono">Uno por línea: término | tipo | definición</p><textarea id="glbulk" aria-label="Lista de términos para importar" rows="5" placeholder="umeboshi | Comida | Ciruela encurtida en sal, muy ácida."></textarea><button class="btn ghost" id="glbulkbtn">Añadir lista</button></details>
       </div>` : '<p class="mono">Tu rol solo puede ver el glosario.</p>'}
@@ -1320,7 +1320,7 @@ export function createStudio(ctx){
         ${edit ? '' : '<p class="st-card" style="margin:0">Tu rol puede ver esta página, pero no editarla.</p>'}
         <h2>Datos públicos</h2>
         <label>Nombre del equipo<input name="name" maxlength="80" required value="${esc(D.name)}" ${dis}></label>
-        <label>Dirección<span class="pf-slug"><span class="mono">obi.lat/equipo/</span><input name="slug" maxlength="40" pattern="[a-z0-9][a-z0-9-]{1,38}[a-z0-9]" required value="${esc(D.slug)}" ${dis}></span><small class="mono">Solo minúsculas, números y guiones. Si la cambias, los enlaces viejos dejarán de funcionar.</small></label>
+        <label>Dirección<span class="pf-slug"><span class="mono">elobidellector.com/equipo/</span><input name="slug" maxlength="40" pattern="[a-z0-9][a-z0-9-]{1,38}[a-z0-9]" required value="${esc(D.slug)}" ${dis}></span><small class="mono">Solo minúsculas, números y guiones. Si la cambias, los enlaces viejos dejarán de funcionar.</small></label>
         <label><span class="pf-lh">Presentación<span class="mono" id="biocount">${D.bio.length}/600</span></span><textarea name="bio" rows="4" maxlength="600" ${dis}>${esc(D.bio)}</textarea></label>
         <label>Aniversario del equipo<input type="date" name="anniversary" value="${esc(D.aniv)}" ${dis}><small class="mono">Si la dejas vacía se usa la fecha en que el equipo se creó en el Obi. Sale en el Calendario, con un sello en tu página ese día y un aviso a quien sigue sus obras.</small></label>
         <label><span class="pf-lh">Mensaje de aniversario<span class="mono" id="anivcount">${D.anivMsg.length}/200</span></span><input name="anniversary_msg" maxlength="200" placeholder="Ej.: ¡Gracias por leer con nosotros!" value="${esc(D.anivMsg)}" ${dis}><small class="mono">Si lo dejas vacío: «N años de ${esc(D.name)}».</small></label>
@@ -1340,7 +1340,7 @@ export function createStudio(ctx){
     const f = $('#pf'); let dirty = false;
     const draw = () => {
       const feat = (works || []).find(w => w.slug === D.feat), c = D.color, logo = D.avatar ? media(D.avatar) : '';
-      $('#pvurl').textContent = 'VISTA PÚBLICA · obi.lat/equipo/' + D.slug;
+      $('#pvurl').textContent = 'VISTA PÚBLICA · elobidellector.com/equipo/' + D.slug;
       $('#logobox').innerHTML = logo ? `<img src="${esc(logo)}" alt="Logo actual">` : '<span class="mono">Sin logo</span>';
       const langs = LANGS.filter(([k]) => D.langs.includes(k)).map(x => x[1]).join(' · ');
       $('#pv').innerHTML = `<div class="pf-card"><div class="pf-ban" style="${D.banner ? `background:url('${esc(media(D.banner))}') center/cover` : `background:linear-gradient(135deg, ${c}, #14120d)`}"></div>
@@ -1385,7 +1385,7 @@ export function createStudio(ctx){
       if (!/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(D.slug)) throw new Error('La dirección debe tener de 3 a 40 caracteres: minúsculas, números y guiones');
       if (D.name.trim().length < 2) throw new Error('El nombre es muy corto');
       const bad = LINKS.find(([k]) => D.links[k] && !/^https:\/\//.test(D.links[k])); if (bad) throw new Error(bad[1] + ': el enlace debe empezar con https://');
-      if (D.slug !== t.slug && !await confirmObi(`¿Cambiar la dirección a obi.lat/equipo/${D.slug}? Los enlaces viejos dejarán de funcionar.`)) return;
+      if (D.slug !== t.slug && !await confirmObi(`¿Cambiar la dirección a elobidellector.com/equipo/${D.slug}? Los enlaces viejos dejarán de funcionar.`)) return;
       const settings = { ...S0, ...D.links, ...D.sect, featured_works: D.feat, show_team_logo: D.logoUpd, show_reader_logo: D.logoReader, timezone: D.tz, seo: cleanSeo(D.seo,{allowedImages:[D.banner,D.avatar].filter(Boolean)}) };
       const { error } = await sb.from('teams').update({ name: D.name.trim(), slug: D.slug, bio: D.bio.trim() || null, color: D.color, langs: D.langs, avatar_path: D.avatar, banner_path: D.banner, settings, anniversary: D.aniv || null, anniversary_msg: D.anivMsg.trim() || null }).eq('id', T.team.id);
       if (error) throw new Error(/teams_slug_key/.test(error.message) ? 'Esa dirección ya la usa otro equipo' : /teams_profile_checks/.test(error.message) ? 'Revisa el nombre, la dirección y la presentación' : errMsg(error));
