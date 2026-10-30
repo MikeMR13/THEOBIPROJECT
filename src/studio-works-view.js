@@ -23,7 +23,7 @@ export function createStudioWorkCard({chs,sched,prelaunchById=new Map(),featured
       const last = pub.sort((a, b) => new Date(b.publish_at) - new Date(a.publish_at))[0], st = TLS[w.translation_status] || TLS.active;
       const announcement = prelaunchById.get(w.id);
       return `<article class="s2-work" style="--c:${wcolor(w)}"><a class="cv" href="/estudio/obra/${w.slug}" style="${w.cover_path ? `background-image:url('${esc(media(w.cover_thumb_path || w.cover_path))}')` : ''}">${w.cover_path ? '' : `<span>${esc(w.short || w.title)}</span>`}</a>
-        <div class="bd"><span class="tg"><span class="pl" style="--p:${st[1]}">${st[0]}</span>${announcement ? '<span class="s2-prelaunch-badge">◷ En preestreno</span>' : ''}<small>${(w.volumes||[]).filter(v=>!v.deleted_at).length} vol. · ${c.length} cap.${w.published ? '' : ' · privada'}</small></span>
+        <div class="bd"><span class="tg"><span class="pl" style="--p:${st[1]}">${st[0]}</span>${announcement ? '<span class="s2-prelaunch-badge">◷ En preestreno</span>' : ''}<small>${(w.volumes||[]).filter(v=>!v.deleted_at).length} vol. · ${c.length} cap.${w.published ? '' : announcement ? ' · anunciado' : ' · privada'}</small></span>
           ${stats?.attention ? `<span class="s2-work-alert">⚑ Necesita atención${stats.correction ? ' · Corrección' : stats.drafts ? ' · Borradores' : !w.cover_path ? ' · Sin portada' : !w.published ? ' · Privada' : ''}</span>` : ''}
           <h2 title="${esc(w.title)}"><a href="/estudio/obra/${w.slug}">${esc(w.title)}</a></h2>${w.synopsis ? `<p>${esc(w.synopsis)}</p>` : ''}
           ${(w.genres || []).length ? `<span class="gn">${w.genres.slice(0, 5).map(g => `<span>${esc(g)}</span>`).join('')}</span>` : ''}
