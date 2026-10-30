@@ -97,7 +97,7 @@ try{
   const until=async(expression,label)=>poll(()=>evalJS(expression),label);
   const rect=async selector=>{
     const value=await evalJS('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');'+
-      'if(!e)return null;const r=e.getBoundingClientRect();'+
+      'if(!e)return null;e.scrollIntoView({block:"center",inline:"nearest"});const r=e.getBoundingClientRect();'+
       'return {x:r.left+r.width/2,y:r.top+r.height/2,visible:!!r.width&&!!r.height};})()');
     assert(value?.visible,'Elemento no visible: '+selector);
     return value;
