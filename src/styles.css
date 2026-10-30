@@ -1337,3 +1337,14 @@ body.rd-zen .rd-settings-dock{display:none!important}
 
 /* En concentración se ocultan paneles editoriales, incluidos los de colaboración. */
 .ed.zen #p-sug,.ed.zen #b-sug{display:none!important}
+
+/* Editor Fase 4: controles de aprobación y avisos de versión. */
+.ed-approval-settings,.ed-approval-form{display:grid;gap:9px;padding:12px 14px;border-bottom:1px solid #3d3628}
+.ed-approval-settings p,.ed-approval-form p{margin:0}
+.ed-approval-settings .btn,.ed-approval-form .btn{justify-self:start;min-height:44px}
+.ed-approval-form label{font-size:13px;font-weight:600;display:grid;gap:7px;min-width:0}
+.ed-approval-form textarea{display:block;width:100%;min-width:0;max-width:100%;resize:vertical;padding:11px;background:#100e0b;color:var(--paper);border:1px solid #62533b;font:14px/1.55 'IBM Plex Sans',sans-serif}
+.ed-approval-form textarea:focus-visible,.ed-approval-settings button:focus-visible,.ed-approval-list button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.ed-approval-list{max-height:600px;overflow:auto}
+.ed-board-review{display:block;border-left:2px solid var(--gold);padding-left:8px;color:#e3c990}
+@media(max-width:600px){.ed-approval-settings,.ed-approval-form{padding:12px}.ed-approval-list .ed-sug-row{padding:12px}.ed-approval-list .btn{min-height:44px}}

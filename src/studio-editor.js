@@ -3,6 +3,7 @@ import { confirmObi, inputObi } from './obi-dialog.js';
 import { blocksToEditor, editorToBlocks, pasteToEditor, renderBlock, warningsHTML, teaserHTML, figureHTML, makesBlock, FONTS, CW } from './blocks.js?v=2';
 import { askEditorialAnnouncement, saveEditorialRecord } from './editorial-announcements.js?v=1';
 import {setupEditorialCollaboration} from './editorial-suggestion-panel.js?v=1';
+import {setupEditorialApproval,teamApprovalRequired} from './editorial-approval-panel.js?v=1';
 export function createEditor(deps) {
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, names, home, errMsg, rpc, LIMITS, SEC } = deps;
   // ---------- editor de página: vista previa del lector, revisión automática, historial, avance y marcadores ----------
@@ -47,6 +48,7 @@ export function createEditor(deps) {
         <button class="btn ghost" id="b-rev" aria-expanded="false" aria-controls="p-rev">✓ Revisar</button>
         <button class="btn ghost" id="b-hist" aria-expanded="false" aria-controls="p-hist">◷ Historial</button>
         <button class="btn ghost" id="b-sug" aria-expanded="false" aria-controls="p-sug">✎ Sugerencias</button>
+        <button class="btn ghost" id="b-approval" aria-expanded="false" aria-controls="p-approval">◎ Aprobación</button>
         <button class="btn ghost" id="save" title="Ctrl/Cmd+S">Guardar</button>
         <button class="btn ghost" id="b-zen" title="Modo concentración · Ctrl+Shift+F" aria-pressed="false">⛶ Concentración</button>
         <span class="ed-pub" id="pub"></span>
@@ -54,6 +56,7 @@ export function createEditor(deps) {
       <div class="ed-box" id="p-rev" hidden></div>
       <div class="ed-box" id="p-hist" hidden></div>
       <section class="ed-box" id="p-sug" aria-label="Sugerencias del equipo" hidden></section>
+      <section class="ed-box" id="p-approval" aria-label="Aprobación editorial" hidden></section>
       <details class="ed-box" id="p-set"><summary>Ajustes del capítulo · avance y marcadores de contenido <span class="mono" id="setsum"></span></summary>
         <div class="ed-set">
           <div style="display:grid;gap:8px;align-content:start"><label style="display:grid;gap:6px;font-size:13px;font-weight:600">Avance del próximo capítulo<textarea id="teaser" rows="4" maxlength="1000" placeholder="Unas líneas para dejar con ganas…">${esc(meta.teaser)}</textarea></label>
@@ -152,6 +155,7 @@ export function createEditor(deps) {
       const { data, error } = await saving; saving = null;
       if (error) {
         if (/version_conflict/.test(error.message)) { conflict = true; clearTimeout(autoT); setState('warn', 'Conflicto de versión'); $('#ctx').innerHTML = '<div class="ed-ctx"><span>Otro integrante guardó una versión más nueva. Tus cambios siguen aquí y en tu copia local; recarga para recuperarlos sobre la versión actual.</span><button class="btn" id="reload">Recargar</button></div>'; $('#reload').onclick = () => editor(id); }
+        else if (/approval_required_current_version/.test(error.message)) { clearTimeout(autoT); setState('warn','Versión programada protegida · cancela programación para editar'); toast('Cancela la programación antes de modificar un capítulo aprobado.'); }
         else { setState('warn', 'No se pudo guardar · se reintentará'); clearTimeout(autoT); autoT = setTimeout(() => doSave(false), 15000); }
         return false;
       }
@@ -180,9 +184,17 @@ export function createEditor(deps) {
         lint(); if (L.total && !await confirmObi(`La revisión automática dejó ${L.total} aviso(s). ¿${status === 'published' ? 'Publicar' : 'Programar'} de todos modos?`)) return;
         const selection=await askEditorialAnnouncement({esc,kind:'chapter',title:title()});
         if(!selection)return;
-        if (!(await doSave(true, 'publish', status === 'published' ? 'Publicado' : 'Programado para ' + fmtTz(when)))) throw new Error('No se pudo guardar antes de publicar');
+        const required=await teamApprovalRequired(sb,c.series.team_id);
+        if(required){
+          if(dirty){
+            if(!(await doSave(true)))throw new Error('No se pudo guardar el borrador previo a la revisión');
+            throw new Error('Se guardó una versión nueva. Solicita su aprobación antes de programar o publicar.');
+          }
+          // NO crear una versión al publicar: invalidaría la firma aprobada.
+          // La transición la valida private.require_approval en la misma transacción.
+        }else if (!(await doSave(true, 'publish', status === 'published' ? 'Publicado' : 'Programado para ' + fmtTz(when)))) throw new Error('No se pudo guardar antes de publicar');
         const { error } = await sb.from('chapters').update({ status, publish_at: when }).eq('id', id);
-        if (error) throw new Error(/approval_required/.test(error.message) ? 'El equipo exige una revisión aprobada antes de publicar.' : /forbidden/.test(error.message) ? 'No tienes permiso para esta acción.' : error.message);
+        if (error) throw new Error(/approval_required/.test(error.message) ? 'Se necesita una aprobación vigente para esta versión antes de programar o publicar. Abre «Aprobación».' : /forbidden/.test(error.message) ? 'No tienes permiso para esta acción.' : error.message);
         Object.assign(c, { status, publish_at: when });
         try{await saveEditorialRecord(sb,c.series_id,selection,{kind:'chapter',id,startsAt:when});}
         catch(e){toast('Capítulo guardado, pero falló el anuncio editorial: '+(e.message||e));}
@@ -208,6 +220,9 @@ export function createEditor(deps) {
       getBody:()=>editorToBlocks(doc),getTitle:title,getSelected:()=>lastRange?.toString()||'',
       getRevision:getRev,findText:q=>findText(q)
     });
+    setupEditorialApproval({sb,id,teamId:c.series.team_id,root,box:$('#p-approval'),button:$('#b-approval'),
+      can,role:T.team?.role,names,esc,toast,fmtTz,confirmObi,
+      getVersion:()=>version,getDirty:()=>dirty,getConflict:()=>conflict,getUserId:()=>meU?.id});
     const restore = async r => { load(r.body); $('#ttl').value = r.title || $('#ttl').value; viewing = null; $('#ctx').innerHTML = ''; changed(); await doSave(true, 'restore', 'Restaurada desde la versión ' + (r.version || '')); toast('Versión restaurada'); };
 
     // lectores: erratas y comentarios

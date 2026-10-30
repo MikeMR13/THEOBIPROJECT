@@ -33,6 +33,8 @@ jobs:
         run: node scripts/editor-phase2-mobile-browser-check.mjs
       - name: Editor Fase 3 — sugerencias, comparación y permisos (sin backend)
         run: node scripts/editor-phase3-collaboration-check.mjs
+      - name: Editor Fase 4 — aprobación de versión, publicación segura y tablero
+        run: node scripts/editor-phase4-approval-check.mjs
       - name: Fase 1 móvil — numeración editorial universal, secciones y CTA
         run: node scripts/public-editorial-phase1-check.mjs
       - name: Índice editorial opcional — prefijos, títulos originales y persistencia

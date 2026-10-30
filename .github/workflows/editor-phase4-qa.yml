@@ -1,0 +1,44 @@
+name: Editor fase 4 — aprobación PostgreSQL aislada
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261030224017_editor_phase4_approval_20261030.sql'
+      - 'scripts/qa/editor-phase4-*.sql'
+      - '.github/workflows/editor-phase4-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  approval-db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: editor_phase4
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d editor_phase4"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: editor_phase4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Guardias de versión y permisos en base temporal
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f scripts/qa/editor-phase4-fixture.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261030224017_editor_phase4_approval_20261030.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/qa/editor-phase4-assertions.sql
+          echo "Fase 4 PostgreSQL aprobado; ninguna conexión a Supabase real"
