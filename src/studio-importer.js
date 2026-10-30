@@ -255,7 +255,9 @@ export function createImporter(deps) {
       sb.from('series').select('id,title,teams(name)').or('published.eq.true,team_id.eq.' + T.team.id).is('archived_at', null).order('title').limit(500)
     ]);
     let P = null, file = null, fp = null, step = 1, sel = 0, splitting = false, dupAt = null, V = {};
-    const D = { work: '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', notice: null, noticeGetter: null, newTitle: '', newAuthor: '', scanChapterTitles: false, smartTitles: false };
+    const contextualId = new URLSearchParams(location.search).get('obra');
+    const contextualWork = (works || []).find(w => w.id === contextualId) || null;
+    const D = { work: contextualWork?.id || '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', notice: null, noticeGetter: null, newTitle: '', newAuthor: '', scanChapterTitles: false, smartTitles: false };
     let NW = createWorkData();
     app.innerHTML = shell('Importar contenido', '<ol class="imp-steps" id="steps"></ol><div id="wiz"></div><p id="status" class="mono" role="status"></p>', TAB);
     bindPicker(importer);
@@ -263,13 +265,13 @@ export function createImporter(deps) {
     const src = k => k && k.startsWith('img:') ? P.urls.get(k.slice(4)) || '' : k;
     const work = () => (works || []).find(w => w.id === D.work);
     const liveVols = w => (w?.volumes || []).filter(v => !v.deleted_at);
-    const nextVol = w => Math.max(0, ...liveVols(w).map(v => v.num)) + 1;
+    const nextVol = w => Math.max(0, ...(w?.volumes || []).map(v => v.num)) + 1;
     const imgKeys = () => [...P.images.keys()].filter(k => P.images.get(k).blob && /^image\//.test(P.images.get(k).type));
     const usedImgs = () => { const s = new Set(P.chapters.filter(c => !c.skip).flatMap(c => c.blocks.filter(b => b.type === 'image' && b.url?.startsWith('img:')).map(b => b.url.slice(4)))); if (D.cover) s.add(D.cover.slice(4)); return s; };
     const render = () => { $('#steps').innerHTML = ['Archivo', 'Revisar', 'Destino'].map((l, i) => `<li class="${step === i + 1 ? 'on' : step > i + 1 ? 'done' : ''}"><span>${step > i + 1 ? '✓' : i + 1}</span>${l}</li>`).join(''); [null, s1, s2, s3][step](); };
 
     function s1(){
-      W().innerHTML = `<label class="imp-drop" id="drop"><b>Arrastra aquí un EPUB, DOCX o PDF</b><span class="mono">o toca para elegirlo · máx. 80 MB</span><input type="file" id="file" accept=".epub,.docx,.pdf" hidden></label>
+      W().innerHTML = `${contextualWork ? `<p class="imp-context mono">Importarás para <b>${esc(contextualWork.title)}</b>. Podrás cambiar la obra antes de confirmar.</p>` : ''}<label class="imp-drop" id="drop"><b>Arrastra aquí un EPUB, DOCX o PDF</b><span class="mono">o toca para elegirlo · máx. 80 MB</span><input type="file" id="file" accept=".epub,.docx,.pdf" hidden></label>
         <p class="mono">Del EPUB se leen capítulos, ilustraciones, fuentes, portada y datos del libro: autor, editorial, sinopsis y número de volumen.</p>`;
       const dz = $('#drop');
       $('#file').onchange = e => e.target.files[0] && load(e.target.files[0]);
@@ -294,9 +296,10 @@ export function createImporter(deps) {
         suggestSkips(P);
         const key = (P.meta.series || P.title).toLowerCase();
         const guess = (works || []).find(w => w.title && key.includes(w.title.toLowerCase().slice(0, 18)));
-        D.work = guess?.id || ''; D.newTitle = P.meta.series || P.title.replace(/\s*[,:\-–]?\s*(vol(umen|ume)?\.?|tomo)\s*\d+.*$/i, '').trim() || P.title; D.newAuthor = P.meta.author || '';
+        const target = contextualWork || guess;
+        D.work = target?.id || ''; D.newTitle = P.meta.series || P.title.replace(/\s*[,:\-–]?\s*(vol(umen|ume)?\.?|tomo)\s*\d+.*$/i, '').trim() || P.title; D.newAuthor = P.meta.author || '';
         NW = createWorkData({ title: D.newTitle, author: D.newAuthor, illustrator: P.meta.illustrator || '', publisher: P.meta.publisher || '', synopsis: (P.meta.synopsis || '').slice(0, 1500) });
-        D.vnum = P.meta.index || nextVol(guess); D.scanChapterTitles = false; D.smartTitles = false; D.cover = P.cover || null; D.workCover = !guess || !guess.cover_path; D.mode = 'replace';
+        D.vnum = contextualWork ? nextVol(contextualWork) : (P.meta.index || nextVol(guess)); D.scanChapterTitles = false; D.smartTitles = false; D.cover = P.cover || null; D.workCover = !target || !target.cover_path; D.mode = 'replace';
         V = { title: '', subtitle: '', synopsis: P.meta.synopsis || '', synopsis_spoiler: false, publisher: P.meta.publisher || '', imprint: '', illustrator: P.meta.illustrator || '', jp_release: P.meta.date || '', planned_chapters: '', is_final: false, translator_notes: '' };
         sel = Math.max(0, P.chapters.findIndex(c => !c.skip)); splitting = false;
         st(''); step = 2; render();
