@@ -126,19 +126,22 @@ await assert.rejects(saveWorkWithRelations(makeSeriesDb({deny:true}).sb,seriesId
 await assert.rejects(saveWorkWithRelations(makeSeriesDb({wrongUpdate:true}).sb,seriesId,teamId,{relations:[relationship]}),/no confirmó/);
 await assert.rejects(saveWorkWithRelations(makeSeriesDb({wrongRead:true}).sb,seriesId,teamId,{relations:[relationship]}),/no permanecieron/);
 await assert.rejects(saveWorkWithRelations(makeSeriesDb().sb,seriesId,teamId,{relations:[relationship,relationship]}),/no es válida/);
-assert(creator.includes('relations: RL.map('), 'El botón Guardar datos debe incluir las obras relacionadas');
-assert(creator.includes('await saveWorkWithRelations(sb, s.id, T.team.id, patch)'), 'El botón guarda y verifica todas las relaciones');
-assert(!creator.includes("id=\"rel-save\""), 'No debe existir un guardado de relaciones separado y confuso');
-assert(creator.includes('id="rel-save-all"'), 'Las relaciones necesitan una acción local de guardar todos los cambios');
-assert(creator.includes("$('#rel-save-all')?.addEventListener('click', () => $('#wk-savebtn')?.click())"), 'La acción local debe usar el mismo guardado que toda la ficha');
-assert(creator.includes('RL.push({ id: x.id, kind: relKind });') && creator.includes('mark(); drawRel();'),
-  'Agregar una relación debe activar la advertencia de cambios sin guardar');
-assert(creator.includes('RL.splice(+x.dataset.rx, 1); mark();'),
-  'Quitar una relación debe activar la advertencia de cambios sin guardar');
-assert(creator.includes("const pendingQuery = $('#wk-related-search')?.value?.trim()"),
-  'Impedir guardar texto buscado sin elegir una obra');
-assert(creator.includes("work.relatedSaved ="), 'La confirmación debe sobrevivir a la recarga de Editar datos');
-assert(creator.includes('id="wk-rel-save-status"'), 'La ficha debe mostrar estado persistente del guardado');
+const editor = readFileSync('src/studio-related-editor.js','utf8');
+const relatedWidget = readFileSync('src/studio-related-works.js','utf8');
+assert(creator.includes('relations: RL.map('), 'Guardar datos incluye las relaciones');
+assert(creator.includes('await saveWorkWithRelations(sb, s.id, T.team.id, patch)'), 'El guardado verifica la persistencia');
+assert(creator.includes('mountWorkRelationsEditor('), 'Editar datos monta el panel estable');
+assert(creator.includes("onSave:() => $('#wk-savebtn')?.click()"), 'Guardar relaciones invoca el guardado unificado');
+assert(editor.includes('id="rel-save-all"') && editor.includes('data-rel-save'), 'Acción local de guardar');
+assert(editor.includes('relations.push({ id:chosen.id, kind:relationKind })') && editor.includes('onDirty()'), 'Seleccionar añade al estado y lo marca pendiente');
+assert(editor.includes('selectedRows.innerHTML = relations.map('), 'Actualizar las filas no recrea el buscador');
+assert(editor.includes('picker?.refresh()') && editor.includes('picker?.destroy()'), 'El selector debe refrescarse y liberarse');
+assert(creator.includes('work.relatedEditor?.destroy()'), 'Desmontar listeners de la ficha anterior');
+assert(creator.includes('const pendingQuery = relEditor?.pendingSearchText()'), 'No guardar búsquedas sin seleccionar');
+assert(creator.includes('work.relatedSaved ='), 'El estado confirmado sobrevive a recarga');
+assert(editor.includes('id="wk-rel-save-status"'), 'Mostrar confirmación persistente');
+assert(relatedWidget.includes('activePicker') && relatedWidget.includes('outsideController?.abort()'), 'Los listeners globales deben cancelarse');
+assert(relatedWidget.includes('ignoreNextFocus = true'), 'Escape no debe reabrir resultados');
 const auditMigration = readFileSync('supabase/migrations/20261030071009_studio_related_relations_audit_20261030.sql','utf8');
 assert(auditMigration.includes('after insert or update of relations on public.series'),
   'El registro debe dispararse con cambios de relaciones');
