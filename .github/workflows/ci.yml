@@ -37,6 +37,8 @@ jobs:
         run: node scripts/editor-phase4-approval-check.mjs
       - name: Editor Fase 5 — asistente de escritura y glosario (Chromium aislado)
         run: node scripts/editor-phase5-writing-check.mjs
+      - name: Estudio · parche barra sticky con scroll de 3000px (1470/390/320, Chromium)
+        run: node scripts/editor-visual-sticky-browser.mjs
       - name: Fase 1 móvil — numeración editorial universal, secciones y CTA
         run: node scripts/public-editorial-phase1-check.mjs
       - name: Índice editorial opcional — prefijos, títulos originales y persistencia
