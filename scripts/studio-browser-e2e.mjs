@@ -51,6 +51,7 @@ const whitelist = new Map([
  ['/editorial-collaboration.js','src/editorial-collaboration.js'],
  ['/editorial-suggestion-panel.js','src/editorial-suggestion-panel.js'],
  ['/editorial-approval-panel.js','src/editorial-approval-panel.js'],
+ ['/editorial-writing-tools.js','src/editorial-writing-tools.js'],
  ['/studio-media.js','src/studio-media.js'],
  ['/blocks.js','src/blocks.js'],
  ['/__qa__/fixture.mjs','scripts/fixtures/studio-browser-fixture.mjs'],

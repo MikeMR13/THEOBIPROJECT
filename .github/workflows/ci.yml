@@ -35,6 +35,8 @@ jobs:
         run: node scripts/editor-phase3-collaboration-check.mjs
       - name: Editor Fase 4 — aprobación de versión, publicación segura y tablero
         run: node scripts/editor-phase4-approval-check.mjs
+      - name: Editor Fase 5 — asistente de escritura y glosario (Chromium aislado)
+        run: node scripts/editor-phase5-writing-check.mjs
       - name: Fase 1 móvil — numeración editorial universal, secciones y CTA
         run: node scripts/public-editorial-phase1-check.mjs
       - name: Índice editorial opcional — prefijos, títulos originales y persistencia
