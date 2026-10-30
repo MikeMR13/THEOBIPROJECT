@@ -88,6 +88,7 @@ try {
   relatedInput.focus(); relatedInput.value = 'brujá'; relatedInput.dispatchEvent(new Event('input', { bubbles:true }));
   const relatedButton = app.querySelector('.srp-result');
   ok(!!relatedButton && relatedButton.textContent.includes('Bruja'), 'La búsqueda debe encontrar títulos sin acentos');
+  await until(() => !!document.getElementById('st2-works-css')?.sheet, 'estilos de obras relacionadas');
   const resultPanel = app.querySelector('[data-related-results]');
   ok(resultPanel.getBoundingClientRect().right <= document.documentElement.clientWidth + 2,
     'El buscador se sale horizontalmente del viewport');
