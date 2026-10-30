@@ -79,9 +79,19 @@ export function mountRelatedSearch(root, { works = [], exclude = () => [], onPic
     hide();
     onPick(selected);
   });
-  root.addEventListener('focusout', () => queueMicrotask(() => {
-    if (!root.contains(document.activeElement)) hide();
-  }));
+  // No ocultar al perder el foco: en Safari/iOS y ciertos clics de ratón,
+  // focusout ocurre ANTES de click y retiraba la opción bajo el puntero.
+  // Cerramos solo al pulsar o enfocar algo FUERA del componente.
+  const outside = event => {
+    if (!root.isConnected) {
+      document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('focusin', outside);
+      return;
+    }
+    if (!root.contains(event.target)) hide();
+  };
+  document.addEventListener('pointerdown', outside);
+  document.addEventListener('focusin', outside);
   status.textContent = works.length
     ? `${works.length} obras visibles. Escribe y pulsa una obra de los resultados para añadirla.`
     : 'No hay obras visibles para enlazar.';
