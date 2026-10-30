@@ -25,7 +25,9 @@ export function createEditor(deps) {
     const nextWhen = nx?.[0]?.at ? fmtTz(nx[0].at, { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'fecha del siguiente';
     const meta = { section_type: c.section_type || 'Capítulo', teaser: c.teaser || '', teaser_on: !!c.teaser_on, content_warnings: [...(c.content_warnings || [])] };
     let version = c.version, dirty = false, conflict = false, edits = 0, autoT = 0, pvT = 0, saving = null, lastRange = null, viewing = null, L = { counts: {}, total: 0, gloss: [] };
-    const UI = { view: localStorage.getItem('obi-ed-view') || 'split', theme: 'oscuro', device: 'desk' };
+    const savedView = localStorage.getItem('obi-ed-view');
+    const initialView = ['orig','edit','split','preview'].includes(savedView) ? savedView : (window.matchMedia?.('(max-width: 760px)').matches ? 'edit' : 'split');
+    const UI = { view: initialView, theme: 'oscuro', device: 'desk' };
     const local = (() => { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } })();
     const hasLocal = local?.at && (local.html || local.blocks);
     const ST2 = { draft: 'Borrador', scheduled: 'Programado', published: 'Publicado' };
@@ -57,14 +59,16 @@ export function createEditor(deps) {
             <div class="ed-chips" id="cw">${CW.map(w => `<button type="button" class="ed-chip ${meta.content_warnings.includes(w) ? 'on' : ''}" aria-pressed="${meta.content_warnings.includes(w)}" data-cw="${esc(w)}">${esc(w)}</button>`).join('')}</div>
             <span style="font-size:12px;color:#a89f8a;line-height:1.45">Aparecen como aviso plegable al inicio del capítulo. Cada lector decide en sus ajustes si los ve plegados, solo como icono o nunca.</span></div>
         </div></details>
-      <div class="ed-bar" role="toolbar" aria-label="Formato">
+      <div class="ed-mobile-view" role="group" aria-label="Modo de edición en pantalla pequeña"><button type="button" class="ed-btn" data-view="edit" aria-controls="split">Editor</button><button type="button" class="ed-btn" data-view="preview" aria-controls="split">Vista previa</button><button type="button" class="ed-btn" data-view="split" aria-controls="split">Ambos</button><button type="button" class="ed-btn" data-view="orig" aria-controls="split">Original</button></div>
+      <p class="ed-toolbar-hint" id="ed-toolbar-hint">Desliza la barra de formato horizontalmente para ver más herramientas.</p>
+      <div class="ed-bar" role="toolbar" aria-label="Formato" aria-describedby="ed-toolbar-hint">
         <select id="blk" aria-label="Tipo de bloque"><option value="P">Párrafo</option><option value="H3">Título</option><option value="BLOCKQUOTE">Cita</option><option value="ASIDE">Nota del traductor</option></select>
         <select id="ff" aria-label="Tipografía del fragmento"><option value="">Tipografía del cuerpo</option>${FONTS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}<option value="-">Quitar tipografía</option></select>
         <span class="div"></span>
-        <button class="ed-btn" data-cmd="bold" title="Negrita (Ctrl+B)"><b>B</b></button><button class="ed-btn" data-cmd="italic" title="Cursiva (Ctrl+I)"><i>I</i></button><button class="ed-btn" data-cmd="underline" title="Subrayado (Ctrl+U)"><u>U</u></button><button class="ed-btn" data-cmd="strikeThrough" title="Tachado"><s>S</s></button>
-        <button class="ed-btn" data-act="ruby" title="Furigana sobre la selección">ルビ</button><button class="ed-btn" data-act="sep" title="Separador de escena">※</button><button class="ed-btn" data-act="img" title="Insertar ilustración">▣ Imagen</button><input type="file" id="imgf" accept="image/*" hidden>
-        <button class="ed-btn" data-cmd="undo" title="Deshacer (Ctrl+Z)">↶</button><button class="ed-btn" data-cmd="redo" title="Rehacer">↷</button>
-        <span class="end"><button class="ed-btn" data-act="find" aria-expanded="false">Buscar y reemplazar</button><button class="ed-btn" data-act="coms" aria-expanded="false">Lectores · ${(coms || []).length + reps.length}</button><span class="div"></span>
+        <button class="ed-btn" data-cmd="bold" title="Negrita (Ctrl+B)" aria-label="Negrita"><b>B</b></button><button class="ed-btn" data-cmd="italic" title="Cursiva (Ctrl+I)" aria-label="Cursiva"><i>I</i></button><button class="ed-btn" data-cmd="underline" title="Subrayado (Ctrl+U)" aria-label="Subrayado"><u>U</u></button><button class="ed-btn" data-cmd="strikeThrough" title="Tachado" aria-label="Tachado"><s>S</s></button>
+        <button class="ed-btn" data-act="ruby" title="Furigana sobre la selección" aria-label="Añadir furigana a la selección">ルビ</button><button class="ed-btn" data-act="sep" title="Separador de escena" aria-label="Insertar separador de escena">※</button><button class="ed-btn" data-act="img" title="Insertar ilustración" aria-label="Insertar ilustración">▣ Imagen</button><input type="file" id="imgf" accept="image/*" hidden>
+        <button class="ed-btn" data-cmd="undo" title="Deshacer (Ctrl+Z)" aria-label="Deshacer">↶</button><button class="ed-btn" data-cmd="redo" title="Rehacer" aria-label="Rehacer">↷</button>
+        <span class="end"><button class="ed-btn" data-act="find" aria-expanded="false" aria-controls="p-find">Buscar y reemplazar</button><button class="ed-btn" data-act="coms" aria-expanded="false" aria-controls="p-coms">Lectores · ${(coms || []).length + reps.length}</button><span class="div"></span>
           <button class="ed-btn" data-view="orig" title="Texto original junto al editor">Original</button><button class="ed-btn" data-view="edit">Editor</button><button class="ed-btn" data-view="split">Ambos</button><button class="ed-btn" data-view="preview">Vista previa</button></span>
       </div>
       <div id="ask"></div>
@@ -87,7 +91,7 @@ export function createEditor(deps) {
     const topOf = n => { while (n && n.parentNode !== doc) n = n.parentNode; return n; };
     const cur = () => topOf(lastRange?.startContainer) || doc.lastElementChild;
     const textNodes = () => { const w = document.createTreeWalker(doc, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest('rt,figure,.sep') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT }); const a = []; let n; while ((n = w.nextNode())) a.push(n); return a; };
-    const views = () => { $('#split').dataset.view = UI.view; root.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === UI.view)); root.querySelectorAll('[data-theme]').forEach(b => b.classList.toggle('on', b.dataset.theme === UI.theme)); root.querySelectorAll('[data-device]').forEach(b => b.classList.toggle('on', b.dataset.device === UI.device)); pv.classList.toggle('mobile', UI.device === 'mobile'); };
+    const views = () => { $('#split').dataset.view = UI.view; root.querySelectorAll('[data-view]').forEach(b => { const on = b.dataset.view === UI.view; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); root.querySelectorAll('[data-theme]').forEach(b => { const on = b.dataset.theme === UI.theme; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); root.querySelectorAll('[data-device]').forEach(b => { const on = b.dataset.device === UI.device; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); pv.classList.toggle('mobile', UI.device === 'mobile'); };
 
     // vista previa con el mismo render del lector
     function preview(){
@@ -292,6 +296,7 @@ export function createEditor(deps) {
       else document.execCommand('insertText', false, plain);
     });
     doc.addEventListener('drop', e => { if (e.dataTransfer?.files?.length) { e.preventDefault(); toast('Usa «▣ Imagen» para insertar ilustraciones'); } });
+    doc.addEventListener('keydown', e => { const f = e.target.closest?.('figure[data-url]'); if (!f || !['Enter',' '].includes(e.key)) return; e.preventDefault(); f.click(); });
     doc.addEventListener('click', e => {
       const f = e.target.closest('figure'); if (!f) return; doc.querySelectorAll('.on').forEach(x => x.classList.remove('on')); f.classList.add('on');
       ask([{ label: 'Descripción', value: f.dataset.alt, ph: 'Qué se ve en la ilustración' }, { label: 'Pie', value: f.dataset.caption, ph: 'Opcional' }], ([alt, cap]) => { const decorative = !!$('#askdeco')?.checked; const t = document.createElement('template'); t.innerHTML = figureHTML(f.dataset.url, decorative ? '' : alt.trim(), cap.trim(), media, decorative); f.replaceWith(t.content.firstElementChild); changed(); }, `<label class="mono"><input type="checkbox" id="askdeco" ${f.dataset.decorative === '1' ? 'checked' : ''}> Ilustración decorativa (sin descripción por decisión editorial)</label><button class="btn ghost danger" id="figdel">Quitar ilustración</button>`);
@@ -346,6 +351,7 @@ export function createEditor(deps) {
       if (m && !e.shiftKey && !e.altKey && k === 's') { e.preventDefault(); $('#save').click(); }
       else if (m && e.shiftKey && k === 'f') { e.preventDefault(); zen(!root.classList.contains('zen')); }
       else if (k === 'escape' && root.classList.contains('zen') && !document.fullscreenElement) zen(false);
+      else if (k === 'escape' && !$('#p-find').hidden) { $('#p-find').hidden = true; const btn = root.querySelector('[data-act="find"]'); btn?.setAttribute('aria-expanded','false'); btn?.classList.remove('on'); btn?.focus(); }
       else if (m && e.altKey && (k === 'arrowleft' || k === 'arrowright')) { const t = k === 'arrowleft' ? prevC : nextC; if (t) { e.preventDefault(); zen(false); if (dirty) doSave(false); go('/estudio/editar/' + t.id); } } };
     const leave = e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } };
     const nav = e => { if (!alive()) return cleanup(); if (e.target.closest('a[href]')) { if (root.classList.contains('zen')) zen(false); if (dirty) doSave(false); } };

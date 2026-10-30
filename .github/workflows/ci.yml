@@ -29,6 +29,8 @@ jobs:
         run: node scripts/importer-safety-check.mjs
       - name: Editor Fase 1 — calidad editorial, alt y regresión Chromium (sin backend)
         run: node scripts/editor-phase1-quality-check.mjs
+      - name: Editor Fase 2 — móvil, teclado y foco (Chromium aislado)
+        run: node scripts/editor-phase2-mobile-browser-check.mjs
       - name: Fase 1 móvil — numeración editorial universal, secciones y CTA
         run: node scripts/public-editorial-phase1-check.mjs
       - name: Índice editorial opcional — prefijos, títulos originales y persistencia
