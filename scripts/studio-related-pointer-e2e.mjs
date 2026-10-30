@@ -114,6 +114,8 @@ try{
   await until("document.querySelector('.srp-result')?.textContent.includes('Bruja')",'búsqueda con ratón');
   await click('.srp-result .srp-select-action');
   await until("window.__qaState.selected().length===1 && document.querySelector('[data-rel-selected]')?.textContent.includes('Bruja')",'selección de ratón');
+  assert.equal(await evalJS("document.querySelector('#wk-related-search').value==='Magia de la Bruja del Viento' && !!document.querySelector('#wk-related-search').dataset.relatedSelected"),true,
+    'El campo quedó en blanco tras seleccionar con el ratón');
   assert.equal(await evalJS('window.__qaState.persisted().length'),0,'No se debe guardar antes de confirmar');
   await click('#rel-save-all');
   await until('window.__qaState.persisted().length===1','persistencia tras clic real');
@@ -137,6 +139,8 @@ try{
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   await until("window.__qaState.selected().length===2",'selección táctil móvil');
+  assert.equal(await evalJS("document.querySelector('#wk-related-search').value==='La Fortaleza del Norte' && !!document.querySelector('#wk-related-search').dataset.relatedSelected"),true,
+    'El campo quedó en blanco tras tocar la selección en móvil');
   await click('#rel-save-all');
   await until("window.__qaState.persisted().length===2",'guardado después del toque');
   console.log('✓ Chromium CDP real: ratón → seleccionar → guardar → reabrir, Escape y toque móvil → seleccionar → guardar');
