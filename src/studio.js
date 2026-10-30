@@ -405,11 +405,12 @@ export function createStudio(ctx){
        <span class="mono" id="s2-work-count" role="status"></span>
        ${can('create')||can('import')?'<a class="btn ghost s2-work-create" href="/estudio/nueva">＋ Nueva obra</a>':''}
      </div>`;
-    const card = w => { const c = chs.filter(x => x.series_id === w.id), pub = c.filter(x => x.status === 'published'), dr = c.filter(x => x.status === 'draft').length;
+    const card = (w,stats) => { const c = chs.filter(x => x.series_id === w.id), pub = c.filter(x => x.status === 'published'), dr = c.filter(x => x.status === 'draft').length;
       const nx = [...c.filter(x => x.status === 'scheduled' && new Date(x.publish_at) > Date.now()).map(x => ({ at: x.publish_at, l: 'Cap. ' + x.num })), ...sched.filter(e => e.series_id === w.id).map(e => ({ at: e.at, l: e.label }))].sort((a, b) => new Date(a.at) - new Date(b.at))[0];
       const last = pub.sort((a, b) => new Date(b.publish_at) - new Date(a.publish_at))[0], st = TLS[w.translation_status] || TLS.active;
       return `<article class="s2-work" style="--c:${wcolor(w)}"><a class="cv" href="/estudio/obra/${w.slug}" style="${w.cover_path ? `background-image:url('${esc(media(w.cover_thumb_path || w.cover_path))}')` : ''}">${w.cover_path ? '' : `<span>${esc(w.short || w.title)}</span>`}</a>
         <div class="bd"><span class="tg"><span class="pl" style="--p:${st[1]}">${st[0]}</span><small>${(w.volumes||[]).filter(v=>!v.deleted_at).length} vol. · ${c.length} cap.${w.published ? '' : ' · privada'}</small></span>
+          ${stats?.attention ? `<span class="s2-work-alert">⚑ Necesita atención${stats.correction ? ' · Corrección' : stats.drafts ? ' · Borradores' : !w.cover_path ? ' · Sin portada' : !w.published ? ' · Privada' : ''}</span>` : ''}
           <h2 title="${esc(w.title)}"><a href="/estudio/obra/${w.slug}">${esc(w.title)}</a></h2>${w.synopsis ? `<p>${esc(w.synopsis)}</p>` : ''}
           ${(w.genres || []).length ? `<span class="gn">${w.genres.slice(0, 5).map(g => `<span>${esc(g)}</span>`).join('')}</span>` : ''}
           <dl>${nx ? `<div><dt>PRÓXIMO</dt><dd class="s2-next-set">${esc(nx.l) + ' · ' + until(nx.at)}</dd></div>` : ''}<div><dt>BORRADORES</dt><dd>${dr}</dd></div><div><dt>LECTURAS</dt><dd>${(w.views || 0).toLocaleString('es-MX')}</dd></div><div><dt>ÚLTIMO PUBLICADO</dt><dd>${last ? 'Cap. ' + last.num + ' · ' + ago(last.publish_at) : '—'}</dd></div></dl>
@@ -442,7 +443,7 @@ export function createStudio(ctx){
       const renderResults = () => {
         const rows=chosen();
         results.dataset.view=state.view;
-        results.innerHTML=rows.length ? rows.map(({work})=>card(work)).join('') :
+        results.innerHTML=rows.length ? rows.map(({work,stats})=>card(work,stats)).join('') :
           '<p class="s2-work-none" role="status">No hay obras que coincidan. Cambia los filtros para verlas.</p>';
         qs('count').textContent=rows.length+' de '+list.length+' obras';
       };
