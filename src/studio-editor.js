@@ -4,6 +4,7 @@ import { blocksToEditor, editorToBlocks, pasteToEditor, renderBlock, warningsHTM
 import { askEditorialAnnouncement, saveEditorialRecord } from './editorial-announcements.js?v=1';
 import {setupEditorialCollaboration} from './editorial-suggestion-panel.js?v=1';
 import {setupEditorialApproval,teamApprovalRequired} from './editorial-approval-panel.js?v=1';
+import {attachWritingTools,TYPING_PREF_KEY} from './editorial-writing-tools.js?v=1';
 export function createEditor(deps) {
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, names, home, errMsg, rpc, LIMITS, SEC } = deps;
   // ---------- editor de página: vista previa del lector, revisión automática, historial, avance y marcadores ----------
@@ -17,7 +18,7 @@ export function createEditor(deps) {
     if (!c) return go('/estudio');
     const KEY = 'obi-draft-' + id, now = new Date().toISOString();
     const [{ data: gl }, { data: coms }, { data: reps0 }, { data: nx }, { data: sib }] = await Promise.all([
-      sb.from('glossary_terms').select('term,category').eq('series_id', c.series_id),
+      sb.from('glossary_terms').select('term,category,definition').eq('series_id', c.series_id),
       sb.from('comments').select('id,para,body,spoiler,created_at,user_id').eq('chapter_id', id).is('parent_id', null).order('created_at', { ascending: false }).limit(100),
       sb.from('reports').select('id,kind,quote,fix,created_at').eq('chapter_id', id).eq('status', 'open').order('created_at', { ascending: false }),
       sb.from('schedule').select('at').eq('series_id', c.series_id).gte('at', now).order('at').limit(1),
@@ -77,6 +78,11 @@ export function createEditor(deps) {
         <span class="end"><button class="ed-btn" data-act="find" aria-expanded="false" aria-controls="p-find">Buscar y reemplazar</button><button class="ed-btn" data-act="coms" aria-expanded="false" aria-controls="p-coms">Lectores · ${(coms || []).length + reps.length}</button><span class="div"></span>
           <button class="ed-btn" data-view="orig" title="Texto original junto al editor">Original</button><button class="ed-btn" data-view="edit">Editor</button><button class="ed-btn" data-view="split">Ambos</button><button class="ed-btn" data-view="preview">Vista previa</button></span>
       </div>
+      <div class="ed-writing-settings">
+        <label class="ed-writing-toggle"><input type="checkbox" id="ed-smart-typing"> Autocorrección tipográfica al escribir</label>
+        <span class="ed-writing-caption">Opcional: tres puntos → … y -- al inicio de un párrafo → —. El glosario sugiere términos sin cambiar tu texto automáticamente.</span>
+      </div>
+      <div class="ed-gloss-inline" id="ed-gloss-inline" role="status" aria-live="polite" aria-label="Sugerencias del glosario" hidden></div>
       <div id="ask"></div>
       <div class="ed-find" id="p-find" hidden><input type="text" id="fq" placeholder="Buscar" aria-label="Buscar"><input type="text" id="rq" placeholder="Reemplazar por" aria-label="Reemplazar por"><label class="mono" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="fcase" style="width:auto"> Mayúsculas exactas</label><button class="btn ghost" id="fnext">Siguiente</button><button class="btn" id="frep">Reemplazar todo</button><span class="mono" id="finfo"></span></div>
       <div class="ed-box" id="p-coms" hidden></div>
@@ -88,6 +94,10 @@ export function createEditor(deps) {
       </div><div class="ed-zenbar" id="zenbar" role="status"></div></div>`, '/estudio/obra');
     bindPicker(home);
     const doc = $('#doc'), pv = $('#pv'), root = $('.ed');
+    const ac=$('#ed-smart-typing');
+    try{ac.checked=localStorage.getItem(TYPING_PREF_KEY)==='1';}catch{ac.checked=false;}
+    const writing=attachWritingTools({doc,box:$('#ed-gloss-inline'),checkbox:ac,
+      glossary:gl||[],change:()=>changed(),toast});
     try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch {}
     const load = blocks => { doc.innerHTML = blocksToEditor(blocks, media); };
     load(c.body);
@@ -161,14 +171,27 @@ export function createEditor(deps) {
       }
       version = data; if ($('#ver')) $('#ver').textContent = version;
       try { chan?.send({ type: 'broadcast', event: 'saved', payload: { version, name: myName, by: meU?.id } }); } catch {}
-      if (edits === mine) { dirty = false; localStorage.removeItem(KEY); setState('', manual ? '✓ Guardado · versión creada' : '✓ Guardado automáticamente'); } else setState('busy', 'Cambios sin guardar');
+      if (edits === mine) { dirty = false; clearTimeout(draftTimer); draftTimer=0; localStorage.removeItem(KEY); setState('', manual ? '✓ Guardado · versión creada' : '✓ Guardado automáticamente'); } else setState('busy', 'Cambios sin guardar');
       if ($('#p-hist') && !$('#p-hist').hidden) drawHist();
       return true;
+    }
+    let draftTimer=0,draftLast=0;
+    function flushDraft(){
+      if(!dirty)return;
+      draftLast=Date.now();
+      try{localStorage.setItem(KEY,JSON.stringify({
+        html:doc.innerHTML,title:$('#ttl').value,meta,version,at:draftLast
+      }));}catch{/* Cuota de almacenamiento: el guardado versionado remoto sigue activo. */}
+    }
+    function queueDraft(){
+      if(draftTimer)return;
+      const delay=Math.max(0,1000-(Date.now()-draftLast));
+      draftTimer=setTimeout(()=>{draftTimer=0;flushDraft();},delay);
     }
     function changed(){
       edits++; dirty = true; if (!doc.firstElementChild && !doc.textContent.trim()) doc.innerHTML = '<p><br></p>';
       if (!conflict) setState('busy', 'Cambios sin guardar');
-      localStorage.setItem(KEY, JSON.stringify({ html: doc.innerHTML, title: $('#ttl').value, meta, version, at: Date.now() }));
+      queueDraft();
       clearTimeout(pvT); pvT = setTimeout(() => { lint(); preview(); drawZen(); }, 250);
       clearTimeout(autoT); autoT = setTimeout(() => doSave(false), 5000);
     }
@@ -378,11 +401,11 @@ export function createEditor(deps) {
       else if (k === 'escape' && root.classList.contains('zen') && !document.fullscreenElement) zen(false);
       else if (k === 'escape' && !$('#p-find').hidden) { $('#p-find').hidden = true; const btn = root.querySelector('[data-act="find"]'); btn?.setAttribute('aria-expanded','false'); btn?.classList.remove('on'); btn?.focus(); }
       else if (m && e.altKey && (k === 'arrowleft' || k === 'arrowright')) { const t = k === 'arrowleft' ? prevC : nextC; if (t) { e.preventDefault(); zen(false); if (dirty) doSave(false); go('/estudio/editar/' + t.id); } } };
-    const leave = e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } };
+    const leave = e => { if (dirty) { flushDraft(); e.preventDefault(); e.returnValue = ''; } };
     const nav = e => { if (!alive()) return cleanup(); if (e.target.closest('a[href]')) { if (root.classList.contains('zen')) zen(false); if (dirty) doSave(false); } };
-    const vis = () => { if (!alive()) return cleanup(); if (document.hidden && dirty) doSave(false); };
-    const cleanup = () => { removeEventListener('keydown', key); removeEventListener('beforeunload', leave); document.removeEventListener('click', nav, true); document.removeEventListener('visibilitychange', vis); document.removeEventListener('fullscreenchange', fsc); clearTimeout(autoT); if (srcT) { clearTimeout(srcT); saveSrc(); srcT = 0; } try { if (chan) sb.removeChannel(chan); } catch {} chan = null; document.body.style.overflow = ''; };
-    addEventListener('keydown', key); addEventListener('beforeunload', leave); document.addEventListener('click', nav, true); document.addEventListener('visibilitychange', vis);
+    const vis = () => { if (!alive()) return cleanup(); if (document.hidden && dirty) {flushDraft(); doSave(false);} };
+    const cleanup = () => { if(dirty)flushDraft();clearTimeout(draftTimer);writing.dispose();removeEventListener('pagehide',flushDraft);removeEventListener('keydown', key); removeEventListener('beforeunload', leave); document.removeEventListener('click', nav, true); document.removeEventListener('visibilitychange', vis); document.removeEventListener('fullscreenchange', fsc); clearTimeout(autoT); if (srcT) { clearTimeout(srcT); saveSrc(); srcT = 0; } try { if (chan) sb.removeChannel(chan); } catch {} chan = null; document.body.style.overflow = ''; };
+    addEventListener('keydown', key); addEventListener('pagehide',flushDraft); addEventListener('beforeunload', leave); document.addEventListener('click', nav, true); document.addEventListener('visibilitychange', vis);
     views(); drawPub(); lint(); preview(); drawOrig();
   }
 
