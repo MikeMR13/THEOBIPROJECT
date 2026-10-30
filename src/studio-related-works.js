@@ -29,11 +29,11 @@ export function relatedSearchHTML(id) {
   return `<div class="srp" data-related-search>
     <label class="srp-label" for="${id}">Buscar obra por título o equipo
       <input id="${id}" data-related-query type="search" autocomplete="off"
-        placeholder="Escribe un título o el nombre del equipo…" aria-controls="${id}-results">
+        placeholder="Escribe un título o el nombre del equipo…" aria-controls="${id}-results" aria-expanded="false" aria-describedby="${id}-status">
     </label>
     <div class="srp-results" id="${id}-results" data-related-results
       role="group" aria-label="Obras disponibles" hidden></div>
-    <p class="mono srp-status" data-related-status role="status">Haz clic en el campo para buscar obras.</p>
+    <p class="mono srp-status" id="${id}-status" data-related-status role="status">Haz clic en el campo para buscar obras.</p>
   </div>`;
 }
 
@@ -66,7 +66,7 @@ export function mountRelatedSearch(root, { works = [], exclude = () => [], onPic
   const draw = () => {
     const { items, total } = searchRelatedWorks(works, input.value, exclude());
     results.innerHTML = items.map(w => `<button type="button" class="srp-result"
-      data-related-id="${esc(w.id)}" title="${esc(w.title)}">
+      data-related-id="${esc(w.id)}" title="${esc(w.title)}" aria-label="Seleccionar obra: ${esc(w.title)}, ${esc(w.teams?.name || 'Equipo sin nombre')}">
       <span class="srp-title">${esc(w.title)}</span>
       <small>${esc(w.teams?.name || 'Equipo sin nombre')}</small>
       <span class="srp-select-action" aria-hidden="true">＋ Seleccionar obra</span>
