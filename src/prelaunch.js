@@ -62,12 +62,34 @@ export function bind(pre,app,sb,getUser,go,toast){
   const v=pre.volumes.find(v=>v.id===b.dataset.preRem);if(!v)return;
   const at=new Date(v.published_at).toISOString();
   const where=()=>sb.from('reminders').select('id').eq('series_id',pre.series.id).eq('kind','volp').eq('at',at).is('sent_at',null);
-  let id=getUser()?(await where().maybeSingle()).data?.id:null;
-  if(id)b.textContent='✓ Recordatorio activado';
-  b.onclick=async()=>{if(!getUser()){toast('Entra para activar avisos');return go('/entrar');}b.disabled=true;
-   try{if(id){const r=await sb.from('reminders').delete().eq('id',id);if(r.error)throw r.error;id=null;b.textContent='🔔 Avísame al publicarse';}
-   else{const r=await sb.from('reminders').insert({series_id:pre.series.id,kind:'volp',at,label:'Volumen '+v.num}).select('id').single();if(r.error)throw r.error;id=r.data.id;b.textContent='✓ Recordatorio activado';}}
-   catch(e){toast(e.message||'No se pudo guardar el aviso');}finally{b.disabled=false;}
+  let id=null, ready=false;
+  const sync = async () => {
+   const u=getUser(); if(!u){ready=true;return;}
+   b.disabled=true;
+   try {
+    const {data,error}=await where().eq('user_id',u.id).maybeSingle();
+    if(error) throw error;
+    if(b.isConnected&&getUser()?.id===u.id){id=data?.id||null;ready=true;b.textContent=id?'✓ Recordatorio activado':'🔔 Avísame al publicarse';}
+   }catch(e){ready=false;toast(e.message||'No se pudo comprobar el recordatorio');}
+   finally{if(b.isConnected)b.disabled=false;}
+  };
+  await sync();
+  b.onclick=async()=>{
+   const u=getUser();if(!u){toast('Entra para activar avisos');return go('/entrar');}
+   if(!ready){await sync();if(!ready)return;}
+   b.disabled=true;
+   try {
+    if(id){
+     const r=await sb.from('reminders').delete().eq('id',id).eq('user_id',u.id);
+     if(r.error)throw r.error;
+     id=null;b.textContent='🔔 Avísame al publicarse';
+    }else{
+     const r=await sb.from('reminders').upsert({user_id:u.id,series_id:pre.series.id,kind:'volp',at,label:'Volumen '+v.num},{onConflict:'user_id,series_id,kind,at'}).select('id').single();
+     if(r.error)throw r.error;
+     id=r.data.id;b.textContent='✓ Recordatorio activado';
+    }
+   }catch(e){toast(e.message||'No se pudo guardar el aviso');await sync();}
+   finally{b.disabled=false;}
   };
  });
 }
