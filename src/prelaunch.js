@@ -1,4 +1,5 @@
 import { creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
+import { recordPrelaunchView } from './prelaunch-views.js?v=1';
 // Primer vistazo: esta vista nunca consulta ni expone capítulos borrador.
 const css = '.pre-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0}.pre-actions .btn{min-height:44px}.pre-actions-note{font-size:12px;color:#a89f8a;line-height:1.5;margin:4px 0 0}.pre-card{display:grid;grid-template-columns:90px minmax(0,1fr);gap:16px;padding:16px;background:#16140f;border:1px solid #3d3628;margin:12px 0}.pre-cover{aspect-ratio:2/3;background:#29251d center/cover no-repeat}.pre-info{display:grid;gap:9px;align-content:start}.pre-info h3{margin:0}.pre-timer{color:#8cc3f2;font:700 15px monospace}.pre-lock{color:#cfc6b0;font:12px monospace}@media(max-width:560px){.pre-card{grid-template-columns:65px minmax(0,1fr);gap:10px;padding:10px}}';
 function style(){if(document.getElementById('pre-css'))return;const s=document.createElement('style');s.id='pre-css';s.textContent=css;document.head.appendChild(s);}
@@ -20,6 +21,7 @@ export function landing(pre, app, esc, media){
 }
 export function bind(pre,app,sb,getUser,go,toast){
  if(!pre?.volumes?.length)return;
+ void recordPrelaunchView(sb,pre); // Medición agregada, jamás bloquea la lectura o los controles.
  const follow = app.querySelector('[data-pre-follow]');
  if (follow) {
   let active = false, busy = false;
