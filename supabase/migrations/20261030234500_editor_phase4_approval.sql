@@ -116,7 +116,7 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
  IF NEW.require_approval IS NOT DISTINCT FROM OLD.require_approval THEN RETURN NEW; END IF;
  IF auth.uid() IS NOT NULL
-    AND private.team_role_of(NEW.id) NOT IN ('owner','admin') THEN
+    AND coalesce(private.team_role_of(NEW.id)::text,'') NOT IN ('owner','admin') THEN
    RAISE EXCEPTION 'forbidden_approval_policy' USING ERRCODE='42501'; END IF;
  IF NEW.require_approval AND EXISTS (
    SELECT 1 FROM public.chapters c JOIN public.series s ON s.id=c.series_id
@@ -140,7 +140,7 @@ CREATE FUNCTION public.editor_set_team_approval(p_team uuid,p_enabled boolean)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
  IF auth.uid() IS NULL OR p_enabled IS NULL OR
-    private.team_role_of(p_team) NOT IN ('owner','admin') THEN
+    coalesce(private.team_role_of(p_team)::text,'') NOT IN ('owner','admin') THEN
     RAISE EXCEPTION 'forbidden_approval_policy' USING ERRCODE='42501'; END IF;
  UPDATE public.teams SET require_approval=p_enabled WHERE id=p_team;
  IF NOT FOUND THEN RAISE EXCEPTION 'team_not_found' USING ERRCODE='P0002'; END IF;
