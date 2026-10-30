@@ -223,6 +223,37 @@ try {
   pick.querySelector('.srp-select-action').click();
   ok(app.querySelector('.srp-selected-info')?.textContent.includes('Bruja'),
     'Editar datos no muestra la obra seleccionada');
+  ok(query.isConnected && app.querySelector('#wk-related-search') === query,
+    'Seleccionar una obra reemplazó el buscador y sus eventos');
+  const relatedList = app.querySelector('#wk-rel-b [data-rel-selected]');
+  ok(!!relatedList && relatedList.textContent.includes('Bruja'),
+    'La selección debe mostrarse inmediatamente en la lista estable');
+  // Cambiar el tipo no debe desmontar los resultados ni recrear la entrada.
+  const selectedKind = relatedList.querySelector('[data-rk]');
+  selectedKind.value = 'secuela';
+  selectedKind.dispatchEvent(new Event('change',{bubbles:true}));
+  ok(query === app.querySelector('#wk-related-search'),
+    'Cambiar tipo de relación reconstruyó el buscador');
+  selectedKind.value = 'precuela';
+  selectedKind.dispatchEvent(new Event('change',{bubbles:true}));
+  // Escape desde un resultado devuelve el foco sin reabrir automáticamente.
+  query.value = 'fortaleza';
+  query.focus();
+  query.dispatchEvent(new Event('input',{bubbles:true}));
+  const other = app.querySelector('#wk-rel-b .srp-result');
+  ok(!!other && other.textContent.includes('Fortaleza'),
+    'No aparece la segunda obra para probar Escape');
+  other.focus();
+  other.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+  ok(app.querySelector('#wk-rel-b [data-related-results]').hidden &&
+    document.activeElement === query,
+    'Escape debe cerrar la lista y devolver el foco sin reabrirla');
+  query.dispatchEvent(new Event('input',{bubbles:true}));
+  document.body.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'mouse'}));
+  ok(app.querySelector('#wk-rel-b [data-related-results]').hidden,
+    'La búsqueda no se cierra al tocar fuera');
+  query.value = '';
+
   ok(app.querySelector('#wk-dirty')?.textContent.includes('Cambios sin guardar'),
     'Seleccionar obra debe marcar la ficha como modificada');
   app.querySelector('#rel-save-all').click();
