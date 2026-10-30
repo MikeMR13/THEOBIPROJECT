@@ -10,7 +10,7 @@ import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
 import { askEditorialAnnouncement, saveEditorialRecord, chooseActiveEditorial } from './editorial-announcements.js?v=1';
 import { WORK_GENRES, WORK_DEMOGRAPHICS, createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
 import { bindVolumeCoverGallery } from './volume-cover-gallery.js?v=1';
-import { mountSeriesCoverEditor } from './series-cover-editor.js?v=1';
+import { mountSeriesCoverEditor } from './series-cover-editor.js?v=2';
 import { optimizeStudioCover } from './studio-cover-image.js?v=1';
 import { selectStudioWorks, importWorkUrl } from './studio-works-utils.js?v=1';
 document.addEventListener('click', e => { const i = e.target.closest?.('input[type=date],input[type=datetime-local]'); if (i && !i.disabled && !i.readOnly) try { i.showPicker(); } catch {} });
