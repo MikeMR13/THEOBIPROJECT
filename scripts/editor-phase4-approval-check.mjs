@@ -31,7 +31,7 @@ for(const token of ['editor_submit_review','editor_decide_review','editor_set_te
 assert(board.includes("sb.from('review_requests').select('chapter_id,status,base_version,created_at')"));
 assert(board.includes('ed-board-review'),'El tablero no muestra aprobación');
 assert(css.includes('.ed-approval-settings')&&css.includes('.ed-board-review'));
-const sql=readFileSync('supabase/migrations/20261030234500_editor_phase4_approval.sql','utf8');
+const sql=readFileSync('supabase/migrations/20261030224017_editor_phase4_approval_20261030.sql','utf8');
 for(const token of ['DROP POLICY IF EXISTS "rr team"','REVOKE ALL ON public.review_requests',
  'private.editor4_fingerprint','private.require_approval','private.editor4_team_approval_guard',
  "NEW.status='scheduled'","NEW.status='published'","r.base_version=NEW.version",
