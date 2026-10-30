@@ -130,3 +130,5 @@
 .s2 .srp-save-message{margin:6px 0 0;padding:9px 12px;border-left:3px solid #8cc3f2;background:#14222b;color:#d6e8f4;line-height:1.5;overflow-wrap:anywhere}
 .s2 .srp-save-message:empty{display:none}
 .s2 .srp-save-message[data-error="true"]{border-left-color:#f59e7a;background:#342019;color:#ffddc8}
+
+.s2 .srp-select-action{justify-self:start;margin-top:2px;color:#f2c230;font:600 11px/1.4 'IBM Plex Mono',monospace}
