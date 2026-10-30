@@ -47,6 +47,7 @@ const whitelist = new Map([
  ['/studio-editor.js','src/studio-editor.js'],
  ['/studio-importer.js','src/studio-importer.js'],
  ['/import-safety.js','src/import-safety.js'],
+ ['/editorial-import-quality.js','src/editorial-import-quality.js'],
  ['/studio-media.js','src/studio-media.js'],
  ['/blocks.js','src/blocks.js'],
  ['/__qa__/fixture.mjs','scripts/fixtures/studio-browser-fixture.mjs'],
