@@ -10,7 +10,7 @@ import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
 import { askEditorialAnnouncement, saveEditorialRecord, chooseActiveEditorial } from './editorial-announcements.js?v=1';
 import { WORK_GENRES, WORK_DEMOGRAPHICS, createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=1';
 import { bindVolumeCoverGallery } from './volume-cover-gallery.js?v=1';
-import { mountSeriesCoverEditor } from './series-cover-editor.js?v=2';
+import { mountSeriesCoverEditor, uploadSeriesCover } from './series-cover-editor.js?v=3';
 import { optimizeStudioCover } from './studio-cover-image.js?v=1';
 import { selectStudioWorks, importWorkUrl } from './studio-works-utils.js?v=1';
 import { createStudioWorksToolbar, createStudioWorkCard, bindStudioWorksControls } from './studio-works-view.js?v=1';
@@ -348,14 +348,13 @@ export function createStudio(ctx){
         if (error) throw new Error(errMsg(error));
         made = { s: created }; T.works = null;
         if (cover) {
-          const prepared = await optimizeStudioCover(cover);
-           const ext = { 'image/jpeg':'jpg', 'image/png':'png', 'image/webp':'webp' }[prepared.type];
-          const path = T.team.id + '/obras/' + slug + '/portada-' + Date.now() + '.' + ext;
-          const u = await sb.storage.from('obi-media').upload(path,prepared,{contentType:prepared.type,cacheControl:'31536000'});
-          if (!u.error) {
-            const p = await sb.from('series').update({ cover_path:path }).eq('id',created.id);
-            if (p.error) toast('Obra creada, pero no se pudo asignar la portada');
-          } else toast('Obra creada, pero no se pudo subir la portada: podrás añadirla después');
+          try {
+            made.s.cover_path = await uploadSeriesCover({
+              sb, teamId:T.team.id, slug, seriesId:created.id, file:cover
+            });
+          } catch (coverError) {
+            toast('Obra privada creada, pero la portada no se guardó: ' + errMsg(coverError));
+          }
         }
         toast('Obra privada creada con su ficha editorial'); step2();
       });
@@ -1024,7 +1023,7 @@ export function createStudio(ctx){
       on('#wk-savebtn', async () => {
         if (!D.title.trim()) throw new Error('El título no puede quedar vacío');
         const patch = { title: D.title.trim(), short: D.short.trim() || D.title.trim().slice(0, 26), original: D.original.trim() || null, title_romaji: D.title_romaji.trim() || null, publisher: D.publisher.trim() || null, author: D.author.trim() || null, illustrator: D.illustrator.trim() || null, work_type: D.work_type, demographic: D.demographic || null, translation_status: D.translation_status, original_status: D.original_status || null, synopsis: D.synopsis.trim() || null, adult: D.adult, genres: D.genres, tags: D.tags };
-        const { error } = await sb.from('series').update(patch).eq('id', s.id); if (error) throw new Error(errMsg(error)); dirty = false; toast('Datos de la obra guardados'); again(); });
+        const { data: saved, error } = await sb.from('series').update(patch).eq('id', s.id).eq('team_id', T.team.id).select('id,title').maybeSingle(); if (error) throw new Error(errMsg(error)); if (!saved?.id) throw new Error('No se guardaron los datos: comprueba los permisos del equipo'); dirty = false; toast('Datos de la obra guardados'); again(); });
       const leave = e => { if (dirty && document.body.contains($('#wk-savebtn'))) { e.preventDefault(); e.returnValue = ''; } else removeEventListener('beforeunload', leave); }; addEventListener('beforeunload', leave);
     }
     if (can('edit')) initCollaborationTeamPicker({ sb, input: $('#inv'), list: $('#wk-inv-results'), status: $('#wk-inv-state'), invite: $('#invite'), ownTeamId: T.team.id, seriesId: s.id, collaborations: cols || [], media, toast, busy, onSuccess: again });

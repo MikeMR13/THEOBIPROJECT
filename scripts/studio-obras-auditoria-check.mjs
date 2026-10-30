@@ -49,7 +49,7 @@ requires(st,[
 "aria-hidden=\"true\"",
 ">Anunciar</a>",
 "optimizeStudioCover(file)",
-"optimizeStudioCover(cover)"
+"uploadSeriesCover({"
 ],'Estudio');
 requires(view,["qs('q').oninput","qs('att').onchange","'obi-studio-works-view'",
 "w.cover_thumb_path || w.cover_path","s2-more","s2-work-alert"],'Vistas extraídas');
@@ -78,6 +78,9 @@ requires(css,[
 ".wk-row-more"
 ],'Estilos');
 assert(cover.includes('optimizeStudioCover(file)'),'La portada principal se convierte en navegador');
+assert(cover.includes('await saveSeriesCover({sb,teamId,seriesId,path})'),'Nueva obra comprueba que la portada quedó asociada a la ficha');
+assert(st.includes('seriesId:created.id, file:cover'),'Nueva obra comparte el guardado verificado de portadas');
+assert(st.includes("if (!saved?.id) throw new Error"),'Editar datos debe verificar la persistencia');
 assert(st.includes('/studio-obras.css?v=1'),'CSS Obras debe cargarse de forma versionada');
 assert(read('src/app.js').includes("/studio.js?v=49"));
 assert(read('src/index.html').includes('/app.js?v=39'));
