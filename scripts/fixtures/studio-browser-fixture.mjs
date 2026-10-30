@@ -121,6 +121,9 @@ try {
     new PointerEvent('pointerup',{bubbles:true,pointerType:'touch'}));
   relatedButton.querySelector('.srp-select-action').click();
   ok(app.querySelector('[data-w-rel-list]')?.textContent.includes('Grupo Ónix'), 'No se añadió la obra relacionada con el equipo visible');
+  ok(relatedInput.value==='Magia de la Bruja del Viento' &&
+    relatedInput.dataset.relatedSelected==='00000000-0000-4000-8000-000000000090',
+    'La selección debe quedar marcada por título e ID en lugar de dejar el campo vacío');
   ok(app.querySelector('[data-related-results]').hidden, 'El panel debe cerrarse después de agregar la obra');
 
   // El menú compacto conserva el estado accesible, puede cerrarse con Escape
@@ -223,6 +226,10 @@ try {
   pick.querySelector('.srp-select-action').click();
   ok(app.querySelector('.srp-selected-info')?.textContent.includes('Bruja'),
     'Editar datos no muestra la obra seleccionada');
+  ok(query.value==='Magia de la Bruja del Viento' && query.dataset.relatedSelected==='00000000-0000-4000-8000-000000000090',
+    'Editar datos dejó vacía la selección confirmada');
+  ok(app.querySelector('#wk-rel-save-status')?.textContent.includes('Magia de la Bruja del Viento'),
+    'Editar datos no muestra la confirmación visible de la obra elegida');
   ok(query.isConnected && app.querySelector('#wk-related-search') === query,
     'Seleccionar una obra reemplazó el buscador y sus eventos');
   const relatedList = app.querySelector('#wk-rel-b [data-rel-selected]');

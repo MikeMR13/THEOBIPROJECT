@@ -1,4 +1,4 @@
-import { relatedSearchHTML, mountRelatedSearch } from './studio-related-works.js?v=4';
+import { relatedSearchHTML, mountRelatedSearch } from './studio-related-works.js?v=5';
 // Catálogo y ficha común para la creación manual e importación de obras.
 // Solo HTML/CSS/JavaScript nativo. Se conservan los valores ya publicados.
 export const WORK_GENRES = [
@@ -163,11 +163,12 @@ export function bindWorkFields(root, state, esc, related = [], notify = () => {}
     exclude: () => (state.relations || []).map(r => r.id),
     esc,
     onPick: work => {
-      if (state.relations.length >= 12) return notify('Máximo 12 obras relacionadas');
-      if (state.relations.some(r => r.id === work.id)) return;
+      if (state.relations.length >= 12) { notify('Máximo 12 obras relacionadas'); return false; }
+      if (state.relations.some(r => r.id === work.id)) return false;
       state.relations.push({ id: work.id, kind: root.querySelector('[data-w-rel-kind]').value });
       redraw();
       notify();
+      return true;
     }
   });
   redraw();

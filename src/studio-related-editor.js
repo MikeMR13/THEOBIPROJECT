@@ -1,6 +1,6 @@
 // Panel estable para relaciones de una obra existente.
 // Solo reconstruye la lista de vínculos; conserva el buscador, su foco y listeners.
-import { loadRelatedWorks, relatedSearchHTML, mountRelatedSearch } from './studio-related-works.js?v=4';
+import { loadRelatedWorks, relatedSearchHTML, mountRelatedSearch } from './studio-related-works.js?v=5';
 
 const TYPES = [
   ['precuela','Precuela'],['secuela','Secuela'],['spinoff','Spin-off'],
@@ -68,11 +68,12 @@ export function mountWorkRelationsEditor({ container, sb, teamId, seriesId, rela
       picker = mountRelatedSearch(searchArea.querySelector('[data-related-search]'), {
         works, esc, exclude: () => [seriesId, ...relations.map(r => r.id)],
         onPick: chosen => {
-          if (disposed || relations.length >= 12 || relations.some(r => r.id === chosen.id)) return;
+          if (disposed || relations.length >= 12 || relations.some(r => r.id === chosen.id)) return false;
           relations.push({ id:chosen.id, kind:relationKind });
-          setStatus('Obra añadida a la lista. Falta pulsar «Guardar datos y relaciones».');
           onDirty();
           drawRows();
+          setStatus('✓ ' + chosen.title + ' añadida a Obras relacionadas. Falta guardar los cambios.');
+          return true;
         }
       });
     }
@@ -114,7 +115,10 @@ export function mountWorkRelationsEditor({ container, sb, teamId, seriesId, rela
   });
   return {
     setStatus,
-    pendingSearchText: () => searchArea?.querySelector('[data-related-query]')?.value.trim() || '',
+    pendingSearchText: () => {
+      const field = searchArea?.querySelector('[data-related-query]');
+      return field && !field.dataset.relatedSelected ? field.value.trim() : '';
+    },
     destroy: () => {
       disposed = true;
       picker?.destroy();

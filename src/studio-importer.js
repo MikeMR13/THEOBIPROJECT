@@ -5,8 +5,8 @@ import { inferSectionType } from './section-types.js?v=1';
 import { formatChapterIndex, scanImportedChapterTitles } from './chapter-title-display.js?v=2';
 import { repeatedOpeningHeading, smartTitleBlocks } from './reader-headings.js?v=2';
 import { editorialForm, bindEditorialForm, saveEditorialRecord } from './editorial-announcements.js?v=1';
-import { createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=4';
-import { loadRelatedWorks } from './studio-related-works.js?v=4';
+import { createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=5';
+import { loadRelatedWorks } from './studio-related-works.js?v=5';
 import { readPages } from './paging.js?v=1';
 import { planVolumeReplacement, validateImportMedia } from './import-safety.js?v=1';
 export function createImporter(deps) {
