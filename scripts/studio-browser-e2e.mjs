@@ -15,6 +15,7 @@ const whitelist = new Map([
  ['/prelaunch-discovery.js','src/prelaunch-discovery.js'],
  ['/prelaunch-metrics.js','src/prelaunch-metrics.js'],
  ['/prelaunch-views.js','src/prelaunch-views.js'],
+ ['/prelaunch-funnel.js','src/prelaunch-funnel.js'],
  ['/studio-cover-image.js','src/studio-cover-image.js'],
  ['/obi-dialog.js','src/obi-dialog.js'],
  ['/studio-team-permissions.js','src/studio-team-permissions.js'],
