@@ -80,7 +80,7 @@ export function blocksToEditor(blocks, media = x => x){
     return `<p${AL(b)}>${inner}</p>`;
   }).join('') || '<p><br></p>';
 }
-export const figureHTML = (url, alt, caption, media = x => x, decorative = false) => `<figure contenteditable="false" data-url="${escHtml(url || '')}" data-alt="${escHtml(decorative ? '' : alt || '')}" data-decorative="${decorative ? '1' : '0'}" data-caption="${escHtml(caption || '')}"><img src="${escHtml(media(url))}" alt="${escHtml(alt || '')}"><figcaption>${caption ? escHtml(caption) : '<i>Sin pie · toca para editar</i>'}</figcaption></figure>`;
+export const figureHTML = (url, alt, caption, media = x => x, decorative = false) => `<figure contenteditable="false" data-url="${escHtml(url || '')}" data-alt="${escHtml(decorative ? '' : alt || '')}" data-decorative="${decorative ? '1' : '0'}" data-caption="${escHtml(caption || '')}"><img src="${escHtml(media(url))}" alt="${escHtml(decorative ? '' : alt || '')}"><figcaption>${caption ? escHtml(caption) : '<i>Sin pie · toca para editar</i>'}</figcaption></figure>`;
 
 export function editorToBlocks(root){
   const out = [], BLOCK = /^(P|H[1-6]|BLOCKQUOTE|ASIDE|FIGURE|DIV|HR|UL|OL|LI|SECTION)$/;
