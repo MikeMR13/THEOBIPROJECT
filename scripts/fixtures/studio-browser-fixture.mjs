@@ -211,9 +211,9 @@ try {
     'Se permitió guardar una búsqueda no seleccionada: estado=' + app.querySelector('#wk-rel-save-status')?.textContent +
     ', consulta=' + app.querySelector('#wk-related-search')?.value + ', toast=' + editOwner.messages.slice(-3).join(' | '));
   ok(editOwner.savedPatches.length===0,'No debe guardarse una búsqueda escrita pero no seleccionada');
+  query.focus(); // Enfocar redibuja los botones: obtener el elemento DESPUÉS del focus.
   const pick=app.querySelector('#wk-rel-b .srp-result');
-  ok(!!pick, 'No hay resultado para seleccionar en Editar datos');
-  query.focus();
+  ok(!!pick && pick.isConnected, 'No hay resultado visible para seleccionar en Editar datos');
   pick.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch'}));
   query.blur();
   await Promise.resolve();
