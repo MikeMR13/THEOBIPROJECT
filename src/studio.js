@@ -85,7 +85,7 @@ export function createStudio(ctx){
     }
     if (!document.getElementById('st2-works-css')) {
       const worksLink = document.createElement('link');
-      worksLink.id = 'st2-works-css'; worksLink.rel = 'stylesheet'; worksLink.href = '/studio-obras.css?v=3';
+      worksLink.id = 'st2-works-css'; worksLink.rel = 'stylesheet'; worksLink.href = '/studio-obras.css?v=4';
       const worksReady = new Promise(resolve=>{
         worksLink.addEventListener('load', resolve, {once:true});
         worksLink.addEventListener('error', resolve, {once:true});
