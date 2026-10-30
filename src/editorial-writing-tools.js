@@ -122,7 +122,8 @@ export function attachWritingTools({doc,box,checkbox,glossary,change,onSaved,toa
     toast('Término del glosario insertado');
   };
   const onKey=ev=>{if(ev.key==='Escape'&&!box.hidden){restore();}};
-  doc.addEventListener('compositionstart',()=>{composing=true;restore();});
+  const compositionStart=()=>{composing=true;restore();};
+  doc.addEventListener('compositionstart',compositionStart);
   const compositionEnd=()=>{composing=false;update();};
   doc.addEventListener('compositionend',compositionEnd);
   doc.addEventListener('beforeinput',beforeInput);
@@ -135,5 +136,5 @@ export function attachWritingTools({doc,box,checkbox,glossary,change,onSaved,toa
     try{localStorage.setItem(TYPING_PREF_KEY,checkbox.checked?'1':'0');}catch{}
     toast(checkbox.checked?'Autocorrección tipográfica activada':'Autocorrección tipográfica desactivada');
   });
-  return {update,clear:restore,dispose:()=>{restore();clearHighlight();doc.removeEventListener('beforeinput',beforeInput);doc.removeEventListener('input',onInput);doc.removeEventListener('keyup',update);doc.removeEventListener('click',update);doc.removeEventListener('keydown',onKey);doc.removeEventListener('compositionend',compositionEnd);box.removeEventListener('click',onClick);}};
+  return {update,clear:restore,dispose:()=>{restore();clearHighlight();doc.removeEventListener('beforeinput',beforeInput);doc.removeEventListener('input',onInput);doc.removeEventListener('keyup',update);doc.removeEventListener('click',update);doc.removeEventListener('keydown',onKey);doc.removeEventListener('compositionstart',compositionStart);doc.removeEventListener('compositionend',compositionEnd);box.removeEventListener('click',onClick);}};
 }
