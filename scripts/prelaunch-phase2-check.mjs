@@ -68,9 +68,9 @@ try {
   assert.match(read('src/studio.js'),/prelaunchById\.has\(w\.id\)/,'Revalidación local antes de copiar');
   assert.match(read('src/share.js'),/\.ui-series-page \.ui-series-actions/,'Reutilizar menú unificado, no compartir borradores');
   assert.match(read('src/app.js'),/\/ui\.js\?v=61/);
-  assert.match(read('src/app.js'),/\/studio\.js\?v=59/);
+  assert.match(read('src/app.js'),/\/studio\.js\?v=60/);
   assert.match(read('src/ui.js'),/\.\/prelaunch\.js\?v=4/);
-  assert.match(read('src/index.html'),/\/app\.js\?v=50/);
+  assert.match(read('src/index.html'),/\/app\.js\?v=51/);
   console.log('✓ Fase 2: seguimiento reversible, compartir público y Estudio sin enlaces a borradores.');
 } finally {
   globalThis.document=oldDocument;globalThis.window=oldWindow;

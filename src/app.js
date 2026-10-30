@@ -25,7 +25,7 @@ const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () 
 let LG; const lg = async () => LG ||= await import('/legal.js?v=1');
 let PF; const pf = async () => PF ||= await import('/profile.js?v=11');
 const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, email: user.email, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
-let ST; const st = async () => ST ||= (await import('/studio.js?v=59')).createStudio(CTX());
+let ST; const st = async () => ST ||= (await import('/studio.js?v=60')).createStudio(CTX());
 let AG; const ag = async () => AG ||= await import('/agenda.js?v=1');
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=10')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
