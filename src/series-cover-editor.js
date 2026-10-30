@@ -113,6 +113,9 @@ export function mountSeriesCoverEditor({sb,series,teamId,root,canEdit,media,esc,
       path=newPath;series.cover_path=newPath;
       toast(newPath?'Portada de la novela actualizada':'Portada principal quitada');
       status.textContent=newPath?'✓ Portada guardada':'Portada quitada';
+    }catch(error){
+      status.textContent='No se pudo guardar la portada: '+(error?.message||error);
+      throw error;
     }finally{working=false;sync();}
   };
   const showChoices=paths=>{
@@ -154,6 +157,9 @@ export function mountSeriesCoverEditor({sb,series,teamId,root,canEdit,media,esc,
           path=next;series.cover_path=next;
           toast('Portada principal de la novela actualizada');
           status.textContent='✓ Portada guardada';
+        }catch(error){
+          status.textContent='No se pudo subir la portada: '+(error?.message||error);
+          throw error;
         }finally{working=false;sync();}
       });
     };
