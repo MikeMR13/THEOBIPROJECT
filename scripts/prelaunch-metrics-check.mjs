@@ -73,7 +73,7 @@ const studio=read('src/studio.js');
 assert.match(studio,/loadTeamPrelaunchMetrics\(sb, metricsTeamId, prelaunchIds\)/);
 assert.match(studio,/T\.team\?\.id !== metricsTeamId/);
 assert.match(studio,/createPrelaunchMetricsPanel\(prelaunchIds, prelaunchMetrics, prelaunchViews\)/);
-assert.match(studio,/studio-obras\.css\?v=5/);
+assert.match(studio,/studio-obras\.css\?v=6/);
 assert.match(read('src/app.js'),/studio\.js\?v=59/);
 assert.match(read('src/index.html'),/app\.js\?v=50/);
 assert.match(read('scripts/studio-browser-e2e.mjs'),/prelaunch-metrics\.js/);
