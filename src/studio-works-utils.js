@@ -19,11 +19,13 @@ export function workStats(work, chapters = [], schedules = [], now = Date.now())
 export function selectStudioWorks(works, chapters, schedules, criteria={}, now=Date.now()) {
   const q=normalizeWorkText(criteria.q).trim();
   const status=criteria.status||'all',visibility=criteria.visibility||'all';
+  const release=criteria.release||'all', announced=criteria.prelaunchIds instanceof Set ? criteria.prelaunchIds : new Set();
   const attention=!!criteria.attention,sort=criteria.sort||'title';
   const rows=(works||[]).map(work=>({work,stats:workStats(work,chapters,schedules,now)}))
     .filter(({work,stats})=>(!q||normalizeWorkText([work.title,work.short,work.slug].join(' ')).includes(q)) &&
       (status==='all'||work.translation_status===status) &&
       (visibility==='all'||(visibility==='public'?!!work.published:!work.published)) &&
+      (release==='all'||(release==='prelaunch'?announced.has(work.id):release==='draft'?!work.published&&!announced.has(work.id):false)) &&
       (!attention||stats.attention));
   rows.sort((a,b)=>{
     let diff=0;

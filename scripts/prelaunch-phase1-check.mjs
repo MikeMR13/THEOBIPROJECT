@@ -52,8 +52,12 @@ assert.match(team,/D\.next\.prelaunch \? 'PRÓXIMO ESTRENO · PRIMER VISTAZO'/,'
 assert.match(team,/const SEC = \{ recent: updates, announce: ann, next: nx,/,'Reutilizar el bloque configurable');
 assert.match(css,/\.ui-pre-discover\[hidden\]/,'La sección debe ocultarse si no hay resultados');
 assert.match(css,/@media\(max-width:540px\).*\.ui-pre-work/,'Presentación móvil');
-assert.match(app,/\/ui\.js\?v=58/,'Evitar JavaScript antiguo en caché');
-assert.match(read('src/index.html'),/\/app\.js\?v=46/,'Cargar el app shell actualizado');
+const entry = read('src/index.html');
+const uiVersion = Number(entry.match(/\/ui\.js\?v=(\d+)/)?.[1]);
+const appVersion = Number(entry.match(/\/app\.js\?v=(\d+)/)?.[1]);
+assert.ok(uiVersion >= 58 && appVersion >= 46,'Conservar las versiones de descubrimiento');
+assert.ok(app.includes('/ui.js?v=' + uiVersion),'La UI precargada y la importada deben coincidir');
+assert.ok(entry.includes('/app.js?v=' + appVersion),'Cargar el app shell versionado');
 
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const teamData = { t:{id:'team',slug:'equipo-prueba',name:'Equipo prueba',color:'#f2c230',settings:{}},

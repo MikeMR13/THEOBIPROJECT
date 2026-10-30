@@ -14,8 +14,9 @@ import { mountWorkRelationsEditor } from './studio-related-editor.js?v=2';
 import { bindVolumeCoverGallery } from './volume-cover-gallery.js?v=1';
 import { mountSeriesCoverEditor, uploadSeriesCover } from './series-cover-editor.js?v=3';
 import { optimizeStudioCover } from './studio-cover-image.js?v=1';
-import { selectStudioWorks, importWorkUrl } from './studio-works-utils.js?v=1';
-import { createStudioWorksToolbar, createStudioWorkCard, bindStudioWorksControls } from './studio-works-view.js?v=1';
+import { selectStudioWorks, importWorkUrl } from './studio-works-utils.js?v=2';
+import { loadPublicUpcoming } from './prelaunch-discovery.js?v=1';
+import { createStudioWorksToolbar, createStudioWorkCard, bindStudioWorksControls } from './studio-works-view.js?v=2';
 document.addEventListener('click', e => { const i = e.target.closest?.('input[type=date],input[type=datetime-local]'); if (i && !i.disabled && !i.readOnly) try { i.showPicker(); } catch {} });
 const LIMITS = { file: 80 * 1024 * 1024, entries: 15000, unzipped: 300 * 1024 * 1024, image: 8 * 1024 * 1024 };
 const ACTIONS = [['view','Ver'],['edit','Editar'],['create','Crear'],['import','Importar'],['publish','Publicar'],['schedule','Programar'],['delete','Borrar'],['review','Revisar']];
@@ -84,7 +85,7 @@ export function createStudio(ctx){
     }
     if (!document.getElementById('st2-works-css')) {
       const worksLink = document.createElement('link');
-      worksLink.id = 'st2-works-css'; worksLink.rel = 'stylesheet'; worksLink.href = '/studio-obras.css?v=3';
+      worksLink.id = 'st2-works-css'; worksLink.rel = 'stylesheet'; worksLink.href = '/studio-obras.css?v=4';
       const worksReady = new Promise(resolve=>{
         worksLink.addEventListener('load', resolve, {once:true});
         worksLink.addEventListener('error', resolve, {once:true});
@@ -394,19 +395,32 @@ export function createStudio(ctx){
   async function works(){
     if (!(await ensure())) return;
     app.innerHTML = shell('Mis obras', '<p class="mono">Cargando obras…</p>', '/estudio/obras'); bindPicker(works);
-    const [{ works: list, chs, sched }, { data: inv }, { data: collab }, { data: selectedFeature }] = await Promise.all([teamData(),
+    const [{ works: list, chs, sched }, { data: inv }, { data: collab }, { data: selectedFeature }, announced] = await Promise.all([teamData(),
       sb.from('collaborations').select('id,status,series(title),inviter:teams!collaborations_inviter_team_fkey(name)').eq('invited_team', T.team.id).eq('status', COLLABORATION_STATUS.pending),
       sb.from('collaborations').select('series(slug,title,teams(name))').eq('invited_team', T.team.id).eq('status', COLLABORATION_STATUS.active),
-      sb.from('team_featured_series').select('series_id,updated_at').eq('team_id', T.team.id).maybeSingle().then(r=>r,()=>({data:null}))]);
+      sb.from('team_featured_series').select('series_id,updated_at').eq('team_id', T.team.id).maybeSingle().then(r=>r,()=>({data:null})),
+      loadPublicUpcoming(sb)]);
+    // La etiqueta «En preestreno» se basa SOLO en anuncios públicamente elegibles.
+    // Nunca se construye una URL pública a partir de borradores internos de volúmenes.
+    const prelaunchById = new Map(announced
+      .filter(r => r.team_slug === T.team.slug)
+      .map(r => [r.series_id, r]));
+    const prelaunchIds = new Set(prelaunchById.keys());
     const featuredSeriesId=selectedFeature?.series_id||null;
     const featuredExpiresAt=selectedFeature?.updated_at ? new Date(new Date(selectedFeature.updated_at).getTime()+7*864e5) : null;
     const pick = new URLSearchParams(location.search).has('nuevo');
     let preferredView = 'cards';
     try { preferredView = localStorage.getItem('obi-studio-works-view') === 'table' ? 'table' : 'cards'; } catch {}
-    const state = (works.filters ||= { q:'', status:'all', visibility:'all', sort:'title', attention:false, view:preferredView });
-    const chosen = () => selectStudioWorks(list, chs, sched, state);
+    const state = (works.filters ||= { q:'', status:'all', visibility:'all', release:'all', sort:'title', attention:false, view:preferredView });
+    const chosen = () => selectStudioWorks(list, chs, sched, { ...state, prelaunchIds });
     const toolbar = createStudioWorksToolbar({state,TLS,esc,can});
-    const card = createStudioWorkCard({chs,sched,featuredSeriesId,TLS,wcolor,esc,media,until,ago,can});
+    const card = createStudioWorkCard({chs,sched,prelaunchById,featuredSeriesId,TLS,wcolor,esc,media,until,ago,can});
+    const copyPrelaunch = async slug => {
+      if (!list.some(w => w.slug === slug && prelaunchById.has(w.id))) throw new Error('Este preestreno ya no tiene una ficha pública válida.');
+      const link = location.origin + '/serie/' + encodeURIComponent(slug);
+      try { await navigator.clipboard.writeText(link); toast('Enlace público del primer vistazo copiado'); }
+      catch { await inputObi('Copia el enlace público:', { title:'Primer vistazo', defaultValue:link }); }
+    };
     const body = `${(inv || []).map(c => `<div class="st-card"><span>${esc(c.inviter?.name || 'Un equipo')} te invita a colaborar en <strong>${esc(c.series?.title)}</strong></span><span><button class="btn" data-acc="${c.id}">Aceptar</button> <button class="btn ghost" data-rej="${c.id}">Rechazar</button></span></div>`).join('')}
       ${pick && list.length ? '<div class="st-card"><span>¿En qué obra va el nuevo capítulo? Toca «＋ Nuevo capítulo» en la obra.</span></div>' : ''}
       ${list.length ? `${toolbar}
@@ -414,7 +428,7 @@ export function createStudio(ctx){
        <div class="s2-works" id="s2-work-list" data-view="${state.view}"></div>` : emptyState()}
       ${(collab || []).length ? `<h2 class="s2-h2">Colaboraciones</h2><div class="s2-box">${collab.map(c => `<p><a href="/serie/${c.series.slug}">${esc(c.series.title)}</a> <span class="mono">de ${esc(c.series.teams?.name)}</span></p>`).join('')}</div>` : ''}`;
     app.innerHTML = shell('Mis obras', body, '/estudio/obras'); bindPicker(works);
-    bindStudioWorksControls({app,$,state,chosen,card,list,busy,sb,T,toast,works,newChapter,featuredSeriesId});
+    bindStudioWorksControls({app,$,state,chosen,card,list,busy,sb,T,toast,works,newChapter,featuredSeriesId,copyPrelaunch});
     app.querySelectorAll('[data-acc],[data-rej]').forEach(b => b.onclick = () => busy(b, async () => { const response = b.dataset.acc ? COLLABORATION_STATUS.active : COLLABORATION_STATUS.declined; const { data: updated, error } = await sb.from('collaborations').update({ status: response }).eq('id', b.dataset.acc || b.dataset.rej).eq('status', COLLABORATION_STATUS.pending).select('id').maybeSingle(); if (error) throw error; if (!updated) throw new Error('La invitación ya fue respondida o no tienes permiso para cambiarla'); toast(b.dataset.acc ? 'Colaboración aceptada' : 'Invitación rechazada'); works(); }));
   }
 
