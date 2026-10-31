@@ -1,9 +1,9 @@
 // Clasificación editorial del índice. Se comparte entre Studio, importación y lector.
 // No modifica el formato de capítulos ni su numeración interna.
 export const SECTION_TYPES = Object.freeze([
-  'Portada', 'Créditos', 'Sinopsis', 'Índice', 'Dedicatoria', 'Ilustraciones',
-  'Prólogo', 'Capítulo', 'Interludio', 'Epílogo', 'Afterword', 'Extra',
-  'Episodio corto', 'Avance', 'Agradecimientos', 'Nota editorial'
+  'Capítulo', 'Prólogo', 'Interludio', 'Epílogo', 'Afterword', 'Extra',
+  'Créditos', 'Ilustraciones', 'Episodio corto', 'Avance',
+  'Portada', 'Sinopsis', 'Índice', 'Dedicatoria', 'Agradecimientos', 'Nota editorial'
 ]);
 
 export const SECTION_LABELS = Object.freeze({
