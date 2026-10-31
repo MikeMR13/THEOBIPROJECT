@@ -58,7 +58,7 @@ assert.equal(a.uploads[0].options.upsert,false);
 assert.equal(a.uploads[0].options.contentType,'font/woff2');
 // Dos fuentes repetidas dentro del mismo EPUB.
 const same=await st1({...font,name:'Renamed.woff2'});
-assert.equal(same.path,one.path);assert.equal(a.uploads.length,1);
+assert.equal(same.path,one.path);assert.equal(same.reused,true);assert.equal(a.uploads.length,1);
 const b=createTeamFontStore({sb:a.sb,bucket:a.bucket,teamId:team,publicPrefix:prefix});
 const future=await b(font);
 assert.equal(future.path,one.path);
