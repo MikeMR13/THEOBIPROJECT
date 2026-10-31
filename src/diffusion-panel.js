@@ -2,6 +2,7 @@ import { confirmObi, inputObi } from './obi-dialog.js';
 import { manualTargets, manualChannelBatch, batchFeedback } from './diffusion-manual-batch.js';
 import { immediateDeliveryNotice, automaticDeliveryNotice } from './diffusion-delivery-notices.js';
 import { renderDraftTemplate } from './diffusion-draft-templates.js?v=1';
+import { diffusionTabFromSearch, diffusionTabUrl, schedulePresentation, historyPresentation } from './diffusion-presentation.js';
 // Centro de Difusión: anuncios manuales y agenda 4B opt-in, sin reglas automáticas globales.
 const EVENTS = [
   ['chapter.public', 'Capítulo público'],
@@ -30,7 +31,7 @@ const when = value => value ? new Date(value).toLocaleString('es-MX', { dateStyl
 function stylesheet() {
   if (document.getElementById('df-css')) return;
   const l = document.createElement('link');
-  l.id = 'df-css'; l.rel = 'stylesheet'; l.href = '/diffusion.css?v=4';
+  l.id = 'df-css'; l.rel = 'stylesheet'; l.href = '/diffusion.css?v=5';
   document.head.appendChild(l);
 }
 export async function renderDiffusionPanel({ sb, root, team = null, permissions = {}, esc, toast }) {
@@ -41,7 +42,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const canManage = p('diffusion_manage'), canCompose = p('diffusion_compose');
   const canLogs = p('diffusion_logs'), canAnnounce = p('diffusion_publish');
   const canSchedule = p('diffusion_schedule') && canAnnounce;
-  let tab = 'resumen', rules = [], campaigns = [], connections = [], jobs = [], scheduled = [];
+  let tab = diffusionTabFromSearch(location.search) || 'resumen', rules = [], campaigns = [], connections = [], jobs = [], scheduled = [];
+  let historyEvents = new Map(), historyLoaded = false, historyIssue = '';
   let telegramFeedback = '', editingCampaignId = '', annDraftMessage = '', annDraftTitle = '', annFeedback = '';
   let annConfirm = null, annSending = false, annResults = [];
   let annDraftId = '';
@@ -64,8 +66,27 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const shortName = e => EVENTS.find(x => x[0] === e)?.[1] || e;
   const tabs = [
     ['resumen','Resumen'], ['conexiones','Conexiones'], ['anuncios','Anunciar'], ['reglas','Automatizaciones'],
-    ['campanas','Borradores'], ['calendario','Calendario'], ['historial','Historial']
+    ['campanas','Borradores y plantillas'], ['calendario','Calendario'], ['historial','Historial']
   ];
+  const jobColumns='id,status,connection_id,event_id,campaign_id,scheduled_at,last_error,provider_post_id,attempts,created_at';
+  const scheduleColumns='id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,rule_id,created_at';
+  const setTab=next=>{
+    if(!tabs.some(([id])=>id===next))return;
+    if(next!==tab){const dest=diffusionTabUrl(location.href,next);if(dest)window.history.pushState(window.history.state,'',dest);}
+    tab=next;
+  };
+  async function loadHistoryEvents(){
+    historyEvents=new Map();historyIssue='';historyLoaded=true;
+    if(!canLogs)return;
+    const ids=[...new Set(jobs.map(j=>j.event_id).filter(Boolean))];
+    if(!ids.length)return;
+    try{
+      const {data,error}=await scoped(sb.from('diffusion_events').select('id,kind,source_type,safe_payload,created_at').in('id',ids).limit(50));
+      if(error)throw error;
+      historyEvents=new Map((data||[]).map(e=>[e.id,e]));
+    }catch{historyIssue='Los detalles editoriales no están disponibles para esta sesión. El estado del envío sigue visible.';}
+  }
+  async function refreshHistory(){if(!canLogs)return;jobs=await q('diffusion_jobs',jobColumns);await loadHistoryEvents();}
   const message = 'Discord y Telegram: programa anuncios por fecha desde Anunciar o activa reglas para futuras publicaciones desde Automatizaciones. Ninguna regla se activa sin confirmación.';
   root.innerHTML = '<div class="df" aria-live="polite"><p class="df-empty">Cargando Difusión…</p></div>';
   try {
@@ -73,8 +94,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       q('diffusion_connections','id,provider,label,status,created_at'),
       q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,connection_ids,template_campaign_id,enabled_at,created_at'),
       q('diffusion_campaigns','id,title,body,status,scheduled_at,created_at'),
-      canLogs ? q('diffusion_jobs','id,status,scheduled_at,last_error,created_at') : Promise.resolve([]),
-      q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at')
+      canLogs ? q('diffusion_jobs',jobColumns) : Promise.resolve([]),
+      q('diffusion_scheduled_announcements',scheduleColumns)
     ]);
   } catch (error) {
     const missing = error.code === '42P01' || /PGRST205|Could not find the table/i.test(error.message || '');
@@ -91,7 +112,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       + '" aria-current="' + (tab===id?'page':'false') + '">' + name + '</button>').join('') + '</nav>'
     + '<p class="df-note">' + safe(message) + '</p>';
   const cards = () => '<div class="df-cards">'
-    + [['Conexiones activas',connections.filter(c=>['discord','telegram'].includes(c.provider)&&c.status==='active').length],['Agenda pendiente',scheduled.filter(c=>c.status==='planned').length],['Borradores',campaigns.filter(c=>c.status==='draft').length],['Registros recientes',canLogs?jobs.length:'—']]
+    + [['Conexiones activas',connections.filter(c=>['discord','telegram'].includes(c.provider)&&c.status==='active').length],['Agenda pendiente',scheduled.filter(c=>c.status==='planned').length],['Retrasados',scheduled.filter(c=>schedulePresentation(c).late).length],['Borradores',campaigns.filter(c=>c.status==='draft').length],['Registros recientes',canLogs?jobs.length:'—']]
       .map(([name,n])=>'<div class="df-card"><small>'+safe(name)+'</small><strong>'+n+'</strong></div>').join('')+'</div>';
   const connectionsView = () => '<section class="df-box"><h3>Conexiones de Discord y Telegram</h3>'
     + '<p>Discord guarda el webhook y Telegram el token de bot cifrados en Supabase Vault. No compartas ninguno por chat ni GitHub.</p>'
@@ -180,7 +201,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     return result.text.trim();
   };
   // Las plantillas solo afectan el mensaje editorial, no el SEO ni la presentación de la tarjeta.
-  const campaignsView = () => '<section class="df-box"><h3>Plantillas de anuncios</h3>'
+  const campaignsView = () => '<section class="df-box"><h3>Borradores y plantillas</h3>'
     +'<p>Guarda y reutiliza mensajes para Anunciar y Automatizaciones. El nombre, la portada y los metadatos del enlace se toman siempre de la obra, no de la plantilla.</p>'
     +(campaigns.filter(c=>c.status==='draft').length?'<div class="df-list">'
       +campaigns.filter(c=>c.status==='draft').map(c=>'<article><div><strong>'+safe(c.title)+'</strong>'
@@ -202,9 +223,34 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       +'</form>':'<p class="df-muted">Necesitas «Redactar difusión» para crear o editar plantillas.</p>')
     +'</section>';
   const historyView = () => '<section class="df-box"><h3>Historial de envíos</h3>'
-    + (canLogs ? (jobs.length ? '<div class="df-list">'+jobs.map(j=>'<article><strong>'+safe(j.status)+'</strong>'
-      + '<small>'+when(j.scheduled_at)+'</small><p>'+safe(j.last_error||'')+'</p></article>').join('')+'</div>'
-      : empty('Todavía no hay envíos registrados.')) : empty('Tu rol no permite ver los registros técnicos.'))
+    + '<p class="df-muted">Últimos 50 registros de este ámbito. Programado no significa enviado; un estado incierto requiere comprobar antes de repetir.</p>'
+    + (canLogs?'<button type="button" class="btn" id="df-history-refresh">Actualizar historial</button>':'')
+    + (historyIssue?'<p class="df-note" role="status">'+safe(historyIssue)+'</p>':'')
+    + (canLogs ? (jobs.length||scheduled.some(x=>x.status!=='planned')
+      ? '<div class="df-list df-history-list">'
+        + jobs.map(j=>{
+          const item=historyPresentation(j,historyEvents.get(j.event_id),connections.find(c=>c.id===j.connection_id));
+          return '<article class="df-history-item"><div><strong>'+safe(item.status)+'</strong>'
+            +'<small>'+safe(item.channel)+' · '+safe(item.contentType)+' · '+when(j.scheduled_at||j.created_at)+'</small>'
+            +'<p><strong>Contenido:</strong> '+safe(item.title)+'</p>'
+            +(item.message?'<p class="df-history-message"><strong>Mensaje:</strong> '+safe(item.message)+'</p>'
+              :'<small>Mensaje no disponible en el registro.</small>')
+            +'<small>Resultado: '+safe(item.result)+' · Intentos registrados: '+item.attempts+'</small>'
+            +(item.reference?'<small>Identificador de confirmación: '+safe(item.reference)+'</small>':'')
+            +(item.url?'<a class="df-history-link" href="'+safe(item.url)+'" target="_blank" rel="noopener noreferrer">Abrir contenido público</a>'
+              :'<small>Sin enlace público verificable.</small>')
+            +'</div></article>';
+        }).join('')
+        + scheduled.filter(x=>x.status!=='planned').map(x=>{
+          const conn=connections.find(c=>c.id===x.connection_id);
+          const display=schedulePresentation(x);
+          return '<article class="df-history-item"><div><strong>Agenda · '+safe(display.label)+'</strong>'
+            +'<small>'+safe((x.provider||'Canal').toUpperCase()+' · '+(conn?.label||'Conexión no disponible'))
+            +' · '+when(x.scheduled_at)+'</small><p><strong>Contenido:</strong> '+safe(x.title_snapshot)+'</p>'
+            +'<p class="df-history-message"><strong>Mensaje:</strong> '+safe(x.message||'Sin mensaje conservado')+'</p>'
+            +'<small>Resultado: '+safe(x.last_error||display.label)+'</small></div></article>';
+        }).join('')+'</div>' : empty('Todavía no hay envíos ni resultados de agenda registrados.'))
+      : empty('Tu rol no permite ver el historial técnico de envíos.'))
     + '</section>';
 
   const chosenAnnouncementId = () => annKind==='series' ? annWork : annSource;
@@ -315,6 +361,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const scheduleView = () => '<section class="df-box"><h3>Agenda de Discord y Telegram</h3>'
     + '<p>Los anuncios manuales requieren confirmación. Los automáticos se enviarán a Discord o Telegram al llegar la fecha si el contenido sigue público. Una entrega incierta requiere revisión y no se reintenta sola.</p>'
     + '<p class="df-muted">Las horas se muestran según la zona horaria de tu dispositivo. Las publicaciones canceladas no se envían.</p>'
+    + (scheduled.some(x=>schedulePresentation(x).late)?'<p class="df-overdue-note" role="status"><strong>Atención: '+scheduled.filter(x=>schedulePresentation(x).late).length+' anuncio(s) retrasado(s).</strong> La fecha pasó sin entrega confirmada. Comprueba cada destino; cancela o reprograma de manera consciente. Esta pantalla nunca envía por sí sola.</p>':'')
     + (scheduleNotice?'<div id="df-schedule-sent-notice" class="df-confirmation-notice" role="status" aria-live="polite">'
        + '<strong>'+safe(scheduleNotice)+'</strong></div>':'')
     + '<button type="button" class="btn" id="df-schedule-refresh">Actualizar estado de los anuncios</button>'
@@ -325,12 +372,13 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         const conn=connections.find(c=>c.id===item.connection_id);
         const active=conn?.status==='active';
         const planned=item.status==='planned';
-        return '<article><div><strong>'+safe(item.title_snapshot)+'</strong>'
+        const display=schedulePresentation(item);
+        return '<article'+(display.late?' class="df-overdue"':'')+'><div><strong>'+safe(item.title_snapshot)+'</strong>'
           + '<small>'+safe(item.provider.toUpperCase()+' · '+(conn?.label||'Conexión no disponible'))
           + ' · '+safe(item.source_type)+' · '+when(item.scheduled_at)+'</small>'
           + '<p>'+safe(item.message)+'</p>'
-          + '<small>'+safe(planned?(item.delivery_mode==='automatic'?(future?'Automático: en espera':'Automático: pendiente del despachador'):(future?'Previsto, sin envío automático':'Fecha cumplida: pendiente de envío manual'))
-             :item.status==='sent'?'Enviado y confirmado':item.status==='processing'?'Envío en curso':item.status==='unknown'?'Entrega incierta: revisar antes de reenviar':item.status==='blocked'?'Bloqueado: contenido o conexión no disponibles':'Cancelado')+'</small></div>'
+          + '<small class="df-schedule-status">'+safe(display.label)+'</small>'
+          + (display.detail?'<small>'+safe(display.detail)+'</small>':'')+'</div>'
           + (planned?'<div>'
              + (canAnnounce&&active&&item.delivery_mode!=='automatic'&&!item.prelaunch_volume_id?'<button type="button" class="btn" data-schedule-prepare="'+safe(item.id)+'">'
                 +(future?'Revisar anuncio':'Preparar envío')+'</button> ':'')
@@ -364,7 +412,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   async function refreshCalendarStatus(){
     const previous=scheduled;
     const latest=await q('diffusion_scheduled_announcements',
-      'id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
+      scheduleColumns);
     scheduled=latest;
     const notice=automaticDeliveryNotice(previous,latest,connections);
     if(notice){
@@ -379,7 +427,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     if (!root.isConnected) return;
     root.innerHTML = '<div class="df">' + header() + page() + '</div>';
     root.querySelectorAll('[data-dtab],[data-goto]').forEach(b => b.onclick = async () => {
-      tab = b.dataset.dtab || b.dataset.goto;
+      setTab(b.dataset.dtab || b.dataset.goto);
+      if(tab==='historial'&&!historyLoaded)await loadHistoryEvents();
       if(tab==='anuncios'&&!annLoaded) {
         try{await loadAnnWorks();}catch(e){toast('No se pudo cargar el catálogo para anuncios.');}
       }
@@ -388,6 +437,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       }
       draw();
     });
+    root.querySelector('#df-history-refresh')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
+      await refreshHistory();draw();
+    }));
     root.querySelector('#df-schedule-refresh')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
       await refreshCalendarStatus();draw();
     }));
@@ -531,9 +583,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           annPreview=null;annScheduledId='';
           if(results.some(x=>x.status==='scheduled'||x.status==='already')){
             scheduled=await q('diffusion_scheduled_announcements',
-              'id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
+              scheduleColumns);
             scheduleFeedback='Anuncios programados. '+summary+' Esto no confirma una entrega.';
-            scheduleNotice='';tab='calendario';
+            scheduleNotice='';setTab('calendario');
           }else annFeedback=summary;
         }catch{
           annFeedback='No se pudo confirmar el resultado de la programación. Revisa Calendario antes de repetir.';
@@ -557,7 +609,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         annSource=item.source_id;
         annDraftMessage=item.message;annDraftTitle='Anuncio previsto en calendario';
         annPreview=null;annScheduledId=item.id;annFeedback='';
-        tab='anuncios';draw();
+        setTab('anuncios');draw();
       });
     });
     root.querySelectorAll('[data-schedule-cancel]').forEach(b=>b.onclick=async()=>{
@@ -565,7 +617,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       busy(b,async()=>{
         const {error}=await sb.rpc('diffusion_schedule_cancel',{p_id:b.dataset.scheduleCancel});
         if(error)throw new Error('No se pudo cancelar la fecha. Comprueba tus permisos.');
-        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
+        scheduled=await q('diffusion_scheduled_announcements',scheduleColumns);
         scheduleFeedback='Fecha cancelada sin enviar mensajes.';draw();
       });
     });
@@ -578,11 +630,15 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         const ms=raw?new Date(raw).getTime():NaN;
         if(!Number.isFinite(ms)||ms-Date.now()<120000||ms-Date.now()>90*86400000)
           throw new Error('Selecciona una nueva fecha entre 2 minutos y 90 días.');
+        const item=scheduled.find(x=>x.id===b.dataset.scheduleSave&&x.status==='planned');
+        if(!item)throw new Error('Solo puedes reprogramar anuncios pendientes.');
+        if(schedulePresentation(item).late&&item.delivery_mode==='automatic'
+          &&!await confirmObi('Este anuncio automático está retrasado y no tiene entrega confirmada. ¿Reprogramarlo para una fecha futura? Si el despachador permanece activo, podría enviarse en esa fecha.'))return;
         const {error}=await sb.rpc('diffusion_schedule_reschedule',{
           p_id:b.dataset.scheduleSave,p_at:new Date(ms).toISOString()
         });
         if(error)throw new Error('No se pudo reprogramar. Revisa tus permisos y que siga pendiente.');
-        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
+        scheduled=await q('diffusion_scheduled_announcements',scheduleColumns);
         scheduleFeedback='Fecha actualizada.';scheduleChangingId='';draw();
       });
     });
@@ -590,7 +646,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       busy(b,async()=>{
         const {error}=await sb.rpc('diffusion_schedule_finalize',{p_id:b.dataset.scheduleFinalize});
         if(error)throw new Error('No existe entrega confirmada para este contenido y destino. No se marcó como enviado.');
-        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
+        scheduled=await q('diffusion_scheduled_announcements',scheduleColumns);
         scheduleFeedback='Se confirmó un envío ya registrado; calendario actualizado.';draw();
       });
     });
@@ -671,7 +727,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           if(pending.scheduledId&&results.some(r=>r.status==='sent')){
             try{
               scheduled=await q('diffusion_scheduled_announcements',
-                'id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
+                scheduleColumns);
             }catch{
               annFeedback+=' No se pudo actualizar Calendario. Revisa su estado antes de repetir.';
             }
@@ -845,7 +901,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
           :error.message==='invalid_destinations'?'Selecciona entre 1 y 8 conexiones distintas.'
           :'No se pudo cambiar la regla: revisa los permisos de Difusión.');
         rules=await q('diffusion_rules','id,name,event_kind,mode,delay_minutes,enabled,connection_id,connection_ids,template_campaign_id,enabled_at,created_at');
-        scheduled=await q('diffusion_scheduled_announcements','id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
+        scheduled=await q('diffusion_scheduled_announcements',scheduleColumns);
         toast(activate?'Regla activada para '+chosen.length+' canales de difusión.':'Regla pausada; anuncios pendientes cancelados.');
         draw();
       }));
@@ -865,7 +921,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       if(!canCompose)return;
       const item=campaigns.find(c=>c.id===b.dataset.editCampaign&&c.status==='draft');
       if(!item)return;
-      editingCampaignId=item.id;tab='campanas';draw();
+      editingCampaignId=item.id;setTab('campanas');draw();
     });
     root.querySelector('#df-campaign-cancel')?.addEventListener('click',()=>{
       editingCampaignId='';draw();
@@ -879,7 +935,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         if(body.length<1||body.length>2000)throw new Error('Revisa la longitud del borrador (máximo 2000 caracteres).');
         if(!annLoaded)await loadAnnWorks();
         annDraftId=item.id;annDraftMessage=body;annDraftTitle=item.title;annPreview=null;annFeedback='';
-        tab='anuncios';draw();
+        setTab('anuncios');draw();
       });
     });
     root.querySelector('#df-campaign-form')?.addEventListener('submit', e => {
@@ -902,7 +958,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         const {error}=await sb.rpc('diffusion_prelaunch_approve',{p_plan:button.dataset.prelaunchApprove});
         if(error)throw new Error('No se pudo aprobar el anuncio. Revisa permisos o estado del preestreno.');
         scheduled=await q('diffusion_scheduled_announcements',
-          'id,connection_id,provider,source_type,source_id,series_id,title_snapshot,message,scheduled_at,status,delivery_mode,prelaunch_volume_id,last_error,created_at');
+          scheduleColumns);
         toast('Anuncio aprobado; se enviará si el preestreno sigue público.');
         draw();
       }));
@@ -919,7 +975,24 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       });
     });
   }
-  if(deepPending){tab='anuncios';try{await loadAnnWorks();}catch{toast('No se pudo abrir el anuncio solicitado.');}}
+  if(deepPending && !diffusionTabFromSearch(location.search))tab='anuncios';
+  if(tab==='anuncios'&&!annLoaded){
+    try{await loadAnnWorks();}catch{toast('No se pudo abrir el anuncio solicitado.');}
+  }
+  if(tab==='historial')await loadHistoryEvents();
+  if(root._diffusionPopstateHandler)window.removeEventListener('popstate',root._diffusionPopstateHandler);
+  root._diffusionPopstateHandler=async()=>{
+    if(!root.isConnected){
+      window.removeEventListener('popstate',root._diffusionPopstateHandler);
+      root._diffusionPopstateHandler=null;return;
+    }
+    tab=diffusionTabFromSearch(location.search)||'resumen';
+    if(tab==='anuncios'&&!annLoaded)try{await loadAnnWorks();}catch{toast('No se pudo cargar Anunciar.');}
+    if(tab==='historial'&&!historyLoaded)await loadHistoryEvents();
+    if(tab==='calendario')try{await refreshCalendarStatus();}catch{scheduleFeedback='No se pudo actualizar el calendario.';}
+    draw();
+  };
+  window.addEventListener('popstate',root._diffusionPopstateHandler);
   // Sólo consulta automáticamente mientras la agenda está visible y existe
   // al menos un envío automático pendiente; no hace HTTP a Discord o Telegram.
   if(root._diffusionCalendarTimer)clearInterval(root._diffusionCalendarTimer);

@@ -62,3 +62,16 @@
 .df [data-rule-draft]{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:10px;border:1px solid #a68a52;background:#13110d;color:#f3ecd9;font:inherit}
 .df [data-rule-draft]:focus-visible{outline:2px solid #f2c230;outline-offset:2px}
 .df [data-rule-draft-save]{min-height:44px}
+
+/* Entrega 3 — estados y trazabilidad de Difusión sin nuevas llamadas externas. */
+.df-overdue-note{padding:14px 16px;border-left:4px solid #e8a15c;background:#302317;color:#ffe9ca;line-height:1.6;font-size:13px}
+.df-overdue-note strong{color:#ffe5a2}
+.df-list article.df-overdue{border-color:#cf955c;background:#251c15}
+.df-schedule-status{font-weight:700;color:#f4d5a5}
+.df-history-list .df-history-item{align-items:stretch}
+.df-history-item>div{max-width:100%;width:100%;overflow-wrap:anywhere}
+.df-history-item .df-history-message{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55}
+.df-history-item p strong{color:#eee0bf}
+.df-history-link{display:inline-block;max-width:100%;min-height:40px;padding:9px 0;color:#f2c230;font-size:13px;font-weight:700;overflow-wrap:anywhere}
+.df-history-link:focus-visible{outline:2px solid #f2c230;outline-offset:2px}
+@media(max-width:520px){.df-history-list .df-history-item{padding:12px 10px}.df-overdue-note{padding:12px}}

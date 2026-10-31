@@ -8,6 +8,7 @@ const routes={'/diffusion-panel.js':'src/diffusion-panel.js',
  '/diffusion-manual-batch.js':'src/diffusion-manual-batch.js',
  '/diffusion-delivery-notices.js':'src/diffusion-delivery-notices.js',
   '/diffusion-draft-templates.js':'src/diffusion-draft-templates.js',
+  '/diffusion-presentation.js':'src/diffusion-presentation.js',
  '/diffusion.css':'src/diffusion.css'};
 const server=createServer((req,res)=>{
  const path=(req.url||'').split('?')[0];

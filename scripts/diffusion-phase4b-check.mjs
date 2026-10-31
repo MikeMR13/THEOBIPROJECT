@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {schedulePresentation} from '../src/diffusion-presentation.js';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const candidate=read('sql/diffusion-4b-dispatch-candidate.sql')
  .replace(/^begin;\s*$/mi,'').replace(/^commit;\s*$/mi,'');
@@ -16,7 +17,8 @@ for(const val of ["delivery_mode text not null default 'manual'","p_delivery tex
  "diffusion_4b_consume_ticket","extensions.gen_random_bytes(32)","diffusion_4b_complete",
  "not (coalesce(se.access,'public')='public'"]) assert.ok(sql.includes(val),'Contrato SQL ausente: '+val);
 for(const val of ["id=\"df-ann-delivery\"","value=\"manual\"","value=\"automatic\"",
- "p_delivery:pending.delivery","Entrega incierta: revisar antes de reenviar"]) assert.ok(ui.includes(val),'UI sin contrato: '+val);
+ "p_delivery:pending.delivery"]) assert.ok(ui.includes(val),'UI sin contrato: '+val);
+assert.match(schedulePresentation({status:'unknown'}).label,/Entrega incierta: revisar antes de reenviar/);
 assert.match(edge,/allowed_mentions:\{parse:\[\]\}/,'Discord sin menciones masivas');
 assert.match(edge,/if\(!\/\^\[a-f0-9\]\{64\}\$\/\.test\(ticket\)\)/,
  'Fail-closed: la solicitud anónima se rechaza sin ticket');

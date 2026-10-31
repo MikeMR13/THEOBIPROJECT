@@ -212,7 +212,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   const view = () => $('#bbv');
   async function seo(epoch){ await renderAdminSeo({sb,view,toast,onSaved:()=>{if(epoch===paneEpoch)formDirty=false;}}); }
   async function difusion(epoch){
-    const { renderAdminDiffusion } = await import('./admin-diffusion.js?v=5');
+    const { renderAdminDiffusion } = await import('./admin-diffusion.js?v=6');
     if(epoch!==paneEpoch)return;
     await renderAdminDiffusion({sb,root:view(),team:null,esc,toast});
   }
