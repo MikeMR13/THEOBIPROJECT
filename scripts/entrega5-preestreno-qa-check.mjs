@@ -103,7 +103,6 @@ const matrix=[
  ['studio-navegacion-browser','scripts/studio-browser-e2e.mjs'],
  ['difusion-confirmacion-browser','scripts/diffusion-confirmation-browser-check.mjs'],
  ['difusion-rpc-aislada','scripts/diffusion-dispatch-check.mjs'],
- ['seo','scripts/seo-contracts-check.mjs'],
  ['preview-aislado','scripts/preview-isolation-check.mjs'],
  ['pwa-offline-browser','scripts/pwa-offline-browser-check.mjs']
 ];
@@ -111,8 +110,7 @@ const matrixChecks=[];
 for(const [area,script] of matrix){
  const present=flow.includes(script)||pkg.includes(script);
  matrixChecks.push({area,script,present});
- if(!present && !['biblioteca-movil','studio-navegacion-browser','seo'].includes(area))
-   throw Error('La cobertura obligatoria desapareció de CI: '+area+' '+script);
+ if(!present)throw Error('La cobertura obligatoria desapareció de CI: '+area+' '+script);
 }
 
 // 6. Bloqueos de salida: un informe EN ROJO puede coexistir con CI VERDE.
