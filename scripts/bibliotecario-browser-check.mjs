@@ -28,8 +28,9 @@ try{
   },
   from:name=>{
    const query={
-    select(){return this;},eq(){return this;},order(){return this;},
-    limit:async n=>({data:name==='series'?[{id:'s1',title:'Obra QA',slug:'obra-qa',published:true,archived_at:null,team_id:'t1',teams:{name:'Equipo QA'}}]:[],error:null}),
+    select(){return this;},eq(){return this;},order(){return this;},gte(){return this;},lt(){return this;},not(){return this;},in(){return this;},
+    single:async()=>({data:name==='platform_settings'?{seasons:{auto:['halloween','muertos','obon','otono'],greet:{},intensity:'sutil',density:'pocas'},updated_at:'2026-10-20T00:00:00Z'}:null,error:null}),
+    limit:async n=>({data:name==='series'?[{id:'s1',title:'Obra QA',slug:'obra-qa',published:true,archived_at:null,team_id:'t1',teams:{name:'Equipo QA'}}]:name==='season_calendar'?[{key:'otono',starts:'2026-09-22',hemi:'norte',day:null},{key:'halloween',starts:'2026-10-25',hemi:null,day:null},{key:'muertos',starts:'2026-11-01',hemi:null,day:null}]:[],error:null}),
     range:async(start,end)=>({data:name==='chapters'?chapters.slice(start,end+1):[],error:null})
    };
    return query;
@@ -60,16 +61,42 @@ try{
  const w=document.documentElement.clientWidth;
  if(w<=400)check(document.documentElement.scrollWidth<=w+2,'Desborde horizontal de la página');
  check(app.querySelector('.bb-tabs button.on')?.getAttribute('aria-selected')==='true','Foco/estado de pestaña desincronizado');
+ app.querySelector('[data-t="temporadas"]').click();
+ await until(()=>app.querySelector('[data-season-key="halloween"]'));
+ check(app.querySelectorAll('[data-season-key]').length>=20,'No aparecen todas las temporadas');
+ check(app.querySelector('[data-season-key="halloween"] .bb-se-state')?.textContent.trim().length>0,'Estado estacional sin etiqueta');
+ check(app.querySelector('[data-season-key="muertos"] .bb-se-meta')?.textContent.includes('noviembre'),'No muestra fecha de fin/inicio');
+ const buttons=[...app.querySelectorAll('.bb-se-actions .btn,.bb-se-filters button,.bb-seg button')];
+ check(buttons.length>20,'No se muestran acciones y filtros');
+ for(const b of buttons){const r=b.getBoundingClientRect();check(r.height>=43.5,'Botón estacional demasiado bajo: '+b.textContent.trim());}
+ const opener=app.querySelector('[data-greet-toggle="halloween"]'),field=app.querySelector('#sea-greet-halloween');
+ check(field.hidden,'Editor de saludo debe iniciar colapsado');opener.click();
+ check(!field.hidden&&opener.getAttribute('aria-expanded')==='true','Editor de saludo no abre');
+ const input=field.querySelector('input');input.value='Saludo QA';input.dispatchEvent(new Event('input',{bubbles:true}));
+ check(!app.querySelector('#sea-save').disabled,'Cambio de saludo no habilita guardar');
+ app.querySelector('[data-season-filter="finished"]').click();
+ check(app.querySelector('[data-season-filter="finished"]').getAttribute('aria-pressed')==='true','Filtro no se selecciona');
+ check(app.querySelectorAll('[data-season-key]').length>0,'El filtro Finalizadas no muestra periodos pasados');
+ app.querySelector('[data-season-filter="all"]').click();
+ const preview=app.querySelector('[data-pv="halloween"]');preview.click();
+ check(app.querySelector('#sea-pv')?.value==='halloween','Vista previa no selecciona la temporada');
+ check(app.querySelector('#sea-preview')!==null,'Falta destino de vista previa');
+ if(w<=400)check(document.documentElement.scrollWidth<=w+2,'Temporadas desborda horizontalmente');
+
  out.dataset.qaStatus='pass';out.textContent='OK: 15 pestañas, usuarios 135, capítulos 65 y ancho '+w;
 }catch(e){out.dataset.qaStatus='fail';out.textContent=String(e?.stack||e);}
 </script></body></html>`;
 
+const seasonStub="export {SEASONS,SGROUPS} from '/anim.js';export const INT={sutil:'Sutil',media:'Media',alta:'Alta'},DEN={pocas:'Pocas',normal:'Normal',muchas:'Muchas'},SUGGEST={};export const hemiOf=()=> 'norte', platformKey=()=> 'halloween',load=async()=>({});";
 const files={'/admin.js':'src/admin.js','/admin-seo.js':'src/admin-seo.js',
-'/obi-dialog.js':'src/obi-dialog.js','/seo-settings.js':'src/seo-settings.js','/styles.css':'src/styles.css'};
+'/obi-dialog.js':'src/obi-dialog.js','/seo-settings.js':'src/seo-settings.js','/styles.css':'src/styles.css',
+'/season-admin-view.js':'src/season-admin-view.js','/season-periods.js':'src/season-periods.js','/anim.js':'src/anim.js'};
 const server=createServer((req,res)=>{
  const path=(req.url||'').split('?')[0];
  res.setHeader('Cache-Control','no-store');
+ if(path==='/' && /[?&]temporada=/.test(req.url||'')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><html><body><main id="hero">Vista previa de temporada de prueba</main></body></html>');return;}
  if(path==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(page);return;}
+ if(path==='/season.js'){res.setHeader('Content-Type','application/javascript');res.end(seasonStub);return;}
  if(!files[path]){res.writeHead(404);res.end('No disponible');return;}
  res.setHeader('Content-Type',path.endsWith('.css')?'text/css':'application/javascript');
  res.end(readFileSync(files[path]));
@@ -80,7 +107,7 @@ const bin=process.env.QA_CHROME||['google-chrome','google-chrome-stable','chromi
 assert(bin,'Chromium no disponible');
 const port=await new Promise((ok,fail)=>{server.once('error',fail);server.listen(0,'127.0.0.1',()=>ok(server.address().port))});
 try{
- for(const width of [390,1200]){
+ for(const width of [320,390,768,1440]){
   const args=['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage',
     '--disable-background-networking','--window-size='+width+',900',
     '--virtual-time-budget=12000','--dump-dom','http://127.0.0.1:'+port+'/'];

@@ -1,11 +1,35 @@
 import { confirmObi, inputObi } from './obi-dialog.js';
 import { renderAdminSeo } from './admin-seo.js?v=1';
+import { describeAdminSeasons, seasonToday } from './season-admin-view.js';
 // Panel del Bibliotecario: acceso único en /bibliotecario (alias /admin).
 const CSS = `
 .bb-sea{display:grid;gap:14px}.bb-sea-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px;align-items:start}
-.bb-se{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center;padding:8px 0;border-top:1px solid #221f18}.bb-se input[data-greet]{grid-column:1/-1;width:100%;font-size:13px;padding:7px}
+.bb-se{display:grid;grid-template-columns:minmax(0,1fr);gap:9px;align-items:start;padding:14px 0;border-top:1px solid #4c3924;min-width:0}
+.bb-se-head{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;align-items:center;min-width:0}
+.bb-se-head .bb-ck{min-width:0;flex:1 1 165px}
+.bb-se-state{font:700 11px/1.35 'IBM Plex Mono',monospace;padding:5px 8px;border:1px solid #957c4e;color:#ead2a1;white-space:nowrap}
+.bb-se-state[data-state=applied]{border-color:#91bc92;color:#b9e6b5;background:#1e3223}
+.bb-se-state[data-state=current]{border-color:#a58b50;color:#f1d88f}
+.bb-se-state[data-state=finished]{border-color:#6d6659;color:#c3b9a5}
+.bb-se-state[data-state=disabled]{border-color:#625b4f;color:#b2a89a}
+.bb-se-meta{margin:0;color:#cfc0a1;font:12px/1.5 'IBM Plex Sans',sans-serif;overflow-wrap:anywhere}
+.bb-se-actions{display:flex;gap:8px;flex-wrap:wrap}
+.bb-se-actions .btn{min-height:44px;min-width:118px;padding:9px 12px}
+.bb-se-editor{padding:12px;border:1px solid #53422e;background:#211a11}
+.bb-se-editor[hidden]{display:none}
+.bb-se-editor label{display:grid;gap:7px;font-size:12px;color:#e3d1ac}
+.bb-se-editor input[data-greet]{width:100%;min-width:0;min-height:44px;font-size:13px;padding:9px;border:1px solid #806740;background:#16140f;color:var(--paper)}
+.bb-se-filters{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.bb-se-filters button{border:1px solid #806740;background:#19160f;color:var(--paper);font:600 12px 'IBM Plex Sans',sans-serif;padding:9px 12px;min-height:44px;cursor:pointer}
+.bb-se-filters button[aria-pressed=true]{background:var(--gold);border-color:var(--gold);color:#16110b}
+.bb-se-empty{padding:15px;color:#ddcaaa;background:#211a11}
+.bb #sea-preview .bb-row>span{display:flex;flex-wrap:wrap;gap:8px;min-width:0;max-width:100%}
+.bb #sea-preview :is(select,.btn){min-height:44px;max-width:100%}
+.bb #sea-preview .bb-pv{max-width:100%}
+.bb-sea .bb-box{min-width:0}
+
 .bb-ck{display:flex;gap:8px;align-items:center;font-size:14px;font-weight:600;cursor:pointer}.bb-ck input{width:16px;height:16px;accent-color:#f2c230}.bb-ck i{width:10px;height:10px;border-radius:50%}
-.bb-seg{display:inline-flex;border:1px solid #3d3628}.bb-seg button{padding:7px 12px;background:none;border:none;border-right:1px solid #3d3628;color:#cfc6b0;font:inherit;font-size:12px;font-weight:600;cursor:pointer}.bb-seg button:last-child{border-right:none}.bb-seg button.on{background:#f2c230;color:#0d0c0a}
+.bb-seg{display:inline-flex;border:1px solid #3d3628}.bb-seg button{min-height:44px;padding:9px 12px;background:none;border:none;border-right:1px solid #3d3628;color:#cfc6b0;font:inherit;font-size:12px;font-weight:600;cursor:pointer}.bb-seg button:last-child{border-right:none}.bb-seg button.on{background:#f2c230;color:#0d0c0a}
 .bb-pv{width:100%;height:560px;border:1px solid #2f2a20;background:#0d0c0a}.bb-save{position:sticky;bottom:0;display:flex;gap:12px;justify-content:flex-end;align-items:center;padding:12px 0;background:#0d0c0a;border-top:1px solid #2f2a20}
 
 .bb{max-width:1180px;margin:0 auto}
@@ -35,8 +59,11 @@ const CSS = `
   .bb-tabs{flex-wrap:nowrap;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:thin;scroll-snap-type:x proximity;scroll-padding-inline:8px}
   .bb-tabs button{flex:none;white-space:nowrap;min-height:44px;scroll-snap-align:start}
   .bb-sea-g{grid-template-columns:minmax(0,1fr)}
-  .bb-se{grid-template-columns:minmax(0,1fr) auto;gap:10px}
-  .bb-se input[data-greet]{grid-column:1/-1;min-height:44px}
+  .bb-se{grid-template-columns:minmax(0,1fr);gap:9px}
+  .bb-se-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bb-se-actions .btn{width:100%;min-width:0;white-space:normal}
+  .bb-seg{flex-wrap:wrap;max-width:100%}
+  .bb-se-editor input[data-greet]{min-height:44px}
   .bb-se .btn{min-height:44px}
   .bb-box{min-width:0;padding:14px}
   .bb-pv{width:100%;max-width:100%;height:480px}
@@ -522,29 +549,72 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   }
   async function temporadas(epoch){
     const PS = await import('/season.js?v=4');
-    const [{ data: row, error }, { data: cal }, { data: slog }, { data: lun }] = await Promise.all([sb.from('platform_settings').select('seasons,updated_at').eq('id', 1).single(), sb.from('season_calendar').select('key,label,starts,hemi').gte('starts', new Date().toISOString().slice(0, 10)).order('starts').limit(120), sb.from('season_sync_log').select('ran_at,ok,detail').order('id', { ascending: false }).limit(1), sb.from('season_calendar').select('key,day,source').in('key', ['seollal', 'chuseok', 'tsukimi', 'dano', 'buda', 'pascua']).not('day', 'is', null).order('day')]);
+    const calendarYear = new Date().getFullYear();
+    const [{ data: row, error }, { data: cal }, { data: slog }, { data: lun }] = await Promise.all([sb.from('platform_settings').select('seasons,updated_at').eq('id', 1).single(), sb.from('season_calendar').select('key,label,starts,hemi,day').gte('starts', (calendarYear-1)+'-01-01').lt('starts', (calendarYear+2)+'-01-01').order('starts').limit(300), sb.from('season_sync_log').select('ran_at,ok,detail').order('id', { ascending: false }).limit(1), sb.from('season_calendar').select('key,day,source').in('key', ['seollal', 'chuseok', 'tsukimi', 'dano', 'buda', 'pascua']).not('day', 'is', null).order('day')]);
     const lastY = (lun || []).reduce((a, r) => Math.max(a, +r.day.slice(0, 4)), 0), sl = slog?.[0];
     if (error) throw error;
     if(epoch!==paneEpoch)return;
-    const C = { auto: [], greet: {}, intensity: 'sutil', density: 'normal', ...(row.seasons || {}) }; let prev = temporadas.prev || PS.platformKey() || 'navidad', dirty = false;
+    const C = { auto: [], greet: {}, intensity: 'sutil', density: 'normal', ...(row.seasons || {}) };
+    let prev = PS.SEASONS[temporadas.prev] ? temporadas.prev : PS.platformKey() || 'navidad', dirty = false;
+    let filter = 'all';
+    const openGreetings = new Set();
+    const descriptors = () => describeAdminSeasons({
+      seasons:PS.SEASONS,calendar:cal||[],auto:C.auto,hemi:PS.hemiOf(Intl.DateTimeFormat().resolvedOptions().timeZone),today:seasonToday()
+    });
     const seg = (k, o) => `<div class="bb-seg">${Object.entries(o).map(([v, l]) => `<button type="button" data-${k}="${v}" class="${C[k] === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-    const next = (cal || []).filter(c => C.auto.includes(c.key) && (!c.hemi || c.hemi === 'norte')).slice(0, 4);
-    const draw = () => { view().innerHTML = `<div class="bb-sea">
+    // Los estados se recalculan después de cada cambio de activación y de cada filtrado.
+    const draw = () => {
+      const allSeasons=descriptors();
+      const ongoing=allSeasons.filter(x=>x.enabled&&x.phase==='current');
+      const next=allSeasons.filter(x=>x.enabled&&x.phase==='upcoming'&&x.period).sort((a,b)=>a.period.start.localeCompare(b.period.start)).slice(0,4);
+      const visible=allSeasons.filter(x=>filter==='all'||(filter==='current'?x.enabled&&x.phase==='current':filter==='finished'?x.enabled&&x.phase==='finished':x.state===filter));
+      view().innerHTML = `<div class="bb-sea">
       <div class="bb-box"><h3>Temporadas de la plataforma</h3><p class="mono" style="font-size:13px;margin:0 0 12px;line-height:1.5">Se aplican en Inicio, Catálogo, Lanzamientos, la ficha de cada obra y, con un detalle discreto, en el lector. En la ficha de una obra y en la página de un equipo manda la temporada del equipo si tiene una activa. Cada lector puede apagarlas en sus ajustes. Las estaciones usan el hemisferio según la zona horaria de cada lector.</p>
         <div class="bb-row" style="align-items:center"><span class="mono">Intensidad</span>${seg('intensity', PS.INT)}<span class="mono">Partículas</span>${seg('density', PS.DEN)}</div>
         <div class="bb-row" style="align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid #2f2a20"><span class="mono" style="font-size:12px;flex:1;line-height:1.5">Fechas lunares y Pascua cargadas hasta <b>${lastY || '—'}</b>. Se sincronizan solas con Calendarific el 2 de enero y el 2 de julio.${sl ? ` Última sincronización: ${when(sl.ran_at)} · ${sl.ok ? '<span style="color:#a9d18e">correcta</span>' : `<span style="color:#f59e7a">falló: ${esc(sl.detail?.error || '')}</span>`}` : ''}</span><button type="button" class="btn ghost" id="sea-sync">Sincronizar fechas ahora</button></div>
-        ${next.length ? `<p class="mono" style="font-size:12px;margin:10px 0 0">Próximas: ${next.map(c => `${esc(c.label)} · ${new Date(c.starts + 'T12:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`).join(' · ')}. Te avisamos 7 días antes.</p>` : '<p class="mono" style="font-size:12px;margin:10px 0 0">Ninguna temporada automática activada.</p>'}</div>
-      <div class="bb-sea-g">${Object.entries(PS.SGROUPS).map(([g, gl]) => `<div class="bb-box"><h3>${gl}</h3>${Object.entries(PS.SEASONS).filter(([, s]) => s.g === g).map(([k, s]) => `<div class="bb-se"><label class="bb-ck"><input type="checkbox" data-auto="${k}" ${C.auto.includes(k) ? 'checked' : ''}><i style="background:${s.ac}"></i>${esc(s.l)}</label><button type="button" class="btn ghost" data-pv="${k}" style="padding:4px 10px;font-size:12px">Ver</button>
-          <input data-greet="${k}" maxlength="140" value="${esc(C.greet[k] ?? PS.SUGGEST[k] ?? '')}" aria-label="Saludo de ${esc(s.l)}" placeholder="Sin saludo"></div>`).join('')}</div>`).join('')}</div>
-      <div class="bb-box"><div class="bb-row" style="align-items:center;justify-content:space-between"><h3 style="margin:0">Vista previa de Inicio · ${esc(PS.SEASONS[prev].l)}</h3><span style="display:flex;gap:8px;align-items:center"><select id="sea-pv">${Object.entries(PS.SEASONS).map(([k, s]) => `<option value="${k}" ${k === prev ? 'selected' : ''}>${esc(s.l)}</option>`).join('')}</select><a class="btn ghost" href="/?temporada=${prev}" target="_blank" rel="noopener">Abrir en pestaña ↗</a></span></div>
+        <p class="mono" style="font-size:12px;margin:8px 0 0;line-height:1.6">En curso: ${ongoing.length?ongoing.map(x=>esc(x.label)+(x.applied?' (aplicada ahora)':' (se superpone)')).join(' · '):'Ninguna'}. ${next.length?'Próximas: '+next.map(x=>esc(x.label)+' · '+esc(x.periodLabel)).join(' · '):'No hay próximas fechas activadas.'}</p>
+        <p class="mono" style="font-size:12px;color:#cbbd9f;margin:0">«Finalizada» se refiere al periodo de este año; la activación automática permanece preparada para el siguiente. Los temas simultáneos respetan su prioridad.</p></div>
+      <div class="bb-se-filters" role="group" aria-label="Filtrar temporadas">${[['all','Todas'],['current','En curso'],['upcoming','Próximas'],['finished','Finalizadas'],['disabled','Desactivadas']].map(([k,l])=>`<button type="button" data-season-filter="${k}" aria-pressed="${filter===k}">${l} · ${k==='all'?allSeasons.length:k==='current'?ongoing.length:k==='finished'?allSeasons.filter(x=>x.enabled&&x.phase==='finished').length:allSeasons.filter(x=>x.state===k).length}</button>`).join('')}</div>
+      <div class="bb-sea-g">${Object.entries(PS.SGROUPS).map(([g, gl]) => {
+        const group=visible.filter(x=>PS.SEASONS[x.key]?.g===g).sort((a,b)=>a.sort-b.sort||a.label.localeCompare(b.label,'es'));
+        return group.length?`<div class="bb-box"><h3>${esc(gl)}</h3>${group.map(x=>{
+          const s=PS.SEASONS[x.key],k=x.key,open=openGreetings.has(k);
+          return `<div class="bb-se" data-season-key="${k}" data-season-state="${x.state}">
+            <div class="bb-se-head"><label class="bb-ck"><input type="checkbox" data-auto="${k}" ${x.enabled?'checked':''} aria-label="Activación automática de ${esc(s.l)}"><i style="background:${s.ac}"></i><span>${esc(s.l)}</span></label><span class="bb-se-state" data-state="${x.state}">${esc(x.stateLabel)}</span></div>
+            <p class="bb-se-meta">${esc(x.periodLabel)}${!x.enabled?' · Activación automática desactivada':x.phase==='finished'?' · Edición del año finalizada':x.applied?' · Tema que se muestra ahora':x.phase==='current'?' · En periodo, otro tema tiene prioridad':''}</p>
+            <div class="bb-se-actions"><button type="button" class="btn ghost" data-pv="${k}" aria-label="Vista previa de ${esc(s.l)}">Vista previa</button><button type="button" class="btn ghost" data-greet-toggle="${k}" aria-expanded="${open}" aria-controls="sea-greet-${k}">${open?'Cerrar saludo':'Editar saludo'}</button></div>
+            <div class="bb-se-editor" id="sea-greet-${k}" ${open?'':'hidden'}><label>Saludo de ${esc(s.l)}<input data-greet="${k}" maxlength="140" value="${esc(C.greet[k] ?? PS.SUGGEST[k] ?? '')}" placeholder="Sin saludo"></label></div>
+          </div>`;
+        }).join('')}</div>`:'';
+      }).join('') || '<p class="bb-se-empty">Ninguna temporada coincide con el filtro. Elige «Todas» para ver el calendario completo.</p>'}</div>
+      <div class="bb-box" id="sea-preview"><div class="bb-row" style="align-items:center;justify-content:space-between"><h3 style="margin:0">Vista previa de Inicio · ${esc(PS.SEASONS[prev].l)}</h3><span style="display:flex;gap:8px;align-items:center"><select id="sea-pv">${Object.entries(PS.SEASONS).map(([k, s]) => `<option value="${k}" ${k === prev ? 'selected' : ''}>${esc(s.l)}</option>`).join('')}</select><a class="btn ghost" href="/?temporada=${prev}" target="_blank" rel="noopener">Abrir en pestaña ↗</a></span></div>
         <p class="mono" style="font-size:12px;margin:6px 0 10px">Muestra lo guardado. Guarda primero para ver un saludo nuevo.</p><iframe class="bb-pv" src="/?temporada=${prev}&vista=${Date.now()}" title="Vista previa de Inicio con la temporada"></iframe><p class="mono bb-pvx" hidden style="font-size:12px;margin:8px 0 0;color:#f59e7a">El navegador no dejó mostrar la vista previa aquí. Recarga con Ctrl+Shift+R o usa «Abrir en pestaña».</p></div>
       <div class="bb-save"><span class="mono" id="sea-st">${dirty ? 'Cambios sin guardar' : row.updated_at ? 'Guardado ' + when(row.updated_at) : ''}</span><button class="btn" id="sea-save" ${dirty ? '' : 'disabled'}>Guardar temporadas</button></div></div>`;
       const V = view(), mark = () => { dirty = true; formDirty=true; $('#sea-st').textContent = 'Cambios sin guardar'; $('#sea-save').disabled = false; };
       V.querySelectorAll('[data-intensity]').forEach(b => b.onclick = () => { C.intensity = b.dataset.intensity; dirty = true; formDirty=true; draw(); });
       V.querySelectorAll('[data-density]').forEach(b => b.onclick = () => { C.density = b.dataset.density; dirty = true; formDirty=true; draw(); });
-      V.querySelectorAll('[data-auto]').forEach(c => c.onchange = () => { const k = c.dataset.auto; C.auto = c.checked ? [...C.auto, k] : C.auto.filter(x => x !== k); mark(); });
+      V.querySelectorAll('[data-season-filter]').forEach(b=>b.onclick=()=>{
+        filter=b.dataset.seasonFilter;draw();
+        V.querySelector('[data-season-filter="'+filter+'"]')?.focus();
+      });
+      V.querySelectorAll('[data-auto]').forEach(c => c.onchange = () => {
+        const k=c.dataset.auto; C.auto=c.checked?[...new Set([...C.auto,k])]:C.auto.filter(x=>x!==k);
+        dirty=true;formDirty=true;const y=window.scrollY;draw();window.scrollTo(0,y);
+        V.querySelector('[data-auto="'+k+'"]')?.focus();
+      });
+      V.querySelectorAll('[data-greet-toggle]').forEach(b=>b.onclick=()=>{
+        const k=b.dataset.greetToggle,field=V.querySelector('#sea-greet-'+k);
+        const open=field.hidden;field.hidden=!open;b.setAttribute('aria-expanded',String(open));
+        b.textContent=open?'Cerrar saludo':'Editar saludo';
+        open?openGreetings.add(k):openGreetings.delete(k);
+        if(open)field.querySelector('input')?.focus();
+      });
       V.querySelectorAll('[data-greet]').forEach(i => i.oninput = () => { C.greet[i.dataset.greet] = i.value; mark(); });
-      V.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { prev = temporadas.prev = b.dataset.pv; draw(); V.querySelector('.bb-pv').scrollIntoView ? window.scrollTo({ top: V.querySelector('.bb-pv').getBoundingClientRect().top + scrollY - 120, behavior: 'smooth' }) : 0; });
+      V.querySelectorAll('[data-pv]').forEach(b=>b.onclick=()=>{
+        prev=temporadas.prev=b.dataset.pv;draw();
+        V.querySelector('#sea-preview')?.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+        V.querySelector('#sea-pv')?.focus();
+      });
       $('#sea-sync').onclick = async e => { const b = e.currentTarget; b.disabled = true; b.textContent = 'Sincronizando…'; const { data, error } = await sb.functions.invoke('season-sync', { body: { years: 4 } }); if(epoch!==paneEpoch)return; if (error || !data?.ok) { toast('No se pudo sincronizar: ' + (data?.error || error?.message || '')); b.disabled = false; b.textContent = 'Sincronizar fechas ahora'; return; } toast('Fechas sincronizadas'); await PS.load(sb, true); temporadas(epoch); };
       const fr = V.querySelector('.bb-pv'); let okL = false; fr.onload = () => { try { okL = !!fr.contentDocument?.body?.childElementCount; } catch { okL = false; } V.querySelector('.bb-pvx').hidden = okL; }; setTimeout(() => { if (!okL) V.querySelector('.bb-pvx').hidden = false; }, 6000);
       $('#sea-pv').onchange = e => { prev = temporadas.prev = e.target.value; draw(); };
