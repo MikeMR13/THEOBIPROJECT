@@ -49,25 +49,47 @@ async function providerPost(item,admin,base,fetcher){
 }
 const respond=(code,body)=>new Response(JSON.stringify(body),{status:code,headers:{
  'content-type':'application/json','cache-control':'no-store'}});
-export async function handleDispatch(request,{createAdmin,baseUrl,fetcher=fetch}){
+// PostgREST devuelve un thenable (implementa then(), pero no necesariamente catch()).
+async function callRpc(admin,name,args){
+ try {
+  const result=await admin.rpc(name,args);
+  return result && typeof result==='object' ? result : {error:true};
+ }catch{return {error:true};}
+}
+// Nunca liberar automáticamente el atraso acumulado al reparar el despachador.
+// Se detienen TODOS los envíos automáticos hasta que una persona revise los vencidos.
+const OVERDUE_REVIEW_MS=15*60*1000;
+async function unreviewedOverdue(admin,now){
+ try {
+  const limit=new Date(now()-OVERDUE_REVIEW_MS).toISOString();
+  const result=await admin.from('diffusion_scheduled_announcements').select('id')
+   .eq('status','planned').eq('delivery_mode','automatic').lte('scheduled_at',limit).limit(1);
+  if(result?.error||!Array.isArray(result?.data))return null; // fail closed
+  return result.data.length>0;
+ }catch{return null;}
+}
+export async function handleDispatch(request,{createAdmin,baseUrl,fetcher=fetch,now=Date.now}){
  if(request.method!=='POST'||request.headers.get('origin'))return respond(405,{error:'method_not_allowed'});
  const ticket=request.headers.get('x-diffusion-ticket')||'';
  if(!/^[a-f0-9]{64}$/.test(ticket))return respond(401,{error:'unauthorized'});
  if(typeof baseUrl!=='string'||!baseUrl.startsWith('https://'))return respond(503,{error:'server_not_configured'});
  let admin;try{admin=createAdmin()}catch{return respond(503,{error:'server_not_configured'})}
- const consumed=await admin.rpc('diffusion_4b_consume_ticket',{p_ticket:ticket}).catch(()=>({error:true}));
+ const consumed=await callRpc(admin,'diffusion_4b_consume_ticket',{p_ticket:ticket});
  if(consumed.error||consumed.data!==true)return respond(401,{error:'unauthorized'});
+ const overdue=await unreviewedOverdue(admin,now);
+ if(overdue===null)return respond(503,{error:'overdue_check_failed'});
+ if(overdue)return respond(409,{error:'overdue_plans_require_review'});
  let sent=0,uncertain=0,blocked=0;
  for(let i=0;i<3;i++){
-  const result=await admin.rpc('diffusion_4b_claim').catch(()=>({error:true}));
+  const result=await callRpc(admin,'diffusion_4b_claim');
   if(result.error)return respond(503,{error:'claim_failed',sent,uncertain,blocked});
   const item=result.data;
   if(!item)break;
   if(item.skipped===true){blocked++;continue}
   let delivery={ok:false};
   try{delivery=await providerPost(item,admin,baseUrl,fetcher)}catch{}
-  const saved=await admin.rpc('diffusion_4b_complete',{p_plan:item.plan_id,p_job:item.job_id,
-    p_success:delivery.ok===true,p_post_id:delivery.postId||null}).catch(()=>({error:true}));
+  const saved=await callRpc(admin,'diffusion_4b_complete',{p_plan:item.plan_id,p_job:item.job,
+    p_success:delivery.ok===true,p_post_id:delivery.postId||null});
   if(saved.error||saved.data!==true)uncertain++;
   else if(delivery.ok)sent++;
   else uncertain++;

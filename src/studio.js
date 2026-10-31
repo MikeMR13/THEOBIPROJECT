@@ -938,11 +938,12 @@ export function createStudio(ctx){
         sb.from('patreon_public').select('owner').eq('owner', T.team.id).maybeSingle()
       ]).then(([a, chapters, v, t, p]) => {
         if (!B()) return;
-        if (a.error || v.error || t.error || p.error) {
-          B().innerHTML = `<p class="wk-access-warning" role="alert">${esc(errMsg(a.error || v.error || t.error || p.error))}</p>`;
+        if (a.error || chapters?.error || !Array.isArray(chapters?.data) || v.error || t.error || p.error || !a.data) {
+          const cause = a.error || chapters?.error || v.error || t.error || p.error || new Error('Respuesta incompleta de capítulos o datos de obra');
+          B().innerHTML = `<p class="wk-access-warning" role="alert">${esc(errMsg(cause))}</p>`;
           return;
         }
-        SA = a.data; CH = chapters || []; VOL = v.data || []; tiers = t.data || [];
+        SA = a.data; CH = chapters.data; VOL = v.data || []; tiers = t.data || [];
         connected = !!p.data; autoReleaseEnabled = !!SA.access_until;
         drawL();
       }).catch(e => { if (B()) B().innerHTML = `<p class="wk-access-warning" role="alert">${esc(errMsg(e))}</p>`; });
