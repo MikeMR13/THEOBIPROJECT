@@ -8,7 +8,7 @@ on:
       - 'src/studio.js'
       - 'src/ui.js'
       - 'scripts/reading-start-check.mjs'
-      - 'supabase/migrations/20261031000000_editorial_reading_start.sql'
+      - 'supabase/migrations/20261031220515_editorial_reading_start_20261031.sql'
       - '.github/workflows/reading-start-check.yml'
   workflow_dispatch:
 
