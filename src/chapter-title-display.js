@@ -3,6 +3,12 @@
 const CHAPTER_PREFIX = /^\s*(cap[íi]tulo|captiulo|cap\.?)[ \t]*(?:n(?:[úu]mero|[º°o])\.?[ \t]*)?0*([0-9]{1,4})(?=$|[\s:.\-–—])(?:[ \t]*[:\-–—][ \t]*|\.[ \t]+|\s+|$)/iu;
 
 const SPECIAL_PREFIX = {
+  'Portada': /^portada(?=$|[ \t]*[:\-–—])[ \t]*(?:[:\-–—][ \t]*)?/iu,
+  'Sinopsis': /^sinopsis(?=$|[ \t]*[:\-–—])[ \t]*(?:[:\-–—][ \t]*)?/iu,
+  'Índice': /^[íi]ndice(?=$|[ \t]*[:\-–—])[ \t]*(?:[:\-–—][ \t]*)?/iu,
+  'Dedicatoria': /^dedicatoria(?=$|[ \t]*[:\-–—])[ \t]*(?:[:\-–—][ \t]*)?/iu,
+  'Agradecimientos': /^agradecimientos(?=$|[ \t]*[:\-–—])[ \t]*(?:[:\-–—][ \t]*)?/iu,
+  'Nota editorial': /^nota editorial(?=$|[ \t]*[:\-–—])[ \t]*(?:[:\-–—][ \t]*)?/iu,
   'Prólogo': /^pr[oó]logo(?=$|[ \t]*[:\-–—])[ \t]*(?:[:\-–—][ \t]*)?/iu,
   'Epílogo': /^ep[íi]logo(?=$|[ \t]*[:\-–—])[ \t]*(?:[:\-–—][ \t]*)?/iu,
   'Interludio': /^interludio(?=$|[ \t]*[:\-–—])[ \t]*(?:[:\-–—][ \t]*)?/iu,

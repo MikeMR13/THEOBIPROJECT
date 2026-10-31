@@ -424,7 +424,7 @@ export function createStudio(ctx){
           ${can('delete') ? `<button class="lnk danger" data-delvol="${v.id}">Borrar volumen</button>` : ''}</div>
           <div class="wk-ve" id="ve-${v.id}" hidden></div>
           <div class="wk-tw"><div class="wk-t"><div class="wk-th"><span>${canSel && LL.length ? `<input type="checkbox" data-allv="${v.id}" aria-label="Seleccionar los capítulos del volumen ${v.num}" ${LL.every(c => SEL.has(c.id)) ? 'checked' : ''}>` : ''}</span><span>N.º</span><span>TÍTULO</span><span>ESTADO</span><span>FECHA</span><span>ACCIONES</span></div>
-          ${LL.map(c => { const cs = VST[c.status] || VST.draft, sk = stg(c); return `<div class="wk-tr${SEL.has(c.id) ? ' sel' : ''}" data-row="${c.id}" data-vol="${v.id}" ${canDrag ? 'draggable="true"' : ''}><span class="wk-sel">${canDrag ? '<span class="wk-grip" title="Arrastra para reordenar o llévalo a otro volumen" aria-hidden="true">⠿</span>' : ''}${canSel ? `<input type="checkbox" data-pick="${c.id}" ${SEL.has(c.id) ? 'checked' : ''} aria-label="Seleccionar ${esc(c.title)}">` : ''}</span><span class="mono">${c.num}</span><span class="wk-tt" title="${esc(c.title)}">${c.section_type && c.section_type !== 'Capítulo' ? `<em>${esc(c.section_type)}</em> ` : ''}${esc(c.title)}${sk ? `<span class="wk-stg" style="--c:${STG[sk][2]}">${STG[sk][0]}</span>` : ''}</span><span class="mono" style="color:${cs[1]}">● ${cs[0]}</span><span class="mono">${c.status === 'draft' ? 'edit. ' + fmtD(c.updated_at) : fmtD(c.publish_at)}</span>
+          ${LL.map(c => { const cs = VST[c.status] || VST.draft, sk = stg(c); return `<div class="wk-tr${SEL.has(c.id) ? ' sel' : ''}" data-row="${c.id}" data-vol="${v.id}" ${canDrag ? 'draggable="true"' : ''}><span class="wk-sel">${canDrag ? '<span class="wk-grip" title="Arrastra para reordenar o llévalo a otro volumen" aria-hidden="true">⠿</span>' : ''}${canSel ? `<input type="checkbox" data-pick="${c.id}" ${SEL.has(c.id) ? 'checked' : ''} aria-label="Seleccionar ${esc(c.title)}">` : ''}</span><span class="mono">${c.num}</span><span class="wk-tt" title="${esc(c.title)}">${c.section_type && c.section_type !== 'Capítulo' ? `<em>${esc(c.section_type)}</em> ` : ''}${esc(c.title)}${can("edit") ? `<label class="wk-start-opt" style="display:flex;align-items:center;gap:6px;margin-top:5px;font-size:11px;color:var(--mute);cursor:pointer"><input type="checkbox" data-start-reading="${esc(c.id)}" ${s.reading_start_chapter_id === c.id ? "checked" : ""} aria-label="Iniciar lecturas nuevas en ${esc(c.title)}" style="accent-color:var(--gold);width:15px;height:15px"> Iniciar lectura aquí</label>` : s.reading_start_chapter_id === c.id ? `<small class="mono">Inicio de lectura nueva</small>` : ""}${sk ? `<span class="wk-stg" style="--c:${STG[sk][2]}">${STG[sk][0]}</span>` : ''}</span><span class="mono" style="color:${cs[1]}">● ${cs[0]}</span><span class="mono">${c.status === 'draft' ? 'edit. ' + fmtD(c.updated_at) : fmtD(c.publish_at)}</span>
             <span class="wk-ra">${can('edit') ? `<a class="btn ghost xs" href="/estudio/editar/${c.id}">Editar</a>` : ''}<details class='wk-row-more'><summary aria-label='Más acciones del capítulo ${esc(c.title)}'>··· Más</summary><div class='wk-row-more-content'>${can('publish') && c.status === 'draft' && v.status === 'published' ? `<button class="btn ghost xs gold" data-cpub="${c.id}">Publicar</button>` : ''}${can('diffusion_publish') && c.status === 'published' ? `<a href="/estudio/difusion?k=c&s=${s.id}&id=${c.id}">Anunciar</a>` : ''}${canDrag && LL.indexOf(c)>0 ? `<button type='button' class='btn ghost xs' data-shift='${c.id}' data-dir='up' aria-label='Subir ${esc(c.title)}'>↑ Subir</button>` : ''}${canDrag && LL.indexOf(c)<LL.length-1 ? `<button type='button' class='btn ghost xs' data-shift='${c.id}' data-dir='down' aria-label='Bajar ${esc(c.title)}'>↓ Bajar</button>` : ''}${can('delete') ? `<button class="lnk danger" data-delch="${c.id}" aria-label="Enviar ${esc(c.title)} a la papelera">Borrar</button>` : ''}</div></details></span></div>`; }).join('') || (L.length ? '<p class="tb-empty">Ningún capítulo de este volumen coincide con el filtro.</p>' : '<p class="tb-empty">Este volumen aún no tiene capítulos.</p>')}</div></div>` : ''}</section>`; };
     const D = { title: s.title || '', short: s.short || '', original: s.original || '', title_romaji: s.title_romaji || '', publisher: s.publisher || '', author: s.author || '', illustrator: s.illustrator || '', work_type: s.work_type || 'Novela ligera', demographic: s.demographic || '', translation_status: s.translation_status || 'active', original_status: s.original_status || '', synopsis: s.synopsis || '', adult: !!s.adult, genres: [...(s.genres || [])], tags: [...(s.tags || [])] };
     const sel = (k, opts) => `<select data-d="${k}">${opts.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}" ${String(D[k]) === v ? 'selected' : ''}>${esc(l)}</option>`; }).join('')}</select>`;
@@ -473,6 +473,31 @@ export function createStudio(ctx){
     if (tab === 'descargas') renderDownloads(s.id, app.querySelector('#wk-downloads'));
     const on = (sel2, fn) => app.querySelectorAll(sel2).forEach(b => b.onclick = e => { e.preventDefault(); busy(b, () => fn(b)); });
     const again = () => work(slug);
+    // Configuración editorial para lectores nuevos; no toca reading_progress ni read_chapters.
+    let savingStart = false;
+    app.querySelectorAll('[data-start-reading]').forEach(input => {
+      input.onchange = async () => {
+        if (savingStart) { input.checked = s.reading_start_chapter_id === input.dataset.startReading; return; }
+        const nextId = input.checked ? input.dataset.startReading : null;
+        savingStart = true;
+        app.querySelectorAll('[data-start-reading]').forEach(el => { el.disabled = true; });
+        try {
+          const { data, error } = await sb.from('series')
+            .update({ reading_start_chapter_id: nextId })
+            .eq('id', s.id).eq('team_id', T.team.id)
+            .select('id,reading_start_chapter_id').maybeSingle();
+          if (error || !data) throw error || new Error('Sin permiso para modificar el inicio de lectura');
+          toast(nextId ? 'Inicio de lecturas nuevas guardado' : 'Inicio automático restaurado');
+          again();
+        } catch (error) {
+          input.checked = s.reading_start_chapter_id === input.dataset.startReading;
+          toast(errMsg(error));
+        } finally {
+          savingStart = false;
+          app.querySelectorAll('[data-start-reading]').forEach(el => { el.disabled = false; });
+        }
+      };
+    });
     if (tab === 'datos') { bindSeriesPublication({ app, sb, series: s, can, fromLocal, fmtTz, busy, toast, refresh: again });
       mountSeriesCoverEditor({ sb, series:s, teamId:T.team.id, root:$('#wk-series-cover'), canEdit:can('edit'), media, esc, busy, toast, confirmObi }); }
     if (tab === 'seo') bindSeriesSeo({ app, sb, series: s, volumes: V, canEdit: can('edit'), media, busy, toast, refresh: again });

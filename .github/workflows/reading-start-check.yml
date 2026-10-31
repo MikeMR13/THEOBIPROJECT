@@ -1,0 +1,34 @@
+name: Inicio editorial de lectura
+on:
+  pull_request:
+    paths:
+      - 'src/section-types.js'
+      - 'src/chapter-title-display.js'
+      - 'src/reading-start.js'
+      - 'src/studio.js'
+      - 'src/ui.js'
+      - 'scripts/reading-start-check.mjs'
+      - 'supabase/migrations/20261031220515_editorial_reading_start_20261031.sql'
+      - '.github/workflows/reading-start-check.yml'
+      - 'scripts/serie-prod-http-check.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verificar-inicio-lectura:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ejecutar pruebas editoriales sin servicios externos
+        run: |
+          node --check src/section-types.js
+          node --check src/chapter-title-display.js
+          node --check src/reading-start.js
+          node --check src/studio.js
+          node --check src/ui.js
+          node scripts/reading-start-check.mjs
+      - name: Comprobar el HTTP público de Inicio y fichas de obras
+        run: node scripts/serie-prod-http-check.mjs
