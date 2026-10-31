@@ -39,7 +39,7 @@ assert.deepEqual(reviewCountsForWorks([{id:'c',series_id:'obra2',version:3}],lat
 });
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const studio=read('src/studio.js'),style=read('src/studio.css'),
+const studio=read('src/studio.js'),style=read('src/studio-stats-display.css'),
   reader=read('src/reader.js'),seo=read('src/studio-seo.js');
 for(const token of [
  'dailyViewsScale(daily)','viewsColumnMeaning(F.days)','scale.ticks.map',
@@ -50,6 +50,7 @@ for(const token of [
  "sb.rpc('series_feedback'"
 ])assert.ok(studio.includes(token),'Falta mejora de Estudio: '+token);
 assert.ok(style.includes('.s2 .st-plot')&&style.includes('.s2 .tb-review-summary'));
+assert.ok(studio.includes('/studio-stats-display.css?v=1'));
 assert.match(reader,/pn\.scrollTop = 0; pn\.scrollLeft = 0/);
 assert.match(reader,/const st = pn\.scrollTop; closePanel\(\); prefsPanel\(\); panel\(\)\.scrollTop = st/);
 assert.match(reader,/on\.focus\(\{ preventScroll: true \}\)/);
