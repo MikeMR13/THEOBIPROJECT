@@ -124,6 +124,8 @@ jobs:
         run: node scripts/obi-dialog-browser-check.mjs
       - name: Mi biblioteca — Chromium, accesibilidad y capturas de escritorio/móvil
         run: OBI_LIBRARY_SCREENSHOTS=1 node scripts/library-browser-check.mjs
+      - name: Entrega 2 — Ranking, números editoriales y Apoyar (sin backend)
+        run: node scripts/entrega2-lectura-visible-check.mjs
       - name: Guardar capturas de revisión de Mi biblioteca (24 horas)
         if: success()
         uses: actions/upload-artifact@v4

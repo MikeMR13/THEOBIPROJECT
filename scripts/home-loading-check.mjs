@@ -22,8 +22,10 @@ assert.match(ui,/const coverUrl = media\(v\?\.cover_path \|\| s\.cover_path \|\|
   'Novedades deben priorizar portadas originales de volumen y serie');
 assert.match(css,/\.ob-page \.ob-car>\.ob-cc:not\(\.ob-continue-card\)>\.cv img\{[^}]*object-fit:contain/,
   'Las portadas de los carruseles deben caber completas en su marco');
-assert.match(ui,/class="ob-ritem"[^\n]*<span class="c">\$\{s\.cover_path/,
-  'Más leídas debe usar imágenes completas, no fondos recortados');
+assert.match(ui,/class="ob-ritem"[^\n]*<span class="c">\$\{s\.cover_thumb_path \|\| s\.cover_path \?/,
+  'Más leídas debe priorizar las miniaturas en tarjetas pequeñas');
+assert.match(ui,/media\(s\.cover_thumb_path \|\| s\.cover_path\)/,
+  'Más leídas debe conservar imágenes reales y portada original como respaldo');
 assert.match(css,/\.ob-page \.ob-rank \.ob-ritem>\.c img\{[^}]*object-fit:contain/,
   'Más leídas debe mostrar las portadas completas');
 assert.match(css,/\.ob-page \.ob-rev>\.c img\{[^}]*object-fit:contain/,

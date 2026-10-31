@@ -2,6 +2,8 @@ import { installPublicShare } from './share.js?v=1';
 import { confirmObi, inputObi } from './obi-dialog.js';
 import { readPages } from './paging.js';
 import { prepareLibrary, selectLibraryItems } from './library-logic.js';
+import { editorialChapterLabel } from './editorial-public-labels.js';
+import { normalizeSupportCopy } from './support-display-copy.js';
 import { createOfflineDownloads } from './offline-downloads.js?v=1';
 import { readingGroups, planReadingChanges, undoReadingChanges, applyReadingChanges, persistReadingChanges } from './library-read-actions.js';
 // Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
@@ -108,6 +110,7 @@ contBtn(true);
 }
 // botón «Continuar» de la barra: lo último leído (servidor o este dispositivo, lo más reciente)
 let CB = { t: 0, v: null, u: null };
+const continueChapterLabels = new Map(); // Metadatos editoriales; no son claves ni números de progreso.
 // ---------- instalar la app (Android/escritorio: aviso del navegador · iPhone/iPad: guía paso a paso) ----------
 let BIP = null;
 const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
@@ -144,14 +147,26 @@ async function contBtn(force){
     try { const prefix=readingProgressPrefix(requester); for (const k of readerProgressKeys(localStorage, requester)) { const l = JSON.parse(localStorage.getItem(k)); if (l?.num && (!best || new Date(l.at || 0) > new Date(best.at || 0))) best = { sid: k.slice(prefix.length), num: l.num, pct: l.pct, at: l.at || 0 }; } } catch {}
     try { if (requester) { const { data } = await sb.from('reading_progress').select('series_id,chapter_num,pct,updated_at,series(slug,title)').eq('user_id', requester).order('updated_at', { ascending: false }).limit(1); const r = data?.[0]; if (r && (!best || new Date(r.updated_at) >= new Date(best.at || 0))) best = { sid: r.series_id, num: r.chapter_num, pct: r.pct, at: r.updated_at, slug: r.series?.slug, title: r.series?.title }; }
       if (best && !best.slug && CB === request && sameReaderAccount(user?.id, requester)) { const { data } = await sb.from('series').select('slug,title').eq('id', best.sid).maybeSingle(); Object.assign(best, data || {}); } } catch {}
+    if (best?.slug && best.sid && best.num != null) {
+      const chapterKey = best.sid + ':' + best.num;
+      if (!continueChapterLabels.has(chapterKey) && navigator.onLine) {
+        try {
+          const { data, error } = await sb.from('chapters').select('title,section_type')
+            .eq('series_id', best.sid).eq('num', best.num).is('deleted_at', null).maybeSingle();
+          if (!error) continueChapterLabels.set(chapterKey, editorialChapterLabel(data));
+        } catch {}
+      }
+      best.chapterLabel = continueChapterLabels.get(chapterKey) || 'Sección';
+    }
     if (CB !== request || (user?.id || null) !== requester) return;
     CB.v = best?.slug ? best : null;
   }
   if (CB.u !== (user?.id || null)) return;
   const b = CB.v, e = $('#ob-cont'); if (!e) return; if (!b) { e.hidden = true; return; }
-  e.href = `/leer/${b.slug}/${b.num}`; e.title = `Continuar «${b.title}» · cap. ${b.num}`; e.setAttribute('aria-label', e.title);
+  const editorialLabel = b.chapterLabel || 'Sección';
+  e.href = `/leer/${b.slug}/${b.num}`; e.title = `Continuar «${b.title}» · ${editorialLabel}`; e.setAttribute('aria-label', e.title);
   if (navigator.onLine && !navigator.connection?.saveData) (window.requestIdleCallback || setTimeout)(() => rd().warm(b.slug, b.num)); // «Continuar» ya listo antes del clic
-  e.querySelector('b').textContent = b.title; e.querySelector('small').textContent = 'Continuar · cap. ' + b.num + (b.pct > 0.02 && b.pct < 0.98 ? ' · ' + Math.round(b.pct * 100) + ' %' : ''); e.hidden = false;
+  e.querySelector('b').textContent = b.title; e.querySelector('small').textContent = 'Continuar · ' + editorialLabel + (b.pct > 0.02 && b.pct < 0.98 ? ' · ' + Math.round(b.pct * 100) + ' %' : ''); e.hidden = false;
 }
 async function bell(){
 if (!document.getElementById('nt-css')) { const st = document.createElement('style'); st.id = 'nt-css'; st.textContent = '.nt-ln{cursor:pointer}.nt-ln small{display:flex;justify-content:space-between;gap:10px}.nt-ln em{font-style:normal;color:var(--gold)}.nt-ln:hover span{text-decoration:underline;text-underline-offset:3px}'; document.head.appendChild(st); }
@@ -433,7 +448,7 @@ async function library(){
           .select('id,team_id,slug,title,short,cover_path,cover_thumb_path,translation_status,theme,teams(name,slug,color,avatar_path)')
           .in('id',group).eq('published',true).order('id').range(from,to)))),
         Promise.all(batches.map(group=>readPages((from,to)=>sb.from('chapters')
-          .select('id,num,title,vol,volume_id,series_id,publish_at,status,deleted_at')
+          .select('id,num,title,section_type,vol,volume_id,series_id,publish_at,status,deleted_at')
           .eq('status','published').is('deleted_at',null).in('series_id',group)
           .order('id').range(from,to))))
       ]);
@@ -461,7 +476,7 @@ async function library(){
   // S3: cada estantería muestra obras reales. Una obra puede estar en Leyendo y Pendientes.
   const SHELF_DEFS = [
     ['leyendo','Leyendo','Lecturas en curso'],
-    ['pendientes','Pendientes','Capítulos pendientes de obras seguidas'],
+    ['pendientes','Pendientes','Obras seguidas con capítulos sin leer'],
     ['terminadas','Terminadas','Capítulos disponibles leídos por ti']
   ];
   const shelfPreviewHtml = k => {
@@ -499,12 +514,12 @@ async function library(){
     <a class="lb-spotlight-cover" href="${esc(latestHref)}" aria-label="Continuar ${esc(latest.s.title)}">${latestCover}</a>
     <div class="lb-spotlight-info"><span class="lb-spotlight-kicker">続読 · REANUDAR ÚLTIMA LECTURA</span>
       <h2><a href="${esc(latestHref)}">${esc(latest.s.title)}</a></h2>
-      <p>${latestChapter ? 'Capítulo ' + esc(latestChapter.num) : 'Consultar ficha'} · ${latest.nr} de ${latest.tot} capítulos publicados leídos</p>
+      <p>${latestChapter ? esc(editorialChapterLabel(latestChapter)) : 'Consultar ficha'} · ${latest.nr} de ${latest.tot} capítulos publicados leídos</p>
       <div class="lb-spotlight-progress" role="meter" aria-label="Capítulos publicados leídos" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${latestPct}"><span style="width:${latestPct}%"></span></div>
       <a class="lb-spotlight-cta" href="${esc(latestHref)}">Continuar donde quedaste →</a>
     </div></section>` : ''}
   <section class="lb-shelf-showcase" aria-label="Resumen de tus estanterías">
-    ${[['leyendo','Leyendo','Lecturas en curso','読'],['pendientes','Pendientes','Capítulos sin leer de obras seguidas','未'],['terminadas','Terminadas','Todo lo disponible leído','済']].map(([k,title,desc,kanji]) =>
+    ${[['leyendo','Leyendo','Lecturas en curso','読'],['pendientes','Pendientes','Obras con capítulos sin leer','未'],['terminadas','Terminadas','Todo lo disponible leído','済']].map(([k,title,desc,kanji]) =>
       `<a class="lb-shelf-summary${tab===k?' on':''}" data-shelf="${k}" href="/biblioteca${k==='leyendo'?'':'?t='+k}"${tab===k?' aria-current="page"':''}>
         <span class="lb-shelf-kanji" aria-hidden="true">${kanji}</span><strong>${count(k) || 0}</strong>
         <span class="lb-shelf-summary-title">${title}</span><small>${desc}</small></a>`).join('')}
@@ -513,7 +528,7 @@ async function library(){
     ${desktopShelvesHTML}
   </section>
   <nav class="lb-tabs" aria-label="Secciones de Mi biblioteca"><div class="lb-tab-group lb-tab-shelves" role="group" aria-label="Estanterías">${TABS.slice(0,3).map(([k,label])=>`<a href="/biblioteca${k==='leyendo'?'':'?t='+k}" class="${k===tab?'on':''}"${k===tab?' aria-current="page"':''}>${label}${count(k)?`<em>${count(k)}</em>`:''}</a>`).join('')}</div><div class="lb-tab-group lb-tab-tools" role="group" aria-label="Herramientas de lectura">${TABS.slice(3).map(([k,label])=>`<a href="/biblioteca?t=${k}" class="${k===tab?'on':''}"${k===tab?' aria-current="page"':''}>${label}</a>`).join('')}</div></nav>
-  <p id="lb-pending-explain" class="lb-pending-explain" ${tab==='pendientes'?'':'hidden'}>Pendientes reúne obras que sigues con capítulos publicados aún sin leer; no es una lista de deseos.</p>
+  <p id="lb-pending-explain" class="lb-pending-explain" ${tab==='pendientes'?'':'hidden'}>El contador de Pendientes indica obras seguidas con capítulos publicados aún sin leer, no el número de capítulos ni una lista de deseos.</p>
   <p class="lb-navhelp">Desliza las pestañas para ver todas las secciones →</p>
   <div id="lb-read-feedback" class="lb-read-feedback" role="status" aria-live="polite" hidden></div>
   <div id="lb-body"></div>`;
@@ -531,7 +546,7 @@ async function library(){
     const pct=w.tot ? Math.min(100,Math.max(0,Math.round(w.nr/w.tot*100))):0;
     const caughtUp=w.tot>0 && w.nr===w.tot;
     const label=done ? (w.translationCompleted ? 'Leída · traducción completa' : 'Al día con lo publicado') : pending ? (w.unread===1 ? '1 capítulo pendiente' : w.unread+' capítulos pendientes') : 'En progreso';
-    const current=chapter ? 'Capítulo '+chapter.num : 'Ver obra';
+    const current=chapter ? editorialChapterLabel(chapter) : 'Ver obra';
     const status=done ? `${w.nr} capítulos disponibles leídos · ${w.translationCompleted ? 'Traducción completada' : 'Traducción no completada'}` : pending ? `Leer siguiente · ${current}` : `Continuar · ${current}${w.p?.pct > .02 && w.p?.pct < .95 ? ' · '+Math.round(w.p.pct*100)+' % del capítulo' : ''}`;
     return `<article class="lb-card">
       <a class="lb-cover-link" href="/serie/${esc(w.s.slug)}" aria-label="Ver ficha de ${esc(w.s.title)}">${COVER(w)}</a>
@@ -816,7 +831,7 @@ const SUP_KIND = { paypal: ['PayPal', '#8cc3f2'], kofi: ['Ko-fi', '#f59e7a'], pa
 async function support(){
 app.innerHTML = '<p class="mono">Cargando…</p>';
 const [{ data: ps }, { data }, { data: platformCampaign }] = await Promise.all([sb.from('platform_settings').select('support').eq('id', 1).maybeSingle(), sb.from('patreon_tiers').select('*').order('price_usd'), sb.from('patreon_public').select('url').eq('owner', 'platform').maybeSingle()]);
-const C = ps?.support || {}, mode = C.mode || 'patreon', links = (C.links || []).filter(l => /^https:\/\//.test(l.url || ''));
+const C = normalizeSupportCopy(ps?.support || {}), mode = C.mode || 'patreon', links = (C.links || []).filter(l => /^https:\/\//.test(l.url || ''));
 const teamsTiers = (data || []).filter(t => t.team_id).map(t => `<div style="border:2px solid var(--line);padding:18px;margin:10px 0"><h3 style="margin:0">${esc(t.name)}</h3><p class="mono">${t.price_usd} USD/mes · ${t.early_weeks ? t.early_weeks + ' semana(s) de adelanto del equipo' : 'beneficios del equipo traductor'}</p></div>`).join('') || '<p class="mono">Los niveles aparecerán cuando un equipo conecte su Patreon.</p>';
 const platformTiers = (data || []).filter(t => !t.team_id).map(t => `<div style="border:1px solid var(--line);padding:14px;margin:8px 0"><strong>${esc(t.name)}</strong><p class="mono" style="margin:4px 0 0">${t.price_usd} USD/mes · apoyo voluntario, sin desbloqueos editoriales</p></div>`).join('');
 const platformURL = (() => { try { const u = new URL(platformCampaign?.url); return u.protocol === 'https:' && /(^|\.)patreon\.com$/i.test(u.hostname) ? u.toString() : ''; } catch { return ''; } })();
@@ -824,7 +839,7 @@ const tiers = `<section><h2>Patreon de El Obi del Lector · apoyo voluntario</h2
 const cards = links.map(l => { const [kn, kc] = SUP_KIND[l.kind] || SUP_KIND.otro; return `<a href="${esc(l.url)}" target="_blank" rel="noopener" style="display:grid;gap:6px;padding:18px;background:#14120d;border:1px solid #2f2a20;border-top:4px solid ${kc};color:var(--paper);text-decoration:none"><span class="mono" style="font-size:11px;letter-spacing:.12em;color:${kc}">${esc(kn.toUpperCase())}</span><b style="font-size:18px">${esc(l.label || kn)}</b>${l.note ? `<span style="font-size:14px;line-height:1.5;color:#cfc6b0">${esc(l.note)}</span>` : ''}<span style="font-weight:600;color:${kc}">Abrir →</span></a>`; }).join('');
 const grid = cards ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:14px;margin:18px 0 28px">${cards}</div>` : '';
 app.innerHTML = `<h1>${esc(C.title || 'Apoya a los traductores')}</h1><p style="max-width:68ch">${esc(C.intro || (mode === 'links' ? 'Elige cómo quieres apoyar.' : 'Tu aporte al Patreon de El Obi del Lector es voluntario y no cambia el acceso a las obras. Cada equipo gestiona su propia membresía.'))}</p><p class="mono" style="font-size:12px;max-width:68ch">El Patreon general es solo para apoyar. Nunca restringe ni desbloquea lecturas y descargas.</p>`
-  + (mode === 'links' ? (grid || '<p class="mono">Aún no hay enlaces de apoyo.</p>') : mode === 'both' ? grid + '<h2>Niveles de Patreon</h2>' + tiers : tiers) + '<section id="wall"></section>';
+  + (mode === 'links' ? (grid || '<p class="mono">Aún no hay enlaces de apoyo.</p>') : mode === 'both' ? grid + tiers : tiers) + '<section id="wall"></section>';
 sb.rpc('platform_patrons_wall').then(({ data: W }) => { const el = document.getElementById('wall'); if (!el || !W?.length) return; el.innerHTML = `<h2 style="margin-top:36px">惠 Muro de agradecimientos</h2><p class="mono" style="margin:0 0 14px">Gracias a quienes sostienen El Obi del Lector.</p><div style="display:flex;flex-wrap:wrap;gap:10px">${W.map(w => `<a href="/lector/${esc(w.username)}" style="display:flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;border:1px solid var(--line);background:#16140f;color:var(--paper);text-decoration:none;font-weight:600;font-size:14px"><span style="width:28px;height:28px;flex:none;background:#2f2a20 center/cover;${w.avatar_url ? `background-image:url('${esc(w.avatar_url)}')` : ''}"></span>${esc(w.username)}</a>`).join('')}</div>`; }, () => {});
 }
 // Invitación pendiente: solo en esta pestaña y nunca en la URL de inicio de sesión.
