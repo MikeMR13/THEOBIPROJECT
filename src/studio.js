@@ -72,7 +72,7 @@ export function createStudio(ctx){
   }).join('');
   let styleTask = null;
   const css = () => {
-    if (!document.getElementById('st2-stats-css')) {
+    if (typeof document.createElement === 'function' && !document.getElementById('st2-stats-css')) {
       const statsCss = document.createElement('link');
       statsCss.id = 'st2-stats-css'; statsCss.rel = 'stylesheet';
       statsCss.href = '/studio-stats-display.css?v=1';
