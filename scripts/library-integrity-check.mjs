@@ -35,15 +35,33 @@ const progress=[{series_id:'a',chapter_num:2,pct:.55,updated_at:'2026-10-25T00:0
 const follows=[{series_id:'a'},{series_id:'b'},{series_id:'c'},{series_id:'d'}];
 const result=prepareLibrary({progress,follows,readRows,series,chapters,now});
 assert.equal(result.read.size,5,'No se cuentan dos veces lecturas ni capítulos borrados');
-assert.deepEqual(result.lists.leyendo.map(w=>w.s.id),['a','b'],'Obra con lectura sin progreso también aparece en Leyendo');
+assert.deepEqual(result.lists.leyendo.map(w=>w.s.id),['a'],'Leyendo conserva obras con capítulos disponibles pendientes');
 assert.deepEqual(result.lists.pendientes.map(w=>w.s.id),['d','a'],'Pendientes se ordenan por última fecha real de publicación disponible');
-assert.deepEqual(result.lists.terminadas.map(w=>w.s.id),['c'],'Completa significa obra terminada y capítulos publicados leídos');
+assert.deepEqual(result.lists.terminadas.map(w=>w.s.id),['b','c'],'Una obra en traducción con todo lo disponible leído aparece en Terminadas');
 assert.equal(result.works.find(w=>w.s.id==='b').tot,1,'Capítulos con fecha futura no están disponibles');
 assert.equal(result.works.find(w=>w.s.id==='b').totalPublished,2,'Se conserva el total publicado para el cálculo de completitud');
-assert.equal(result.works.find(w=>w.s.id==='b').done,false,'Obras en publicación no se dan por terminadas');
+assert.equal(result.works.find(w=>w.s.id==='b').done,true,'Capítulo futuro no impide terminar lo disponible');
+assert.equal(result.works.find(w=>w.s.id==='b').translationCompleted,false,'Lectura terminada no cambia el estado editorial');
 assert.equal(result.works.find(w=>w.s.id==='c').done,true);
-assert.equal(result.works.find(w=>w.s.id==='b').resume.num,1,'Lectura sin progreso puede reanudarse');
+assert.equal(result.works.find(w=>w.s.id==='c').translationCompleted,true,'La traducción completada conserva etiqueta editorial independiente');
+assert.equal(result.works.find(w=>w.s.id==='b').resume.num,1,'La ficha se puede abrir aunque la lectura esté al día');
 assert.equal(result.works.find(w=>w.s.id==='a').resume.num,2,'Se prefiere la posición de lectura del servidor');
+// El marcado persiste en read_chapters: al recargar se vuelve a clasificar sin flags locales.
+const allReadA=readRows.concat([{chapter_id:'a3',read_at:'2026-10-27T11:00:00Z',chapters:{series_id:'a',deleted_at:null}}]);
+const afterMark=prepareLibrary({progress,follows,readRows:allReadA,series,chapters,now});
+assert(afterMark.lists.terminadas.some(w=>w.s.id==='a'),'Marcar el último capítulo mueve la lectura a Terminadas');
+assert(!afterMark.lists.leyendo.some(w=>w.s.id==='a'),'No duplicar lectura terminada en Leyendo');
+const afterReload=prepareLibrary({progress,follows,readRows:allReadA,series,chapters,now});
+assert(afterReload.lists.terminadas.some(w=>w.s.id==='a'),'La clasificación se reconstruye después de recargar');
+const newChapter=chapter('a4','a',4,'2026-10-27T11:30:00Z');
+const afterRelease=prepareLibrary({progress,follows,readRows:allReadA,series,chapters:[...chapters,newChapter],now:Date.parse('2026-10-28T12:00:00Z')});
+assert(!afterRelease.lists.terminadas.some(w=>w.s.id==='a'),'Una nueva publicación vuelve a requerir lectura');
+assert(afterRelease.lists.pendientes.some(w=>w.s.id==='a'),'La nueva publicación vuelve a Pendientes cuando sigues la obra');
+const completedFuture=prepareLibrary({series:[{id:'b',title:'Bosque del mañana',translation_status:'completed'}],chapters,readRows,now});
+assert.equal(completedFuture.lists.terminadas.length,1,'Traducción terminada con capítulo futuro no bloquea el progreso disponible');
+const noneAvailable=prepareLibrary({series:[{id:'e',title:'Sin lecturas',translation_status:'completed'}],chapters:[chapter('e1','e',1,'2027-01-01T00:00:00Z')],readRows:[],now});
+assert.equal(noneAvailable.lists.terminadas.length,0,'No colocar obras sin capítulos disponibles en Terminadas');
+
 assert.deepEqual(selectLibraryItems(result.lists.leyendo,{query:'arbol'}).map(w=>w.s.id),['a'],'Buscar sin exigir tildes');
 assert.deepEqual(selectLibraryItems(result.lists.leyendo,{query:'equipo a'}).map(w=>w.s.id),['a'],'Buscar por equipo');
 assert.deepEqual(selectLibraryItems(result.lists.pendientes,{order:'titulo',tab:'pendientes'}).map(w=>w.s.id),['a','d']);
