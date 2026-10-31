@@ -569,17 +569,47 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
         <div class="bb-row" style="align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid #2f2a20"><span class="mono" style="font-size:12px;flex:1;line-height:1.5">Fechas lunares y Pascua cargadas hasta <b>${lastY || '—'}</b>. Se sincronizan solas con Calendarific el 2 de enero y el 2 de julio.${sl ? ` Última sincronización: ${when(sl.ran_at)} · ${sl.ok ? '<span style="color:#a9d18e">correcta</span>' : `<span style="color:#f59e7a">falló: ${esc(sl.detail?.error || '')}</span>`}` : ''}</span><button type="button" class="btn ghost" id="sea-sync">Sincronizar fechas ahora</button></div>
         <p class="mono" style="font-size:12px;margin:8px 0 0;line-height:1.6">En curso: ${ongoing.length?ongoing.map(x=>esc(x.label)+(x.applied?' (aplicada ahora)':' (se superpone)')).join(' · '):'Ninguna'}. ${next.length?'Próximas: '+next.map(x=>esc(x.label)+' · '+esc(x.periodLabel)).join(' · '):'No hay próximas fechas activadas.'}</p>
         <p class="mono" style="font-size:12px;color:#cbbd9f;margin:0">«Finalizada» se refiere al periodo de este año; la activación automática permanece preparada para el siguiente. Los temas simultáneos respetan su prioridad.</p></div>
-      <div class="bb-sea-g">${Object.entries(PS.SGROUPS).map(([g, gl]) => `<div class="bb-box"><h3>${gl}</h3>${Object.entries(PS.SEASONS).filter(([, s]) => s.g === g).map(([k, s]) => `<div class="bb-se"><label class="bb-ck"><input type="checkbox" data-auto="${k}" ${C.auto.includes(k) ? 'checked' : ''}><i style="background:${s.ac}"></i>${esc(s.l)}</label><button type="button" class="btn ghost" data-pv="${k}" style="padding:4px 10px;font-size:12px">Ver</button>
-          <input data-greet="${k}" maxlength="140" value="${esc(C.greet[k] ?? PS.SUGGEST[k] ?? '')}" aria-label="Saludo de ${esc(s.l)}" placeholder="Sin saludo"></div>`).join('')}</div>`).join('')}</div>
-      <div class="bb-box"><div class="bb-row" style="align-items:center;justify-content:space-between"><h3 style="margin:0">Vista previa de Inicio · ${esc(PS.SEASONS[prev].l)}</h3><span style="display:flex;gap:8px;align-items:center"><select id="sea-pv">${Object.entries(PS.SEASONS).map(([k, s]) => `<option value="${k}" ${k === prev ? 'selected' : ''}>${esc(s.l)}</option>`).join('')}</select><a class="btn ghost" href="/?temporada=${prev}" target="_blank" rel="noopener">Abrir en pestaña ↗</a></span></div>
+      <div class="bb-se-filters" role="group" aria-label="Filtrar temporadas">${[['all','Todas'],['current','En curso'],['upcoming','Próximas'],['finished','Finalizadas'],['disabled','Desactivadas']].map(([k,l])=>`<button type="button" data-season-filter="${k}" aria-pressed="${filter===k}">${l} · ${k==='all'?allSeasons.length:k==='current'?ongoing.length:k==='finished'?allSeasons.filter(x=>x.enabled&&x.phase==='finished').length:allSeasons.filter(x=>x.state===k).length}</button>`).join('')}</div>
+      <div class="bb-sea-g">${Object.entries(PS.SGROUPS).map(([g, gl]) => {
+        const group=visible.filter(x=>PS.SEASONS[x.key]?.g===g).sort((a,b)=>a.sort-b.sort||a.label.localeCompare(b.label,'es'));
+        return group.length?`<div class="bb-box"><h3>${esc(gl)}</h3>${group.map(x=>{
+          const s=PS.SEASONS[x.key],k=x.key,open=openGreetings.has(k);
+          return `<div class="bb-se" data-season-key="${k}" data-season-state="${x.state}">
+            <div class="bb-se-head"><label class="bb-ck"><input type="checkbox" data-auto="${k}" ${x.enabled?'checked':''} aria-label="Activación automática de ${esc(s.l)}"><i style="background:${s.ac}"></i><span>${esc(s.l)}</span></label><span class="bb-se-state" data-state="${x.state}">${esc(x.stateLabel)}</span></div>
+            <p class="bb-se-meta">${esc(x.periodLabel)}${!x.enabled?' · Activación automática desactivada':x.phase==='finished'?' · Edición del año finalizada':x.applied?' · Tema que se muestra ahora':x.phase==='current'?' · En periodo, otro tema tiene prioridad':''}</p>
+            <div class="bb-se-actions"><button type="button" class="btn ghost" data-pv="${k}" aria-label="Vista previa de ${esc(s.l)}">Vista previa</button><button type="button" class="btn ghost" data-greet-toggle="${k}" aria-expanded="${open}" aria-controls="sea-greet-${k}">${open?'Cerrar saludo':'Editar saludo'}</button></div>
+            <div class="bb-se-editor" id="sea-greet-${k}" ${open?'':'hidden'}><label>Saludo de ${esc(s.l)}<input data-greet="${k}" maxlength="140" value="${esc(C.greet[k] ?? PS.SUGGEST[k] ?? '')}" placeholder="Sin saludo"></label></div>
+          </div>`;
+        }).join('')}</div>`:'';
+      }).join('') || '<p class="bb-se-empty">Ninguna temporada coincide con el filtro. Elige «Todas» para ver el calendario completo.</p>'}</div>
+      <div class="bb-box" id="sea-preview"><div class="bb-row" style="align-items:center;justify-content:space-between"><h3 style="margin:0">Vista previa de Inicio · ${esc(PS.SEASONS[prev].l)}</h3><span style="display:flex;gap:8px;align-items:center"><select id="sea-pv">${Object.entries(PS.SEASONS).map(([k, s]) => `<option value="${k}" ${k === prev ? 'selected' : ''}>${esc(s.l)}</option>`).join('')}</select><a class="btn ghost" href="/?temporada=${prev}" target="_blank" rel="noopener">Abrir en pestaña ↗</a></span></div>
         <p class="mono" style="font-size:12px;margin:6px 0 10px">Muestra lo guardado. Guarda primero para ver un saludo nuevo.</p><iframe class="bb-pv" src="/?temporada=${prev}&vista=${Date.now()}" title="Vista previa de Inicio con la temporada"></iframe><p class="mono bb-pvx" hidden style="font-size:12px;margin:8px 0 0;color:#f59e7a">El navegador no dejó mostrar la vista previa aquí. Recarga con Ctrl+Shift+R o usa «Abrir en pestaña».</p></div>
       <div class="bb-save"><span class="mono" id="sea-st">${dirty ? 'Cambios sin guardar' : row.updated_at ? 'Guardado ' + when(row.updated_at) : ''}</span><button class="btn" id="sea-save" ${dirty ? '' : 'disabled'}>Guardar temporadas</button></div></div>`;
       const V = view(), mark = () => { dirty = true; formDirty=true; $('#sea-st').textContent = 'Cambios sin guardar'; $('#sea-save').disabled = false; };
       V.querySelectorAll('[data-intensity]').forEach(b => b.onclick = () => { C.intensity = b.dataset.intensity; dirty = true; formDirty=true; draw(); });
       V.querySelectorAll('[data-density]').forEach(b => b.onclick = () => { C.density = b.dataset.density; dirty = true; formDirty=true; draw(); });
-      V.querySelectorAll('[data-auto]').forEach(c => c.onchange = () => { const k = c.dataset.auto; C.auto = c.checked ? [...C.auto, k] : C.auto.filter(x => x !== k); mark(); });
+      V.querySelectorAll('[data-season-filter]').forEach(b=>b.onclick=()=>{
+        filter=b.dataset.seasonFilter;draw();
+        V.querySelector('[data-season-filter="'+filter+'"]')?.focus();
+      });
+      V.querySelectorAll('[data-auto]').forEach(c => c.onchange = () => {
+        const k=c.dataset.auto; C.auto=c.checked?[...new Set([...C.auto,k])]:C.auto.filter(x=>x!==k);
+        dirty=true;formDirty=true;const y=window.scrollY;draw();window.scrollTo(0,y);
+        V.querySelector('[data-auto="'+k+'"]')?.focus();
+      });
+      V.querySelectorAll('[data-greet-toggle]').forEach(b=>b.onclick=()=>{
+        const k=b.dataset.greetToggle,field=V.querySelector('#sea-greet-'+k);
+        const open=field.hidden;field.hidden=!open;b.setAttribute('aria-expanded',String(open));
+        b.textContent=open?'Cerrar saludo':'Editar saludo';
+        open?openGreetings.add(k):openGreetings.delete(k);
+        if(open)field.querySelector('input')?.focus();
+      });
       V.querySelectorAll('[data-greet]').forEach(i => i.oninput = () => { C.greet[i.dataset.greet] = i.value; mark(); });
-      V.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { prev = temporadas.prev = b.dataset.pv; draw(); V.querySelector('.bb-pv').scrollIntoView ? window.scrollTo({ top: V.querySelector('.bb-pv').getBoundingClientRect().top + scrollY - 120, behavior: 'smooth' }) : 0; });
+      V.querySelectorAll('[data-pv]').forEach(b=>b.onclick=()=>{
+        prev=temporadas.prev=b.dataset.pv;draw();
+        V.querySelector('#sea-preview')?.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+        V.querySelector('#sea-pv')?.focus();
+      });
       $('#sea-sync').onclick = async e => { const b = e.currentTarget; b.disabled = true; b.textContent = 'Sincronizando…'; const { data, error } = await sb.functions.invoke('season-sync', { body: { years: 4 } }); if(epoch!==paneEpoch)return; if (error || !data?.ok) { toast('No se pudo sincronizar: ' + (data?.error || error?.message || '')); b.disabled = false; b.textContent = 'Sincronizar fechas ahora'; return; } toast('Fechas sincronizadas'); await PS.load(sb, true); temporadas(epoch); };
       const fr = V.querySelector('.bb-pv'); let okL = false; fr.onload = () => { try { okL = !!fr.contentDocument?.body?.childElementCount; } catch { okL = false; } V.querySelector('.bb-pvx').hidden = okL; }; setTimeout(() => { if (!okL) V.querySelector('.bb-pvx').hidden = false; }, 6000);
       $('#sea-pv').onchange = e => { prev = temporadas.prev = e.target.value; draw(); };
