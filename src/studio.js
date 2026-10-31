@@ -97,6 +97,13 @@ export function createStudio(ctx){
       document.head.appendChild(worksLink);
       styleTask = Promise.all([styleTask,worksReady]);
     }
+    if (!document.getElementById('st2-productivity-css')) {
+      const link = document.createElement('link');
+      link.id = 'st2-productivity-css'; link.rel = 'stylesheet'; link.href = '/studio-productivity.css?v=1';
+      const ready = new Promise(resolve => { link.addEventListener('load', resolve, { once:true }); link.addEventListener('error', resolve, { once:true }); });
+      document.head.appendChild(link);
+      styleTask = Promise.all([styleTask,ready]);
+    }
     return styleTask;
   };
   const shell = (title, body, tab) => { css(); document.title = String(title).replace(/<[^>]*>/g, '') + ' · Estudio · El Obi del Lector'; document.body.classList.add('in-studio'); const t = tab === '/estudio/obra' ? '/estudio/obras' : tab; const me = getMe?.();
