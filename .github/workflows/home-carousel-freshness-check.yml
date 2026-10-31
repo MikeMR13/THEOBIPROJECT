@@ -1,0 +1,20 @@
+name: Novedades del carrusel · SQL sin sesgo por importaciones
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261031225243_home_carousel_feed_diversity_20261031.sql'
+      - 'scripts/home-carousel-freshness-check.mjs'
+      - '.github/workflows/home-carousel-freshness-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  novedades-diversas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar migración del carrusel sin llamadas de red
+        run: |
+          node --check scripts/home-carousel-freshness-check.mjs
+          node scripts/home-carousel-freshness-check.mjs
