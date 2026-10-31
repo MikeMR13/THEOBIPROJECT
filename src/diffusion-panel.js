@@ -361,6 +361,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
   const scheduleView = () => '<section class="df-box"><h3>Agenda de Discord y Telegram</h3>'
     + '<p>Los anuncios manuales requieren confirmación. Los automáticos se enviarán a Discord o Telegram al llegar la fecha si el contenido sigue público. Una entrega incierta requiere revisión y no se reintenta sola.</p>'
     + '<p class="df-muted">Las horas se muestran según la zona horaria de tu dispositivo. Las publicaciones canceladas no se envían.</p>'
+    + (scheduled.some(x=>schedulePresentation(x).late)?'<p class="df-overdue-note" role="status"><strong>Atención: '+scheduled.filter(x=>schedulePresentation(x).late).length+' anuncio(s) retrasado(s).</strong> La fecha pasó sin entrega confirmada. Comprueba cada destino; cancela o reprograma de manera consciente. Esta pantalla nunca envía por sí sola.</p>':'')
     + (scheduleNotice?'<div id="df-schedule-sent-notice" class="df-confirmation-notice" role="status" aria-live="polite">'
        + '<strong>'+safe(scheduleNotice)+'</strong></div>':'')
     + '<button type="button" class="btn" id="df-schedule-refresh">Actualizar estado de los anuncios</button>'
@@ -371,12 +372,13 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         const conn=connections.find(c=>c.id===item.connection_id);
         const active=conn?.status==='active';
         const planned=item.status==='planned';
-        return '<article><div><strong>'+safe(item.title_snapshot)+'</strong>'
+        const display=schedulePresentation(item);
+        return '<article'+(display.late?' class="df-overdue"':'')+'><div><strong>'+safe(item.title_snapshot)+'</strong>'
           + '<small>'+safe(item.provider.toUpperCase()+' · '+(conn?.label||'Conexión no disponible'))
           + ' · '+safe(item.source_type)+' · '+when(item.scheduled_at)+'</small>'
           + '<p>'+safe(item.message)+'</p>'
-          + '<small>'+safe(planned?(item.delivery_mode==='automatic'?(future?'Automático: en espera':'Automático: pendiente del despachador'):(future?'Previsto, sin envío automático':'Fecha cumplida: pendiente de envío manual'))
-             :item.status==='sent'?'Enviado y confirmado':item.status==='processing'?'Envío en curso':item.status==='unknown'?'Entrega incierta: revisar antes de reenviar':item.status==='blocked'?'Bloqueado: contenido o conexión no disponibles':'Cancelado')+'</small></div>'
+          + '<small class="df-schedule-status">'+safe(display.label)+'</small>'
+          + (display.detail?'<small>'+safe(display.detail)+'</small>':'')+'</div>'
           + (planned?'<div>'
              + (canAnnounce&&active&&item.delivery_mode!=='automatic'&&!item.prelaunch_volume_id?'<button type="button" class="btn" data-schedule-prepare="'+safe(item.id)+'">'
                 +(future?'Revisar anuncio':'Preparar envío')+'</button> ':'')
@@ -425,7 +427,8 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
     if (!root.isConnected) return;
     root.innerHTML = '<div class="df">' + header() + page() + '</div>';
     root.querySelectorAll('[data-dtab],[data-goto]').forEach(b => b.onclick = async () => {
-      tab = b.dataset.dtab || b.dataset.goto;
+      setTab(b.dataset.dtab || b.dataset.goto);
+      if(tab==='historial'&&!historyLoaded)await loadHistoryEvents();
       if(tab==='anuncios'&&!annLoaded) {
         try{await loadAnnWorks();}catch(e){toast('No se pudo cargar el catálogo para anuncios.');}
       }
@@ -434,6 +437,9 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       }
       draw();
     });
+    root.querySelector('#df-history-refresh')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
+      await refreshHistory();draw();
+    }));
     root.querySelector('#df-schedule-refresh')?.addEventListener('click',e=>busy(e.currentTarget,async()=>{
       await refreshCalendarStatus();draw();
     }));
@@ -579,7 +585,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
             scheduled=await q('diffusion_scheduled_announcements',
               scheduleColumns);
             scheduleFeedback='Anuncios programados. '+summary+' Esto no confirma una entrega.';
-            scheduleNotice='';tab='calendario';
+            scheduleNotice='';setTab('calendario');
           }else annFeedback=summary;
         }catch{
           annFeedback='No se pudo confirmar el resultado de la programación. Revisa Calendario antes de repetir.';
@@ -603,7 +609,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         annSource=item.source_id;
         annDraftMessage=item.message;annDraftTitle='Anuncio previsto en calendario';
         annPreview=null;annScheduledId=item.id;annFeedback='';
-        tab='anuncios';draw();
+        setTab('anuncios');draw();
       });
     });
     root.querySelectorAll('[data-schedule-cancel]').forEach(b=>b.onclick=async()=>{
@@ -624,6 +630,10 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         const ms=raw?new Date(raw).getTime():NaN;
         if(!Number.isFinite(ms)||ms-Date.now()<120000||ms-Date.now()>90*86400000)
           throw new Error('Selecciona una nueva fecha entre 2 minutos y 90 días.');
+        const item=scheduled.find(x=>x.id===b.dataset.scheduleSave&&x.status==='planned');
+        if(!item)throw new Error('Solo puedes reprogramar anuncios pendientes.');
+        if(schedulePresentation(item).late&&item.delivery_mode==='automatic'
+          &&!await confirmObi('Este anuncio automático está retrasado y no tiene entrega confirmada. ¿Reprogramarlo para una fecha futura? Si el despachador permanece activo, podría enviarse en esa fecha.'))return;
         const {error}=await sb.rpc('diffusion_schedule_reschedule',{
           p_id:b.dataset.scheduleSave,p_at:new Date(ms).toISOString()
         });
@@ -911,7 +921,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       if(!canCompose)return;
       const item=campaigns.find(c=>c.id===b.dataset.editCampaign&&c.status==='draft');
       if(!item)return;
-      editingCampaignId=item.id;tab='campanas';draw();
+      editingCampaignId=item.id;setTab('campanas');draw();
     });
     root.querySelector('#df-campaign-cancel')?.addEventListener('click',()=>{
       editingCampaignId='';draw();
@@ -925,7 +935,7 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
         if(body.length<1||body.length>2000)throw new Error('Revisa la longitud del borrador (máximo 2000 caracteres).');
         if(!annLoaded)await loadAnnWorks();
         annDraftId=item.id;annDraftMessage=body;annDraftTitle=item.title;annPreview=null;annFeedback='';
-        tab='anuncios';draw();
+        setTab('anuncios');draw();
       });
     });
     root.querySelector('#df-campaign-form')?.addEventListener('submit', e => {
@@ -965,7 +975,24 @@ export async function renderDiffusionPanel({ sb, root, team = null, permissions 
       });
     });
   }
-  if(deepPending){tab='anuncios';try{await loadAnnWorks();}catch{toast('No se pudo abrir el anuncio solicitado.');}}
+  if(deepPending && !diffusionTabFromSearch(location.search))tab='anuncios';
+  if(tab==='anuncios'&&!annLoaded){
+    try{await loadAnnWorks();}catch{toast('No se pudo abrir el anuncio solicitado.');}
+  }
+  if(tab==='historial')await loadHistoryEvents();
+  if(root._diffusionPopstateHandler)window.removeEventListener('popstate',root._diffusionPopstateHandler);
+  root._diffusionPopstateHandler=async()=>{
+    if(!root.isConnected){
+      window.removeEventListener('popstate',root._diffusionPopstateHandler);
+      root._diffusionPopstateHandler=null;return;
+    }
+    tab=diffusionTabFromSearch(location.search)||'resumen';
+    if(tab==='anuncios'&&!annLoaded)try{await loadAnnWorks();}catch{toast('No se pudo cargar Anunciar.');}
+    if(tab==='historial'&&!historyLoaded)await loadHistoryEvents();
+    if(tab==='calendario')try{await refreshCalendarStatus();}catch{scheduleFeedback='No se pudo actualizar el calendario.';}
+    draw();
+  };
+  window.addEventListener('popstate',root._diffusionPopstateHandler);
   // Sólo consulta automáticamente mientras la agenda está visible y existe
   // al menos un envío automático pendiente; no hace HTTP a Discord o Telegram.
   if(root._diffusionCalendarTimer)clearInterval(root._diffusionCalendarTimer);
