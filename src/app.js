@@ -326,9 +326,9 @@ const LB_CSS = `
 .lb-progress-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 8px;color:#c9b99a;font:11px/1.4 'IBM Plex Mono',monospace}
 .lb-progress-track{display:block;height:6px;background:#3c3122;border-radius:8px;overflow:hidden}
 .lb-progress-track i{display:block;height:100%;max-width:100%;background:var(--gold);border-radius:8px}
-.lb-card-cta{display:inline-flex;align-items:center;justify-content:center;min-height:42px;text-align:center;padding:9px 12px;color:#14110b!important;background:var(--gold);border:1px solid var(--gold);border-radius:3px;font:700 12px/1.3 'IBM Plex Sans',sans-serif;text-decoration:none}
+.lb-card-cta{display:inline-flex;align-items:center;justify-content:center;min-height:44px;text-align:center;padding:9px 12px;color:#14110b!important;background:var(--gold);border:1px solid var(--gold);border-radius:3px;font:700 12px/1.3 'IBM Plex Sans',sans-serif;text-decoration:none}
 .lb-card-cta:hover{background:#f6d875}
-.lb-card-hide{justify-self:start;min-height:36px;padding:5px 0;border:0;background:none;color:#bcb19e;font:12px 'IBM Plex Sans',sans-serif;cursor:pointer;text-align:left}
+.lb-card-hide{justify-self:start;min-height:44px;padding:5px 0;border:0;background:none;color:#bcb19e;font:12px 'IBM Plex Sans',sans-serif;cursor:pointer;text-align:left}
 .lb-card-hide:hover{text-decoration:underline;color:var(--gold)}
 .lb-card :is(a,button):focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 .lb-empty{max-width:720px;padding:22px;border:1px dashed #6d5833;border-radius:4px}
@@ -462,7 +462,7 @@ async function library(){
   const SHELF_DEFS = [
     ['leyendo','Leyendo','Lecturas en curso'],
     ['pendientes','Pendientes','Capítulos pendientes de obras seguidas'],
-    ['terminadas','Terminadas','Obras completas leídas']
+    ['terminadas','Terminadas','Capítulos disponibles leídos por ti']
   ];
   const shelfPreviewHtml = k => {
     const books = (L[k] || []).slice(0,3);
@@ -504,7 +504,7 @@ async function library(){
       <a class="lb-spotlight-cta" href="${esc(latestHref)}">Continuar donde quedaste →</a>
     </div></section>` : ''}
   <section class="lb-shelf-showcase" aria-label="Resumen de tus estanterías">
-    ${[['leyendo','Leyendo','Lecturas en curso','読'],['pendientes','Pendientes','Capítulos sin leer de obras seguidas','未'],['terminadas','Terminadas','Obras completas leídas','済']].map(([k,title,desc,kanji]) =>
+    ${[['leyendo','Leyendo','Lecturas en curso','読'],['pendientes','Pendientes','Capítulos sin leer de obras seguidas','未'],['terminadas','Terminadas','Todo lo disponible leído','済']].map(([k,title,desc,kanji]) =>
       `<a class="lb-shelf-summary${tab===k?' on':''}" data-shelf="${k}" href="/biblioteca${k==='leyendo'?'':'?t='+k}"${tab===k?' aria-current="page"':''}>
         <span class="lb-shelf-kanji" aria-hidden="true">${kanji}</span><strong>${count(k) || 0}</strong>
         <span class="lb-shelf-summary-title">${title}</span><small>${desc}</small></a>`).join('')}
@@ -530,9 +530,9 @@ async function library(){
     const done=k==='terminadas', pending=k==='pendientes';
     const pct=w.tot ? Math.min(100,Math.max(0,Math.round(w.nr/w.tot*100))):0;
     const caughtUp=w.tot>0 && w.nr===w.tot;
-    const label=done ? 'Completada' : caughtUp ? 'Al día con lo publicado' : pending ? (w.unread===1 ? '1 capítulo pendiente' : w.unread+' capítulos pendientes') : 'En progreso';
+    const label=done ? (w.translationCompleted ? 'Leída · traducción completa' : 'Al día con lo publicado') : pending ? (w.unread===1 ? '1 capítulo pendiente' : w.unread+' capítulos pendientes') : 'En progreso';
     const current=chapter ? 'Capítulo '+chapter.num : 'Ver obra';
-    const status=done ? `${w.nr} capítulos leídos` : pending ? `Leer siguiente · ${current}` : `Continuar · ${current}${w.p?.pct > .02 && w.p?.pct < .95 ? ' · '+Math.round(w.p.pct*100)+' % del capítulo' : ''}`;
+    const status=done ? `${w.nr} capítulos disponibles leídos · ${w.translationCompleted ? 'Traducción completada' : 'Traducción no completada'}` : pending ? `Leer siguiente · ${current}` : `Continuar · ${current}${w.p?.pct > .02 && w.p?.pct < .95 ? ' · '+Math.round(w.p.pct*100)+' % del capítulo' : ''}`;
     return `<article class="lb-card">
       <a class="lb-cover-link" href="/serie/${esc(w.s.slug)}" aria-label="Ver ficha de ${esc(w.s.title)}">${COVER(w)}</a>
       <div class="lb-card-body"><span class="lb-label${done?' finished':pending?' pending':''}">${label}</span>
@@ -548,16 +548,17 @@ async function library(){
           ${offlineDownloads.button({slug:w.s.slug,scope:'series'})}
           ${chapter ? offlineDownloads.button({slug:w.s.slug,scope:'chapter',num:chapter.num}) : ''}
         </div>
-        ${w.tot ? `<button type="button" class="lb-read-toggle${caughtUp?' is-read':''}" data-read-work="${esc(w.s.id)}" data-read-mark="${caughtUp?'0':'1'}" aria-label="${caughtUp?'Desmarcar capítulos leídos':'Marcar novela como leída'}: ${esc(w.s.title)}">${caughtUp?'↶ Desmarcar lectura':'✓ Marcar novela como leída'}</button>` : ''}
-        <span class="lb-card-sub">${caughtUp&&!done?'Al día con los capítulos publicados · la obra continúa en traducción.':'Puedes marcar lo publicado sin cambiar dónde pausaste.'}</span>
+        ${w.tot ? `<button type="button" class="lb-read-toggle${caughtUp?' is-read':''}" data-read-work="${esc(w.s.id)}" data-read-mark="${caughtUp?'0':'1'}" aria-label="${caughtUp?'Desmarcar capítulos leídos':'Marcar capítulos disponibles como leídos'}: ${esc(w.s.title)}">${caughtUp?'↶ Desmarcar lectura':'✓ Marcar disponibles leídos'}</button>` : ''}
+        <span class="lb-card-sub">${done && !w.translationCompleted ? 'Has leído todo lo disponible; si se publica algo nuevo, volverá a pendientes.' : 'Puedes marcar lo publicado sin cambiar dónde pausaste.'}</span>
         <button type="button" class="lb-card-hide" data-hide="${esc(w.s.id)}">${HID.has(w.s.id)?'Mostrar en mi perfil':'Ocultar de mi perfil público'}</button>
       </div></article>`;
   };
   const EMPTY = {
     leyendo:'Cuando abras un capítulo, podrás continuar su lectura desde aquí.',
     pendientes:'Sigue una obra desde su ficha: cuando tenga capítulos sin leer, aparecerá aquí.',
-    terminadas:'Aquí aparecen las obras completas cuyos capítulos publicados ya leíste.'
+    terminadas:'Aquí aparecen las obras de las que leíste todos los capítulos disponibles. Cuando salga un capítulo nuevo, volverán a tus lecturas pendientes.'
   };
+  // Las marcas de lectura se guardan en read_chapters; no se crea otro estado manual para la estantería.
   // Acciones directas en cada ficha, sin menús ni ventanas emergentes adicionales.
   // La confirmación nativa solo aparece antes de alterar muchos registros de lectura.
   const notice=app.querySelector('#lb-read-feedback');

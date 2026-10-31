@@ -69,7 +69,7 @@ for(const snippet of [
  "readRows=applyReadingChanges(readRows,chapterById,changes)",
  "await persistReadingChanges(sb,uid,changes)",
  "await readPages((from,to)=>sb.from('read_chapters')",
- 'Marcar novela como leída',
+ 'Marcar capítulos disponibles como leídos',
  'Al día con lo publicado',
  'Solo se incluyen los capítulos publicados',
  '↶ Desmarcar lectura',
