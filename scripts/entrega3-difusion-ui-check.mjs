@@ -20,7 +20,7 @@ assert.equal(jobPresentation('unknown'),'Entrega sin confirmar');
 const base='https://elobidellector.com/estudio?team=ejemplo&k=c&id=abc&s=def#difusion';
 for(const tab of DIFFUSION_TABS){
  const url=diffusionTabUrl(base,tab);
- assert.equal(diffusionTabFromSearch(url.slice(url.indexOf('?'))),tab);
+ assert.equal(diffusionTabFromSearch(new URL('https://elobidellector.com'+url).search),tab);
  assert.match(url,/team=ejemplo/);assert.match(url,/k=c/);
  assert.match(url,/id=abc/);assert.match(url,/s=def/);
  assert.ok(url.endsWith('#difusion'));
