@@ -65,7 +65,8 @@ try{
 </script></body></html>`;
 
 const files={'/admin.js':'src/admin.js','/admin-seo.js':'src/admin-seo.js',
-'/obi-dialog.js':'src/obi-dialog.js','/seo-settings.js':'src/seo-settings.js','/styles.css':'src/styles.css'};
+'/obi-dialog.js':'src/obi-dialog.js','/seo-settings.js':'src/seo-settings.js','/styles.css':'src/styles.css',
+'/season-admin-view.js':'src/season-admin-view.js','/season-periods.js':'src/season-periods.js','/anim.js':'src/anim.js'};
 const server=createServer((req,res)=>{
  const path=(req.url||'').split('?')[0];
  res.setHeader('Cache-Control','no-store');
