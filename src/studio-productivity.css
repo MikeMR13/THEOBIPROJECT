@@ -26,3 +26,16 @@
 .s2 .ed.zen #p-outline,.s2 .ed.zen #p-glossary,.s2 .ed.zen #p-shortcuts{display:none!important}
 @media(max-width:640px){.s2 .nw-sticky-actions{gap:8px}.s2 .nw-sticky-actions>*{flex:1 1 100%}.s2 .ed-shortcut-grid{grid-template-columns:minmax(0,1fr)}}
 @media(prefers-reduced-motion:reduce){.s2 .ed-outline-list button{scroll-behavior:auto}}
+
+/* Entrega 3: colaboración no destructiva y navegación caso por caso. */
+.s2 .ed-review-case{min-width:0;padding:12px;border:1px solid #544327;background:#16130e;margin:12px 0}
+.s2 .ed-review-nav{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.s2 .ed-review-nav>span,.s2 .ed-review-actions{display:flex;gap:8px;flex-wrap:wrap}
+.s2 .ed-review-nav .btn,.s2 .ed-review-actions .btn{min-height:44px}
+.s2 .ed-review-excerpt{padding:12px;border-left:3px solid var(--gold);background:#241e13;white-space:pre-wrap;overflow-wrap:anywhere}
+.s2 .ed-inline-actions{position:fixed;display:flex;gap:8px;flex-wrap:wrap;max-width:calc(100vw - 16px);background:#17140f;border:1px solid #97773c;border-radius:5px;box-shadow:0 10px 30px rgba(0,0,0,.4);padding:8px;z-index:90}
+.s2 .ed-inline-actions[hidden]{display:none!important}
+.s2 .ed-inline-actions .btn{min-height:44px}
+.s2 .ed-sug-form label[hidden]{display:none}
+.s2 .ed-sug-row .btn{min-height:44px}
+@media(max-width:480px){.s2 .ed-review-nav>span{width:100%}.s2 .ed-review-nav .btn{flex:1 1 auto}.s2 .ed-inline-actions{width:calc(100vw - 16px)}.s2 .ed-inline-actions .btn{flex:1 1 auto}}
