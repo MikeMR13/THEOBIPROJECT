@@ -750,6 +750,9 @@ export function createReader(ctx){
     pn.dataset.kind = html.kind;
     pn.innerHTML = '<div class="rd-panel-head"><strong>' + (html.kind === 'prefs' ? 'Ajustes de lectura' : 'Índice de capítulos') + '</strong><button class="rd-panel-close" type="button" data-panel-close aria-label="Cerrar panel">✕</button></div>' + html.body;
     pn.hidden = false;
+    // Solo al abrir o cambiar de herramienta: no desplazar el documento de lectura.
+    // Los cambios de opciones dentro de Ajustes conservan su scroll mediante refreshPrefs.
+    pn.scrollTop = 0; pn.scrollLeft = 0;
     document.querySelectorAll('.rd [aria-controls="rd-panel"]').forEach(b => b.setAttribute('aria-expanded', String(b.dataset.act === html.kind)));
     $('.rd').dataset.panelOpen = html.kind;
     $('.rd').dataset.bar = '';
