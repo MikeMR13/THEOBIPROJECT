@@ -10,6 +10,7 @@ const media=read('src/studio-media.js');
 const importer=read('src/studio-importer.js');
 const fields=read('src/studio-work-fields.js');
 const css=read('src/studio.css');
+const newWork=read('src/studio-new-work.js');
 
 const slice=(src,start,end)=>{
   const a=src.indexOf(start),b=src.indexOf(end,a+start.length);
@@ -42,7 +43,7 @@ assert(studio.includes("aria-controls=\"st-bell-list\""),'La campana no declara 
 assert(studio.includes("aria-controls=\"st-q-res\""),'El buscador no declara sus resultados');
 assert(studio.includes("if (e.key === 'Escape'"),'No existe cierre por Escape');
 assert(studio.includes("clearTimeout(qT); ++qSeq"),'Falta cancelar búsquedas al cerrar la lista');
-assert(studio.includes("renderWorkFields(N,esc,related)"),'Nueva obra perdió la ficha completa');
+assert(newWork.includes("renderWorkFields(N,esc,related)"),'Nueva obra perdió la ficha completa');
 assert(importer.includes("renderWorkFields(NW, esc,"),'Importar nueva obra perdió la ficha completa');
 assert(fields.includes("WORK_DEMOGRAPHICS")&&fields.includes("WORK_REL_KINDS"),'Catálogos editoriales incompletos');
 assert(media.includes('aria-label="Carpetas de multimedia"'),'Migas de Multimedia sin etiqueta');
