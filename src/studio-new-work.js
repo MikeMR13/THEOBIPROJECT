@@ -42,12 +42,16 @@ export function createNewWork(deps) {
       const synopsis = $('#nw-fields [data-w="synopsis"]');
       const syncSynopsis = () => { const count = $('#nw-syn-count'); if (count && synopsis) count.textContent = synopsis.value.length + ' / 1500 caracteres de sinopsis'; };
       synopsis?.addEventListener('input', syncSynopsis);
+      if (synopsis && $('#nw-syn-count') && typeof synopsis.after === 'function') synopsis.after($('#nw-syn-count'));
       syncSynopsis();
       $('#nw-discard')?.addEventListener('click', () => { discardDraft(); savedDraft = null; newWork(); });
       $('#nw-cover').onchange = e => {
         const v = e.target.files?.[0] || null;
         if (v && (!/^image\/(jpeg|png|webp)$/.test(v.type) || v.size > LIMITS.image)) {
-          e.target.value = ''; cover = null; toast('Usa JPG, PNG o WebP de máximo 8 MB'); return;
+          e.target.value = ''; cover = null;
+          if (coverObjectURL) { URL.revokeObjectURL(coverObjectURL); coverObjectURL = null; }
+          const preview = $('#nw-cover-preview'); if (preview) preview.hidden = true;
+          toast('Usa JPG, PNG o WebP de máximo 8 MB'); return;
         }
         cover = v;
         if (coverObjectURL) URL.revokeObjectURL(coverObjectURL);
