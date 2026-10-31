@@ -1,0 +1,40 @@
+name: Entrega 5 · cierre rápido sin backend
+on:
+  pull_request:
+    paths:
+      - 'scripts/entrega5-preestreno-qa-check.mjs'
+      - 'scripts/home-live-chapters-check.mjs'
+      - 'src/home-feed-freshness.js'
+      - 'src/ui.js'
+      - 'docs/ENTREGA5-QA-INTEGRAL-PREESTRENO-20261031.md'
+      - '.github/workflows/entrega5-cierre-rapido.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preestreno:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Validar código JavaScript del cierre
+        run: |
+          node --check src/ui.js
+          node --check src/home-feed-freshness.js
+          node --check scripts/home-live-chapters-check.mjs
+          node --check scripts/entrega5-preestreno-qa-check.mjs
+      - name: Verificar feed en pestañas abiertas, sin usar red
+        run: node scripts/home-live-chapters-check.mjs
+      - name: Generar evidencia QA, sin usuarios ni servicios reales
+        run: node scripts/entrega5-preestreno-qa-check.mjs
+      - name: Guardar dictamen técnico (24 horas)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: entrega5-cierre-rapido-evidencia
+          path: qa-evidencia/entrega5-resultado.json
+          if-no-files-found: ignore
+          retention-days: 1
