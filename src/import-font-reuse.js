@@ -71,7 +71,7 @@ export function createTeamFontStore({sb,bucket,teamId,publicPrefix,maxLegacyCand
   return async function resolveFont(font) {
     const {sha256,blob,extension,contentType}=await fingerprintFont(font.bytes,font.name);
     const key=sha256+'.'+extension;
-    if(remembered.has(key))return {...remembered.get(key)};
+    if(remembered.has(key))return {...remembered.get(key),reused:true};
     // Archivos antiguos: comparar siempre el contenido, nunca solo el nombre/familia.
     const candidates=(await legacyCandidates()).filter(f=>
       String(f.family||'')===String(font.family||'') &&
