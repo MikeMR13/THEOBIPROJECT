@@ -1,0 +1,21 @@
+name: Contrato de fichas de novelas y relaciones SQL
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/series-relationship-guard.mjs'
+      - 'src/ui.js'
+      - '.github/workflows/series-relationship-guard.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prevenir-regresion-de-fichas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar relaciones SQL sin servicios externos
+        run: |
+          node --check scripts/series-relationship-guard.mjs
+          node scripts/series-relationship-guard.mjs
