@@ -223,5 +223,8 @@
       "maxDuration": 10,
       "includeFiles": "{public/icon-512.png,node_modules/@ibm/plex-sans-variable/fonts/complete/ttf/*.ttf}"
     }
+  },
+  "git": {
+    "deploymentEnabled": false
   }
 }
