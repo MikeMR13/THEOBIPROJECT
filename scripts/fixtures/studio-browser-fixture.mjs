@@ -177,6 +177,22 @@ try {
   ok(!!app.querySelector('[aria-current="step"]'),'Nueva obra perdió indicación accesible del paso');
   await until(()=>!!document.getElementById('st2-productivity-css')?.sheet,'CSS de productividad');
   ok(getComputedStyle(app.querySelector('.nw-sticky-actions')).position==='sticky','Guardar nueva obra no es sticky');
+  // Auditoría visual de Entrega 2: geometría del formulario real a cada ancho.
+  const actions=app.querySelector('.nw-sticky-actions');
+  const viewportWidth=document.documentElement.clientWidth;
+  const actionButtons=[...actions.querySelectorAll('.btn')];
+  ok(actionButtons.length===2,'Nueva obra debe conservar Guardar y Cancelar');
+  ok(actionButtons.every(el=>el.getBoundingClientRect().height>=43.5),
+    'Guardar/Cancelar tienen un área táctil inferior a 44px');
+  ok(actions.getBoundingClientRect().left>=-3 && actions.getBoundingClientRect().right<=viewportWidth+3,
+    'Barra de acciones desbordada horizontalmente en '+viewportWidth+'px');
+  window.scrollTo(0,0);await pause(70);
+  if(document.documentElement.scrollHeight>window.innerHeight+60){
+    const stickyRect=actions.getBoundingClientRect();
+    ok(stickyRect.top>=-3 && stickyRect.bottom<=window.innerHeight+4,
+      'Guardar no permanece visible al principio del formulario en '+viewportWidth+'px: '+JSON.stringify({top:stickyRect.top,bottom:stickyRect.bottom,height:window.innerHeight}));
+  }
+  checks++;
   const synopsis=app.querySelector('[data-w="synopsis"]');
   synopsis.value='Sinopsis de prueba';
   synopsis.dispatchEvent(new Event('input',{bubbles:true}));
