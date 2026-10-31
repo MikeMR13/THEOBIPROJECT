@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import {handleDispatch,isDiscordWebhook,photoUrl} from '../supabase/functions/diffusion-dispatch/handler.mjs';
 const ticket='a'.repeat(64);
 const rpc=[];
-const admin={async rpc(name,args){rpc.push({name,args});
+// Comprobación de anuncios atrasados, sin base ni redes reales.
+const noOverdue=table=>{
+ assert.equal(table,'diffusion_scheduled_announcements');
+ return {select(){return this;},eq(){return this;},lte(){return this;},
+  async limit(){return {data:[],error:null};}};
+};
+const admin={from:noOverdue,async rpc(name,args){rpc.push({name,args});
  if(name==='diffusion_4b_consume_ticket')return {data:true,error:null};
  if(name==='diffusion_4b_claim')return {data:null,error:null};
  return {data:null,error:null};
@@ -21,7 +27,7 @@ assert.equal(photoUrl('https://cdn.example','covers/image.jpg'),'https://cdn.exa
 const plan='11111111-1111-4111-8111-111111111111',job='22222222-2222-4222-8222-222222222222',
  conn='33333333-3333-4333-8333-333333333333';
 let count=0,requests=[],last=[];
-const testAdmin={async rpc(name,args){
+const testAdmin={from:noOverdue,async rpc(name,args){
  last.push({name,args});
  if(name==='diffusion_4b_consume_ticket')return {data:true,error:null};
  if(name==='diffusion_4b_claim')return {data:count++===0?{
