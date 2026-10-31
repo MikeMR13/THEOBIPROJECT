@@ -299,7 +299,7 @@ export function createImporter(deps) {
         P.meta ||= {}; document.getElementById('imp-fonts')?.remove(); P.fontVars = '';
         if (P.fonts?.length) { const fl = [...new Set(P.fonts.map(f => f.family))], stl = document.createElement('style'); stl.id = 'imp-fonts';
           stl.textContent = P.fonts.map(f => `@font-face{font-family:"imp-${fl.indexOf(f.family)}";src:url("${URL.createObjectURL(new Blob([f.bytes]))}");font-style:${/italic|oblique/i.test(f.style) ? 'italic' : 'normal'};font-weight:${/^\d+$|bold|normal/.test(f.weight) ? f.weight : 'normal'}}`).join('');
-          document.head.appendChild(stl); P.fontVars = fl.map((_, i) => `--f${i}:'imp-${i}',inherit`).join(';') + ';'; const rb = P.fonts.find(f => f.use?.includes('body')), rh = P.fonts.find(f => f.use?.includes('heading')); if (rb) P.fontVars += `--fb:'imp-${fl.indexOf(rb.family)}',Literata,serif;`; if (rh) P.fontVars += `--fh:'imp-${fl.indexOf(rh.family)}',Literata,serif;`; }
+          document.head.appendChild(stl); P.fontVars = fl.map((_, i) => `--f${i}:'imp-${i}',Literata,serif`).join(';') + ';'; const rb = P.fonts.find(f => f.use?.includes('body')), rh = P.fonts.find(f => f.use?.includes('heading')); if (rb) P.fontVars += `--fb:'imp-${fl.indexOf(rb.family)}',Literata,serif;`; if (rh) P.fontVars += `--fh:'imp-${fl.indexOf(rh.family)}',Literata,serif;`; }
         P.urls = new Map([...P.images].map(([k, v]) => [k, v.blob ? URL.createObjectURL(v.blob) : '']));
         suggestSkips(P);
         const key = (P.meta.series || P.title).toLowerCase();
