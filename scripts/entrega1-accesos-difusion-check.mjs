@@ -9,7 +9,7 @@ assert.match(studio,/!Array\.isArray\(chapters\?\.data\)/,'No aceptar respuestas
 assert.match(studio,/CH = chapters\.data;/,'La vista debe recibir filas, nunca el objeto {data,error}');
 assert.doesNotMatch(studio,/CH = chapters \|\| \[\]/,'No regresar al error original');
 for(const count of [301,44,0]){
- const work=Array.from({length:count},(_,i)=>({id:'chapter-'+i,num:i+1,access:i%2?'tier':'public'}));
+ const work=Array.from({length:count},(_,i)=>({id:'chapter-'+i,num:i+1,vol:(i%3)+1,access:i%2?'tier':'public'}));
  const ranges=[];
  const result=await readPages(async(from,to)=>{
   ranges.push([from,to]);
@@ -24,7 +24,7 @@ await assert.rejects(
  /Respuesta incompleta de Supabase/,'Fallos de respuesta no deben producir un panel vacío');
 await assert.rejects(
  ()=>readPages(async()=>({data:null,error:{message:'Sin permisos'}})),
- /Sin permisos|object Object/,'Los errores de consulta no se deben ignorar');
+ error=>error?.message==='Sin permisos','Los errores de consulta no se deben ignorar');
 
 // PostgREST devuelve thenables sin .catch(): reproducir ese contrato, sin red real.
 const thenable=value=>({then(resolve,reject){return Promise.resolve(value).then(resolve,reject);}});
