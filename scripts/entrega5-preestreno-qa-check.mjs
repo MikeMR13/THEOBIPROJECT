@@ -17,6 +17,7 @@ const studio=read('src/studio.js'),reader=read('src/reader.js'),
   app=read('src/app.js'),ui=read('src/ui.js'),
   diffusion=read('src/diffusion-panel.js'),dispatch=read('supabase/functions/diffusion-dispatch/handler.mjs'),
   flow=read('.github/workflows/ci.yml');
+const pkg=read('package.json');
 const checks=[];
 function verified(id,value,why){
  assert.ok(value,why||'Regresión en '+id);
@@ -45,7 +46,7 @@ verified('rutas-lectura',app.includes('/leer/')&&reader.includes('/leer/'));
 // 2. Lector: persistencia, offline, cabecera Continuar y Ajustes.
 verified('biblioteca-continuar',app.includes('continueChapterLabels')&&app.includes('editorialChapterLabel'));
 verified('biblioteca-conservacion',flow.includes('scripts/library-read-actions-check.mjs')||
- flow.includes('npm run library-read-actions-check'));
+ pkg.includes('scripts/library-read-actions-check.mjs'));
 verified('lector-progreso',reader.includes('restorePosition(')&&reader.includes('readingProgress'));
 verified('lector-sin-conexion',reader.includes('isVolOffline(')&&flow.includes('scripts/pwa-offline-browser-check.mjs'));
 verified('lector-tts',flow.includes('scripts/tts-continuity-check.mjs'));
@@ -101,13 +102,14 @@ const matrix=[
  ['studio-acceso-responsive','scripts/patreon-responsive-browser-check.mjs'],
  ['studio-navegacion-browser','scripts/studio-browser-e2e.mjs'],
  ['difusion-confirmacion-browser','scripts/diffusion-confirmation-browser-check.mjs'],
+ ['difusion-rpc-aislada','scripts/diffusion-dispatch-check.mjs'],
  ['seo','scripts/seo-contracts-check.mjs'],
  ['preview-aislado','scripts/preview-isolation-check.mjs'],
  ['pwa-offline-browser','scripts/pwa-offline-browser-check.mjs']
 ];
 const matrixChecks=[];
 for(const [area,script] of matrix){
- const present=flow.includes(script)||read('package.json').includes(script);
+ const present=flow.includes(script)||pkg.includes(script);
  matrixChecks.push({area,script,present});
  if(!present && !['biblioteca-movil','studio-navegacion-browser','seo'].includes(area))
    throw Error('La cobertura obligatoria desapareció de CI: '+area+' '+script);
