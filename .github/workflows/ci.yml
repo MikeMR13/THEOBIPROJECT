@@ -25,6 +25,8 @@ jobs:
         run: node scripts/editor-productividad-entrega2-check.mjs
       - name: Editor colaboración · Entrega 3 (sin backend)
         run: node scripts/editor-colaboracion-entrega3-check.mjs
+      - name: Editor colaboración · Entrega 3 (Chromium sin backend)
+        run: node scripts/editor-colaboracion-entrega3-browser.mjs
       - run: npm run studio-browser-check
       - name: SEO — Noindex sin texto vertical ni desbordamiento (Chromium)
         run: node scripts/seo-noindex-layout-browser.mjs
