@@ -2,8 +2,7 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFileSync} from 'node:fs';
-import {execFileSync} from 'node:child_process';
-import {runChromiumCdp} from './chromium-cdp-check.mjs';
+import {execFileSync,spawn} from 'node:child_process';
 const html=String.raw`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="/studio-productivity.css"></head><body>
 <div class="s2"><div class="ed" id="editor"><div id="p-rev" class="ed-box"><div id="ed-review-case"></div></div>
@@ -75,8 +74,25 @@ if(!chrome)for(const name of ['chromium','chromium-browser','google-chrome','goo
  try{chrome=execFileSync('which',[name],{encoding:'utf8'}).trim();break}catch{}
 }
 assert(chrome,'Chromium requerido para la prueba de colaboración');
+// Para una página estática sin Web Workers no hace falta DevTools remoto.
+ // Chromium --dump-dom evita los fallos intermitentes al abrir el puerto CDP.
 try{
- const r=await runChromiumCdp(chrome,'http://127.0.0.1:'+server.address().port+'/',60000);
- assert.equal(r.status,'pass',r.text+' '+r.stderr);
- console.log('✓ '+r.text);
+ const args=['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage',
+   '--disable-background-networking','--disable-component-update','--disable-extensions',
+   '--no-first-run','--no-default-browser-check','--no-proxy-server',
+   '--virtual-time-budget=10000','--dump-dom','http://127.0.0.1:'+server.address().port+'/'];
+ const child=spawn(chrome,args,{stdio:['ignore','pipe','pipe']});
+ let output='',stderr='';
+ child.stdout.on('data',part=>{if(output.length<750000)output+=String(part);});
+ child.stderr.on('data',part=>{if(stderr.length<50000)stderr+=String(part);});
+ const code=await new Promise((resolve,reject)=>{
+   const timer=setTimeout(()=>{child.kill('SIGKILL');reject(Error('Chromium excedió 45 segundos: '+stderr.slice(-800)))},45000);
+   child.once('error',error=>{clearTimeout(timer);reject(error)});
+   child.once('close',value=>{clearTimeout(timer);resolve(value)});
+ });
+ assert.equal(code,0,'Chromium finalizó con error: '+stderr.slice(-1000));
+ const match=output.match(/<div id="qa-result" data-status="(pass|fail)">([\s\S]*?)<\/div>/);
+ assert(match,'Chromium no entregó el estado DOM: '+output.slice(-900)+' '+stderr.slice(-450));
+ assert.equal(match[1],'pass','Entrega 3 falló en navegador: '+match[2]);
+ console.log('✓ '+match[2]);
 }finally{await new Promise(ok=>server.close(ok))}
