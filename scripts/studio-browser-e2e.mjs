@@ -10,6 +10,7 @@ import { spawn, execFileSync } from 'node:child_process';
 const root = process.cwd();
 const whitelist = new Map([
  ['/studio.js','src/studio.js'],
+ ['/studio-new-work.js','src/studio-new-work.js'],
  ['/studio-works-utils.js','src/studio-works-utils.js'],
  ['/studio-works-view.js','src/studio-works-view.js'],
  ['/prelaunch-discovery.js','src/prelaunch-discovery.js'],
@@ -65,7 +66,7 @@ const compact = width => '<!doctype html><html lang="es"><head><meta charset="ut
 const server = createServer((req,res)=>{
   const u = new URL(req.url || '/', 'http://127.0.0.1');
   res.setHeader('Cache-Control','no-store');
-  res.setHeader('Content-Security-Policy',"default-src 'self'; connect-src 'none'; img-src 'self' data:; font-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; form-action 'none'; frame-src 'self'");
+  res.setHeader('Content-Security-Policy',"default-src 'self'; connect-src 'none'; img-src 'self' data: blob:; font-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; form-action 'none'; frame-src 'self'");
   if (u.pathname === '/') {
     res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'}); res.end(u.searchParams.get('compact')==='1'?compact([320,390,768].includes(Number(u.searchParams.get('width')))?Number(u.searchParams.get('width')):390):html);return;
   }
