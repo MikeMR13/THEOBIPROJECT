@@ -1,6 +1,6 @@
 /* Entrega 2: Nueva obra y productividad del editor. Estilos aislados al Estudio. */
 .s2 .nw-sticky-actions{position:sticky;bottom:0;z-index:24;max-width:900px;box-sizing:border-box;padding:12px 14px;padding-bottom:calc(12px + env(safe-area-inset-bottom));background:#17140f;border:1px solid #544327;box-shadow:0 -8px 28px rgba(0,0,0,.36)}
-.s2 .nw-sticky-actions .btn{min-height:44px}
+.s2 .wf-create-actions.nw-sticky-actions .btn{min-height:44px;box-sizing:border-box}
 .s2 .nw-cover-preview{display:flex;align-items:center;gap:16px;min-width:0;padding:12px;border:1px solid #544327;background:#100e0a;overflow-wrap:anywhere}
 .s2 .nw-cover-preview[hidden]{display:none}
 .s2 .nw-cover-preview img{width:96px;max-width:30%;aspect-ratio:2/3;object-fit:cover;background:#221f18;border:1px solid #695337}
