@@ -423,7 +423,7 @@ export function createImporter(deps) {
           <p class="mono">Carpeta: <b>Multimedia › ${esc(folder)}</b></p>
           <label class="tb-inl"><input type="radio" name="di" value="all" ${D.allImgs ? 'checked' : ''}> Todas las imágenes del archivo (${keys.length})</label>
           <label class="tb-inl"><input type="radio" name="di" value="used" ${D.allImgs ? '' : 'checked'}> Solo las del texto y la portada (${used.size})</label>
-          ${P.fonts.length ? `<p class="mono">Las ${P.fonts.length} fuentes del EPUB van a la subcarpeta «fuentes» y el lector las usa en este volumen.</p>` : ''}
+          ${P.fonts.length ? `<p class="mono">Las fuentes idénticas del equipo se reutilizan; las nuevas se guardan en «fuentes» para que el lector las use en este volumen.</p>` : ''}
         </section>
         <section class="imp-box"><h3>Publicación</h3>
           <label class="tb-inl"><input type="radio" name="dp" value="draft" ${D.pub === 'draft' ? 'checked' : ''}> Guardar como borrador</label>
@@ -496,10 +496,11 @@ export function createImporter(deps) {
         const reuseFont = P.fonts.length ? createTeamFontStore({
           sb,bucket,teamId:T.team.id,publicPrefix:PUB
         }) : null;
-        const fonts = [];
+        const fonts = []; let fontsReused = 0;
         for (const f of P.fonts) {
           st('Verificando fuentes ya almacenadas…');
-          const {path,sha256}=await reuseFont(f);
+          const {path,sha256,reused}=await reuseFont(f);
+          if(reused)fontsReused++;
           fonts.push({url:PUB+path,family:f.family,style:f.style,weight:f.weight,
             sha256,...(f.use?{use:f.use}:{})});
         }
@@ -573,7 +574,7 @@ export function createImporter(deps) {
         // Un fallo del historial no puede deshacer capítulos que ya se publicaron.
         if(finishError)toast('Contenido guardado; no se pudo actualizar el historial de importación');
         P.urls.forEach(u => u && URL.revokeObjectURL(u));
-        toast(`Importadas ${rows.length} secciones${D.pub === 'now' ? ' y publicadas' : D.pub === 'at' ? ' · programadas para ' + fmtTz(fromLocal(D.at)) : ' como borrador'} · ${Object.keys(map).length} imágenes en Multimedia`);
+        toast(`Importadas ${rows.length} secciones${D.pub === 'now' ? ' y publicadas' : D.pub === 'at' ? ' · programadas para ' + fmtTz(fromLocal(D.at)) : ' como borrador'} · ${Object.keys(map).length} imágenes en Multimedia · ${fontsReused} de ${fonts.length} fuentes reutilizadas`);
         go('/estudio/obra/' + w.slug);
       } catch (er) {
         // Recuperar todas las filas modificadas. Reportar los fallos de rollback.
