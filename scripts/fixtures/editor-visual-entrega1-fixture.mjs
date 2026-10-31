@@ -25,6 +25,22 @@ try{
    ok(ttl.tagName==='TEXTAREA'&&ttl.maxLength===300,'Título no es multilínea con límite');
    ok(ttl.scrollWidth<=ttl.clientWidth+3,'Título cortado horizontalmente');
    ok(d.querySelector('#save')&&d.querySelector('.ed-panels-menu')&&d.querySelector('#pub'),'Faltan controles editoriales');
+   // Entrega 2: paneles realmente expandidos con CSS productivo a 320/390/1440px.
+   const panelIds=['p-outline','p-glossary','p-shortcuts'];
+   for(const id of panelIds){
+     const p=d.getElementById(id),summary=p?.querySelector('summary');
+     ok(p?.open&&summary,'Panel de productividad no visible: '+id);
+     const rect=p.getBoundingClientRect();
+     ok(rect.left>=-3&&rect.right<=size.width+3,'Panel '+id+' desbordado a '+size.width+'px');
+     ok(summary.getBoundingClientRect().height>=43.5,'Resumen táctil pequeño: '+id);
+   }
+   for(const selector of ['#ed-outline-list button','.ed-gloss-card button']){
+     const button=d.querySelector(selector),rect=button?.getBoundingClientRect();
+     ok(rect?.height>=43.5,'Objetivo táctil inferior a 44px: '+selector);
+     ok(rect.left>=-3&&rect.right<=size.width+3,'Control horizontalmente cortado: '+selector);
+   }
+   ok(d.querySelector('#ed-gloss-search').getBoundingClientRect().right<=size.width+3,
+     'Búsqueda de glosario desbordada a '+size.width+'px');
    if(size.width>1100){
      ok(w.getComputedStyle(wrapper).position==='sticky','La vista previa no es sticky en escritorio');
      w.scrollTo(0,3000);await delay(190);

@@ -8,6 +8,7 @@ import {chapterPreviewModel,tagPreviewBlock,previewBlockScrollTop} from '../src/
 const editor=readFileSync('src/studio-editor.js','utf8');
 const studio=readFileSync('src/studio.js','utf8');
 const css=readFileSync('src/studio.css','utf8');
+const productivityCss=readFileSync('src/studio-productivity.css','utf8');
 const globalCss=readFileSync('src/styles.css','utf8');
 const fixture=readFileSync('scripts/fixtures/editor-visual-entrega1-fixture.mjs','utf8');
 assert.equal(chapterPreviewModel({title:'Capítulo 12: La gran batalla'}).heading,'La gran batalla');
@@ -31,16 +32,20 @@ assert(studio.includes('ed-loading')&&studio.length<280000,'Sin esqueleto o Stud
 assert(globalCss.includes('.ed-panels-actions')&&globalCss.includes('.ed-title-label')&&globalCss.includes('.ed-pv-active'),'CSS visual insuficiente');
 const text=Array.from({length:190},(_,i)=>'<p class="ed-line">Párrafo de prueba '+i+' lorem ipsum, lectura cómoda y contenido largo.</p>').join('');
 const reader=Array.from({length:110},(_,i)=>'<p data-ed-block="'+i+'">Párrafo del lector '+i+' con contenido correspondiente a la traducción.</p>').join('');
-const frame=`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/studio.css"></head>
+const panels=`<details class="ed-box ed-productivity" id="p-outline" open><summary>Índice del capítulo · ir a una sección</summary><nav id="ed-outline-list" class="ed-outline-list"><button type="button">1 · Inicio del capítulo</button><button type="button">25 · La llegada al castillo</button></nav></details>
+<details class="ed-box ed-productivity" id="p-glossary" open><summary>Fichas de glosario · 2 términos</summary><label class="ed-productivity-search">Buscar término<input type="search" id="ed-gloss-search"></label><div class="ed-gloss-cards"><article class="ed-gloss-card"><b>Espada ancestral</b><small>Arma</small><p>Reliquia de una tradición antigua con nombre suficientemente largo para comprobar el salto de línea en móvil.</p><button type="button" class="btn ghost">Buscar en capítulo</button></article></div></details>
+<details class="ed-box ed-productivity" id="p-shortcuts" open><summary>Ayuda · atajos de teclado</summary><div class="ed-shortcut-grid"><span>Guardar capítulo</span><kbd>Ctrl/Cmd + S</kbd><span>Concentración</span><kbd>Ctrl/Cmd + Mayús + F</kbd></div></details>`;
+const frame=`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/studio.css"><link rel="stylesheet" href="/studio-productivity.css"></head>
 <body class="in-studio"><main><div class="s2"><aside class="s2-side">Estudio</aside><section class="s2-main">
 <div class="ed"><div class="ed-top"><label class="ed-title-label" for="ttl">Título <span id="ttlcount">90 / 300</span></label><textarea id="ttl" rows="2" maxlength="300"></textarea>
 <div class="ed-top-actions"><span id="state">Guardado</span><button id="save">Guardar</button><details class="ed-panels-menu"><summary>Revisión y equipo</summary><div class="ed-panels-actions"><button>Revisar</button></div></details></div><div class="ed-pub" id="pub">Publicación</div></div>
+${panels}
 <div class="ed-bar" role="toolbar">Negrita · Cursiva · Buscar</div>
 <div class="ed-split" data-view="split"><div class="ed-docw"><div class="ed-doc">${text}</div></div>
 <div class="ed-pvw"><div class="ed-pvbar">Vista del lector</div><div class="ed-pv"><div class="rd"><article class="rd-ch"><div class="rd-body">${reader}</div></article></div></div></div></div>
 </section></div></main></body></html>`;
 const html='<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="qa-result" data-status="loading">Comprobando…</div><script type="module" src="/fixture.mjs"></script></body></html>';
-const urls={'/':html,'/editor-visual-frame.html':frame,'/styles.css':globalCss,'/studio.css':css,
+const urls={'/':html,'/editor-visual-frame.html':frame,'/styles.css':globalCss,'/studio.css':css,'/studio-productivity.css':productivityCss,
  '/fixture.mjs':fixture,'/editorial-visual-preview.js':readFileSync('src/editorial-visual-preview.js','utf8'),
  '/chapter-title-display.js':readFileSync('src/chapter-title-display.js','utf8'),
  '/reader-headings.js':readFileSync('src/reader-headings.js','utf8')};

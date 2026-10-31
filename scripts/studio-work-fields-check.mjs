@@ -43,7 +43,7 @@ assert(html.includes('data-related-query') && html.includes('data-related-result
 assert(!html.includes('data-w-rel-pick'), 'No usar listas nativas gigantes en el editor de obra');
 assert(relatedSearchHTML('test-related').includes('type="search"'), 'El campo debe permitir búsqueda por título o equipo');
 assert(html.includes('id="nw-title"'),'La QA con navegador debe poder encontrar el título');
-const creator=readFileSync('src/studio.js','utf8');
+const creator=readFileSync('src/studio.js','utf8')+readFileSync('src/studio-new-work.js','utf8');
 const importer=readFileSync('src/studio-importer.js','utf8');
 assert(creator.includes('renderWorkFields(N,esc,related)'));
 assert(importer.includes('renderWorkFields(NW, esc,'));
@@ -74,7 +74,7 @@ assert.equal(searchRelatedWorks(allRelated, 'magia fenix').items[0].id, 'work-57
 assert.equal(searchRelatedWorks(allRelated, 'onix').items[0].id, 'work-570', 'Búsqueda por equipo');
 assert.equal(searchRelatedWorks(allRelated, 'magia', ['work-570']).total, 0, 'Excluir obras ya relacionadas');
 assert.equal(searchRelatedWorks(allRelated, '').items.length, 12, 'Mostrar pocas opciones a la vez');
-assert(creator.includes('loadRelatedWorks(sb, T.team.id)'), 'Nueva obra y Datos usan catálogo paginado');
+assert(creator.includes('loadRelatedWorks(sb, teamId)'), 'Nueva obra usa catálogo paginado del equipo inicial');
 assert(importer.includes('loadRelatedWorks(sb, T.team.id)'), 'Importación usa catálogo paginado');
 assert(!creator.includes('.order(\'title\').limit(500)'), 'No truncar las obras nuevas');
 console.log('✓ Relaciones: búsqueda accesible, paginación >500, RLS, edición y importación');

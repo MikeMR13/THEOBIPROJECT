@@ -1,29 +1,33 @@
 import {compareChapterVersions,suggestionIsStale} from './editorial-collaboration.js?v=1';
+import {noteForParagraph,readParagraphNote} from './editorial-review-cases.js?v=1';
 
 // Colaboración sin sobrescritura: las propuestas nunca escriben chapters.body.
-export function setupEditorialCollaboration({sb,id,root,box,button,historyBox,can,names,esc,toast,fmtTz,confirmObi,getVersion,getDirty,getConflict,getBody,getTitle,getSelected,getRevision,findText,userId}){
-  const state={items:[]};
+export function setupEditorialCollaboration({sb,id,root,box,button,historyBox,can,names,esc,toast,fmtTz,confirmObi,getVersion,getDirty,getConflict,getBody,getTitle,getSelected,getRevision,findText,focusParagraph,userId}){
+  const state={items:[],prefill:null};
   const date=x=>fmtTz(x,{dateStyle:'medium',timeStyle:'short'});
   async function refresh(){
     if(!root.isConnected)return;
+    const prefill=state.prefill, isNote=prefill?.mode==='note';
     box.innerHTML=`<div class="ed-bh"><b>Sugerencias del equipo</b><span class="mono">Revisar no modifica el capítulo</span></div>
       <form class="ed-sug-form" id="ed-sug-form">
-        <label>Fragmento de la versión guardada<textarea id="ed-sug-excerpt" maxlength="4000" rows="2" required placeholder="Selecciona un fragmento del texto antes de abrir Sugerencias">${esc(String(getSelected()||'').slice(0,4000))}</textarea></label>
-        <label>Propuesta<textarea id="ed-sug-replacement" maxlength="8000" rows="3" placeholder="Redacción propuesta. Vacío = sugerir eliminar el fragmento"></textarea></label>
-        <label>Motivo (opcional)<textarea id="ed-sug-note" maxlength="1000" rows="2"></textarea></label>
-        <p class="ed-note">Propuesta vinculada a la versión v${getVersion()}. Si hay cambios locales, guárdalos antes de enviar. Otra persona con permiso de revisión decide si queda revisada o descartada; nada se aplica automáticamente.</p>
-        <button type="submit" class="btn">Enviar para revisión</button>
+        <label>Fragmento de la versión guardada<textarea id="ed-sug-excerpt" maxlength="4000" rows="2" required ${isNote?'readonly':''} placeholder="Selecciona un fragmento del texto antes de abrir Sugerencias">${esc(String(prefill?.excerpt??getSelected()??'').slice(0,4000))}</textarea></label>
+        <label ${isNote?'hidden':''}>Propuesta<textarea id="ed-sug-replacement" maxlength="8000" rows="3" placeholder="Redacción propuesta. Vacío = sugerir eliminar el fragmento"></textarea></label>
+        <label>${isNote?'Nota editorial sobre el párrafo '+(prefill.index+1):'Motivo (opcional)'}<textarea id="ed-sug-note" maxlength="${isNote?920:1000}" rows="2" ${isNote?'required':''} placeholder="${isNote?'Deja una observación para el equipo':''}"></textarea></label>
+        <p class="ed-note">${isNote?'Nota anclada por referencia al párrafo y a esta versión; el texto original y la propuesta serán idénticos.':'Propuesta de modificación de texto.'} Vinculada a la versión v${getVersion()}. Si hay cambios locales, guárdalos antes de enviar. Otra persona con permiso de revisión decide; nada se aplica automáticamente.</p>
+        <button type="submit" class="btn">${isNote?'Enviar nota editorial':'Enviar para revisión'}</button>
       </form><div class="ed-sug-list" id="ed-sug-list" role="status">Cargando propuestas…</div>`;
     box.querySelector('#ed-sug-form').onsubmit=async ev=>{
       ev.preventDefault();
       if(getDirty()||getConflict()){toast('Guarda tus cambios locales antes de proponer una modificación');return;}
-      const excerpt=box.querySelector('#ed-sug-excerpt').value.trim(),replacement=box.querySelector('#ed-sug-replacement').value,note=box.querySelector('#ed-sug-note').value;
+      const excerpt=box.querySelector('#ed-sug-excerpt').value.trim(),replacement=isNote?excerpt:box.querySelector('#ed-sug-replacement').value;
+      let note=box.querySelector('#ed-sug-note').value;
+      if(isNote){try{note=noteForParagraph(prefill.index,note)}catch(err){toast(err.message);return;}}
       if(!excerpt){toast('Indica el fragmento que se quiere revisar');return;}
       const submit=box.querySelector('[type=submit]');submit.disabled=true;
       try{
         const {error}=await sb.rpc('editor_create_suggestion',{p_chapter:id,p_version:getVersion(),p_excerpt:excerpt,p_replacement:replacement,p_note:note});
         if(error)throw error;
-        toast('Sugerencia enviada; el texto no se ha modificado');await refresh();
+        toast(isNote?'Nota editorial enviada; el texto no se ha modificado':'Sugerencia enviada; el texto no se ha modificado');state.prefill=null;await refresh();
       }catch(err){toast(err.message||'No se pudo guardar la sugerencia');}finally{if(submit.isConnected)submit.disabled=false;}
     };
     const {data,error}=await sb.from('editor_suggestions').select('id,created_by,created_at,base_version,excerpt,replacement,note,status,reviewed_by')
@@ -34,28 +38,35 @@ export function setupEditorialCollaboration({sb,id,root,box,button,historyBox,ca
     state.items=data||[];
     const actors=await names(state.items.flatMap(x=>[x.created_by,x.reviewed_by]).filter(Boolean));
     if(!list.isConnected)return;
-    list.innerHTML=state.items.map(x=>`<article class="ed-sug-row">
-      <div class="ed-sug-head"><strong>${esc(actors[x.created_by]||'Integrante')}</strong>
+    list.innerHTML=state.items.map(x=>{const note=readParagraphNote(x.note);return `<article class="ed-sug-row">
+      <div class="ed-sug-head"><strong>${note.anchored?'Nota editorial · párrafo '+(note.index+1):'Sugerencia'} · ${esc(actors[x.created_by]||'Integrante')}</strong>
         <span class="mono">${x.status==='pending'?'Pendiente':x.status==='reviewed'?'Revisada (no aplicada)':'Descartada'}
         · v${x.base_version}${suggestionIsStale(x.base_version,getVersion())?' · versión anterior':''}</span></div>
       <div class="ed-sug-change"><div><small>Texto señalado</small><p>${esc(x.excerpt)}</p></div>
-        <div><small>Cambio sugerido</small><p>${esc(x.replacement||'(Eliminar el fragmento)')}</p></div></div>
-      ${x.note?`<p class="ed-note">${esc(x.note)}</p>`:''}
+        ${note.anchored?'':`<div><small>Cambio sugerido</small><p>${esc(x.replacement||'(Eliminar el fragmento)')}</p></div>`}</div>
+      ${x.note?`<p class="ed-note">${esc(note.text)}</p>`:''}
       <div class="ed-sug-actions"><small>${esc(date(x.created_at))}${x.reviewed_by?' · revisó '+esc(actors[x.reviewed_by]||'Integrante'):''}</small>
         <button type="button" class="btn ghost" data-sugfind="${x.id}">Buscar fragmento</button>
+        ${note.anchored&&!suggestionIsStale(x.base_version,getVersion())?`<button type="button" class="btn ghost" data-sugpara="${note.index}">Ir al párrafo</button>`:''}
         ${x.status==='pending'&&can('review')&&x.created_by!==userId?
           `<button type="button" class="btn ghost" data-sugreview="${x.id}">Marcar revisada</button><button type="button" class="btn ghost" data-sugreject="${x.id}">Descartar</button>`:''}
-      </div></article>`).join('')||'<p class="ed-note">Aún no hay sugerencias para este capítulo.</p>';
+      </div></article>`;}).join('')||'<p class="ed-note">Aún no hay sugerencias para este capítulo.</p>';
   }
+  const openDraft=prefill=>{
+    state.prefill=prefill;
+    box.hidden=false;button.setAttribute('aria-expanded','true');button.classList.add('on');
+    refresh().then(()=>{box.querySelector(prefill.mode==='note'?'#ed-sug-note':'#ed-sug-replacement')?.focus();});
+  };
   button.onclick=()=>{
     const open=box.hidden;
-    box.hidden=!open;button.setAttribute('aria-expanded',String(open));
+    box.hidden=!open;button.setAttribute('aria-expanded',String(open));if(open)state.prefill=null;
     button.classList.toggle('on',open);if(open)refresh();
   };
   root.addEventListener('click',async ev=>{
-    const el=ev.target.closest('[data-sugfind],[data-sugreview],[data-sugreject],[data-hd]');
+    const el=ev.target.closest('[data-sugfind],[data-sugpara],[data-sugreview],[data-sugreject],[data-hd]');
     if(!el||!root.contains(el))return;
     const d=el.dataset;
+    if(d.sugpara!=null){focusParagraph?.(Number(d.sugpara));return;}
     if(d.sugfind){
       const item=state.items.find(x=>String(x.id)===d.sugfind);
       if(item&&!findText(item.excerpt))toast('Ese fragmento ya no coincide con el borrador');
@@ -88,5 +99,5 @@ export function setupEditorialCollaboration({sb,id,root,box,button,historyBox,ca
       }catch(err){toast(err.message||'No se pudo comparar');}finally{if(el.isConnected)el.disabled=false;}
     }
   });
-  return {refresh};
+  return {refresh,openWithSelection:excerpt=>openDraft({mode:'suggest',excerpt}),openParagraphNote:(index,excerpt)=>openDraft({mode:'note',index,excerpt})};
 }

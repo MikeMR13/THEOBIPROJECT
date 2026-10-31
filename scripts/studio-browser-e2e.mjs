@@ -10,6 +10,7 @@ import { spawn, execFileSync } from 'node:child_process';
 const root = process.cwd();
 const whitelist = new Map([
  ['/studio.js','src/studio.js'],
+ ['/studio-new-work.js','src/studio-new-work.js'],
  ['/studio-works-utils.js','src/studio-works-utils.js'],
  ['/studio-works-view.js','src/studio-works-view.js'],
  ['/prelaunch-discovery.js','src/prelaunch-discovery.js'],
@@ -42,9 +43,12 @@ const whitelist = new Map([
  ['/reader-headings.js','src/reader-headings.js'],
   ['/editorial-announcements.js','src/editorial-announcements.js'],
  ['/studio.css','src/studio.css'],
+ ['/studio-productivity.css','src/studio-productivity.css'],
  ['/studio-obras.css','src/studio-obras.css'],
  ['/reader-a11y.css','src/reader-a11y.css'],
  ['/studio-editor.js','src/studio-editor.js'],
+ ['/editorial-advanced-editor.js','src/editorial-advanced-editor.js'],
+ ['/editorial-review-cases.js','src/editorial-review-cases.js'],
  ['/studio-importer.js','src/studio-importer.js'],
  ['/import-safety.js','src/import-safety.js'],
  ['/editorial-import-quality.js','src/editorial-import-quality.js'],
@@ -65,7 +69,7 @@ const compact = width => '<!doctype html><html lang="es"><head><meta charset="ut
 const server = createServer((req,res)=>{
   const u = new URL(req.url || '/', 'http://127.0.0.1');
   res.setHeader('Cache-Control','no-store');
-  res.setHeader('Content-Security-Policy',"default-src 'self'; connect-src 'none'; img-src 'self' data:; font-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; form-action 'none'; frame-src 'self'");
+  res.setHeader('Content-Security-Policy',"default-src 'self'; connect-src 'none'; img-src 'self' data: blob:; font-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; form-action 'none'; frame-src 'self'");
   if (u.pathname === '/') {
     res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'}); res.end(u.searchParams.get('compact')==='1'?compact([320,390,768].includes(Number(u.searchParams.get('width')))?Number(u.searchParams.get('width')):390):html);return;
   }

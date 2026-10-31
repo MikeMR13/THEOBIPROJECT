@@ -21,6 +21,13 @@ jobs:
       - name: Validar TOML de Supabase
         run: python3 -c "import tomllib; tomllib.load(open('supabase/config.toml','rb'))"
       - run: npm run check && npm run quality-gates && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run studio-fields-check && npm run integration-check
+      - name: Editor Productividad · Entrega 2 (sin backend)
+        run: node scripts/editor-productividad-entrega2-check.mjs
+      - name: Editor colaboración · Entrega 3 (sin backend)
+        run: node scripts/editor-colaboracion-entrega3-check.mjs
+      - name: Editor colaboración · Entrega 3 (Chromium sin backend)
+        run: node scripts/editor-colaboracion-entrega3-browser.mjs
+      - run: npm run studio-browser-check
       - name: SEO — Noindex sin texto vertical ni desbordamiento (Chromium)
         run: node scripts/seo-noindex-layout-browser.mjs
       - name: Obras — portada principal en Datos, multimedia y permisos (sin backend)
@@ -103,7 +110,6 @@ jobs:
         run: node scripts/invitaciones-visibility-browser.mjs
       - name: Bibliotecario · paginación, navegación y móvil real (Chromium)
         run: node scripts/bibliotecario-browser-check.mjs
-      - run: npm run studio-browser-check
       - name: Studio · selección real de relaciones con ratón y toque móvil (Chromium CDP)
         run: node scripts/studio-related-pointer-e2e.mjs
       - name: QA visual responsive (5 anchuras, datos ficticios)
