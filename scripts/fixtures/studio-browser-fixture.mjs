@@ -173,15 +173,35 @@ try {
   ok(!resources.some(u=>/studio-(?:editor|importer|media)\.js/.test(u)),
     'El arranque precargó módulos pesados');
   checks++;
+  // Entrega 2: controles reales, vista previa y borrador, sin almacenamiento remoto.
+  ok(!!app.querySelector('[aria-current="step"]'),'Nueva obra perdió indicación accesible del paso');
+  await until(()=>!!document.getElementById('st2-productivity-css')?.sheet,'CSS de productividad');
+  ok(getComputedStyle(app.querySelector('.nw-sticky-actions')).position==='sticky','Guardar nueva obra no es sticky');
+  const synopsis=app.querySelector('[data-w="synopsis"]');
+  synopsis.value='Sinopsis de prueba';
+  synopsis.dispatchEvent(new Event('input',{bubbles:true}));
+  ok(app.querySelector('#nw-syn-count')?.textContent.startsWith(synopsis.value.length+' / 1500'),'Contador de sinopsis no responde');
+  const coverInput=app.querySelector('#nw-cover'), transfer=new DataTransfer();
+  transfer.items.add(new File(['imagen de prueba'],'portada.png',{type:'image/png'}));
+  coverInput.files=transfer.files;
+  coverInput.dispatchEvent(new Event('change',{bubbles:true}));
+  ok(!app.querySelector('#nw-cover-preview').hidden,'La portada no muestra vista previa');
+  ok(app.querySelector('#nw-cover-img').src.startsWith('blob:'),'La vista previa no usa un recurso local');
+  coverInput.value='';
+  coverInput.dispatchEvent(new Event('change',{bubbles:true}));
+  ok(app.querySelector('#nw-cover-preview').hidden,'La vista previa no se elimina al retirar portada');
   const title=app.querySelector('#nw-title');
   title.value='Crónicas del Dragón';
   title.dispatchEvent(new Event('input',{bubbles:true}));
+  const draftKey='obi-new-work-v1:00000000-0000-4000-8000-000000000005:00000000-0000-4000-8000-000000000001';
+  ok(JSON.parse(localStorage.getItem(draftKey))?.data.title==='Crónicas del Dragón','Falta borrador del equipo');
   app.querySelector('#nw-go').click();
   await until(()=>app.querySelector('#nw-v'),'crear obra');
   ok(owner.inserted.length===1,'No se insertó una obra en el mock');
   ok(owner.inserted[0].row.slug==='cronicas-del-dragon','Slug incorrecto');
   ok(owner.inserted[0].row.work_type==='Novela ligera','Tipo editorial incompleto');
   ok(owner.inserted[0].row.published===false,'La obra no nace privada');
+  ok(localStorage.getItem(draftKey)===null,'Borrador de obra no se limpia después de crearla');
   ok(owner.inserted[0].row.relations?.[0]?.id==='00000000-0000-4000-8000-000000000090',
     'La relación elegida debe viajar en el INSERT de la obra nueva');
   ok(owner.inserted[0].row.relations?.[0]?.kind==='precuela',
