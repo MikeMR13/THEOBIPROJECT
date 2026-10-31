@@ -9,6 +9,7 @@ import { createWorkData, renderWorkFields, bindWorkFields, workPayload } from '.
 import { loadRelatedWorks } from './studio-related-works.js?v=5';
 import { readPages } from './paging.js?v=1';
 import { planVolumeReplacement, validateImportMedia } from './import-safety.js?v=1';
+import { makeImportUploadPath, uploadImportAsset } from './import-upload-paths.js?v=1';
 import { EDITORIAL_RULES, inspectImport, lintImportedBlocks } from './editorial-import-quality.js?v=1';
 export function createImporter(deps) {
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, LIMITS, SEC } = deps;
@@ -482,10 +483,12 @@ export function createImporter(deps) {
         }
         // Multimedia › obras › {obra} › vol-N
         const dir = `${T.team.id}/obras/${w.slug}/vol-${D.vnum}/`;
-        const { data: have } = await sb.storage.from('obi-media').list(dir.slice(0, -1), { limit: 1000 });
-        const takenNames = new Set((have || []).map(x => x.name));
-        const fname = n => { const b = n.replace(/[^\w.-]/g, '_'); let x = b, i = 2; while (takenNames.has(x)) x = b.replace(/(\.\w+)?$/, m => '-' + (i++) + m); takenNames.add(x); return x; };
-        const up = async (sub, name, blob, type) => { const p = dir + sub + fname(name); const { error } = await sb.storage.from('obi-media').upload(p, blob, { contentType: type }); if (error) throw error; uploaded.push(p); return p; };
+        // La lista de la raíz no contiene las fuentes ya guardadas en fuentes/.
+        // Nunca reutilizar rutas de otra importación: también protege el rollback.
+        const nextPath = makeImportUploadPath(dir,job.id);
+        const bucket = sb.storage.from('obi-media');
+        const up = (sub, name, blob, type) => uploadImportAsset(bucket,nextPath,
+          {subdir:sub,filename:name,blob,contentType:type},uploaded);
         const keys = keysToUpload;
         const map = {}; let n = 0;
         for (const key of keys) { const im = P.images.get(key); st(`Subiendo imágenes a Multimedia ${++n}/${keys.length}…`); map['img:' + key] = await up('', im.name, im.blob, im.type || imgType(im.name)); }
