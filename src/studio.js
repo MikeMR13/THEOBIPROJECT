@@ -319,7 +319,7 @@ export function createStudio(ctx){
 
   const slugify = s => (s || 'obra').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
 
-  const newWork = createNewWork({ sb, app, $, esc, toast, go, getUser, T, can, ensure, shell, bindPicker, errMsg, busy, LIMITS, slugify });
+  const newWork = createNewWork({ sb, app, $, esc, toast, go, getUser, T, can, ensure, shell, bindPicker, errMsg: (...args) => errMsg(...args), busy, LIMITS, slugify });
 
   // ---------- obras ----------
   async function works(){
