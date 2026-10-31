@@ -23,6 +23,8 @@ jobs:
       - run: npm run check && npm run quality-gates && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run studio-fields-check && npm run integration-check
       - name: Editor Productividad · Entrega 2 (sin backend)
         run: node scripts/editor-productividad-entrega2-check.mjs
+      - name: Editor colaboración · Entrega 3 (sin backend)
+        run: node scripts/editor-colaboracion-entrega3-check.mjs
       - run: npm run studio-browser-check
       - name: SEO — Noindex sin texto vertical ni desbordamiento (Chromium)
         run: node scripts/seo-noindex-layout-browser.mjs
