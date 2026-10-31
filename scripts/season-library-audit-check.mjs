@@ -36,6 +36,6 @@ for(const marker of ['describeAdminSeasons','data-season-filter=','data-season-s
   assert(admin.includes(marker),'Falta interfaz de Temporadas: '+marker);
 assert(!admin.includes('style="padding:4px 10px;font-size:12px">Ver'),'No recuperar botón Ver demasiado pequeño');
 const ui=readFileSync('src/ui.js','utf8');
-for(const marker of ['ui-vol-reading-state','data-vol-read-state=','ui-series-reading-note','Sin capítulos disponibles','Todo lo disponible leído','ui-v-actions>:is(a,button){min-height:44px','ui-read-volume{display:inline-flex;align-items:center;justify-content:center;min-height:44px'])
+for(const marker of ['ui-vol-reading-state','data-vol-read-state=','ui-series-reading-note','Sin capítulos disponibles','Todo lo disponible leído','ui-v-actions>:is(a,button){min-height:44px','.ui-read-chapter,.ui-read-volume{display:inline-flex;align-items:center;justify-content:center;min-height:44px'])
   assert(ui.includes(marker),'Falta mejora de volúmenes: '+marker);
 console.log('✓ Temporadas: calendario, fin de periodo, cruces de año, prioridad, desactivación, UI y volúmenes');
