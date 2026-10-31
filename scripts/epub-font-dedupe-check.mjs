@@ -130,5 +130,5 @@ assert.ok(importer.includes('const uploaded = [],'));
 assert.ok(!importer.includes("await up('fuentes/'"),'No volver a subir todas las fuentes con claves por trabajo');
 assert.match(importer,/await sb\.storage\.from\('obi-media'\)\.remove\(uploaded\)/);
 const studio=readFileSync(new URL('../src/studio.js',import.meta.url),'utf8');
-assert.ok(studio.includes("studio-importer.js?v=7"));
+assert.ok(studio.includes("studio-importer.js?v=8"));
 console.log('EPUB SHA-256 por equipo: nuevo, reuso, legacy, error 409, borrado y aislamiento — PASS');
