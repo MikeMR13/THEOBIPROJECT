@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { transformSync } from 'esbuild';
+import {schedulePresentation} from '../src/diffusion-presentation.js';
 const sql=readFileSync('supabase/migrations/20261026045625_diffusion_phase4a_manual_schedule_20261025.sql','utf8');
 const ui=readFileSync('src/diffusion-panel.js','utf8');
 const qa=readFileSync('supabase/tests/diffusion_phase4a_schedule_rls.sql','utf8');
@@ -27,7 +28,7 @@ assert.match(ui,/data-schedule-prepare/);
 assert.match(ui,/data-schedule-finalize/);
 assert.match(ui,/diffusion_schedule_finalize/);
 assert.match(ui,/La agenda NO envía mensajes por sí sola cuando eliges modo manual|Ninguna regla se activa sin confirmación/);
-assert.match(ui,/Fecha cumplida: pendiente de envío manual/);
+assert.match(schedulePresentation({status:'planned',delivery_mode:'manual',scheduled_at:'2026-10-01T00:00:00Z'},Date.parse('2026-10-31T00:00:00Z')).detail,/Fecha cumplida: pendiente de envío manual/);
 assert.match(ui,/p_at:pending\.at/); assert.match(ui,/at:new Date\(whenMs\)\.toISOString\(\)/);
 assert.doesNotMatch(sql,/cron\.schedule|net\.http_post|http_post|http_get/);
 assert.doesNotMatch(ui,/setTimeout\(/); assert.match(ui,/tab!=='calendario'/); assert.match(ui,/delivery_mode==='automatic'/);
