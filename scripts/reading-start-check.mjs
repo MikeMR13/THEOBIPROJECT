@@ -35,7 +35,7 @@ assert.match(ui, /selectReadingStart\(allCh, s\.reading_start_chapter_id\)/);
 assert.match(ui, /p\?\.chapter_num \|\| start\?\.num/);
 assert.match(ui, /publicReadingStart\(s\)/);
 assert.doesNotMatch(ui, /p\?\.chapter_num \|\| lc\?\.num \|\| 1/, 'Hero no debe iniciar en el último capítulo');
-const sql = readFileSync(new URL('../supabase/migrations/20261031000000_editorial_reading_start.sql', import.meta.url), 'utf8');
+const sql = readFileSync(new URL('../supabase/migrations/20261031220515_editorial_reading_start_20261031.sql', import.meta.url), 'utf8');
 assert.match(sql, /reading_start_chapter_id/);
 assert.doesNotMatch(sql, /(?:update|delete)\s+public\.reading_progress/i);
 console.log('OK: tipos editoriales, inicio manual/automático, lectura existente intacta');
