@@ -6,6 +6,7 @@ import {setupEditorialCollaboration} from './editorial-suggestion-panel.js?v=1';
 import {setupEditorialApproval,teamApprovalRequired} from './editorial-approval-panel.js?v=1';
 import {attachWritingTools,TYPING_PREF_KEY} from './editorial-writing-tools.js?v=1';
 import {chapterPreviewModel,tagPreviewBlock,previewBlockScrollTop} from './editorial-visual-preview.js?v=1';
+import {attachAdvancedEditor} from './editorial-advanced-editor.js?v=1';
 export function createEditor(deps) {
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, names, home, errMsg, rpc, LIMITS, SEC } = deps;
   // ---------- editor de página: vista previa del lector, revisión automática, historial, avance y marcadores ----------
@@ -29,6 +30,7 @@ export function createEditor(deps) {
     const nextWhen = nx?.[0]?.at ? fmtTz(nx[0].at, { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'fecha del siguiente';
     const meta = { section_type: c.section_type || 'Capítulo', teaser: c.teaser || '', teaser_on: !!c.teaser_on, content_warnings: [...(c.content_warnings || [])] };
     let version = c.version, dirty = false, conflict = false, edits = 0, autoT = 0, pvT = 0, saving = null, lastRange = null, viewing = null, L = { counts: {}, total: 0, gloss: [] };
+    let advanced=null;
     const savedView = localStorage.getItem('obi-ed-view');
     const initialView = ['orig','edit','split','preview'].includes(savedView) ? savedView : (window.matchMedia?.('(max-width: 760px)').matches ? 'edit' : 'split');
     const UI = { view: initialView, theme: 'oscuro', device: 'desk' };
@@ -79,6 +81,8 @@ export function createEditor(deps) {
         <span>Negrita / cursiva / subrayado</span><kbd>Ctrl/Cmd + B / I / U</kbd>
         <span>Capítulo anterior / siguiente</span><kbd>Ctrl/Cmd + Alt + ← / →</kbd>
         <span>Salir de concentración o de búsqueda</span><kbd>Esc</kbd>
+        <span>Sugerir cambio / anotar párrafo</span><kbd>Alt + Mayús + S / N</kbd>
+        <span>Incidencia siguiente / anterior</span><kbd>Alt + Mayús + J / K</kbd>
       </div><p class="ed-note">Los atajos no sustituyen los botones accesibles en móvil. La aplicación solo intercepta los comandos que ya implementa.</p></details>
       <div class="ed-mobile-view" role="group" aria-label="Modo de edición en pantalla pequeña"><button type="button" class="ed-btn" data-view="edit" aria-controls="split">Editor</button><button type="button" class="ed-btn" data-view="preview" aria-controls="split">Vista previa</button><button type="button" class="ed-btn" data-view="split" aria-controls="split">Ambos</button><button type="button" class="ed-btn" data-view="orig" aria-controls="split">Original</button></div>
       <p class="ed-toolbar-hint" id="ed-toolbar-hint">Desliza la barra de formato horizontalmente para ver más herramientas.</p>
@@ -97,6 +101,7 @@ export function createEditor(deps) {
         <span class="ed-writing-caption">Opcional: tres puntos → … y -- al inicio de un párrafo → —. El glosario sugiere términos sin cambiar tu texto automáticamente.</span>
       </div>
       <div class="ed-gloss-inline" id="ed-gloss-inline" role="status" aria-live="polite" aria-label="Sugerencias del glosario" hidden></div>
+      <div id="ed-inline-actions" class="ed-inline-actions" role="toolbar" aria-label="Colaboración sobre texto seleccionado" hidden><button type="button" class="btn ghost" id="ed-inline-suggest">Sugerir cambio</button><button type="button" class="btn ghost" id="ed-inline-note">Anotar párrafo</button></div>
       <div id="ask"></div>
       <div class="ed-find" id="p-find" hidden><input type="text" id="fq" placeholder="Buscar" aria-label="Buscar"><input type="text" id="rq" placeholder="Reemplazar por" aria-label="Reemplazar por"><label class="mono" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="fcase" style="width:auto"> Mayúsculas exactas</label><button class="btn ghost" id="fnext">Siguiente</button><button class="btn" id="frep">Reemplazar todo</button><span class="mono" id="finfo"></span></div>
       <div class="ed-box" id="p-coms" hidden></div>
@@ -211,7 +216,9 @@ export function createEditor(deps) {
     function drawRev(){
       $('#p-rev').innerHTML = `<div class="ed-bh" style="cursor:default"><b>Revisión automática</b><span style="display:flex;gap:8px;align-items:center"><span class="mono" style="color:${L.total ? '#d9922b' : '#a9d18e'}">${L.total ? L.total + ' avisos' : 'Todo en orden'}</span>${L.total ? '<button class="btn ghost" data-fix="all">Corregir todo</button>' : ''}</span></div>
         ${LINT.map(([k, l, h]) => { const n = L.counts[k] || 0, auto = !['open', 'alt'].includes(k); return `<div class="ed-lint ${n ? '' : 'ok'}"><span class="i" aria-hidden="true">${n ? '●' : '✓'}</span><span><b>${l}</b><small>${h}</small></span>${n && auto ? `<button class="btn ghost" data-fix="${k}">Corregir ${n}</button>` : `<span class="mono">${n || ''}</span>`}</div>`; }).join('')}
+        <div class="ed-review-case" id="ed-review-case" role="region" aria-label="Revisión caso por caso"></div>
         <p class="ed-note">Se ejecuta sola al guardar, programar y publicar. Puedes publicar con avisos; el equipo verá cuántos quedaron.</p>`;
+      advanced?.renderReview();
     }
     function fix(k){
       if (k === 'all') { LINT.forEach(([x]) => fix(x)); return; }
@@ -307,13 +314,17 @@ export function createEditor(deps) {
       box.innerHTML = `<div class="ed-bh" style="cursor:default"><b>Historial de versiones</b><span class="mono">${(data || []).length} versiones · autoguardado cada 10 min</span></div><div class="ed-side">${(data || []).map(r => `<div class="ed-row"><span><b>${r.version ? 'v' + r.version + ' · ' : ''}${REV_KIND[r.kind] || r.kind}</b> · ${esc(nm[r.created_by] || 'alguien')}<br><small>${fmtTz(r.created_at, { dateStyle: 'medium', timeStyle: 'short' })}${r.note ? ' · ' + esc(r.note) : ''}${r.lint_count ? ' · ' + r.lint_count + ' aviso(s)' : ''}</small></span><span class="a"><button class="btn ghost" data-hv="${r.id}">Ver</button><button class="btn ghost" data-hd="${r.id}">Comparar</button><button class="btn ghost" data-hr="${r.id}">Restaurar</button></span></div>`).join('') || '<p class="ed-note">Aún no hay versiones. Se crea una cada vez que pulsas Guardar.</p>'}</div><div id="ed-history-compare" role="status"></div>`;
     }
     const getRev = async rid => { const { data, error } = await sb.from('chapter_revisions').select('id,version,title,body,created_at').eq('id', rid).single(); if (error) throw error; return data; };
-    setupEditorialCollaboration({
+    const collaboration=setupEditorialCollaboration({
       sb,id,root,box:$('#p-sug'),button:$('#b-sug'),historyBox:$('#p-hist'),
       can,names,esc,toast,fmtTz,confirmObi,userId:meU?.id,
       getVersion:()=>version,getDirty:()=>dirty,getConflict:()=>conflict,
       getBody:()=>editorToBlocks(doc),getTitle:title,getSelected:()=>lastRange?.toString()||'',
-      getRevision:getRev,findText:q=>findText(q)
+      getRevision:getRev,findText:q=>findText(q),focusParagraph:i=>flashBlock(blocksEls()[i])
     });
+    advanced=attachAdvancedEditor({doc,root,reviewPanel:$('#p-rev'),inlinePanel:$('#ed-inline-actions'),
+      getRange:()=>lastRange,getBlocks:blocksEls,getTerms:()=>terms,can,
+      getDirty:()=>dirty,getConflict:()=>conflict,collaboration,changed,
+      showBlock:el=>flashBlock(el),toast,openReview:()=>$('#b-rev').click(),escapeHTML:esc});
     setupEditorialApproval({sb,id,teamId:c.series.team_id,root,box:$('#p-approval'),button:$('#b-approval'),
       can,role:T.team?.role,names,esc,toast,fmtTz,confirmObi,
       getVersion:()=>version,getDirty:()=>dirty,getConflict:()=>conflict,getUserId:()=>meU?.id});
@@ -475,7 +486,7 @@ export function createEditor(deps) {
     const leave = e => { if (dirty) { flushDraft(); e.preventDefault(); e.returnValue = ''; } };
     const nav = e => { if (!alive()) return cleanup(); if (e.target.closest('a[href]')) { if (root.classList.contains('zen')) zen(false); if (dirty) doSave(false); } };
     const vis = () => { if (!alive()) return cleanup(); if (document.hidden && dirty) {flushDraft(); doSave(false);} };
-    const cleanup = () => {clearTimeout(previewSyncT);if(dirty)flushDraft();clearTimeout(draftTimer);writing.dispose();removeEventListener('pagehide',flushDraft);removeEventListener('keydown', key); removeEventListener('beforeunload', leave); document.removeEventListener('click', nav, true); document.removeEventListener('visibilitychange', vis); document.removeEventListener('fullscreenchange', fsc); clearTimeout(autoT); if (srcT) { clearTimeout(srcT); saveSrc(); srcT = 0; } try { if (chan) sb.removeChannel(chan); } catch {} chan = null; document.body.style.overflow = ''; };
+    const cleanup = () => {advanced?.dispose();clearTimeout(previewSyncT);if(dirty)flushDraft();clearTimeout(draftTimer);writing.dispose();removeEventListener('pagehide',flushDraft);removeEventListener('keydown', key); removeEventListener('beforeunload', leave); document.removeEventListener('click', nav, true); document.removeEventListener('visibilitychange', vis); document.removeEventListener('fullscreenchange', fsc); clearTimeout(autoT); if (srcT) { clearTimeout(srcT); saveSrc(); srcT = 0; } try { if (chan) sb.removeChannel(chan); } catch {} chan = null; document.body.style.overflow = ''; };
     addEventListener('keydown', key); addEventListener('pagehide',flushDraft); addEventListener('beforeunload', leave); document.addEventListener('click', nav, true); document.addEventListener('visibilitychange', vis);
     views(); drawPub(); lint(); preview(); drawOrig();
   }
