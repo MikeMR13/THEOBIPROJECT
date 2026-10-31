@@ -90,7 +90,7 @@ html[data-season] .ui-sh{border-top-color:var(--sea)}
 .ui-chl a{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #221f18;color:#e3dccb;text-decoration:none;font-size:14px}.ui-chl a:hover{color:var(--gold)}.ui-chl a.read{color:#8c846f}.ui-chl a .n{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--mute);min-width:28px;padding-top:2px}
 .ui-chl a[data-lock] .n::before{content:"🔒︎ ";font-size:11px}.ui-chl a[data-lock]{color:#a89f8a}
 .ui-chl a.read .n::after{content:' ✓';color:#a9d18e}
-.ui-read-chapter,.ui-read-volume{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:7px 10px;border:1px solid #8b7548;border-radius:3px;background:#261e12;color:#f1cf86;text-align:center;font:650 12px/1.35 'IBM Plex Sans',sans-serif;cursor:pointer}
+.ui-read-chapter,.ui-read-volume{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:7px 10px;border:1px solid #8b7548;border-radius:3px;background:#261e12;color:#f1cf86;text-align:center;font:650 12px/1.35 'IBM Plex Sans',sans-serif;cursor:pointer}
 .ui-read-chapter:hover:not(:disabled),.ui-read-volume:hover:not(:disabled){border-color:var(--gold);background:#3d2e19}
 .ui-read-chapter:focus-visible,.ui-read-volume:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 .ui-read-chapter:disabled,.ui-read-volume:disabled{opacity:.5;cursor:progress}
@@ -98,6 +98,11 @@ html[data-season] .ui-sh{border-top-color:var(--sea)}
 .ui-chl li{display:flex;gap:9px;align-items:center;min-width:0}
 .ui-chl li>a{flex:1;min-width:0}
 .ui-v-actions{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.ui-v-actions>:is(a,button){min-height:44px}
+.ui-vol-reading-state{display:inline-flex;gap:6px;align-items:center;max-width:100%;width:max-content;flex-wrap:wrap;border:1px solid #826b41;color:#dfc58b;background:#241c10;padding:6px 9px;font:600 12px/1.4 'IBM Plex Sans',sans-serif}
+.ui-vol-reading-state.is-read{border-color:#709372;color:#c0e2bd;background:#1b2b20}
+.ui-series-reading-note{font:12px/1.55 'IBM Plex Sans',sans-serif;color:#cfc1a7;margin:8px 0 12px}
+@media(max-width:480px){.ui-v-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}.ui-v-actions>:is(a,button){width:100%;min-width:0;white-space:normal;justify-content:center;text-align:center}}
 @media(max-width:480px){.ui-chl li{flex-wrap:wrap;gap:4px 8px}.ui-read-chapter{margin-left:auto;min-width:112px}}
 
 @media(max-width:720px){.ui-hero,.ui-sh{grid-template-columns:1fr}.ui-hero .ui-book{max-width:200px;order:-1}.ui-sh .ui-book{max-width:200px}.ui-vol{grid-template-columns:64px minmax(0,1fr)}}
@@ -1813,7 +1818,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         </section>
       </section>
       ${s.synopsis ? `<section id="serie-sinopsis" class="ui-series-panel ui-series-synopsis" role="tabpanel" aria-labelledby="serie-tab-sinopsis" tabindex="0" hidden><div class="ui-h2"><h2>Sinopsis</h2></div><p class="ui-syn">${esc(s.synopsis)}</p></section>` : ''}
-      <section id="serie-vols" class="ui-series-panel ui-series-library" role="tabpanel" aria-labelledby="serie-tab-vols" tabindex="0" hidden><div class="ui-h2"><h2>Volúmenes</h2>${u && allCh.length ? `<span class="fx-prog"><span class="mono">${nRead} de ${allCh.length} secciones leídas</span><span class="fx-bar"><i style="width:${Math.round(nRead / allCh.length * 100)}%"></i></span>${nRead ? `<label class="ui-tog"><input type="checkbox" id="fx-hide" ${hideRead ? 'checked' : ''}> Ocultar leídos</label>` : ''}</span>` : ''}</div><div class="ui-series-tools" role="search" aria-label="Explorar capítulos y secciones"><label for="ui-series-search">Buscar capítulo<input id="ui-series-search" type="search" autocomplete="off" spellcheck="false" placeholder="Título o número del capítulo"></label><label for="ui-series-state">Estado<select id="ui-series-state"><option value="all">Todas las secciones</option>${u ? '<option value="unread">Sin leer</option><option value="read">Leídas</option>' : ''}<option value="new">Novedades</option></select></label><label for="ui-series-order">Orden de volúmenes<select id="ui-series-order"><option value="desc" ${volumeOrder === 'desc' ? 'selected' : ''}>Más recientes primero</option><option value="asc" ${volumeOrder === 'asc' ? 'selected' : ''}>Desde el volumen 1</option></select></label><button type="button" class="ui-series-clear" id="ui-series-clear" disabled>Limpiar filtros</button></div><p class="mono ui-series-results" id="ui-series-result" role="status" aria-live="polite" aria-atomic="true"></p><div class="ui-series-shelfbar"><span class="mono">Colección de ${(vols || []).length} ${(vols || []).length === 1 ? 'libro' : 'libros'}</span><div class="ui-series-views" role="group" aria-label="Vista de volúmenes"><button type="button" data-series-view="galeria" aria-pressed="${volumeView === 'galeria'}">▦ Galería</button><button type="button" data-series-view="lista" aria-pressed="${volumeView === 'lista'}">☷ Lista</button></div></div><div class="ui-vols is-${volumeView}${hideRead && nRead ? ' fx-hide' : ''}" id="fx-vols">
+      <section id="serie-vols" class="ui-series-panel ui-series-library" role="tabpanel" aria-labelledby="serie-tab-vols" tabindex="0" hidden><div class="ui-h2"><h2>Volúmenes</h2>${u && allCh.length ? `<span class="fx-prog"><span class="mono">${nRead} de ${allCh.length} secciones leídas</span><span class="fx-bar"><i style="width:${Math.round(nRead / allCh.length * 100)}%"></i></span>${nRead ? `<label class="ui-tog"><input type="checkbox" id="fx-hide" ${hideRead ? 'checked' : ''}> Ocultar leídos</label>` : ''}</span>` : ''}</div><div class="ui-series-tools" role="search" aria-label="Explorar capítulos y secciones"><label for="ui-series-search">Buscar capítulo<input id="ui-series-search" type="search" autocomplete="off" spellcheck="false" placeholder="Título o número del capítulo"></label><label for="ui-series-state">Estado<select id="ui-series-state"><option value="all">Todas las secciones</option>${u ? '<option value="unread">Sin leer</option><option value="read">Leídas</option>' : ''}<option value="new">Novedades</option></select></label><label for="ui-series-order">Orden de volúmenes<select id="ui-series-order"><option value="desc" ${volumeOrder === 'desc' ? 'selected' : ''}>Más recientes primero</option><option value="asc" ${volumeOrder === 'asc' ? 'selected' : ''}>Desde el volumen 1</option></select></label><button type="button" class="ui-series-clear" id="ui-series-clear" disabled>Limpiar filtros</button></div><p class="mono ui-series-results" id="ui-series-result" role="status" aria-live="polite" aria-atomic="true"></p><p class="ui-series-reading-note">Las marcas de lectura indican lo que leíste, no si el equipo terminó de traducir el volumen. Si aparecen capítulos nuevos, el progreso se actualizará.</p><div class="ui-series-shelfbar"><span class="mono">Colección de ${(vols || []).length} ${(vols || []).length === 1 ? 'libro' : 'libros'}</span><div class="ui-series-views" role="group" aria-label="Vista de volúmenes"><button type="button" data-series-view="galeria" aria-pressed="${volumeView === 'galeria'}">▦ Galería</button><button type="button" data-series-view="lista" aria-pressed="${volumeView === 'lista'}">☷ Lista</button></div></div><div class="ui-vols is-${volumeView}${hideRead && nRead ? ' fx-hide' : ''}" id="fx-vols">
         ${(vols || []).map(v => {
           const list = allCh.filter(c => c.volume_id === v.id || (!c.volume_id && c.vol === v.num));
           const vLk = list.length > 0 && list.every(c => c.locked);
@@ -1822,12 +1827,15 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
           const volumeReading = u && list.length ? volumeProgress(list, read) : null;
           const availableVolume=list.filter(c=>!c.deleted_at && (!c.status||c.status==='published') && (!c.publish_at||new Date(c.publish_at).getTime()<=Date.now()));
           const allVolumeRead=availableVolume.length>0 && availableVolume.every(c=>read.has(c.id));
+          const unreadVolume=availableVolume.filter(c=>!read.has(c.id)).length;
           const named = v.title && v.title !== String(v.num) && v.title.length > 2 && !/^volumen\s*\d+$/i.test(v.title.trim());
           const cover = v.cover_path ? thumb(v) : s.cover_path ? thumb(s) : '';
           return `<article class="ui-vol ui-vol-book" data-vol-num="${esc(v.num)}" data-vol-id="${esc(v.id)}"${vLk ? ' data-lock="1"' : ''}>
             <span class="th ui-v-cover ${cover ? 'has-cover' : 'no-cover'}" role="img" aria-label="Portada del volumen ${esc(v.num)}">${cover ? `<img src="${esc(cover)}" alt="" loading="lazy" decoding="async" fetchpriority="low" width="240" height="360">` : ''}<span class="ui-v-spine" aria-hidden="true"></span>${!cover ? `<span class="ui-v-placeholder">帯<small>VOLUMEN ${esc(v.num)}</small></span>` : ''}</span>
             <div class="ui-v-content">
-              <div class="ui-v-heading"><span class="ui-lbl">LIBRO ${esc(v.num)} · ${v.external_only && v.external_url && !list.length ? 'en el sitio del traductor' : esc(editorialSectionSummary(list))}${vLk ? ' · Solo mecenas' : ''}</span><h3>${esc(named ? v.title : 'Volumen ' + v.num)}</h3>${v.synopsis ? `<p class="ui-v-syn">${esc(v.synopsis)}</p>` : ''}</div>
+              <div class="ui-v-heading"><span class="ui-lbl">LIBRO ${esc(v.num)} · ${v.external_only && v.external_url && !list.length ? 'en el sitio del traductor' : esc(editorialSectionSummary(list))}${vLk ? ' · Solo mecenas' : ''}</span><h3>${esc(named ? v.title : 'Volumen ' + v.num)}</h3>
+                ${u ? `<span class="ui-vol-reading-state${allVolumeRead?' is-read':''}" role="status" data-vol-read-state="${esc(v.id)}">${allVolumeRead?'✓ Todo lo disponible leído':availableVolume.length?unreadVolume+' secciones por leer':'Sin capítulos disponibles'}</span>` : ''}
+                ${v.synopsis ? `<p class="ui-v-syn">${esc(v.synopsis)}</p>` : ''}</div>
               ${volumeReading ? `<div class="ui-volume-progress" aria-label="Progreso del volumen ${esc(v.num)}: ${volumeReading.read} de ${volumeReading.total} secciones leídas"><span>${volumeReading.read} de ${volumeReading.total} leídos</span><b>${volumeReading.pct}%</b><div class="ui-volume-progress-track"><i style="width:${volumeReading.pct}%"></i></div></div>` : ''}
               ${v.external_url ? `<div class="ui-dl ui-ext"><span class="ui-lbl">${v.external_only ? 'Este volumen se lee en el sitio del equipo traductor' : 'También disponible en el sitio del traductor'}</span><a class="ui-dlb ext" href="${esc(v.external_url)}" target="_blank" rel="noopener noreferrer">Leer en ${esc(v.external_site || s.teams?.name || 'el sitio del traductor')} ↗<small>${esc((() => { try { return new URL(v.external_url).hostname.replace(/^www\./, ''); } catch { return ''; } })())}</small></a></div>` : ''}
               ${dlOf(v).length ? `<a class="ui-v-download-jump" href="#serie-descargas" aria-label="Ver las ${dlOf(v).length} descargas del volumen ${esc(v.num)}">↓ ${dlOf(v).length} ${dlOf(v).length === 1 ? 'formato disponible' : 'formatos disponibles'} · Ver descargas</a>` : ''}
@@ -1883,6 +1891,12 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         shelf.querySelectorAll('[data-vol-id]').forEach(card=>{
           const ids=volumesById.get(card.dataset.volId)||[];
           const marked=ids.length>0&&ids.every(c=>read.has(c.id));
+          const status=card.querySelector('[data-vol-read-state]');
+          if(status){
+            const left=ids.filter(c=>!read.has(c.id)).length;
+            status.textContent=marked?'✓ Todo lo disponible leído':ids.length?left+' secciones por leer':'Sin capítulos disponibles';
+            status.classList.toggle('is-read',marked);
+          }
           const button=card.querySelector('[data-read-vol]');
           if(button){
             button.dataset.readMark=marked?'0':'1';
