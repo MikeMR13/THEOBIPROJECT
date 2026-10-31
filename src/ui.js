@@ -4,6 +4,7 @@ import { publicationDate, publicationAge, publicationDay } from './publication-d
 import { homeReleaseOverview, homeReleaseHighlights } from './home-releases.js?v=2';
 import { attachPublicCredits, creditTeams, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
 import { homeFeaturedSelection, homeDayKey } from './home-featured.js?v=1';
+import { homeFeedRevision, homeFeedHasNewContent } from './home-feed-freshness.js?v=1';
 import { createHeroRotationClock } from './home-hero-rotation.js?v=1';
 import { createHomeMetrics, homeMetricCategory } from './home-metrics.js?v=1';
 import { publicSectionCounts } from './public-section-counts.js?v=1';
@@ -1213,6 +1214,11 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     // El día editorial rota en Monterrey. Los lanzamientos completos nuevos
     // rompen la rotación en la sesión abierta; no dependen de un cron nocturno.
     let checkingNewRelease = false;
+    // Reutilizar el snapshot público ya cacheado: un pulso de comprobación
+    // como máximo cada cinco minutos y solo mientras Inicio está visible.
+    // Captura capítulos nuevos, backfills y obras recién publicadas.
+    const initialFeedRevision = homeFeedRevision(FD);
+    let lastFeedFreshnessCheck = Date.now();
     const currentAnnouncement = Math.max(0,...(VR?.data||[]).map(v=>Date.parse(v.announced_at||v.published_at)||0));
     homeRotationTimer = setInterval(async () => {
       if(location.pathname !== '/' || !app.querySelector('.ob-page')) {clearInterval(homeRotationTimer);return;}
@@ -1220,11 +1226,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       if(homeDayKey() !== featured.day){clearInterval(homeRotationTimer);home();return;}
       checkingNewRelease=true;
       try {
-        const [releaseResult,teamResult]=await Promise.all([
+        const checkFeed = Date.now() - lastFeedFreshnessCheck >= 5 * 60 * 1000;
+        if (checkFeed) lastFeedFreshnessCheck = Date.now();
+        const [releaseResult,teamResult,freshnessResult]=await Promise.all([
           sb.from('volumes').select('announced_at,published_at')
             .eq('status','published').is('deleted_at',null)
             .order('announced_at',{ascending:false,nullsFirst:false}).limit(1),
-          teamHighlights().then(r=>r,()=>({data:null,error:true}))
+          teamHighlights().then(r=>r,()=>({data:null,error:true})),
+          checkFeed ? sb.rpc('home_feed').then(r=>r,()=>({data:null,error:true})) : Promise.resolve(null)
         ]);
         // La recomendación añadida, sustituida o vencida se refleja en una
         // pestaña abierta en menos de un minuto, incluso sin cambio de día.
@@ -1232,7 +1241,12 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
           && teamSignature(teamResult.data)!==loadedTeamSignature;
         const changedRelease=!releaseResult.error
           && (Date.parse(releaseResult.data?.[0]?.announced_at||releaseResult.data?.[0]?.published_at)||0)>currentAnnouncement;
-        if(changedTeam||changedRelease){clearInterval(homeRotationTimer);home();}
+        const changedChapters = !freshnessResult?.error
+          && homeFeedHasNewContent(initialFeedRevision, freshnessResult?.data);
+        if (changedTeam || changedRelease || changedChapters) {
+          clearInterval(homeRotationTimer);
+          home();
+        }
       } finally {checkingNewRelease=false;}
     }, 60000);
     // Fase 2: secciones secundarias, sin bloquear lo anterior.
