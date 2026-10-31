@@ -40,6 +40,8 @@ jobs:
         run: node scripts/importer-safety-check.mjs
       - name: EPUB — imágenes y fuentes duplicadas KeyAlreadyExist (sin backend)
         run: node scripts/epub-storage-keyalreadyexist-check.mjs
+      - name: EPUB — reutilizar fuentes iguales por SHA-256 sin backend
+        run: node scripts/epub-font-dedupe-check.mjs
       - name: Editor Fase 1 — calidad editorial, alt y regresión Chromium (sin backend)
         run: node scripts/editor-phase1-quality-check.mjs
       - name: Editor Fase 2 — móvil, teclado y foco (Chromium aislado)

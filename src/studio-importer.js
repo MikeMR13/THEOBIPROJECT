@@ -10,6 +10,7 @@ import { loadRelatedWorks } from './studio-related-works.js?v=5';
 import { readPages } from './paging.js?v=1';
 import { planVolumeReplacement, validateImportMedia } from './import-safety.js?v=1';
 import { makeImportUploadPath, uploadImportAsset } from './import-upload-paths.js?v=1';
+import { createTeamFontStore } from './import-font-reuse.js?v=1';
 import { EDITORIAL_RULES, inspectImport, lintImportedBlocks } from './editorial-import-quality.js?v=1';
 export function createImporter(deps) {
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, LIMITS, SEC } = deps;
@@ -422,7 +423,7 @@ export function createImporter(deps) {
           <p class="mono">Carpeta: <b>Multimedia › ${esc(folder)}</b></p>
           <label class="tb-inl"><input type="radio" name="di" value="all" ${D.allImgs ? 'checked' : ''}> Todas las imágenes del archivo (${keys.length})</label>
           <label class="tb-inl"><input type="radio" name="di" value="used" ${D.allImgs ? '' : 'checked'}> Solo las del texto y la portada (${used.size})</label>
-          ${P.fonts.length ? `<p class="mono">Las ${P.fonts.length} fuentes del EPUB van a la subcarpeta «fuentes» y el lector las usa en este volumen.</p>` : ''}
+          ${P.fonts.length ? `<p class="mono">Las fuentes idénticas del equipo se reutilizan; las nuevas se guardan en «fuentes» para que el lector las use en este volumen.</p>` : ''}
         </section>
         <section class="imp-box"><h3>Publicación</h3>
           <label class="tb-inl"><input type="radio" name="dp" value="draft" ${D.pub === 'draft' ? 'checked' : ''}> Guardar como borrador</label>
@@ -492,7 +493,17 @@ export function createImporter(deps) {
         const keys = keysToUpload;
         const map = {}; let n = 0;
         for (const key of keys) { const im = P.images.get(key); st(`Subiendo imágenes a Multimedia ${++n}/${keys.length}…`); map['img:' + key] = await up('', im.name, im.blob, im.type || imgType(im.name)); }
-        const fonts = []; for (const f of P.fonts) { st('Subiendo fuentes…'); const p = await up('fuentes/', f.name, new Blob([f.bytes]), /woff2/.test(f.name) ? 'font/woff2' : /woff/.test(f.name) ? 'font/woff' : /otf/.test(f.name) ? 'font/otf' : 'font/ttf'); fonts.push({ url: PUB + p, family: f.family, style: f.style, weight: f.weight, ...(f.use ? { use: f.use } : {}) }); }
+        const reuseFont = P.fonts.length ? createTeamFontStore({
+          sb,bucket,teamId:T.team.id,publicPrefix:PUB
+        }) : null;
+        const fonts = []; let fontsReused = 0;
+        for (const f of P.fonts) {
+          st('Verificando fuentes ya almacenadas…');
+          const {path,sha256,reused}=await reuseFont(f);
+          if(reused)fontsReused++;
+          fonts.push({url:PUB+path,family:f.family,style:f.style,weight:f.weight,
+            sha256,...(f.use?{use:f.use}:{})});
+        }
         const cov = D.cover ? map[D.cover] || null : null;
         st('Guardando el volumen…');
         if (!vol) {
@@ -563,7 +574,7 @@ export function createImporter(deps) {
         // Un fallo del historial no puede deshacer capítulos que ya se publicaron.
         if(finishError)toast('Contenido guardado; no se pudo actualizar el historial de importación');
         P.urls.forEach(u => u && URL.revokeObjectURL(u));
-        toast(`Importadas ${rows.length} secciones${D.pub === 'now' ? ' y publicadas' : D.pub === 'at' ? ' · programadas para ' + fmtTz(fromLocal(D.at)) : ' como borrador'} · ${Object.keys(map).length} imágenes en Multimedia`);
+        toast(`Importadas ${rows.length} secciones${D.pub === 'now' ? ' y publicadas' : D.pub === 'at' ? ' · programadas para ' + fmtTz(fromLocal(D.at)) : ' como borrador'} · ${Object.keys(map).length} imágenes en Multimedia · ${fontsReused} de ${fonts.length} fuentes reutilizadas`);
         go('/estudio/obra/' + w.slug);
       } catch (er) {
         // Recuperar todas las filas modificadas. Reportar los fallos de rollback.
