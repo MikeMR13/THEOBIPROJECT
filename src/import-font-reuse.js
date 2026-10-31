@@ -72,6 +72,14 @@ export function createTeamFontStore({sb,bucket,teamId,publicPrefix,maxLegacyCand
     const {sha256,blob,extension,contentType}=await fingerprintFont(font.bytes,font.name);
     const key=sha256+'.'+extension;
     if(remembered.has(key))return {...remembered.get(key),reused:true};
+    // Pool compartido POR EQUIPO, con ruta determinista y sin sobrescrituras.
+    const path=teamId+'/fuentes/sha256-'+sha256+'.'+extension;
+    const oldHash=await readHash(path);
+    if(oldHash!==null){
+      if(oldHash!==sha256)throw new Error('La ruta de fuente compartida contiene datos diferentes');
+      const found={path,sha256,reused:true};
+      remembered.set(key,found);return {...found};
+    }
     // Archivos antiguos: comparar siempre el contenido, nunca solo el nombre/familia.
     const candidates=(await legacyCandidates()).filter(f=>
       String(f.family||'')===String(font.family||'') &&
@@ -90,14 +98,6 @@ export function createTeamFontStore({sb,bucket,teamId,publicPrefix,maxLegacyCand
           return {...found};
         }
       }catch{ /* No reutilizar referencias antiguas que no puedan comprobarse. */ }
-    }
-    // Pool compartido POR EQUIPO, con ruta determinista y sin sobrescrituras.
-    const path=teamId+'/fuentes/sha256-'+sha256+'.'+extension;
-    const oldHash=await readHash(path);
-    if(oldHash!==null){
-      if(oldHash!==sha256)throw new Error('La ruta de fuente compartida contiene datos diferentes');
-      const found={path,sha256,reused:true};
-      remembered.set(key,found);return {...found};
     }
     const {error}=await bucket.upload(path,blob,{contentType,upsert:false});
     if(error){
