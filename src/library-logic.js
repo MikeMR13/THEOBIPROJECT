@@ -35,8 +35,13 @@ export function prepareLibrary({ progress = [], follows = [], readRows = [], ser
     const nextU = available.find(c => !read.has(c.id));
     const resume = validSaved || lastReadChapter || nextU || available.at(0) || null;
     const lastAt = Math.max(0, ...available.map(c => stamp(c.publish_at)));
-    const done = s.translation_status === 'completed' && all.length > 0 && all.every(c => read.has(c.id));
-    return { s, p:saved, fol:F.has(s.id), tot:available.length, totalPublished:all.length,
+    // "Terminadas" refleja la lectura personal, no el estado editorial de la traducción.
+    // Solo contar capítulos YA disponibles: los programados no pueden impedir terminar.
+    // La marca persiste en read_chapters; si llega un capítulo nuevo, la obra vuelve
+    // automáticamente a Leyendo/Pendientes hasta que el lector se ponga al día.
+    const done = available.length > 0 && available.every(c => read.has(c.id));
+    const translationCompleted = s.translation_status === 'completed';
+    return { s, p:saved, fol:F.has(s.id), tot:available.length, totalPublished:all.length, translationCompleted,
       nr, unread:Math.max(0,available.length-nr), nextU, resume, done,
       hasReading:!!saved || rs.length > 0, lastAt,
       readAt:Math.max(stamp(saved?.updated_at),stamp(lastRead?.read_at)) };
