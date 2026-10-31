@@ -9,6 +9,7 @@ import { formatChapterIndex } from './chapter-title-display.js?v=2';
 import { repeatedOpeningHeading } from './reader-headings.js?v=2';
 import { adjacentChapter, mergeChapterMetadata } from './reader-navigation.js?v=1';
 import { isPubliclyReadableChapter } from './prelaunch-access.js?v=1';
+import { familiesOf, fontVars } from './reader-epub-fonts.js?v=1';
 const DEF = { theme: 'auto', size: 20, font: 'original', width: 'normal', lh: 'comodo', align: 'izquierda', para: 'espacio', illus: true, continuous: 'off', cw: 'show', autonext: false, awake: true, controls: 'fijo' };
 const COLORS = { gold: '#f2c230', rose: '#f29bb0', sky: '#8cc3f2', mint: '#9fdcb0' };
 const SEC_LABEL = SECTION_LABELS;
@@ -253,27 +254,12 @@ export function createReader(ctx){
 
   // ---------- fuentes EPUB ----------
   const fontsDone = new Set();
-  function familiesOf(vol){ return [...new Set((vol?.epub_fonts || []).map(f => f.family))]; }
   function ensureFonts(vol){
     if (!vol || fontsDone.has(vol.id) || !(vol.epub_fonts || []).length) return;
     fontsDone.add(vol.id);
     const css = vol.epub_fonts.map(f => `@font-face{font-family:"obi-${vol.num}-${f.family.replace(/["']/g, '')}";src:url("${f.url}");font-style:${f.style === 'oblique' ? 'oblique' : f.style || 'normal'};font-weight:${f.weight || 'normal'};font-display:swap}`).join('');
     const st = document.createElement('style'); st.dataset.vol = vol.id; st.textContent = css; document.head.appendChild(st);
   }
-  // rol de cada fuente: el que guardó el importador (use) o, en volúmenes viejos, una pista por el nombre
-  const HEAD_RE = /gothic|goth|title|head|midashi|antique|heavy|black|bold|display|ゴシック|見出し/i;
-  function fontRoles(vol){ const fl = familiesOf(vol), fs = vol?.epub_fonts || [];
-    let body = fs.find(f => (f.use || []).includes('body'))?.family, head = fs.find(f => (f.use || []).includes('heading'))?.family;
-    if (!fs.some(f => f.use)) { head = fl.find(f => HEAD_RE.test(f)); body = fl.length === 1 && !head ? fl[0] : fl.find(f => f !== head && !HEAD_RE.test(f) && fl.length <= 2); }
-    return { body, head }; }
-  function fontVars(vol, p){
-    // comillas simples: este valor va dentro de style="…" y una comilla doble rompía el atributo (la fuente del EPUB no se aplicaba)
-    const nm = fam => `'obi-${vol.num}-${fam.replace(/["']/g, '')}'`, fb = "Literata,'Shippori Mincho B1',serif";
-    const v = familiesOf(vol).map((fam, i) => `--f${i}:${p.font === 'original' ? nm(fam) + ',' : ''}inherit`);
-    if (p.font === 'original') { const r = fontRoles(vol); if (r.body) v.push(`--fb:${nm(r.body)},${fb}`); if (r.head) v.push(`--fh:${nm(r.head)},${fb}`); }
-    return v.join(';');
-  }
-
   // ---------- render de bloques ----------
   const block = (b, i, p) => renderBlock(b, i, { media, illus: p.illus });
   const nextWhen = () => S.nextAt ? new Date(S.nextAt).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
