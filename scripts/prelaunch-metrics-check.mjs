@@ -74,7 +74,7 @@ assert.match(studio,/loadTeamPrelaunchMetrics\(sb, metricsTeamId, prelaunchIds\)
 assert.match(studio,/T\.team\?\.id !== metricsTeamId/);
 assert.match(studio,/createPrelaunchMetricsPanel\(prelaunchIds, prelaunchMetrics, prelaunchViews\)/);
 assert.match(studio,/studio-obras\.css\?v=7/);
-assert.match(read('src/app.js'),/studio\.js\?v=63/);
-assert.match(read('src/index.html'),/app\.js\?v=54/);
+assert.match(read('src/app.js'),/studio\.js\?v=64/);
+assert.match(read('src/index.html'),/app\.js\?v=55/);
 assert.match(read('scripts/studio-browser-e2e.mjs'),/prelaunch-metrics\.js/);
 console.log('✓ Métricas de preestreno: solo agregados autorizados, errores cerrados y vistas móviles compatibles.');
