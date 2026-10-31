@@ -38,7 +38,7 @@ export function createTeamFontStore({sb,bucket,teamId,publicPrefix,maxLegacyCand
     throw new Error('Ámbito de equipo inválido para fuentes EPUB');
   if(!bucket?.download||!bucket?.upload)throw new Error('Storage de fuentes no disponible');
   const remembered=new Map(),checked=new Map();
-  let candidatesPromise;
+  let candidatesPromise,legacyChecks=0;
   const pathFromUrl=url=>typeof url==='string'&&url.startsWith(publicPrefix+teamId+'/')
     ? url.slice(publicPrefix.length):'';
   const readHash=async path=>{
@@ -59,7 +59,7 @@ export function createTeamFontStore({sb,bucket,teamId,publicPrefix,maxLegacyCand
       try{
         const {data,error}=await sb.from('volumes')
           .select('epub_fonts,series!inner(team_id)')
-          .eq('series.team_id',teamId).limit(250);
+          .eq('series.team_id',teamId).is('deleted_at',null).limit(250);
         if(error)return [];
         return (data||[]).filter(v=>v.series?.team_id===teamId)
           .flatMap(v=>Array.isArray(v.epub_fonts)?v.epub_fonts:[])
@@ -80,9 +80,10 @@ export function createTeamFontStore({sb,bucket,teamId,publicPrefix,maxLegacyCand
       (!f.sha256||f.sha256===sha256));
     let examined=0;
     for(const existing of candidates){
-      if(examined++>=maxLegacyCandidates)break;
+      if(examined++>=maxLegacyCandidates||legacyChecks>=maxLegacyCandidates)break;
       const oldPath=pathFromUrl(existing.url);
       try{
+        if(!checked.has(oldPath))legacyChecks++;
         if(await readHash(oldPath)===sha256){
           const found={path:oldPath,sha256,reused:true};
           remembered.set(key,found);
