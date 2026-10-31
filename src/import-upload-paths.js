@@ -1,11 +1,25 @@
 // Rutas exclusivas por trabajo de importación; nunca sobrescribir multimedia existente.
 // Cada intento reserva un nombre nuevo (también en el subdirectorio fuentes/).
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// public.import_jobs.id is BIGINT (Postgres int8), not UUID.
+// Preserve UUID support for older callers, but use real numeric IDs safely.
+const MAX_BIGINT_ID=9223372036854775807n;
+export function importJobStorageKey(jobId) {
+  if(typeof jobId==='number'&&!Number.isSafeInteger(jobId))
+    throw new Error('Identificador de importación fuera del rango seguro');
+  if(!['string','number','bigint'].includes(typeof jobId))
+    throw new Error('Identificador de importación inválido');
+  const value=String(jobId);
+  if(/^[1-9][0-9]{0,18}$/.test(value)&&BigInt(value)<=MAX_BIGINT_ID)
+    return 'j'+value;
+  if(UUID.test(value))return value.replace(/-/g,'').toLowerCase();
+  throw new Error('Identificador de importación inválido');
+}
 
 export function makeImportUploadPath(baseDir,jobId) {
-  if(typeof baseDir!=='string'||!baseDir.endsWith('/')||baseDir.includes('..')||
-    !UUID.test(String(jobId||''))) throw new Error('Directorio o trabajo de importación inválido');
-  const run=jobId.replace(/-/g,'').toLowerCase();
+  if(typeof baseDir!=='string'||!baseDir.endsWith('/')||baseDir.includes('..'))
+    throw new Error('Directorio de importación inválido');
+  const run=importJobStorageKey(jobId);
   let sequence=0;
   return (subdir,filename)=>{
     if(subdir!==''&&subdir!=='fuentes/') throw new Error('Subcarpeta de importación no permitida');
