@@ -21,7 +21,7 @@ assert(newWork.indexOf('discardDraft(); // La obra ya existe')>newWork.indexOf("
 for(const label of ['id="p-outline"','id="ed-outline-list"','data-outline-index',
   'id="p-glossary"','id="ed-gloss-search"','id="ed-gloss-cards"',
   'data-gloss-find','id="p-shortcuts"','renderOutline();',
-  'renderGlossary();'])assert(editor.includes(label),'Editor perdió: '+label);
+  "addEventListener('toggle',renderGlossary)","addEventListener('input',renderGlossary)"])assert(editor.includes(label),'Editor perdió: '+label);
 assert(editor.includes('esc(g.definition||'), 'No renderizar contenido del glosario sin escape HTML');
 assert(editor.includes('slice(0,60)'), 'Limitar fichas en pantalla para no penalizar capítulos');
 for(const label of ['.nw-sticky-actions','.nw-cover-preview','.ed-outline-list',
