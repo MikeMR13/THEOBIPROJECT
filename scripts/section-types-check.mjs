@@ -8,7 +8,9 @@ import { chapterMatches } from '../src/series-organization.js';
 const legacy = ['Capítulo','Prólogo','Interludio','Epílogo','Afterword','Extra'];
 const added = ['Créditos','Ilustraciones','Episodio corto','Avance'];
 assert.deepEqual(SECTION_TYPES.slice(0,6),legacy, 'Los seis tipos anteriores deben mantener orden y nombre');
-assert.deepEqual(SECTION_TYPES.slice(6),added, 'Faltan los cuatro tipos solicitados');
+assert.deepEqual(SECTION_TYPES.slice(6,10),added, 'Los cuatro tipos anteriores cambiaron de posición');
+const nuevos = ['Portada','Sinopsis','Índice','Dedicatoria','Agradecimientos','Nota editorial'];
+assert.deepEqual(SECTION_TYPES.slice(10),nuevos,'Faltan los seis nuevos tipos editoriales');
 assert.equal(new Set(SECTION_TYPES).size, SECTION_TYPES.length, 'Hay tipos duplicados');
 for(const type of SECTION_TYPES) assert(SECTION_LABELS[type], 'El lector no muestra: '+type);
 
@@ -21,7 +23,7 @@ for(const [title,type] of [
   ['Episodio corto: paseo','Episodio corto'],['Historia corta: verano','Episodio corto'],
   ['Avance del siguiente volumen','Avance'],['Preview: Volumen 2','Avance'],
   ['Capítulo 7 — Un avance inesperado','Capítulo'],
-  ['Agradecimientos','Capítulo']
+  ['Agradecimientos','Agradecimientos'], ['Portada','Portada'], ['Sinopsis','Sinopsis'], ['Dedicatoria','Dedicatoria']
 ]) assert.equal(inferSectionType(title),type,'Clasificación incorrecta: '+title);
 
 const files = Object.fromEntries(['src/studio.js','src/studio-editor.js','src/studio-importer.js','src/reader.js','scripts/studio-browser-e2e.mjs'].map(path=>[path,readFileSync(path,'utf8')]));
@@ -41,8 +43,10 @@ assert(files['src/reader.js'].includes('const SEC_LABEL = SECTION_LABELS;'),'Lec
 assert(files['src/reader.js'].includes('const shown = formatChapterIndex({title:ch.title,sectionType:ch.section_type})'),'El lector debe mostrar el número editorial, nunca el global');
 assert(files['scripts/studio-browser-e2e.mjs'].includes("['/section-types.js','src/section-types.js']"),'La prueba de navegador no sirve el módulo');
 
-const migration=readFileSync('supabase/migrations/20261021_chapters_section_types_expanded.sql','utf8');
-for(const t of SECTION_TYPES)assert(migration.includes("'"+t+"'::text"),'La restricción SQL no permite '+t);
-assert(migration.includes('drop constraint if exists chapters_section_type_check'), 'La migración no actualiza la restricción existente');
+const legacyMigration=readFileSync('supabase/migrations/20261021_chapters_section_types_expanded.sql','utf8');
+const migration=readFileSync('supabase/migrations/20261031220515_editorial_reading_start_20261031.sql','utf8');
+for(const type of [...legacy,...added])assert(legacyMigration.includes("'"+type+"'::text"),'Migración antigua dejó de admitir '+type);
+for(const type of SECTION_TYPES)assert(migration.includes("'"+type+"'"),'La restricción nueva no permite '+type);
+assert(/DROP CONSTRAINT IF EXISTS chapters_section_type_check/i.test(migration),'La migración no actualiza la restricción existente');
 assert(!/\b(?:delete|truncate|update)\s+public\./i.test(migration),'La migración no debe alterar datos');
 console.log('Tipos de sección: 6 originales + 4 nuevos, EPUB/PDF, Studio, lector y restricción SQL OK');
