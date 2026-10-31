@@ -68,8 +68,8 @@ assert.match(studio,/T\.team\?\.id !== metricsTeamId/);
 assert.match(studio,/prelaunchById\.has\(w\.id\)/);
 assert.match(studio,/\.\/prelaunch-funnel\.js\?v=1/);
 assert.match(studio,/studio-obras\.css\?v=7/);
-assert.match(read('src/app.js'),/studio\.js\?v=62/);
-assert.match(read('src/index.html'),/app\.js\?v=53/);
+assert.match(read('src/app.js'),/studio\.js\?v=63/);
+assert.match(read('src/index.html'),/app\.js\?v=54/);
 assert.match(read('scripts/studio-browser-e2e.mjs'),/prelaunch-funnel\.js/);
 const css=read('src/studio-obras.css');
 for(const mark of ['s2-pre-funnel-stages','s2-pre-funnel-table-wrap','overflow-x:auto','@media(max-width:720px)','focus-visible'])
