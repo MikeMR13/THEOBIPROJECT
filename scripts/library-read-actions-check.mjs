@@ -60,7 +60,7 @@ const app=readFileSync(new URL('../src/app.js',import.meta.url),'utf8');
 const ui=readFileSync(new URL('../src/ui.js',import.meta.url),'utf8');
 for(const snippet of [
  "readingGroups, planReadingChanges, undoReadingChanges, applyReadingChanges, persistReadingChanges",
- ".select('id,num,title,vol,volume_id,series_id,publish_at,status,deleted_at')",
+ ".select('id,num,title,section_type,vol,volume_id,series_id,publish_at,status,deleted_at')",
  'const live = () => seq === librarySeq',
  'data-read-work=',
  "toggleWholeWork(",
