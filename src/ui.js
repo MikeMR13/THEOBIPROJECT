@@ -10,6 +10,7 @@ import { publicSectionCounts } from './public-section-counts.js?v=1';
 import { initSeriesOrganization, volumeProgress } from './series-organization.js?v=1';
 import { initSeriesTabs } from './series-tabs.js?v=1';
 import { formatChapterIndex } from './chapter-title-display.js?v=1';
+import { selectReadingStart } from './reading-start.js?v=1';
 import { editorialChapterLabel, editorialChapterDescription, editorialChapterGroup, editorialSectionSummary, editorialSectionCounts, genericSectionCount } from './editorial-public-labels.js?v=1';
 import { planReadingChanges, persistReadingChanges, applyReadingChanges } from './library-read-actions.js';
 import { chooseActiveEditorial } from './editorial-announcements.js?v=1';
@@ -357,7 +358,48 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
   const ageTag = (d, prefix = ' · ') => { const label = ago(d); return label ? prefix + label : ''; };
   const book = (s, sub, slim) => `<div class="ui-book ${s.cover_path ? 'has-art' : 'no-art'}" style="--c:${esc(color(s))};background-image:${s.cover_path ? `url('${esc(slim ? thumb(s) : media(s.cover_path))}')` : 'none'}"><div class="ui-obi${slim || s.cover_path ? ' slim' : ''}"><small>${esc(sub || s.teams?.name || 'El Obi del Lector')}</small>${s.cover_path ? '' : esc(s.short || s.title)}</div></div>`;
   const pill = st => { const [l, c] = TL[st] || TL.active; return `<span class="ui-pill" style="color:${c}">${l}</span>`; };
-  const SERIES = 'id,published,team_id,slug,title,short,original,author,illustrator,publisher,synopsis,genres,tags,theme,cover_path,cover_thumb_path,adult,work_type,demographic,translation_status,original_status,sequel_status,views,teams(name,slug,color,avatar_path),chapters(count),volumes(count)';
+  const SERIES = 'id,reading_start_chapter_id,published,team_id,slug,title,short,original,author,illustrator,publisher,synopsis,genres,tags,theme,cover_path,cover_thumb_path,adult,work_type,demographic,translation_status,original_status,sequel_status,views,teams(name,slug,color,avatar_path),chapters(count),volumes(count)';
+  // Resuelve el inicio a demanda (evita consultas adicionales durante la rotación del carrusel).
+  // No se usa para lectores con progreso: sus enlaces siguen a reading_progress/localStorage.
+  async function publicReadingStart(series) {
+    if (!series?.id) return null;
+    const now = new Date().toISOString();
+    const [c, v, manual] = await Promise.all([
+      sb.from('chapters').select('id,num,vol,volume_id,title,section_type,publish_at')
+        .eq('series_id', series.id).eq('status', 'published').is('deleted_at', null)
+        .or('publish_at.is.null,publish_at.lte.' + now).order('num').limit(5000),
+      sb.from('volumes').select('id,num,status,published_at').eq('series_id', series.id)
+        .eq('status', 'published').is('deleted_at', null),
+      series.reading_start_chapter_id === undefined
+        ? sb.from('series').select('reading_start_chapter_id').eq('id', series.id).maybeSingle()
+        : Promise.resolve({ data: { reading_start_chapter_id: series.reading_start_chapter_id } })
+    ]);
+    if (c.error || v.error || manual.error) return null;
+    const eligible = (v.data || []).filter(x => !x.published_at || Date.parse(x.published_at) <= Date.now());
+    const byId = new Set(eligible.map(x => String(x.id)));
+    const byNum = new Set(eligible.map(x => Number(x.num)));
+    const chapters = (c.data || []).filter(x => x.volume_id
+      ? byId.has(String(x.volume_id)) : byNum.has(Number(x.vol)));
+    return selectReadingStart(chapters, manual.data?.reading_start_chapter_id);
+  }
+  // En Inicio, el carrusel trae su propio feed: resolver solo cuando el lector hace clic.
+  document.addEventListener('click', async event => {
+    const anchor = event.target.closest?.('a[data-reader-start]');
+    if (!anchor || event.defaultPrevented || event.button !== 0 ||
+        event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    if (anchor.dataset.startPending) return;
+    anchor.dataset.startPending = '1';
+    anchor.setAttribute('aria-busy', 'true');
+    try {
+      const chapter = await publicReadingStart({ id: anchor.dataset.readerStart });
+      go(chapter ? '/leer/' + encodeURIComponent(anchor.dataset.readerSlug) + '/' + chapter.num
+        : '/serie/' + encodeURIComponent(anchor.dataset.readerSlug));
+    } finally {
+      delete anchor.dataset.startPending;
+      anchor.removeAttribute('aria-busy');
+    }
+  });
   function chrome(){
     const top = document.querySelector('header.top'); if (!top || top.dataset.ob) return; top.dataset.ob = '1';
     let topQ = 0; const topH = () => { if (topQ) return; topQ = requestAnimationFrame(() => { topQ = 0; document.documentElement.style.setProperty('--top-h', Math.ceil(top.getBoundingClientRect().height) + 'px'); }); }; topH(); const topRO = window.ResizeObserver ? new ResizeObserver(topH) : null; topRO?.observe(top, { box: 'border-box' }); top.addEventListener('transitionend', topH); top.addEventListener('transitionrun', () => { const t0 = performance.now(), f = () => { topQ = 0; document.documentElement.style.setProperty('--top-h', Math.ceil(top.getBoundingClientRect().height) + 'px'); if (performance.now() - t0 < 400) requestAnimationFrame(f); }; requestAnimationFrame(f); }); addEventListener('resize', topH); addEventListener('orientationchange', topH); new MutationObserver(() => { topH(); if (topRO) [...top.children].forEach(c => topRO.observe(c)); }).observe(top, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
@@ -492,7 +534,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       q.querySelector('[data-gqf]').onclick = async e => { const b = e.currentTarget; b.disabled = true; const now = await o.onFollow(); b.disabled = false; if (now !== undefined) paint(first, now); };
     };
     paint(null, o.following()); q.hidden = false; document.body.style.overflow = 'hidden'; q.querySelector('.ui-qx').focus({ preventScroll: true });
-    if (!p) { const { data: f } = await sb.from('chapters').select('num').eq('series_id', s.id).eq('status', 'published').is('deleted_at', null).order('num').limit(1); if (!q.hidden) { paint(f?.[0]?.num || null, o.following()); q.querySelector('.ui-qx').focus({ preventScroll: true }); } }
+    if (!p) { const first = await publicReadingStart(s); if (!q.hidden) { paint(first?.num || null, o.following()); q.querySelector('.ui-qx').focus({ preventScroll: true }); } }
   }
   // progreso del servidor + el de este dispositivo (sirve sin cuenta y si el servidor va atrasado)
   function localProgressMap(base = {}){
@@ -1235,7 +1277,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const el = $('#hero'); if (!el || !feat[i]) return;
     el.__vtStop?.(); el.__vtStop = null;
     el.dataset.heroKey = heroKey(feat[i]);
-    const s = feat[i], pre = s.__prelaunch || null, reason = featReasons[s.id], p = pre ? null : prog[s.id], lc = pre ? null : lastCh[s.id], n = p?.chapter_num || lc?.num || 1; const pub = pre ? null : newsBySeries[s.id], v = pre ? { num: pre.vnum, cover_path: pre.cover_path } : pub?.kind === 'volume' ? pub.volume : null, art = v?.cover_path || s.cover_path; const heroCover = media(art); // Portada original, sin recortes de miniatura.
+    const s = feat[i], pre = s.__prelaunch || null, reason = featReasons[s.id], p = pre ? null : prog[s.id], lc = pre ? null : lastCh[s.id], n = p?.chapter_num || null; const pub = pre ? null : newsBySeries[s.id], v = pre ? { num: pre.vnum, cover_path: pre.cover_path } : pub?.kind === 'volume' ? pub.volume : null, art = v?.cover_path || s.cover_path; const heroCover = media(art); // Portada original, sin recortes de miniatura.
+    const heroStartAttrs = 'href="/serie/' + esc(s.slug) + '" data-reader-start="' + esc(s.id) + '" data-reader-slug="' + esc(s.slug) + '"';
     const freshDate = publicationDate(pub?.at || lc?.publish_at);
     const fresh = !!freshDate && Date.now() - freshDate.getTime() < 7 * 864e5;
     const preAt = pre && new Date(pre.at), preWhen = preAt ? preAt.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: window.obiTZ?.() || undefined }) : '';
@@ -1258,7 +1301,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       <div class="ob-cov"><div class="f" style="${art ? `background-image:url('${esc(heroCover)}')` : ''}"></div></div>
       <div class="ob-txt"><div class="ob-hero-copy"><div class="ob-hero-head"><div class="ob-hero-meta"><span class="ob-kick">${pre ? 'ESTRENO · ' + preWhen : v ? '第' + KN(v.num) + '巻 · 新刊' : esc(editorialChapterLabel(lc)) + (fresh ? ' · 新刊' : '')}</span><div class="ob-hero-flags"><span class="ob-badge${pre ? ' ob-badge-vol' : v ? ' ob-badge-vol' : ''}" ${pre ? 'style="background:#8cc3f2;color:#0d0c0a"' : ''}>${pre ? (preTomorrow ? 'ESTRENO MAÑANA · VOL. ' : 'PRÓXIMO ESTRENO · VOL. ') + pre.vnum : reason?.kind !== 'release' ? esc(reason?.label || 'Destacado') : reason?.label === 'Nuevo lanzamiento' ? '¡NUEVO LANZAMIENTO! · VOL. ' + v?.num : reason?.urgent ? '¡NOVELA COMPLETA! · VOL. ' + v.num : v ? (fresh ? '¡NUEVO VOLUMEN! · VOL. ' : 'VOLUMEN DISPONIBLE · VOL. ') + v.num : currentNotice(s)?.kind === 'chapter' ? 'CAPÍTULO PUBLICADO' : fresh ? 'NUEVO · ' + esc(editorialChapterLabel(lc).toLocaleUpperCase('es-MX')) : esc(editorialChapterLabel(lc).toLocaleUpperCase('es-MX')) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${pre ? '' : heroTag(s)}</div>${!pre && top[s.id] ? `<div class="ob-hero-rank"><a class="rk-bdg" href="/ranking"><b>#${top[s.id]}</b>Top de la semana</a></div>` : ''}</div>${teamLogo}</div>${s.publicCredits?.some(c => !c.is_primary) ? `<span class="ob-hero-partners">${creditsHTML({publicCredits:s.publicCredits.filter(c=>!c.is_primary)}, {esc,media,mode:'hero'})}</span>` : ''}
         <h2 data-len="${(s.title.length + (v ? 12 + String(v.num).length : 0)) > 70 ? 'xl' : (s.title.length + (v ? 12 + String(v.num).length : 0)) > 40 ? 'l' : ''}"><a class="ob-h1a" href="/serie/${s.slug}" title="${esc(s.title + (v ? ' — Volumen ' + v.num : ''))}">${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}</a></h2>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn" style="white-space:pre-line">${esc(s.synopsis ? (synT.slice(tag.length).replace(/^\s+/, '').replace(/\n{3,}/g, '\n\n') || synT) : pre ? 'Conoce la historia antes de su estreno. Los capítulos permanecen bloqueados hasta la fecha indicada.' : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), genericSectionCount(s.chapters?.[0]?.count) + ' en español'].filter(Boolean).join(' · ') + '.')}</p></div><div class="ob-hero-footer">
-        ${pre ? `<p class="ob-prelaunch-timer" style="margin:8px 0;color:#8cc3f2;font-size:13px">🔒 Lectura bloqueada · Estreno: ${esc(preWhen)} · Faltan ${esc(preLeft)}</p><div class="ob-acts"><a class="a1" href="/serie/${encodeURIComponent(s.slug)}">Ver primer vistazo →</a><a class="a2" href="/calendario?f=prog">Ver en el calendario</a></div>` : `<div class="ob-acts"><a class="a1" href="${v ? '/serie/' + s.slug : '/leer/' + s.slug + '/' + n}">${v ? 'Ver volumen ' + v.num : p ? 'Continuar lectura' : 'Leer ' + esc(editorialChapterLabel(lc).toLocaleLowerCase('es-MX'))}</a>${v && (p || lc) ? `<a class="a2" href="/leer/${s.slug}/${n}">${p ? 'Continuar lectura' : 'Empezar a leer'}</a>` : `<a class="a2" href="/serie/${s.slug}">Ver la serie</a>`}</div>`}</div></div>
+        ${pre ? `<p class="ob-prelaunch-timer" style="margin:8px 0;color:#8cc3f2;font-size:13px">🔒 Lectura bloqueada · Estreno: ${esc(preWhen)} · Faltan ${esc(preLeft)}</p><div class="ob-acts"><a class="a1" href="/serie/${encodeURIComponent(s.slug)}">Ver primer vistazo →</a><a class="a2" href="/calendario?f=prog">Ver en el calendario</a></div>` : `<div class="ob-acts"><a class="a1" ${v ? 'href="/serie/' + esc(s.slug) + '"' : p ? 'href="/leer/' + esc(s.slug) + '/' + n + '"' : heroStartAttrs}>${v ? 'Ver volumen ' + v.num : p ? 'Continuar lectura' : 'Comenzar a leer'}</a>${v && (p || lc) ? `<a class="a2" ${p ? 'href="/leer/' + esc(s.slug) + '/' + n + '"' : heroStartAttrs}>${p ? 'Continuar lectura' : 'Empezar a leer'}</a>` : `<a class="a2" href="/serie/${s.slug}">Ver la serie</a>`}</div>`}</div></div>
       ${feat.length > 1 ? `<div class="ob-pager2" style="position:absolute;left:clamp(16px,4vw,56px);right:clamp(16px,4vw,56px);bottom:14px;z-index:2;display:flex;align-items:center;gap:10px"><button data-dir="-1" aria-label="Anterior" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">‹</button><span style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">${feat.length > 10 ? `<span class="mono" aria-label="Diapositiva ${i+1} de ${feat.length}" style="min-width:70px;text-align:center;font:600 12px 'IBM Plex Mono',monospace;color:var(--paper)">${i+1} / ${feat.length}</span>` : feat.map((f, j) => `<button data-j="${j}" data-hero-target="${esc(heroKey(f))}" aria-label="${esc(f.title)}" aria-current="${j === i}" style="height:10px;flex:${j === i ? '0 1 160px' : '0 0 10px'};min-width:10px;padding:0;border:none;cursor:pointer;position:relative;overflow:hidden;background:${j === i ? '#3d3628' : '#5a5244'}">${j === i ? `<i class="ob-hp" style="position:absolute;inset:0;background:var(--gold);transform-origin:left;transform:scaleX(${heroPaused ? 1 : 0});${heroPaused || matchMedia('(prefers-reduced-motion: reduce)').matches ? '' : 'animation:obHp 5s linear forwards'}"></i>` : ''}</button>`).join('')}</span><button data-hp aria-label="${heroPaused ? 'Reanudar' : 'Pausar'}" style="height:40px;padding:0 12px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">${heroPaused ? '▶ Reanudar' : 'Ⅱ Pausar'}</button><button data-dir="1" aria-label="Siguiente" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">›</button></div>` : ''}`;
     // La Vitrina V2 conserva el HTML editorial, preestrenos, créditos, enlaces
     // y paginador anteriores; únicamente reorganiza su presentación.
@@ -1482,7 +1525,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         };
       };
       paint(null, fol.has(s.id)); qv.hidden = false; document.body.style.overflow = 'hidden'; qv.querySelector('.ui-qx').focus({ preventScroll: true });
-      if (!p) { const { data: f } = await sb.from('chapters').select('num').eq('series_id', s.id).eq('status', 'published').is('deleted_at', null).order('num').limit(1); if (!qv.hidden) { paint(f?.[0]?.num || null, fol.has(s.id)); qv.querySelector('.ui-qx').focus({ preventScroll: true }); } }
+      if (!p) { const first = await publicReadingStart(s); if (!qv.hidden) { paint(first?.num || null, fol.has(s.id)); qv.querySelector('.ui-qx').focus({ preventScroll: true }); } }
     }
     $('#cat-grid').addEventListener('click', e => { const a = e.target.closest('a.ui-card, a.ui-fc'); if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button) return; e.preventDefault(); e.stopPropagation(); openQV(a.dataset.id, a); });
     const det = $('#cat-filters'), quickFilters = $('#cat-quick-filters');
@@ -1758,8 +1801,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const patronLink = (() => { const fallback = s.teams?.slug ? '/equipo/' + encodeURIComponent(s.teams.slug) : '/serie/' + encodeURIComponent(s.slug); try { const u = new URL(pt?.url); return u.protocol === 'https:' && /(^|\.)patreon\.com$/i.test(u.hostname) ? u.toString() : fallback; } catch { return fallback; } })();
     let savedReadRows=(readR.data || []).filter(r=>r.chapter_id);
     const read = new Set(savedReadRows.map(r => r.chapter_id)), p = prog[s.id], following = !!(folR.data || []).length;
-    const first = allCh[0], nRead = allCh.filter(c => read.has(c.id)).length;
-    const firstNarrative = allCh.find(c => { const t=formatChapterIndex({title:c.title,sectionType:c.section_type});return t.label==='Capítulo' && !!t.number; });
+    const first = allCh[0], start = selectReadingStart(allCh, s.reading_start_chapter_id), nRead = allCh.filter(c => read.has(c.id)).length;
     const progressChapter = allCh.find(c => c.num === p?.chapter_num);
     
     const pIdx = p ? allCh.findIndex(c => c.num === p.chapter_num) : -1;
@@ -1784,10 +1826,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
           <h1 data-title-size="${s.title.length > 120 ? 'xl' : s.title.length > 65 ? 'l' : 'normal'}">${esc(s.title)}</h1>${s.original ? `<p class="orig">${esc(s.original)}</p>` : ''}
           <div class="ui-chips">${pill(s.translation_status)}${(s.genres || []).map(g => `<a class="ui-chip" href="/catalogo?g=${encodeURIComponent(g)}">${esc(g)}</a>`).join('')}${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</div>
           <div class="rk-bdgs" id="rk-bdg"></div><div class="rk-rate" id="rk-rate"></div>
-          <div class="acts ui-series-actions" style="display:flex;gap:10px;flex-wrap:wrap">${first ? `<a class="btn" href="/leer/${s.slug}/${p?.chapter_num || first.num}">${p ? 'Continuar · ' + editorialChapterLabel(progressChapter) + (p.pct > .02 && p.pct < .95 ? ' · ' + Math.round(p.pct * 100) + '%' : '') : (first.locked ? '🔒︎ Leer desde el inicio · solo mecenas' : 'Leer desde el inicio')}</a>` : ''}<button class="btn ghost" id="follow">${following ? '✓ Siguiendo' : 'Seguir serie'}</button><a class="btn ghost" href="/anotaciones/${esc(s.slug)}">Mis anotaciones</a>${first ? offlineButton({slug:s.slug,scope:'series'}) : ''}</div>
+          <div class="acts ui-series-actions" style="display:flex;gap:10px;flex-wrap:wrap">${first ? `<a class="btn" href="/leer/${s.slug}/${p?.chapter_num || start?.num}">${p ? 'Continuar · ' + editorialChapterLabel(progressChapter) + (p.pct > .02 && p.pct < .95 ? ' · ' + Math.round(p.pct * 100) + '%' : '') : (start?.locked ? '🔒︎ Leer desde el inicio · solo mecenas' : 'Leer desde el inicio')}</a>` : ''}<button class="btn ghost" id="follow">${following ? '✓ Siguiendo' : 'Seguir serie'}</button><a class="btn ghost" href="/anotaciones/${esc(s.slug)}">Mis anotaciones</a>${first ? offlineButton({slug:s.slug,scope:'series'}) : ''}</div>
           <nav class="ui-series-context-links" aria-label="Opciones de lectura y colección">
             ${p && nextUnread && nextUnread.num !== p.chapter_num ? `<a class="ui-series-context-link" href="/leer/${s.slug}/${nextUnread.num}">Siguiente sin leer · ${editorialChapterLabel(nextUnread)}</a>` : ''}
-            ${!p && firstNarrative && firstNarrative.num !== first?.num ? `<a class="ui-series-context-link" href="/leer/${s.slug}/${firstNarrative.num}">Ir al primer capítulo</a>` : ''}
             <a class="ui-series-context-link" href="#serie-vols">Explorar volúmenes ↓</a>
           </nav>
         </div>
@@ -1822,8 +1863,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         ${(vols || []).map(v => {
           const list = allCh.filter(c => c.volume_id === v.id || (!c.volume_id && c.vol === v.num));
           const vLk = list.length > 0 && list.every(c => c.locked);
-          const firstVol = list[0], hereVol = list.find(c => p?.chapter_num === c.num);
-          const firstNarrativeVol = list.find(c => { const t=formatChapterIndex({title:c.title,sectionType:c.section_type});return t.label==='Capítulo' && !!t.number; });
+          const firstVol = list[0], startVol = selectReadingStart(list, s.reading_start_chapter_id), hereVol = list.find(c => p?.chapter_num === c.num);
           const volumeReading = u && list.length ? volumeProgress(list, read) : null;
           const availableVolume=list.filter(c=>!c.deleted_at && (!c.status||c.status==='published') && (!c.publish_at||new Date(c.publish_at).getTime()<=Date.now()));
           const allVolumeRead=availableVolume.length>0 && availableVolume.every(c=>read.has(c.id));
@@ -1839,8 +1879,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
               ${volumeReading ? `<div class="ui-volume-progress" aria-label="Progreso del volumen ${esc(v.num)}: ${volumeReading.read} de ${volumeReading.total} secciones leídas"><span>${volumeReading.read} de ${volumeReading.total} leídos</span><b>${volumeReading.pct}%</b><div class="ui-volume-progress-track"><i style="width:${volumeReading.pct}%"></i></div></div>` : ''}
               ${v.external_url ? `<div class="ui-dl ui-ext"><span class="ui-lbl">${v.external_only ? 'Este volumen se lee en el sitio del equipo traductor' : 'También disponible en el sitio del traductor'}</span><a class="ui-dlb ext" href="${esc(v.external_url)}" target="_blank" rel="noopener noreferrer">Leer en ${esc(v.external_site || s.teams?.name || 'el sitio del traductor')} ↗<small>${esc((() => { try { return new URL(v.external_url).hostname.replace(/^www\./, ''); } catch { return ''; } })())}</small></a></div>` : ''}
               ${dlOf(v).length ? `<a class="ui-v-download-jump" href="#serie-descargas" aria-label="Ver las ${dlOf(v).length} descargas del volumen ${esc(v.num)}">↓ ${dlOf(v).length} ${dlOf(v).length === 1 ? 'formato disponible' : 'formatos disponibles'} · Ver descargas</a>` : ''}
-              ${firstVol ? `<div class="ui-v-actions"><a class="btn ${hereVol ? 'gold' : 'ghost'}" href="/leer/${esc(s.slug)}/${hereVol?.num || firstVol.num}">${hereVol ? 'Continuar lectura' : vLk ? '🔒 Leer con acceso' : 'Leer desde el inicio'} →</a>${!hereVol && firstNarrativeVol && firstNarrativeVol.num !== firstVol.num ? `<a class="btn ghost ui-v-first-chapter" href="/leer/${esc(s.slug)}/${firstNarrativeVol.num}">Ir al primer capítulo</a>` : ''}${u&&availableVolume.length ? `<button type="button" class="ui-read-volume" data-read-vol="${esc(v.id)}" data-read-mark="${allVolumeRead?'0':'1'}" aria-label="${allVolumeRead?'Desmarcar lectura del':'Marcar leído el'} volumen ${esc(v.num)}">${allVolumeRead?'↶ Desmarcar volumen':'✓ Marcar volumen leído'}</button>` : ''}${availableVolume.length ? offlineButton({slug:s.slug,scope:'volume',vol:v.num}) : ''}</div>` : ''}
-              ${list.length ? `<details class="ui-v-index"><summary>Índice de capítulos y secciones <span class="mono">${list.length} · desplegar <span aria-hidden="true">⌄</span></span></summary><ul class="ui-chl">${list.map(c => { const shown = formatChapterIndex({title:c.title,sectionType:c.section_type}); return `<li data-chapter-id="${esc(c.id)}" data-chapter-num="${esc(c.num)}" data-chapter-display="${esc(shown.label + (shown.number ? ' ' + shown.number : '') + (shown.heading ? ': ' + shown.heading : ''))}" data-chapter-title="${esc(c.title || '')}" data-chapter-type="${esc(c.section_type || 'Capítulo')}" data-chapter-read="${read.has(c.id)}" data-chapter-new="${!!isNew(c)}" class="${read.has(c.id) ? 'is-read' : ''}"><a href="/leer/${esc(s.slug)}/${c.num}" ${c.locked ? 'title="Solo para mecenas" data-lock="1"' : ''} class="${read.has(c.id) ? 'read' : ''}${p?.chapter_num === c.num ? ' here' : ''}"><span class="n" aria-hidden="true">${shown.number ? esc(shown.number) : '◆'}</span><span class="ui-ch-display"><span class="ui-ch-meta"><small class="ui-ch-type">${esc(shown.label)}</small>${p?.chapter_num === c.num ? '<em class="fx-tag here">Aquí vas</em>' : isNew(c) ? '<em class="fx-tag">Nuevo</em>' : ''}</span>${shown.heading ? `<span class="ui-ch-name">${esc(shown.heading)}</span>` : ''}</span></a>${u&&(!c.publish_at||new Date(c.publish_at).getTime()<=Date.now()) ? `<button type="button" class="ui-read-chapter" data-read-chapter="${esc(c.id)}" data-read-mark="${read.has(c.id)?'0':'1'}" aria-label="${read.has(c.id)?'Desmarcar':'Marcar leído'} ${esc(shown.label + (shown.number ? ' ' + shown.number : '') + (shown.heading ? ': ' + shown.heading : ''))}">${read.has(c.id)?'↶ Desmarcar':'✓ Leído'}</button>` : ''}${!c.locked && (!c.publish_at || new Date(c.publish_at).getTime()<=Date.now()) ? offlineButton({slug:s.slug,scope:'chapter',num:c.num}) : ''}</li>`; }).join('')}</ul></details>` : ''}
+              ${firstVol ? `<div class="ui-v-actions"><a class="btn ${hereVol ? 'gold' : 'ghost'}" href="/leer/${esc(s.slug)}/${hereVol?.num || startVol.num}">${hereVol ? 'Continuar lectura' : vLk ? '🔒 Leer con acceso' : 'Leer desde el inicio'} →</a>${u&&availableVolume.length ? `<button type="button" class="ui-read-volume" data-read-vol="${esc(v.id)}" data-read-mark="${allVolumeRead?'0':'1'}" aria-label="${allVolumeRead?'Desmarcar lectura del':'Marcar leído el'} volumen ${esc(v.num)}">${allVolumeRead?'↶ Desmarcar volumen':'✓ Marcar volumen leído'}</button>` : ''}${availableVolume.length ? offlineButton({slug:s.slug,scope:'volume',vol:v.num}) : ''}</div>` : ''}
+              ${list.length ? `<details class="ui-v-index"><summary>Índice de capítulos y secciones <span class="mono">${list.length} · desplegar <span aria-hidden="true">⌄</span></span></summary><ul class="ui-chl">${list.map(c => { const shown = formatChapterIndex({title:c.title,sectionType:c.section_type}); return `<li data-chapter-id="${esc(c.id)}" data-chapter-num="${esc(c.num)}" data-chapter-display="${esc(shown.label + (shown.number ? ' ' + shown.number : '') + (shown.heading ? ': ' + shown.heading : ''))}" data-chapter-title="${esc(c.title || '')}" data-chapter-type="${esc(c.section_type || 'Capítulo')}" data-chapter-read="${read.has(c.id)}" data-chapter-new="${!!isNew(c)}" class="${read.has(c.id) ? 'is-read' : ''}"><a href="/leer/${esc(s.slug)}/${c.num}" ${c.locked ? 'title="Solo para mecenas" data-lock="1"' : ''} class="${read.has(c.id) ? 'read' : ''}${p?.chapter_num === c.num ? ' here' : ''}"><span class="n" aria-hidden="true">${shown.number ? esc(shown.number) : '◆'}</span><span class="ui-ch-display"><span class="ui-ch-meta"><small class="ui-ch-type">${esc(shown.label)}</small>${p?.chapter_num === c.num ? '<em class="fx-tag here">Aquí vas</em>' : isNew(c) ? '<em class="fx-tag">Nuevo</em>' : ''}${s.reading_start_chapter_id === c.id ? '<em class="fx-tag">Inicio nuevos lectores</em>' : ''}</span>${shown.heading ? `<span class="ui-ch-name">${esc(shown.heading)}</span>` : ''}</span></a>${u&&(!c.publish_at||new Date(c.publish_at).getTime()<=Date.now()) ? `<button type="button" class="ui-read-chapter" data-read-chapter="${esc(c.id)}" data-read-mark="${read.has(c.id)?'0':'1'}" aria-label="${read.has(c.id)?'Desmarcar':'Marcar leído'} ${esc(shown.label + (shown.number ? ' ' + shown.number : '') + (shown.heading ? ': ' + shown.heading : ''))}">${read.has(c.id)?'↶ Desmarcar':'✓ Leído'}</button>` : ''}${!c.locked && (!c.publish_at || new Date(c.publish_at).getTime()<=Date.now()) ? offlineButton({slug:s.slug,scope:'chapter',num:c.num}) : ''}</li>`; }).join('')}</ul></details>` : ''}
               ${buyOf(v).length ? `<div class="ui-dl ui-buy"><span class="ui-lbl">Compra la edición oficial</span>${buyOf(v).map(b => `<button class="ui-dlb buy" data-buy="${b.id}">${esc(b.store)}<small>${esc([b.fmt, b.region].filter(Boolean).join(' · '))}</small></button>`).join('')}</div>` : ''}
             </div></article>`;
         }).join('') || '<p class="mono">Aún no hay volúmenes publicados.</p>'}
