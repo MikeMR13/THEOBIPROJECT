@@ -35,9 +35,12 @@ function fixture(initial=[],volumes=[]) {
      assert.equal(value,'epub_fonts,series!inner(team_id)');
      return {eq(name,id){
        queries.push([name,id]);
-       return {async limit(n){
-         assert.equal(n,250);
-         return {data:volumes,error:null};
+       return {is(column,value){
+         assert.equal(column,'deleted_at'); assert.equal(value,null);
+         return {async limit(n){
+           assert.equal(n,250);
+           return {data:volumes,error:null};
+         }};
        }};
      }};
    }};
@@ -123,7 +126,7 @@ assert.throws(()=>createTeamFontStore({bucket:a.bucket,teamId:team,publicPrefix:
 const importer=readFileSync(new URL('../src/studio-importer.js',import.meta.url),'utf8');
 assert.ok(importer.includes('createTeamFontStore('));
 assert.ok(importer.includes("const {path,sha256}=await reuseFont(f)"));
-assert.ok(importer.includes('const uploaded = []'));
+assert.ok(importer.includes('const uploaded = [],'));
 assert.ok(!importer.includes("await up('fuentes/'"),'No volver a subir todas las fuentes con claves por trabajo');
 assert.match(importer,/await sb\.storage\.from\('obi-media'\)\.remove\(uploaded\)/);
 const studio=readFileSync(new URL('../src/studio.js',import.meta.url),'utf8');
