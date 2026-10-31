@@ -24,11 +24,17 @@ for(const [title,number,heading] of cases) {
 }
 assert(formatChapterIndex({title:'Captiulo 1: Una nueva vida'}).typo);
 for(const title of ['El despertar de la bruja','Capítulo veinte','Capítulo 1.5 - parte 2',
- 'Capítulo 1a: Extra','Capítulo 10000: Fuera de rango','Portada','Sinopsis']) {
+ 'Capítulo 1a: Extra','Capítulo 10000: Fuera de rango']) {
  const got=formatChapterIndex({title,sectionType:'Capítulo',globalNum:33});
  assert.equal(got.label,'Sección',title);
  assert.equal(got.number,'','Nunca inventar número editorial: '+title);
  assert.equal(got.heading,title);
+}
+for(const type of ['Portada','Sinopsis']) {
+ const got=formatChapterIndex({title:type,sectionType:'Capítulo',globalNum:33});
+ assert.equal(got.label,type,'Tipo preliminar heredado reconocido: '+type);
+ assert.equal(got.number,'','Sin numeración ficticia: '+type);
+ assert.equal(got.heading,'','Sin duplicar el título preliminar: '+type);
 }
 for(const [type,title,heading] of [
  ['Prólogo','Prólogo: Una promesa','Una promesa'],
