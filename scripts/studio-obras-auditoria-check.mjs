@@ -87,5 +87,5 @@ assert(read('src/studio-related-works.js').includes('if (!saved?.id) throw new E
 assert(read('src/studio-related-works.js').includes('if (!verified?.id || !sameRelatedWorks'), 'Las relaciones deben releerse de la base antes de confirmar');
 assert(st.includes('/studio-obras.css?v=7'),'CSS Obras debe cargarse de forma versionada');
 assert(read('src/app.js').includes("/studio.js?v=62"));
-assert(read('src/index.html').includes('/app.js?v=52'));
+assert(read('src/index.html').includes('/app.js?v=53'));
 console.log('✓ Auditoría Estudio Obras: filtros, permisos, móvil, importación, publicación y rendimiento');
