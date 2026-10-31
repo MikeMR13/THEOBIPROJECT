@@ -81,4 +81,8 @@ for(const item of ['makeImportUploadPath(dir,job.id)','uploadImportAsset(bucket,
 }
 assert.ok(!importer.includes('takenNames'),'No usar la lista de raíz para subcarpetas');
 assert.ok(studio.includes('studio-importer.js?v=6'),'Actualizar versión de caché del importador');
+const app=readFileSync(new URL('../src/app.js',import.meta.url),'utf8');
+const html=readFileSync(new URL('../src/index.html',import.meta.url),'utf8');
+assert.ok(app.includes('/studio.js?v=62'),'La navegación debe invalidar el módulo Studio previo');
+assert.ok(html.includes('/app.js?v=53'),'HTML debe invalidar el módulo app antiguo');
 console.log('EPUB KeyAlreadyExist: rutas exclusivas, choque 409, reintento y rollback seguro — PASS');
