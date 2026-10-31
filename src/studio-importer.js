@@ -10,6 +10,7 @@ import { loadRelatedWorks } from './studio-related-works.js?v=5';
 import { readPages } from './paging.js?v=1';
 import { planVolumeReplacement, validateImportMedia } from './import-safety.js?v=1';
 import { makeImportUploadPath, uploadImportAsset } from './import-upload-paths.js?v=1';
+import { createTeamFontStore } from './import-font-reuse.js?v=1';
 import { EDITORIAL_RULES, inspectImport, lintImportedBlocks } from './editorial-import-quality.js?v=1';
 export function createImporter(deps) {
   const { sb, app, $, esc, toast, go, getUser, getMe, url, PUB, media, pathOf, T, can, ensure, fmtTz, fromLocal, toLocal, tzHint, busy, shell, bindPicker, LIMITS, SEC } = deps;
@@ -492,7 +493,16 @@ export function createImporter(deps) {
         const keys = keysToUpload;
         const map = {}; let n = 0;
         for (const key of keys) { const im = P.images.get(key); st(`Subiendo imágenes a Multimedia ${++n}/${keys.length}…`); map['img:' + key] = await up('', im.name, im.blob, im.type || imgType(im.name)); }
-        const fonts = []; for (const f of P.fonts) { st('Subiendo fuentes…'); const p = await up('fuentes/', f.name, new Blob([f.bytes]), /woff2/.test(f.name) ? 'font/woff2' : /woff/.test(f.name) ? 'font/woff' : /otf/.test(f.name) ? 'font/otf' : 'font/ttf'); fonts.push({ url: PUB + p, family: f.family, style: f.style, weight: f.weight, ...(f.use ? { use: f.use } : {}) }); }
+        const reuseFont = P.fonts.length ? createTeamFontStore({
+          sb,bucket,teamId:T.team.id,publicPrefix:PUB
+        }) : null;
+        const fonts = [];
+        for (const f of P.fonts) {
+          st('Verificando fuentes ya almacenadas…');
+          const {path,sha256}=await reuseFont(f);
+          fonts.push({url:PUB+path,family:f.family,style:f.style,weight:f.weight,
+            sha256,...(f.use?{use:f.use}:{})});
+        }
         const cov = D.cover ? map[D.cover] || null : null;
         st('Guardando el volumen…');
         if (!vol) {
