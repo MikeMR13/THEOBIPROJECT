@@ -69,7 +69,7 @@ const button={
 // La prueba de guardar progreso dejó un capítulo nuevo de B sin metadatos de obra;
 // aislar ese registro para probar el orden de respuestas del servidor.
 localStorage.removeItem(readingProgressKey('serie4','cuentaB'));
-const runtime=vm.runInNewContext('let user=null, CB={t:0,v:null,u:null};\n'+app.slice(contA,contB)+
+const runtime=vm.runInNewContext('let user=null, CB={t:0,v:null,u:null}; const continueChapterLabels=new Map();\n'+app.slice(contA,contB)+
   '\n({run:contBtn,setUser(value){user=value},snapshot(){return CB}})',{
     $:sel=>sel==='#ob-cont'?button:null,
     location:{pathname:'/'},Date,JSON,Math,localStorage,
@@ -94,6 +94,8 @@ lookups.get('cuentaA')({data:[{series_id:'serieA',chapter_num:8,pct:0.6,updated_
 await first;
 assert.equal(button.href,'/leer/novela-b/3','Una consulta de la cuenta anterior sustituyó el botón Continuar');
 assert.equal(runtime.snapshot().u,'cuentaB');
+assert.equal(button.small.textContent,'Continuar · Sección · 50 %',
+  'Sin metadatos offline se muestra Sección, nunca el num global');
 
 for(const [file,term,label] of [
   [reader,'S.prefsVersion=(S.prefsVersion || 0)+1;','edición invalida respuesta de preferencias remotas'],
