@@ -30,5 +30,5 @@ const ui=readFileSync(new URL('../src/ui.js',import.meta.url),'utf8');
 assert.match(ui,/homeFeedHasNewContent\(initialFeedRevision, freshnessResult\?\.data\)/);
 assert.match(ui,/Date\.now\(\) - lastFeedFreshnessCheck >= 5 \* 60 \* 1000/);
 assert.match(ui,/changedTeam \|\| changedRelease \|\| changedChapters/);
-assert.match(ui,/if\s*\(document\.hidden \|\| checkingNewRelease\)\s*return/);
+assert.match(ui,/if\s*\(\s*document\.hidden\s*\|\|\s*checkingNewRelease\s*\)\s*return/);
 console.log('OK: páginas abiertas detectan capítulos nuevos sin repintados por ranking/visitas ni consultas por minuto');
