@@ -78,6 +78,8 @@ jobs:
         run: OBI_READER_VIEWPORT=desktop node scripts/reader-phase4-integration-browser.mjs
       - name: Entrega 3 — Historial, retrasos y pestañas de Difusión (sin backend)
         run: node scripts/entrega3-difusion-ui-check.mjs
+      - name: Entrega 4 — Estadísticas, SEO, revisiones y Ajustes del lector
+        run: node scripts/entrega4-refinamiento-ui-check.mjs
       - name: Difusión — Chromium confirmación multicanal sin envíos externos
         run: npm run diffusion-confirmation-browser-check
       - name: PWA optimizada — presupuesto de caché sin descargas opcionales

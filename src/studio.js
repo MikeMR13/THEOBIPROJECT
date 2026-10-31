@@ -4,7 +4,9 @@ import { STUDIO_TEAM_PERMS } from './studio-team-permissions.js?v=1';
 import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=1';
 import { initCollaborationTeamPicker, COLLABORATION_STATUS } from './studio-collaboration-picker.js?v=1';
 import { seriesPublicationHTML, bindSeriesPublication } from './studio-series-publication.js?v=2';
-import { bindSeriesSeo, teamSeoProfileHTML } from './studio-seo.js?v=1';
+import { bindSeriesSeo, teamSeoProfileHTML } from './studio-seo.js?v=2';
+import { dailyViewsScale, viewsColumnMeaning, reviewCountsForWorks } from './studio-stats-display.js';
+import { editorialChapterLabel } from './editorial-public-labels.js';
 import { cleanSeo } from './seo-settings.js?v=1';
 import { SECTION_TYPES } from './section-types.js?v=1';
 import { mountTeamReaderDefaults } from './studio-reader-defaults.js?v=1';
@@ -70,6 +72,12 @@ export function createStudio(ctx){
   }).join('');
   let styleTask = null;
   const css = () => {
+    if (typeof document.createElement === 'function' && !document.getElementById('st2-stats-css')) {
+      const statsCss = document.createElement('link');
+      statsCss.id = 'st2-stats-css'; statsCss.rel = 'stylesheet';
+      statsCss.href = '/studio-stats-display.css?v=1';
+      document.head.appendChild(statsCss);
+    }
     if (styleTask) return styleTask;
     const existing = document.getElementById('st2-css');
     if (existing?.sheet) return (styleTask = Promise.resolve());
@@ -79,7 +87,7 @@ export function createStudio(ctx){
       link.addEventListener('error', resolve, { once: true });
     });
     if (!existing) {
-      link.id = 'st2-css'; link.rel = 'stylesheet'; link.href = '/studio.css?v=5';
+      link.id = 'st2-css'; link.rel = 'stylesheet'; link.href = '/studio.css?v=6';
       document.head.appendChild(link);
     }
     if (!document.getElementById('st2-access-css')) {
@@ -1199,9 +1207,11 @@ export function createStudio(ctx){
     const W = Object.fromEntries((works || []).map(w => [w.id, w])), me = getUser()?.id;
     const F = board.f || (board.f = { work: '', mine: false });
     const colOf = c => c.status === 'scheduled' ? 'programado' : c.stage || 'traduciendo';
-    const label = c => (c.section_type && c.section_type !== 'Capítulo' ? c.section_type : 'Cap. ' + c.num) + ' — ' + (c.title || '').replace(/^(Cap[íi]tulo|Cap\.)\s*\d+\s*[—–:-]?\s*/, '');
+    const label = c => editorialChapterLabel(c) + ' — ' + (c.title || '').replace(/^(Cap[íi]tulo|Cap\.)\s*\d+\s*[—–:-]?\s*/, '');
     const list = (chs || []).filter(c => (!F.work || c.series_id === F.work) && (!F.mine || c.assigned_to === me));
     const mv = can('board');
+    const reviewByWork=reviewCountsForWorks(list,latestReview);
+    const reviewSummary=Object.entries(reviewByWork).map(([id,n])=>({work:W[id],...n})).filter(x=>x.work);
     const card = c => {
       const k = colOf(c), i = COLS.findIndex(x => x[0] === k), w = W[c.series_id];
       const back = i > 0 && mv && (k !== 'programado' || can('schedule')), fwd = i < 3 && mv && (i < 2 || can('schedule'));
@@ -1217,6 +1227,7 @@ export function createStudio(ctx){
       <div class="tb-f"><label class="tb-inl">Obra<select id="fw"><option value="">Todas</option>${(works || []).map(w => `<option value="${w.id}" ${F.work === w.id ? 'selected' : ''}>${esc(w.short || w.title)}</option>`).join('')}</select></label>
         <label class="tb-inl"><input type="checkbox" id="fm" ${F.mine ? 'checked' : ''}> Solo lo asignado a mí</label>
         <span class="mono" style="margin-left:auto">${mv ? 'Mueve las tarjetas con ← → o arrastrándolas. Quien queda asignado recibe un aviso.' : 'Tu rol puede ver el tablero, pero no mover tarjetas.'}</span></div>
+      ${reviewSummary.length?'<aside class="tb-review-summary" aria-label="Resumen de revisiones por obra"><strong>Revisiones por obra</strong><div>'+reviewSummary.map(x=>'<span><b>'+esc(x.work.short||x.work.title)+'</b>: '+x.pending+' en revisión · '+x.changes+' con correcciones · '+x.expired+' caducadas · '+x.approved+' aprobadas</span>').join('')+'</div></aside>':''}
       <p class="mono s2-scroll-tip">Desliza horizontalmente para recorrer las etapas del tablero. También puedes mover tarjetas con las flechas.</p><div class="tb-cols" role="region" aria-label="Etapas del flujo editorial" tabindex="0">${COLS.map(([k, l, c]) => { const cs = list.filter(x => colOf(x) === k); return `<section class="tb-col" data-col="${k}" style="border-top-color:${c}"><h2><span>${l}</span><span class="mono">${cs.length}</span></h2>${cs.map(card).join('') || `<p class="tb-empty">${k === 'programado' ? 'Nada programado.' : 'Sin capítulos aquí.'}</p>`}</section>`; }).join('')}</div>
       ${!(chs || []).length ? '<p class="mono">Los capítulos en borrador o programados aparecen aquí. Los publicados salen del tablero.</p>' : ''}</div>`;
     const cOf = id => chs.find(c => c.id === id);
@@ -1427,21 +1438,29 @@ export function createStudio(ctx){
     const fbP = sb.rpc('series_feedback', { p_series: F.work });
     const chs = d.chapters || [], daily = d.daily || [], w = works.find(x => x.id === F.work), c = wcolor(w);
     const sum = k => chs.reduce((a, x) => a + (+x[k] || 0), 0), fmt = n => (+n || 0).toLocaleString('es-MX');
-    const base = Math.max(1, +chs[0]?.finished || 0), maxD = Math.max(1, ...daily.map(x => +x.n));
+    const base = Math.max(1, +chs[0]?.finished || 0), scale = dailyViewsScale(daily), maxD = scale.top;
+    const meaning=viewsColumnMeaning(F.days);
     const kpi = (l, v, n, col) => `<div class="s2-kpi" style="--c:${col}"><small>${l}</small><b>${v}</b><span>${n}</span></div>`;
     const sorted = [...chs].sort((a, b) => F.sort === 'order' ? 0 : (+b[F.sort] || 0) - (+a[F.sort] || 0));
-    const col = (k, l) => `<th scope="col"><button class="st-sort ${F.sort === k ? 'on' : ''}" data-sort="${k}">${l}</button></th>`;
-    const dayL = s => fmtTz(s + 'T12:00', { day: 'numeric', month: 'short' });
+    const col = (k, l, help='') => `<th scope="col"><button class="st-sort ${F.sort === k ? 'on' : ''}" data-sort="${k}"${help ? ` title="${esc(help)}"` : ''}>${l}</button></th>`;
+    const dayL = s => s ? fmtTz(s + 'T12:00', { day: 'numeric', month: 'short' }) : '—';
     const hasData = sum('views_total') + sum('finished') + sum('comments') > 0;
     app.querySelector('.s2-main').innerHTML = app.querySelector('.s2-head').outerHTML + `<div class="lg">
       <div class="cm-f">${pick(works, F.work, 'fs', '')}<span class="lg-chips">${[[7,'7 días'],[30,'30 días'],[90,'90 días']].map(([k, l]) => `<button class="ed-chip ${F.days === k ? 'on' : ''}" aria-pressed="${F.days === k}" data-days="${k}">${l}</button>`).join('')}</span></div>
       <div class="s2-kpis" style="margin:0">${kpi('Vistas · ' + F.days + ' días', fmt(sum('views')), fmt(sum('views_total')) + ' en total', c)}${kpi('Seguidores', fmt(d.followers), 'reciben aviso de cada volumen', '#8cc3f2')}${kpi('Lecturas completas', fmt(sum('finished')), 'capítulos terminados por lectores con cuenta', '#a9d18e')}${kpi('Comentarios', fmt(sum('comments')), fmt(sum('reactions')) + ' reacciones', '#c9a8f2')}</div>
       <div id="st-fb"></div>
       <section class="s2-box"><div class="s2-bh"><h2>Vistas por día</h2><span class="mono">${dayL(daily[0]?.day)} – ${dayL(daily[daily.length - 1]?.day)}</span></div>
-        <div class="st-bars" role="img" aria-label="Vistas por día en los últimos ${F.days} días">${daily.map(x => `<span title="${dayL(x.day)}: ${fmt(x.n)} vistas" style="height:${Math.max(2, Math.round(+x.n / maxD * 100))}%;background:${+x.n ? c : '#2f2a20'}"></span>`).join('')}</div>
+        <div class="st-plot" aria-label="Gráfico diario con escala visible">
+          <div class="st-axis-y" aria-hidden="true">${scale.ticks.map(v=>`<span>${fmt(v)}</span>`).join('')}</div>
+          <div class="st-plot-data">
+            <div class="st-bars" role="img" aria-label="Vistas por día en los últimos ${F.days} días; valor máximo ${fmt(maxD)}">${daily.map(x => `<span title="${dayL(x.day)}: ${fmt(x.n)} vistas" style="height:${Math.max(2, Math.round(+x.n / maxD * 100))}%;background:${+x.n ? c : '#2f2a20'}"></span>`).join('')}</div>
+            <div class="st-axis-x"><span>${dayL(daily[0]?.day)}</span><span>${dayL(daily[daily.length-1]?.day)}</span></div>
+          </div>
+        </div>
         ${hasData ? '' : '<p class="mono" style="margin:8px 0 0">Las vistas por capítulo se cuentan desde hoy: una por lector, capítulo y día.</p>'}</section>
-      <div class="st-tw" role="region" aria-label="Estadísticas de capítulos" tabindex="0"><table class="st-t"><thead><tr>${col('order', 'Capítulo')}${col('views', 'Vistas')}${col('views_total', 'Total')}${col('finished', 'Terminaron')}<th scope="col">Retención</th>${col('here', 'Se quedaron aquí')}${col('comments', 'Coment.')}${col('reactions', 'Reacc.')}${col('reports', 'Erratas')}</tr></thead>
-        <tbody>${sorted.map(x => { const r = Math.min(100, Math.round(+x.finished / base * 100)); return `<tr><th scope="row"><a href="/estudio/editar/${x.id}">${esc(x.section_type && x.section_type !== 'Capítulo' ? x.section_type : chLbl(x.num, x.title))}</a><small>Vol. ${x.vol}${x.publish_at ? ' · ' + fmtTz(x.publish_at, { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</small></th>
+      <p class="mono st-metric-help" id="st-metric-help">${esc(meaning.caption)}</p>
+      <div class="st-tw" role="region" aria-label="Estadísticas de capítulos" aria-describedby="st-metric-help" tabindex="0"><table class="st-t"><thead><tr>${col('order', 'Capítulo')}${col('views', 'Vistas', meaning.views)}${col('views_total', 'Total', meaning.total)}${col('finished', 'Terminaron')}<th scope="col">Retención</th>${col('here', 'Se quedaron aquí')}${col('comments', 'Coment.')}${col('reactions', 'Reacc.')}${col('reports', 'Erratas')}</tr></thead>
+        <tbody>${sorted.map(x => { const r = Math.min(100, Math.round(+x.finished / base * 100)); return `<tr><th scope="row"><a href="/estudio/editar/${x.id}">${esc(editorialChapterLabel(x))}</a><small>Vol. ${x.vol}${x.publish_at ? ' · ' + fmtTz(x.publish_at, { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</small></th>
           <td>${fmt(x.views)}</td><td>${fmt(x.views_total)}</td><td>${fmt(x.finished)}</td><td><span class="st-ret" title="${r} % de quienes terminaron el primero"><i style="width:${r}%;background:${c}"></i></span><small>${r} %</small></td><td>${+x.here ? fmt(x.here) : '—'}</td><td>${fmt(x.comments)}</td><td>${fmt(x.reactions)}</td><td style="color:${+x.reports ? '#f59e7a' : ''}">${+x.reports ? fmt(x.reports) : '—'}</td></tr>`; }).join('') || '<tr><td colspan="9" class="tb-empty">Sin capítulos publicados.</td></tr>'}</tbody></table></div>
       <p class="mono">«Terminaron» y «Se quedaron aquí» solo cuentan lectores con cuenta. Retención: terminaron este capítulo / terminaron el primero. «Se quedaron aquí» son quienes lo empezaron y no han seguido: un número alto puede indicar un capítulo difícil.</p></div>`;
     fbP.then(({ data: fb, error }) => { const el = document.getElementById('st-fb'); if (!el || error || !fb) return;

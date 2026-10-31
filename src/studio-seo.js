@@ -1,7 +1,7 @@
 import { confirmObi, inputObi } from './obi-dialog.js';
 import {cleanSeo, editImages, SEO_LIMITS} from './seo-settings.js?v=1';
 // SEO editorial por obra, sin modificar RLS, publicación, precios ni canonical.
-const css = '.wk-seo{display:grid;gap:14px;max-width:850px}.wk-seo label{display:grid;gap:6px}.wk-seo textarea{min-height:88px;resize:vertical}.wk-seo small{color:#b9ae94;font-size:12px}.wk-seo-preview{border:1px solid #57492d;background:#16140f;padding:16px;display:grid;gap:8px;overflow-wrap:anywhere}.wk-seo-preview strong{color:#f2c230;font-size:18px}.wk-seo-preview img{width:100%;max-height:230px;object-fit:contain;background:#0d0c0a}.wk-seo-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.wk-seo input:focus-visible,.wk-seo textarea:focus-visible,.wk-seo select:focus-visible{outline:2px solid #f2c230}.wk-seo label.wk-seo-noindex{display:flex;align-items:flex-start;gap:10px;width:100%;min-width:0;max-width:100%}.wk-seo .wk-seo-noindex>input[type=checkbox]{width:18px!important;min-width:18px;height:18px;min-height:18px;flex:0 0 18px;margin:2px 0 0;padding:0}.wk-seo .wk-seo-noindex>span{display:block;flex:1 1 auto;min-width:0;white-space:normal;overflow-wrap:normal}';
+const css = '.wk-seo{display:grid;gap:14px;max-width:850px}.wk-seo label{display:grid;gap:6px}.wk-seo textarea{min-height:88px;resize:vertical}.wk-seo small{color:#b9ae94;font-size:12px}.wk-seo-preview{border:1px solid #57492d;background:#16140f;padding:16px;display:grid;gap:8px;overflow-wrap:anywhere}.wk-seo-preview strong{color:#f2c230;font-size:18px}.wk-seo-preview img{width:100%;max-height:230px;object-fit:contain;background:#0d0c0a}.wk-seo-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.wk-seo input:focus-visible,.wk-seo textarea:focus-visible,.wk-seo select:focus-visible{outline:2px solid #f2c230}.wk-seo label.wk-seo-noindex{display:flex;align-items:flex-start;gap:10px;width:100%;min-width:0;max-width:100%}.wk-seo .wk-seo-noindex>input[type=checkbox]{width:18px!important;min-width:18px;height:18px;min-height:18px;flex:0 0 18px;margin:2px 0 0;padding:0}.wk-seo .wk-seo-noindex>span{display:block;flex:1 1 auto;min-width:0;white-space:normal;overflow-wrap:normal}.wk-seo-preview>*{min-width:0;max-width:100%}.wk-seo-preview .wk-seo-preview-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.wk-seo-preview .wk-seo-preview-desc{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;line-height:1.5}.wk-seo-preview .wk-seo-preview-url{overflow-wrap:anywhere;font-family:IBM Plex Mono,monospace}.wk-seo label,.wk-seo label>*{min-width:0;max-width:100%;box-sizing:border-box}@media(max-width:520px){.wk-seo-preview{padding:12px}.wk-seo-preview strong{font-size:16px}.wk-seo .wk-seo-actions .btn{min-height:44px}}';
 const field = (tag, props={}, text='') => {
   const el=document.createElement(tag);
   for(const [key,value] of Object.entries(props)) {
@@ -60,9 +60,11 @@ export function bindSeriesSeo({app,sb,series,volumes=[],canEdit=false,media,toas
     preview.replaceChildren();
     const image=v.imagePath||series.cover_path;
     if(image)preview.append(field('img',{src:media(image),alt:''}));
-    preview.append(field('strong',{},v.socialTitle||v.title||series.title),
-      field('span',{},v.socialDescription||v.description||String(series.synopsis||'Lee esta obra en El Obi del Lector.').slice(0,170)),
-      field('small',{},'elobidellector.com/serie/'+series.slug));
+    const displayTitle=v.socialTitle||v.title||series.title;
+    const displayDescription=v.socialDescription||v.description||String(series.synopsis||'Lee esta obra en El Obi del Lector.').slice(0,170);
+    preview.append(field('strong',{className:'wk-seo-preview-title',title:displayTitle},displayTitle),
+      field('span',{className:'wk-seo-preview-desc',title:displayDescription},displayDescription),
+      field('small',{className:'wk-seo-preview-url'},'elobidellector.com/serie/'+series.slug));
     if(v.noindex)preview.append(field('small',{},'No se indexará en buscadores'));
     for(const [key,,help] of specs)controls[key+'Note'].textContent=help+' ('+v[key].length+'/'+SEO_LIMITS[key]+')';
     if(dirty && controls.status)controls.status.textContent='Cambios sin guardar';
