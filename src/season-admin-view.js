@@ -1,6 +1,6 @@
 // Panel de Temporadas del Bibliotecario: calendario y estado visual derivados,
 // sin guardar campos redundantes ni cambiar la programación de la plataforma.
-import { SEASONS, activeSeason } from './anim.js?v=8';
+import { SEASONS } from './anim.js?v=8';
 import { seasonPeriods, formatSeasonPeriod } from './season-periods.js';
 
 const dateKey = d => [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
@@ -21,7 +21,11 @@ export function describeAdminSeasons({
       catalog[key].d.years[Number(day.slice(0,4))]=day.slice(5);
   }
   const periods=seasonPeriods(catalog,`${year-1}-01-01`,`${year+1}-12-31`,{hemi,starts:calendar});
-  const active=activeSeason({auto,hemi},new Date(today+'T12:00:00'));
+  // La misma prioridad de catálogo (primero festividades, luego estaciones),
+  // pero sobre periodos CALCULADOS con fechas lunares sincronizadas.
+  const activePeriods=periods.filter(p=>p.start<=today&&p.end>=today&&auto.includes(p.key));
+  const active=Object.keys(catalog).find(k=>catalog[k].g!=='est'&&activePeriods.some(p=>p.key===k))
+    ||activePeriods.find(p=>catalog[p.key]?.g==='est')?.key||null;
   return Object.entries(catalog).map(([key,s])=>{
     const occurrences=periods.filter(p=>p.key===key);
     const thisYear=occurrences.filter(p=>p.start.slice(0,4)===String(year)||p.end.slice(0,4)===String(year));
