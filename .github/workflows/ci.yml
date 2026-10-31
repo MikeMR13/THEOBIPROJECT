@@ -80,6 +80,16 @@ jobs:
         run: node scripts/entrega3-difusion-ui-check.mjs
       - name: Entrega 4 — Estadísticas, SEO, revisiones y Ajustes del lector
         run: node scripts/entrega4-refinamiento-ui-check.mjs
+      - name: Entrega 5 — Matriz integral y diagnósticos de salida, sin credenciales
+        run: node scripts/entrega5-preestreno-qa-check.mjs
+      - name: Entrega 5 — Guardar evidencia y bloqueos (24 h)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: entrega5-preestreno-evidencia
+          path: qa-evidencia/entrega5-resultado.json
+          retention-days: 1
+          if-no-files-found: warn
       - name: Difusión — Chromium confirmación multicanal sin envíos externos
         run: npm run diffusion-confirmation-browser-check
       - name: PWA optimizada — presupuesto de caché sin descargas opcionales
