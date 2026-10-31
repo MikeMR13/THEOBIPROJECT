@@ -47,6 +47,8 @@ const whitelist = new Map([
  ['/studio-obras.css','src/studio-obras.css'],
  ['/reader-a11y.css','src/reader-a11y.css'],
  ['/studio-editor.js','src/studio-editor.js'],
+ ['/editorial-advanced-editor.js','src/editorial-advanced-editor.js'],
+ ['/editorial-review-cases.js','src/editorial-review-cases.js'],
  ['/studio-importer.js','src/studio-importer.js'],
  ['/import-safety.js','src/import-safety.js'],
  ['/editorial-import-quality.js','src/editorial-import-quality.js'],
