@@ -1,0 +1,28 @@
+/* Entrega 2: Nueva obra y productividad del editor. Estilos aislados al Estudio. */
+.s2 .nw-sticky-actions{position:sticky;bottom:0;z-index:24;max-width:900px;box-sizing:border-box;padding:12px 14px;padding-bottom:calc(12px + env(safe-area-inset-bottom));background:#17140f;border:1px solid #544327;box-shadow:0 -8px 28px rgba(0,0,0,.36)}
+.s2 .nw-sticky-actions .btn{min-height:44px}
+.s2 .nw-cover-preview{display:flex;align-items:center;gap:16px;min-width:0;padding:12px;border:1px solid #544327;background:#100e0a;overflow-wrap:anywhere}
+.s2 .nw-cover-preview[hidden]{display:none}
+.s2 .nw-cover-preview img{width:96px;max-width:30%;aspect-ratio:2/3;object-fit:cover;background:#221f18;border:1px solid #695337}
+.s2 .nw-cover-preview span{font-size:13px;color:var(--paper);min-width:0}
+.s2 .nw-draft-note{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.s2 #nw-syn-count{display:block;margin:0 0 10px;color:var(--mute)}
+.s2 .ed-productivity{margin:10px 0;border:1px solid #3d3628;background:#14120d}
+.s2 .ed-productivity>summary{cursor:pointer;padding:12px 14px;font-weight:600}
+.s2 .ed-productivity>summary:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.s2 .ed-outline-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:8px;padding:12px}
+.s2 .ed-outline-list button{display:flex;align-items:flex-start;gap:8px;min-width:0;min-height:42px;text-align:left;overflow-wrap:anywhere;color:var(--paper);background:#211c15;border:1px solid #544327;padding:9px 10px;cursor:pointer}
+.s2 .ed-outline-list button:hover,.s2 .ed-outline-list button:focus-visible{border-color:var(--gold);outline-offset:2px}
+.s2 .ed-outline-list button .mono{color:var(--gold)}
+.s2 .ed-productivity-search{display:grid;gap:6px;padding:12px 12px 0;font-size:13px}
+.s2 .ed-productivity-search input{min-height:44px;max-width:100%}
+.s2 .ed-gloss-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:10px;padding:12px}
+.s2 .ed-gloss-card{display:grid;gap:5px;align-content:start;padding:12px;background:#201b13;border:1px solid #483a27;min-width:0}
+.s2 .ed-gloss-card>b{overflow-wrap:anywhere}.s2 .ed-gloss-card>small{color:#dbb86f}
+.s2 .ed-gloss-card>p{font-size:13px;line-height:1.55;margin:3px 0 9px;white-space:pre-wrap;overflow-wrap:anywhere}
+.s2 .ed-gloss-card>button{justify-self:start;min-height:40px}
+.s2 .ed-shortcut-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:12px;font-size:13px;align-items:center}
+.s2 .ed-shortcut-grid kbd{display:inline-block;padding:6px 8px;max-width:100%;overflow-wrap:anywhere;background:#221f18;border:1px solid #57462c;font-family:'IBM Plex Mono',monospace;font-size:11px}
+.s2 .ed.zen #p-outline,.s2 .ed.zen #p-glossary,.s2 .ed.zen #p-shortcuts{display:none!important}
+@media(max-width:640px){.s2 .nw-sticky-actions{gap:8px}.s2 .nw-sticky-actions>*{flex:1 1 100%}.s2 .ed-shortcut-grid{grid-template-columns:minmax(0,1fr)}}
+@media(prefers-reduced-motion:reduce){.s2 .ed-outline-list button{scroll-behavior:auto}}
