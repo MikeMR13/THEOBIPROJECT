@@ -94,6 +94,7 @@ const files={'/admin.js':'src/admin.js','/admin-seo.js':'src/admin-seo.js',
 const server=createServer((req,res)=>{
  const path=(req.url||'').split('?')[0];
  res.setHeader('Cache-Control','no-store');
+ if(path==='/' && /[?&]temporada=/.test(req.url||'')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><html><body><main id="hero">Vista previa de temporada de prueba</main></body></html>');return;}
  if(path==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(page);return;}
  if(path==='/season.js'){res.setHeader('Content-Type','application/javascript');res.end(seasonStub);return;}
  if(!files[path]){res.writeHead(404);res.end('No disponible');return;}
