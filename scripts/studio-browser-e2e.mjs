@@ -54,6 +54,7 @@ const whitelist = new Map([
  ['/editorial-review-cases.js','src/editorial-review-cases.js'],
  ['/studio-importer.js','src/studio-importer.js'],
  ['/import-safety.js','src/import-safety.js'],
+ ['/import-upload-paths.js','src/import-upload-paths.js'],
  ['/editorial-import-quality.js','src/editorial-import-quality.js'],
  ['/editorial-collaboration.js','src/editorial-collaboration.js'],
  ['/editorial-suggestion-panel.js','src/editorial-suggestion-panel.js'],
