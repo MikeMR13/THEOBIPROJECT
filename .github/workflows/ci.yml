@@ -90,6 +90,16 @@ jobs:
         run: node scripts/entrega4-refinamiento-ui-check.mjs
       - name: P0 — Acceso y Patreon / RPC thenable / anuncios vencidos sin envíos
         run: node scripts/entrega1-accesos-difusion-check.mjs
+      - name: Entrega 5 — dictamen de preestreno (sin backend, nunca publica)
+        run: node scripts/entrega5-preestreno-qa-check.mjs
+      - name: Evidencia Entrega 5 — retención 24 horas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: entrega5-preestreno-evidencia
+          path: qa-evidencia/entrega5-resultado.json
+          retention-days: 1
+          if-no-files-found: ignore
       - name: Difusión — Chromium confirmación multicanal sin envíos externos
         run: npm run diffusion-confirmation-browser-check
       - name: PWA optimizada — presupuesto de caché sin descargas opcionales
