@@ -115,7 +115,16 @@ try{
   const bin=chromeBinary();
   await new Promise((done,fail)=>{server.once('error',fail);server.listen(0,'127.0.0.1',done);});
   const port=server.address().port;
-  for(const v of ['1280,900','1024,900','mobile320','mobile390','mobile768']) await runBrowser(bin,port,v);
+  for(const v of ['1280,900','1024,900','mobile320','mobile390','mobile768']){
+    try{await runBrowser(bin,port,v);}
+    catch(error){
+      // El runner de Actions puede atascar Chromium al iniciar; reintentar una
+      // sola vez únicamente en timeout, nunca en fallos funcionales del DOM.
+      if(!String(error?.message||error).includes('Chromium excedió 45 segundos'))throw error;
+      console.warn('Chromium timeout en '+v+'; reintentando una vez en proceso limpio');
+      await runBrowser(bin,port,v);
+    }
+  }
   console.log('Navegador real: flujos Studio, permisos, carga diferida y CSS OK; sin red externa');
 }finally{
   await new Promise(done=>server.close(done));
