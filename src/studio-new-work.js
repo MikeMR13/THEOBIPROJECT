@@ -21,8 +21,9 @@ export function createNewWork(deps) {
     const storeDraft = () => { try { localStorage.setItem(draftKey, JSON.stringify({teamId,at:Date.now(),data:N})); } catch {} };
     const discardDraft = () => { try { localStorage.removeItem(draftKey); } catch {} };
     let related = [], relatedError = '';
-    try { related = await loadRelatedWorks(sb, T.team.id); }
+    try { related = await loadRelatedWorks(sb, teamId); }
     catch (e) { relatedError = errMsg(e); toast('No se pudo cargar el catálogo de obras relacionadas: ' + relatedError); }
+    if (T.team?.id !== teamId) return; // La selección de equipo cambió durante la consulta.
     let made = null, cover = null, coverObjectURL = null, vtitle = '';
     const steps = n => '<ol class="st-steps" style="margin:0 0 22px">' +
       ['Obra', 'Primer volumen', 'Primer capítulo'].map((l,i) =>
