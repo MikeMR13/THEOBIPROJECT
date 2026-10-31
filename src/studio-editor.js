@@ -118,7 +118,7 @@ export function createEditor(deps) {
     const blocksEls = () => [...doc.childNodes].filter(makesBlock);
     const renderOutline = () => {
       const panel = $('#ed-outline-list');
-      if (!panel) return;
+      if (!panel || !$('#p-outline')?.open) return;
       const children = [...doc.children];
       const places = children.map((node,index)=>({node,index})).filter(({node,index})=>
         /^H[1-6]$/.test(node.tagName) || node.classList.contains('sep') || index === 0 || index % 25 === 0).slice(0,80);
@@ -127,6 +127,7 @@ export function createEditor(deps) {
         return '<button type="button" data-outline-index="'+index+'"><span class="mono">'+(index+1)+'</span><span>'+esc(label)+'</span></button>';
       }).join('') || '<p class="ed-note">Este capítulo todavía no tiene bloques para navegar.</p>';
     };
+    $('#p-outline')?.addEventListener('toggle',renderOutline);
     $('#ed-outline-list')?.addEventListener('click',e=>{
       const b=e.target.closest('[data-outline-index]'); if(!b)return;
       const node=doc.children[Number(b.dataset.outlineIndex)]; if(!node)return;
@@ -135,7 +136,7 @@ export function createEditor(deps) {
       node.classList.add('hl'); setTimeout(()=>node.classList.remove('hl'),1600);
     });
     const renderGlossary = () => {
-      const box = $('#ed-gloss-cards'); if(!box)return;
+      const box = $('#ed-gloss-cards'); if(!box || !$('#p-glossary')?.open)return;
       const q=($('#ed-gloss-search')?.value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
       const found=(gl||[]).filter(g=>(g.term+' '+(g.category||'')+' '+(g.definition||'')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(q));
       box.innerHTML = found.slice(0,60).map(g=>'<article class="ed-gloss-card"><b>'+esc(g.term)+'</b><small>'+esc(g.category||'Sin categoría')+'</small><p>'+esc(g.definition||'Sin definición')+'</p><button class="btn ghost" type="button" data-gloss-find="'+esc(g.term)+'">Buscar en capítulo</button></article>').join('') || '<p class="ed-note">No hay términos que coincidan.</p>';
@@ -147,7 +148,7 @@ export function createEditor(deps) {
       if(UI.view==='preview'){UI.view='edit';views();}
       if(!findText(b.dataset.glossFind))toast('Término no encontrado en el capítulo');
     });
-    renderGlossary();
+    $('#p-glossary')?.addEventListener('toggle',renderGlossary);
     const title = () => $('#ttl').value.trim() || 'Sin título';
     const titleCount=()=>{const el=$('#ttl'),n=el.value.length;$('#ttlcount').textContent=n+' / 300';$('#ttlcount').classList.toggle('over',n>300);el.style.height='auto';el.style.height=Math.min(218,Math.max(72,el.scrollHeight))+'px';};
     titleCount();
