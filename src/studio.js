@@ -72,6 +72,12 @@ export function createStudio(ctx){
   }).join('');
   let styleTask = null;
   const css = () => {
+    if (!document.getElementById('st2-stats-css')) {
+      const statsCss = document.createElement('link');
+      statsCss.id = 'st2-stats-css'; statsCss.rel = 'stylesheet';
+      statsCss.href = '/studio-stats-display.css?v=1';
+      document.head.appendChild(statsCss);
+    }
     if (styleTask) return styleTask;
     const existing = document.getElementById('st2-css');
     if (existing?.sheet) return (styleTask = Promise.resolve());
