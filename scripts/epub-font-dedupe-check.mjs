@@ -125,7 +125,7 @@ assert.throws(()=>createTeamFontStore({bucket:a.bucket,teamId:team,publicPrefix:
 
 const importer=readFileSync(new URL('../src/studio-importer.js',import.meta.url),'utf8');
 assert.ok(importer.includes('createTeamFontStore('));
-assert.ok(importer.includes("const {path,sha256}=await reuseFont(f)"));
+assert.ok(importer.includes("const {path,sha256,reused}=await reuseFont(f)"));
 assert.ok(importer.includes('const uploaded = [],'));
 assert.ok(!importer.includes("await up('fuentes/'"),'No volver a subir todas las fuentes con claves por trabajo');
 assert.match(importer,/await sb\.storage\.from\('obi-media'\)\.remove\(uploaded\)/);
