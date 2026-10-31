@@ -395,11 +395,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       const chapter = await publicReadingStart({ id: anchor.dataset.readerStart });
       go(chapter ? '/leer/' + encodeURIComponent(anchor.dataset.readerSlug) + '/' + chapter.num
         : '/serie/' + encodeURIComponent(anchor.dataset.readerSlug));
+    } catch (error) {
+      console.warn('No se pudo resolver el inicio de lectura', error);
+      go('/serie/' + encodeURIComponent(anchor.dataset.readerSlug));
     } finally {
       delete anchor.dataset.startPending;
       anchor.removeAttribute('aria-busy');
     }
-  });
+  }, true);
   function chrome(){
     const top = document.querySelector('header.top'); if (!top || top.dataset.ob) return; top.dataset.ob = '1';
     let topQ = 0; const topH = () => { if (topQ) return; topQ = requestAnimationFrame(() => { topQ = 0; document.documentElement.style.setProperty('--top-h', Math.ceil(top.getBoundingClientRect().height) + 'px'); }); }; topH(); const topRO = window.ResizeObserver ? new ResizeObserver(topH) : null; topRO?.observe(top, { box: 'border-box' }); top.addEventListener('transitionend', topH); top.addEventListener('transitionrun', () => { const t0 = performance.now(), f = () => { topQ = 0; document.documentElement.style.setProperty('--top-h', Math.ceil(top.getBoundingClientRect().height) + 'px'); if (performance.now() - t0 < 400) requestAnimationFrame(f); }; requestAnimationFrame(f); }); addEventListener('resize', topH); addEventListener('orientationchange', topH); new MutationObserver(() => { topH(); if (topRO) [...top.children].forEach(c => topRO.observe(c)); }).observe(top, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
