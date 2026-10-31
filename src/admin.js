@@ -23,6 +23,11 @@ const CSS = `
 .bb-se-filters button{border:1px solid #806740;background:#19160f;color:var(--paper);font:600 12px 'IBM Plex Sans',sans-serif;padding:9px 12px;min-height:44px;cursor:pointer}
 .bb-se-filters button[aria-pressed=true]{background:var(--gold);border-color:var(--gold);color:#16110b}
 .bb-se-empty{padding:15px;color:#ddcaaa;background:#211a11}
+.bb #sea-preview .bb-row>span{display:flex;flex-wrap:wrap;gap:8px;min-width:0;max-width:100%}
+.bb #sea-preview :is(select,.btn){min-height:44px;max-width:100%}
+.bb #sea-preview .bb-pv{max-width:100%}
+.bb-sea .bb-box{min-width:0}
+
 .bb-ck{display:flex;gap:8px;align-items:center;font-size:14px;font-weight:600;cursor:pointer}.bb-ck input{width:16px;height:16px;accent-color:#f2c230}.bb-ck i{width:10px;height:10px;border-radius:50%}
 .bb-seg{display:inline-flex;border:1px solid #3d3628}.bb-seg button{min-height:44px;padding:9px 12px;background:none;border:none;border-right:1px solid #3d3628;color:#cfc6b0;font:inherit;font-size:12px;font-weight:600;cursor:pointer}.bb-seg button:last-child{border-right:none}.bb-seg button.on{background:#f2c230;color:#0d0c0a}
 .bb-pv{width:100%;height:560px;border:1px solid #2f2a20;background:#0d0c0a}.bb-save{position:sticky;bottom:0;display:flex;gap:12px;justify-content:flex-end;align-items:center;padding:12px 0;background:#0d0c0a;border-top:1px solid #2f2a20}
