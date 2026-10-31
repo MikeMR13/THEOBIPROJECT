@@ -78,6 +78,8 @@ jobs:
         run: node scripts/studio-auditoria-resto-check.mjs
       - name: Obras — filtros, importación, publicación y móvil (sin backend)
         run: node scripts/studio-obras-auditoria-check.mjs
+      - name: Fuentes EPUB — cuerpo, títulos, diálogos y preferencias en Chromium
+        run: node scripts/reader-epub-fonts-browser-check.mjs
       - name: Lector Fase 4 — navegación rápida, latencia y acceso restringido (Chromium)
         run: node scripts/reader-phase4-integration-browser.mjs
       - name: Lector — barra fija visible con scroll real en escritorio 1440px (Chromium)
