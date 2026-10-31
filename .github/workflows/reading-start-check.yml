@@ -10,6 +10,7 @@ on:
       - 'scripts/reading-start-check.mjs'
       - 'supabase/migrations/20261031220515_editorial_reading_start_20261031.sql'
       - '.github/workflows/reading-start-check.yml'
+      - 'scripts/serie-prod-http-check.mjs'
   workflow_dispatch:
 
 permissions:
@@ -29,3 +30,5 @@ jobs:
           node --check src/studio.js
           node --check src/ui.js
           node scripts/reading-start-check.mjs
+      - name: Comprobar el HTTP público de Inicio y fichas de obras
+        run: node scripts/serie-prod-http-check.mjs
