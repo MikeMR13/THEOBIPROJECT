@@ -45,7 +45,7 @@ for(const path of ['/editorial-advanced-editor.js','/editorial-review-cases.js']
 const sql=source('supabase/migrations/20261030222055_editor_phase3_collaboration_20261030.sql');
 assert(sql.includes('CREATE FUNCTION public.editor_create_suggestion('));
 assert(sql.includes('p_replacement IS NULL OR char_length(p_replacement)>8000'));
-assert(sql.includes('char_length(coalesce(p_note')),'Las notas deben respetar el límite existente');
+assert(sql.includes('char_length(coalesce(p_note'),'Las notas deben respetar el límite existente');
 assert(sql.includes('private.team_can(v_team,')&&sql.includes('self_review_forbidden'),
   'La revisión requiere permisos y no permite autocorrección');
 console.log('✓ Entrega 3: casos individuales, versiones, sugerencias, notas y permisos sin migraciones');
