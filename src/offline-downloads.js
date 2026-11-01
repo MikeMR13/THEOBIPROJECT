@@ -19,8 +19,9 @@ export function offlineSaved(index, slug, scope, vol, num) {
 export function createOfflineDownloads({ sb, url, toast = () => {}, store = localStorage, cacheAPI = globalThis.caches, fetcher = globalThis.fetch }) {
   let working = false;
   const index = () => readOfflineIndex(store);
-  const label = () => 'Guardar sin conexión';
   const scopeName = scope => scope === 'chapter' ? 'capítulo' : scope === 'volume' ? 'volumen' : 'novela';
+  const label = scope => 'Guardar ' + scopeName(scope) + ' sin conexión';
+  const savedText = scope => '✓ ' + (scope === 'series' ? 'Novela guardada' : scope === 'volume' ? 'Volumen guardado' : 'Capítulo guardado') + ' sin conexión';
   const actionLabel = scope => 'Guardar ' + scopeName(scope) + ' para leer sin conexión';
   const savedLabel = scope => (scope === 'series' ? 'Novela guardada' : scope === 'volume' ? 'Volumen guardado' : 'Capítulo guardado') + ' para leer sin conexión';
   const hint = saved => saved ? 'Disponible en este dispositivo. Administra tus lecturas en Mi biblioteca, Sin conexión.' : 'Guardar en este dispositivo para leer sin internet';
@@ -33,14 +34,14 @@ export function createOfflineDownloads({ sb, url, toast = () => {}, store = loca
     return '<button type="button" class="obi-offline-btn" ' + attrs +
       ' aria-label="' + esc(saved ? savedLabel(scope) : actionLabel(scope)) +
       '" title="' + esc(hint(saved)) + '"' + (saved ? ' data-saved="1"' : '') + '>' +
-      (saved ? '✓ Guardado sin conexión' : label(scope)) + '</button>';
+      (saved ? savedText(scope) : label(scope)) + '</button>';
   };
   const repaint = () => {
     document.querySelectorAll('button[data-offline-scope]').forEach(b => {
       const saved = offlineSaved(index(), b.dataset.offlineSlug, b.dataset.offlineScope,
         b.dataset.offlineVol, b.dataset.offlineNum);
       b.dataset.saved = saved ? '1' : '0';
-      b.textContent = saved ? '✓ Guardado sin conexión' : label(b.dataset.offlineScope);
+      b.textContent = saved ? savedText(b.dataset.offlineScope) : label(b.dataset.offlineScope);
       b.disabled = working;
       b.setAttribute('aria-label', saved ? savedLabel(b.dataset.offlineScope) : actionLabel(b.dataset.offlineScope));
       b.title = hint(saved);
