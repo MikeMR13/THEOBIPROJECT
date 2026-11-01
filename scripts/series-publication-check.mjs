@@ -30,6 +30,16 @@ assert.match(html,/Estado actual: <b>Publicada<\/b>/);
 assert.match(html,/Reprogramar con preestreno/);
 assert.match(html,/Regresar a borrador/);
 assert.match(html,/Volumen 2 · Segundo volumen/);
+const fractional = seriesPublicationHTML(series,[
+  {id:'v45',num:4.5,title:'4.5',status:'published'},
+  {id:'v45b',num:5.5,title:'Volumen 5.5',status:'draft'},
+  {id:'v6',num:6,title:'Volumen 6',status:'draft'}
+],()=>true,enc,x=>x,()=>'');
+assert.match(fractional,/Volumen 4\.5<\/option>/,'Volumen 4.5 aparece en el selector de publicación');
+assert.match(fractional,/Volumen 5\.5<\/option>/,'Los títulos genéricos decimales no se duplican');
+assert.match(fractional,/Volumen 6<\/option>/,'Los títulos genéricos enteros no se duplican');
+assert.doesNotMatch(fractional,/Volumen 4\.5 · 4\.5|Volumen 5\.5 · Volumen 5\.5/);
+
 const privateHtml=seriesPublicationHTML({...series,published:false},volume,()=>false,enc,x=>x,()=> '');
 assert.doesNotMatch(privateHtml,/id="wk-sp-save"/,'sin permiso no ofrecer guardado');
 assert.match(privateHtml,/permiso «Publicar»/);
