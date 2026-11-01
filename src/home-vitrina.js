@@ -48,11 +48,27 @@ export function enhanceHomeVitrina(root, entries, activeIndex, {esc, media, news
     img.setAttribute('src',path);
     img.removeAttribute('data-src');
   };
+  // El carrusel usa portadas ABSOLUTAS superpuestas en escritorio.
+  // IntersectionObserver solo no basta: todas pueden intersectar aunque estén
+  // visualmente ocultas. Comprobar el rango desplazable móvil antes de pedirlas.
+  const nearMobileViewport=img=>{
+    if (!mq.matches) return false;
+    const book=img?.closest('.vt-book');
+    if (!book) return false;
+    const left=book.offsetLeft-track.scrollLeft, margin=120;
+    return left+book.offsetWidth >= -margin && left <= track.clientWidth+margin;
+  };
   let coverObserver=null;
+  const hydrateNearby=()=>{
+    for (const img of deferredCovers) if (img.hasAttribute('data-src') && nearMobileViewport(img)) {
+      hydrateCover(img);
+      coverObserver?.unobserve(img);
+    }
+  };
   if (deferredCovers.length) {
     if (typeof IntersectionObserver === 'function') {
       coverObserver=new IntersectionObserver(entries=>{
-        for (const entry of entries) if (entry.isIntersecting) {
+        for (const entry of entries) if (entry.isIntersecting && nearMobileViewport(entry.target)) {
           hydrateCover(entry.target);
           coverObserver?.unobserve(entry.target);
         }
@@ -98,7 +114,7 @@ export function enhanceHomeVitrina(root, entries, activeIndex, {esc, media, news
       buttons.forEach(b=>{b.removeAttribute('aria-hidden');b.tabIndex=0;b.style.transform='';b.style.opacity='';b.style.visibility='';b.style.filter='';b.style.zIndex='';});
       ignore=true;
       const b=buttons[active];track.scrollLeft=b.offsetLeft-(track.clientWidth-b.offsetWidth)/2;
-      requestAnimationFrame(()=>{ignore=false;});
+      requestAnimationFrame(()=>{ignore=false;hydrateNearby();});
     }else{
       const step=Math.min(115,Math.max(78,stage.clientWidth*.18));
       buttons.forEach((b,i)=>{
@@ -116,7 +132,7 @@ export function enhanceHomeVitrina(root, entries, activeIndex, {esc, media, news
     buttons.forEach((b,i)=>{const delta=Math.abs(b.offsetLeft+b.offsetWidth/2-c);if(delta<dist){dist=delta;idx=i;}});
     if(idx!==active)buttons[idx].click();
   };
-  const onScroll=()=>{if(!mq.matches||ignore)return;clearTimeout(settle);settle=setTimeout(chooseSnap,125);};
+  const onScroll=()=>{if(!mq.matches||ignore)return;hydrateNearby();clearTimeout(settle);settle=setTimeout(chooseSnap,125);};
   const onKey=e=>{if(e.target!==stage||!['ArrowRight','ArrowLeft'].includes(e.key))return;e.preventDefault();const dir=e.key==='ArrowRight'?1:-1;vt.querySelector(`.ob-pager2 [data-dir="${dir}"]`)?.click();};
   track.addEventListener('scroll',onScroll,{passive:true});stage.addEventListener('keydown',onKey);
   const onResize=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(layout);};
