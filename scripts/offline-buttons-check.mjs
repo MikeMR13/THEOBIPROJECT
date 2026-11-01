@@ -47,11 +47,12 @@ const downloader=createOfflineDownloads({sb,url:'https://example.test',store,cac
 try {
   const chButton=downloader.button({slug:'obra-demo',scope:'chapter',num:1});
   assert.match(chButton,/data-offline-num="1"/);
-  assert.match(chButton,/Descargar capítulo/);
+  assert.match(chButton,/Guardar sin conexión/);
+  assert.match(chButton,/Guardar capítulo para leer sin conexión/);
   assert.equal(offlineSaved(readOfflineIndex(store),'obra-demo','chapter',null,1),false);
   await downloader.download({slug:'obra-demo',scope:'chapter',num:1});
   assert.equal(offlineSaved(readOfflineIndex(store),'obra-demo','chapter',null,1),true);
-  assert.match(downloader.button({slug:'obra-demo',scope:'chapter',num:1}),/✓ Descargado/);
+  assert.match(downloader.button({slug:'obra-demo',scope:'chapter',num:1}),/✓ Guardado sin conexión/);
   assert(cacheMap.has('/offline/meta/obra-demo'),'Los capítulos necesitan metadatos completos offline');
   assert(cacheMap.has('/offline/obra-demo/1'));
   assert.equal((await (await cache.match('/offline/obra-demo/1')).json())[0].text,'Capítulo');
@@ -93,7 +94,10 @@ try {
   assert.match(ui,/offlineButton\(\{slug:s\.slug,scope:'volume'/);
   assert.match(ui,/offlineButton\(\{slug:s\.slug,scope:'chapter'/);
   assert.match(reader,/otherChapterKeys/,'Borrar un volumen no puede borrar otro capítulo compartido');
-  assert.match(reader,/it\.kind === 'chapter'/,'Mis descargas distingue capítulos');
+  assert.match(reader,/it\.kind === 'chapter'/,'La lista sin conexión distingue capítulos');
+  assert.match(reader,/Guardar sin conexión/,'El lector debe utilizar el nombre de la función local');
+  assert.match(ui,/>Archivos<\/a>/,'La pestaña de archivos debe distinguirse del modo sin conexión');
+  assert.match(ui,/Estos archivos no se añaden a las lecturas sin conexión/,'Los archivos externos necesitan una explicación');
   const a11yVersion=Number(html.match(/reader-a11y\.css\?v=(\d+)/)?.[1]||0);
   assert(a11yVersion>=3,'CSS accesible sin versionar tras retirar cinta antigua');
   console.log('QA offline Obras y Biblioteca: novela, volúmenes, capítulo, RLS, rollback, recursos e índice compartido OK');
