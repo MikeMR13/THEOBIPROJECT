@@ -12,7 +12,7 @@ export const REQUIRED=[
 function evidenceValid(x){
  if(x.status!=='approved')return false;
  if(typeof x.reviewed_by!=='string'||x.reviewed_by.trim().length<2)return false;
- if(typeof x.reviewed_at!=='string'||!/^\\d{4}-\\d{2}-\\d{2}T/.test(x.reviewed_at)
+ if(typeof x.reviewed_at!=='string'||!/^\d{4}-\d{2}-\d{2}T/.test(x.reviewed_at)
     ||!Number.isFinite(Date.parse(x.reviewed_at)))return false;
  try{
    const u=new URL(x.evidence_url);
