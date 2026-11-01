@@ -7,6 +7,11 @@ a{color:var(--gold)}a:hover{color:var(--paper)}
 .seal{border:2px solid var(--gold);color:var(--gold);width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;transform:rotate(-6deg)}
 nav{display:flex;gap:14px;flex-wrap:wrap}nav a{color:var(--paper);text-decoration:none;font-weight:600;font-size:14px}nav a.gold{color:var(--gold)}
 main{max-width:var(--wrap);margin:0 auto;padding:40px clamp(16px,4vw,56px) 80px}
+/* Estabilidad visual: el HTML inicial deja #app vacío hasta que llegan los
+   módulos y las RPC. Reservar el alto del primer viewport evita que el pie
+   de página aparezca en pantalla y se desplace al montar Inicio o Catálogo.
+   El alto es mínimo: las páginas largas siguen creciendo con su contenido. */
+#app{min-height:100vh;min-height:100svh}
 h1,h2{font-family:'Shippori Mincho B1',serif;font-weight:500}
 .card{display:grid;grid-template-columns:90px minmax(0,1fr);gap:20px;padding:18px;background:var(--paper);color:var(--ink);margin-top:-6px;border-top:6px solid var(--c,var(--gold));cursor:pointer;transition:transform .3s}
 .card:hover{transform:translateY(-10px)}.cover{aspect-ratio:3/4;background:#1c1a14 center/cover}
