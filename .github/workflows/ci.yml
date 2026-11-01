@@ -21,6 +21,16 @@ jobs:
       - name: Validar TOML de Supabase
         run: python3 -c "import tomllib; tomllib.load(open('supabase/config.toml','rb'))"
       - run: npm run check && npm run quality-gates && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run studio-fields-check && npm run integration-check
+      - name: Rendimiento Fase 1 — línea base de recursos del build (sin red)
+        run: node scripts/performance-baseline.mjs
+      - name: Guardar línea base de recursos (24 horas)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendimiento-linea-base
+          path: qa-performance/initial-load-baseline.json
+          retention-days: 1
+          if-no-files-found: warn
       - name: Biblioteca y temporadas · estados, fechas y acciones (sin backend)
         run: node scripts/season-library-audit-check.mjs
       - name: Editor Productividad · Entrega 2 (sin backend)
