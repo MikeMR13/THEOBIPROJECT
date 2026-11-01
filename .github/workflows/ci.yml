@@ -72,6 +72,8 @@ jobs:
         run: node scripts/offline-buttons-check.mjs
       - name: Mis descargas — accesos visibles, alias offline y caché intacto (sin backend)
         run: node scripts/mis-descargas-navegacion-check.mjs
+      - name: Mis descargas — visual de temporadas, texto y botones (Chromium, sin backend)
+        run: node --check scripts/mis-descargas-temporadas-browser.mjs && node scripts/mis-descargas-temporadas-browser.mjs
       - name: Lector Fase 4 — lectura continua y TTS sin condiciones de carrera
         run: node scripts/reader-phase4-continuity-check.mjs
       - name: Calidad lector, imágenes e Inicio/Catálogo (sin backend)
