@@ -6,10 +6,11 @@ const source = file => readFileSync(file, 'utf8');
 
 const html = source('src/index.html');
 const preload = [...html.matchAll(/rel="modulepreload"\s+href="([^"]+)"/g)].map(m => m[1]);
-for (const critical of ['supabase.js','app.js','ui.js','reader.js','blocks.js']) {
+for (const critical of ['supabase.js','app.js','ui.js']) {
   assert(preload.some(p => p.startsWith('/' + critical + '?v=')), 'Precarga crítica ausente: ' + critical);
 }
-for (const optional of ['patreon.js','season.js','anim.js','teampage.js']) {
+// Reader y blocks siguen precargados en la PWA, no en la ruta pública.
+for (const optional of ['reader.js','blocks.js','patreon.js','season.js','anim.js','teampage.js']) {
   assert(!preload.some(p => p.includes(optional)), 'Precarga no crítica: ' + optional);
 }
 assert.equal((html.match(/rel="preconnect" href="https:\/\/qfllthjpjuaztppvpsrk\.supabase\.co"/g) || []).length, 1, 'Preconnect duplicado');
