@@ -8,10 +8,17 @@ DROP FUNCTION public.series_downloads(uuid);
 DROP FUNCTION public.series_downloads_v2(uuid);
 DROP FUNCTION public.renumber_volume(uuid, integer);
 
+-- Estos triggers incluyen UPDATE OF num/vol en su definición; recrearlos con igual semántica.
+DROP TRIGGER volumes_schedule ON public.volumes;
+DROP TRIGGER chapters_fill_volume ON public.chapters;
+
 ALTER TABLE public.volumes ALTER COLUMN num TYPE numeric(5,1) USING num::numeric(5,1);
 ALTER TABLE public.chapters ALTER COLUMN vol TYPE numeric(5,1) USING vol::numeric(5,1);
 ALTER TABLE public.download_links ALTER COLUMN vol TYPE numeric(5,1) USING vol::numeric(5,1);
 ALTER TABLE public.purchase_links ALTER COLUMN vol TYPE numeric(5,1) USING vol::numeric(5,1);
+
+CREATE TRIGGER volumes_schedule AFTER INSERT OR DELETE OR UPDATE OF status, published_at, deleted_at, num ON public.volumes FOR EACH ROW EXECUTE FUNCTION private.sync_schedule_volume();
+CREATE TRIGGER chapters_fill_volume BEFORE INSERT OR UPDATE OF vol, volume_id ON public.chapters FOR EACH ROW EXECUTE FUNCTION private.chapter_fill_volume();
 
 -- Seguir usando la misma RPC de Studio; los volúmenes existentes (1, 2...) no se alteran.
 -- Solo permitir un decimal. Se mantiene el intercambio de números y la verificación de equipo.
