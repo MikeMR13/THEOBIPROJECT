@@ -72,7 +72,8 @@ try {
   assert.match(read('src/ui.js'),/\.\/prelaunch\.js\?v=4/);
   assert.match(read('src/index.html'),/\/app\.js\?v=56/);
   assert.match(read('src/index.html'),/\/ui\.js\?v=62/);
-  assert.match(read('src/index.html'),/\/styles\.css\?v=32/);
+  const cssVersion = Number(read('src/index.html').match(/\/styles\.css\?v=(\d+)/)?.[1] || 0);
+  assert(cssVersion >= 33, 'La hoja de estilos nueva debe invalidar la caché anterior');
   console.log('✓ Fase 2: seguimiento reversible, compartir público y Estudio sin enlaces a borradores.');
 } finally {
   globalThis.document=oldDocument;globalThis.window=oldWindow;
