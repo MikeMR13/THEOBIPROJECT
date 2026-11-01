@@ -1,4 +1,5 @@
 import { confirmObi, inputObi } from './obi-dialog.js';
+import { parseVolumeNumber, nextVolumeNumber } from './volume-number.js';
 // Importador de Studio: EPUB, DOCX y PDF, bajo demanda.
 import { renderBlock } from './blocks.js?v=2';
 import { inferSectionType } from './section-types.js?v=1';
@@ -189,12 +190,12 @@ export function createImporter(deps) {
     const metaN = n => metas.find(m => m.getAttribute('name') === n)?.getAttribute('content');
     const metaP = pr => metas.find(m => m.getAttribute('property') === pr)?.textContent.trim();
     const desc = md('description')[0], synopsis = desc ? (new DOMParser().parseFromString(desc, 'text/html').body.textContent || '').trim().slice(0, 3000) : '';
-    const idx = +(metaN('calibre:series_index') || metaP('group-position') || (title.match(/(?:vol(?:umen|ume)?\.?|tomo)\s*(\d+)/i) || [])[1] || 0) || null;
+    const idx = +(metaN('calibre:series_index') || metaP('group-position') || (title.match(/(?:vol(?:umen|ume)?\.?|tomo)\s*(\d+(?:\.\d+)?)/i) || [])[1] || 0) || null;
     const OPF = 'http://www.idpf.org/2007/opf', people = [...X.getElementsByTagNameNS('*', 'creator'), ...X.getElementsByTagNameNS('*', 'contributor')];
     const roleOf = e => e.getAttributeNS(OPF, 'role') || e.getAttribute('opf:role') || (e.id && metas.find(m => m.getAttribute('refines') === '#' + e.id && m.getAttribute('property') === 'role')?.textContent.trim()) || '';
     const ill = people.find(e => /^ill/i.test(roleOf(e)))?.textContent.trim() || '', aut = people.find(e => /^aut/i.test(roleOf(e)))?.textContent.trim();
     const date = (md('date')[0] || '').match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '';
-    const meta = { illustrator: ill, date, author: aut || md('creator')[0] || '', publisher: md('publisher')[0] || '', synopsis, index: idx ? Math.round(idx) : null, series: metaN('calibre:series') || metaP('belongs-to-collection') || '' };
+    const meta = { illustrator: ill, date, author: aut || md('creator')[0] || '', publisher: md('publisher')[0] || '', synopsis, index: idx ? (() => { try { return parseVolumeNumber(idx); } catch { return null; } })() : null, series: metaN('calibre:series') || metaP('belongs-to-collection') || '' };
     // portada: EPUB 3 (cover-image) → <meta name="cover"> por id o ruta (EPUB 2, Sigil, Kindle) → <guide type="cover"> → nombre de archivo
     const mc = metaN('cover'), byIdCI = id => id && Object.values(items).find(i => i.id?.toLowerCase() === id.toLowerCase());
     let coverItem = Object.values(items).find(i => /cover-image/.test(i.props)) || byIdCI(mc) || (mc && items[Object.keys(items).find(k => items[k].href.endsWith(mc))]);
@@ -273,7 +274,7 @@ export function createImporter(deps) {
     const src = k => k && k.startsWith('img:') ? P.urls.get(k.slice(4)) || '' : k;
     const work = () => (works || []).find(w => w.id === D.work);
     const liveVols = w => (w?.volumes || []).filter(v => !v.deleted_at);
-    const nextVol = w => Math.max(0, ...(w?.volumes || []).map(v => v.num)) + 1;
+    const nextVol = w => nextVolumeNumber((w?.volumes || []).map(v => v.num));
     const imgKeys = () => [...P.images.keys()].filter(k => P.images.get(k).blob && /^image\//.test(P.images.get(k).type));
     const usedImgs = () => { const s = new Set(P.chapters.filter(c => !c.skip).flatMap(c => c.blocks.filter(b => b.type === 'image' && b.url?.startsWith('img:')).map(b => b.url.slice(4)))); if (D.cover) s.add(D.cover.slice(4)); return s; };
     const render = () => { $('#steps').innerHTML = ['Archivo', 'Revisar', 'Destino'].map((l, i) => `<li class="${step === i + 1 ? 'on' : step > i + 1 ? 'done' : ''}"><span>${step > i + 1 ? '✓' : i + 1}</span>${l}</li>`).join(''); [null, s1, s2, s3][step](); };
@@ -401,7 +402,7 @@ export function createImporter(deps) {
         <section class="imp-box${w ? "" : " imp-new-series"}"><h3>Obra y volumen</h3>
           <label>Obra<select id="dw"><option value="">+ Nueva obra</option>${(works || []).map(x => `<option value="${x.id}" ${x.id === D.work ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select></label>
           ${w ? '' : `<div id="imp-new-work"><h3>Datos completos de la nueva obra</h3><p class="mono">Se rellenan los metadatos detectados; revisa los valores antes de importar.</p>${renderWorkFields(NW, esc, (related || []).filter(x => x.id !== D.work))}</div>`}
-          <label>Número de volumen<input id="dv" type="number" min="1" max="999" value="${D.vnum}"></label>
+          <label>Número de volumen<input id="dv" type="number" min="1" max="999" step="0.1" inputmode="decimal" value="${D.vnum}"><small>Por ejemplo, 4.5</small></label>
           ${ex ? `<div class="imp-warn"><span>El Volumen ${D.vnum} ya existe<span id="exc"></span>.</span>
             <label class="tb-inl"><input type="radio" name="dm" value="replace" ${D.mode === 'replace' ? 'checked' : ''}> Reemplazar el volumen: capítulos, ficha y portada nuevos (los capítulos anteriores van a la papelera)</label>
             <label class="tb-inl"><input type="radio" name="dm" value="append" ${D.mode === 'append' ? 'checked' : ''}> Agregar estas secciones después de las existentes (la ficha solo completa campos vacíos)</label></div>`
@@ -434,7 +435,7 @@ export function createImporter(deps) {
       if (ex) sb.from('chapters').select('id', { count: 'exact', head: true }).eq('volume_id', ex.id).is('deleted_at', null).then(({ count }) => { const e = $('#exc'); if (e && count != null) e.textContent = ' con ' + count + (count === 1 ? ' capítulo' : ' capítulos'); });
       $('#dw').onchange = e => { D.work = e.target.value; const nw = work(); D.vnum = P.meta.index || nextVol(nw); D.workCover = !nw || !nw.cover_path; s3(); };
       if (!w) bindWorkFields($('#imp-new-work'), NW, esc, related || [], msg => { if (msg) toast(msg); });
-      $('#dv').onchange = e => { D.vnum = Math.max(1, Math.min(999, Math.round(+e.target.value) || 1)); s3(); };
+      $('#dv').onchange = e => { try { D.vnum = parseVolumeNumber(e.target.value); s3(); } catch (err) { toast(err.message); e.target.value = D.vnum; } };
       W().querySelectorAll('[name=dm]').forEach(r => r.onchange = () => { D.mode = r.value; });
       W().querySelectorAll('[name=di]').forEach(r => r.onchange = () => { D.allImgs = r.value === 'all'; });
       D.noticeGetter = bindEditorialForm(W());

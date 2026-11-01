@@ -1000,7 +1000,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
           const coverPath = v?.cover_path || s.cover_thumb_path || s.cover_path;
           const coverUrl = media(v?.cover_path || s.cover_path || s.cover_thumb_path);
           const detail = v
-            ? 'Volumen ' + esc(v.num) + (v.title && v.title.trim() && v.title.trim() !== String(v.num) && !/^volumen\s*\d+$/i.test(v.title.trim()) ? ' · ' + esc(v.title) : '')
+            ? 'Volumen ' + esc(v.num) + (v.title && v.title.trim() && v.title.trim() !== String(v.num) && !/^volumen\s*\d+(?:\.\d+)?$/i.test(v.title.trim()) ? ' · ' + esc(v.title) : '')
             : esc(g.chs.length === 1 ? editorialChapterDescription(c) : caps(g.chs));
           const href = v ? '/serie/' + s.slug + '#serie-vols' : '/leer/' + s.slug + '/' + c.num;
           return `<a class="ob-cc ob-release-card${v ? ' is-volume' : ''}" href="${esc(href)}" style="--c:${esc(color(s))}">
@@ -1834,7 +1834,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       return '<a class="ui-series-preview-item" href="#serie-vols" aria-label="Explorar volumen ' + esc(v.num) + '">' +
         (image ? '<span class="ui-series-preview-cover"><img src="' + esc(image) + '" alt="" loading="lazy" decoding="async"></span>' : '<span class="ui-series-preview-cover ui-series-preview-missing" aria-hidden="true">帯</span>') +
         '<span class="ui-series-preview-label">LIBRO ' + esc(v.num) + '</span>' +
-        '<strong>' + esc(v.title && !/^volumen\s*\d+$/i.test(v.title) ? v.title : 'Volumen ' + v.num) + '</strong></a>';
+        '<strong>' + esc(v.title && !/^volumen\s*\d+(?:\.\d+)?$/i.test(v.title) ? v.title : 'Volumen ' + v.num) + '</strong></a>';
     }).join('');
     fxCss();
     app.innerHTML = `<div class="ui-wrap ui-series-page">
@@ -1887,7 +1887,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
           const availableVolume=list.filter(c=>!c.deleted_at && (!c.status||c.status==='published') && (!c.publish_at||new Date(c.publish_at).getTime()<=Date.now()));
           const allVolumeRead=availableVolume.length>0 && availableVolume.every(c=>read.has(c.id));
           const unreadVolume=availableVolume.filter(c=>!read.has(c.id)).length;
-          const named = v.title && v.title !== String(v.num) && v.title.length > 2 && !/^volumen\s*\d+$/i.test(v.title.trim());
+          const named = v.title && v.title !== String(v.num) && v.title.length > 2 && !/^volumen\s*\d+(?:\.\d+)?$/i.test(v.title.trim());
           const cover = v.cover_path ? thumb(v) : s.cover_path ? thumb(s) : '';
           return `<article class="ui-vol ui-vol-book" data-vol-num="${esc(v.num)}" data-vol-id="${esc(v.id)}"${vLk ? ' data-lock="1"' : ''}>
             <span class="th ui-v-cover ${cover ? 'has-cover' : 'no-cover'}" role="img" aria-label="Portada del volumen ${esc(v.num)}">${cover ? `<img src="${esc(cover)}" alt="" loading="lazy" decoding="async" fetchpriority="low" width="240" height="360">` : ''}<span class="ui-v-spine" aria-hidden="true"></span>${!cover ? `<span class="ui-v-placeholder">帯<small>VOLUMEN ${esc(v.num)}</small></span>` : ''}</span>

@@ -38,6 +38,8 @@ jobs:
         run: node scripts/series-cover-editor-check.mjs
       - name: Importador EPUB/DOCX/PDF — numeración, multimedia y seguridad de portada
         run: node scripts/importer-safety-check.mjs
+      - name: Volúmenes decimales 4.5 — Studio, importador y contrato SQL (sin backend)
+        run: node scripts/volume-decimals-check.mjs
       - name: EPUB — imágenes y fuentes duplicadas KeyAlreadyExist (sin backend)
         run: node scripts/epub-storage-keyalreadyexist-check.mjs
       - name: EPUB — ID bigint real, diez secciones y rutas sin colisiones
