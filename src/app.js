@@ -763,7 +763,7 @@ async function library(){
         catch(e){b.disabled=false;toast('No se pudo dejar de seguir la obra.');}
       });
     } else if(tab==='offline') {
-      box.innerHTML=`<div id="off">${rd().offlineList()}</div>`;
+      box.innerHTML=`<p class="mono" style="max-width:64ch;margin-bottom:16px">Las lecturas guardadas aquí se abren dentro de El Obi sin internet. Los archivos EPUB, PDF u otros formatos se obtienen por separado en la pestaña «Archivos» de cada obra.</p><div id="off">${rd().offlineList()}</div>`;
       rd().bindOfflineList($('#off'),()=>{if(live())paintTab('offline');});
     } else {
       box.innerHTML='<p class="mono" role="status">Cargando historial…</p>';
