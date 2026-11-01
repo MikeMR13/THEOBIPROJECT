@@ -90,7 +90,18 @@ function instrument(){
  addEventListener('unhandledrejection',e=>lab.errors.push(String(e.reason?.message||e.reason).slice(0,150)));
  try{new PerformanceObserver(list=>{for(const e of list.getEntries())lab.lcpMs=e.startTime;})
   .observe({type:'largest-contentful-paint',buffered:true})}catch{}
- try{new PerformanceObserver(list=>{for(const e of list.getEntries())if(!e.hadRecentInput)lab.cls+=e.value;})
+ lab.shiftSources=[];
+ try{new PerformanceObserver(list=>{for(const e of list.getEntries())if(!e.hadRecentInput){
+  lab.cls+=e.value;
+  if(lab.shiftSources.length<8)lab.shiftSources.push({
+   value:Number(e.value.toFixed(5)),
+   nodes:(e.sources||[]).slice(0,2).map(x=>({
+    name:x.node?.id||String(x.node?.className||x.node?.tagName||'').slice(0,65),
+    from:x.previousRect?{x:Math.round(x.previousRect.x),y:Math.round(x.previousRect.y)}:null,
+    to:x.currentRect?{x:Math.round(x.currentRect.x),y:Math.round(x.currentRect.y)}:null
+   }))
+  });
+ }})
   .observe({type:'layout-shift',buffered:true})}catch{}
  let ready=false,acted=false;
  const hasPage=()=>location.pathname==='/'?!!document.querySelector('#hero .vt'):
@@ -153,14 +164,28 @@ const server=createServer((req,res)=>{
  res.setHeader('Content-Security-Policy',
   "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self' data:; frame-src 'self'");
  if(path==='/__lab'){
-  const w=Number(u.searchParams.get('w')||390),p=u.searchParams.get('route')==='catalogo'?'/catalogo':'/';
+  const route=u.searchParams.get('route')==='catalogo'?'/catalogo':'/';
+  const widths=u.searchParams.get('both')==='1'?[390,1440]:
+   [Number(u.searchParams.get('w')||390)];
+  const frames=widths.map(w=>'<iframe id="f'+w+'" width="'+w+
+   '" height="1200" src="'+route+'?__lab=1"></iframe>').join('');
   res.setHeader('Content-Type','text/html');
-  return res.end('<!doctype html><html><body><iframe id="f" width="'+w+'" height="1200" src="'+p+
-   '?__lab=1"></iframe><pre id="qa" data-status="running"></pre><script>'+
-   'setInterval(()=>{try{const a=document.querySelector("#f").contentDocument.querySelector("#__lab_result");'+
-   'if(a&&(a.dataset.status==="pass"||a.dataset.status==="fail")){'+
-   'const q=document.querySelector("#qa");q.dataset.status=a.dataset.status;q.textContent=a.textContent;'+
-   '}}catch(e){}},100)</script></body></html>');
+  const poll=[
+   'setInterval(()=>{',
+   'const arr=[...document.querySelectorAll("iframe")].map(f=>{',
+   'try{const a=f.contentDocument.querySelector("#__lab_result");',
+   'if(!a||a.dataset.status==="running")return null;',
+   'return {status:a.dataset.status,result:JSON.parse(a.textContent)};',
+   '}catch(e){return null;}});',
+   'if(arr.every(x=>x!==null)){',
+   'const q=document.querySelector("#qa");',
+   'q.dataset.status=arr.some(x=>x.status!=="pass")?"fail":"pass";',
+   'q.textContent=JSON.stringify(arr.map(x=>x.result));',
+   '}', 
+   '},100)'
+  ].join('');
+  return res.end('<!doctype html><html><body>'+frames+
+   '<pre id="qa" data-status="running"></pre><script>'+poll+'</script></body></html>');
  }
  if(path.startsWith('/rest/v1/rpc/home_feed')){
   res.setHeader('Content-Type','application/json');return res.end(JSON.stringify(feed));
@@ -221,16 +246,26 @@ try{
  await new Promise((yes,no)=>{server.once('error',no);server.listen(0,'127.0.0.1',yes)});
  origin='http://127.0.0.1:'+server.address().port;
  const rows=[];
- for(const width of [390,1440])for(const route of ['inicio','catalogo']){
-  const result=await run(origin+'/__lab?w='+width+'&route='+route);
-  assert.equal(result.viewport,width,'Ancho incorrecto en iframe');
-  assert(result.rendered,'Ruta no montada');
-  console.log('Detalle de ruta '+route+' '+width+'px: '+JSON.stringify(result).slice(0,800));
-  assert(result.syntheticInteractionToPaintMs!==null,'No se midió interacción programática');
-  assert(Number.isFinite(result.cls),'CLS inválido');
-  rows.push({...result,requestedRoute:route,requestedWidth:width});
-  console.log(route+' '+width+'px, render='+Math.round(result.readyMs)+' ms, FCP='+result.fcpMs+
-    ', LCP='+result.lcpMs+', CLS='+result.cls+', interacción programática='+result.syntheticInteractionToPaintMs);
+ for(const route of ['inicio','catalogo']){
+  let results;
+  try{results=await run(origin+'/__lab?both=1&route='+route)}
+  catch(error){
+   mkdirSync('qa-performance',{recursive:true});
+   writeFileSync('qa-performance/validacion-rutas-cwv-lab.json',JSON.stringify({
+    version:1,status:'incompleta',completed:rows,error:String(error.message)},null,2)+'\n');
+   throw error;
+  }
+  for(const result of results){
+   const width=result.viewport;
+   assert([390,1440].includes(width),'Ancho incorrecto en iframe');
+   assert(result.rendered,'Ruta no montada');
+   console.log('Detalle de ruta '+route+' '+width+'px: '+JSON.stringify(result).slice(0,950));
+   assert(result.syntheticInteractionToPaintMs!==null,'No se midió interacción programática');
+   assert(Number.isFinite(result.cls),'CLS inválido');
+   rows.push({...result,requestedRoute:route,requestedWidth:width});
+   console.log(route+' '+width+'px, render='+Math.round(result.readyMs)+' ms, FCP='+result.fcpMs+
+     ', LCP='+result.lcpMs+', CLS='+result.cls+', interacción programática='+result.syntheticInteractionToPaintMs);
+  }
  }
  mkdirSync('qa-performance',{recursive:true});
  const report={version:1,scope:'Sitio completo compilado con mock Supabase + portadas locales',
