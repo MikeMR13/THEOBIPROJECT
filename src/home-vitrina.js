@@ -52,10 +52,16 @@ export function enhanceHomeVitrina(root, entries, activeIndex, {esc, media, news
   // IntersectionObserver solo no basta: todas pueden intersectar aunque estén
   // visualmente ocultas. Comprobar el rango desplazable móvil antes de pedirlas.
   const nearMobileViewport=img=>{
-    if (!mq.matches) return false;
     const book=img?.closest('.vt-book');
     if (!book) return false;
-    const left=book.offsetLeft-track.scrollLeft, margin=120;
+    if (!mq.matches) {
+      // En escritorio hay hasta 7 portadas VISIBLES, tres a cada lado.
+      // Las 4 vecinas adicionales usan miniatura de prioridad baja para evitar
+      // libros vacíos; no descargar las escondidas detrás del escenario.
+      const i=buttons.indexOf(book),d=Math.abs(i-active);
+      return i>=0 && Math.min(d,buttons.length-d)<=3;
+    }
+    const left=book.offsetLeft-track.scrollLeft, margin=64;
     return left+book.offsetWidth >= -margin && left <= track.clientWidth+margin;
   };
   let coverObserver=null;
@@ -137,7 +143,7 @@ export function enhanceHomeVitrina(root, entries, activeIndex, {esc, media, news
   track.addEventListener('scroll',onScroll,{passive:true});stage.addEventListener('keydown',onKey);
   const onResize=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(layout);};
   mq.addEventListener('change',onResize);
-  const ro=typeof ResizeObserver!=='undefined'?new ResizeObserver(onResize):null;ro?.observe(stage);layout();
+  const ro=typeof ResizeObserver!=='undefined'?new ResizeObserver(onResize):null;ro?.observe(stage);layout();hydrateNearby();
   // Reajustar cuando la tipografía web termine de cargarse.
   if(document.fonts?.ready)document.fonts.ready.then(()=>{if(!disposed)fitCopy();});
   return ()=>{disposed=true;coverObserver?.disconnect();clearTimeout(settle);cancelAnimationFrame(frame);track.removeEventListener('scroll',onScroll);stage.removeEventListener('keydown',onKey);mq.removeEventListener('change',onResize);ro?.disconnect();};
