@@ -64,4 +64,27 @@ assert(migration.includes('UPDATE public.chapters SET vol=p_num WHERE volume_id=
 assert(migration.includes('UPDATE public.download_links SET vol=p_num WHERE volume_id=p_volume'),'Sincronizar enlaces EPUB/PDF');
 assert(migration.includes('GRANT EXECUTE ON FUNCTION public.renumber_volume(uuid,numeric) TO authenticated, service_role'),'Mantener permisos de edición');
 assert(migration.trim().startsWith('--') && migration.trim().endsWith('COMMIT;'),'DDL debe ser atómica');
+
+const decimalPublish = readFileSync('supabase/migrations/20261101040000_volumenes_decimales_publicacion_compra.sql','utf8');
+const states = readFileSync('supabase/migrations/20261024_series_publication_modes.sql','utf8');
+const studioPub = readFileSync('src/studio-series-publication.js','utf8');
+assert.match(decimalPublish,/ALTER TABLE public\.series\s+ALTER COLUMN final_volume TYPE numeric\(5,1\)/,
+  'El volumen final heredado debe aceptar 4.5');
+assert.match(decimalPublish,/CREATE FUNCTION public\.admin_purchase_queue\(\)[\s\S]*vol numeric/,
+  'La cola de compras debe devolver el número de volumen sin redondeos');
+assert.match(decimalPublish,/GRANT EXECUTE ON FUNCTION public\.admin_purchase_queue\(\) TO authenticated, service_role/,
+  'La cola conserva los permisos originales');
+assert.match(decimalPublish,/NOTIFY pgrst, 'reload schema'/,
+  'PostgREST actualiza el contrato tras el cambio');
+assert.match(states,/perform public\.publish_volume\(v\.id\)/,
+  'Publicar una novela utiliza el ID del volumen y no recalcula el número');
+assert.match(studioPub,/v\.title\.trim\(\) !== String\(v\.num\)/,
+  'No duplicar el número decimal en el selector de publicación');
+assert.match(studio,/name="is_final"/,
+  'Un volumen decimal puede marcarse como último volumen');
+assert.match(importer,/\{series_id:w\.id,volume_id:vol\.id,vol:D\.vnum/,
+  'Los capítulos nuevos guardan exactamente el decimal del volumen');
+assert.match(importer,/p_volume: vol\.id/,
+  'La publicación inmediata y programada usan el ID del volumen importado');
+
 console.log('QA volumen 4.5: entrada, edición, importación, orden, migración y permisos OK');
