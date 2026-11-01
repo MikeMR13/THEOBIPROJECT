@@ -65,7 +65,7 @@ assert(migration.includes('UPDATE public.download_links SET vol=p_num WHERE volu
 assert(migration.includes('GRANT EXECUTE ON FUNCTION public.renumber_volume(uuid,numeric) TO authenticated, service_role'),'Mantener permisos de edición');
 assert(migration.trim().startsWith('--') && migration.trim().endsWith('COMMIT;'),'DDL debe ser atómica');
 
-const decimalPublish = readFileSync('supabase/migrations/20261101040000_volumenes_decimales_publicacion_compra.sql','utf8');
+const decimalPublish = readFileSync('supabase/migrations/20261101024935_volumenes_decimales_publicacion_compra_20261101.sql','utf8');
 const states = readFileSync('supabase/migrations/20261024_series_publication_modes.sql','utf8');
 const studioPub = readFileSync('src/studio-series-publication.js','utf8');
 assert.match(decimalPublish,/ALTER TABLE public\.series\s+ALTER COLUMN final_volume TYPE numeric\(5,1\)/,
