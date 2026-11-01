@@ -84,5 +84,5 @@ assert.ok(studio.includes('studio-importer.js?v=8'),'Actualizar versión de cach
 const app=readFileSync(new URL('../src/app.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../src/index.html',import.meta.url),'utf8');
 assert.ok(app.includes('/studio.js?v=64'),'La navegación debe invalidar el módulo Studio previo');
-assert.ok(html.includes('/app.js?v=55'),'HTML debe invalidar el módulo app antiguo');
+assert.ok(html.includes('/app.js?v=56'),'HTML debe invalidar el módulo app antiguo');
 console.log('EPUB KeyAlreadyExist: rutas exclusivas, choque 409, reintento y rollback seguro — PASS');
