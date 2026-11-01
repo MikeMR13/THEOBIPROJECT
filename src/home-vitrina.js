@@ -14,6 +14,13 @@ function bookData(item, newsBySeries, reasons, media, noticeOf) {
   const num = parseInt(base.slice(1),16), bright = (0.299*(num>>16)+0.587*((num>>8)&255)+0.114*(num&255))/255 > .55;
   return {key:keyOf(item),title:item.title||'Obra destacada',slug:typeof item.slug==='string'?item.slug:'',cover:path?media(path):'',preview:preview?media(preview):'',color:/^#[\da-f]{6}$/i.test(item.theme?.color||'')?item.theme.color:'#30251b',label:pre?'Próximo estreno':reasons[item.id]?.label||'Destacado',notice:notice?.text?.trim().slice(0,40)||'',accent,noticeBG:notice?.style==='outline'?'#15110c':accent,noticeInk:notice?.style==='outline'?accent:notice?.season?'#0d0c0a':bright?'#0d0c0a':'#fbf6e9'};
 }
+// Solo la portada activa y sus vecinas inmediatas inician descarga en el
+// primer fotograma. Las demás se activan al aproximarse al viewport.
+export function initialVitrinaCover(index, active, count) {
+  const distance = Math.abs(index - active);
+  return index === active || Math.min(distance, count - distance) <= 1;
+}
+
 export function enhanceHomeVitrina(root, entries, activeIndex, {esc, media, newsBySeries={}, reasons={}, activeNotice=()=>null}={}) {
   const copy=root?.querySelector(':scope > .ob-txt');
   if (!copy || !Array.isArray(entries) || !entries.length || typeof esc!=='function' || typeof media!=='function') return ()=>{};
@@ -23,7 +30,7 @@ export function enhanceHomeVitrina(root, entries, activeIndex, {esc, media, news
   const data=entries.map(s=>bookData(s,newsBySeries,reasons,media,activeNotice));
   const active=Math.max(0,Math.min(data.length-1,activeIndex));
   const pager=root.querySelector(':scope > .ob-pager2');
-  const booksHTML=data.map((x,i)=>{const isActive=i===active,canOpen=isActive&&!!x.slug;const tag=canOpen?'a':'button';const attr=canOpen?`href="/serie/${encodeURIComponent(x.slug)}" aria-label="Abrir novela: ${esc(x.title)}"`:`type="button" data-j="${i}" data-hero-target="${esc(x.key)}" aria-label="Seleccionar ${esc(x.title)}"`;return `<${tag} class="vt-book" ${attr} aria-current="${isActive}" style="--book-color:${x.color}">${x.cover?`<img src="${esc(i===active?x.cover:x.preview||x.cover)}" alt="" loading="${i===active?'eager':'lazy'}" fetchpriority="${i===active?'high':'low'}" decoding="async">`:`<span class="vt-missing">${esc(x.title)}</span>`}${x.notice?`<span class="vt-obi" style="--obi-line:${x.accent};--obi-bg:${x.noticeBG};--obi-ink:${x.noticeInk}">${esc(x.notice)}</span>`:''}</${tag}>`;}).join('');
+  const booksHTML=data.map((x,i)=>{const isActive=i===active,canOpen=isActive&&!!x.slug;const tag=canOpen?'a':'button';const attr=canOpen?`href="/serie/${encodeURIComponent(x.slug)}" aria-label="Abrir novela: ${esc(x.title)}"`:`type="button" data-j="${i}" data-hero-target="${esc(x.key)}" aria-label="Seleccionar ${esc(x.title)}"`;const coverUrl=esc(isActive?x.cover:x.preview||x.cover);const srcAttr=initialVitrinaCover(i,active,data.length)?`src="${coverUrl}"`:`data-src="${coverUrl}"`;return `<${tag} class="vt-book" ${attr} aria-current="${isActive}" style="--book-color:${x.color}">${x.cover?`<img ${srcAttr} alt="" width="264" height="396" loading="${i===active?'eager':'lazy'}" fetchpriority="${i===active?'high':'low'}" decoding="async">`:`<span class="vt-missing">${esc(x.title)}</span>`}${x.notice?`<span class="vt-obi" style="--obi-line:${x.accent};--obi-bg:${x.noticeBG};--obi-ink:${x.noticeInk}">${esc(x.notice)}</span>`:''}</${tag}>`;}).join('');
   const vt=document.createElement('div');vt.className='vt';
   vt.innerHTML=`<div class="vt-row"><div class="vt-stage" role="region" aria-roledescription="carrusel" tabindex="0" aria-label="Obras destacadas. Usa las flechas del teclado o desliza para explorar"><div class="vt-glow" aria-hidden="true"></div><div class="vt-books">${booksHTML}</div><span class="vt-stand" aria-hidden="true"></span><span class="vt-shelf" aria-hidden="true"></span><span class="vt-plaque" aria-hidden="true">${esc(data[active].label)}</span></div><div class="vt-side"></div></div><div class="vt-controls" aria-label="Controles del carrusel"></div>`;
   vt.querySelector('.vt-side').appendChild(copy);
@@ -31,6 +38,28 @@ export function enhanceHomeVitrina(root, entries, activeIndex, {esc, media, news
   root.replaceChildren(vt);
   root.dataset.vtKeys=data.map(x=>x.key).join('|');
   const mq=matchMedia('(max-width:700px)'),stage=vt.querySelector('.vt-stage'),track=vt.querySelector('.vt-books'),buttons=[...vt.querySelectorAll('.vt-book')];
+  // Prefetch controlado: durante el desplazamiento móvil se solicita la portada
+  // cuando se aproxima al carrusel (no las ocho al abrir Inicio). En navegadores
+  // sin IntersectionObserver conservamos todas las portadas como respaldo.
+  const deferredCovers=[...track.querySelectorAll('img[data-src]')];
+  const hydrateCover=img=>{
+    const path=img?.getAttribute('data-src');
+    if (!path) return;
+    img.setAttribute('src',path);
+    img.removeAttribute('data-src');
+  };
+  let coverObserver=null;
+  if (deferredCovers.length) {
+    if (typeof IntersectionObserver === 'function') {
+      coverObserver=new IntersectionObserver(entries=>{
+        for (const entry of entries) if (entry.isIntersecting) {
+          hydrateCover(entry.target);
+          coverObserver?.unobserve(entry.target);
+        }
+      },{root:track,rootMargin:'360px 360px'});
+      deferredCovers.forEach(img=>coverObserver.observe(img));
+    } else deferredCovers.forEach(hydrateCover);
+  }
   let settle=0,frame=0,ignore=false,disposed=false;
   const sheet=vt.querySelector('.vt-side .ob-txt'),editorial=vt.querySelector('.vt-side .ob-hero-copy');
   const title=editorial?.querySelector('h2'),synopsis=editorial?.querySelector('.ob-syn');
@@ -95,5 +124,5 @@ export function enhanceHomeVitrina(root, entries, activeIndex, {esc, media, news
   const ro=typeof ResizeObserver!=='undefined'?new ResizeObserver(onResize):null;ro?.observe(stage);layout();
   // Reajustar cuando la tipografía web termine de cargarse.
   if(document.fonts?.ready)document.fonts.ready.then(()=>{if(!disposed)fitCopy();});
-  return ()=>{disposed=true;clearTimeout(settle);cancelAnimationFrame(frame);track.removeEventListener('scroll',onScroll);stage.removeEventListener('keydown',onKey);mq.removeEventListener('change',onResize);ro?.disconnect();};
+  return ()=>{disposed=true;coverObserver?.disconnect();clearTimeout(settle);cancelAnimationFrame(frame);track.removeEventListener('scroll',onScroll);stage.removeEventListener('keydown',onKey);mq.removeEventListener('change',onResize);ro?.disconnect();};
 }
