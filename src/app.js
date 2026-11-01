@@ -215,6 +215,7 @@ function render(){
 // ---------- sin conexión ----------
 function offlinePage(){
   const on = navigator.onLine; lbCss();
+  app.classList.add('obi-downloads-page');
   app.innerHTML = `<div class="ui-cath"><div><h1>Mis descargas</h1><p>${on ? 'Capítulos y volúmenes guardados en este dispositivo para leer sin internet.' : 'Puedes seguir leyendo lo que guardaste sin conexión. El resto de la biblioteca vuelve cuando tengas internet.'}</p><p class="mono" style="font-size:12px;color:var(--mute)">${savedDownloadSummary()}</p></div><span class="kj" aria-hidden="true">${on ? '保存' : '圏外'}</span></div><div id="off">${rd().offlineList()}</div>${on ? `<p style="margin-top:18px"><button class="btn ghost" type="button" data-install ${canInstall() ? '' : 'hidden'}>Instalar la app para leer sin conexión</button></p>` : '<p style="margin-top:18px"><button class="btn ghost" id="off-retry">Reintentar conexión</button></p>'}`;
   rd().bindOfflineList($('#off'), offlinePage);
   $('#off-retry')?.addEventListener('click', () => navigator.onLine ? render() : toast('Todavía sin conexión'));
@@ -267,7 +268,7 @@ addEventListener('pageshow', e => { if (e.persisted) void resumeSeasonTheme(); }
 
 async function render0(){
 const p = location.pathname; let m;
-scrollTo(0, 0); document.body.classList.remove('in-studio');
+scrollTo(0, 0); document.body.classList.remove('in-studio'); app.classList.remove('obi-downloads-page');
 if (p === '/descargas' || (!navigator.onLine && !p.startsWith('/leer/'))) return offlinePage();
 if (p.startsWith('/estudio') || p === '/perfil' || p === '/preferencias' || p === '/solicitud') await meReady;
 if ((m = p.match(/^\/serie\/([\w-]+)$/))) return ui().series(m[1]);
