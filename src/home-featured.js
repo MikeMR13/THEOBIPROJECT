@@ -16,9 +16,26 @@ const firstUnique = (items, max = MAX_CANDIDATES) => {
   }).slice(0,max);
 };
 
+// Un presupuesto único para las obras públicas y los preestrenos de la vitrina.
+export const HOME_CAROUSEL_LIMIT = 10;
+
+/** Compone la misma lista tanto al recibir el calendario como las tendencias.
+ * Conserva 2 preestrenos, prioriza el primer lanzamiento publicado y no
+ * duplica la obra si también tiene un volumen programado. */
+export function mergeHomeCarousel(published = [], upcoming = [], max = HOME_CAROUSEL_LIMIT) {
+  const limit = Math.max(0, Math.min(HOME_CAROUSEL_LIMIT, Math.trunc(Number(max) || 0)));
+  const previews = (Array.isArray(upcoming) ? upcoming : []).filter(x => x?.__prelaunch && x.id != null).slice(0, 2);
+  const previewIds = new Set(previews.map(x => String(x.id)));
+  const live = (Array.isArray(published) ? published : []).filter(x => x && !x.__prelaunch && x.id != null && !previewIds.has(String(x.id)));
+  const seen = new Set();
+  return [...live.slice(0,1), ...previews, ...live.slice(1)]
+    .filter(x => { if (!x || x.id == null || seen.has(String(x.id))) return false; seen.add(String(x.id)); return true; })
+    .slice(0,limit);
+}
+
 // El cambio de día es determinista para todos los visitantes, sin cron ni almacenamiento local.
 // Cuando llega un volumen completo nuevo se prioriza INMEDIATAMENTE, sin esperar al siguiente día.
-export function homeFeaturedSelection({series=[], news={entries:[],bySeries:{}}, weekly=[], historic=[], trends=[], editorial=[], teams=[], now=new Date(), max=8}={}) {
+export function homeFeaturedSelection({series=[], news={entries:[],bySeries:{}}, weekly=[], historic=[], trends=[], editorial=[], teams=[], now=new Date(), max=HOME_CAROUSEL_LIMIT}={}) {
   const today = homeDayKey(now), byId = new Map(series.map(s => [s.id,s]));
   const existing = id => byId.get(id);
   const completeRelease = g => {
@@ -83,7 +100,7 @@ export function homeFeaturedSelection({series=[], news={entries:[],bySeries:{}},
   // El carrusel principal permanece compacto; TODAS las recomendaciones se
   // ofrecen en una banda de equipos debajo, sin esconder al equipo más pequeño.
   const chosen=[],used=new Set();
-  const limit=Math.max(0,Math.trunc(Number.isFinite(max)?max:8));
+  const limit=Math.max(0,Math.trunc(Number.isFinite(max)?max:HOME_CAROUSEL_LIMIT));
   const add=x=>{if(!x||used.has(x.id)||chosen.length>=limit)return false;chosen.push(x);used.add(x.id);return true;};
   const releases=pool.release || [];
   // Reservar las primeras posiciones para los estrenos reales más recientes.

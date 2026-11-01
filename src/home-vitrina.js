@@ -7,6 +7,18 @@ export function newLaunchRibbon(news, now=Date.now()) {
   return news?.kind === 'volume' && news.isNewSeries === true && Number.isFinite(at)
     && at <= now && now-at < 7*864e5 ? {text:'¡Nuevo lanzamiento!',color:'#f2c230'} : null;
 }
+/** La cinta elegida al programar el volumen prevalece sobre la automática.
+ * Incluso "Sin anuncio" y los anuncios vencidos impiden reintroducir una cinta
+ * del mismo lanzamiento; no afecta a nuevos volúmenes ni a preestrenos. */
+export function vitrinaNotice(item, news, noticeOf, now = Date.now()) {
+  if (item?.__prelaunch) return null;
+  const selected = noticeOf?.(item);
+  if (selected) return selected;
+  const announced = (item?.theme?.editorial_releases || []).some(x =>
+    x?.kind === 'volume' && String(x.id) === String(news?.volume?.id) &&
+    Number.isFinite(Date.parse(x.starts_at || '')) && Date.parse(x.starts_at) <= now);
+  return announced ? null : newLaunchRibbon(news, now);
+}
 function bookData(item, newsBySeries, reasons, media, noticeOf) {
   const pre = item.__prelaunch, news = newsBySeries[item.id];
   const vol = pre ? { cover_path: pre.cover_path } : news?.kind === 'volume' ? news.volume : null;
@@ -14,7 +26,7 @@ function bookData(item, newsBySeries, reasons, media, noticeOf) {
   // Para vecinos, utilizar miniaturas solo cuando corresponden a esta portada.
   // Los volúmenes y preestrenos conservan su propia ilustración sin sustituciones.
   const preview = path === item.cover_path ? (item.cover_thumb_path || path) : path;
-  const notice = pre ? null : newLaunchRibbon(news) || noticeOf?.(item);
+  const notice = vitrinaNotice(item, news, noticeOf);
   const base = /^#[\da-f]{6}$/i.test(notice?.color || '') ? notice.color : '#f2c230';
   const accent = notice?.season ? `var(--sea,${base})` : base;
   const num = parseInt(base.slice(1),16), bright = (0.299*(num>>16)+0.587*((num>>8)&255)+0.114*(num&255))/255 > .55;
