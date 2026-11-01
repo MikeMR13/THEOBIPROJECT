@@ -841,6 +841,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const startedAt = initial ? 0 : performance.now();
     firstHomeVisit = false;
     homeMetrics.startVisit();
+    // Un regreso a Inicio comienza con autoplay; una actualización dentro
+    // del mismo Inicio respeta solo la pausa manual escogida por el lector.
+    if (!app.querySelector('#hero')) heroPaused = false;
     clearInterval(homeRotationTimer);
     heroClock?.dispose(); heroClock = null; heroClockEl = null;
     rkCss(); if (!document.getElementById('ob2-css')) { const st = document.createElement('style'); st.id = 'ob2-css'; st.textContent = HOME_CSS; document.head.appendChild(st); }
@@ -1347,8 +1350,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       const target = b.hasAttribute('data-dir')
         ? (Math.max(0, current) + Number(b.dataset.dir) + feat.length) % feat.length
         : Math.max(0, feat.findIndex(item => heroKey(item) === b.dataset.heroTarget));
-      // Una selección manual detiene el avance hasta usar Reanudar.
-      heroPaused = true;
+      // Las flechas, portadas y deslizamientos seleccionan una obra pero NO
+      // equivalen a pulsar Pausar: reanudar el ciclo normal de cinco segundos.
       heroSlide(feat, target, prog, lastCh, top, newsBySeries, featReasons);
     });
     el.querySelector('[data-hp]')?.addEventListener('click', () => { heroPaused = !heroPaused; heroSlide(feat, i, prog, lastCh, top, newsBySeries, featReasons); });
@@ -1367,6 +1370,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       },
       canRotate: feat.length > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches,
       isPaused: heroPaused,
+      isFocused: el.contains(document.activeElement),
       stateChanged: blocked => {
         const progress = el.querySelector('.ob-hp');
         if (progress) progress.style.animationPlayState = blocked ? 'paused' : 'running';

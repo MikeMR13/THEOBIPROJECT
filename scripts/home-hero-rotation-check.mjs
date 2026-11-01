@@ -51,6 +51,22 @@ assert.equal(advances, 5, 'El botón Reanudar debe restablecer el avance automá
 show(false, false); // Modo de movimiento reducido o una sola obra.
 tick(15000);
 assert.equal(advances, 5, 'Movimiento reducido o una sola obra no deben forzar rotación');
+// Reproducción del error: un botón recibe foco y desaparece durante el
+// redibujado del carrusel; el navegador puede no emitir focusout.
+show();
+clock.setFocusPaused(true);
+tick(5000);
+assert.equal(advances, 5, 'Mientras el teclado tiene foco se detiene el avance');
+show(); // La portada se reconstruyó y el foco ya no está dentro.
+tick(5000);
+assert.equal(advances, 6, 'El redibujado no debe conservar el foco obsoleto y bloquear autoplay');
+clock.setFocusPaused(true);
+clock.show({next: () => { advances++; show(); },canRotate:true,isPaused:false,isFocused:true});
+tick(5000);
+assert.equal(advances, 6, 'El foco auténtico del lector de teclado sí detiene el avance');
+clock.setFocusPaused(false);
+tick(5000);
+assert.equal(advances, 7, 'Al salir con el teclado debe reanudarse sin pulsar Reanudar');
 assert(states.includes(true) && states.includes(false), 'El progreso debe distinguir pausa y reproducción');
 clock.dispose();
 assert.equal(timers.size, 0, 'Salir de Inicio debe limpiar el temporizador');
@@ -69,4 +85,10 @@ assert(!ui.includes('isHovered:') && !moduleSource.includes('hovered'),
   'El reloj no puede depender del estado del cursor');
 assert(ui.includes('isPaused: heroPaused') && ui.includes('canRotate: feat.length > 1'),
   'Mantener pausa manual, varias diapositivas y accesibilidad');
-console.log('✓ Carrusel: autoplay cada 5 s con/sin mouse, barra sincronizada, pausa manual y movimiento reducido.');
+assert(ui.includes('isFocused: el.contains(document.activeElement)') && moduleSource.includes('focusPaused = Boolean(isFocused)'),
+  'El enfoque se recalcula al reconstruir el DOM; no mantener una pausa invisible');
+assert(!ui.includes('heroPaused = true') && ui.includes('heroPaused = !heroPaused'),
+  'Solo el botón Pausar/Reanudar debe detener permanentemente la rotación');
+assert(ui.includes("if (!app.querySelector('#hero')) heroPaused = false"),
+  'Regresar a Inicio no debe heredar una pausa de una visita anterior');
+console.log('✓ Carrusel: autoplay después de flechas, portadas, swipe y redibujados; pausa manual y foco accesible.');

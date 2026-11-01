@@ -29,11 +29,14 @@ export function createHeroRotationClock({
   };
   return {
     setFocusPaused(value) { focusPaused = Boolean(value); if (focusPaused) { stop(); onState(blocked()); } else run(); },
-    show({ next, canRotate, isPaused = false, stateChanged = () => {} }) {
+    show({ next, canRotate, isPaused = false, isFocused = false, stateChanged = () => {} }) {
       stop();
       remaining = duration;
       enabled = Boolean(canRotate);
       paused = Boolean(isPaused);
+      // Una reconstrucción de la vitrina elimina los botones que tenían foco.
+      // Reconciliarlo con el DOM actual evita conservar una pausa fantasma.
+      focusPaused = Boolean(isFocused);
       advance = next;
       onState = stateChanged;
       run();
