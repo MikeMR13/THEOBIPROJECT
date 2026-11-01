@@ -116,9 +116,11 @@ async function run(){
   for(const needle of [
     "home-vitrina.js?v=9","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
     "el.dataset.vtKeys === feat.map(heroKey).join('|')","el.__vtStop?.()",
-    "heroPaused = true;","homeMetrics.shown(heroKey(s)","homeMetrics.clicked(s.slug",
+    "isFocused: el.contains(document.activeElement)","homeMetrics.shown(heroKey(s)","homeMetrics.clicked(s.slug",
     "prelaunch_calendar","creditsHTML({publicCredits:","heroClock.show({"
   ])assert(ui.includes(needle),'Contrato editorial perdido: '+needle);
+  assert(!ui.includes('heroPaused = true;') && ui.includes('heroPaused = !heroPaused'),
+    'Las flechas y las portadas no deben activar la pausa permanente; solo el botón dedicado');
   for(const needle of [
     'export function enhanceHomeVitrina','const CSS=',"news?.kind === 'volume'",
     "notice?.season","scroll-snap-type:x mandatory","ResizeObserver",
