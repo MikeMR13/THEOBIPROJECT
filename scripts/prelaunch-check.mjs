@@ -32,7 +32,7 @@ assert.match(agenda, /prelaunch_calendar/, 'Calendario conectado a anuncios');
 assert.match(agenda, /filter\(r => r\.kind !== 'volp'\)/, 'Ocultar programación automática sin consentimiento');
 assert.match(ui, /prelaunch_series/, 'Ficha pública con primer vistazo');
 assert.doesNotMatch(ui, /id="ob-s-prelaunch"/, 'Inicio no debe crear una sección independiente para preestrenos');
-assert.match(ui, /const previewIds = new Set\(previews.map/, 'El carrusel combina publicaciones y preestrenos sin duplicados');
+assert.match(ui, /mergeHomeCarousel\(published, previews\)/, 'El carrusel combina publicaciones y preestrenos sin duplicados');
 assert.match(ui, /heroSlide\(feat, 0, prog, lastCh, top, newsBySeries, featReasons\)/, 'Los anuncios reutilizan el carrusel principal');
 assert.match(ui, /slice\(0, 2\)/, 'Se limita el número de adelantos para no desplazar publicaciones');
 assert.match(ui, /PRÓXIMO ESTRENO · VOL\./, 'Los próximos estrenos se identifican claramente en el carrusel');
