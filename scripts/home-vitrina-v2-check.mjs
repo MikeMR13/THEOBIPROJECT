@@ -114,7 +114,7 @@ async function run(){
   assert(seasonCss,'Faltan estilos reales de temporada');
   const siteCss=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(cssMatch[1])+'\n'+seasonCss;
   for(const needle of [
-    "home-vitrina.js?v=8","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
+    "home-vitrina.js?v=9","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
     "el.dataset.vtKeys === feat.map(heroKey).join('|')","el.__vtStop?.()",
     "heroPaused = true;","homeMetrics.shown(heroKey(s)","homeMetrics.clicked(s.slug",
     "prelaunch_calendar","creditsHTML({publicCredits:","heroClock.show({"
@@ -160,6 +160,29 @@ async function run(){
   {id:3,title:'Tercera obra',slug:'tercera-obra',cover_path:'third.svg',__prelaunch:{volume_id:3,cover_path:'pre.svg'},theme:{color:'#544631'}}];
   enhanceHomeVitrina(document.querySelector('#hero'),books,1,{esc:s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),media:s=>'/covers/'+s,newsBySeries:{2:{kind:'volume',volume:{cover_path:'volume.svg'}}},reasons:{2:{label:'Nuevo volumen'}},activeNotice:s=>s.id===2?{text:'AVISO EDITORIAL',color:'#f2c230',style:'solid'}:null});
   (${browserCheck.toString()})();
+  // Ficha ampliada: diez portadas sin desbordamiento ni controles ocultos.
+  const originalStatus=document.querySelector('#result');
+  if(originalStatus.dataset.status==='pass'){
+    const hero=document.querySelector('#hero');
+    const copy=hero.querySelector('.vt-side > .ob-txt');
+    hero.replaceChildren(copy);
+    const pager=document.createElement('div');
+    pager.className='ob-pager2';
+    pager.innerHTML='<button data-dir="-1" aria-label="Anterior">‹</button><span>1 / 10</span><button data-hp aria-label="Pausar">Ⅱ Pausar</button><button data-dir="1" aria-label="Siguiente">›</button>';
+    hero.appendChild(pager);
+    const ten=Array.from({length:10},(_,i)=>({id:100+i,title:'Novela destacada '+i,slug:'obra-'+i,cover_path:'first.svg',theme:{color:'#a97941'}}));
+    enhanceHomeVitrina(hero,ten,0,{esc:s=>String(s),media:s=>'/covers/'+s});
+    const failures=[];
+    const check=(v,msg)=>{if(!v)failures.push(msg)};
+    const visibleBooks=[...hero.querySelectorAll('.vt-book')];
+    check(visibleBooks.length===10,'No aparecen diez portadas');
+    check(hero.dataset.vtKeys===ten.map(x=>'pub:'+x.id).join('|'),'Claves de las diez portadas incorrectas');
+    check(visibleBooks[0]?.getAttribute('aria-current')==='true','La portada principal de diez no es accesible');
+    check(!!hero.querySelector('.ob-pager2 button[data-hp]'),'No aparece el control Pausar');
+    check(document.documentElement.scrollWidth<=document.documentElement.clientWidth+3,'Diez portadas causan desbordamiento horizontal');
+    check(hero.querySelector('.vt-controls')?.getBoundingClientRect().bottom<=hero.getBoundingClientRect().bottom+3,'Controles fuera de la vitrina');
+    if(failures.length){originalStatus.dataset.status='fail';originalStatus.textContent=failures.join(' | ')}
+  }
   </script></body></html>`;
   const server=createServer((req,res)=>{
     if(req.url==='/home-vitrina.js'){res.writeHead(200,{'Content-Type':'text/javascript'});return res.end(v);}

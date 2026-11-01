@@ -1,7 +1,8 @@
 // Pruebas de regresión: inicio editorial, capítulos sueltos y volúmenes publicados completos.
 import assert from 'node:assert/strict';
 import { homeReleaseOverview, homeReleaseHighlights } from '../src/home-releases.js';
-import { newLaunchRibbon } from '../src/home-vitrina.js';
+import { newLaunchRibbon, vitrinaNotice } from '../src/home-vitrina.js';
+import { createEditorialRecord, chooseActiveEditorial } from '../src/editorial-announcements.js';
 import { readFileSync } from 'node:fs';
 
 const NOW = Date.parse('2026-10-21T18:00:00Z');
@@ -90,4 +91,31 @@ assert.match(seriesPage, /class="ui-v-syn-details".*Leer sinopsis.*Ocultar sinop
   'La ficha del volumen debe ofrecer un desplegable de sinopsis');
 assert.match(seriesStyles, /ui-v-syn-details\[open\]/,
   'La sinopsis expandida necesita estilos propios');
+// Un anuncio editorial programado durante preestreno prevalece sobre
+// la cinta automática y respeta su fecha/duración/decisión del equipo.
+{
+  const now=Date.parse('2026-11-01T18:00:00Z'),publishedAt='2026-11-01T17:00:00Z';
+  const volume={id:'vol-1',published_at:publishedAt,num:1};
+  const news={kind:'volume',isNewSeries:true,at:publishedAt,volume};
+  const chosen=createEditorialRecord({mode:'personalizado',text:'¡Edición de estreno!',days:14,
+    color:'#ff9911',style:'outline'},{kind:'volume',id:'vol-1',startsAt:publishedAt});
+  const work={id:'serie',theme:{editorial_releases:[chosen]}};
+  const getNotice=s=>chooseActiveEditorial(s.theme,now);
+  assert.deepEqual(vitrinaNotice(work,news,getNotice,now),
+    {on:true,text:'¡Edición de estreno!',color:'#ff9911',style:'outline',kind:'volume',sourceId:'vol-1'},
+    'La cinta personalizada de preestreno debe sustituir la cinta automática al publicar');
+  assert.deepEqual(vitrinaNotice({...work,__prelaunch:{volume_id:'vol-1'}},news,getNotice,now),null,
+    'Antes de publicar no se anticipa una cinta de publicación');
+  const silent=createEditorialRecord({mode:'ninguno'},{kind:'volume',id:'vol-1',startsAt:publishedAt});
+  const silentWork={theme:{editorial_releases:[silent]}};
+  assert.equal(vitrinaNotice(silentWork,news,s=>chooseActiveEditorial(s.theme,now),now),null,
+    'Sin anuncio destacado nunca se reemplaza por la cinta automática');
+  assert.equal(vitrinaNotice(work,news,s=>chooseActiveEditorial(s.theme,now+15*864e5),now+15*864e5),null,
+    'Un anuncio editorial vencido no se reactiva automáticamente');
+  assert.deepEqual(vitrinaNotice({theme:{}},news,()=>null,now),newLaunchRibbon(news,now),
+    'Sin anuncio editorial programado se conserva la cinta automática de siete días');
+  const anotherVolume={kind:'volume',isNewSeries:true,at:publishedAt,volume:{id:'different',num:1}};
+  assert.deepEqual(vitrinaNotice(silentWork,anotherVolume,()=>null,now),newLaunchRibbon(anotherVolume,now),
+    'La decisión de un volumen anterior no bloquea otro lanzamiento');
+}
 console.log('home-volume-check: OK');

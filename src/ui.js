@@ -3,7 +3,7 @@ import { confirmObi, inputObi } from './obi-dialog.js';
 import { publicationDate, publicationAge, publicationDay } from './publication-dates.js?v=1';
 import { homeReleaseOverview, homeReleaseHighlights } from './home-releases.js?v=3';
 import { attachPublicCredits, creditTeams, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
-import { homeFeaturedSelection, homeDayKey } from './home-featured.js?v=1';
+import { homeFeaturedSelection, homeDayKey, mergeHomeCarousel } from './home-featured.js?v=2';
 import { homeFeedRevision, homeFeedHasNewContent } from './home-feed-freshness.js?v=1';
 import { createHeroRotationClock } from './home-hero-rotation.js?v=1';
 import { createHomeMetrics, homeMetricCategory } from './home-metrics.js?v=1';
@@ -15,7 +15,7 @@ import { selectReadingStart, selectVolumeStart } from './reading-start.js?v=2';
 import { editorialChapterLabel, editorialChapterDescription, editorialChapterGroup, editorialSectionSummary, editorialSectionCounts, genericSectionCount } from './editorial-public-labels.js?v=1';
 import { planReadingChanges, persistReadingChanges, applyReadingChanges } from './library-read-actions.js';
 import { chooseActiveEditorial } from './editorial-announcements.js?v=1';
-import { enhanceHomeVitrina } from './home-vitrina.js?v=8';
+import { enhanceHomeVitrina } from './home-vitrina.js?v=9';
 import { isPubliclyReadableChapter, announcedVolumeIds } from './prelaunch-access.js?v=1';
 import { loadPublicUpcoming, uniqueUpcoming } from './prelaunch-discovery.js?v=1';
 import { createMobileNavigation, bindMobileNavigation } from './mobile-navigation.js?v=1';
@@ -1161,9 +1161,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       if (!heroEl.isConnected || app.querySelector('#hero') !== heroEl || location.pathname !== '/') return;
       // Mantener el estreno ya publicado como portada y mostrar el adelanto a
       // continuación, sin obligar a esperar toda la rotación para descubrirlo.
-      const previewIds = new Set(previews.map(s => s.id));
-      const published = feat.filter(s => !previewIds.has(s.id));
-      feat.splice(0, feat.length, ...[...published.slice(0, 1), ...previews, ...published.slice(1)].slice(0, 8));
+      const published = feat.filter(s => !s.__prelaunch);
+      feat.splice(0, feat.length, ...mergeHomeCarousel(published, previews));
       heroEl.style.display = '';
       const active = heroEl.dataset.heroKey;
       const selected = feat.findIndex(item => heroKey(item) === active);
@@ -1196,12 +1195,12 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         if(section) bindCars(section);
       } else teamSlot?.remove();
       const previews = feat.filter(x => x.__prelaunch);
-      // La curaduría más reciente determina la portada; no fijar una selección anterior.
-      const lead = covers[0] || feat.find(x => !x.__prelaunch);
-      const unique = new Set();
-      const updated = [lead, ...previews, ...covers].filter(x => x && !unique.has(x.id) && unique.add(x.id)).slice(0, 8);
+      // La misma composición se aplica si las tendencias llegan antes o después
+      // del calendario. Conservar lanzamientos prioritarios y hasta 2 preestrenos.
+      const published = covers.length ? covers : feat.filter(x => !x.__prelaunch);
+      const updated = mergeHomeCarousel(published, previews);
       if (!updated.length) return;
-      const changed = updated.length !== feat.length || updated.some((x, i) => x.id !== feat[i]?.id);
+      const changed = updated.length !== feat.length || updated.some((x, i) => heroKey(x) !== heroKey(feat[i]));
       Object.assign(featReasons, extra.bySeries);
       if (!changed) return;
       feat.splice(0, feat.length, ...updated);
@@ -1319,7 +1318,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       <div class="ob-txt"><div class="ob-hero-copy"><div class="ob-hero-head"><div class="ob-hero-meta"><span class="ob-kick">${pre ? 'ESTRENO · ' + preWhen : v ? '第' + KN(v.num) + '巻 · 新刊' : esc(editorialChapterLabel(lc)) + (fresh ? ' · 新刊' : '')}</span><div class="ob-hero-flags"><span class="ob-badge${pre ? ' ob-badge-vol' : v ? ' ob-badge-vol' : ''}" ${pre ? 'style="background:#8cc3f2;color:#0d0c0a"' : ''}>${pre ? (preTomorrow ? 'ESTRENO MAÑANA · VOL. ' : 'PRÓXIMO ESTRENO · VOL. ') + pre.vnum : v && pub?.isNewSeries && fresh ? '¡NUEVO LANZAMIENTO! · VOL. ' + v.num : reason?.kind !== 'release' ? esc(reason?.label || 'Destacado') : reason?.label === 'Nuevo lanzamiento' ? '¡NUEVO LANZAMIENTO! · VOL. ' + v?.num : reason?.urgent ? '¡NOVELA COMPLETA! · VOL. ' + v.num : v ? (fresh ? '¡NUEVO VOLUMEN! · VOL. ' : 'VOLUMEN DISPONIBLE · VOL. ') + v.num : currentNotice(s)?.kind === 'chapter' ? 'CAPÍTULO PUBLICADO' : fresh ? 'NUEVO · ' + esc(editorialChapterLabel(lc).toLocaleUpperCase('es-MX')) : esc(editorialChapterLabel(lc).toLocaleUpperCase('es-MX')) + (lc ? ' · ' + ago(lc.publish_at).toUpperCase() : '')}</span>${pre ? '' : heroTag(s)}</div>${!pre && top[s.id] ? `<div class="ob-hero-rank"><a class="rk-bdg" href="/ranking"><b>#${top[s.id]}</b>Top de la semana</a></div>` : ''}</div>${teamLogo}</div>${s.publicCredits?.some(c => !c.is_primary) ? `<span class="ob-hero-partners">${creditsHTML({publicCredits:s.publicCredits.filter(c=>!c.is_primary)}, {esc,media,mode:'hero'})}</span>` : ''}
         <h2 data-len="${(s.title.length + (v ? 12 + String(v.num).length : 0)) > 70 ? 'xl' : (s.title.length + (v ? 12 + String(v.num).length : 0)) > 40 ? 'l' : ''}"><a class="ob-h1a" href="/serie/${s.slug}" title="${esc(s.title + (v ? ' — Volumen ' + v.num : ''))}">${esc(s.title)}${v ? ' — Volumen ' + esc(v.num) : ''}</a></h2>${tag ? `<p class="ob-tag">${esc(tag)}</p>` : ''}<p class="ob-syn" style="white-space:pre-line">${esc(s.synopsis ? (synT.slice(tag.length).replace(/^\s+/, '').replace(/\n{3,}/g, '\n\n') || synT) : pre ? 'Conoce la historia antes de su estreno. Los capítulos permanecen bloqueados hasta la fecha indicada.' : [s.author && ('De ' + s.author), s.teams?.name && ('traducida por ' + s.teams.name), genericSectionCount(s.chapters?.[0]?.count) + ' en español'].filter(Boolean).join(' · ') + '.')}</p></div><div class="ob-hero-footer">
         ${pre ? `<p class="ob-prelaunch-timer" style="margin:8px 0;color:#8cc3f2;font-size:13px">🔒 Lectura bloqueada · Estreno: ${esc(preWhen)} · Faltan ${esc(preLeft)}</p><div class="ob-acts"><a class="a1" href="/serie/${encodeURIComponent(s.slug)}">Ver primer vistazo →</a><a class="a2" href="/calendario?f=prog">Ver en el calendario</a></div>` : `<div class="ob-acts"><a class="a1" ${v ? 'href="/serie/' + esc(s.slug) + '"' : p ? 'href="/leer/' + esc(s.slug) + '/' + n + '"' : heroStartAttrs}>${v ? 'Ver volumen ' + v.num : p ? 'Continuar lectura' : 'Comenzar a leer'}</a>${v && (p || lc) ? `<a class="a2" ${p ? 'href="/leer/' + esc(s.slug) + '/' + n + '"' : heroStartAttrs}>${p ? 'Continuar lectura' : 'Empezar a leer'}</a>` : `<a class="a2" href="/serie/${s.slug}">Ver la serie</a>`}</div>`}</div></div>
-      ${feat.length > 1 ? `<div class="ob-pager2" style="position:absolute;left:clamp(16px,4vw,56px);right:clamp(16px,4vw,56px);bottom:14px;z-index:2;display:flex;align-items:center;gap:10px"><button data-dir="-1" aria-label="Anterior" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">‹</button><span style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">${feat.length > 10 ? `<span class="mono" aria-label="Diapositiva ${i+1} de ${feat.length}" style="min-width:70px;text-align:center;font:600 12px 'IBM Plex Mono',monospace;color:var(--paper)">${i+1} / ${feat.length}</span>` : feat.map((f, j) => `<button data-j="${j}" data-hero-target="${esc(heroKey(f))}" aria-label="${esc(f.title)}" aria-current="${j === i}" style="height:10px;flex:${j === i ? '0 1 160px' : '0 0 10px'};min-width:10px;padding:0;border:none;cursor:pointer;position:relative;overflow:hidden;background:${j === i ? '#3d3628' : '#5a5244'}">${j === i ? `<i class="ob-hp" style="position:absolute;inset:0;background:var(--gold);transform-origin:left;transform:scaleX(${heroPaused ? 1 : 0});${heroPaused || matchMedia('(prefers-reduced-motion: reduce)').matches ? '' : 'animation:obHp 5s linear forwards'}"></i>` : ''}</button>`).join('')}</span><button data-hp aria-label="${heroPaused ? 'Reanudar' : 'Pausar'}" style="height:40px;padding:0 12px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">${heroPaused ? '▶ Reanudar' : 'Ⅱ Pausar'}</button><button data-dir="1" aria-label="Siguiente" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">›</button></div>` : ''}`;
+      ${feat.length > 1 ? `<div class="ob-pager2" style="position:absolute;left:clamp(16px,4vw,56px);right:clamp(16px,4vw,56px);bottom:14px;z-index:2;display:flex;align-items:center;gap:10px"><button data-dir="-1" aria-label="Anterior" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">‹</button><span style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">${feat.length >= 9 ? `<span class="mono" aria-label="Diapositiva ${i+1} de ${feat.length}" style="min-width:70px;text-align:center;font:600 12px 'IBM Plex Mono',monospace;color:var(--paper)">${i+1} / ${feat.length}</span>` : feat.map((f, j) => `<button data-j="${j}" data-hero-target="${esc(heroKey(f))}" aria-label="${esc(f.title)}" aria-current="${j === i}" style="height:10px;flex:${j === i ? '0 1 160px' : '0 0 10px'};min-width:10px;padding:0;border:none;cursor:pointer;position:relative;overflow:hidden;background:${j === i ? '#3d3628' : '#5a5244'}">${j === i ? `<i class="ob-hp" style="position:absolute;inset:0;background:var(--gold);transform-origin:left;transform:scaleX(${heroPaused ? 1 : 0});${heroPaused || matchMedia('(prefers-reduced-motion: reduce)').matches ? '' : 'animation:obHp 5s linear forwards'}"></i>` : ''}</button>`).join('')}</span><button data-hp aria-label="${heroPaused ? 'Reanudar' : 'Pausar'}" style="height:40px;padding:0 12px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">${heroPaused ? '▶ Reanudar' : 'Ⅱ Pausar'}</button><button data-dir="1" aria-label="Siguiente" style="width:40px;height:40px;background:#16140f;border:1px solid #3d3628;color:var(--paper);font-size:18px;cursor:pointer">›</button></div>` : ''}`;
     // La Vitrina V2 conserva el HTML editorial, preestrenos, créditos, enlaces
     // y paginador anteriores; únicamente reorganiza su presentación.
     el.__vtStop = enhanceHomeVitrina(el, feat, i, { esc, media, newsBySeries, reasons: featReasons, activeNotice: currentNotice });

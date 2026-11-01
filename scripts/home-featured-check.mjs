@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {homeFeaturedSelection,homeDayKey} from '../src/home-featured.js';
+import {homeFeaturedSelection,homeDayKey,mergeHomeCarousel,HOME_CAROUSEL_LIMIT} from '../src/home-featured.js';
 const now=new Date('2026-10-21T20:30:00.000Z');
 const day=new Date('2026-10-22T20:30:00.000Z');
 const series=Array.from({length:18},(_,i)=>({
@@ -19,12 +19,27 @@ const input={series,news,weekly:rankings(['s4','s5','s6']),historic:rankings(['s
   trends:rankings(['s10','s11','s12']).map(x=>({...x,list:'tendencia',period:'hoy'})),
   editorial:['s13','s14','s15'],teams:[{team_id:'t4',series_id:'s16',updated_at:'2026-10-21T08:00:00Z'},{team_id:'t5',series_id:'s17',updated_at:'2026-10-21T08:00:00Z'}],now};
 const out=homeFeaturedSelection(input);
-assert(out.entries.length<=8,'Carrusel compacto de máximo ocho diapositivas editoriales');
+assert(out.entries.length<=10,'Carrusel compacto de máximo diez diapositivas editoriales');
 assert(out.entries.filter(x=>x.kind==='release').length<=2,'Solo dos lanzamientos cada día');
 assert.equal(out.entries.filter(x=>x.kind==='team').length,1,'Un equipo diario dentro del hero; el resto en la banda');
 assert.equal(new Set(out.entries.map(x=>x.id)).size,out.entries.length,'No duplicar novelas');
 for(const category of ['release','popular','historic','editorial','discover','trending'])assert(out.pool[category].length<=3,'Tope de tres por '+category);
 assert.equal(out.day,homeDayKey(now));
+assert.equal(HOME_CAROUSEL_LIMIT,10,'La vitrina debe reservar diez espacios');
+const cards=Array.from({length:14},(_,i)=>({id:'p'+i,title:'Publicada '+i}));
+const previewsForTen=[{id:'up1',__prelaunch:{volume_id:'v1'}},{id:'up2',__prelaunch:{volume_id:'v2'}},{id:'up3',__prelaunch:{volume_id:'v3'}}];
+const mergedTen=mergeHomeCarousel(cards,previewsForTen);
+assert.equal(mergedTen.length,10,'La combinación de las dos cargas nunca supera diez obras');
+assert.equal(mergedTen[0].id,'p0','El nuevo lanzamiento publicado conserva la portada inicial');
+assert.deepEqual(mergedTen.slice(1,3).map(x=>x.id),['up1','up2'],'Se reservan hasta dos anuncios de preestreno');
+assert.equal(new Set(mergedTen.map(x=>x.id)).size,10,'El carrusel mixto no duplica obras');
+const duplicatePreview={id:'p0',__prelaunch:{volume_id:'prev-existing'}};
+const mergedDuplicate=mergeHomeCarousel(cards,[duplicatePreview,...previewsForTen]);
+assert.equal(mergedDuplicate.filter(x=>x.id==='p0').length,1,'Un volumen preestreno no duplica una obra publicada');
+assert(mergedDuplicate.find(x=>x.id==='p0').__prelaunch,'La ficha de preestreno prevalece mientras esté programado');
+assert.equal(mergeHomeCarousel(cards,[]).length,10,'Sin preestrenos se usan diez espacios públicos');
+assert.equal(mergeHomeCarousel(cards,[],8).length,8,'Se puede limitar el máximo sin afectar el algoritmo');
+
 assert.deepEqual(homeFeaturedSelection({...input}).entries,out.entries,'Carrusel estable dentro del mismo día');
 assert.notEqual(homeDayKey(now),homeDayKey(day));
 assert.equal(out.pool.team.length,2,'Cada equipo presenta una candidatura');
@@ -54,7 +69,7 @@ const many=homeFeaturedSelection(eightInput);
 assert.equal(many.pool.team.length,14,'Sin límite de tres recomendaciones de equipo');
 assert.equal(many.entries.filter(x=>x.kind==='team').length,1,'El carrusel muestra un equipo rotativo');
 assert.equal(many.teamRecommendations.length,14,'Los 14 equipos permanecen en la banda propia');
-assert(many.entries.length<=8,'El hero no puede crecer con el número de equipos');
+assert(many.entries.length<=10,'El hero no puede crecer con el número de equipos');
 assert.equal(new Set(many.entries.map(x=>x.id)).size,many.entries.length,'Sin repetir obras');
 assert.deepEqual(homeFeaturedSelection(eightInput).entries,many.entries,'Orden diario estable de equipos');
 const expiration='2026-10-14T20:30:00.000Z';
@@ -131,6 +146,32 @@ const after48=homeFeaturedSelection({...competing,now:new Date('2026-10-26T21:20
 assert.equal(after48.entries[0].id,'completo','Pasadas 48 h ya no se fija el debut delante de novedades más pertinentes');
 assert(after48.pool.release.some(x=>x.id==='nuevo' && x.label==='Nuevo lanzamiento'),
   'El estreno mantiene su etiqueta durante siete días');
+assert(after48.entries.some(x=>x.id==='nuevo' && x.kind==='release'),
+  'El estreno de hace tres días no desaparece del carrusel antes de caducar su cinta');
+// La segunda carga de Inicio añade tendencias y equipos. Antes podía reemplazar
+// el lanzamiento de 3 días por una recomendación y ocultarlo de la vitrina.
+const lateTeams={
+  ...competing,
+  now:new Date('2026-10-26T21:20:00Z'),
+  teams:[
+    {team_id:'team-nuevo',series_id:'nuevo',updated_at:'2026-10-26T21:15:00Z'},
+    {team_id:'team-otro',series_id:'antiguo',updated_at:'2026-10-26T21:16:00Z'}
+  ],
+  trends:[{series_id:'antiguo',list:'tendencia',period:'hoy',score:999,pos:1}]
+};
+const beforeExtras=homeFeaturedSelection({...lateTeams,teams:[],trends:[]});
+const afterExtras=homeFeaturedSelection(lateTeams);
+assert(beforeExtras.entries.some(x=>x.id==='nuevo' && x.kind==='release'),
+  'La primera carga incluye el nuevo lanzamiento');
+assert(afterExtras.entries.some(x=>x.id==='nuevo' && x.kind==='release'),
+  'Las recomendaciones tardías no deben sustituir el lanzamiento anunciado');
+assert(afterExtras.entries.filter(x=>x.kind==='release').length<=2,
+  'La retención de lanzamientos no aumenta los dos cupos del carrusel');
+assert(afterExtras.entries.length<=10,
+  'Las recomendaciones tardías respetan el máximo visual de ocho portadas');
+assert(!homeFeaturedSelection({...lateTeams,now:new Date('2026-11-02T21:20:00Z')})
+  .entries.some(x=>x.id==='nuevo' && x.label==='Nuevo lanzamiento'),
+  'El estreno deja de recibir el distintivo al caducar los siete días');
 
 // Descubrimiento: no confundir una obra de cero vistas recién estrenada con una joya.
 const curatingNow=new Date('2026-10-23T21:30:00Z');
