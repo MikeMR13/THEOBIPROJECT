@@ -21,6 +21,42 @@ jobs:
       - name: Validar TOML de Supabase
         run: python3 -c "import tomllib; tomllib.load(open('supabase/config.toml','rb'))"
       - run: npm run check && npm run quality-gates && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run studio-fields-check && npm run integration-check
+      - name: Línea base de recursos del build integrado (Fases 1-5, sin red)
+        run: node scripts/performance-baseline.mjs
+      - name: Guardar reporte de recursos integrados (24 horas)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendimiento-recursos-integrados
+          path: qa-performance/initial-load-baseline.json
+          retention-days: 1
+          if-no-files-found: warn
+      - name: Rendimiento Fase 3 — lector diferido, navegación y offline (sin backend)
+        run: node --check src/app.js && node scripts/performance-phase3-route-loader-check.mjs
+      - name: Rendimiento Fase 4 — portadas visibles y prioridades (sin backend)
+        run: node --check src/home-vitrina.js && node scripts/performance-phase4-vitrina-cover-check.mjs
+      - name: Rendimiento Fase 5 — presupuesto de arranque comprimido (sin backend)
+        run: node scripts/performance-phase5-budget.mjs
+      - name: Rendimiento Fase 5 — Vitrina real compilada en Chromium local (sin backend)
+        run: node scripts/performance-phase5-chromium.mjs
+      - name: Evidencia Fase 5 — bytes y métricas de laboratorio
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendimiento-fase5-laboratorio
+          path: qa-performance/fase5-*.json
+          if-no-files-found: warn
+          retention-days: 1
+      - name: Validación de Inicio y Catálogo completos · Chromium 390/1440 px, backend ficticio
+        run: node --check scripts/performance-full-routes-lab-check.mjs && node scripts/performance-full-routes-lab-check.mjs
+      - name: Guardar evidencia de rutas completas sin datos de producción
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validacion-cwv-rutas-simuladas
+          path: qa-performance/validacion-rutas-cwv-lab.json
+          if-no-files-found: warn
+          retention-days: 1
       - name: Biblioteca y temporadas · estados, fechas y acciones (sin backend)
         run: node scripts/season-library-audit-check.mjs
       - name: Editor Productividad · Entrega 2 (sin backend)
@@ -78,6 +114,8 @@ jobs:
         run: node scripts/reader-phase4-continuity-check.mjs
       - name: Calidad lector, imágenes e Inicio/Catálogo (sin backend)
         run: node scripts/reader-quality-phase134-check.mjs
+      - name: Rendimiento Fase 2 — primer render de Inicio y Catálogo (sin backend)
+        run: node --check src/ui.js && node scripts/performance-phase2-first-render-check.mjs
       - name: Cinco fases auditoría — contratos sin backend ni servicios de pago
         run: node scripts/auditoria-cinco-fases-check.mjs
       - name: Studio — regresiones de auditoría de secciones (sin backend)

@@ -18,7 +18,10 @@ const css = readFileSync('src/styles.css', 'utf8') + '\n' +
 const widths = [320,375,390,430,760,768,1024];
 function inspect(S,mobile){
   const out = document.getElementById('result'), errors = [], fail = x => errors.push(x);
-  const w = document.documentElement.clientWidth;
+  // El scrollbar puede restar ~8px a clientWidth, pero CSS @media usa el
+  // ancho del viewport: probar el mismo breakpoint que se está renderizando.
+  const w = window.innerWidth;
+  const compact = matchMedia('(max-width:760px)').matches;
   const fake = { from(table){
     if (table === 'platform_settings') return {
       select(){return this}, eq(){return this},
@@ -61,7 +64,7 @@ function inspect(S,mobile){
     if (extras.map(a=>a.getAttribute('href')).join('|')!=='/descargas|/calendario|/ranking|/apoyar')
       fail('Falta una sección secundaria');
     if (extras[0]?.textContent !== 'Mis descargas') fail('Mis descargas no aparece en Más');
-    if(w<=760){
+    if(compact){
       const brand=header.querySelector('.ob-brand').getBoundingClientRect();
       const tools=header.querySelector('.ob-tools').getBoundingClientRect();
       if (brand.right>tools.left+2) fail('Marca y cuenta superpuestos');

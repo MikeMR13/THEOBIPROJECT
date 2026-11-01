@@ -6,9 +6,8 @@ import { editorialChapterLabel } from './editorial-public-labels.js';
 import { normalizeSupportCopy } from './support-display-copy.js';
 import { createOfflineDownloads, readOfflineIndex } from './offline-downloads.js?v=1';
 import { readingGroups, planReadingChanges, undoReadingChanges, applyReadingChanges, persistReadingChanges } from './library-read-actions.js';
-// Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
+// Inicio y Catálogo necesitan UI; el lector se importa solo cuando una ruta o acción lo requiere.
 import { createClient } from '/supabase.js?v=1';
-import { createReader } from '/reader.js?v=26';
 import { createUI } from '/ui.js?v=62';
 import { attachPublicCredits, creditsHTML, installCreditImageFallback } from '/public-collaboration-credits.js?v=1';
 import { reportHomeRead } from '/home-metrics.js?v=1';
@@ -36,7 +35,13 @@ const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: 
 let ST; const st = async () => ST ||= (await import('/studio.js?v=64')).createStudio(CTX());
 let AG; const ag = async () => AG ||= await import('/agenda.js?v=1');
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=10')).createAdmin(CTX());
-let R; const rd = () => R ||= createReader(CTX());
+let R, readerRequest;
+// Compartir la misma importación entre navegación, historial y precargas.
+// Si falla una descarga puntual, permitir reintento en la próxima navegación.
+const rd = () => R ? Promise.resolve(R) :
+  readerRequest ||= import('/reader.js?v=26')
+    .then(({ createReader }) => R = createReader(CTX()))
+    .catch(error => { readerRequest = null; throw error; });
 let U; const ui = () => U ||= createUI(CTX());
 
 // Preferencias de pantalla (Accesibilidad) y lectores silenciados/bloqueados: se aplican al instante desde el almacenamiento local.
@@ -171,7 +176,7 @@ async function contBtn(force){
   const b = CB.v, e = $('#ob-cont'); if (!e) return; if (!b) { e.hidden = true; return; }
   const editorialLabel = b.chapterLabel || 'Sección';
   e.href = `/leer/${b.slug}/${b.num}`; e.title = `Continuar «${b.title}» · ${editorialLabel}`; e.setAttribute('aria-label', e.title);
-  if (navigator.onLine && !navigator.connection?.saveData) (window.requestIdleCallback || setTimeout)(() => rd().warm(b.slug, b.num)); // «Continuar» ya listo antes del clic
+  if (navigator.onLine && !navigator.connection?.saveData) (window.requestIdleCallback || setTimeout)(() => { void rd().then(reader => reader.warm(b.slug, b.num)).catch(() => {}); }); // «Continuar» ya listo antes del clic
   e.querySelector('b').textContent = b.title; e.querySelector('small').textContent = 'Continuar · ' + editorialLabel + (b.pct > 0.02 && b.pct < 0.98 ? ' · ' + Math.round(b.pct * 100) + ' %' : ''); e.hidden = false;
 }
 async function bell(){
@@ -213,12 +218,17 @@ function render(){
     .then(r => { installPublicShare(); if (navigator.onLine) { contBtn(); return afterRender(r); } return r; });
 }
 // ---------- sin conexión ----------
-function offlinePage(){
+async function offlinePage(){
   const on = navigator.onLine; lbCss();
   app.classList.add('obi-downloads-page');
-  app.innerHTML = `<div class="ui-cath"><div><h1>Mis descargas</h1><p>${on ? 'Capítulos y volúmenes guardados en este dispositivo para leer sin internet.' : 'Puedes seguir leyendo lo que guardaste sin conexión. El resto de la biblioteca vuelve cuando tengas internet.'}</p><p class="mono" style="font-size:12px;color:var(--mute)">${savedDownloadSummary()}</p></div><span class="kj" aria-hidden="true">${on ? '保存' : '圏外'}</span></div><div id="off">${rd().offlineList()}</div>${on ? `<p style="margin-top:18px"><button class="btn ghost" type="button" data-install ${canInstall() ? '' : 'hidden'}>Instalar la app para leer sin conexión</button></p>` : '<p style="margin-top:18px"><button class="btn ghost" id="off-retry">Reintentar conexión</button></p>'}`;
-  rd().bindOfflineList($('#off'), offlinePage);
+  app.innerHTML = `<div class="ui-cath"><div><h1>Mis descargas</h1><p>${on ? 'Capítulos y volúmenes guardados en este dispositivo para leer sin internet.' : 'Puedes seguir leyendo lo que guardaste sin conexión. El resto de la biblioteca vuelve cuando tengas internet.'}</p><p class="mono" style="font-size:12px;color:var(--mute)">${savedDownloadSummary()}</p></div><span class="kj" aria-hidden="true">${on ? '保存' : '圏外'}</span></div><div id="off"><p class="mono" role="status">Preparando lecturas guardadas…</p></div>${on ? `<p style="margin-top:18px"><button class="btn ghost" type="button" data-install ${canInstall() ? '' : 'hidden'}>Instalar la app para leer sin conexión</button></p>` : '<p style="margin-top:18px"><button class="btn ghost" id="off-retry">Reintentar conexión</button></p>'}`;
+  const slot = app.querySelector('#off'), path = location.pathname;
   $('#off-retry')?.addEventListener('click', () => navigator.onLine ? render() : toast('Todavía sin conexión'));
+  const reader = await rd(); // El Service Worker conserva el lector para modo avión.
+  if (!slot?.isConnected || location.pathname !== path ||
+      app.querySelector('#off') !== slot) return;
+  slot.innerHTML = reader.offlineList();
+  reader.bindOfflineList(slot, offlinePage);
 }
 function netBanner(){
   let b = document.getElementById('obi-net');
@@ -229,7 +239,7 @@ function netBanner(){
 addEventListener('offline', netBanner);
 addEventListener('online', () => { netBanner();
   // Revalidar la identidad antes de sincronizar cualquier progreso pendiente.
-  loadSession().then(() => { ui().refreshBadge(); if (user) return rd().syncPending().then(n => { if (n) toast('Tu progreso sin conexión ya se guardó en tu cuenta'); }); }).catch(e => console.warn('sesión reconectada', e));
+  loadSession().then(() => { ui().refreshBadge(); if (user) return rd().then(reader => reader.syncPending()).then(n => { if (n) toast('Tu progreso sin conexión ya se guardó en tu cuenta'); }); }).catch(e => console.warn('sesión reconectada', e));
 });
 if (!navigator.onLine) netBanner();
 let seasonApplySeq = 0;
@@ -272,8 +282,8 @@ scrollTo(0, 0); document.body.classList.remove('in-studio'); app.classList.remov
 if (p === '/descargas' || (!navigator.onLine && !p.startsWith('/leer/'))) return offlinePage();
 if (p.startsWith('/estudio') || p === '/perfil' || p === '/preferencias' || p === '/solicitud') await meReady;
 if ((m = p.match(/^\/serie\/([\w-]+)$/))) return ui().series(m[1]);
-if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) { reportHomeRead(sb,p); return rd().open(m[1], +m[2]); }
-if ((m = p.match(/^\/anotaciones\/([\w-]+)$/))) return rd().annotationsPage(m[1]);
+if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) { reportHomeRead(sb,p); const reader = await rd(); if (location.pathname !== p) return; return reader.open(m[1], +m[2]); }
+if ((m = p.match(/^\/anotaciones\/([\w-]+)$/))) { const reader = await rd(); if (location.pathname !== p) return; return reader.annotationsPage(m[1]); }
 if ((m = p.match(/^\/equipo\/([\w-]+)$/))) return ui().team(m[1]);
 if ((m = p.match(/^\/lector\/([^/]+)$/))) return lector(decodeURIComponent(m[1]));
 if (p.startsWith('/estudio')) {
@@ -780,8 +790,12 @@ async function library(){
         catch(e){b.disabled=false;toast('No se pudo dejar de seguir la obra.');}
       });
     } else if(tab==='offline') {
-      box.innerHTML=`<h2>Mis descargas</h2><p class="mono" style="max-width:64ch;margin-bottom:16px">Las lecturas guardadas aquí se abren dentro de El Obi sin internet. Los archivos EPUB, PDF u otros formatos se obtienen por separado en la pestaña «Archivos» de cada obra.</p><div id="off">${rd().offlineList()}</div>`;
-      rd().bindOfflineList($('#off'),()=>{if(live())paintTab('offline');});
+      box.innerHTML=`<h2>Mis descargas</h2><p class="mono" style="max-width:64ch;margin-bottom:16px">Las lecturas guardadas aquí se abren dentro de El Obi sin internet. Los archivos EPUB, PDF u otros formatos se obtienen por separado en la pestaña «Archivos» de cada obra.</p><div id="off"><p class="mono" role="status">Preparando lecturas guardadas…</p></div>`;
+      const slot = box.querySelector('#off');
+      const reader = await rd();
+      if (!live() || request !== tabRequest || !slot?.isConnected || tab !== 'offline') return;
+      slot.innerHTML = reader.offlineList();
+      reader.bindOfflineList(slot,()=>{if(live())paintTab('offline');});
     } else {
       box.innerHTML='<p class="mono" role="status">Cargando historial…</p>';
       const pageSize=30, all=[];
@@ -795,7 +809,9 @@ async function library(){
       };
       const fetchHistory=async()=>{
         try{
-          const data=await rd().historyList({offset:all.length,limit:pageSize});
+          const reader = await rd();
+          if (!live() || request !== tabRequest) return;
+          const data=await reader.historyList({offset:all.length,limit:pageSize});
           if(!live()||request!==tabRequest)return;
           all.push(...data);drawHistory();
           if(data.length<pageSize)box.querySelector('#lb-history-more')?.remove();
@@ -1030,7 +1046,7 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 // precarga del capítulo al apuntar o tocar cualquier enlace al lector (Continuar, índice, fichas…)
-let warmT = 0; const warmOn = e => { const l = e.target.closest?.('a[href^="/leer/"]'); if (!l) return; const m = l.getAttribute('href').match(/^\/leer\/([\w-]+)\/(\d+(?:\.\d+)?)/); if (!m) return; clearTimeout(warmT); warmT = setTimeout(() => rd().warm(m[1], +m[2]), e.type === 'pointerover' ? 80 : 0); };
+let warmT = 0; const warmOn = e => { const l = e.target.closest?.('a[href^="/leer/"]'); if (!l) return; const m = l.getAttribute('href').match(/^\/leer\/([\w-]+)\/(\d+(?:\.\d+)?)/); if (!m) return; clearTimeout(warmT); warmT = setTimeout(() => { void rd().then(reader => reader.warm(m[1], +m[2])).catch(() => {}); }, e.type === 'pointerover' ? 80 : 0); };
 document.addEventListener('pointerover', warmOn, { passive: true }); document.addEventListener('touchstart', warmOn, { passive: true }); document.addEventListener('focusin', warmOn);
 // Anticipar la consulta ligera de la ficha al señalar/focalizar una novela.
 // La precarga se comparte con series() y caduca rápidamente en memoria.
@@ -1045,7 +1061,7 @@ const warmSeries = e => {
 document.addEventListener('pointerover', warmSeries, { passive: true });
 document.addEventListener('focusin', warmSeries);
 document.addEventListener('touchstart', warmSeries, { passive: true });
-addEventListener('load', () => setTimeout(() => { if (user && navigator.onLine) rd().syncPending(); }, 5000));
+addEventListener('load', () => setTimeout(() => { if (user && navigator.onLine) void rd().then(reader => reader.syncPending()).catch(() => {}); }, 5000));
 let authEv = null;
 sb.auth.onAuthStateChange(ev => { if (ev !== 'INITIAL_SESSION') loadSession().then(() => ui().refreshBadge()); if (navigator.onLine && ['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(ev) && authEv !== null) seasons().then(S => S.load(sb, true)).then(() => afterRender()); authEv = ev; });
 loadSession().then(() => {

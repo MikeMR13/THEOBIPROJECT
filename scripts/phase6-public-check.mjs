@@ -35,7 +35,7 @@ assert(!releases.includes('ob-upd ob-anim') && !releases.includes('ob-urow${v'),
 const homePerf=s.slice(s.indexOf('  async function home(){'),s.indexOf('  let heroPaused'));
 assert(homePerf.includes('const [FD, pr, VR] = await Promise.all(['),'Inicio debe esperar la portada editorial y la validación de edad');
 assert(homePerf.includes('const progressRequest = u ? progressMap()') && !homePerf.includes('feed(), progressMap()'), 'El progreso no debe bloquear el primer render de Inicio');
-assert(homePerf.indexOf('Promise.all([trendRequest, teamRequest])')>homePerf.indexOf('app.innerHTML = \`<div class="ob-page">'),'La carga complementaria debe ocurrir tras pintar Inicio');
+assert(homePerf.indexOf('Promise.all([trendRequest(), teamRequest()])')>homePerf.indexOf('app.innerHTML = \`<div class="ob-page">'),'La carga complementaria debe ocurrir tras pintar Inicio');
 assert(homePerf.includes('loadedTeamSignature = teamSignature(teamResult?.data)'),'Se perdió la supervisión de destacados');
 const rankPerf=s.slice(s.indexOf('  async function ranking(){'),s.indexOf('  async function ',s.indexOf('  async function ranking(){')+25));
 assert(rankPerf.includes('const loadTeams = () => teamPromise ||='),'La vista Por equipo debe consultar equipos bajo demanda');
