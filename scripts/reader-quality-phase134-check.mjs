@@ -24,8 +24,12 @@ assert.match(reader, /function chapterHTML[\s\S]*?rd-ch-end[\s\S]*?function glos
 assert.match(ui, /image = s\.cover_thumb_path \|\| s\.cover_path/, 'La estantería no prioriza miniaturas');
 assert.match(ui, /alternativeShelf\.length >= Math\.min\(4, list\.length\)/, 'La estantería no evita repetición cuando puede');
 assert.match(css, /#cat-filters>summary\{display:none\}/, 'El Catálogo muestra dos controles de filtros');
-const capture = (name) => Number(index.match(new RegExp(name.replace('.', '\\.') + '\\?v=(\\d+)'))?.[1] || 0);
-const appV = capture('app.js'), uiV = capture('ui.js'), readerV = capture('reader.js'), cssV = capture('styles.css');
+const capture = (text, name) => Number(text.match(new RegExp(name.replace('.', '\\.') + '\\?v=(\\d+)'))?.[1] || 0);
+const appV = capture(index, 'app.js'), uiV = capture(index, 'ui.js');
+const readerV = capture(app, 'reader.js'), cssV = capture(index, 'styles.css');
 assert(appV > 34 && uiV > 56 && readerV > 20 && cssV > 25, 'Recursos sin versión renovada');
-assert(app.includes('/ui.js?v=' + uiV) && app.includes('/reader.js?v=' + readerV), 'Importaciones y precargas desincronizadas');
+assert(app.includes('/ui.js?v=' + uiV) && app.includes("import('/reader.js?v=" + readerV + "')"),
+  'Importaciones y versiones de caché desincronizadas');
+assert(!index.includes('rel="modulepreload" href="/reader.js'),
+  'El lector no debe precargarse en el HTML público');
 console.log('✓ Calidad 1→3→4: contratos, sintaxis, navegación y versiones de caché');
