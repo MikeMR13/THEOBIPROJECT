@@ -262,6 +262,14 @@ try{
    console.log('Detalle de ruta '+route+' '+width+'px: '+JSON.stringify(result).slice(0,950));
    assert(result.syntheticInteractionToPaintMs!==null,'No se midió interacción programática');
    assert(Number.isFinite(result.cls),'CLS inválido');
+   // Objetivo Web Vitals de CLS. La navegación usa fixture local y por eso
+   // este control es de regresión de laboratorio, nunca garantía de producción.
+   assert(result.cls<=0.10,
+     'CLS por encima de 0.10 en '+route+' '+width+'px: '+result.cls+
+     ' · fuentes: '+JSON.stringify(result.shiftSources||[]));
+   assert(!result.overflowX,'Desbordamiento horizontal en '+route+' '+width+'px');
+   assert(Array.isArray(result.errors)&&result.errors.length===0,
+     'Errores JavaScript en '+route+' '+width+'px: '+result.errors);
    rows.push({...result,requestedRoute:route,requestedWidth:width});
    console.log(route+' '+width+'px, render='+Math.round(result.readyMs)+' ms, FCP='+result.fcpMs+
      ', LCP='+result.lcpMs+', CLS='+result.cls+', interacción programática='+result.syntheticInteractionToPaintMs);
