@@ -17,7 +17,7 @@ assert.deepEqual([5,4.5,4,6].sort((a,b)=>a-b),[4,4.5,5,6]);
 const studio=readFileSync('src/studio.js','utf8');
 const importer=readFileSync('src/studio-importer.js','utf8');
 const ui=readFileSync('src/ui.js','utf8');
-const migration=readFileSync('supabase/migrations/20261101014500_volume_numbers_decimal.sql','utf8');
+const migration=readFileSync('supabase/migrations/20261101021720_volume_numbers_decimal_20261101.sql','utf8');
 assert.match(studio,/name="vnum"[^>]*step="0\.1"/,'Studio debe admitir décimas');
 assert.match(studio,/const nn = parseVolumeNumber\(f\('vnum'\)\.value\)/,'No redondear el guardado');
 assert.match(studio,/renumber_volume/,'Renumeración con su RPC segura');
