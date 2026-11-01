@@ -18,7 +18,7 @@ assert(ui.includes('homeMetrics.shown(heroKey(s),metricCategory)'),'Registrar im
 assert(ui.includes('homeMetrics.clicked(s.slug,metricCategory)'),'Registrar clics del carrusel');
 assert(ui.includes("extra.teamRecommendations.length > 1"),'Mostrar banda con recomendaciones sin límite');
 assert(ui.includes('allTeams.map(') && ui.includes('loading="lazy"'),'Banda con miniaturas diferidas');
-assert(selector.includes('const limit=Math.max(0,Math.trunc(Number.isFinite(max)?max:8));'),'Limitar tamaño principal');
+assert(selector.includes('HOME_CAROUSEL_LIMIT = 10') && selector.includes('const limit=Math.max(0,Math.trunc(Number.isFinite(max)?max:HOME_CAROUSEL_LIMIT));'),'Limitar tamaño principal a diez');
 assert(selector.includes('teamRecommendations:pool.team'),'No ocultar equipos al limitar el hero');
 assert(app.includes('reportHomeRead(sb,p);'),'Atribuir inicios de lectura desde el router');
 assert(admin.includes("rpc('admin_carousel_metrics'") && admin.includes("['metricas','Métricas Inicio']"),
