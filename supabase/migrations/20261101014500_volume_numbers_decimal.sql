@@ -139,4 +139,6 @@ $function$;
 REVOKE ALL ON FUNCTION public.series_downloads_v2(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.series_downloads_v2(uuid) TO anon, authenticated, service_role;
 
+-- Actualizar la caché de esquemas de PostgREST tras cambiar firmas RPC.
+NOTIFY pgrst, 'reload schema';
 COMMIT;
