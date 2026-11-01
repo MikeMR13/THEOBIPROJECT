@@ -36,12 +36,16 @@ export function homeFeaturedSelection({series=[], news={entries:[],bySeries:{}},
   // Cualquier volumen público de las últimas 48 h (no solo el volumen 1)
   // encabeza Inicio por fecha de estreno. Entre varios, gana el más reciente.
   // Una novela completa conserva preferencia si no hay dos estrenos recientes.
-  // La etiqueta «Nuevo lanzamiento» de un debut permanece siete días.
+  // La etiqueta «Nuevo lanzamiento» dura siete días. Los primeros dos días
+  // compiten por fecha con todos los volúmenes; después conservan un cupo
+  // editorial disponible para no desaparecer al cargar tendencias/equipos.
   const freshDebuts=launches.filter(g=>+new Date(now)-Date.parse(g.at)<2*MS_DAY);
   const freshVolumes=updates.filter(g=>g?.kind==='volume' && isValidDate(g.at)
     && Date.parse(g.at)<=+new Date(now) && +new Date(now)-Date.parse(g.at)<2*MS_DAY)
     .map(g=>urgent.find(x=>x.id===g.id)||asRelease(g));
-  const priorityReleases=firstUnique([...freshVolumes,...freshDebuts,...urgent.slice(0,1)],2);
+  // Conservar los lanzamientos del volumen 1 durante su ventana de siete días
+  // sin desplazar los dos volúmenes recién publicados ni una novela completa.
+  const priorityReleases=firstUnique([...freshVolumes,...freshDebuts,...urgent.slice(0,1),...launches],2);
   pool.release=firstUnique([...priorityReleases,...launches,...updates.map(asRelease)]);
   pool.popular=firstUnique(sortScore(weekly).filter(r=>existing(r.series_id)).map(r=>({id:r.series_id,kind:'popular',label:'Top de la semana'})));
   pool.historic=firstUnique(sortScore(historic).filter(r=>existing(r.series_id)).map(r=>({id:r.series_id,kind:'historic',label:'Lo más visto'})));

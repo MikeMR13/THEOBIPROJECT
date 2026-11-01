@@ -131,6 +131,32 @@ const after48=homeFeaturedSelection({...competing,now:new Date('2026-10-26T21:20
 assert.equal(after48.entries[0].id,'completo','Pasadas 48 h ya no se fija el debut delante de novedades más pertinentes');
 assert(after48.pool.release.some(x=>x.id==='nuevo' && x.label==='Nuevo lanzamiento'),
   'El estreno mantiene su etiqueta durante siete días');
+assert(after48.entries.some(x=>x.id==='nuevo' && x.kind==='release'),
+  'El estreno de hace tres días no desaparece del carrusel antes de caducar su cinta');
+// La segunda carga de Inicio añade tendencias y equipos. Antes podía reemplazar
+// el lanzamiento de 3 días por una recomendación y ocultarlo de la vitrina.
+const lateTeams={
+  ...competing,
+  now:new Date('2026-10-26T21:20:00Z'),
+  teams:[
+    {team_id:'team-nuevo',series_id:'nuevo',updated_at:'2026-10-26T21:15:00Z'},
+    {team_id:'team-otro',series_id:'antiguo',updated_at:'2026-10-26T21:16:00Z'}
+  ],
+  trends:[{series_id:'antiguo',list:'tendencia',period:'hoy',score:999,pos:1}]
+};
+const beforeExtras=homeFeaturedSelection({...lateTeams,teams:[],trends:[]});
+const afterExtras=homeFeaturedSelection(lateTeams);
+assert(beforeExtras.entries.some(x=>x.id==='nuevo' && x.kind==='release'),
+  'La primera carga incluye el nuevo lanzamiento');
+assert(afterExtras.entries.some(x=>x.id==='nuevo' && x.kind==='release'),
+  'Las recomendaciones tardías no deben sustituir el lanzamiento anunciado');
+assert(afterExtras.entries.filter(x=>x.kind==='release').length<=2,
+  'La retención de lanzamientos no aumenta los dos cupos del carrusel');
+assert(afterExtras.entries.length<=8,
+  'Las recomendaciones tardías respetan el máximo visual de ocho portadas');
+assert(!homeFeaturedSelection({...lateTeams,now:new Date('2026-11-02T21:20:00Z')})
+  .entries.some(x=>x.id==='nuevo' && x.label==='Nuevo lanzamiento'),
+  'El estreno deja de recibir el distintivo al caducar los siete días');
 
 // Descubrimiento: no confundir una obra de cero vistas recién estrenada con una joya.
 const curatingNow=new Date('2026-10-23T21:30:00Z');
