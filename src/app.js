@@ -4,7 +4,7 @@ import { readPages } from './paging.js';
 import { prepareLibrary, selectLibraryItems } from './library-logic.js';
 import { editorialChapterLabel } from './editorial-public-labels.js';
 import { normalizeSupportCopy } from './support-display-copy.js';
-import { createOfflineDownloads } from './offline-downloads.js?v=1';
+import { createOfflineDownloads, readOfflineIndex } from './offline-downloads.js?v=1';
 import { readingGroups, planReadingChanges, undoReadingChanges, applyReadingChanges, persistReadingChanges } from './library-read-actions.js';
 // Importaciones estáticas: el navegador descarga app, ui y reader a la vez (más modulepreload en index.html).
 import { createClient } from '/supabase.js?v=1';
@@ -22,7 +22,13 @@ const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display =
 let user = null, profile = null, me = null;
 let teamMemberships = [];
 const offlineDownloads = createOfflineDownloads({ sb, url, toast });
+const savedDownloadCount = () => Object.keys(readOfflineIndex()).length;
+const savedDownloadSummary = () => { const n = savedDownloadCount(); return n + (n === 1 ? ' descarga guardada en este dispositivo' : ' descargas guardadas en este dispositivo'); };
 offlineDownloads.bind();
+document.addEventListener('obi-offline-change', () => {
+  const count = document.getElementById('lb-download-count');
+  if (count) count.textContent = savedDownloadSummary();
+});
 const CTX = () => ({ sb, app, $, esc, toast, go, getUser: () => user, getMe: () => me, url, offlineButton: offlineDownloads.button });
 let LG; const lg = async () => LG ||= await import('/legal.js?v=1');
 let PF; const pf = async () => PF ||= await import('/profile.js?v=11');
@@ -100,7 +106,7 @@ const pr = me?.platform_role || 'lector';
 const ini = esc((profile?.username || user?.email || '?')[0].toUpperCase());
 const cont = `<a class="ob-cont" id="ob-cont" href="/biblioteca" hidden><span class="k" aria-hidden="true">続</span><span class="t"><small>Continuar</small><b></b></span></a>`;
 const h = cont + (user
-? `<details class="ob-bell"><summary aria-label="Avisos"><span aria-hidden="true">鈴</span><em id="bell-n" hidden></em></summary><div class="ob-menu ob-nt" id="bell-list"><p class="mono">Cargando…</p></div></details><details class="ob-user"><summary aria-label="Menú de cuenta"><span class="ob-av">${profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : ini}</span></summary><div class="ob-menu"><div class="who2"><strong>${esc(profile?.username || user.email)}</strong><small>${RL[pr]}${profile?.donor_tier ? ' · 援 Donador' : ''}</small></div><a href="/perfil">Mi perfil</a>${teamMemberships.length ? '<a href="/mi-equipo">Perfil grupal</a>' : ''}<a href="/biblioteca">Mi biblioteca</a><a href="/preferencias">Preferencias</a><button type="button" data-install ${canInstall() ? '' : 'hidden'}>Instalar la app</button>${pr === 'bibliotecario' ? '<a href="/bibliotecario">Mostrador del Bibliotecario</a>' : ''}${pr !== 'lector' ? '<a href="/estudio">Estudio</a>' : '<a href="/solicitud">Crear mi grupo traductor</a>'}<button id="out">Salir</button></div></details>`
+? `<details class="ob-bell"><summary aria-label="Avisos"><span aria-hidden="true">鈴</span><em id="bell-n" hidden></em></summary><div class="ob-menu ob-nt" id="bell-list"><p class="mono">Cargando…</p></div></details><details class="ob-user"><summary aria-label="Menú de cuenta"><span class="ob-av">${profile?.avatar_url ? `<img src="${esc(profile.avatar_url)}" alt="">` : ini}</span></summary><div class="ob-menu"><div class="who2"><strong>${esc(profile?.username || user.email)}</strong><small>${RL[pr]}${profile?.donor_tier ? ' · 援 Donador' : ''}</small></div><a href="/perfil">Mi perfil</a>${teamMemberships.length ? '<a href="/mi-equipo">Perfil grupal</a>' : ''}<a href="/biblioteca">Mi biblioteca</a><a href="/descargas">Mis descargas</a><a href="/preferencias">Preferencias</a><button type="button" data-install ${canInstall() ? '' : 'hidden'}>Instalar la app</button>${pr === 'bibliotecario' ? '<a href="/bibliotecario">Mostrador del Bibliotecario</a>' : ''}${pr !== 'lector' ? '<a href="/estudio">Estudio</a>' : '<a href="/solicitud">Crear mi grupo traductor</a>'}<button id="out">Salir</button></div></details>`
 : `<button class="btn" id="in">Entrar</button>`);
 if (h === lastBar) return contBtn(); lastBar = h; $('#session').innerHTML = h;
 const dd = $('#session .ob-user'); if (dd) dd.querySelector('.ob-menu').addEventListener('click', e => { if (e.target.closest('a')) dd.open = false; });
@@ -209,7 +215,7 @@ function render(){
 // ---------- sin conexión ----------
 function offlinePage(){
   const on = navigator.onLine; lbCss();
-  app.innerHTML = `<div class="ui-cath"><div><h1>${on ? 'Mis lecturas sin conexión' : 'Sin conexión'}</h1><p>${on ? 'Capítulos y volúmenes guardados en este dispositivo para leer sin internet.' : 'Puedes seguir leyendo lo que guardaste sin conexión. El resto de la biblioteca vuelve cuando tengas internet.'}</p></div><span class="kj" aria-hidden="true">${on ? '保存' : '圏外'}</span></div><div id="off">${rd().offlineList()}</div>${on ? `<p style="margin-top:18px"><button class="btn ghost" type="button" data-install ${canInstall() ? '' : 'hidden'}>Instalar la app para leer sin conexión</button></p>` : '<p style="margin-top:18px"><button class="btn ghost" id="off-retry">Reintentar conexión</button></p>'}`;
+  app.innerHTML = `<div class="ui-cath"><div><h1>Mis descargas</h1><p>${on ? 'Capítulos y volúmenes guardados en este dispositivo para leer sin internet.' : 'Puedes seguir leyendo lo que guardaste sin conexión. El resto de la biblioteca vuelve cuando tengas internet.'}</p><p class="mono" style="font-size:12px;color:var(--mute)">${savedDownloadSummary()}</p></div><span class="kj" aria-hidden="true">${on ? '保存' : '圏外'}</span></div><div id="off">${rd().offlineList()}</div>${on ? `<p style="margin-top:18px"><button class="btn ghost" type="button" data-install ${canInstall() ? '' : 'hidden'}>Instalar la app para leer sin conexión</button></p>` : '<p style="margin-top:18px"><button class="btn ghost" id="off-retry">Reintentar conexión</button></p>'}`;
   rd().bindOfflineList($('#off'), offlinePage);
   $('#off-retry')?.addEventListener('click', () => navigator.onLine ? render() : toast('Todavía sin conexión'));
 }
@@ -217,7 +223,7 @@ function netBanner(){
   let b = document.getElementById('obi-net');
   if (navigator.onLine) { if (b) { b.dataset.on = '1'; b.textContent = 'Conexión recuperada'; setTimeout(() => b.remove(), 2500); } return; }
   if (!b) { b = document.createElement('div'); b.id = 'obi-net'; b.setAttribute('role', 'status'); document.body.appendChild(b); }
-  delete b.dataset.on; b.innerHTML = 'Sin conexión · <a href="/descargas">ver lecturas guardadas</a>';
+  delete b.dataset.on; b.innerHTML = 'Sin conexión · <a href="/descargas">Mis descargas</a>';
 }
 addEventListener('offline', netBanner);
 addEventListener('online', () => { netBanner();
@@ -318,6 +324,15 @@ const LB_CSS = `
 .lb-tabs{position:relative;flex-wrap:nowrap;align-items:stretch;scrollbar-width:thin;scrollbar-color:#67512e transparent;scroll-padding-inline:12px;margin-bottom:8px}
 .lb-tabs a{white-space:nowrap;gap:7px;min-height:48px}.lb-tabs a:focus-visible{outline:2px solid var(--gold);outline-offset:-3px}
 .lb-navhelp{display:none;font:11px/1.5 'IBM Plex Mono',monospace;color:var(--mute);margin:0 0 21px}
+.lb-download-shortcut{display:flex;align-items:center;gap:14px;max-width:760px;min-height:72px;margin:0 0 20px;padding:12px 16px;background:linear-gradient(110deg,#241c12,#17130f);border:1px solid #96783f;color:var(--paper);text-decoration:none}
+.lb-download-shortcut:hover{border-color:var(--gold);background:#251d12}
+.lb-download-shortcut:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.lb-download-icon{display:grid;place-items:center;flex:none;width:42px;height:42px;border:1px solid #af8b48;color:var(--gold);font:700 25px/1 'IBM Plex Sans',sans-serif}
+.lb-download-shortcut-copy{display:grid;gap:4px;min-width:0}
+.lb-download-shortcut-copy strong{font:700 16px/1.4 'IBM Plex Sans',sans-serif}
+.lb-download-shortcut-copy small{font:12px/1.5 'IBM Plex Sans',sans-serif;color:#d1c3a7}
+.lb-download-go{margin-left:auto;flex:none;color:var(--gold);font:700 12px 'IBM Plex Sans',sans-serif}
+@media(max-width:390px){.lb-download-shortcut{gap:10px;padding:12px}.lb-download-go{font-size:11px}}
 .lb-toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(155px,205px);gap:12px;align-items:end;margin:0 0 16px;max-width:950px}
 .lb-toolbar label{display:grid;gap:7px;font-size:12px;font-weight:600;color:var(--mute);min-width:0}
 .lb-toolbar input,.lb-toolbar select{width:100%;min-height:45px;min-width:0;background:#16140f;border:1px solid #5f4e32;color:var(--paper);padding:9px 12px;border-radius:4px;font:inherit;font-size:14px}
@@ -419,7 +434,7 @@ async function library(){
   const live = () => seq === librarySeq && user?.id === uid && location.pathname === '/biblioteca';
   lbCss(); installCreditImageFallback();
   app.innerHTML = '<p class="mono" role="status" aria-live="polite">Cargando tu biblioteca…</p>';
-  const TABS = [['leyendo','Leyendo'],['pendientes','Pendientes'],['terminadas','Terminadas'],['avisos','Avisos'],['offline','Sin conexión'],['historial','Historial']];
+  const TABS = [['leyendo','Leyendo'],['pendientes','Pendientes'],['terminadas','Terminadas'],['avisos','Avisos'],['offline','Mis descargas'],['historial','Historial']];
   const requested = new URLSearchParams(location.search).get('t');
   let tab = TABS.some(([k]) => k === requested) ? requested : 'leyendo';
   let prog = [], fol = [], readRows = [], ser = [], chs = [];
@@ -510,6 +525,7 @@ async function library(){
     : '<span class="lb-spotlight-fallback" aria-hidden="true">帯</span>';
   const latestPct = latest?.tot ? Math.min(100,Math.max(0,Math.round(latest.nr / latest.tot * 100))) : 0;
   app.innerHTML = `<div class="ui-cath"><div><h1>Mi biblioteca</h1><p>${read.size.toLocaleString('es-MX')} capítulos leídos · ${F.size.toLocaleString('es-MX')} obras seguidas</p></div><span class="kj" aria-hidden="true">書庫</span></div>
+  <a class="lb-download-shortcut" href="/descargas"><span class="lb-download-icon" aria-hidden="true">↓</span><span class="lb-download-shortcut-copy"><strong>Mis descargas</strong><small id="lb-download-count">${savedDownloadSummary()}</small></span><span class="lb-download-go" aria-hidden="true">Ver →</span></a>
   ${latest ? `<section class="lb-spotlight" aria-label="Reanudar última lectura">
     <a class="lb-spotlight-cover" href="${esc(latestHref)}" aria-label="Continuar ${esc(latest.s.title)}">${latestCover}</a>
     <div class="lb-spotlight-info"><span class="lb-spotlight-kicker">続読 · REANUDAR ÚLTIMA LECTURA</span>
@@ -763,7 +779,7 @@ async function library(){
         catch(e){b.disabled=false;toast('No se pudo dejar de seguir la obra.');}
       });
     } else if(tab==='offline') {
-      box.innerHTML=`<p class="mono" style="max-width:64ch;margin-bottom:16px">Las lecturas guardadas aquí se abren dentro de El Obi sin internet. Los archivos EPUB, PDF u otros formatos se obtienen por separado en la pestaña «Archivos» de cada obra.</p><div id="off">${rd().offlineList()}</div>`;
+      box.innerHTML=`<h2>Mis descargas</h2><p class="mono" style="max-width:64ch;margin-bottom:16px">Las lecturas guardadas aquí se abren dentro de El Obi sin internet. Los archivos EPUB, PDF u otros formatos se obtienen por separado en la pestaña «Archivos» de cada obra.</p><div id="off">${rd().offlineList()}</div>`;
       rd().bindOfflineList($('#off'),()=>{if(live())paintTab('offline');});
     } else {
       box.innerHTML='<p class="mono" role="status">Cargando historial…</p>';
