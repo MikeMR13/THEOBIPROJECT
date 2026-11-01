@@ -13,6 +13,9 @@ const fn=code.slice(start,end);
 const el={
   dataset:{},
   innerHTML:'',
+  // Simular la API DOM utilizada por el temporizador al reconciliar el foco.
+  // No hay ningún elemento enfocado en el arranque de Inicio.
+  contains(node){return node != null && node === this;},
   querySelector(){return null},
   querySelectorAll(){return []}
 };
@@ -38,7 +41,7 @@ const sandbox={
   createHeroRotationClock:()=>({show(){},dispose(){}}),
   matchMedia:()=>({matches:false}),
   window:{obiTZ:()=> 'America/Monterrey'},
-  document:{body:{contains:()=>true}}
+  document:{activeElement:null,body:{contains:()=>true}}
 };
 const feature={
   id:'novela-ejemplo',
