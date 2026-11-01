@@ -40,8 +40,13 @@ export function mergeHomeCarousel(published = [], upcoming = [], max = HOME_CARO
   };
   const live = (Array.isArray(published) ? published : []).filter(x => x && !x.__prelaunch && x.id != null
     && (!previewIds.has(String(x.id)) || hasFreshPublishedVolume(x.id)));
+  // Las novedades de volumen conservan prioridad aunque tendencias y equipos
+  // reordenen el resto de la lista después de mostrar el carrusel inicial.
+  const pinned = live.filter(x => hasFreshPublishedVolume(x.id));
+  const others = live.filter(x => !hasFreshPublishedVolume(x.id));
+  const ordered = [...pinned, ...others];
   const seen = new Set();
-  return [...live.slice(0,1), ...previews, ...live.slice(1)]
+  return [...ordered.slice(0,1), ...previews, ...ordered.slice(1)]
     .filter(x => {
       const key=x?.__prelaunch ? 'pre:'+x.__prelaunch.volume_id : 'pub:'+x?.id;
       if (!x || x.id == null || seen.has(key)) return false;

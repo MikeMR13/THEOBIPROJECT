@@ -1200,7 +1200,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       } else teamSlot?.remove();
       // Las recomendaciones tardías utilizan el calendario guardado; nunca
       // descartan un preestreno ni el volumen recién publicado de esa misma obra.
-      const published = covers.length ? covers : feat.filter(x => !x.__prelaunch);
+      const retained = feat.filter(x => !x.__prelaunch && newsBySeries[x.id]?.kind === 'volume'
+        && +new Date(now)-Date.parse(newsBySeries[x.id]?.at || '') < 7*864e5);
+      const published = covers.length ? [...retained, ...covers] : feat.filter(x => !x.__prelaunch);
       const updated = mergeHomeCarousel(published, prelaunchPreviews, 10, newsBySeries, now);
       if (!updated.length) return;
       const changed = updated.length !== feat.length || updated.some((x, i) => heroKey(x) !== heroKey(feat[i]));
