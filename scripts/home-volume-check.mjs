@@ -1,6 +1,8 @@
 // Pruebas de regresión: inicio editorial, capítulos sueltos y volúmenes publicados completos.
 import assert from 'node:assert/strict';
 import { homeReleaseOverview, homeReleaseHighlights } from '../src/home-releases.js';
+import { newLaunchRibbon } from '../src/home-vitrina.js';
+import { readFileSync } from 'node:fs';
 
 const NOW = Date.parse('2026-10-21T18:00:00Z');
 const series = ['a', 'b', 'c'].map(id => ({ id, title: id }));
@@ -71,4 +73,21 @@ const d1 = '2026-10-20T12:00:00Z', d2 = '2026-10-21T10:00:00Z', d3 = '2026-10-21
   assert.equal(new Set(dedup.map(x=>x.id)).size,dedup.length,'obras únicas');
   assert(!dedup.some(x=>x.id==='future'),'no mostrar volúmenes futuros');
 }
+// La transición de un preestreno opt-in debe contarse como el estreno del volumen 1.
+{
+  const published={...vol('a',1,d3,null),announce_prelaunch:true};
+  const launched=homeReleaseOverview([ch('a',1,d3)], [published], series, NOW);
+  assert.equal(launched.bySeries.a?.kind,'volume','El preestreno publicado no debe parecer solo un capítulo');
+  assert.equal(launched.bySeries.a?.isNewSeries,true,'El volumen 1 es un nuevo lanzamiento');
+  assert.deepEqual(newLaunchRibbon(launched.bySeries.a,NOW),{text:'¡Nuevo lanzamiento!',color:'#f2c230'},
+    'Mostrar una cinta automática sin requerir un segundo anuncio manual');
+  assert.equal(newLaunchRibbon(launched.bySeries.a,NOW+8*864e5),null,'La cinta no es permanente');
+  const scheduled=homeReleaseOverview([], [{...published,status:'scheduled'}], series, NOW);
+  assert.equal(scheduled.bySeries.a,undefined,'No anticipar portadas ni cintas de un volumen aún programado');
+}
+const seriesPage=readFileSync('src/ui.js','utf8'), seriesStyles=readFileSync('src/styles.css','utf8');
+assert.match(seriesPage, /class="ui-v-syn-details".*Leer sinopsis.*Ocultar sinopsis/,
+  'La ficha del volumen debe ofrecer un desplegable de sinopsis');
+assert.match(seriesStyles, /ui-v-syn-details\[open\]/,
+  'La sinopsis expandida necesita estilos propios');
 console.log('home-volume-check: OK');
