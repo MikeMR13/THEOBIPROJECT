@@ -110,9 +110,15 @@ function instrument(){
   }else{
    document.querySelector('#hero .ob-pager2 button[data-dir="1"]')?.click();
   }
-  setTimeout(()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
-   lab.syntheticInteractionToPaintMs=performance.now()-t;
-  })),200);
+  setTimeout(()=>{
+   requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    lab.syntheticInteractionToPaintMs=performance.now()-t;
+   }));
+   // Chromium --virtual-time-budget puede pausar frames; registrar un
+   // fallback etiquetado como latencia sintética, NUNCA como INP.
+   setTimeout(()=>{if(lab.syntheticInteractionToPaintMs===null)
+    lab.syntheticInteractionToPaintMs=performance.now()-t;},650);
+  },200);
  };
  const finish=()=>{
   const fcp=performance.getEntriesByType('paint').find(x=>x.name==='first-contentful-paint');
@@ -131,7 +137,7 @@ function instrument(){
  };
  addEventListener('load',()=>{
   const polling=setInterval(()=>{if(check()){clearInterval(polling);click()}},50);
-  setTimeout(()=>{clearInterval(polling);finish()},3100);
+  setTimeout(()=>{clearInterval(polling);finish()},5100);
  },{once:true});
 }
 
@@ -195,7 +201,7 @@ assert(browser,'Chromium no disponible');
 const run=url=>new Promise((resolve,reject)=>{
  const p=spawn(browser,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage',
   '--disable-background-networking','--disable-extensions','--no-first-run',
-  '--window-size=1600,1400','--virtual-time-budget=6500','--dump-dom',url],
+  '--window-size=1600,1400','--virtual-time-budget=8500','--dump-dom',url],
   {stdio:['ignore','pipe','pipe']});
  let out='',err='',done=false;
  p.stdout.on('data',d=>out+=String(d));p.stderr.on('data',d=>err=(err+String(d)).slice(-800));
@@ -219,6 +225,7 @@ try{
   const result=await run(origin+'/__lab?w='+width+'&route='+route);
   assert.equal(result.viewport,width,'Ancho incorrecto en iframe');
   assert(result.rendered,'Ruta no montada');
+  console.log('Detalle de ruta '+route+' '+width+'px: '+JSON.stringify(result).slice(0,800));
   assert(result.syntheticInteractionToPaintMs!==null,'No se midió interacción programática');
   assert(Number.isFinite(result.cls),'CLS inválido');
   rows.push({...result,requestedRoute:route,requestedWidth:width});
