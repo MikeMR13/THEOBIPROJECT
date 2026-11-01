@@ -188,6 +188,16 @@ select{background:#16140f;border:2px solid var(--line);color:var(--paper);paddin
 #session{display:flex;gap:10px;align-items:center}[data-install][hidden]{display:none!important}html,body{overflow-x:clip}
 #obi-net{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:70;max-width:92vw;padding:9px 14px;background:#1c1a14;border:1px solid var(--gold);color:var(--paper,#f3ecd9);font:13px 'IBM Plex Sans',sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.45)}#obi-net a{color:var(--gold)}#obi-net[data-on]{border-color:#9fdcb0}
 .obi-offline-manage-link{display:inline-flex;align-items:center;min-height:44px;margin:3px 8px;padding:7px 10px;color:var(--gold);font:700 12px/1.4 'IBM Plex Sans',sans-serif;text-decoration:underline;text-underline-offset:3px}.obi-offline-manage-link:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* Mis descargas: la textura estacional queda fuera del contenido legible. */
+#app.obi-downloads-page{background:var(--ink);min-width:0}
+.obi-downloads-page #off{min-width:0;max-width:100%}
+.off-empty{max-width:68ch;min-width:0;margin:0;padding:16px 18px;background:#17140e;border-left:3px solid var(--gold);color:#e0d5bc;font:14px/1.65 'IBM Plex Sans',sans-serif;white-space:normal;overflow-wrap:anywhere}
+.off-empty+.off-empty{margin-top:10px}
+.off-it .btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:center}
+.off-it .btn.ghost{border-color:#7d6841}
+.obi-downloads-page :is([data-install],#off-retry){min-height:44px;max-width:100%;white-space:normal;overflow-wrap:anywhere;background:#1b170e;border-color:#836b41}
+.obi-downloads-page .obi-sea-greet button{min-height:44px;min-width:44px}
+@media(max-width:560px){.off-it .btn{width:100%}}
 .off-list{display:grid;gap:8px;max-width:760px}.off-it{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:12px 14px;background:#14120d;border:1px solid #2f2a20}.off-it span{display:grid;gap:3px;min-width:0}.off-it b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.off-it small{font:11px 'IBM Plex Mono',monospace;color:var(--mute,#a89f8a)}
 @media(max-width:560px){.off-it{grid-template-columns:1fr 1fr}.off-it span{grid-column:1/-1}}
 .ob-cont{display:flex;align-items:center;gap:8px;max-width:230px;min-height:36px;padding:3px 10px 3px 4px;border:1px solid var(--gold);color:var(--paper,#f3ecd9);text-decoration:none;line-height:1.15}.ob-cont[hidden]{display:none}

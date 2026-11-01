@@ -70,9 +70,9 @@ try {
   assert.match(read('src/app.js'),/\/ui\.js\?v=62/);
   assert.match(read('src/app.js'),/\/studio\.js\?v=64/);
   assert.match(read('src/ui.js'),/\.\/prelaunch\.js\?v=4/);
-  assert.match(read('src/index.html'),/\/app\.js\?v=55/);
+  assert.match(read('src/index.html'),/\/app\.js\?v=56/);
   assert.match(read('src/index.html'),/\/ui\.js\?v=62/);
-  assert.match(read('src/index.html'),/\/styles\.css\?v=31/);
+  assert.match(read('src/index.html'),/\/styles\.css\?v=32/);
   console.log('✓ Fase 2: seguimiento reversible, compartir público y Estudio sin enlaces a borradores.');
 } finally {
   globalThis.document=oldDocument;globalThis.window=oldWindow;

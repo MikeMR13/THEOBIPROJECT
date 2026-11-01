@@ -91,6 +91,6 @@ assert.match(st,/createPrelaunchMetricsPanel\(prelaunchIds, prelaunchMetrics, pr
 assert.match(prejs,/void recordPrelaunchView\(sb,pre\)/);
 assert.match(read('src/ui.js'),/prelaunch\.js\?v=4/);
 assert.match(read('src/app.js'),/ui\.js\?v=62/);
-assert.match(read('src/index.html'),/app\.js\?v=55/);
+assert.match(read('src/index.html'),/app\.js\?v=56/);
 assert.match(read('src/studio-obras.css'),/repeat\(4,minmax\(0,1fr\)\)/);
 console.log('✓ Aperturas de primer vistazo: agregación limitada, sin identidades, ventanas de 30/90 días y errores cerrados.');
