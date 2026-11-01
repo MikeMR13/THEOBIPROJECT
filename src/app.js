@@ -209,7 +209,7 @@ function render(){
 // ---------- sin conexión ----------
 function offlinePage(){
   const on = navigator.onLine; lbCss();
-  app.innerHTML = `<div class="ui-cath"><div><h1>${on ? 'Mis descargas' : 'Sin conexión'}</h1><p>${on ? 'Volúmenes guardados en este dispositivo para leer sin internet.' : 'Puedes seguir leyendo lo que descargaste. El resto de la biblioteca vuelve cuando tengas internet.'}</p></div><span class="kj" aria-hidden="true">${on ? '保存' : '圏外'}</span></div><div id="off">${rd().offlineList()}</div>${on ? `<p style="margin-top:18px"><button class="btn ghost" type="button" data-install ${canInstall() ? '' : 'hidden'}>Instalar la app para leer sin conexión</button></p>` : '<p style="margin-top:18px"><button class="btn ghost" id="off-retry">Reintentar conexión</button></p>'}`;
+  app.innerHTML = `<div class="ui-cath"><div><h1>${on ? 'Mis lecturas sin conexión' : 'Sin conexión'}</h1><p>${on ? 'Capítulos y volúmenes guardados en este dispositivo para leer sin internet.' : 'Puedes seguir leyendo lo que guardaste sin conexión. El resto de la biblioteca vuelve cuando tengas internet.'}</p></div><span class="kj" aria-hidden="true">${on ? '保存' : '圏外'}</span></div><div id="off">${rd().offlineList()}</div>${on ? `<p style="margin-top:18px"><button class="btn ghost" type="button" data-install ${canInstall() ? '' : 'hidden'}>Instalar la app para leer sin conexión</button></p>` : '<p style="margin-top:18px"><button class="btn ghost" id="off-retry">Reintentar conexión</button></p>'}`;
   rd().bindOfflineList($('#off'), offlinePage);
   $('#off-retry')?.addEventListener('click', () => navigator.onLine ? render() : toast('Todavía sin conexión'));
 }
@@ -217,7 +217,7 @@ function netBanner(){
   let b = document.getElementById('obi-net');
   if (navigator.onLine) { if (b) { b.dataset.on = '1'; b.textContent = 'Conexión recuperada'; setTimeout(() => b.remove(), 2500); } return; }
   if (!b) { b = document.createElement('div'); b.id = 'obi-net'; b.setAttribute('role', 'status'); document.body.appendChild(b); }
-  delete b.dataset.on; b.innerHTML = 'Sin conexión · <a href="/descargas">ver mis descargas</a>';
+  delete b.dataset.on; b.innerHTML = 'Sin conexión · <a href="/descargas">ver lecturas guardadas</a>';
 }
 addEventListener('offline', netBanner);
 addEventListener('online', () => { netBanner();
@@ -559,7 +559,7 @@ async function library(){
           <span class="lb-progress-track" aria-hidden="true"><i style="width:${pct}%"></i></span>
         </div>
         <a class="lb-card-cta" href="${esc(href)}">${done?'Ver la obra':pending?'Leer siguiente capítulo':'Continuar leyendo'}</a>
-        <div class="lb-offline-actions" role="group" aria-label="Descargas sin conexión de ${esc(w.s.title)}">
+        <div class="lb-offline-actions" role="group" aria-label="Lecturas sin conexión de ${esc(w.s.title)}">
           ${offlineDownloads.button({slug:w.s.slug,scope:'series'})}
           ${chapter ? offlineDownloads.button({slug:w.s.slug,scope:'chapter',num:chapter.num}) : ''}
         </div>
@@ -763,7 +763,7 @@ async function library(){
         catch(e){b.disabled=false;toast('No se pudo dejar de seguir la obra.');}
       });
     } else if(tab==='offline') {
-      box.innerHTML=`<div id="off">${rd().offlineList()}</div>`;
+      box.innerHTML=`<p class="mono" style="max-width:64ch;margin-bottom:16px">Las lecturas guardadas aquí se abren dentro de El Obi sin internet. Los archivos EPUB, PDF u otros formatos se obtienen por separado en la pestaña «Archivos» de cada obra.</p><div id="off">${rd().offlineList()}</div>`;
       rd().bindOfflineList($('#off'),()=>{if(live())paintTab('offline');});
     } else {
       box.innerHTML='<p class="mono" role="status">Cargando historial…</p>';

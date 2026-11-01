@@ -431,7 +431,7 @@ export function createReader(ctx){
     if (!b) { app.innerHTML = '<h1>Sin conexión</h1><p>Este capítulo no está descargado. <a href="/descargas">Ver mis descargas</a></p>'; return; }
     const p = effective(ch.volume_id);
     S.mounted = [ch]; S.active = ch; S.activeOwner = openingUser; S.annots = []; S.lastY = null; trackView(ch);
-    const more = `<button class="btn ghost" data-act="coms">Comentarios</button><button class="btn ghost" data-act="notes">Anotaciones</button><button class="btn ghost" data-act="offline">${isVolOffline(ch) ? '✓ Descargado' : 'Descargar volumen'}</button>`;
+    const more = `<button class="btn ghost" data-act="coms">Comentarios</button><button class="btn ghost" data-act="notes">Anotaciones</button><button class="btn ghost" data-act="offline">${isVolOffline(ch) ? 'Quitar del dispositivo' : 'Guardar sin conexión'}</button>`;
     app.innerHTML = `<div class="rd" data-theme="${p.theme}" data-width="${p.width}" data-lh="${p.lh}" data-align="${p.align}" data-para="${p.para}" data-font="${p.font}" data-controls="${p.controls === 'fijo' ? 'fijo' : 'deslizable'}" style="--rs:${p.size}px">
       <nav class="rd-bar">
         <span class="rd-where"><a href="/serie/${esc(slug)}" class="rd-back" title="${esc(S.series.title)}">‹ ${esc(S.series.title)}</a><span class="rd-left mono"></span></span>
@@ -825,11 +825,11 @@ export function createReader(ctx){
     const btns = [...document.querySelectorAll('[data-act="offline"]')];
     const btn = { set textContent(t){ btns.forEach(b => b.textContent = t); }, set disabled(v){ btns.forEach(b => b.disabled = v); } };
     if (idx[key]) {
-      try { await removeVolume(key); btn.textContent = 'Descargar volumen'; toast('Volumen ' + ch.vol + ' eliminado del dispositivo'); }
+      try { await removeVolume(key); btn.textContent = 'Guardar sin conexión'; toast('Volumen ' + ch.vol + ' eliminado del dispositivo'); }
       catch (e) { toast('No se pudo borrar el volumen: ' + (e?.message || 'error de almacenamiento')); }
       return;
     }
-    if (!navigator.onLine) return toast('Necesitas conexión para descargar el volumen');
+    if (!navigator.onLine) return toast('Conéctate a internet para guardar el volumen y leerlo después sin conexión');
     if (!('caches' in window)) return toast('Tu navegador no permite guardar sin conexión');
     btn.disabled = true;
     const list = S.chapters.filter(c => c.vol === ch.vol);
@@ -842,7 +842,7 @@ export function createReader(ctx){
       previousMeta = await c.match(metaKey);
       let n = 0;
       for (const x of list) {
-        btn.textContent = `Descargando ${++n}/${list.length}…`;
+        btn.textContent = `Guardando ${++n}/${list.length}…`;
         const b = await body(x);
         if (!Array.isArray(b) || !b.length) throw new Error('No se pudo guardar el capítulo ' + x.num);
         // No sobrescribir ni borrar una descarga individual previa al completar el volumen.
@@ -869,7 +869,7 @@ export function createReader(ctx){
       idx[key] = { slug: S.series.slug, title: S.series.title, vol: ch.vol, nums: list.map(x => x.num), assets: [...assets], at: Date.now() };
       localStorage.setItem(OFF_INDEX, JSON.stringify(idx));
       complete = true;
-      btn.textContent = '✓ Descargado';
+      btn.textContent = 'Quitar del dispositivo';
       toast(`Volumen ${ch.vol} listo para leer sin conexión`);
       if (typeof Event !== 'undefined') document.dispatchEvent?.(new Event('obi-offline-change'));
       navigator.storage?.persist?.().catch(() => {});
@@ -882,10 +882,10 @@ export function createReader(ctx){
           try { if (previousMeta) await c.put(metaKey, previousMeta); else await c.delete(metaKey); } catch {}
         }
       }
-      toast('Descarga incompleta. Intenta de nuevo: ' + (e?.message || 'sin espacio o sin conexión'));
+      toast('No se pudo guardar sin conexión. Intenta de nuevo: ' + (e?.message || 'sin espacio o sin conexión'));
     } finally {
       btn.disabled = false;
-      if (!complete) btn.textContent = 'Descargar volumen';
+      if (!complete) btn.textContent = 'Guardar sin conexión';
     }
   }
   async function removeVolume(key){
@@ -905,10 +905,10 @@ export function createReader(ctx){
   }
   function offlineList(){
     const items = Object.entries(offIndex()).sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
-    if (!items.length) return '<p class="mono">No tienes lecturas descargadas. Usa «Descargar» desde Obras, Mi biblioteca o el lector.</p>' + ((navigator.standalone === true || matchMedia('(display-mode: standalone)').matches) && /iphone|ipad|ipod|macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 0 ? '<p class="mono" style="margin-top:8px">En iPhone y iPad la app instalada guarda sus descargas aparte de Safari: lo que bajaste en el navegador no aparece aquí. Descárgalo de nuevo desde la app.</p>' : '');
+    if (!items.length) return '<p class="mono">No tienes lecturas guardadas. Usa «Guardar sin conexión» desde Obras, Mi biblioteca o el lector.</p>' + ((navigator.standalone === true || matchMedia('(display-mode: standalone)').matches) && /iphone|ipad|ipod|macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 0 ? '<p class="mono" style="margin-top:8px">En iPhone y iPad la app instalada guarda sus descargas aparte de Safari: lo que guardaste desde Safari no aparece aquí. Guárdalo de nuevo desde la app para leer sin conexión.</p>' : '');
     return `<div class="off-list">${items.map(([k, it]) => { let pos = null; try { pos = JSON.parse(localStorage.getItem(posKey(k.split(':')[0]))); } catch {}
       const here = pos && it.nums.includes(pos.num) ? pos.num : null, n = it.nums.length;
-      return `<div class="off-it"><span><b>${esc(it.title)}</b><small>${it.kind === 'chapter' ? 'Capítulo ' + it.nums[0] + ' · Volumen ' + it.vol : 'Volumen ' + it.vol + ' · ' + n + (n === 1 ? ' capítulo' : ' capítulos')} · descargado ${new Date(it.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</small></span><a class="btn" href="/leer/${esc(it.slug)}/${here || it.nums[0]}">${here ? 'Continuar · cap. ' + here : 'Empezar a leer'}</a><button class="btn ghost" data-off="${esc(k)}">Borrar</button></div>`; }).join('')}</div><p class="mono" id="off-space"></p>`;
+      return `<div class="off-it"><span><b>${esc(it.title)}</b><small>${it.kind === 'chapter' ? 'Capítulo ' + it.nums[0] + ' · Volumen ' + it.vol : 'Volumen ' + it.vol + ' · ' + n + (n === 1 ? ' capítulo' : ' capítulos')} · guardado ${new Date(it.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</small></span><a class="btn" href="/leer/${esc(it.slug)}/${here || it.nums[0]}">${here ? 'Continuar · cap. ' + here : 'Empezar a leer'}</a><button class="btn ghost" data-off="${esc(k)}">Borrar</button></div>`; }).join('')}</div><p class="mono" id="off-space"></p>`;
   }
   function bindOfflineList(root, after){
     root.querySelectorAll('[data-off]').forEach(b => b.onclick = async () => { if (!await confirmObi('¿Borrar esta descarga del dispositivo?')) return; await removeVolume(b.dataset.off); toast('Descarga eliminada'); after(); });
