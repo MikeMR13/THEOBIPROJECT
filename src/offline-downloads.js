@@ -19,7 +19,11 @@ export function offlineSaved(index, slug, scope, vol, num) {
 export function createOfflineDownloads({ sb, url, toast = () => {}, store = localStorage, cacheAPI = globalThis.caches, fetcher = globalThis.fetch }) {
   let working = false;
   const index = () => readOfflineIndex(store);
-  const label = scope => scope === 'chapter' ? 'Descargar capítulo' : scope === 'volume' ? 'Descargar volumen' : 'Descargar novela';
+  const label = () => 'Guardar sin conexión';
+  const scopeName = scope => scope === 'chapter' ? 'capítulo' : scope === 'volume' ? 'volumen' : 'novela';
+  const actionLabel = scope => 'Guardar ' + scopeName(scope) + ' para leer sin conexión';
+  const savedLabel = scope => (scope === 'series' ? 'Novela guardada' : scope === 'volume' ? 'Volumen guardado' : 'Capítulo guardado') + ' para leer sin conexión';
+  const hint = saved => saved ? 'Disponible en este dispositivo. Administra tus lecturas en Mi biblioteca, Sin conexión.' : 'Guardar en este dispositivo para leer sin internet';
   const button = ({ slug, scope = 'series', vol, num }) => {
     if (!/^[a-z0-9_-]+$/i.test(slug || '') || !['series','volume','chapter'].includes(scope)) return '';
     const saved = offlineSaved(index(), slug, scope, vol, num);
@@ -27,19 +31,19 @@ export function createOfflineDownloads({ sb, url, toast = () => {}, store = loca
       (vol != null ? ' data-offline-vol="' + esc(vol) + '"' : '') +
       (num != null ? ' data-offline-num="' + esc(num) + '"' : '');
     return '<button type="button" class="obi-offline-btn" ' + attrs +
-      ' aria-label="' + esc((saved ? 'Ya descargado: ' : '') + label(scope) + ' sin conexión') +
-      '" title="Guardar para leer sin internet"' + (saved ? ' data-saved="1"' : '') + '>' +
-      (saved ? '✓ Descargado' : '↓ ' + label(scope)) + '</button>';
+      ' aria-label="' + esc(saved ? savedLabel(scope) : actionLabel(scope)) +
+      '" title="' + esc(hint(saved)) + '"' + (saved ? ' data-saved="1"' : '') + '>' +
+      (saved ? '✓ Guardado sin conexión' : label(scope)) + '</button>';
   };
   const repaint = () => {
     document.querySelectorAll('button[data-offline-scope]').forEach(b => {
       const saved = offlineSaved(index(), b.dataset.offlineSlug, b.dataset.offlineScope,
         b.dataset.offlineVol, b.dataset.offlineNum);
       b.dataset.saved = saved ? '1' : '0';
-      b.textContent = saved ? '✓ Descargado' : '↓ ' + label(b.dataset.offlineScope);
+      b.textContent = saved ? '✓ Guardado sin conexión' : label(b.dataset.offlineScope);
       b.disabled = working;
-      b.setAttribute('aria-label', saved ? 'Ya descargado, disponible sin conexión' :
-        label(b.dataset.offlineScope) + ' para leer sin conexión');
+      b.setAttribute('aria-label', saved ? savedLabel(b.dataset.offlineScope) : actionLabel(b.dataset.offlineScope));
+      b.title = hint(saved);
     });
   };
   const media = s => /^https?:\/\//.test(s) ? s :
@@ -59,8 +63,8 @@ export function createOfflineDownloads({ sb, url, toast = () => {}, store = loca
   };
   const download = async ({slug,scope='series',vol,num}, progress=()=>{}) => {
     if (working) throw new Error('Hay otra descarga en curso');
-    if (!navigator.onLine) throw new Error('Conéctate a internet antes de descargar');
-    if (!cacheAPI?.open) throw new Error('Este navegador no admite descargas sin conexión');
+    if (!navigator.onLine) throw new Error('Conéctate a internet antes de guardar la lectura');
+    if (!cacheAPI?.open) throw new Error('Este navegador no admite guardar lecturas sin conexión');
     if (!/^[\w-]+$/.test(slug || '')) throw new Error('Obra inválida');
     working = true;
     let cache, previousMeta, metaChanged = false;
@@ -69,7 +73,7 @@ export function createOfflineDownloads({ sb, url, toast = () => {}, store = loca
       const m = await load(slug), idx = index(), groups = new Map();
       const selected = m.chapters.filter(ch => scope === 'series' ||
         (scope === 'volume' ? +ch.vol === +vol : +ch.num === +num));
-      if (!selected.length) throw new Error('No hay capítulos publicados disponibles para descargar');
+      if (!selected.length) throw new Error('No hay capítulos publicados disponibles para guardar');
       for (const ch of selected) {
         if (!groups.has(+ch.vol)) groups.set(+ch.vol, []);
         groups.get(+ch.vol).push(ch);
@@ -83,12 +87,12 @@ export function createOfflineDownloads({ sb, url, toast = () => {}, store = loca
       const assetsByVol = new Map();
       let n = 0;
       for (const ch of selected) {
-        progress('Descargando capítulo ' + (++n) + ' de ' + selected.length + '…');
+        progress('Guardando capítulo ' + (++n) + ' de ' + selected.length + '…');
         const k = '/offline/' + slug + '/' + ch.num;
         if (!await cache.match(k)) {
           const { data, error } = await sb.from('chapters').select('body').eq('id', ch.id).maybeSingle();
           if (error || !Array.isArray(data?.body) || !data.body.length)
-            throw new Error('El capítulo ' + ch.num + ' no está disponible para descargar');
+            throw new Error('El capítulo ' + ch.num + ' no está disponible para guardar');
           await cache.put(k, new Response(JSON.stringify(data.body), {headers:{'Content-Type':'application/json'}}));
           inserted.add(k);
         }
@@ -151,12 +155,12 @@ export function createOfflineDownloads({ sb, url, toast = () => {}, store = loca
       e.preventDefault(); e.stopPropagation();
       if (working || b.disabled) return;
       if (offlineSaved(index(),b.dataset.offlineSlug,b.dataset.offlineScope,b.dataset.offlineVol,b.dataset.offlineNum))
-        return toast('Ya está descargado. Puedes administrarlo desde Mis descargas.');
+        return toast('Ya está guardado para leer sin conexión. Adminístralo en Mi biblioteca → Sin conexión.');
       try {
         await download({slug:b.dataset.offlineSlug,scope:b.dataset.offlineScope,
           vol:b.dataset.offlineVol,num:b.dataset.offlineNum},
           text=>{ if (b.isConnected) b.textContent=text; });
-      } catch (error) { toast('No se completó la descarga: ' + (error?.message || 'inténtalo de nuevo')); }
+      } catch (error) { toast('No se pudo guardar sin conexión: ' + (error?.message || 'inténtalo de nuevo')); }
       repaint();
     });
     document.addEventListener('obi-offline-change',repaint);
