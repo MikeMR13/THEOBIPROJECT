@@ -112,6 +112,10 @@ try{
  for(const width of [390,1440]){
   const result=await chromium(base,width);
   assert.equal(result.renderedBooks,8,'Se perdieron libros en Vitrina');
+  // La maqueta de escritorio deja una de ocho portadas completamente oculta.
+  // No permitir que un observador descargue también esa ilustración.
+  if(result.viewportWidth>700)assert(result.coversRequested<=7,
+    'Se solicitaron portadas ocultas en escritorio: '+result.coversRequested);
   assert(result.activeOriginal?.includes('/covers/3.svg'),'Portada activa distinta del original');
   for(const field of ['fcpMs','lcpMs'])
    assert(result[field]===null||Number.isFinite(result[field])&&result[field]>=0,field+' no numérico');
