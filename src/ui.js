@@ -862,7 +862,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     // pedir todas las obras otra vez y reutilizamos SEASONS del módulo de temporada.
     // Festividades: son contenido complementario. No detener la primera
     // representación mientras llegan fechas/configuración desde Supabase.
-    const festival = import('/season.js?v=4').then(S => S.load(sb).then(() => {
+    const festival = () => import('/season.js?v=4').then(S => S.load(sb).then(() => {
       const k = S.platformKey(), fs = k && S.SEASONS[k];
       return fs && fs.g !== 'est' ? fs : null;
     })).catch(() => null);
@@ -872,10 +872,10 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         .select('team_id,series_id,updated_at').order('team_id').range(from,to),{size:250}));
     // Tendencias y destacados de equipos complementan la rotación,
     // pero una consulta paginada lenta no debe detener toda la portada.
-    const trendRequest = sb.from('rankings').select('series_id,list,period,score,pos')
+    const trendRequest = () => sb.from('rankings').select('series_id,list,period,score,pos')
       .eq('list','tendencia').in('period',['hoy','semana']).order('pos').limit(30)
       .then(r => r, () => ({ data: [] }));
-    const teamRequest = teamHighlights().then(r => r, () => ({ data: [] }));
+    const teamRequest = () => teamHighlights().then(r => r, () => ({ data: [] }));
     // El progreso del lector es complementario: nunca retener la portada mientras
     // responde esa consulta. Mostrar primero el progreso guardado en el dispositivo.
     const prog = localProgressMap();
@@ -1030,7 +1030,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     // Insertar el aviso de temporada sin volver a pintar el Home completo.
     // El nodo está vinculado a esta navegación: nunca actualizar una vista vieja.
     const festSlot = app.querySelector('#ob-fest-slot');
-    festival.then(fest => {
+    festival().then(fest => {
       const slot = festSlot;
       if (!slot || !slot.isConnected || location.pathname !== '/') return;
       if (!fest) return slot.remove();
@@ -1172,7 +1172,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
 
     // Completar la rotación editorial cuando lleguen los datos auxiliares,
     // conservando la portada visible y los preestrenos ya incorporados.
-    Promise.all([trendRequest, teamRequest]).then(([trends, teamResult]) => {
+    Promise.all([trendRequest(), teamRequest()]).then(([trends, teamResult]) => {
       if (!heroEl?.isConnected || app.querySelector('#hero') !== heroEl || location.pathname !== '/') return;
       loadedTeamSignature = teamSignature(teamResult?.data);
       const extra = homeFeaturedSelection({
@@ -1404,18 +1404,25 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     // filtros/ordenamientos globales y se evita el límite de 1000 filas.
     const listAll = import('/paging.js?v=1').then(({ readPages }) =>
       readPages((from, to) => sb.from('series').select(SERIES).order('id').range(from, to), { size: 250 }));
-    const [{ data }, { data: latest }, prog, folR, { data: rkw }, { data: rkh }, announced] = await Promise.all([
+    const [{ data }, { data: latest }, prog, folR, { data: rkw }, { data: rkh }] = await Promise.all([
       listAll,
       catalogRecent(),
       progressMap(),
       u ? sb.from('follows').select('series_id').eq('user_id', u.id) : { data: [] },
-      sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'semana'), sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'historico'),
-      loadPublicUpcoming(sb)]);
+      sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'semana'), sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'historico')]);
     const rkRows = (rkw || []).length ? rkw : (rkh || []), RK = Object.fromEntries(rkRows.map(r => [r.series_id, r.pos])), rkLbl = (rkw || []).length ? 'de la semana' : 'histórico';
     const publicRows = (data || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) && (!hidS(s) || F.gin.some(g => (s.genres || []).includes(g))));
-    const all = await publicSectionCounts(sb, publicRows);
-    const upcoming = uniqueUpcoming(announced).filter(x => !hidS(x));
-    await attachPublicCredits(sb, all);
+    // Conteos públicos y créditos autorizados son RPC independientes: ejecutarlos
+    // a la vez reduce una ida y vuelta sin mostrar colaboradores sin validar.
+    const [counted] = await Promise.all([
+      publicSectionCounts(sb, publicRows),
+      attachPublicCredits(sb, publicRows)
+    ]);
+    // El conteo devuelve copias: preservar los créditos obtenidos en paralelo,
+    // incluso si la RPC de conteo termina antes que la de colaboración.
+    const all = counted.map((row, i) => row === publicRows[i] ? row :
+      { ...row, publicCredits: publicRows[i].publicCredits, teams: publicRows[i].teams });
+    let upcoming = [];
     const last = {}; (latest || []).forEach(c => { last[c.series_id] ||= c; });
     const fol = new Set((folR.data || []).map(r => r.series_id)), nCh = s => s.chapters?.[0]?.count || 0;
     const status = s => { const p = prog[s.id], lc = last[s.id];
@@ -1473,12 +1480,15 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const clone = () => ({ ...F, gin: [...F.gin], gout: [...F.gout] });
     const PAGE_SIZE = 24;
     let currentPage = 1, lastFilterKey = '';
-    const draw = () => {
+    const paintUpcoming = () => {
       // La vitrina de primer vistazo no altera filtros, orden ni conteos de obras publicadas.
       const visibleUpcoming = upcoming.filter(x => !F.q.trim() || norm([x.title, x.short].join(' ')).includes(norm(F.q.trim()))).slice(0, 6);
       const preBox = $('#cat-upcoming');
       preBox.hidden = !visibleUpcoming.length;
       preBox.innerHTML = visibleUpcoming.length ? `<div class="ui-pre-head"><div><span class="ui-lbl">PRÓXIMO ESTRENO · PRIMER VISTAZO</span><h2 id="cat-upcoming-title">Próximamente</h2><p>Conoce las obras anunciadas; sus capítulos permanecen bloqueados hasta el estreno.</p></div><a href="/calendario">Calendario de lanzamientos →</a></div><div class="ui-pre-list">${visibleUpcoming.map(x => `<a class="ui-pre-work" href="/serie/${encodeURIComponent(x.slug)}"><span class="ui-pre-cover" style="${x.cover_thumb_path || x.cover_path ? `background-image:url('${esc(media(x.cover_thumb_path || x.cover_path))}')` : ''}" aria-hidden="true"></span><span class="ui-pre-copy"><small>PRIMER VISTAZO · VOL. ${esc(x.vnum ?? '')}</small><b>${esc(x.title)}</b><span>${esc(x.team_name || '')}</span><time datetime="${esc(x.at)}">${esc(new Date(x.at).toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Monterrey' }))} · Monterrey</time><em>Ver ficha →</em></span></a>`).join('')}</div>` : '';
+    };
+    const draw = () => {
+      paintUpcoming();
       const filterKey = JSON.stringify({ F, view });
       if (filterKey !== lastFilterKey) { currentPage = 1; lastFilterKey = filterKey; }
       const list = all.filter(pass(F)).sort((SORT[F.sort] || SORT.popular)[1]), act = actives();
@@ -1596,6 +1606,15 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       else if (F.gout.includes(g)) F.gout = F.gout.filter(x => x !== g);
       else F.gin.push(g); draw(); });
     draw();
+    // El primer vistazo se hidrata en su propio nodo, sin volver a dibujar las
+    // tarjetas, reiniciar la paginación ni interrumpir una vista rápida abierta.
+    const upcomingSlot = app.querySelector('#cat-upcoming');
+    loadPublicUpcoming(sb).then(announced => {
+      if (location.pathname !== '/catalogo' || !upcomingSlot?.isConnected ||
+          app.querySelector('#cat-upcoming') !== upcomingSlot) return;
+      upcoming = uniqueUpcoming(announced).filter(x => !hidS(x));
+      paintUpcoming();
+    }).catch(e => console.warn('prelaunch discovery catalog', e));
   }
 
   // ---------- Lanzamientos ----------
