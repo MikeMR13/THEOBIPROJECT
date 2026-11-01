@@ -25,6 +25,18 @@ jobs:
         run: node --check src/app.js && node scripts/performance-phase3-route-loader-check.mjs
       - name: Rendimiento Fase 4 — portadas visibles y prioridades (sin backend)
         run: node --check src/home-vitrina.js && node scripts/performance-phase4-vitrina-cover-check.mjs
+      - name: Rendimiento Fase 5 — presupuesto de arranque comprimido (sin backend)
+        run: node scripts/performance-phase5-budget.mjs
+      - name: Rendimiento Fase 5 — Vitrina real compilada en Chromium local (sin backend)
+        run: node scripts/performance-phase5-chromium.mjs
+      - name: Evidencia Fase 5 — bytes y métricas de laboratorio
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendimiento-fase5-laboratorio
+          path: qa-performance/fase5-*.json
+          if-no-files-found: warn
+          retention-days: 1
       - name: Biblioteca y temporadas · estados, fechas y acciones (sin backend)
         run: node scripts/season-library-audit-check.mjs
       - name: Editor Productividad · Entrega 2 (sin backend)
