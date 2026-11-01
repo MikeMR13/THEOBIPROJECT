@@ -1,0 +1,32 @@
+name: Puerta de estreno · evidencia y control de costos
+on:
+  pull_request:
+    paths:
+      - 'qa/aceptacion-preestreno.json'
+      - 'scripts/release-readiness-gate.mjs'
+      - 'docs/ACEPTACION-ESTRENO-20261031.md'
+      - 'vercel.json'
+      - '.github/workflows/release-readiness-gate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  release-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Validar estados y evidencias sin backend
+        run: |
+          node --check scripts/release-readiness-gate.mjs
+          node scripts/release-readiness-gate.mjs --self-test
+      - name: Guardar diagnóstico auditable 24 horas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-readiness-evidence
+          path: qa-evidencia/release-readiness.json
+          retention-days: 1
+          if-no-files-found: ignore

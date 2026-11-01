@@ -1,0 +1,77 @@
+{
+  "schema": "obi.release-acceptance.v1",
+  "cutoff": "2026-10-31",
+  "status": "REQUIRES_MANUAL_REVIEW",
+  "automated": {
+    "ci": "passed",
+    "ci_run": "https://github.com/MikeMR13/THEOBIPROJECT/actions/runs/41252885137",
+    "ci_steps": 105,
+    "sql_migrations_applied": true,
+    "anonymous_admin_denied": true,
+    "synthetic_nonadmin_admin_denied": true
+  },
+  "manual": [
+    {
+      "id": "reader-real",
+      "label": "Lector real: Biblioteca, progreso, restricciones, lectura offline",
+      "status": "pending",
+      "evidence_url": null,
+      "reviewed_by": null,
+      "reviewed_at": null
+    },
+    {
+      "id": "editor-real",
+      "label": "Editor real: Acceso/Patreon multivolumen, permisos, Iniciar lectura aquí",
+      "status": "pending",
+      "evidence_url": null,
+      "reviewed_by": null,
+      "reviewed_at": null
+    },
+    {
+      "id": "librarian-real",
+      "label": "Bibliotecario real: Difusión por rol sin envíos externos",
+      "status": "pending",
+      "evidence_url": null,
+      "reviewed_by": null,
+      "reviewed_at": null
+    },
+    {
+      "id": "responsive-real",
+      "label": "Dispositivos reales y vistas 320/390/768/1440 px",
+      "status": "pending",
+      "evidence_url": null,
+      "reviewed_by": null,
+      "reviewed_at": null
+    },
+    {
+      "id": "security-auth",
+      "label": "Revisión de functions SECURITY DEFINER y habilitación de protección de contraseñas filtradas",
+      "status": "pending",
+      "evidence_url": null,
+      "reviewed_by": null,
+      "reviewed_at": null
+    },
+    {
+      "id": "public-url",
+      "label": "Navegación pública tras nuevo despliegue: fichas, Home, lector, SEO sin bloqueo Cloudflare",
+      "status": "pending",
+      "evidence_url": null,
+      "reviewed_by": null,
+      "reviewed_at": null
+    },
+    {
+      "id": "vercel-no-charge",
+      "label": "Confirmación previa de un procedimiento de publicación sin cargos incrementales",
+      "status": "pending",
+      "evidence_url": null,
+      "reviewed_by": null,
+      "reviewed_at": null
+    }
+  ],
+  "deployment": {
+    "authorized": false,
+    "release_sha": null,
+    "production_verified": false
+  },
+  "notes": "El estado no se eleva a READY por CI solamente. No incorporar contraseñas, tokens, nombres de usuarios ni datos personales en evidencia."
+}
