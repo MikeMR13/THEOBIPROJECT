@@ -10,7 +10,7 @@ export function seriesPublicationHTML(series, volumes, can, esc, toLocal, tzHint
   const label = { draft: 'Borrador privado', prelaunch: 'Reprogramada · Preestreno', published: 'Publicada' }[mode];
   const opts = options.map(v => '<option value="' + esc(v.id) + '"' +
     (first?.id === v.id ? ' selected' : '') + '>Volumen ' + esc(v.num) +
-    (v.title && !/^volumen\s*\d+$/i.test(v.title.trim()) ? ' · ' + esc(v.title) : '') + '</option>').join('');
+    (v.title && v.title.trim() !== String(v.num) && !/^volumen\s*\d+(?:\.\d+)?$/i.test(v.title.trim()) ? ' · ' + esc(v.title) : '') + '</option>').join('');
   return '<section class="wk-box" id="wk-series-publication" style="grid-column:1/-1;border-top:4px solid #8cc3f2">' +
     '<h2>Estado de publicación de la novela</h2>' +
     '<p class="mono" style="margin:0">Estado actual: <b>' + esc(label) + '</b>. Es independiente del estado de traducción.</p>' +
