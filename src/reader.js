@@ -829,7 +829,7 @@ export function createReader(ctx){
       catch (e) { toast('No se pudo borrar el volumen: ' + (e?.message || 'error de almacenamiento')); }
       return;
     }
-    if (!navigator.onLine) return toast('Necesitas conexión para descargar el volumen');
+    if (!navigator.onLine) return toast('Conéctate a internet para guardar el volumen y leerlo después sin conexión');
     if (!('caches' in window)) return toast('Tu navegador no permite guardar sin conexión');
     btn.disabled = true;
     const list = S.chapters.filter(c => c.vol === ch.vol);
@@ -842,7 +842,7 @@ export function createReader(ctx){
       previousMeta = await c.match(metaKey);
       let n = 0;
       for (const x of list) {
-        btn.textContent = `Descargando ${++n}/${list.length}…`;
+        btn.textContent = `Guardando ${++n}/${list.length}…`;
         const b = await body(x);
         if (!Array.isArray(b) || !b.length) throw new Error('No se pudo guardar el capítulo ' + x.num);
         // No sobrescribir ni borrar una descarga individual previa al completar el volumen.
@@ -882,7 +882,7 @@ export function createReader(ctx){
           try { if (previousMeta) await c.put(metaKey, previousMeta); else await c.delete(metaKey); } catch {}
         }
       }
-      toast('Descarga incompleta. Intenta de nuevo: ' + (e?.message || 'sin espacio o sin conexión'));
+      toast('No se pudo guardar sin conexión. Intenta de nuevo: ' + (e?.message || 'sin espacio o sin conexión'));
     } finally {
       btn.disabled = false;
       if (!complete) btn.textContent = 'Guardar sin conexión';
@@ -905,7 +905,7 @@ export function createReader(ctx){
   }
   function offlineList(){
     const items = Object.entries(offIndex()).sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
-    if (!items.length) return '<p class="mono">No tienes lecturas guardadas. Usa «Guardar sin conexión» desde Obras, Mi biblioteca o el lector.</p>' + ((navigator.standalone === true || matchMedia('(display-mode: standalone)').matches) && /iphone|ipad|ipod|macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 0 ? '<p class="mono" style="margin-top:8px">En iPhone y iPad la app instalada guarda sus descargas aparte de Safari: lo que bajaste en el navegador no aparece aquí. Guárdalo de nuevo desde la app para leer sin conexión.</p>' : '');
+    if (!items.length) return '<p class="mono">No tienes lecturas guardadas. Usa «Guardar sin conexión» desde Obras, Mi biblioteca o el lector.</p>' + ((navigator.standalone === true || matchMedia('(display-mode: standalone)').matches) && /iphone|ipad|ipod|macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 0 ? '<p class="mono" style="margin-top:8px">En iPhone y iPad la app instalada guarda sus descargas aparte de Safari: lo que guardaste desde Safari no aparece aquí. Guárdalo de nuevo desde la app para leer sin conexión.</p>' : '');
     return `<div class="off-list">${items.map(([k, it]) => { let pos = null; try { pos = JSON.parse(localStorage.getItem(posKey(k.split(':')[0]))); } catch {}
       const here = pos && it.nums.includes(pos.num) ? pos.num : null, n = it.nums.length;
       return `<div class="off-it"><span><b>${esc(it.title)}</b><small>${it.kind === 'chapter' ? 'Capítulo ' + it.nums[0] + ' · Volumen ' + it.vol : 'Volumen ' + it.vol + ' · ' + n + (n === 1 ? ' capítulo' : ' capítulos')} · guardado ${new Date(it.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</small></span><a class="btn" href="/leer/${esc(it.slug)}/${here || it.nums[0]}">${here ? 'Continuar · cap. ' + here : 'Empezar a leer'}</a><button class="btn ghost" data-off="${esc(k)}">Borrar</button></div>`; }).join('')}</div><p class="mono" id="off-space"></p>`;
