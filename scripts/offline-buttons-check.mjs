@@ -45,14 +45,16 @@ const downloader=createOfflineDownloads({sb,url:'https://example.test',store,cac
  fetcher:async()=>{fetchCount++;if(failAsset)throw Error('Ilustración no disponible');return new Response('PNG',{headers:{'content-type':'image/png'}});},
  toast:x=>notices.push(x)});
 try {
+  assert.match(downloader.button({slug:'obra-demo',scope:'series'}),/>Guardar novela sin conexión<\/button>/);
+  assert.match(downloader.button({slug:'obra-demo',scope:'volume',vol:1}),/>Guardar volumen sin conexión<\/button>/);
   const chButton=downloader.button({slug:'obra-demo',scope:'chapter',num:1});
   assert.match(chButton,/data-offline-num="1"/);
-  assert.match(chButton,/Guardar sin conexión/);
+  assert.match(chButton,/>Guardar capítulo sin conexión<\/button>/);
   assert.match(chButton,/Guardar capítulo para leer sin conexión/);
   assert.equal(offlineSaved(readOfflineIndex(store),'obra-demo','chapter',null,1),false);
   await downloader.download({slug:'obra-demo',scope:'chapter',num:1});
   assert.equal(offlineSaved(readOfflineIndex(store),'obra-demo','chapter',null,1),true);
-  assert.match(downloader.button({slug:'obra-demo',scope:'chapter',num:1}),/✓ Guardado sin conexión/);
+  assert.match(downloader.button({slug:'obra-demo',scope:'chapter',num:1}),/✓ Capítulo guardado sin conexión/);
   assert(cacheMap.has('/offline/meta/obra-demo'),'Los capítulos necesitan metadatos completos offline');
   assert(cacheMap.has('/offline/obra-demo/1'));
   assert.equal((await (await cache.match('/offline/obra-demo/1')).json())[0].text,'Capítulo');
@@ -66,6 +68,7 @@ try {
   missingBody=null;
   await downloader.download({slug:'obra-demo',scope:'volume',vol:1});
   assert.equal(offlineSaved(readOfflineIndex(store),'obra-demo','volume',1),true);
+  assert.match(downloader.button({slug:'obra-demo',scope:'volume',vol:1}),/✓ Volumen guardado sin conexión/);
   assert.equal(offlineSaved(readOfflineIndex(store),'obra-demo','chapter',null,2),true);
   // Una imagen fallida tampoco marca la novela completa; capítulos previos siguen.
   failAsset=true;
@@ -76,6 +79,7 @@ try {
   failAsset=false;
   await downloader.download({slug:'obra-demo',scope:'series'});
   assert.equal(offlineSaved(readOfflineIndex(store),'obra-demo','series'),true);
+  assert.match(downloader.button({slug:'obra-demo',scope:'series'}),/✓ Novela guardada sin conexión/);
   assert(cacheMap.has('/offline/obra-demo/3'));
   assert(!cacheMap.has('/offline/obra-demo/4'),'No descargar borradores');
   assert(!cacheMap.has('/offline/obra-demo/5'),'No descargar futuros');
@@ -95,9 +99,13 @@ try {
   assert.match(ui,/offlineButton\(\{slug:s\.slug,scope:'chapter'/);
   assert.match(reader,/otherChapterKeys/,'Borrar un volumen no puede borrar otro capítulo compartido');
   assert.match(reader,/it\.kind === 'chapter'/,'La lista sin conexión distingue capítulos');
-  assert.match(reader,/Guardar sin conexión/,'El lector debe utilizar el nombre de la función local');
+  assert.match(reader,/Guardar volumen sin conexión/,'El lector debe nombrar el alcance del guardado local');
+  assert.match(reader,/Quitar volumen del dispositivo/,'La acción de eliminar debe distinguirse del guardado');
   assert.match(ui,/>Archivos<\/a>/,'La pestaña de archivos debe distinguirse del modo sin conexión');
   assert.match(ui,/Estos archivos no se añaden a las lecturas sin conexión/,'Los archivos externos necesitan una explicación');
+  assert.match(ui,/Archivos disponibles · Volumen/,'El encabezado de archivos no debe sugerir guardado local');
+  assert.doesNotMatch(ui,/↓ Descargar Volumen/,'El encabezado antiguo confundía la descarga con el guardado sin conexión');
+  assert.match(ui,/>↓ Descargar \$\{esc\(d\.fmt\)\}/,'Los botones externos deben indicar descargar y el formato');
   const a11yVersion=Number(html.match(/reader-a11y\.css\?v=(\d+)/)?.[1]||0);
   assert(a11yVersion>=3,'CSS accesible sin versionar tras retirar cinta antigua');
   console.log('QA offline Obras y Biblioteca: novela, volúmenes, capítulo, RLS, rollback, recursos e índice compartido OK');
