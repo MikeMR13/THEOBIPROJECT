@@ -1,5 +1,5 @@
 import { confirmObi, inputObi } from './obi-dialog.js';
-import { parseVolumeNumber, nextVolumeNumber } from './volume-number.js';
+import { parseVolumeNumber, nextVolumeNumber, importedVolumeNumber } from './volume-number.js';
 // Importador de Studio: EPUB, DOCX y PDF, bajo demanda.
 import { renderBlock } from './blocks.js?v=2';
 import { inferSectionType } from './section-types.js?v=1';
@@ -308,7 +308,7 @@ export function createImporter(deps) {
         const target = contextualWork || guess;
         D.work = target?.id || ''; D.newTitle = P.meta.series || P.title.replace(/\s*[,:\-–]?\s*(vol(umen|ume)?\.?|tomo)\s*\d+.*$/i, '').trim() || P.title; D.newAuthor = P.meta.author || '';
         NW = createWorkData({ title: D.newTitle, author: D.newAuthor, illustrator: P.meta.illustrator || '', publisher: P.meta.publisher || '', synopsis: (P.meta.synopsis || '').slice(0, 1500) });
-        D.vnum = contextualWork ? nextVol(contextualWork) : (P.meta.index || nextVol(guess)); D.scanChapterTitles = false; D.smartTitles = false; D.cover = P.cover || null; D.workCover = !target || !target.cover_path; D.mode = 'replace';
+        D.vnum = importedVolumeNumber({ filename: f.name, title: P.title, metadataIndex: P.meta.index, fallback: nextVol(target) }); D.scanChapterTitles = false; D.smartTitles = false; D.cover = P.cover || null; D.workCover = !target || !target.cover_path; D.mode = 'replace';
         V = { title: '', subtitle: '', synopsis: P.meta.synopsis || '', synopsis_spoiler: false, publisher: P.meta.publisher || '', imprint: '', illustrator: P.meta.illustrator || '', jp_release: P.meta.date || '', planned_chapters: '', is_final: false, translator_notes: '' };
         sel = Math.max(0, P.chapters.findIndex(c => !c.skip)); splitting = false;
         st(''); step = 2; render();
@@ -402,7 +402,7 @@ export function createImporter(deps) {
         <section class="imp-box${w ? "" : " imp-new-series"}"><h3>Obra y volumen</h3>
           <label>Obra<select id="dw"><option value="">+ Nueva obra</option>${(works || []).map(x => `<option value="${x.id}" ${x.id === D.work ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select></label>
           ${w ? '' : `<div id="imp-new-work"><h3>Datos completos de la nueva obra</h3><p class="mono">Se rellenan los metadatos detectados; revisa los valores antes de importar.</p>${renderWorkFields(NW, esc, (related || []).filter(x => x.id !== D.work))}</div>`}
-          <label>Número de volumen<input id="dv" type="number" min="1" max="999" step="0.1" inputmode="decimal" value="${D.vnum}"><small>Por ejemplo, 4.5</small></label>
+          <label>Número de volumen<input id="dv" type="number" min="1" max="999" step="0.1" inputmode="decimal" value="${D.vnum}"><small>Comprueba el número detectado del EPUB o su nombre (por ejemplo, 4.5) antes de importar.</small></label>
           ${ex ? `<div class="imp-warn"><span>El Volumen ${D.vnum} ya existe<span id="exc"></span>.</span>
             <label class="tb-inl"><input type="radio" name="dm" value="replace" ${D.mode === 'replace' ? 'checked' : ''}> Reemplazar el volumen: capítulos, ficha y portada nuevos (los capítulos anteriores van a la papelera)</label>
             <label class="tb-inl"><input type="radio" name="dm" value="append" ${D.mode === 'append' ? 'checked' : ''}> Agregar estas secciones después de las existentes (la ficha solo completa campos vacíos)</label></div>`
@@ -433,7 +433,7 @@ export function createImporter(deps) {
         </section><section class="imp-box" id="imp-ann" ${D.pub === 'draft' ? 'hidden' : ''}><h3>Último paso · anuncio editorial</h3>${editorialForm(esc, 'volume', D.notice || {})}</section></div>
         <div class="imp-nav"><button class="btn ghost" id="back">‹ Revisar secciones</button><button class="btn" id="go">Importar ${inc.length} ${inc.length === 1 ? 'sección' : 'secciones'}</button></div>`;
       if (ex) sb.from('chapters').select('id', { count: 'exact', head: true }).eq('volume_id', ex.id).is('deleted_at', null).then(({ count }) => { const e = $('#exc'); if (e && count != null) e.textContent = ' con ' + count + (count === 1 ? ' capítulo' : ' capítulos'); });
-      $('#dw').onchange = e => { D.work = e.target.value; const nw = work(); D.vnum = P.meta.index || nextVol(nw); D.workCover = !nw || !nw.cover_path; s3(); };
+      $('#dw').onchange = e => { D.work = e.target.value; const nw = work(); D.vnum = importedVolumeNumber({ filename: file?.name, title: P.title, metadataIndex: P.meta.index, fallback: nextVol(nw) }); D.workCover = !nw || !nw.cover_path; s3(); };
       if (!w) bindWorkFields($('#imp-new-work'), NW, esc, related || [], msg => { if (msg) toast(msg); });
       $('#dv').onchange = e => { try { D.vnum = parseVolumeNumber(e.target.value); s3(); } catch (err) { toast(err.message); e.target.value = D.vnum; } };
       W().querySelectorAll('[name=dm]').forEach(r => r.onchange = () => { D.mode = r.value; });

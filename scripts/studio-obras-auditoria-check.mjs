@@ -60,7 +60,7 @@ requires(imp,[
 "new URLSearchParams(location.search).get('obra')",
 "(works || []).find(w => w.id === contextualId)",
 "const target = contextualWork || guess",
-"nextVol(contextualWork)"
+"D.vnum = importedVolumeNumber({ filename: f.name, title: P.title, metadataIndex: P.meta.index, fallback: nextVol(target) })"
 ],'Importador contextual');
 requires(pub,[
 "const initial =",

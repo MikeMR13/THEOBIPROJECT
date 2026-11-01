@@ -1,7 +1,7 @@
 // QA aislada: campos de Studio/importador y SQL usan 4.5 sin redondear ni conectar a Supabase.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { parseVolumeNumber, nextVolumeNumber } from '../src/volume-number.js';
+import { parseVolumeNumber, nextVolumeNumber, importedVolumeNumber } from '../src/volume-number.js';
 
 for (const [raw,num] of [['4.5',4.5], ['4,5',4.5], ['4',4], ['999',999], ['10.1',10.1]]) {
   assert.equal(parseVolumeNumber(raw),num,'Se debe aceptar el volumen '+raw);
@@ -12,6 +12,26 @@ for (const raw of ['0','0.5','-1','4.55','1000','4e0','','NaN','1.']) {
 assert.equal(nextVolumeNumber([1,2,3,4.5]),5,'Después de 4.5 corresponde 5 y no 5.5');
 assert.equal(nextVolumeNumber([4,4.5,5]),6);
 assert.equal(nextVolumeNumber([]),1);
+
+assert.equal(importedVolumeNumber({
+  filename: 'Bruja del Silencio 4.5 After - Matsuri Isora_v2.epub',
+  title: 'Los secretos de la Bruja del Silencio',
+  metadataIndex: 5,
+  fallback: 5
+}), 4.5, 'El caso real: priorizar 4.5 del archivo sobre el siguiente volumen 5');
+assert.equal(importedVolumeNumber({
+  filename: 'Bruja del Silencio 4,5 After.epub',
+  metadataIndex: null, fallback: 5
+}), 4.5, 'Se admite coma decimal en el nombre');
+assert.equal(importedVolumeNumber({
+  filename: 'serie.epub', title: 'Volumen 4.5', metadataIndex: null, fallback: 5
+}), 4.5, 'Se conserva el decimal del título EPUB');
+assert.equal(importedVolumeNumber({ filename: 'obra.epub', metadataIndex: 3.5, fallback: 5 }), 3.5);
+assert.equal(importedVolumeNumber({ filename: 'obra.epub', metadataIndex: 4, fallback: 5 }), 4);
+assert.equal(importedVolumeNumber({ filename: 'obra.epub', fallback: 5 }), 5);
+assert.equal(importedVolumeNumber({ filename: 'obra 4.55.epub', fallback: 5 }), 5,
+  'No recortar silenciosamente números con dos decimales');
+
 assert.deepEqual([5,4.5,4,6].sort((a,b)=>a-b),[4,4.5,5,6]);
 
 const studio=readFileSync('src/studio.js','utf8');
@@ -24,6 +44,14 @@ assert.match(studio,/renumber_volume/,'Renumeración con su RPC segura');
 assert.match(importer,/id="dv"[^>]*step="0\.1"/,'Importador debe admitir décimas');
 assert.match(importer,/parseVolumeNumber\(e\.target\.value\)/);
 assert.doesNotMatch(importer,/Math\.round\(\+e\.target\.value\)/);
+
+assert.match(importer,/D\.vnum = importedVolumeNumber\(\{ filename: f\.name,/,
+  'Al importar directamente desde una obra debe usar el número del EPUB/archivo');
+assert.match(importer,/D\.vnum = importedVolumeNumber\(\{ filename: file\?\.name,/,
+  'Cambiar la obra de destino debe conservar 4.5');
+assert.doesNotMatch(importer,/contextualWork \? nextVol\(contextualWork\)/,
+  'No reemplazar 4.5 por el siguiente entero al abrir el importador desde Obras');
+
 assert.match(ui,/volumen\\s\*\\d\+\(\?:\\\.\\d\+\)\?/,'Reconocer títulos por defecto con decimal');
 
 for (const [table,col] of [['volumes','num'],['chapters','vol'],['download_links','vol'],['purchase_links','vol']]) {
