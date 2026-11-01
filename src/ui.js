@@ -3,7 +3,7 @@ import { confirmObi, inputObi } from './obi-dialog.js';
 import { publicationDate, publicationAge, publicationDay } from './publication-dates.js?v=1';
 import { homeReleaseOverview, homeReleaseHighlights } from './home-releases.js?v=3';
 import { attachPublicCredits, creditTeams, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
-import { homeFeaturedSelection, homeDayKey, mergeHomeCarousel } from './home-featured.js?v=2';
+import { homeFeaturedSelection, homeDayKey, mergeHomeCarousel } from './home-featured.js?v=3';
 import { homeFeedRevision, homeFeedHasNewContent } from './home-feed-freshness.js?v=1';
 import { createHeroRotationClock } from './home-hero-rotation.js?v=1';
 import { createHomeMetrics, homeMetricCategory } from './home-metrics.js?v=1';
@@ -1129,6 +1129,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     // Incluir los preestrenos autorizados en el mismo carrusel, sin sumar secciones a Inicio.
     // Máximo dos diapositivas para mantener el protagonismo de las publicaciones actuales.
     const heroEl = app.querySelector('#hero');
+    // El calendario tiene su propio estado: una reconstrucción de tendencias no
+    // debe depender de que sus portadas sobrevivan en la lista temporal del hero.
+    let prelaunchPreviews = [];
     sb.rpc('prelaunch_calendar', {
       p_from: now.toISOString(),
       p_to: new Date(Date.now() + 60 * 864e5).toISOString()
@@ -1141,7 +1144,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         .sort((a,b)=>Number(new Date(b.at)-now <= 14*864e5)-Number(new Date(a.at)-now <= 14*864e5)
           || new Date(a.at)-new Date(b.at))
         .filter((x, i, rows) => rows.findIndex(r => r.series_id === x.series_id) === i)
-        .slice(0, 2);
+        .slice(0, 3);
       if (!announced.length) return;
       const previews = await Promise.all(announced.map(async x => {
         // La RPC expone exclusivamente información editorial permitida del anuncio.
@@ -1161,8 +1164,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       if (!heroEl.isConnected || app.querySelector('#hero') !== heroEl || location.pathname !== '/') return;
       // Mantener el estreno ya publicado como portada y mostrar el adelanto a
       // continuación, sin obligar a esperar toda la rotación para descubrirlo.
+      prelaunchPreviews = previews;
       const published = feat.filter(s => !s.__prelaunch);
-      feat.splice(0, feat.length, ...mergeHomeCarousel(published, previews));
+      feat.splice(0, feat.length, ...mergeHomeCarousel(published, prelaunchPreviews, 10, newsBySeries, now));
       heroEl.style.display = '';
       const active = heroEl.dataset.heroKey;
       const selected = feat.findIndex(item => heroKey(item) === active);
@@ -1194,11 +1198,10 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         const section=app.querySelector('[data-from="ob-team-recs"]');
         if(section) bindCars(section);
       } else teamSlot?.remove();
-      const previews = feat.filter(x => x.__prelaunch);
-      // La misma composición se aplica si las tendencias llegan antes o después
-      // del calendario. Conservar lanzamientos prioritarios y hasta 2 preestrenos.
+      // Las recomendaciones tardías utilizan el calendario guardado; nunca
+      // descartan un preestreno ni el volumen recién publicado de esa misma obra.
       const published = covers.length ? covers : feat.filter(x => !x.__prelaunch);
-      const updated = mergeHomeCarousel(published, previews);
+      const updated = mergeHomeCarousel(published, prelaunchPreviews, 10, newsBySeries, now);
       if (!updated.length) return;
       const changed = updated.length !== feat.length || updated.some((x, i) => heroKey(x) !== heroKey(feat[i]));
       Object.assign(featReasons, extra.bySeries);

@@ -18,19 +18,35 @@ const firstUnique = (items, max = MAX_CANDIDATES) => {
 
 // Un presupuesto único para las obras públicas y los preestrenos de la vitrina.
 export const HOME_CAROUSEL_LIMIT = 10;
+export const HOME_PRELAUNCH_SLOTS = 3;
 
-/** Compone la misma lista tanto al recibir el calendario como las tendencias.
- * Conserva 2 preestrenos, prioriza el primer lanzamiento publicado y no
- * duplica la obra si también tiene un volumen programado. */
-export function mergeHomeCarousel(published = [], upcoming = [], max = HOME_CAROUSEL_LIMIT) {
+/** Compone las portadas públicas, preestrenos y recomendaciones sin perderlas
+ * cuando llegan datos asíncronos. Una novela puede tener el volumen publicado
+ * y OTRO volumen futuro anunciado: son dos publicaciones distintas, no duplicados.
+ * Si no tiene un volumen recién publicado, se evita repetir su ficha pública. */
+export function mergeHomeCarousel(published = [], upcoming = [], max = HOME_CAROUSEL_LIMIT, releaseBySeries = {}, now = Date.now()) {
   const limit = Math.max(0, Math.min(HOME_CAROUSEL_LIMIT, Math.trunc(Number(max) || 0)));
-  const previews = (Array.isArray(upcoming) ? upcoming : []).filter(x => x?.__prelaunch && x.id != null).slice(0, 2);
+  const preSeen = new Set(), preSeries = new Set();
+  const previews = (Array.isArray(upcoming) ? upcoming : []).filter(x => {
+    const id=x?.__prelaunch?.volume_id, series=x?.id;
+    if (id == null || series == null || preSeen.has(String(id)) || preSeries.has(String(series))) return false;
+    preSeen.add(String(id)); preSeries.add(String(series)); return true;
+  }).slice(0, HOME_PRELAUNCH_SLOTS);
   const previewIds = new Set(previews.map(x => String(x.id)));
-  const live = (Array.isArray(published) ? published : []).filter(x => x && !x.__prelaunch && x.id != null && !previewIds.has(String(x.id)));
+  const hasFreshPublishedVolume = id => {
+    const release = releaseBySeries?.[id];
+    const at = Date.parse(release?.at || release?.volume?.published_at || '');
+    return release?.kind === 'volume' && Number.isFinite(at) && at <= +new Date(now) && +new Date(now)-at < 7*MS_DAY;
+  };
+  const live = (Array.isArray(published) ? published : []).filter(x => x && !x.__prelaunch && x.id != null
+    && (!previewIds.has(String(x.id)) || hasFreshPublishedVolume(x.id)));
   const seen = new Set();
   return [...live.slice(0,1), ...previews, ...live.slice(1)]
-    .filter(x => { if (!x || x.id == null || seen.has(String(x.id))) return false; seen.add(String(x.id)); return true; })
-    .slice(0,limit);
+    .filter(x => {
+      const key=x?.__prelaunch ? 'pre:'+x.__prelaunch.volume_id : 'pub:'+x?.id;
+      if (!x || x.id == null || seen.has(key)) return false;
+      seen.add(key); return true;
+    }).slice(0,limit);
 }
 
 // El cambio de día es determinista para todos los visitantes, sin cron ni almacenamiento local.

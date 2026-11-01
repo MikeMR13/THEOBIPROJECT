@@ -23,8 +23,10 @@ assert(ui.includes('const published = covers.length ? covers : feat.filter(x => 
   'Los datos diferidos deben conservar el lanzamiento más reciente');
 assert.equal(ui.split('mergeHomeCarousel(').length - 1, 2,
   'La composición de calendario y recomendaciones debe compartir el mismo presupuesto de diez');
-assert(featured.includes('HOME_CAROUSEL_LIMIT = 10') && featured.includes('slice(0, 2)'),
-  'Vitrina de diez espacios con dos preestrenos como máximo');
+assert(ui.includes('let prelaunchPreviews = []') && ui.includes('mergeHomeCarousel(published, prelaunchPreviews, 10, newsBySeries, now)'),
+  'El calendario debe sobrevivir las reconstrucciones tardías de recomendaciones');
+assert(featured.includes('HOME_CAROUSEL_LIMIT = 10') && featured.includes('HOME_PRELAUNCH_SLOTS = 3'),
+  'Vitrina de diez espacios con tres preestrenos como máximo');
 assert(featured.includes('const firstTeam=pool.team.find(') && featured.includes('teamRecommendations:pool.team'),
   'Rotar equipo destacado y conservar todos los equipos en la banda independiente');
 console.log('✓ Carrusel: prioridad 48h, adelantos cercanos y selección activa estable.');

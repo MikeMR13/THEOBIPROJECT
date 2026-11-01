@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {homeFeaturedSelection,homeDayKey,mergeHomeCarousel,HOME_CAROUSEL_LIMIT} from '../src/home-featured.js';
+import {homeFeaturedSelection,homeDayKey,mergeHomeCarousel,HOME_CAROUSEL_LIMIT,HOME_PRELAUNCH_SLOTS} from '../src/home-featured.js';
 const now=new Date('2026-10-21T20:30:00.000Z');
 const day=new Date('2026-10-22T20:30:00.000Z');
 const series=Array.from({length:18},(_,i)=>({
@@ -26,12 +26,13 @@ assert.equal(new Set(out.entries.map(x=>x.id)).size,out.entries.length,'No dupli
 for(const category of ['release','popular','historic','editorial','discover','trending'])assert(out.pool[category].length<=3,'Tope de tres por '+category);
 assert.equal(out.day,homeDayKey(now));
 assert.equal(HOME_CAROUSEL_LIMIT,10,'La vitrina debe reservar diez espacios');
+assert.equal(HOME_PRELAUNCH_SLOTS,3,'Mostrar los tres anuncios actuales sin superar diez obras');
 const cards=Array.from({length:14},(_,i)=>({id:'p'+i,title:'Publicada '+i}));
 const previewsForTen=[{id:'up1',__prelaunch:{volume_id:'v1'}},{id:'up2',__prelaunch:{volume_id:'v2'}},{id:'up3',__prelaunch:{volume_id:'v3'}}];
 const mergedTen=mergeHomeCarousel(cards,previewsForTen);
 assert.equal(mergedTen.length,10,'La combinación de las dos cargas nunca supera diez obras');
 assert.equal(mergedTen[0].id,'p0','El nuevo lanzamiento publicado conserva la portada inicial');
-assert.deepEqual(mergedTen.slice(1,3).map(x=>x.id),['up1','up2'],'Se reservan hasta dos anuncios de preestreno');
+assert.deepEqual(mergedTen.slice(1,4).map(x=>x.id),['up1','up2','up3'],'Se reservan tres anuncios de preestreno');
 assert.equal(new Set(mergedTen.map(x=>x.id)).size,10,'El carrusel mixto no duplica obras');
 const duplicatePreview={id:'p0',__prelaunch:{volume_id:'prev-existing'}};
 const mergedDuplicate=mergeHomeCarousel(cards,[duplicatePreview,...previewsForTen]);
@@ -39,6 +40,31 @@ assert.equal(mergedDuplicate.filter(x=>x.id==='p0').length,1,'Un volumen preestr
 assert(mergedDuplicate.find(x=>x.id==='p0').__prelaunch,'La ficha de preestreno prevalece mientras esté programado');
 assert.equal(mergeHomeCarousel(cards,[]).length,10,'Sin preestrenos se usan diez espacios públicos');
 assert.equal(mergeHomeCarousel(cards,[],8).length,8,'Se puede limitar el máximo sin afectar el algoritmo');
+// Caso real: hoy se publicó el volumen 18 de una serie y se anunció el 19.
+const sameSeriesPreview={id:'p0',__prelaunch:{volume_id:'vol-19',at:'2026-11-15T18:30:00Z'}};
+const freshPublishedVolume={p0:{kind:'volume',volume:{id:'vol-18',num:18},at:'2026-11-01T18:30:00Z'}};
+const nowOfIncident=new Date('2026-11-01T19:30:00Z');
+const firstPaint=mergeHomeCarousel(cards,[],10,freshPublishedVolume,nowOfIncident);
+const afterCalendar=mergeHomeCarousel(cards,[sameSeriesPreview,...previewsForTen],10,freshPublishedVolume,nowOfIncident);
+const afterTrends=mergeHomeCarousel([...cards].reverse(),[sameSeriesPreview,...previewsForTen],10,freshPublishedVolume,nowOfIncident);
+for (const stage of [firstPaint,afterCalendar,afterTrends]) {
+  assert(stage.some(x=>x.id==='p0'&&!x.__prelaunch),'Volumen publicado no desaparece tras los datos diferidos');
+  assert(stage.length<=10,'Las transiciones no sobrepasan diez portadas');
+}
+for (const stage of [afterCalendar,afterTrends]) {
+  assert(stage.some(x=>x.__prelaunch?.volume_id==='vol-19'),'El preestreno del siguiente volumen permanece visible');
+  assert.deepEqual(stage.filter(x=>x.__prelaunch).map(x=>x.__prelaunch.volume_id),['vol-19','v1','v2'],
+    'Los anuncios conservan sus plazas incluso cuando llega la curaduría');
+  const keys=stage.map(x=>x.__prelaunch ? 'pre:'+x.__prelaunch.volume_id : 'pub:'+x.id);
+  assert.equal(new Set(keys).size,keys.length,'No duplicar la misma publicación');
+}
+const agedNow=new Date('2026-11-09T19:30:00Z');
+const aged=mergeHomeCarousel(cards,[sameSeriesPreview],10,freshPublishedVolume,agedNow);
+assert(!aged.some(x=>x.id==='p0'&&!x.__prelaunch),
+  'Una publicación de hace más de siete días no ocupa dos plazas con su próximo estreno');
+const duplicatedSchedule=mergeHomeCarousel(cards,[sameSeriesPreview,sameSeriesPreview,...previewsForTen],10,freshPublishedVolume,nowOfIncident);
+assert.equal(duplicatedSchedule.filter(x=>x.__prelaunch?.volume_id==='vol-19').length,1,
+  'Duplicados de la RPC no añaden otra portada del mismo volumen');
 
 assert.deepEqual(homeFeaturedSelection({...input}).entries,out.entries,'Carrusel estable dentro del mismo día');
 assert.notEqual(homeDayKey(now),homeDayKey(day));
