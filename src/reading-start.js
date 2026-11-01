@@ -26,3 +26,17 @@ export function selectReadingStart(chapters = [], preferredId = null) {
     (shown.label === 'Sección' ? (c.section_type || 'Capítulo') === 'Capítulo' : true))?.c ||
     available[0];
 }
+
+/**
+ * En una ficha de volumen, "Comenzar volumen" siempre inicia en su Portada
+ * si está incluida entre las secciones públicas ya autorizadas por la ficha.
+ * Sin Portada, utiliza la primera sección disponible, en orden de lectura.
+ * No altera el inicio editorial elegido para la obra completa.
+ */
+export function selectVolumeStart(chapters = []) {
+  const available = (chapters || []).filter(c => c && Number.isFinite(Number(c.num)))
+    .slice().sort((a, b) => Number(a.num) - Number(b.num));
+  return available.find(c => formatChapterIndex({
+    title: c.title, sectionType: c.section_type
+  }).label === 'Portada') || available[0] || null;
+}
