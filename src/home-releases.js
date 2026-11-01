@@ -21,8 +21,11 @@ export function homeReleaseOverview(latest = [], volumes = [], visibleSeries = [
     // Distinguir el primer volumen de una serie de los lanzamientos posteriores.
     // El conteo incluye volúmenes publicados aunque falte su anuncio editorial.
     publishedVolumeCount.set(v.series_id, (publishedVolumeCount.get(v.series_id) || 0) + 1);
-    // announced_at certifica que la plataforma anunció el volumen, no solamente un capítulo.
-    if (!v.announced_at) continue;
+    // Un preestreno anunciado también cuenta como lanzamiento al volverse público.
+    // La transición programada puede no rellenar announced_at; el opt-in previo
+    // es evidencia suficiente solo DESPUÉS de estar publicado. Sin ambas marcas,
+    // un volumen no anunciado continúa sin desplazar a los capítulos.
+    if (!v.announced_at && v.announce_prelaunch !== true) continue;
     const old = lastVolume.get(v.series_id);
     if (!old || atMs(v.published_at) > atMs(old.published_at) || (atMs(v.published_at) === atMs(old.published_at) && +v.num > +old.num))
       lastVolume.set(v.series_id, v);

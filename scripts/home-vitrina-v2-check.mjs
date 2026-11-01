@@ -114,7 +114,7 @@ async function run(){
   assert(seasonCss,'Faltan estilos reales de temporada');
   const siteCss=readFileSync('src/styles.css','utf8')+'\n'+JSON.parse(cssMatch[1])+'\n'+seasonCss;
   for(const needle of [
-    "home-vitrina.js?v=7","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
+    "home-vitrina.js?v=8","enhanceHomeVitrina(el, feat, i,","activeNotice: currentNotice",
     "el.dataset.vtKeys === feat.map(heroKey).join('|')","el.__vtStop?.()",
     "heroPaused = true;","homeMetrics.shown(heroKey(s)","homeMetrics.clicked(s.slug",
     "prelaunch_calendar","creditsHTML({publicCredits:","heroClock.show({"

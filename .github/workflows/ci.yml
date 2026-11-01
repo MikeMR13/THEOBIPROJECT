@@ -215,6 +215,8 @@ jobs:
         run: node scripts/library-design-compat-check.mjs
       - name: Fase 6.1 QA Inicio y Catálogo (Chromium)
         run: node scripts/phase6-public-check.mjs
+      - name: Inicio por volumen desde la Portada y preservación del progreso
+        run: node scripts/reading-start-check.mjs
       - name: Ficha pública Fases 1–2 — galería, lista y descargas en 5 tamaños
         run: node scripts/series-editorial-phase12-check.mjs
       - name: Ficha pública Fases 3–4 — búsqueda, filtros y accesibilidad móvil

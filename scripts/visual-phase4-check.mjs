@@ -27,7 +27,7 @@ const markers=[
   'ui-grid','ui-fich','ui-sh','ui-vol','ui-chl'
 ];
 for(const mark of markers)assert(ui.includes(mark),'Se perdió un componente del Inicio o su protección de fecha: '+mark);
-assert(ui.includes("home-releases.js?v=2"),'La vista debe cargar el selector editorial actualizado');
+assert(ui.includes("home-releases.js?v=3"),'La vista debe cargar el selector editorial actualizado');
 for(const old of ['obTicker','ob-track','ob-tick'])assert(!ui.includes(old),'La cinta eliminada regresó: '+old);
 assert(styles.includes('.rd-team img{'),'Logotipo del lector eliminado');
 assert(studio.includes('.s2-work{'),'Tarjetas de Studio eliminadas');

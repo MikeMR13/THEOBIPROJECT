@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { selectReadingStart } from '../src/reading-start.js';
+import { selectReadingStart, selectVolumeStart } from '../src/reading-start.js';
 import { SECTION_TYPES, inferSectionType } from '../src/section-types.js';
 import { formatChapterIndex } from '../src/chapter-title-display.js';
 import { readFileSync } from 'node:fs';
@@ -21,6 +21,17 @@ assert.equal(selectReadingStart(volume.filter(c => c.id === 'summary' || c.id ==
 assert.equal(selectReadingStart([{ id: 'a', num: 1, title: 'Introducción', section_type: 'Capítulo' }])?.id, 'a');
 assert.equal(selectReadingStart([]), null);
 assert.equal(selectReadingStart([volume[5], volume[4]])?.id, 'prologue', 'Respeta el orden interno');
+// La acción por volumen comienza en su Portada, no en prólogo ni capítulo 1.
+assert.equal(selectVolumeStart(volume)?.id, 'cover', 'Comenzar volumen abre la Portada');
+assert.equal(selectVolumeStart([...volume].reverse())?.id, 'cover', 'La portada se encuentra aunque el índice llegue desordenado');
+assert.equal(selectVolumeStart([{...volume[0],title:'Ilustración de tapa'},...volume.slice(1)])?.id,
+  'cover','El tipo editorial Portada basta, sin depender del título');
+assert.equal(selectVolumeStart([{id:'legacy-cover',num:2,title:'Portada',section_type:'Capítulo'},
+  {id:'chapter',num:3,title:'Capítulo 1: inicio',section_type:'Capítulo'}])?.id,
+  'legacy-cover','Importaciones antiguas con nombre Portada también sirven');
+assert.equal(selectVolumeStart(volume.filter(c=>c.id!=='cover'))?.id,'credits',
+  'Si no existe Portada se comienza en la primera sección disponible');
+assert.equal(selectVolumeStart([]),null,'Volumen sin secciones no ofrece inicio');
 for (const type of ['Portada', 'Sinopsis', 'Índice', 'Dedicatoria', 'Agradecimientos', 'Nota editorial', 'Prólogo']) {
   assert(SECTION_TYPES.includes(type), type + ' está disponible en el editor/importador');
   assert.equal(formatChapterIndex({ title: type, sectionType: type }).label, type);
@@ -32,6 +43,9 @@ const ui = readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
 const studio = readFileSync(new URL('../src/studio.js', import.meta.url), 'utf8');
 assert.match(studio, /data-start-reading/);
 assert.match(ui, /selectReadingStart\(allCh, s\.reading_start_chapter_id\)/);
+assert.match(ui, /selectVolumeStart\(list\)/, 'La tarjeta debe aplicar el inicio desde Portada');
+assert.match(ui, /hereVol \? 'Continuar lectura' : vLk \? '🔒 Comenzar volumen/, 'Conservar progreso y acceso');
+assert.doesNotMatch(ui, /ui-v-first-chapter/, 'No mantener el atajo duplicado en el volumen');
 assert.match(ui, /p\?\.chapter_num \|\| start\?\.num/);
 assert.match(ui, /publicReadingStart\(s\)/);
 assert.doesNotMatch(ui, /p\?\.chapter_num \|\| lc\?\.num \|\| 1/, 'Hero no debe iniciar en el último capítulo');
