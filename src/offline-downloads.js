@@ -24,7 +24,7 @@ export function createOfflineDownloads({ sb, url, toast = () => {}, store = loca
   const savedText = scope => '✓ ' + (scope === 'series' ? 'Novela guardada' : scope === 'volume' ? 'Volumen guardado' : 'Capítulo guardado') + ' sin conexión';
   const actionLabel = scope => 'Guardar ' + scopeName(scope) + ' para leer sin conexión';
   const savedLabel = scope => (scope === 'series' ? 'Novela guardada' : scope === 'volume' ? 'Volumen guardado' : 'Capítulo guardado') + ' para leer sin conexión';
-  const hint = saved => saved ? 'Disponible en este dispositivo. Administra tus lecturas en Mi biblioteca, Sin conexión.' : 'Guardar en este dispositivo para leer sin internet';
+  const hint = saved => saved ? 'Disponible en este dispositivo. Administra tus lecturas en Mis descargas.' : 'Guardar en este dispositivo para leer sin internet';
   const button = ({ slug, scope = 'series', vol, num }) => {
     if (!/^[a-z0-9_-]+$/i.test(slug || '') || !['series','volume','chapter'].includes(scope)) return '';
     const saved = offlineSaved(index(), slug, scope, vol, num);
@@ -156,11 +156,13 @@ export function createOfflineDownloads({ sb, url, toast = () => {}, store = loca
       e.preventDefault(); e.stopPropagation();
       if (working || b.disabled) return;
       if (offlineSaved(index(),b.dataset.offlineSlug,b.dataset.offlineScope,b.dataset.offlineVol,b.dataset.offlineNum))
-        return toast('Ya está guardado para leer sin conexión. Adminístralo en Mi biblioteca → Sin conexión.');
+        return toast('Ya está guardado para leer sin conexión. Adminístralo en Mis descargas.');
       try {
-        await download({slug:b.dataset.offlineSlug,scope:b.dataset.offlineScope,
+        const result = await download({slug:b.dataset.offlineSlug,scope:b.dataset.offlineScope,
           vol:b.dataset.offlineVol,num:b.dataset.offlineNum},
           text=>{ if (b.isConnected) b.textContent=text; });
+        if (result?.saved && b.isConnected && !b.nextElementSibling?.classList?.contains('obi-offline-manage-link'))
+          b.insertAdjacentHTML('afterend','<a class="obi-offline-manage-link" href="/descargas">Ver mis descargas</a>');
       } catch (error) { toast('No se pudo guardar sin conexión: ' + (error?.message || 'inténtalo de nuevo')); }
       repaint();
     });

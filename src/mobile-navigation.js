@@ -8,6 +8,7 @@ export const MAIN_TABS = [
   ['/perfil', '人', 'Perfil']
 ];
 export const EXTRA_TABS = [
+  ['/descargas', 'Mis descargas'],
   ['/calendario', 'Calendario'],
   ['/ranking', 'Ranking'],
   ['/apoyar', '援 Apoyar']

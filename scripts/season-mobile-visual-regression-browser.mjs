@@ -58,8 +58,9 @@ function inspect(S,mobile){
       fail('Los seis kanji originales y Más deben mantenerse uniformes');
     if (new Set(links.map(a=>a.getAttribute('href'))).size!==5) fail('Destinos principales duplicados');
     const extras=[...panel.querySelectorAll('a')];
-    if (extras.map(a=>a.getAttribute('href')).join('|')!=='/calendario|/ranking|/apoyar')
+    if (extras.map(a=>a.getAttribute('href')).join('|')!=='/descargas|/calendario|/ranking|/apoyar')
       fail('Falta una sección secundaria');
+    if (extras[0]?.textContent !== 'Mis descargas') fail('Mis descargas no aparece en Más');
     if(w<=760){
       const brand=header.querySelector('.ob-brand').getBoundingClientRect();
       const tools=header.querySelector('.ob-tools').getBoundingClientRect();
@@ -77,8 +78,12 @@ function inspect(S,mobile){
       if(extras.some(a=>a.getBoundingClientRect().height<43.5))fail('Destino secundario demasiado pequeño');
       const pr=panel.getBoundingClientRect();
       if(pr.left< -2||pr.right>w+2)fail('Panel se sale del móvil');
+      mobile.mark('/descargas');
+      if(!more.classList.contains('on')||extras[0].getAttribute('aria-current')!=='page')
+        fail('Falla estado activo de Mis descargas');
       mobile.mark('/ranking');
-      if(!more.classList.contains('on')||extras[1].getAttribute('aria-current')!=='page')
+      const rankingLink=extras.find(a=>a.getAttribute('href')==='/ranking');
+      if(!more.classList.contains('on')||rankingLink?.getAttribute('aria-current')!=='page')
         fail('Falla estado activo de Ranking');
       document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
       if(!panel.hidden||more.getAttribute('aria-expanded')!=='false'||document.activeElement!==more)
