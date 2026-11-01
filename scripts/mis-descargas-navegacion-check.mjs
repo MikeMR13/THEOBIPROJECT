@@ -7,6 +7,13 @@ import {readOfflineIndex} from '../src/offline-downloads.js';
 const read = f => readFileSync(f,'utf8');
 const app=read('src/app.js'), reader=read('src/reader.js');
 const downloads=read('src/offline-downloads.js'),css=read('src/styles.css');
+assert.match(app,/app\.classList\.add\('obi-downloads-page'\)/,'La ruta de descargas debe proteger contenido sobre el patrón');
+assert.match(app,/app\.classList\.remove\('obi-downloads-page'\)/,'Al salir de descargas se debe quitar fondo aislado');
+assert.match(reader,/class="off-empty"/,'El estado sin descargas debe utilizar clase legible');
+assert.match(css,/#app\.obi-downloads-page\{background:var\(--ink\)/,'El fondo de descargas debe ser opaco');
+assert.match(css,/\.off-empty\{[^\n]*white-space:normal;overflow-wrap:anywhere/,'El mensaje vacío debe poder saltar de línea');
+assert.match(css,/\.off-it \.btn\{[^\n]*min-height:44px/,'Leer y Borrar deben tener objetivo táctil de 44px');
+
 assert(EXTRA_TABS.some(([path,label])=>path==='/descargas'&&label==='Mis descargas'),'Falta acceso móvil en Más');
 assert.match(app,/<a href="\/descargas">Mis descargas<\/a>/,'Falta el acceso en el menú de cuenta');
 assert.match(app,/\['offline','Mis descargas'\]/,'La pestaña de Mi biblioteca debe llamarse Mis descargas');
