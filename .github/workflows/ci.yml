@@ -23,6 +23,8 @@ jobs:
       - run: npm run check && npm run quality-gates && npm run build && npm run verify && npm run optimize-check && npm run db-phase2-check && npm run phase3-check && npm run phase4-check && npm run studio-functional-check && npm run studio-fields-check && npm run integration-check
       - name: Rendimiento Fase 3 — lector diferido, navegación y offline (sin backend)
         run: node --check src/app.js && node scripts/performance-phase3-route-loader-check.mjs
+      - name: Rendimiento Fase 4 — portadas visibles y prioridades (sin backend)
+        run: node --check src/home-vitrina.js && node scripts/performance-phase4-vitrina-cover-check.mjs
       - name: Biblioteca y temporadas · estados, fechas y acciones (sin backend)
         run: node scripts/season-library-audit-check.mjs
       - name: Editor Productividad · Entrega 2 (sin backend)
