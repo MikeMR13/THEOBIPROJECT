@@ -33,7 +33,8 @@ function inspect(S,mobile){
     await S.load(fake,true);
     if (S.platformKey(new Date('2026-10-28T12:00:00')) !== 'halloween')
       fail('Halloween no se activa dentro de su calendario');
-    S.apply('home');
+    // La prueba visual utiliza Halloween explícitamente: no depende de la fecha UTC del runner.
+    S.apply('home', { key: 'halloween' });
     const root = document.documentElement;
     if (root.dataset.season !== 'halloween') fail('Tema no aplicado a la página');
     if (!document.querySelector('header.top .ob-brand .obi-sea-stamp'))
