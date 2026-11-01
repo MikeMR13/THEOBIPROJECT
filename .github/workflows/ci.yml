@@ -78,6 +78,8 @@ jobs:
         run: node scripts/reader-phase4-continuity-check.mjs
       - name: Calidad lector, imágenes e Inicio/Catálogo (sin backend)
         run: node scripts/reader-quality-phase134-check.mjs
+      - name: Rendimiento Fase 2 — primer render de Inicio y Catálogo (sin backend)
+        run: node --check src/ui.js && node scripts/performance-phase2-first-render-check.mjs
       - name: Cinco fases auditoría — contratos sin backend ni servicios de pago
         run: node scripts/auditoria-cinco-fases-check.mjs
       - name: Studio — regresiones de auditoría de secciones (sin backend)
