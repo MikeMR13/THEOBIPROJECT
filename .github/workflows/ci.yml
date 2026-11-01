@@ -37,6 +37,16 @@ jobs:
           path: qa-performance/fase5-*.json
           if-no-files-found: warn
           retention-days: 1
+      - name: Validación de Inicio y Catálogo completos · Chromium 390/1440 px, backend ficticio
+        run: node --check scripts/performance-full-routes-lab-check.mjs && node scripts/performance-full-routes-lab-check.mjs
+      - name: Guardar evidencia de rutas completas sin datos de producción
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validacion-cwv-rutas-simuladas
+          path: qa-performance/validacion-rutas-cwv-lab.json
+          if-no-files-found: warn
+          retention-days: 1
       - name: Biblioteca y temporadas · estados, fechas y acciones (sin backend)
         run: node scripts/season-library-audit-check.mjs
       - name: Editor Productividad · Entrega 2 (sin backend)
