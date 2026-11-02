@@ -360,6 +360,13 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
   const book = (s, sub, slim) => `<div class="ui-book ${s.cover_path ? 'has-art' : 'no-art'}" style="--c:${esc(color(s))};background-image:${s.cover_path ? `url('${esc(slim ? thumb(s) : media(s.cover_path))}')` : 'none'}"><div class="ui-obi${slim || s.cover_path ? ' slim' : ''}"><small>${esc(sub || s.teams?.name || 'El Obi del Lector')}</small>${s.cover_path ? '' : esc(s.short || s.title)}</div></div>`;
   const pill = st => { const [l, c] = TL[st] || TL.active; return `<span class="ui-pill" style="color:${c}">${l}</span>`; };
   const SERIES = 'id,reading_start_chapter_id,published,team_id,slug,title,short,original,author,illustrator,publisher,synopsis,genres,tags,theme,cover_path,cover_thumb_path,adult,work_type,demographic,translation_status,original_status,sequel_status,views,teams(name,slug,color,avatar_path),chapters(count),volumes(count)';
+  // Selección ligera para pantallas públicas: las relaciones contadas pueden
+  // sobrepasar statement_timeout incluso cuando la obra sí está publicada.
+  const SERIES_FAST = SERIES.replace(',chapters(count),volumes(count)', '');
+  const softWait = (promise, fallback, ms = 700) => Promise.race([
+    Promise.resolve(promise).catch(error => { console.warn('Datos secundarios', error); return fallback; }),
+    new Promise(resolve => setTimeout(() => resolve(fallback), ms))
+  ]);
   // Resuelve el inicio a demanda (evita consultas adicionales durante la rotación del carrusel).
   // No se usa para lectores con progreso: sus enlaces siguen a reading_progress/localStorage.
   async function publicReadingStart(series) {
@@ -457,16 +464,18 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     if (SIDX && Date.now() - SIDXAt < 20000) return SIDX;
     SIDXAt = Date.now();
     return SIDX = (async () => { const u = getUser();
-    const [{ data: ss }, { data: ts }, pr] = await Promise.all([sb.from('series').select('id,slug,title,short,original,author,illustrator,genres,tags,adult,cover_path,translation_status,theme,teams(name,slug,color),chapters(count)').eq('published', true),
+    const [{ data: ss }, { data: ts }, pr] = await Promise.all([sb.from('series').select('id,slug,title,short,original,author,illustrator,genres,tags,adult,cover_path,translation_status,theme,teams(name,slug,color)').eq('published', true),
       sb.from('teams').select('slug,name,avatar_path,status'), u ? sb.rpc('my_adult_ok') : { data: null }]);
     const ok = pr?.data === true; return { series: (ss || []).filter(x => x.translation_status !== 'withdrawn' && (!x.adult || ok)), teams: (ts || []).filter(t => !t.status || /^(active|activo)$/i.test(t.status)) }; })().catch(e => { SIDX = null; throw e; });
   };
   async function searchData(q, lim){
-    const [I0, announced] = await Promise.all([searchIndex(), loadPublicUpcoming(sb)]);
+    const indexRequest = searchIndex();
+    const announcedRequest = softWait(loadPublicUpcoming(sb), [], 650);
+    const [I0, announced] = await Promise.all([indexRequest, announcedRequest]);
     const I = { ...I0, series: I0.series.filter(x => !hidS(x)) }, n = norm(q), has = t => norm(t).includes(n), byId = Object.fromEntries(I.series.map(x => [x.id, x]));
     const upcoming = uniqueUpcoming(announced).filter(x => !byId[x.series_id] && !hidS(x) && has([x.title, x.short].join(' '))).slice(0, lim);
     const works = I.series.filter(x => has([x.title, x.short, x.original].join(' '))).slice(0, lim);
-    await attachPublicCredits(sb, works);
+    await softWait(attachPublicCredits(sb, works), null, 550);
     const am = new Map(); I.series.forEach(x => [x.author, x.illustrator].filter(Boolean).forEach(a => { if (has(a)) { const k = a.trim(); am.set(k, (am.get(k) || 0) + 1); } }));
     const authors = [...am].sort((a, b) => b[1] - a[1]).slice(0, lim);
     const teams = I.teams.filter(t => has(t.name)).slice(0, lim);
@@ -835,7 +844,10 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
 
 `;
   const SKEL = `<div class="ob-page ob-skel" aria-busy="true" aria-label="Cargando la biblioteca"><div class="ob-mast"><h1 class="sr">El Obi del Lector — Novelas ligeras en español latino</h1><b>翻訳図書館</b><span>Biblioteca de novelas ligeras · Español latino</span></div><div class="sk sk-hero"></div><div class="sk sk-h"></div><div class="sk-row">${'<div class="sk sk-ln"></div>'.repeat(4)}</div><div class="sk sk-h"></div><div class="sk-row c">${'<div class="sk sk-cv"></div>'.repeat(6)}</div></div>`;
+  let homeVisitSeq = 0;
   async function home(){
+    const visit = ++homeVisitSeq;
+    const liveHome = () => visit === homeVisitSeq && location.pathname === '/';
     const navigation = performance.getEntriesByType('navigation')[0];
     const initial = firstHomeVisit && navigation && new URL(navigation.name).pathname === '/';
     const startedAt = initial ? 0 : performance.now();
@@ -852,7 +864,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const u = getUser(), now = new Date();
     // Fase 1: lo que se ve primero. home_feed trae todo lo público en una consulta; si falla, las consultas de siempre.
     const legacy = () => Promise.all([
-      sb.from('series').select(SERIES).eq('published', true).order('views', { ascending: false }),
+      sb.from('series').select(SERIES_FAST).eq('published', true).order('views', { ascending: false }),
       sb.from('chapters').select('num,title,publish_at,series_id').eq('status', 'published').is('deleted_at', null).or('publish_at.is.null,publish_at.lte.' + now.toISOString()).order('publish_at', { ascending: false, nullsFirst: false }).limit(80),
       sb.rpc('ranking_list', { p_list: 'leidas', p_period: 'semana', p_limit: 100 }),
       sb.rpc('ranking_list', { p_list: 'leidas', p_period: 'historico', p_limit: 6 }),
@@ -914,10 +926,11 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         // en todas las tarjetas. Hero y lanzamientos siguen usando v.cover_path.
       }); }
     const { series, latest, rkW, rkH, top10 } = FD, ps = { featured: FD.featured }, nextRel = (FD.nextRel || []).filter(e => new Date(e.at) > Date.now());
-    if (location.pathname !== '/') return;
+    if (!liveHome()) return;
     const adultOk = pr?.data === true;
     const list = (series || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) && (!s.adult || adultOk) && !hidS(s));
-    await creditsRequest; // ya se inició en paralelo a la consulta de volúmenes.
+    await softWait(creditsRequest, null, 650); // Créditos secundarios: no retener Inicio.
+    if (!liveHome()) return;
     const byId = Object.fromEntries(list.map(s => [s.id, s]));
     const lastCh = {}; (latest || []).forEach(c => { lastCh[c.series_id] ||= c; });
     // Las publicaciones completas se anuncian como volumen, no como capítulos sueltos.
@@ -1692,7 +1705,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const prog = await progressMap();
     const [{ data: chs0 }, { data: ser }, readR, folR, pend, { data: LK }] = await Promise.all([
       sb.from('chapters').select('id,num,vol,volume_id,title,section_type,publish_at,series_id,volumes(num,cover_path,deleted_at)').eq('status', 'published').is('deleted_at', null).order('publish_at', { ascending: false }).order('num', { ascending: false }).limit(400),
-      sb.from('series').select(SERIES),
+      sb.from('series').select(SERIES_FAST),
       u ? sb.from('read_chapters').select('chapter_id').eq('user_id', u.id) : { data: [] },
       u ? sb.from('follows').select('series_id').eq('user_id', u.id) : { data: [] },
       pendingMap(prog), sb.rpc('release_locks', { p_limit: 300 }).then(r => { if (r.error) console.warn('release_locks', r.error.message); return r; }, () => ({ data: [] }))]);
@@ -1803,7 +1816,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const hit = seriesCache.get(slug);
     if (hit && Date.now() - hit.at < 15000) return hit.promise;
     seriesCache.delete(slug);
-    const promise = Promise.resolve(sb.from('series').select(SERIES).eq('slug', slug).maybeSingle())
+    const promise = Promise.resolve(sb.from('series').select(SERIES_FAST).eq('slug', slug).maybeSingle())
       .then(r => { if (r.error) seriesCache.delete(slug); return r; })
       .catch(error => { seriesCache.delete(slug); return { data: null, error }; });
     seriesCache.set(slug, { at: Date.now(), promise });
@@ -2367,10 +2380,10 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       if (error) { box.innerHTML = `<p class="mono" role="alert">No se pudo cargar el ranking del equipo: ${esc(error.message)}</p>`; return; }
       const rows = (data || []).filter(r => +r.score > 0);
       if (!rows.length) { box.innerHTML = `<p class="mono">Este equipo todavía no registra lecturas en la clasificación semanal. <a href="/equipo/${esc(team.slug)}">Ver su página →</a></p>`; return; }
-      const { data: ss, error: se } = await sb.from('series').select(SERIES).eq('published', true).in('id', rows.map(r => r.series_id));
+      const { data: ss, error: se } = await sb.from('series').select(SERIES_FAST).eq('published', true).in('id', rows.map(r => r.series_id));
       if (my !== tk || !box.isConnected) return;
       if (se) { box.innerHTML = `<p class="mono" role="alert">No se pudieron cargar las obras: ${esc(se.message)}</p>`; return; }
-      await attachPublicCredits(sb, ss || []);
+      await softWait(attachPublicCredits(sb, ss || []), null, 650);
       if (my !== tk || !box.isConnected) return;
       const by = Object.fromEntries((ss || []).map(s => [s.id, s]));
       const entries = rows.filter(r => by[r.series_id]);
@@ -2383,10 +2396,10 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       if (my !== tk || !document.body.contains(box)) return;
       if (error) { box.innerHTML = `<p style="color:#f59e7a">No se pudo cargar el ranking: ${esc(error.message)}</p>`; return; }
       if (!data?.length) { box.innerHTML = `<div class="ui-empty"><p><strong>${R.genre || R.status ? 'Ninguna obra con estos filtros entra en esta lista.' : RK_E[R.list] || 'Aún no hay lecturas en este periodo.'}</strong></p></div>`; revealOverview(); return; }
-      const { data: ss } = await sb.from('series').select(SERIES).in('id', data.map(r => r.series_id));
-      if (my !== tk) return;
-      await attachPublicCredits(sb, ss || []);
-      if (my !== tk) return;
+      const { data: ss } = await sb.from('series').select(SERIES_FAST).in('id', data.map(r => r.series_id));
+      if (my !== tk || !box.isConnected) return;
+      await softWait(attachPublicCredits(sb, ss || []), null, 650);
+      if (my !== tk || !box.isConnected) return;
       const by = Object.fromEntries((ss || []).map(s => [s.id, s])), filtered = !!(R.genre || R.status), anyPrev = data.some(r => r.prev_pos != null);
       const mv = r => filtered ? '' : r.prev_pos == null ? (anyPrev ? '<span class="rk-mv new">Nuevo</span>' : '') : r.prev_pos > r.gpos ? `<span class="rk-mv up" title="Subió ${r.prev_pos - r.gpos} desde la última actualización">▲${r.prev_pos - r.gpos}</span>` : r.prev_pos < r.gpos ? `<span class="rk-mv dn" title="Bajó ${r.gpos - r.prev_pos} desde la última actualización">▼${r.gpos - r.prev_pos}</span>` : '<span class="rk-mv eq" title="Sin cambios">=</span>';
       const sc = r => ({ leidas: fmtN(r.score) + ' lecturas', tendencia: '+' + fmtN(r.score) + ' lecturas', calificadas: (+r.score).toFixed(1) + ' ★ · ' + r.votes + ' votos', terminadas: fmtN(r.score) + (+r.score === 1 ? ' lector' : ' lectores') + ' al día', novedades: fmtN(r.score) + ' lecturas' })[R.list];
