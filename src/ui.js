@@ -478,9 +478,11 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     });
   };
   async function searchData(q, lim){
+    const sessionId = getUser()?.id || 'anon';
     const indexRequest = searchIndex();
     const announcedRequest = softWait(loadPublicUpcoming(sb), [], 650);
     const [I0, announced] = await Promise.all([indexRequest, announcedRequest]);
+    if ((getUser()?.id || 'anon') !== sessionId) throw new Error('La sesión cambió durante la búsqueda');
     const I = { ...I0, series: I0.series.filter(x => !hidS(x)) }, n = norm(q), has = t => norm(t).includes(n), byId = Object.fromEntries(I.series.map(x => [x.id, x]));
     const upcoming = uniqueUpcoming(announced).filter(x => !byId[x.series_id] && !hidS(x) && has([x.title, x.short].join(' '))).slice(0, lim);
     const works = I.series.filter(x => has([x.title, x.short, x.original].join(' '))).slice(0, lim);
