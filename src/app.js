@@ -223,8 +223,22 @@ function render(){
   const seq = ++routeRenderSeq;
   // En la lectura offline no iniciar cargas decorativas ni peticiones a Supabase.
   if (navigator.onLine) seasons().then(S => { S.clear(); S.load(sb); }).catch(() => {});
-  return render0().catch(e => { if (!navigator.onLine || /Failed to fetch|NetworkError|Load failed|network/i.test(e?.message || '')) return offlinePage(); throw e; })
-    .then(r => { if (seq !== routeRenderSeq) return; installPublicShare(); if (navigator.onLine) { contBtn(); return afterRender(r); } return r; });
+  return render0().catch(error => {
+    if (seq !== routeRenderSeq) return;
+    if (!navigator.onLine) return offlinePage();
+    // Los módulos públicos (lector, ficha, administración, PWA) deben permitir
+    // reintentar un import o error de red sin dejar la pantalla anterior congelada.
+    console.warn('Carga de ruta', error);
+    const path = location.pathname;
+    app.innerHTML = '<div class="ui-empty" role="alert">' +
+      '<h1>Esta sección no pudo cargarse</h1>' +
+      '<p>La conexión o el servidor tardaron demasiado. Tus lecturas y descargas no se han eliminado.</p>' +
+      '<button class="btn" id="ob-route-retry" type="button">Reintentar</button> ' +
+      '<a class="btn ghost" href="/">Volver al inicio</a></div>';
+    app.querySelector('#ob-route-retry')?.addEventListener('click', () => {
+      if (seq === routeRenderSeq && location.pathname === path) void render();
+    });
+  }).then(r => { if (seq !== routeRenderSeq) return; installPublicShare(); if (navigator.onLine) { contBtn(); return afterRender(r); } return r; });
 }
 // ---------- sin conexión ----------
 async function offlinePage(){
