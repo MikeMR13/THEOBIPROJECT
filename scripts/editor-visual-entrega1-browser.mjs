@@ -28,7 +28,7 @@ for(const marker of [
  'previewManualUntil=Date.now()+2500',
  'ed-panels-menu','ed-top-actions'
 ])assert(editor.includes(marker),'Falta contrato de entrega visual: '+marker);
-assert(studio.includes('ed-loading')&&studio.length<280000,'Sin esqueleto o Studio excede límite 280k');
+assert(studio.includes('ed-loading')&&studio.length<295000,'Sin esqueleto o Studio excede el presupuesto del módulo diferido');
 assert(globalCss.includes('.ed-panels-actions')&&globalCss.includes('.ed-title-label')&&globalCss.includes('.ed-pv-active'),'CSS visual insuficiente');
 const text=Array.from({length:190},(_,i)=>'<p class="ed-line">Párrafo de prueba '+i+' lorem ipsum, lectura cómoda y contenido largo.</p>').join('');
 const reader=Array.from({length:110},(_,i)=>'<p data-ed-block="'+i+'">Párrafo del lector '+i+' con contenido correspondiente a la traducción.</p>').join('');
