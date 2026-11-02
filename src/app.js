@@ -445,6 +445,11 @@ async function library(){
   if (!user) return go(new URLSearchParams(location.search).get('t') === 'offline' ? '/descargas' : '/entrar');
   const uid = user.id, seq = ++librarySeq;
   const live = () => seq === librarySeq && user?.id === uid && location.pathname === '/biblioteca';
+  // El límite es de la vista, no de Supabase; no cancela ni altera escrituras.
+  const bounded = (work, ms = 12000) => Promise.race([
+    Promise.resolve(work),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('La consulta tardó demasiado')), ms))
+  ]);
   lbCss(); installCreditImageFallback();
   app.innerHTML = '<p class="mono" role="status" aria-live="polite">Cargando tu biblioteca…</p>';
   const TABS = [['leyendo','Leyendo'],['pendientes','Pendientes'],['terminadas','Terminadas'],['avisos','Avisos'],['offline','Mis descargas'],['historial','Historial']];
@@ -452,10 +457,10 @@ async function library(){
   let tab = TABS.some(([k]) => k === requested) ? requested : 'leyendo';
   let prog = [], fol = [], readRows = [], ser = [], chs = [];
   try {
-    await meReady; // preferencias y secciones ocultas pertenecen a la cuenta verificada
+    await bounded(meReady); // preferencias y secciones ocultas pertenecen a la cuenta verificada
     if (!live()) return;
     // readPages recorre las páginas en orden estable y rechaza las respuestas incompletas.
-    const [pr, fo, rc] = await Promise.all([
+    const [pr, fo, rc] = await bounded(Promise.all([
       readPages((from,to) => sb.from('reading_progress')
         .select('series_id,chapter_num,pct,updated_at').eq('user_id',uid).order('series_id').range(from,to)),
       readPages((from,to) => sb.from('follows')
@@ -463,7 +468,7 @@ async function library(){
       readPages((from,to) => sb.from('read_chapters')
         .select('chapter_id,read_at,chapters!inner(series_id,deleted_at)')
         .eq('user_id',uid).is('chapters.deleted_at',null).order('chapter_id').range(from,to))
-    ]);
+    ]));
     if (!live()) return;
     prog=pr.data;fol=fo.data;readRows=rc.data;
     const ids = [...new Set([...prog.map(r=>r.series_id),...fol.map(r=>r.series_id),
@@ -471,7 +476,7 @@ async function library(){
     // Lotes pequeños evitan URL excesivamente largas en los filtros .in().
     const batches=[];for(let i=0;i<ids.length;i+=80)batches.push(ids.slice(i,i+80));
     if (batches.length) {
-      const [seriesBatches,chapterBatches] = await Promise.all([
+      const [seriesBatches,chapterBatches] = await bounded(Promise.all([
         Promise.all(batches.map(group=>readPages((from,to)=>sb.from('series')
           .select('id,team_id,slug,title,short,cover_path,cover_thumb_path,translation_status,theme,teams(name,slug,color,avatar_path)')
           .in('id',group).eq('published',true).order('id').range(from,to)))),
@@ -479,12 +484,13 @@ async function library(){
           .select('id,num,title,section_type,vol,volume_id,series_id,publish_at,status,deleted_at')
           .eq('status','published').is('deleted_at',null).in('series_id',group)
           .order('id').range(from,to))))
-      ]);
+      ]));
       ser=seriesBatches.flatMap(x=>x.data);chs=chapterBatches.flatMap(x=>x.data);
     }
     if (!live()) return;
     // Los créditos no deben hacer desaparecer obras cuando falle una consulta complementaria.
-    try { await attachPublicCredits(sb, ser || []); } catch(e){ console.warn('Créditos de biblioteca',e); }
+    // Créditos autorizados se añaden cuando responden, sin retener las estanterías.
+    void Promise.resolve(attachPublicCredits(sb, ser || [])).catch(e => console.warn('Créditos de biblioteca', e));
   } catch(e) {
     if (!live()) return;
     console.warn('Mi biblioteca',e);
