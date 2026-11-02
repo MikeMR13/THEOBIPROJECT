@@ -456,6 +456,7 @@ async function library(){
   const requested = new URLSearchParams(location.search).get('t');
   let tab = TABS.some(([k]) => k === requested) ? requested : 'leyendo';
   let prog = [], fol = [], readRows = [], ser = [], chs = [];
+  let libraryCreditTask = null;
   try {
     await bounded(meReady); // preferencias y secciones ocultas pertenecen a la cuenta verificada
     if (!live()) return;
@@ -490,7 +491,9 @@ async function library(){
     if (!live()) return;
     // Los créditos no deben hacer desaparecer obras cuando falle una consulta complementaria.
     // Créditos autorizados se añaden cuando responden, sin retener las estanterías.
-    void Promise.resolve(attachPublicCredits(sb, ser || [])).catch(e => console.warn('Créditos de biblioteca', e));
+    libraryCreditTask = Promise.resolve(attachPublicCredits(sb, ser || []))
+      .catch(e => console.warn('Créditos de biblioteca', e));
+    await Promise.race([libraryCreditTask, new Promise(resolve => setTimeout(resolve, 650))]);
   } catch(e) {
     if (!live()) return;
     console.warn('Mi biblioteca',e);
@@ -568,6 +571,21 @@ async function library(){
   <div id="lb-read-feedback" class="lb-read-feedback" role="status" aria-live="polite" hidden></div>
   <div id="lb-body"></div>`;
   const box=$('#lb-body'), nav=app.querySelector('.lb-tabs');
+  // Si los créditos terminan después de pintar las estanterías, refrescar solo
+  // esos logos autorizados. No volver a descargar libros ni perder filtros.
+  void libraryCreditTask?.then(() => {
+    if (!live()) return;
+    const bySlug = new Map(ser.map(work => [work.slug, work]));
+    for (const card of app.querySelectorAll('.lb-card')) {
+      const anchor = card.querySelector('.lb-title[href^="/serie/"]');
+      const work = anchor && bySlug.get(anchor.getAttribute('href').slice('/serie/'.length));
+      if (!work) continue;
+      const html = creditsHTML(work, { esc, media: MED, mode: 'carousel' });
+      const current = card.querySelector('.obi-credits--carousel');
+      if (current) current.outerHTML = html;
+      else if (html) anchor.insertAdjacentHTML('afterend', html);
+    }
+  });
   const COVER = w => {
     const c=w.s.theme?.color || w.s.teams?.color || '#76592e';
     const path=w.s.cover_path || w.s.cover_thumb_path;
