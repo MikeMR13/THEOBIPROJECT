@@ -77,17 +77,22 @@ assert.match(ui,/const creditsRequest = Promise\.all\(\[feedRequest, Promise\.re
   'Inicio debe consultar créditos en paralelo con los volúmenes y tras validación +18');
 assert.match(ui,/return attachPublicCredits\(sb, visible\)/,
   'Inicio debe hidratar los logos de colaboradores solo en obras visibles');
-assert.match(ui,/await creditsRequest;/,
-  'Inicio no debe pintar logos antes de resolver créditos');
-assert.match(ui,/await attachPublicCredits\(sb, works\)/, 'La búsqueda carga logos para las obras encontradas');
+assert.match(ui,/await softWait\(creditsRequest, null, 650\);/,
+  'Inicio debe limitar la espera de créditos');
+assert.match(ui,/void creditsRequest\.then\(\(\) => \{[\s\S]*?previous\.outerHTML = html/,
+  'Inicio debe completar logos de colaboradores que respondan tarde');
+assert.match(ui,/await softWait\(attachPublicCredits\(sb, works\), null, 550\)/, 'La búsqueda conserva los logos sin bloquearse');
 assert.match(ui,/creditsHTML\(x, \{ esc, media, mode: 'carousel' \}\)/, 'Búsqueda muestra logos sin enlaces anidados');
 const appSource=readFileSync(new URL('../src/app.js',import.meta.url),'utf8');
-assert.match(appSource,/await attachPublicCredits\(sb, ser \|\| \[\]\)/, 'La biblioteca personal carga créditos aceptados');
+assert.match(appSource,/libraryCreditTask = Promise\.resolve\(attachPublicCredits\(sb, ser \|\| \[\]\)\)/,
+  'La biblioteca consulta solo créditos públicos aceptados');
+assert.match(appSource,/void libraryCreditTask\?\.then\(\(\) => \{[\s\S]*?current\.outerHTML = html/,
+  'La biblioteca debe completar logos tardíos sin perder los filtros');
 assert.match(appSource,/creditsHTML\(w\.s, \{ esc, media: MED, mode: 'carousel' \}\)/, 'La biblioteca muestra logos sin enlaces anidados');
 assert.match(ui,/await attachPublicCredits\(sb, ser \|\| \[\]\)/, 'Lanzamientos deben mostrar colaboradores aceptados');
 assert.match(ui,/creditTeams\(g\.s\)\.some\(t => t\.name === R\.team\)/, 'Filtrar lanzamientos por equipo colaborador');
 const calendar=readFileSync(new URL('../src/agenda.js',import.meta.url),'utf8');
-assert.match(calendar,/await attachPublicCredits\(sb, Object\.values\(D\.series\)/, 'El calendario debe resolver logos de colaboradores');
+assert.match(calendar,/await optional\(attachPublicCredits\(sb, Object\.values\(D\.series\)/, 'El calendario carga créditos, sin retener el calendario');
 assert.match(calendar,/creditTeams\(g\.s\)\.some\(t => t\.slug === V\.team\)/, 'Filtrar calendario por colaboradores');
 const teamPage=readFileSync(new URL('../src/teampage.js',import.meta.url),'utf8');
 assert.match(teamPage,/team_public_collaboration_series/, 'La página de equipo muestra obras compartidas');
