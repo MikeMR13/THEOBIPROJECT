@@ -106,7 +106,7 @@ try {
   {
     const {ctx,page,errors}=await makePage({delaySeries:1700});
     await page.goto(origin+'/catalogo');
-    await page.locator('header nav a[href="/"]').first().click();
+    await page.locator('nav.ob-tab a[href="/"]').click();
     await page.waitForTimeout(2100);
     assert.equal(new URL(page.url()).pathname,'/');
     assert.equal(await page.locator('#cat-grid').count(),0,'Una consulta anterior sobrescribió la nueva pantalla');
