@@ -28,12 +28,12 @@ assert(shell.includes('createMobileNavigation()') && shell.includes('bindMobileN
   'La navegación táctil compartida debe existir fuera de ui.js');
 assert(shell.includes('siteChromeCss()') && shell.includes('id = \'sr-css\''),
   'Faltan estilos del menú y del buscador sin la UI pública');
-assert(ui.includes('search, searchHTML }'), 'El autocomplete no puede perder la búsqueda pública');
 const boot = source('src/boot.js');
 assert(boot.includes("ui.href = '/ui.js?v=62'"), 'Falta precarga selectiva de UI en rutas públicas');
 assert(boot.includes("path === '/catalogo'") && boot.includes("path === '/'"), 'Inicio y Catálogo deben mantener precarga de UI');
 assert(!boot.includes("path === '/estudio'"), 'Estudio no debe precargar UI');
 const ui = source('src/ui.js');
+assert(ui.includes('search, searchHTML }'), 'El autocomplete no puede perder la búsqueda pública');
 assert(!ui.includes("sb.from('series').select('id,theme').eq('published', true)"), 'Consulta de temas redundante en Home');
 assert(ui.includes('S.SEASONS[k]'), 'El inicio debe usar los datos de temporada ya cargados');
 assert(!ui.includes("import('/anim.js?v=8').catch(() => null)"), 'Importación redundante de animaciones');
