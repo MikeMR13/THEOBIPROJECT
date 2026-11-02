@@ -25,11 +25,13 @@ assert.match(ui, /image = s\.cover_thumb_path \|\| s\.cover_path/, 'La estanter�
 assert.match(ui, /alternativeShelf\.length >= Math\.min\(4, list\.length\)/, 'La estantería no evita repetición cuando puede');
 assert.match(css, /#cat-filters>summary\{display:none\}/, 'El Catálogo muestra dos controles de filtros');
 const capture = (text, name) => Number(text.match(new RegExp(name.replace('.', '\\.') + '\\?v=(\\d+)'))?.[1] || 0);
-const appV = capture(index, 'app.js'), uiV = capture(index, 'ui.js');
+const appV = capture(index, 'app.js'), uiV = capture(app, 'ui.js');
 const readerV = capture(app, 'reader.js'), cssV = capture(index, 'styles.css');
 assert(appV > 34 && uiV > 56 && readerV > 20 && cssV > 25, 'Recursos sin versión renovada');
 assert(app.includes('/ui.js?v=' + uiV) && app.includes("import('/reader.js?v=" + readerV + "')"),
   'Importaciones y versiones de caché desincronizadas');
+assert(!index.includes('rel="modulepreload" href="/ui.js'), 'No precargar UI pública en rutas privadas');
+assert(read('src/boot.js').includes('/ui.js?v=' + uiV), 'UI pública debe conservar precarga por ruta');
 assert(!index.includes('rel="modulepreload" href="/reader.js'),
   'El lector no debe precargarse en el HTML público');
 console.log('✓ Calidad 1→3→4: contratos, sintaxis, navegación y versiones de caché');
