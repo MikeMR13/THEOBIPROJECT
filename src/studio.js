@@ -502,13 +502,20 @@ export function createStudio(ctx){
   const OSL = [['publishing','En publicación'],['completed','Completada'],['paused','En pausa'],['cancelled','Cancelada']];
   const VST = { draft: ['Borrador', '#f2c230'], scheduled: ['Programado', '#8cc3f2'], published: ['Publicado', '#a9d18e'], hidden: ['Oculto', '#f59e7a'] };
   async function work(slug){
+    const path = '/estudio/obra/' + slug;
     if (!(await ensure())) return;
+    const teamId = T.team.id, uid = getUser()?.id;
+    const liveWork = () => studioLive(path, teamId, uid);
+    if (!liveWork()) return;
     work.relatedEditor?.destroy(); work.relatedEditor = null;
-    const { data: s } = await sb.from('series').select('*').eq('slug', slug).maybeSingle();
+    app.innerHTML = shell('Ficha editorial', '<p class="mono" role="status">Cargando ficha y capítulos…</p>', '/estudio/obra'); bindPicker(() => work(slug));
+    const { data: s, error: seriesError } = await studioBounded(sb.from('series').select('*').eq('slug', slug).maybeSingle(), 12000);
+    if (!liveWork()) return;
+    if (seriesError) throw new Error('No se pudo recuperar la ficha: ' + errMsg(seriesError));
     if (!s) return go('/estudio');
     const tab = ({ datos: 'datos', seo: 'seo', accesos: 'accesos', avisos: 'avisos', media: 'media', descargas: 'descargas' })[new URLSearchParams(location.search).get('tab')] || 'caps';
     const { readPages } = await import('/paging.js?v=1');
-    const [{ data: vols }, { data: chs }, { data: cols }, { data: events }, { data: dls }, { data: buys }, { data: tch }, { data: tvol }] = await Promise.all([
+    const [{ data: vols, error: volumesError }, { data: chs }, { data: cols }, { data: events }, { data: dls }, { data: buys }, { data: tch }, { data: tvol }] = await studioBounded(Promise.all([
       sb.from('volumes').select('*').eq('series_id', s.id).is('deleted_at', null).order('num'),
       readPages((from, to) => sb.from('chapters').select('id,num,vol,volume_id,title,status,section_type,publish_at,updated_at,stage').eq('series_id', s.id).is('deleted_at', null).order('num').range(from, to), { size: 250 }),
       sb.from('collaborations').select('id,status,invited_team,invited:teams!collaborations_invited_team_fkey(name,slug,color)').eq('series_id', s.id),
@@ -516,7 +523,9 @@ export function createStudio(ctx){
       sb.from('download_links').select('id,volume_id,vol').eq('series_id', s.id),
       sb.from('purchase_links').select('id,store,region,fmt,verified').eq('series_id', s.id),
       sb.from('chapters').select('id,num,vol,volume_id,title,section_type,status,deleted_at').eq('series_id', s.id).not('deleted_at', 'is', null).order('num'),
-      sb.from('volumes').select('id,num,title,cover_path,epub_fonts,deleted_at').eq('series_id', s.id).not('deleted_at', 'is', null).order('num')]);
+      sb.from('volumes').select('id,num,title,cover_path,epub_fonts,deleted_at').eq('series_id', s.id).not('deleted_at', 'is', null).order('num')]), 16000);
+    if (!liveWork()) return;
+    if (volumesError) throw new Error('No se pudieron recuperar los volúmenes: ' + errMsg(volumesError));
     const C = chs || [], V = vols || [], st = TLS[s.translation_status] || TLS.active, c0 = wcolor(s);
     const n = k => C.filter(c => c.status === k).length;
     const TC = tch || [], TV = tvol || [], allNums = [...C, ...TC].map(c => +c.num || 0);
@@ -587,6 +596,7 @@ export function createStudio(ctx){
       ${TV.map(v => `<div class="wk-tri"><span><b>Volumen ${v.num}${v.title && v.title !== String(v.num) && !/^volumen\s*\d+(?:\.\d+)?$/i.test(v.title) ? ' · ' + esc(v.title) : ''}</b><small>${TC.filter(c => c.volume_id === v.id).length} capítulos · quedan ${left(v.deleted_at)} días</small></span>${can('delete') ? `<span class="wk-ra"><button class="btn ghost xs" data-trv="${v.id}">Restaurar</button><button class="lnk danger" data-purv="${v.id}">Borrar definitivamente</button></span>` : ''}</div>`).join('')}
       ${TCx.map(c => `<div class="wk-tri"><span><b>${c.section_type && c.section_type !== 'Capítulo' ? esc(c.section_type) : 'Cap. ' + c.num} — ${esc(c.title)}</b><small>Vol. ${c.vol}${c.status === 'published' ? ' · estaba publicado' : ''} · quedan ${left(c.deleted_at)} días</small></span>${can('delete') ? `<span class="wk-ra"><button class="btn ghost xs" data-trc="${c.id}">Restaurar</button><button class="lnk danger" data-purc="${c.id}">Borrar definitivamente</button></span>` : ''}</div>`).join('')}
       </div>${can('delete') ? '<button type="button" class="lnk danger" id="wk-empty">Vaciar papelera</button>' : ''}</details>` : '';
+    if (!liveWork()) return;
     app.innerHTML = shell(esc(s.title), `<div class="wk">
       <div class="wk-top"><div class="wk-summary"><span class="pl" style="--p:${st[1]}">${st[0]}</span><span class="mono">${V.length} ${V.length === 1 ? 'volumen' : 'volúmenes'} · ${n('published')} publicados · ${n('scheduled')} programados · ${n('draft')} borradores</span></div>
         <span class="wk-acts">${can('create') ? '<button class="btn sm" id="wk-new">＋ Nuevo capítulo</button>' : ''}${can('import') ? `<a class="btn ghost sm" href="${esc(importWorkUrl(s.id))}">Importar volumen</a>` : ''}<a class="btn ghost sm" href="?tab=datos" data-tab="datos">Editar datos</a><a class="lnk" href="/serie/${esc(s.slug)}">Ver en el sitio ↗</a>${s.published && can('diffusion_publish') ? `<a href="/estudio/difusion?k=o&id=${s.id}">Anunciar</a>` : ''}</span></div>
