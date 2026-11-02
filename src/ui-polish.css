@@ -1,0 +1,105 @@
+/* ==========================================================================
+   El Obi del Lector · Capa de pulido visual (propuesta)
+   - Solo presentación: no cambia clases, IDs, eventos ni estructura.
+   - Se carga DESPUÉS de styles.css y reader-a11y.css.
+   - Mantiene la estética editorial (esquinas rectas, tinta + oro, sello).
+   ========================================================================== */
+
+/* 1. Tokens de movimiento, contornos y foco (no reemplazan los existentes) */
+:root{
+  --ob-dur-1:.14s;            /* color, borde */
+  --ob-dur-2:.22s;            /* elevación, sombra */
+  --ob-dur-3:.4s;             /* entradas */
+  --ob-ease:cubic-bezier(.2,.8,.2,1);
+  --ob-line-2:#3d3628;        /* borde de controles (ya usado como literal) */
+  --ob-line-3:#5a5244;        /* borde en hover de controles neutros */
+  --ob-ring:0 0 0 2px var(--ink,#0d0c0a),0 0 0 4px var(--gold,#f2c230);
+  --ob-stamp:3px 3px 0 rgba(0,0,0,.55);   /* sombra «sello» al elevar */
+}
+
+/* 2. Botón base: misma tipografía y altura para <a> y <button>.
+      Hoy un <button class="btn"> hereda 13.33px del navegador y un <a class="btn"> 16px. */
+.btn{
+  font-family:inherit;font-size:14px;line-height:1.2;letter-spacing:.01em;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:44px;border:2px solid transparent;
+  transition:background-color var(--ob-dur-1) ease,color var(--ob-dur-1) ease,
+             border-color var(--ob-dur-1) ease,box-shadow var(--ob-dur-2) var(--ob-ease),
+             transform var(--ob-dur-2) var(--ob-ease),filter var(--ob-dur-1) ease;
+}
+.btn:not(.ghost):hover{filter:brightness(1.07);transform:translate(-1px,-1px);box-shadow:var(--ob-stamp)}
+/* Corrige: la regla global a:hover{color:var(--paper)} pinta el texto crema sobre oro (contraste ~1.4:1) */
+a.btn:not(.ghost):hover,a.btn:not(.ghost):focus-visible{color:var(--ink,#0d0c0a)}
+.btn.ghost{border-color:var(--ob-line-2)}
+.btn.ghost:hover{border-color:var(--gold);color:var(--gold);background:color-mix(in srgb,var(--gold) 8%,transparent)}
+.btn:active:not(:disabled){transform:translate(1px,1px);box-shadow:none;transition-duration:.06s}
+.btn:focus-visible{outline:none;box-shadow:var(--ob-ring)}
+.btn:disabled,.btn[aria-disabled="true"]{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none;filter:none}
+.btn[aria-busy="true"]{cursor:progress}
+/* El lector conserva sus botones compactos, ahora con la misma altura táctil */
+.rd .btn.ghost{font-size:13px}
+.rd-more-m .btn{justify-content:flex-start}
+/* «Guardar sin conexión» usa su propia clase: se iguala la escala tipográfica */
+.obi-offline-btn{font-size:14px;min-height:44px}
+.rd .btn.ghost:hover{border-color:var(--gold,#f2c230);color:var(--fg)}
+
+/* 3. Botones de portada del inicio (a1/a2): estado presionado y foco */
+.ob-acts .a1:active,.ob-acts .a2:active{transform:translate(1px,1px);filter:none}
+.ob-acts .a1:focus-visible,.ob-acts .a2:focus-visible{outline:none;box-shadow:var(--ob-ring)}
+
+/* 4. Chips y filtros: hover, foco y transición (hoy solo cambian al estar activos) */
+.ui-chip{transition:border-color var(--ob-dur-1) ease,color var(--ob-dur-1) ease,background-color var(--ob-dur-1) ease}
+.ui-chip:not(.on):hover{border-color:var(--ob-line-3);color:var(--paper)}
+.ui-chip:focus-visible,.rd-opt button:focus-visible,.ed-chip:focus-visible{outline:none;box-shadow:var(--ob-ring)}
+.rd-opt button{transition:border-color var(--ob-dur-1) ease,background-color var(--ob-dur-1) ease}
+.rd-opt button:not(.on):hover{border-color:var(--gold,#f2c230)}
+
+/* 5. Flechas de carrusel y paginadores: deshabilitado claramente distinto */
+.ob-arr button,.ob-pager button{transition:border-color var(--ob-dur-1) ease,color var(--ob-dur-1) ease,background-color var(--ob-dur-1) ease,opacity var(--ob-dur-1) ease}
+.ob-arr button:disabled{opacity:.25;border-style:dashed}
+.ob-arr button:not(:disabled):active,.ob-pager button:active{transform:translateY(1px)}
+.ob-arr button:focus-visible,.ob-pager button:focus-visible{outline:none;box-shadow:var(--ob-ring)}
+
+/* 6. Tarjetas: el teclado recibe la misma elevación que el mouse */
+.ob-cc:focus-visible{outline:none}
+.ob-cc:focus-visible .cv{transform:translateY(-4px);box-shadow:var(--ob-ring),0 12px 26px rgba(0,0,0,.45)}
+.ob-cc .cv,.ui-card .ui-book,.ob-ritem .c{transition-timing-function:var(--ob-ease)}
+.ui-card:focus-visible{outline:none}
+.ui-card:focus-visible .ui-book{transform:translateY(-10px) rotate(-1deg);box-shadow:var(--ob-ring),0 30px 60px rgba(0,0,0,.55)}
+.ui-ccard:focus-visible,.ui-rl .it:focus-visible,.nt-it:focus-visible,.ob-urow:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+
+/* 7. Campos: foco visible donde hoy se elimina el contorno sin reemplazo */
+input:not([type=checkbox]):not([type=radio]),textarea,select{transition:border-color var(--ob-dur-1) ease,box-shadow var(--ob-dur-1) ease}
+input:not([type=checkbox]):not([type=radio]):hover,textarea:hover,select:hover{border-color:var(--ob-line-3)}
+input:focus-visible,textarea:focus-visible,select:focus-visible{outline:none;border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.ob-search:focus,.sr-big:focus,.rv-form textarea:focus,.s2-srch input:focus{box-shadow:0 0 0 1px var(--gold)}
+.s2-tz select:focus-visible,.wk-tags input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* 8. Menús desplegables (campana, cuenta, «más» del lector): aparición suave */
+@keyframes obPop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.ob-user[open]>.ob-menu,.ob-bell[open]>.ob-menu,.rd-more[open]>.rd-more-m{animation:obPop var(--ob-dur-2) var(--ob-ease) both}
+.ob-menu a,.ob-menu button{transition:background-color var(--ob-dur-1) ease,color var(--ob-dur-1) ease}
+.ob-menu a:focus-visible,.ob-menu button:focus-visible{outline:none;background:#221f17;color:var(--gold);box-shadow:inset 3px 0 0 var(--gold)}
+
+/* 9. Navegación: subrayado animado (la regla .on ya existe) */
+.ob-nav a{background:linear-gradient(var(--gold),var(--gold)) 0 100%/0 2px no-repeat;transition:background-size var(--ob-dur-2) var(--ob-ease),color var(--ob-dur-1) ease}
+.ob-nav a:hover{background-size:100% 2px;color:var(--paper)}
+.ob-nav a.on{background-size:100% 2px;box-shadow:none}
+.ob-nav a:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
+
+/* 10. Toast: entrada sin salto (sigue mostrándose con display:block desde JS) */
+@keyframes obToast{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+#toast{animation:obToast var(--ob-dur-2) var(--ob-ease);box-shadow:0 10px 30px rgba(0,0,0,.5);border-left:4px solid var(--gold)}
+
+/* 11. Movimiento reducido: se quitan desplazamientos, se conservan cambios de color/opacidad
+       (hoy la regla global también apaga fundidos, que no causan mareo). */
+@media (prefers-reduced-motion:reduce){
+  .btn,.ui-chip,.ob-menu a,.ob-menu button,input,textarea,select,.ob-nav a{transition:color .12s linear,background-color .12s linear,border-color .12s linear,opacity .12s linear!important}
+  .btn:hover,.btn:active,.ob-cc:focus-visible .cv,.ui-card:focus-visible .ui-book{transform:none!important}
+}
+
+/* 12. Pantallas táctiles: sin efectos «hover pegados» tras tocar */
+@media (hover:none){
+  .btn:not(.ghost):hover{transform:none;box-shadow:none;filter:none}
+  .ob-nav a:not(.on):hover{background-size:0 2px}
+}
