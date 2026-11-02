@@ -29,6 +29,8 @@ assert(a >= 0 && b > a, 'Falta simulador de Supabase existente');
 let mock = lab.slice(a, b);
 assert(mock.includes('select(){return q}'), 'Contrato del simulador cambió');
 mock = mock.replace('select(){return q}', "select(fields){ if(name==='series' && String(fields).includes('chapters(count)')) throw Error('Conteos costosos en primera consulta'); return q }");
+mock = mock.replace('neq(){return q},gt(){return q}', 'neq(){return q},ilike(){return q},gt(){return q}');
+assert(mock.includes('ilike(){return q}'), 'El filtro ilike de búsqueda debe existir en Supabase ficticio');
 mock = mock.replace("let data=name==='series'?Q.series", "if(name==='series' && Q.failSeries)throw Error('HTTP 500 de prueba');\n     let data=name==='series'?Q.series");
 mock = mock.replace('then(ok,bad){return Promise.resolve(q.result()).then(ok,bad)}',
   "then(ok,bad){if(name==='series_last'&&Q.hangLatest)return new Promise(()=>{}).then(ok,bad);if(name==='series'&&Q.delaySeries)return new Promise(resolve=>setTimeout(()=>resolve(q.result()),Q.delaySeries)).then(ok,bad);return Promise.resolve(q.result()).then(ok,bad)}");
