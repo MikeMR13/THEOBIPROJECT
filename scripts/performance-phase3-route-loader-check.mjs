@@ -8,8 +8,10 @@ const app = readFileSync('src/app.js','utf8');
 const html = readFileSync('src/index.html','utf8');
 const swBuild = readFileSync('scripts/build.mjs','utf8');
 const preloads = [...html.matchAll(/rel="modulepreload"\s+href="([^"]+)"/g)].map(m=>m[1]);
-assert(preloads.some(x=>x.startsWith('/app.js?')) && preloads.some(x=>x.startsWith('/ui.js?')),
-  'La ruta pública debe conservar la precarga de UI');
+assert(preloads.some(x=>x.startsWith('/app.js?')) && !preloads.some(x=>x.startsWith('/ui.js?')),
+  'El shell carga app.js, pero no debe descargar UI en rutas privadas');
+assert(app.includes("import('/ui.js?v=62')"), 'UI pública debe importarse según la ruta');
+assert(swBuild.includes("'ui.js', 'reader.js', 'blocks.js'"), 'No eliminar UI del precaché PWA');
 for (const module of ['reader.js','blocks.js']) {
   assert(!preloads.some(x=>x.startsWith('/'+module+'?')),
     'No descargar '+module+' en cada visita a Inicio o Catálogo');
@@ -32,7 +34,7 @@ assert(!/\brd\(\)\.(?:open|annotationsPage|offlineList|bindOfflineList|historyLi
 // Demuestra que dos rutas simultáneas comparten importación e instancia y
 // que un fallo transitorio permite reintentar al abrir la ruta de nuevo.
 const start = app.indexOf('let R, readerRequest;');
-const end = app.indexOf('let U; const ui = ',start);
+const end = app.indexOf('let U, uiModuleRequest;',start);
 assert(start>=0 && end>start,'Falta bloque de loader del lector');
 const original=app.slice(start,end);
 assert(original.includes("import('/reader.js?v=26')"));
