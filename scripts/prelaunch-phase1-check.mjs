@@ -53,10 +53,11 @@ assert.match(team,/const SEC = \{ recent: updates, announce: ann, next: nx,/,'Re
 assert.match(css,/\.ui-pre-discover\[hidden\]/,'La sección debe ocultarse si no hay resultados');
 assert.match(css,/@media\(max-width:540px\).*\.ui-pre-work/,'Presentación móvil');
 const entry = read('src/index.html');
-const uiVersion = Number(entry.match(/\/ui\.js\?v=(\d+)/)?.[1]);
+const uiVersion = Number(app.match(/import\(['"]\/ui\.js\?v=(\d+)['"]\)/)?.[1]);
 const appVersion = Number(entry.match(/\/app\.js\?v=(\d+)/)?.[1]);
 assert.ok(uiVersion >= 58 && appVersion >= 46,'Conservar las versiones de descubrimiento');
-assert.ok(app.includes('/ui.js?v=' + uiVersion),'La UI precargada y la importada deben coincidir');
+assert.ok(app.includes("import('/ui.js?v=" + uiVersion + "')"),'La UI diferida debe conservar su versión');
+assert.ok(!entry.includes('rel="modulepreload" href="/ui.js'), 'La UI pública no debe bloquear el arranque de rutas privadas');
 assert.ok(entry.includes('/app.js?v=' + appVersion),'Cargar el app shell versionado');
 
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
