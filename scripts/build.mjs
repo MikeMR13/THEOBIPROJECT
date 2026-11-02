@@ -77,7 +77,7 @@ if (missing.length) throw new Error('index.html apunta a archivos inexistentes: 
 
 // 3. Precaché completo del arranque: incluir dependencias ES estáticas
 // transitivas. Los módulos dinámicos se almacenan al solicitarlos, no al activar la PWA.
-const BOOT = new Set(['styles.css', 'reader-a11y.css', 'config.js', 'boot.js', 'tts.js', 'supabase.js', 'app.js', 'ui.js', 'reader.js', 'blocks.js'].filter(f => H[f]));
+const BOOT = new Set(['styles.css', 'reader-a11y.css', 'ui-polish.css', 'config.js', 'boot.js', 'tts.js', 'supabase.js', 'app.js', 'ui.js', 'reader.js', 'blocks.js'].filter(f => H[f]));
 for (const f of BOOT) {
   if (!f.endsWith('.js')) continue;
   // El archivo minificado puede eliminar espacios en "import{...}from", por
