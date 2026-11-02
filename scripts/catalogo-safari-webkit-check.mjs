@@ -147,7 +147,13 @@ try {
   // 6. Calendario no debe reemplazar otra pestaña si llega una respuesta tardía.
   {
     const {ctx,page,errors}=await makePage({delayAgenda:1650});
+    const importedUI = [];
+    page.on('request', request => {
+      if (new URL(request.url()).pathname === '/ui.js') importedUI.push(request.url());
+    });
     await page.goto(origin+'/calendario');
+    await page.waitForSelector('nav.ob-tab a[href="/buscar"]',{timeout:10000});
+    assert.equal(importedUI.length,0,'Calendario importó UI pública antes de usar el buscador');
     await page.locator('nav.ob-tab a[href="/buscar"]').click();
     await page.waitForSelector('#sr-q',{timeout:10000});
     await page.waitForTimeout(1900);

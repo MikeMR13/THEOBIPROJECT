@@ -8,8 +8,10 @@ const app = readFileSync('src/app.js','utf8');
 const html = readFileSync('src/index.html','utf8');
 const swBuild = readFileSync('scripts/build.mjs','utf8');
 const preloads = [...html.matchAll(/rel="modulepreload"\s+href="([^"]+)"/g)].map(m=>m[1]);
-assert(preloads.some(x=>x.startsWith('/app.js?')) && preloads.some(x=>x.startsWith('/ui.js?')),
-  'La ruta pública debe conservar la precarga de UI');
+assert(preloads.some(x=>x.startsWith('/app.js?')) && !preloads.some(x=>x.startsWith('/ui.js?')),
+  'El shell carga app.js, pero no debe descargar UI en rutas privadas');
+assert(app.includes("import('/ui.js?v=62')"), 'UI pública debe importarse según la ruta');
+assert(swBuild.includes("'ui.js', 'reader.js', 'blocks.js'"), 'No eliminar UI del precaché PWA');
 for (const module of ['reader.js','blocks.js']) {
   assert(!preloads.some(x=>x.startsWith('/'+module+'?')),
     'No descargar '+module+' en cada visita a Inicio o Catálogo');
@@ -32,7 +34,7 @@ assert(!/\brd\(\)\.(?:open|annotationsPage|offlineList|bindOfflineList|historyLi
 // Demuestra que dos rutas simultáneas comparten importación e instancia y
 // que un fallo transitorio permite reintentar al abrir la ruta de nuevo.
 const start = app.indexOf('let R, readerRequest;');
-const end = app.indexOf('let U; const ui = ',start);
+const end = app.indexOf('let U, uiModuleRequest;',start);
 assert(start>=0 && end>start,'Falta bloque de loader del lector');
 const original=app.slice(start,end);
 assert(original.includes("import('/reader.js?v=26')"));
@@ -64,12 +66,59 @@ assert.equal(tries,2,'El lector debe poder reintentarse tras un fallo');
 fails.resolve({createReader:()=>({offlineList:()=>'<p>guardado</p>'})});
 assert.equal((await retry).offlineList(),'<p>guardado</p>');
 
+// El loader de UI comparte la descarga entre vistas públicas, pero no construye
+// ni pinta una vista antigua si la ruta cambió antes de completar el import.
+const uiStart = app.indexOf('let U, uiModuleRequest;');
+const uiEnd = app.indexOf('// La navegación global existe desde el inicio', uiStart);
+assert(uiStart >= 0 && uiEnd > uiStart, 'Falta loader diferido de UI');
+const uiSource = app.slice(uiStart, uiEnd)
+  .replace("import('/ui.js?v=62')", "fakeImport('/ui.js?v=62')");
+let uiRequest = deferred(), uiLoads = 0, uiConstructed = 0, uiHome = 0;
+const uiContext = {
+  CTX: () => ({ testUI: true }),
+  location: { pathname: '/' },
+  fakeImport: spec => { assert.equal(spec, '/ui.js?v=62'); uiLoads++; return uiRequest.promise; }
+};
+const uiLoader = vm.runInNewContext('(()=>{\n' + uiSource +
+  '\nreturn { publicView, ui };})()', uiContext);
+const stale = uiLoader.publicView('/', 'home');
+uiContext.location.pathname = '/estudio';
+uiRequest.resolve({ createUI: ctx => {
+  assert.equal(ctx.testUI, true);
+  uiConstructed++;
+  return { home: () => { uiHome++; return 'inicio'; } };
+}});
+assert.equal(await stale, undefined, 'Una UI tardía no debe dibujarse sobre Estudio');
+assert.equal(uiConstructed, 0, 'No construir UI pública si se abandonó su ruta');
+uiContext.location.pathname = '/';
+assert.equal(await uiLoader.publicView('/', 'home'), 'inicio');
+assert.equal(uiLoads, 1, 'La importación ya completada debe reutilizarse');
+assert.equal(uiConstructed, 1, 'Una sola instancia de UI tras regresar');
+assert.equal(uiHome, 1, 'La vista pública debe renderizarse al regresar');
+
+// Error transitorio: el siguiente intento debe volver a descargar la UI.
+let failedUI = deferred(), attemptUI = 0;
+const uiRetry = vm.runInNewContext('(()=>{\n' + uiSource +
+  '\nreturn { publicView };})()', {
+  CTX: () => ({}),
+  location: { pathname: '/' },
+  fakeImport: () => { attemptUI++; return failedUI.promise; }
+});
+const badUI = uiRetry.publicView('/', 'home');
+failedUI.reject(new Error('sin conexión UI'));
+await assert.rejects(badUI, /sin conexión UI/);
+failedUI = deferred();
+const nextUI = uiRetry.publicView('/', 'home');
+assert.equal(attemptUI, 2, 'UI debe permitir un nuevo intento después de fallar');
+failedUI.resolve({ createUI: () => ({ home: () => 'recuperado' }) });
+assert.equal(await nextUI, 'recuperado');
+
 // Después de build, confirmar precaché de la versión sellada del lector.
 if (existsSync('dist/sw.js')) {
   const sandbox={self:{addEventListener(){}},URL,Response,console};
   vm.runInNewContext(readFileSync('dist/sw.js','utf8')+
     '\n;globalThis.__shell=SHELL;',sandbox);
-  for(const file of ['reader.js','blocks.js']) {
+  for(const file of ['ui.js','reader.js','blocks.js']) {
     assert(sandbox.__shell.some(x=>x.startsWith('/'+file+'?v=')),
       'El build perdió '+file+' y rompería el lector offline');
   }

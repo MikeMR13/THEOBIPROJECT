@@ -14,9 +14,10 @@ for(const required of [
  'Todos los lanzamientos', 'Nuevos volúmenes y capítulos',
  'const currentNotice', 'const heroTag', 'enhanceHomeVitrina'
 ])assert(ui.includes(required),'Se perdió contenido del Inicio: '+required);
-const uiVersion=Number(index.match(/ui\.js\?v=(\d+)/)?.[1]||0);
+const uiVersion=Number(app.match(/import\(['"]\/ui\.js\?v=(\d+)['"]\)/)?.[1]||0);
 const appVersion=Number(index.match(/app\.js\?v=(\d+)/)?.[1]||0);
-assert(uiVersion>=56&&app.includes('/ui.js?v='+uiVersion),'El módulo UI no coincide con su precarga');
+assert(uiVersion>=56&&app.includes("import('/ui.js?v="+uiVersion+"')"),'La UI pública diferida debe conservar su versión');
+assert(!index.includes('rel="modulepreload" href="/ui.js'), 'No precargar UI al entrar en rutas ajenas');
 assert(appVersion>=34,'La versión de app.js retrocedió');
 const m=ui.match(/const CSS2 = ("(?:\\.|[^"\\])*");/);
 assert(m,'No se encuentra CSS2');
