@@ -1380,14 +1380,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     el.onfocusin = () => heroClock?.setFocusPaused?.(true);
     el.onfocusout = event => { if (!el.contains(event.relatedTarget)) heroClock?.setFocusPaused?.(false); };
   }
-  const card = (s, st, lc, p) => `<a class="ui-card" href="/serie/${s.slug}" data-id="${s.id}">${st ? `<span class="ui-st ${st[1]}">${esc(st[0])}</span>` : ''}${book(s, null, true)}${progBar(s, p)}<h3>${esc(s.title)}</h3>${creditsHTML(s, { esc, media, mode: 'carousel' })}<span class="meta">${pill(s.translation_status)}<span>${genericSectionCount(s.chapters?.[0]?.count)}</span>${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</span>${lc ? `<span class="last">Última actualización${ageTag(lc.publish_at)}</span>` : ''}</a>`;
+  const card = (s, st, lc, p) => `<a class="ui-card" href="/serie/${s.slug}" data-id="${s.id}">${st ? `<span class="ui-st ${st[1]}">${esc(st[0])}</span>` : ''}${book(s, null, true)}${progBar(s, p)}<h3>${esc(s.title)}</h3>${creditsHTML(s, { esc, media, mode: 'carousel' })}<span class="meta">${pill(s.translation_status)}<span>${s.chapters?.[0]?.count == null ? 'Ver capítulos en la ficha' : genericSectionCount(s.chapters[0].count)}</span>${s.adult ? '<span class="ui-pill" style="color:#f59e7a">+18</span>' : ''}</span>${lc ? `<span class="last">Última actualización${ageTag(lc.publish_at)}</span>` : ''}</a>`;
 
   // franja de avance en la serie: capítulo donde vas / capítulos publicados
   const progBar = (s, p) => { const t = s.chapters?.[0]?.count || 0; if (!p || !t) return ''; const f = Math.min(1, Math.max(0.02, (p.chapter_num - 1 + (p.pct || 0)) / t)); return `<span class="ui-prog" role="progressbar" aria-label="Progreso estimado por posición de lectura" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(f * 100)}"><i style="width:${(f * 100).toFixed(1)}%"></i></span>`; };
   const ficha = (s, st, lc, i, p) => `<a class="ui-fc" href="/serie/${s.slug}" data-id="${s.id}" style="--c:${esc(color(s))};--d:${Math.min(i, 8) * 0.05}s">
       <span class="cv" style="${s.cover_path ? `background-image:url('${esc(thumb(s))}')` : ''}"></span>
       <span class="bd"><span class="t">${esc(s.title)}</span>${s.original || s.author ? `<span class="o">${esc([s.original, s.author].filter(Boolean).join(' · '))}</span>` : ''}${s.synopsis ? `<span class="sy">${esc(s.synopsis)}</span>` : ''}
-        <span class="m">${genericSectionCount(s.chapters?.[0]?.count)} · ${(TL[s.translation_status] || TL.active)[0]}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}${lc ? ' · actualizado' + ageTag(lc.publish_at, ', ') : ''}${s.adult ? ' · <span class="x">+18</span>' : ''}</span>${creditsHTML(s, { esc, media, mode: 'carousel' })}${progBar(s, p)}</span>
+        <span class="m">${s.chapters?.[0]?.count == null ? 'Ver capítulos en la ficha' : genericSectionCount(s.chapters[0].count)} · ${(TL[s.translation_status] || TL.active)[0]}${s.teams?.name ? ' · ' + esc(s.teams.name) : ''}${lc ? ' · actualizado' + ageTag(lc.publish_at, ', ') : ''}${s.adult ? ' · <span class="x">+18</span>' : ''}</span>${creditsHTML(s, { esc, media, mode: 'carousel' })}${progBar(s, p)}</span>
       <span class="side">${st ? `<span class="ui-seal ${st[1]}">${esc(st[0])}</span>` : '<span></span>'}<span class="jp">第${KN(i + 1)}号</span></span></a>`;
 
   // ---------- Catálogo ----------
@@ -1405,34 +1405,48 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     return promise;
   };
 
+  // Cada navegación invalida los resultados tardíos de una carga anterior.
+  let catalogRequestSeq = 0;
   async function catalog(){
-    app.innerHTML = '<p class="mono">Cargando el catálogo…</p>';
-    const u = getUser(), F = readF();
-    // Página por rangos en PostgREST: se conservan TODOS los resultados para
-    // filtros/ordenamientos globales y se evita el límite de 1000 filas.
-    const listAll = import('/paging.js?v=1').then(({ readPages }) =>
-      readPages((from, to) => sb.from('series').select(SERIES).order('id').range(from, to), { size: 250 }));
-    const [{ data }, { data: latest }, prog, folR, { data: rkw }, { data: rkh }] = await Promise.all([
-      listAll,
-      catalogRecent(),
-      progressMap(),
-      u ? sb.from('follows').select('series_id').eq('user_id', u.id) : { data: [] },
-      sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'semana'), sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'historico')]);
-    const rkRows = (rkw || []).length ? rkw : (rkh || []), RK = Object.fromEntries(rkRows.map(r => [r.series_id, r.pos])), rkLbl = (rkw || []).length ? 'de la semana' : 'histórico';
-    const publicRows = (data || []).filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) && (!hidS(s) || F.gin.some(g => (s.genres || []).includes(g))));
-    // Conteos públicos y créditos autorizados son RPC independientes: ejecutarlos
-    // a la vez reduce una ida y vuelta sin mostrar colaboradores sin validar.
-    const [counted] = await Promise.all([
-      publicSectionCounts(sb, publicRows),
-      attachPublicCredits(sb, publicRows)
-    ]);
-    // El conteo devuelve copias: preservar los créditos obtenidos en paralelo,
-    // incluso si la RPC de conteo termina antes que la de colaboración.
-    const all = counted.map((row, i) => row === publicRows[i] ? row :
-      { ...row, publicCredits: publicRows[i].publicCredits, teams: publicRows[i].teams });
+    const request = ++catalogRequestSeq;
+    const live = () => request === catalogRequestSeq && location.pathname === '/catalogo';
+    app.innerHTML = '<p class="mono" role="status">Cargando el catálogo…</p>';
+    const u = getUser();
+    let F, data;
+    try {
+      F = readF();
+      // No pedir chapters(count)/volumes(count) en esta consulta: provocaban
+      // timeouts SQL y respuestas 500. Los conteos públicos llegan después.
+      const catalogFields = SERIES.replace(',chapters(count),volumes(count)', '');
+      if (catalogFields === SERIES) throw new Error('Campos del catálogo no actualizados');
+      const listAll = import('/paging.js?v=1').then(({ readPages }) =>
+        readPages((from, to) => sb.from('series').select(catalogFields)
+          .eq('published', true).order('id').range(from, to), { size: 250 }));
+      let timer;
+      try {
+        ({ data } = await Promise.race([
+          listAll,
+          new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Tiempo de espera del catálogo agotado')), 12000); })
+        ]));
+      } finally { clearTimeout(timer); }
+      if (!Array.isArray(data)) throw new Error('Respuesta incompleta del catálogo');
+    } catch (error) {
+      if (!live()) return;
+      console.warn('Carga del catálogo', error);
+      app.innerHTML = '<div class="ui-cath"><div><h1>Catálogo</h1><p>No fue posible cargar las novelas.</p></div></div>' +
+        '<div class="ui-empty" role="alert"><p>La conexión o el servidor tardaron demasiado. Tus lecturas y descargas no se han perdido.</p>' +
+        '<button class="btn" type="button" id="cat-retry">Reintentar catálogo</button></div>';
+      $('#cat-retry').onclick = () => { if (live()) void catalog(); };
+      return;
+    }
+    if (!live()) return;
+    const publicRows = data.filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) &&
+      (!hidS(s) || F.gin.some(g => (s.genres || []).includes(g))));
+    let all = publicRows;
     let upcoming = [];
-    const last = {}; (latest || []).forEach(c => { last[c.series_id] ||= c; });
-    const fol = new Set((folR.data || []).map(r => r.series_id)), nCh = s => s.chapters?.[0]?.count || 0;
+    let prog = {}, fol = new Set(), RK = {}, rkLbl = 'histórico';
+    const last = {};
+    const nCh = s => s.chapters?.[0]?.count || 0;
     const status = s => { const p = prog[s.id], lc = last[s.id];
       if (p && lc && lc.num > p.chapter_num && new Date(lc.publish_at) > new Date(p.updated_at)) return ['Hay nuevas secciones', 'new'];
       if (p) return ['Leyendo' + (p.pct > 0.02 && p.pct < 0.98 ? ' · ' + Math.round(p.pct * 100) + ' %' : ''), 'reading'];
@@ -1614,6 +1628,51 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       else if (F.gout.includes(g)) F.gout = F.gout.filter(x => x !== g);
       else F.gin.push(g); draw(); });
     draw();
+    // Mostrar primero las obras: progreso, ranking, créditos y conteos no
+    // pueden bloquear el catálogo ni imponer una espera a Safari móvil.
+    const refresh = () => { if (live() && app.querySelector('#cat-grid')) draw(); };
+    const extra = [
+      catalogRecent().then(({ data: latest }) => {
+        if (!live()) return;
+        for (const c of latest || []) last[c.series_id] ||= c;
+        refresh();
+      }),
+      progressMap().then(rows => { if (!live()) return; prog = rows || {}; refresh(); }),
+      (u ? sb.from('follows').select('series_id').eq('user_id', u.id) : Promise.resolve({ data: [] }))
+        .then(({ data: follows }) => {
+          if (!live()) return;
+          fol = new Set((follows || []).map(r => r.series_id));
+          refresh();
+        }),
+      Promise.allSettled([
+        sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'semana'),
+        sb.from('rankings').select('series_id,pos').eq('list', 'leidas').eq('period', 'historico')
+      ]).then(([week, historic]) => {
+        if (!live()) return;
+        const rkw = week.status === 'fulfilled' ? week.value.data || [] : [];
+        const rkh = historic.status === 'fulfilled' ? historic.value.data || [] : [];
+        const rows = rkw.length ? rkw : rkh;
+        RK = Object.fromEntries(rows.map(r => [r.series_id, r.pos]));
+        rkLbl = rkw.length ? 'de la semana' : 'histórico';
+        SORT.ranking[0] = 'Ranking ' + rkLbl;
+        const opt = $('#cat-quick-sort option[value="ranking"]');
+        if (opt) opt.textContent = SORT.ranking[0];
+        refresh();
+      }),
+      (async () => {
+        // Ambos resultados se solicitan juntos. El conteo produce copias
+        // mientras los créditos autorizados se asocian al objeto original.
+        const [counted] = await Promise.all([
+          publicSectionCounts(sb, publicRows),
+          attachPublicCredits(sb, publicRows)
+        ]);
+        if (!live()) return;
+        all = counted.map((row, i) => row === publicRows[i] ? row :
+          { ...row, publicCredits: publicRows[i].publicCredits, teams: publicRows[i].teams });
+        refresh();
+      })()
+    ];
+    extra.forEach(p => Promise.resolve(p).catch(e => console.warn('Datos adicionales del catálogo', e)));
     // El primer vistazo se hidrata en su propio nodo, sin volver a dibujar las
     // tarjetas, reiniciar la paginación ni interrumpir una vista rápida abierta.
     const upcomingSlot = app.querySelector('#cat-upcoming');

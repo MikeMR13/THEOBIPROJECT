@@ -287,3 +287,35 @@ jobs:
         run: node scripts/privacy-identity-compat-check.mjs
       - name: SEG-02 permisos mínimos, visibilidad y RPC seguros
         run: npm run seguridad-perfiles-check
+
+  catalogo-regresion:
+    runs-on: ubuntu-latest
+    env:
+      OBI_SUPABASE_URL: https://ci-example.supabase.co
+      OBI_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_only_not_a_real_key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - name: Catálogo · contratos de datos, primer dibujo y reintentos
+        run: node --check src/ui.js && node scripts/db-phase2-check.mjs && node scripts/performance-phase2-first-render-check.mjs
+      - name: Catálogo · Chromium 390/1440 px sin acceso a producción
+        run: node scripts/performance-full-routes-lab-check.mjs
+
+  safari-webkit:
+    runs-on: ubuntu-24.04
+    env:
+      OBI_SUPABASE_URL: https://ci-example.supabase.co
+      OBI_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_only_not_a_real_key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - name: Preparar WebKit en Ubuntu 24.04 estándar
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund playwright@1.56.1 && npx playwright install --with-deps webkit
+      - name: Safari móvil · carga, reintento y navegación con backend ficticio
+        run: node --check scripts/catalogo-safari-webkit-check.mjs && node scripts/catalogo-safari-webkit-check.mjs
