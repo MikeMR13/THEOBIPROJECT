@@ -49,10 +49,6 @@ jobs:
           retention-days: 1
       - name: Validación de Inicio y Catálogo completos · Chromium 390/1440 px, backend ficticio
         run: node --check scripts/performance-full-routes-lab-check.mjs && node scripts/performance-full-routes-lab-check.mjs
-      - name: Safari móvil · preparar WebKit en runner estándar gratuito
-        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund playwright@1.56.1 && npx playwright install --with-deps webkit
-      - name: Safari móvil · carga de catálogo, reintento y navegación (backend ficticio)
-        run: node --check scripts/catalogo-safari-webkit-check.mjs && node scripts/catalogo-safari-webkit-check.mjs
       - name: Guardar evidencia de rutas completas sin datos de producción
         if: always()
         uses: actions/upload-artifact@v4
@@ -291,3 +287,19 @@ jobs:
         run: node scripts/privacy-identity-compat-check.mjs
       - name: SEG-02 permisos mínimos, visibilidad y RPC seguros
         run: npm run seguridad-perfiles-check
+
+  safari-webkit:
+    runs-on: ubuntu-24.04
+    env:
+      OBI_SUPABASE_URL: https://ci-example.supabase.co
+      OBI_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_only_not_a_real_key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - name: Preparar WebKit en Ubuntu 24.04 estándar
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund playwright@1.56.1 && npx playwright install --with-deps webkit
+      - name: Safari móvil · carga, reintento y navegación con backend ficticio
+        run: node --check scripts/catalogo-safari-webkit-check.mjs && node scripts/catalogo-safari-webkit-check.mjs
