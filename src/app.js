@@ -200,22 +200,24 @@ async function groupProfile(){
 }
 const routes = {
 '/mi-equipo': groupProfile,
-'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': async () => (await ag()).agenda(CTX()), '/ranking': () => ui().ranking(), '/lanzamientos': async () => (await ag()).agenda(CTX()), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/preferencias': async () => (await pf()).preferences(PCTX()), '/buscar': () => ui().search(), '/solicitud': solicitud, '/elige-nombre': chooseName, '/privacidad': async () => (await lg()).privacy(app), '/condiciones-servicio': async () => (await lg()).terms(app),
+'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': async () => { const m = await ag(); if (location.pathname === '/calendario') return m.agenda(CTX()); }, '/ranking': () => ui().ranking(), '/lanzamientos': async () => { const m = await ag(); if (location.pathname === '/lanzamientos') return m.agenda(CTX()); }, '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/preferencias': async () => (await pf()).preferences(PCTX()), '/buscar': () => ui().search(), '/solicitud': solicitud, '/elige-nombre': chooseName, '/privacidad': async () => (await lg()).privacy(app), '/condiciones-servicio': async () => (await lg()).terms(app),
 '/invitacion': async () => (await import('/team-invitations.js?v=1')).renderTeamInvitation({ sb, app, esc, toast, go }),
 '/bibliotecario': async () => (await ad()).render(), '/admin': async () => { history.replaceState({}, '', '/bibliotecario'); (await ad()).render(); },
 };
-export function go(path){ history.pushState({}, '', path); render(); }
+export function go(path){ history.pushState({}, '', path); void render(); }
 document.addEventListener('click', e => { const a = e.target.closest('a[href^="/"]'); if (a && !a.target) { e.preventDefault(); go(a.getAttribute('href')); } });
 addEventListener('popstate', render);
 document.addEventListener('click', e => { document.querySelectorAll('.ob-user[open],.ob-bell[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
 let PS = null; const seasons = async () => PS ||= await import('/season.js?v=5');
 addEventListener('obi-season', () => { afterRender(); });
 // Se dibuja la página sin esperar la temporada; afterRender la aplica cuando llega.
+let routeRenderSeq = 0;
 function render(){
+  const seq = ++routeRenderSeq;
   // En la lectura offline no iniciar cargas decorativas ni peticiones a Supabase.
   if (navigator.onLine) seasons().then(S => { S.clear(); S.load(sb); }).catch(() => {});
   return render0().catch(e => { if (!navigator.onLine || /Failed to fetch|NetworkError|Load failed|network/i.test(e?.message || '')) return offlinePage(); throw e; })
-    .then(r => { installPublicShare(); if (navigator.onLine) { contBtn(); return afterRender(r); } return r; });
+    .then(r => { if (seq !== routeRenderSeq) return; installPublicShare(); if (navigator.onLine) { contBtn(); return afterRender(r); } return r; });
 }
 // ---------- sin conexión ----------
 async function offlinePage(){
@@ -280,7 +282,7 @@ async function render0(){
 const p = location.pathname; let m;
 scrollTo(0, 0); document.body.classList.remove('in-studio'); app.classList.remove('obi-downloads-page');
 if (p === '/descargas' || (!navigator.onLine && !p.startsWith('/leer/'))) return offlinePage();
-if (p.startsWith('/estudio') || p === '/perfil' || p === '/preferencias' || p === '/solicitud') await meReady;
+if (p.startsWith('/estudio') || p === '/perfil' || p === '/preferencias' || p === '/solicitud') { await meReady; if (location.pathname !== p) return; }
 if ((m = p.match(/^\/serie\/([\w-]+)$/))) return ui().series(m[1]);
 if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) { reportHomeRead(sb,p); const reader = await rd(); if (location.pathname !== p) return; return reader.open(m[1], +m[2]); }
 if ((m = p.match(/^\/anotaciones\/([\w-]+)$/))) { const reader = await rd(); if (location.pathname !== p) return; return reader.annotationsPage(m[1]); }
@@ -995,7 +997,18 @@ bindAvatar(welcome);
 }
 async function perfil(){
 if (!user) return go('/entrar');
-if (!profile?.username) { app.innerHTML = '<p class="mono">Cargando perfil…</p>'; return; }
+if (!profile?.username) {
+  app.innerHTML = '<div class="ui-cath"><div><h1>Mi perfil</h1><p>No pudimos recuperar los datos de tu cuenta.</p></div></div>' +
+    '<div class="ui-empty" role="alert"><p>Puedes reintentar la verificación o configurar tu nombre de lector.</p>' +
+    '<button type="button" class="btn" id="profile-retry">Reintentar perfil</button> <a class="btn ghost" href="/elige-nombre">Elegir nombre</a></div>';
+  $('#profile-retry').onclick = async () => {
+    const button = $('#profile-retry');
+    if (button) button.disabled = true;
+    try { await loadSession(); await meReady; if (location.pathname === '/perfil') await perfil(); }
+    catch (e) { console.warn('Recuperación perfil', e); if (button?.isConnected) button.disabled = false; }
+  };
+  return;
+}
 return (await pf()).publicProfile(PCTX(), profile.username, { owner: true, visibility: profile.profile_visibility });
 }
 const LANGS = ['Japonés', 'Inglés', 'Coreano', 'Chino'];
