@@ -40,6 +40,18 @@ export function createStudio(ctx){
   const pathOf = u => u && u.startsWith(PUB) ? decodeURI(u.slice(PUB.length)) : null;
   const T = { userId: null, teams: [], team: null, perms: {}, works: null };
   const can = a => !!T.perms[a];
+  const studioBounded = (work, ms = 12000) => Promise.race([
+    Promise.resolve(work),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Estudio tardó demasiado en recuperar los datos.')), ms))
+  ]);
+  const studioOptional = (work, fallback, ms = 850) => Promise.race([
+    Promise.resolve(work).catch(error => { console.warn('Estudio: dato secundario', error); return fallback; }),
+    new Promise(resolve => setTimeout(() => resolve(fallback), ms))
+  ]);
+  const studioLive = (path, teamId, userId) =>
+    location.pathname === path && T.team?.id === teamId && getUser()?.id === userId;
+  let teamBaseCache = null;
+  const invalidateTeamBase = () => { teamBaseCache = null; };
   const TZS = [['America/Mexico_City','Ciudad de México'],['America/Monterrey','Monterrey'],['America/Tijuana','Tijuana'],['America/Bogota','Bogotá'],['America/Lima','Lima'],['America/Caracas','Caracas'],['America/Santiago','Santiago de Chile'],['America/Argentina/Buenos_Aires','Buenos Aires'],['America/Montevideo','Montevideo'],['America/Guatemala','Centroamérica'],['America/Santo_Domingo','Santo Domingo'],['America/New_York','Nueva York · Miami'],['America/Los_Angeles','Los Ángeles'],['Europe/Madrid','Madrid'],['Asia/Tokyo','Tokio'],['UTC','UTC']];
   const devTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   const tzPick = () => localStorage.getItem('obi-tz-pick') || (localStorage.getItem('obi-tz-mode') === 'team' ? 'team' : 'device');
@@ -237,31 +249,33 @@ export function createStudio(ctx){
       if (!(await pickTeam(localStorage.getItem('obi-team') || T.teams[0].id))) return false;
     }
     if (getUser()?.id !== uid || T.userId !== uid || !T.team) return false;
-    if (T.works == null) {
+    // El contador de navegación es decorativo: nunca bloquear la entrada a Estudio.
+    if (T.works == null && !ensure.countTask) {
       const teamId = T.team.id;
-      const { count } = await sb.from('series').select('id', { count: 'exact', head: true }).eq('team_id', teamId).is('archived_at', null);
-      if (getUser()?.id !== uid || T.userId !== uid || T.team?.id !== teamId) return false;
-      T.works = count || 0;
+      ensure.countTask = Promise.resolve(sb.from('series').select('id', { count: 'exact', head: true })
+        .eq('team_id', teamId).is('archived_at', null)).then(({ count, error }) => {
+        if (!error && T.team?.id === teamId && getUser()?.id === uid && T.userId === uid) T.works = count ?? 0;
+      }).catch(e => console.warn('Contador de obras', e)).finally(() => { ensure.countTask = null; });
     }
-    await styles;
+    await studioOptional(styles, null, 1800);
     return getUser()?.id === uid && T.userId === uid;
   }
   async function pickTeam(id){
     const uid = getUser()?.id, team = T.teams.find(t => t.id === id) || T.teams[0];
     if (!uid || T.userId !== uid || !team) return false;
     T.team = team; T.perms = {}; T.roleName = null; T.works = null;
+    invalidateTeamBase();
     localStorage.setItem('obi-team', team.id);
-    const [{ data }, { data: rr }] = await Promise.all([
-      sb.rpc('my_team_permissions', { t: team.id }),
-      sb.from('team_members').select('team_roles(name)').eq('team_id', team.id).eq('user_id', uid).maybeSingle()
-    ]);
+    // Permisos son obligatorios; preferencia horaria y nombre de rol no lo son.
+    const permsRequest = studioBounded(sb.rpc('my_team_permissions', { t: team.id }), 10000);
+    const roleRequest = studioOptional(sb.from('team_members').select('team_roles(name)')
+      .eq('team_id', team.id).eq('user_id', uid).maybeSingle(), { data: null });
+    const settingsRequest = studioOptional(sb.from('teams').select('settings').eq('id', team.id).maybeSingle(), { data: null });
+    const [{ data, error }, { data: rr }, { data: tt }] = await Promise.all([permsRequest, roleRequest, settingsRequest]);
     if (T.userId !== uid || getUser()?.id !== uid || T.team?.id !== team.id) return false;
+    if (error) throw new Error('No se pudieron verificar los permisos del equipo: ' + errMsg(error));
     T.perms = data || {}; T.roleName = rr?.team_roles?.name || null;
-    try {
-      const { data: tt } = await sb.from('teams').select('settings').eq('id', team.id).maybeSingle();
-      if (T.userId !== uid || getUser()?.id !== uid || T.team?.id !== team.id) return false;
-      T.tz = tt?.settings?.timezone || null;
-    } catch { if (T.userId === uid && getUser()?.id === uid && T.team?.id === team.id) T.tz = null; }
+    T.tz = tt?.settings?.timezone || null;
     return T.userId === uid && getUser()?.id === uid && T.team?.id === team.id;
   }
 
@@ -274,20 +288,57 @@ export function createStudio(ctx){
   const utagOn = t => !!(t && t.on && (t.text || '').trim() && (!t.until || new Date(t.until + 'T23:59:59') >= new Date()));
   const utagHTML = t => { const c0 = /^#[\da-f]{6}$/i.test(t.color || '') ? t.color : '#f2c230', c = t.season ? `var(--sea,${c0})` : c0, ink = t.season ? '#0d0c0a' : UTAG_INK(c0), solid = t.style !== 'outline'; return `<span class="ob-utag" style="display:inline-flex;align-items:center;margin-left:8px;padding:2px 8px;font:600 11px/1.5 'IBM Plex Mono',monospace;letter-spacing:.04em;text-transform:uppercase;vertical-align:2px;white-space:nowrap;${solid ? `background:${c};color:${ink};border:1px solid ${c}` : `background:transparent;color:${c};border:1px solid ${c}`}">${esc(t.text.trim().slice(0, 24))}</span>`; };
 
-  async function teamData(){
-    const { data: works } = await sb.from('series').select('id,slug,title,short,synopsis,genres,cover_path,cover_thumb_path,translation_status,published,views,theme,volumes(id,deleted_at)').eq('team_id', T.team.id).is('archived_at', null).order('title');
-    const ids = (works || []).map(w => w.id);
-    import('./thumbs.js?v=1').then(m => m.heal(sb, T.team.id, PUB)).catch(() => {});
-    if (!ids.length) return { works: [], chs: [], sched: [], reps: [] };
-    const now = new Date().toISOString();
-    const { readPages } = await import('/paging.js?v=1');
-    const [{ data: chs }, { data: sched }, { data: reps }] = await Promise.all([
-      readPages((from, to) => sb.from('chapters').select('id,num,title,status,publish_at,updated_at,series_id,vol,review_status,stage,assigned_to').in('series_id', ids).is('deleted_at', null).order('id').range(from, to), { size: 250 }),
-      sb.from('schedule').select('id,label,at,series_id').in('series_id', ids).gte('at', now).order('at').limit(20),
-      sb.from('reports').select('id,kind,quote,fix,created_at,chapter_id,chapters(num,title,series_id)').eq('status', 'open').order('created_at', { ascending: false }).limit(100)]);
-    const set = new Set(ids);
-    T.works = works.length;
-    return { works, chs: chs || [], sched: sched || [], reps: (reps || []).filter(r => set.has(r.chapters?.series_id)) };
+  // Compartir solo las lecturas comunes de Resumen/Obras. La promesa se
+  // descarta pronto para que publicaciones y ediciones no queden obsoletas.
+  async function teamBaseData(){
+    const teamId = T.team.id, uid = getUser()?.id;
+    if (teamBaseCache?.teamId === teamId && teamBaseCache?.uid === uid &&
+        Date.now() < teamBaseCache.expires) return teamBaseCache.promise;
+    const promise = (async () => {
+      const { data: works, error } = await studioBounded(sb.from('series')
+        .select('id,slug,title,short,synopsis,genres,cover_path,cover_thumb_path,translation_status,published,views,theme,volumes(id,deleted_at)')
+        .eq('team_id', teamId).is('archived_at', null).order('title'));
+      if (error) throw new Error('No se pudieron recuperar las obras: ' + errMsg(error));
+      if (!studioLive(location.pathname, teamId, uid)) {
+        // El llamador comprobará la ruta antes de pintar; aquí comprobamos
+        // únicamente la sesión/equipo, pues la cache se comparte entre rutas.
+        if (T.team?.id !== teamId || getUser()?.id !== uid) throw new Error('Equipo cambiado');
+      }
+      const ids = (works || []).map(w => w.id);
+      if (!ids.length) return { works: [], chs: [], sched: [] };
+      const { readPages } = await import('/paging.js?v=1');
+      const now = new Date().toISOString();
+      const chaptersRequest = studioBounded(readPages((from, to) => sb.from('chapters')
+        .select('id,num,title,status,publish_at,updated_at,series_id,vol,review_status,stage,assigned_to')
+        .in('series_id', ids).is('deleted_at', null).order('id').range(from, to), { size: 250 }), 14000);
+      const scheduleRequest = studioOptional(sb.from('schedule').select('id,label,at,series_id')
+        .in('series_id', ids).gte('at', now).order('at').limit(20), { data: [], error: null }, 1200);
+      const [chapters, schedule] = await Promise.all([chaptersRequest, scheduleRequest]);
+      if (schedule?.error) console.warn('Programación del equipo', schedule.error);
+      import('./thumbs.js?v=1').then(m => m.heal(sb, teamId, PUB)).catch(() => {});
+      return { works: works || [], chs: chapters.data || [], sched: schedule?.data || [] };
+    })();
+    const entry = { teamId, uid, expires: Date.now() + 4000, promise };
+    teamBaseCache = entry;
+    promise.catch(() => { if (teamBaseCache === entry) teamBaseCache = null; });
+    return promise;
+  }
+  async function teamData({ reports = false } = {}){
+    const teamId = T.team.id;
+    const coreRequest = teamBaseData();
+    const reportsRequest = reports ? studioOptional(sb.from('reports')
+      .select('id,kind,quote,fix,created_at,chapter_id,chapters(num,title,series_id)')
+      .eq('status', 'open').order('created_at', { ascending: false }).limit(100),
+      { data: [], error: { message: 'Sin disponibilidad' } }, 1300) : null;
+    const core = await coreRequest;
+    const ids = new Set(core.works.map(w => w.id));
+    if (T.team?.id !== teamId) throw new Error('Equipo cambiado');
+    T.works = core.works.length;
+    if (!reportsRequest) return { ...core, reps: [], reportsOk: true };
+    const result = await reportsRequest;
+    if (result?.error) console.warn('Erratas del equipo', result.error);
+    return { ...core, reps: (result?.data || []).filter(r => ids.has(r.chapters?.series_id)),
+      reportsOk: !result?.error };
   }
 
   // ---------- resumen ----------
