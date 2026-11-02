@@ -459,14 +459,23 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     document.addEventListener('click', () => setTimeout(mark, 0));
     mark();
   }
-  let SIDX = null, SIDXAt = 0;
+  // El permiso +18 afecta qué obras existen en el índice. Nunca reutilizar
+  // el índice de otra sesión al cambiar de cuenta en la misma pestaña.
+  let SIDX = null, SIDXAt = 0, SIDXOwner = null;
   const searchIndex = () => {
-    if (SIDX && Date.now() - SIDXAt < 20000) return SIDX;
+    const owner = getUser()?.id || 'anon';
+    if (SIDX && SIDXOwner === owner && Date.now() - SIDXAt < 20000) return SIDX;
+    SIDXOwner = owner;
     SIDXAt = Date.now();
     return SIDX = (async () => { const u = getUser();
     const [{ data: ss }, { data: ts }, pr] = await Promise.all([sb.from('series').select('id,slug,title,short,original,author,illustrator,genres,tags,adult,cover_path,translation_status,theme,teams(name,slug,color)').eq('published', true),
       sb.from('teams').select('slug,name,avatar_path,status'), u ? sb.rpc('my_adult_ok') : { data: null }]);
-    const ok = pr?.data === true; return { series: (ss || []).filter(x => x.translation_status !== 'withdrawn' && (!x.adult || ok)), teams: (ts || []).filter(t => !t.status || /^(active|activo)$/i.test(t.status)) }; })().catch(e => { SIDX = null; throw e; });
+    const ok = pr?.data === true;
+    return { series: (ss || []).filter(x => x.translation_status !== 'withdrawn' && (!x.adult || ok)),
+      teams: (ts || []).filter(t => !t.status || /^(active|activo)$/i.test(t.status)) }; })().catch(e => {
+      if (SIDXOwner === owner) SIDX = null;
+      throw e;
+    });
   };
   async function searchData(q, lim){
     const indexRequest = searchIndex();
@@ -475,20 +484,31 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const I = { ...I0, series: I0.series.filter(x => !hidS(x)) }, n = norm(q), has = t => norm(t).includes(n), byId = Object.fromEntries(I.series.map(x => [x.id, x]));
     const upcoming = uniqueUpcoming(announced).filter(x => !byId[x.series_id] && !hidS(x) && has([x.title, x.short].join(' '))).slice(0, lim);
     const works = I.series.filter(x => has([x.title, x.short, x.original].join(' '))).slice(0, lim);
-    await softWait(attachPublicCredits(sb, works), null, 550);
+    const creditsRequest = attachPublicCredits(sb, works);
     const am = new Map(); I.series.forEach(x => [x.author, x.illustrator].filter(Boolean).forEach(a => { if (has(a)) { const k = a.trim(); am.set(k, (am.get(k) || 0) + 1); } }));
     const authors = [...am].sort((a, b) => b[1] - a[1]).slice(0, lim);
     const teams = I.teams.filter(t => has(t.name)).slice(0, lim);
     const tm = new Map(); I.series.forEach(x => [...(x.genres || []).map(g => ['g', g]), ...(Array.isArray(x.tags) ? x.tags : []).map(t => ['t', t])].forEach(([k, v]) => { if (has(v)) { const key = k + '|' + v; tm.set(key, (tm.get(key) || 0) + 1); } }));
     const tags = [...tm].sort((a, b) => b[1] - a[1]).slice(0, lim).map(([k, c]) => { const [t, v] = k.split('|'); return { t, v, c }; });
     const like = q.replace(/[%_,()\\]/g, ' ').trim();
-    const { data: ch } = like.length >= 2 ? await sb.from('chapters').select('num,title,series_id').eq('status', 'published').is('deleted_at', null).ilike('title', '%' + like + '%').limit(lim * 3) : { data: [] };
+    // Las búsquedas secundarias de capítulos/lectores tienen un límite de
+    // espera: los títulos, autores y equipos no deben desaparecer por una RPC lenta.
+    const chaptersRequest = like.length >= 2
+      ? sb.from('chapters').select('num,title,series_id').eq('status', 'published')
+          .is('deleted_at', null).ilike('title', '%' + like + '%').limit(lim * 3)
+      : Promise.resolve({ data: [] });
+    const readersRequest = like.length >= 2
+      ? sb.rpc('search_readers', { p_q: like }) : Promise.resolve({ data: [] });
+    const [{ data: ch }, { data: rd }] = await Promise.all([
+      softWait(chaptersRequest, { data: [] }, 900),
+      softWait(readersRequest, { data: [] }, 900),
+      softWait(creditsRequest, null, 550)
+    ]).then(([chapters, readers]) => [chapters, readers]);
     const chapters = (ch || []).filter(c => byId[c.series_id]).slice(0, lim).map(c => ({ ...c, s: byId[c.series_id] }));
-    const { data: rd } = like.length >= 2 ? await sb.rpc('search_readers', { p_q: like }) : { data: [] };
     return { works, upcoming, authors, teams, tags, chapters, readers: (rd || []).slice(0, lim) };
   }
   async function searchHTML(q, lim){
-    let R, prog = {}; try { [R, prog] = await Promise.all([searchData(q, lim), progressMap().catch(() => ({}))]); } catch { return '<p class="sr-none">No se pudo buscar. Intenta de nuevo.</p>'; }
+    let R, prog = {}; try { [R, prog] = await Promise.all([searchData(q, lim), softWait(progressMap(), {}, 800)]); } catch { return '<p class="sr-none">No se pudo buscar. Intenta de nuevo.</p>'; }
     const grp = (t, items) => items.length ? `<div class="sr-g"><span class="sr-h">${t}</span>${items.join('')}</div>` : '';
     const cv = x => `<span class="sr-cv" style="${x.cover_path ? `background-image:url('${esc(thumb(x))}')` : `background:${esc(color(x))}`}"></span>`;
     const html = grp('Obras', R.works.map(x => { const p = prog[x.id]; return p ? `<a href="/leer/${x.slug}/${p.chapter_num}" title="Continuar donde te quedaste">${cv(x)}<span><b>${esc(x.title)}</b><small class="sr-cont">Retomar lectura${p.pct > 0.02 && p.pct < 0.98 ? ' · ' + Math.round(p.pct * 100) + ' %' : ''}</small>${creditsHTML(x, { esc, media, mode: 'carousel' })}</span></a>` : `<a href="/serie/${x.slug}">${cv(x)}<span><b>${esc(x.title)}</b><small>${esc([x.author, x.teams?.name].filter(Boolean).join(' · '))}</small>${creditsHTML(x, { esc, media, mode: 'carousel' })}</span></a>`; }))
@@ -1425,7 +1445,11 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const who = getUser()?.id || 'anon', now = Date.now();
     if (recentCache?.who === who && now - recentCache.at < 20000) return recentCache.promise;
     const fallback = () => sb.from('chapters').select('num,publish_at,series_id').eq('status', 'published').is('deleted_at', null).order('publish_at', { ascending: false }).limit(500);
-    const promise = sb.from('series_last').select('series_id,num,publish_at').then(r => r.error ? fallback() : r, fallback);
+    // series_last registra colas lentas en Supabase: tras 1 s se recurre a
+    // capítulos públicos sin inmovilizar el catálogo en redes móviles.
+    const primary = sb.from('series_last').select('series_id,num,publish_at');
+    const promise = softWait(primary, null, 1000).then(r => r && !r.error ? r :
+      softWait(fallback(), { data: [], error: { message: 'Actualizaciones no disponibles' } }, 2000));
     recentCache = { who, at: now, promise };
     promise.then(r => { if (r?.error && recentCache?.promise === promise) recentCache = null; },
       () => { if (recentCache?.promise === promise) recentCache = null; });
