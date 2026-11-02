@@ -35,7 +35,7 @@ mock = mock.replace("let data=name==='series'?Q.series", "if(name==='series' && 
 mock = mock.replace('then(ok,bad){return Promise.resolve(q.result()).then(ok,bad)}',
   "then(ok,bad){if(name==='series_last'&&Q.hangLatest)return new Promise(()=>{}).then(ok,bad);if(name==='series'&&Q.delaySeries)return new Promise(resolve=>setTimeout(()=>resolve(q.result()),Q.delaySeries)).then(ok,bad);return Promise.resolve(q.result()).then(ok,bad)}");
 assert(mock.includes('Q.hangLatest') && mock.includes('Q.failSeries'), 'Falta inyección de fallos del simulador');
-mock = mock.replace('rpc:async(name,opts)=>{', "rpc:async(name,opts)=>{if(name==='series_public_credits'&&Q.hangCredits)return new Promise(()=>{});if(name==='agenda_events'&&Q.delayAgenda)return new Promise(resolve=>setTimeout(()=>resolve({data:[],error:null}),Q.delayAgenda));");
+mock = mock.replace('rpc:async(name,opts)=>{', "rpc:async(name,opts)=>{if(name==='series_public_credits'&&Q.hangCredits)return new Promise(()=>{});if(name==='agenda_events'&&Q.delayAgenda)return new Promise(resolve=>setTimeout(()=>resolve({data:[],error:null}),Q.delayAgenda));if(name==='search_readers'&&Q.hangReaders)return new Promise(()=>{});");
 assert(mock.includes('Q.hangCredits') && mock.includes('Q.delayAgenda'), 'El laboratorio debe simular esperas en otras pestañas');
 mock += '\nexport { fakeCreateClient as createClient };\n';
 
@@ -69,7 +69,7 @@ const server = createServer((req,res) => {
     res.setHeader('Content-Type','application/javascript');
     return res.end('// Sin service worker para este test aislado.');
   }
-  if(['/', '/catalogo', '/buscar', '/ranking', '/calendario'].includes(path)){
+  if(['/', '/catalogo', '/buscar', '/ranking', '/calendario', '/lanzamientos'].includes(path)){
     res.setHeader('Content-Type','text/html; charset=utf-8');
     return res.end(index);
   }
@@ -85,8 +85,8 @@ try {
   await new Promise((ok,fail)=>{server.once('error',fail);server.listen(0,'127.0.0.1',ok)});
   origin='http://127.0.0.1:'+server.address().port;
   browser=await webkit.launch({headless:true});
-  const makePage=async flags=>{
-    const ctx=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
+  const makePage=async (flags, viewport={width:390,height:844})=>{
+    const ctx=await browser.newContext({viewport,serviceWorkers:'block'});
     const page=await ctx.newPage();
     await page.addInitScript(data=>{window.OBI_FIXTURE=data}, {...fixture,...flags});
     await page.route('https://**/*',route=>route.abort());
@@ -164,7 +164,45 @@ try {
     assert.equal(errors.length,0,'Calendario: '+errors.join(', '));
     await ctx.close();
   }
-  console.log('✓ WebKit 390 px: Catálogo, Inicio, Buscar, Ranking y Calendario; créditos lentos, HTTP 500 y cambios de pestaña');
+  // 8. Un enlace anterior a Lanzamientos debe abrir el Calendario real,
+  // no quedarse indefinidamente mostrando «Cargando…».
+  {
+    const {ctx,page,errors}=await makePage({});
+    await page.goto(origin+'/lanzamientos');
+    await page.waitForSelector('#ag-body',{timeout:12000});
+    assert.equal(new URL(page.url()).pathname,'/calendario','Alias debe normalizarse');
+    assert.equal(errors.length,0,'Alias Lanzamientos: '+errors.join(', '));
+    await ctx.close();
+  }
+  // 9. Una RPC de búsqueda de lectores bloqueada no puede impedir encontrar
+  // obras en Safari móvil. No debe emitir errores de JavaScript.
+  {
+    const {ctx,page,errors}=await makePage({hangReaders:true});
+    await page.goto(origin+'/buscar?q=Novela');
+    await page.waitForSelector('#sr-res .sr-g',{timeout:12000});
+    assert.match(await page.locator('#sr-res').innerText(),/Novela de prueba en Safari/);
+    assert.equal(errors.length,0,'Buscar con RPC lenta: '+errors.join(', '));
+    await ctx.close();
+  }
+  // 10. Mismas rutas en móvil estrecho, tablet y escritorio Safari.
+  for (const [width,height,route,selector] of [
+    [320,740,'/catalogo','#cat-grid .ui-fc'],
+    [768,1024,'/calendario','#ag-body'],
+    [1440,900,'/ranking','#rk .rk-c']
+  ]) {
+    const {ctx,page,errors}=await makePage({}, {width,height});
+    await page.goto(origin+route);
+    await page.waitForSelector(selector,{timeout:12000});
+    const measure=await page.evaluate(()=>({
+      width:innerWidth,
+      documentWidth:document.documentElement.scrollWidth
+    }));
+    assert(measure.documentWidth<=measure.width+4,
+      'Desbordamiento horizontal '+route+' a '+width+' px: '+JSON.stringify(measure));
+    assert.equal(errors.length,0,'WebKit '+width+' px / '+route+': '+errors.join(', '));
+    await ctx.close();
+  }
+  console.log('✓ WebKit 320/390/768/1440 px: navegación, alias, catálogo, búsqueda lenta, ranking, calendario y recuperación');
 } finally {
   if(browser)await browser.close();
   await new Promise(resolve=>server.close(resolve));

@@ -247,11 +247,14 @@ export async function loadTeamData(sb, slug){
   const { data: t } = await sb.from('teams').select('id,slug,name,bio,color,langs,settings,design,avatar_path,banner_path,status').eq('slug', slug).maybeSingle();
   if (!t) return null;
   const S = t.settings || {};
-  const [{ data: rawWorks }, { data: mem }, { data: next }, announced] = await Promise.all([
-    sb.from('series').select('id,slug,title,short,synopsis,cover_path,translation_status,views,chapters(count)').eq('team_id', t.id).eq('published', true).is('archived_at', null).order('title'),
+  const [{ data: rawWorks, error: worksError }, { data: mem }, { data: next }, announced] = await Promise.all([
+    // Los conteos anidados de capítulos causaban respuestas 500 en /series.
+    // publicSectionCounts obtiene después los totales con el contrato público.
+    sb.from('series').select('id,slug,title,short,synopsis,cover_path,translation_status,views').eq('team_id', t.id).eq('published', true).is('archived_at', null).order('title'),
     S.show_members !== false ? sb.rpc('team_public_members', { p_team: t.id }) : { data: [] },
     sb.from('schedule').select('at,label,series!inner(team_id,slug,title)').eq('series.team_id', t.id).gte('at', new Date().toISOString()).order('at').limit(1),
     loadPublicUpcoming(sb)]);
+  if (worksError) throw new Error('No se pudieron recuperar las obras públicas del equipo: ' + worksError.message);
   const works = await publicSectionCounts(sb, rawWorks || []);
   // Preservar el contrato del render sin exponer la tabla privada profiles.
   const members=(mem||[]).map(m=>({
@@ -260,7 +263,9 @@ export async function loadTeamData(sb, slug){
     team_roles:m.role_name ? { name:m.role_name, color:m.role_color } : null
   }));
   // El feed solo consulta publicaciones de obras públicas; un error no bloquea el perfil.
-  const recent = await import('./team-updates.js?v=1').then(m => m.loadTeamUpdates(sb, works || [])).catch(e => { console.warn('team updates', e); return []; });
+  const recentRequest = import('./team-updates.js?v=1')
+    .then(m => m.loadTeamUpdates(sb, works || []))
+    .catch(e => { console.warn('team updates', e); return []; });
   // Mostrar únicamente obras públicas con colaboración aceptada.
   let collaborations = [];
   try {
@@ -269,13 +274,15 @@ export async function loadTeamData(sb, slug){
     const ids = [...new Set((accepted || []).map(row => row.series_id).filter(Boolean))].slice(0, 200);
     if (ids.length) {
       const { data: shared, error: sharedError } = await sb.from('series')
-        .select('id,team_id,slug,title,short,synopsis,cover_path,translation_status,views,chapters(count),teams(name,slug,avatar_path)')
+        .select('id,team_id,slug,title,short,synopsis,cover_path,translation_status,views,teams(name,slug,avatar_path)')
         .in('id', ids).eq('published', true).is('archived_at', null).order('title');
       if (sharedError) throw sharedError;
       collaborations = await publicSectionCounts(sb, (shared || []).filter(w => !(works || []).some(o => o.id === w.id)));
       await attachPublicCredits(sb, collaborations);
     }
   } catch (e) { console.warn('Créditos públicos de colaboración no disponibles:', e?.message || e); }
+  // Novedades y colaboraciones son independientes: no encadenar sus esperas.
+  const recent = await recentRequest;
   installCreditImageFallback();
   // Integrar el anuncio más próximo en el bloque editable "Próximo lanzamiento".
   // No incorporar series no publicadas a "Obras" ni a sus estadísticas.
@@ -304,7 +311,15 @@ export function render(D, design, h){
   const { esc, media } = h, d = effective(design, D.t.color, h.sim), t = D.t, S = t.settings || {}, on = k => S[k] !== false, L = d.layout;
   const LG = { ja: 'japonés', ko: 'coreano', zh: 'chino', en: 'inglés' }, langs = (t.langs || []).map(l => LG[l]).filter(Boolean);
   const LK = [['website', 'Sitio web'], ['patreon', 'Patreon'], ['kofi', 'Ko-fi'], ['discord', 'Discord'], ['twitter', 'X / Twitter']].filter(([k]) => /^https:\/\//.test(S[k] || ''));
-  const W = D.works, SHARED = D.collaborations || [], E = d.editorial, C = d.community, caps = [...W,...SHARED].reduce((a, w) => a + (w.chapters?.[0]?.count || 0), 0);
+  const W = D.works, SHARED = D.collaborations || [], E = d.editorial, C = d.community;
+  const chapterCount = w => {
+    const n = w.chapters?.[0]?.count;
+    return Number.isSafeInteger(n) && n >= 0 ? n : null;
+  };
+  const capsVerified = [...W,...SHARED].every(w => chapterCount(w) !== null);
+  const caps = capsVerified ? [...W,...SHARED].reduce((a, w) => a + chapterCount(w), 0) : null;
+  const chapterLabel = (w, suffix = 'cap.') => chapterCount(w) === null
+    ? 'Capítulos no verificados' : chapterCount(w) + ' ' + suffix;
   const featList = (d.featured.length ? d.featured : [S.featured_works]).map(sl => W.find(w => w.slug === sl)).filter(Boolean);
   const ban = t.banner_path ? `background-image:url('${esc(media(t.banner_path))}')` : '';
   const logo = `<span class="tp2-logo">${t.avatar_path ? `<img src="${esc(media(t.avatar_path))}" alt="">` : `<b>${esc(t.name.slice(0, 2).toUpperCase())}</b>`}</span>`;
@@ -312,17 +327,17 @@ export function render(D, design, h){
   const SN0 = d.season && SEASONS[d.season], stamp0 = SN0 && d.seasons.deco !== 'min' ? `<span class="tp2-stamp"><i></i>${esc(SN0.l.toUpperCase())}</span>` : '';
   const name = `<h1 class="tp2-name">${esc(t.name)}</h1>${d.motto ? `<p class="tp2-motto">${esc(d.motto)}</p>` : ''}${L.showMeta ? `<p class="tp2-meta">${esc(meta)}</p>` : ''}${stamp0}`;
   const links = L.showLinks ? `<div class="tp2-links"><span class="tp2-fslot"></span>${LK.map(([k, l]) => `<a class="tp2-btn" href="${esc(S[k])}" target="_blank" rel="noopener">${l} ↗</a>`).join('')}</div>` : '<div class="tp2-links"><span class="tp2-fslot"></span></div>';
-  const cover = w => `<span class="tp2-cv"${w.cover_path ? ` style="background-image:url('${esc(media(w.cover_path))}')"` : ''}>${w.cover_path ? '' : `<i>${esc(w.short || w.title)}</i>`}<span class="tp2-obi" aria-hidden="true"><b>${esc(w.short || w.title)}</b><small>${w.prelaunch ? 'Primer vistazo' : (w.chapters?.[0]?.count || 0) + ' cap.'}</small></span></span>`;
-  const stats = on('show_stats') ? `<div class="tp2-stats">${[[(W.length + SHARED.length), 'obras'], [caps, 'capítulos']].map(([v, k]) => `<span><b>${(+v).toLocaleString('es-MX')}</b><small>${k}</small></span>`).join('')}<span><b data-follow-count>—</b><small>seguidores</small></span><span><b>${D.mem.length.toLocaleString('es-MX')}</b><small>integrantes públicos</small></span></div>` : '';
+  const cover = w => `<span class="tp2-cv"${w.cover_path ? ` style="background-image:url('${esc(media(w.cover_path))}')"` : ''}>${w.cover_path ? '' : `<i>${esc(w.short || w.title)}</i>`}<span class="tp2-obi" aria-hidden="true"><b>${esc(w.short || w.title)}</b><small>${w.prelaunch ? 'Primer vistazo' : chapterLabel(w)}</small></span></span>`;
+  const stats = on('show_stats') ? `<div class="tp2-stats">${[[(W.length + SHARED.length), 'obras'], [caps, 'capítulos']].map(([v, k]) => `<span><b>${v === null ? '—' : (+v).toLocaleString('es-MX')}</b><small>${k}</small></span>`).join('')}<span><b data-follow-count>—</b><small>seguidores</small></span><span><b>${D.mem.length.toLocaleString('es-MX')}</b><small>integrantes públicos</small></span></div>` : '';
   const nextWork = D.next && (D.next.prelaunch ? { ...D.next.series, cover_path: D.next.cover_path, prelaunch: true } : W.find(w => w.slug === D.next.series?.slug));
   const nx = D.next ? `<a class="tp2-next${E.nextStyle === 'destacado' ? ' tp2-next-feature' : ''}" id="grupo-lanzamientos" data-at="${esc(D.next.at)}" href="/serie/${esc(D.next.series.slug)}">${E.nextStyle === 'destacado' && nextWork ? `<span class="tp2-next-cv">${cover(nextWork)}</span>` : ''}<span class="tp2-next-copy"><small>${D.next.prelaunch ? 'PRÓXIMO ESTRENO · PRIMER VISTAZO' : 'PRÓXIMO LANZAMIENTO'}</small><b>${esc(D.next.series.title)}${D.next.label ? ' · ' + esc(D.next.label) : ''}</b><span>${new Date(D.next.at).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: D.next.prelaunch ? 'America/Monterrey' : undefined })}${D.next.prelaunch ? ' · Monterrey · Lectura bloqueada' : ''}</span></span></a>` : '';
   const featCard = f => `<a class="tp2-feat" href="/serie/${esc(f.slug)}">${cover(f)}<span><b>${esc(f.title)}</b><span class="tp2-syn">${esc(f.synopsis || '')}</span><span class="tp2-btn solid">Ver ficha de la obra</span></span></a>`;
   const featH = featList.length ? `<section class="tp2-sec tp2-feature-block" id="grupo-destacadas"><div class="tp2-sh"><h2>${featList.length > 1 ? 'Obras destacadas' : 'Obra destacada'}</h2>${featList.length > 1 ? `<span class="tp2-car-nav"><button type="button" data-car="-1" aria-label="Anterior">‹</button><button type="button" data-car="1" aria-label="Siguiente">›</button></span>` : ''}</div><div class="tp2-car" tabindex="0" aria-label="Obras destacadas">${featList.map(featCard).join('')}</div>${featList.length > 1 ? `<div class="tp2-dots">${featList.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div>` : ''}</section>` : '';
   const today = new Date().toISOString().slice(0, 10), A = d.announce;
   const ann = (A.title || A.text) && (!A.until || A.until >= today) ? `<aside class="tp2-ann tp2-ann-${C.announceStyle}" id="grupo-anuncios" aria-label="Aviso del equipo"><small>AVISO DEL EQUIPO</small>${A.title ? `<b>${esc(A.title)}</b>` : ''}${A.text ? `<p>${esc(A.text)}</p>` : ''}${A.until ? `<time datetime="${esc(A.until)}">Visible hasta el ${new Date(A.until + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</time>` : ''}${A.url ? `<a class="tp2-btn" href="${esc(A.url)}"${/^https/.test(A.url) ? ' target="_blank" rel="noopener"' : ''}>${esc(A.label || 'Ver más')}${/^https/.test(A.url) ? ' ↗' : ''}</a>` : ''}</aside>` : '';
-  const grid = on('show_works') && W.length ? `<section class="tp2-sec" id="grupo-obras"><h2>Obras</h2><div class="tp2-works">${W.map(w => `<a href="/serie/${esc(w.slug)}" class="tp2-w">${cover(w)}<b>${esc(w.short || w.title)}</b><small>${w.chapters?.[0]?.count || 0} cap. · ${TLS[w.translation_status] || TLS.active}</small></a>`).join('')}</div></section>` : '';
-  const list = on('show_works') && W.length ? `<section class="tp2-sec" id="grupo-obras"><h2>Obras</h2><div class="tp2-list">${W.map(w => `<a href="/serie/${esc(w.slug)}" class="tp2-li">${cover(w)}<span><b>${esc(w.title)}</b><small>${w.chapters?.[0]?.count || 0} capítulos · ${TLS[w.translation_status] || TLS.active}</small><span class="tp2-syn">${esc(w.synopsis || '')}</span></span></a>`).join('')}</div></section>` : '';
-  const sharedBlock = on('show_works') && SHARED.length ? `<section class="tp2-sec tp2-collab" id="grupo-colaboraciones"><h2>Obras en colaboración</h2><p class="tp2-syn">Obras en las que participa este equipo junto a otros traductores.</p><div class="tp2-works">${SHARED.map(w => `<a href="/serie/${esc(w.slug)}" class="tp2-w">${cover(w)}<b>${esc(w.short || w.title)}</b><small>${w.chapters?.[0]?.count || 0} cap. · ${TLS[w.translation_status] || TLS.active}</small>${creditsHTML(w, { esc, media, mode: 'carousel' })}</a>`).join('')}</div></section>` : '';
+  const grid = on('show_works') && W.length ? `<section class="tp2-sec" id="grupo-obras"><h2>Obras</h2><div class="tp2-works">${W.map(w => `<a href="/serie/${esc(w.slug)}" class="tp2-w">${cover(w)}<b>${esc(w.short || w.title)}</b><small>${chapterLabel(w)} · ${TLS[w.translation_status] || TLS.active}</small></a>`).join('')}</div></section>` : '';
+  const list = on('show_works') && W.length ? `<section class="tp2-sec" id="grupo-obras"><h2>Obras</h2><div class="tp2-list">${W.map(w => `<a href="/serie/${esc(w.slug)}" class="tp2-li">${cover(w)}<span><b>${esc(w.title)}</b><small>${chapterLabel(w, 'capítulos')} · ${TLS[w.translation_status] || TLS.active}</small><span class="tp2-syn">${esc(w.synopsis || '')}</span></span></a>`).join('')}</div></section>` : '';
+  const sharedBlock = on('show_works') && SHARED.length ? `<section class="tp2-sec tp2-collab" id="grupo-colaboraciones"><h2>Obras en colaboración</h2><p class="tp2-syn">Obras en las que participa este equipo junto a otros traductores.</p><div class="tp2-works">${SHARED.map(w => `<a href="/serie/${esc(w.slug)}" class="tp2-w">${cover(w)}<b>${esc(w.short || w.title)}</b><small>${chapterLabel(w)} · ${TLS[w.translation_status] || TLS.active}</small>${creditsHTML(w, { esc, media, mode: 'carousel' })}</a>`).join('')}</div></section>` : '';
   const memberCard = m => {
     const username = String(m.profiles?.username || 'Integrante').trim();
     const role = m.role === 'owner' ? 'Propietario' : String(m.team_roles?.name || 'Integrante');

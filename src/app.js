@@ -61,9 +61,9 @@ window.obiTZ = () => window.__obiUI?.tz || Intl.DateTimeFormat().resolvedOptions
 const RL = { bibliotecario: 'Bibliotecario', publicador: 'Publicador', lector: 'Lector' };
 // La sesión sale del almacenamiento local (sin red) y se pinta al instante con el perfil guardado;
 // perfil y whoami llegan en paralelo y actualizan la barra. meReady avisa cuándo `me` es definitivo.
-let meReady = Promise.resolve(), lastBar = '';
+let meReady = Promise.resolve(), membershipsReady = Promise.resolve(), lastBar = '';
 async function loadSession(){
-teamMemberships = [];
+teamMemberships = []; membershipsReady = Promise.resolve();
 // La identidad de la última sesión verificada solo sirve para preferencias y lectura
 // local en modo avión. Al recuperar internet se valida la sesión real de Supabase.
 if (!navigator.onLine) {
@@ -85,9 +85,16 @@ try { const c = JSON.parse(localStorage.getItem('obi-me') || 'null'); if (c?.id 
 window.obiSetUI(profile?.ui_prefs || {});
 drawSession();
 const uid = user.id;
-meReady = Promise.all([sb.rpc('my_profile'), sb.rpc('whoami'), sb.from('team_members').select('teams(id,slug)').eq('user_id', uid)]).then(([p, w, memberships]) => {
+// El menú de grupos es secundario: no bloquear Perfil, Preferencias ni
+// Estudio esperando team_members. Nunca aplicar grupos de otra sesión.
+membershipsReady = Promise.resolve(sb.from('team_members').select('teams(id,slug)').eq('user_id', uid))
+  .then(({ data, error }) => {
+    if (error || user?.id !== uid) return;
+    teamMemberships = (data || []).map(m => m.teams).filter(t => t?.id && t?.slug);
+    drawSession();
+  }).catch(error => console.warn('Equipos del menú', error));
+meReady = Promise.all([sb.rpc('my_profile'), sb.rpc('whoami')]).then(([p, w]) => {
   if (user?.id !== uid) return; profile = p.data; me = w.data || null;
-  teamMemberships = (memberships.data || []).map(m => m.teams).filter(t => t?.id && t?.slug);
   if (profile?.ui_prefs && Object.keys(profile.ui_prefs).length) window.obiSetUI(profile.ui_prefs);
   else window.obiSetUI({});
   sb.rpc('my_blocks').then(({ data }) => { if (user?.id === uid && Array.isArray(data)) window.obiSetBlocks(data); });
@@ -192,7 +199,8 @@ if ((data || []).some(x => !x.read)) { await sb.rpc('notifications_read_all'); $
 }
 async function groupProfile(){
   if (!user) return go('/entrar');
-  await meReady;
+  await Promise.all([meReady, membershipsReady]);
+  if (!user) return go('/entrar');
   const group = currentGroup();
   if (!group) { app.innerHTML = '<h1>Perfil grupal</h1><p>Aún no perteneces a ningún grupo traductor.</p><p><a class="btn ghost" href="/">Volver al inicio</a></p>'; return; }
   history.replaceState({}, '', '/equipo/' + encodeURIComponent(group.slug));
@@ -216,8 +224,22 @@ function render(){
   const seq = ++routeRenderSeq;
   // En la lectura offline no iniciar cargas decorativas ni peticiones a Supabase.
   if (navigator.onLine) seasons().then(S => { S.clear(); S.load(sb); }).catch(() => {});
-  return render0().catch(e => { if (!navigator.onLine || /Failed to fetch|NetworkError|Load failed|network/i.test(e?.message || '')) return offlinePage(); throw e; })
-    .then(r => { if (seq !== routeRenderSeq) return; installPublicShare(); if (navigator.onLine) { contBtn(); return afterRender(r); } return r; });
+  return render0().catch(error => {
+    if (seq !== routeRenderSeq) return;
+    if (!navigator.onLine) return offlinePage();
+    // Los módulos públicos (lector, ficha, administración, PWA) deben permitir
+    // reintentar un import o error de red sin dejar la pantalla anterior congelada.
+    console.warn('Carga de ruta', error);
+    const path = location.pathname;
+    app.innerHTML = '<div class="ui-empty" role="alert">' +
+      '<h1>Esta sección no pudo cargarse</h1>' +
+      '<p>La conexión o el servidor tardaron demasiado. Tus lecturas y descargas no se han eliminado.</p>' +
+      '<button class="btn" id="ob-route-retry" type="button">Reintentar</button> ' +
+      '<a class="btn ghost" href="/">Volver al inicio</a></div>';
+    app.querySelector('#ob-route-retry')?.addEventListener('click', () => {
+      if (seq === routeRenderSeq && location.pathname === path) void render();
+    });
+  }).then(r => { if (seq !== routeRenderSeq) return; installPublicShare(); if (navigator.onLine) { contBtn(); return afterRender(r); } return r; });
 }
 // ---------- sin conexión ----------
 async function offlinePage(){

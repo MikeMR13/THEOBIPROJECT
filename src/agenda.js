@@ -84,7 +84,8 @@ const CSS = `
 let agendaVisitSeq = 0;
 export async function agenda(ctx){
   const visit = ++agendaVisitSeq;
-  const live = () => visit === agendaVisitSeq && location.pathname === '/calendario';
+  // /lanzamientos es un alias: se normaliza a /calendario antes de dibujar.
+  const live = () => visit === agendaVisitSeq && /^\/(?:calendario|lanzamientos)$/.test(location.pathname);
   const optional = (work, fallback, ms = 850) => Promise.race([
     Promise.resolve(work).catch(error => { console.warn('Dato complementario del calendario', error); return fallback; }),
     new Promise(resolve => setTimeout(() => resolve(fallback), ms))
@@ -95,7 +96,9 @@ export async function agenda(ctx){
   if (location.pathname === '/lanzamientos') history.replaceState({}, '', '/calendario' + location.search);
   app.innerHTML = '<p class="mono">Cargando el calendario…</p>';
   const u = getUser(), qs = new URLSearchParams(location.search);
-  const TZ = window.obiTZ(), ymd = d => { const parts = new Intl.DateTimeFormat('en-US', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(d)); const part = k => parts.find(p => p.type === k)?.value; return part('year') + '-' + part('month') + '-' + part('day'); };
+  // Reutilizar el formato: se invoca una vez por fecha y lanzamiento en móvil.
+  const TZ = window.obiTZ(), dayFormat = new Intl.DateTimeFormat('en-US', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+  const ymd = d => { const parts = dayFormat.formatToParts(new Date(d)); const part = k => parts.find(p => p.type === k)?.value; return part('year') + '-' + part('month') + '-' + part('day'); };
   const noon = k => new Date(k + 'T12:00:00Z'), addK = (k, n) => new Date(noon(k).getTime() + n * DAY).toISOString().slice(0, 10);
   const dow = k => (noon(k).getUTCDay() + 6) % 7, monday = k => addK(k, -dow(k)), today = () => ymd(Date.now());
   const media = p => p ? (/^https?:/.test(p) ? p : `${url}/storage/v1/object/public/obi-media/${encodeURI(p)}`) : '';

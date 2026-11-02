@@ -81,7 +81,10 @@ assert.match(ui,/await softWait\(creditsRequest, null, 650\);/,
   'Inicio debe limitar la espera de créditos');
 assert.match(ui,/void creditsRequest\.then\(\(\) => \{[\s\S]*?previous\.outerHTML = html/,
   'Inicio debe completar logos de colaboradores que respondan tarde');
-assert.match(ui,/await softWait\(attachPublicCredits\(sb, works\), null, 550\)/, 'La búsqueda conserva los logos sin bloquearse');
+assert.match(ui,/const creditsRequest = attachPublicCredits\(sb, works\)/,
+  'La búsqueda debe comenzar a cargar créditos junto a las consultas secundarias');
+assert.match(ui,/softWait\(creditsRequest, null, 550\)/,
+  'La búsqueda conserva logos aceptados sin esperar indefinidamente');
 assert.match(ui,/creditsHTML\(x, \{ esc, media, mode: 'carousel' \}\)/, 'Búsqueda muestra logos sin enlaces anidados');
 const appSource=readFileSync(new URL('../src/app.js',import.meta.url),'utf8');
 assert.match(appSource,/libraryCreditTask = Promise\.resolve\(attachPublicCredits\(sb, ser \|\| \[\]\)\)/,
