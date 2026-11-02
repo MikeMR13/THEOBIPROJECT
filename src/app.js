@@ -1,4 +1,5 @@
 import { installPublicShare } from './share.js?v=1';
+import { initSiteChrome } from './site-chrome.js?v=1';
 import { confirmObi, inputObi } from './obi-dialog.js';
 import { readPages } from './paging.js';
 import { prepareLibrary, selectLibraryItems } from './library-logic.js';
@@ -52,6 +53,9 @@ const publicView = async (path, method, ...args) => {
   if (location.pathname !== path) return; // no pintar la ruta anterior
   return (U ||= module.createUI(CTX()))[method](...args);
 };
+// La navegación global existe desde el inicio, también en Calendario, Perfil,
+// Biblioteca y páginas privadas. Su buscador anticipa ui.js solo al escribir.
+initSiteChrome({sb, go, searchHTML: async (query, limit) => (await ui()).searchHTML(query, limit)});
 
 // Preferencias de pantalla (Accesibilidad) y lectores silenciados/bloqueados: se aplican al instante desde el almacenamiento local.
 const readJ = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
