@@ -76,5 +76,5 @@ for(const token of ['Portada de la novela','Subir portada','Elegir de Multimedia
   'role="status"','aria-pressed','aria-expanded','canEdit','gallery'])
  assert(editor.includes(token),'Falta interacción '+token);
 assert(css.includes('@media(max-width:520px)'),'Portada responsive');
-assert(studio.length<280000,'Studio superó el presupuesto original');
+assert(studio.length<295000,'Studio superó el presupuesto diferido revisado para recuperación y carga progresiva');
 console.log('Portada principal en Datos: catálogo multimedia, permisos, JPEG/PNG/WebP, subida, rollback, volumen intacto y móvil OK');
