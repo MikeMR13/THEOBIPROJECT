@@ -69,7 +69,7 @@ assert.equal((await retry).offlineList(),'<p>guardado</p>');
 // El loader de UI comparte la descarga entre vistas públicas, pero no construye
 // ni pinta una vista antigua si la ruta cambió antes de completar el import.
 const uiStart = app.indexOf('let U, uiModuleRequest;');
-const uiEnd = app.indexOf('// Preferencias de pantalla', uiStart);
+const uiEnd = app.indexOf('// La navegación global existe desde el inicio', uiStart);
 assert(uiStart >= 0 && uiEnd > uiStart, 'Falta loader diferido de UI');
 const uiSource = app.slice(uiStart, uiEnd)
   .replace("import('/ui.js?v=62')", "fakeImport('/ui.js?v=62')");
