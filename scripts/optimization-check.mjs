@@ -19,6 +19,16 @@ const app = source('src/app.js');
 assert(!/\bimport\s*\{\s*createUI\s*\}\s*from\s*['"]\/ui\.js/.test(app), 'UI no debe cargarse estáticamente');
 assert(/import\(['"]\/ui\.js\?v=\d+['"]\)/.test(app), 'UI debe importarse solo bajo demanda');
 assert(app.includes('if (location.pathname !== path) return;'), 'Falta guardia de navegación del módulo UI');
+const shell = source('src/site-chrome.js');
+assert(app.includes("import { initSiteChrome } from './site-chrome.js?v=1'"),
+  'La navegación compartida no puede depender de la UI pública');
+assert(app.includes('initSiteChrome({sb, go, searchHTML:'),
+  'La navegación debe crearse aun en Calendario, Biblioteca y Perfil');
+assert(shell.includes('createMobileNavigation()') && shell.includes('bindMobileNavigation(tab)'),
+  'La navegación táctil compartida debe existir fuera de ui.js');
+assert(shell.includes('siteChromeCss()') && shell.includes('id = \'sr-css\''),
+  'Faltan estilos del menú y del buscador sin la UI pública');
+assert(ui.includes('search, searchHTML }'), 'El autocomplete no puede perder la búsqueda pública');
 const boot = source('src/boot.js');
 assert(boot.includes("ui.href = '/ui.js?v=62'"), 'Falta precarga selectiva de UI en rutas públicas');
 assert(boot.includes("path === '/catalogo'") && boot.includes("path === '/'"), 'Inicio y Catálogo deben mantener precarga de UI');
