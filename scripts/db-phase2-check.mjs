@@ -25,7 +25,10 @@ const ui = read('src/ui.js');
 assert(ui.includes('let recentCache = null'), 'Falta consulta reutilizable de catálogo');
 assert(ui.includes('recentCache?.who === who'), 'Caché no separa sesiones');
 assert(ui.includes('now - recentCache.at < 20000'), 'La caché debe expirar rápidamente');
-assert(ui.includes('catalogRecent(),'), 'Catálogo no usa la consulta compartida');
+assert(ui.includes('catalogRecent().then('), 'Catálogo no usa la consulta compartida');
+const cat = ui.slice(ui.indexOf('  async function catalog(){'), ui.indexOf('  // ---------- Lanzamientos ----------'));
+assert(cat.indexOf('catalogRecent().then(') > cat.indexOf('    draw();\n    // Mostrar primero las obras'),
+  'La consulta compartida no debe bloquear el catálogo');
 assert(ui.includes("sb.from('series_last').select('series_id,num,publish_at')"), 'Debe conservar RLS de la vista');
 assert(ui.includes("sb.from('chapters').select('num,publish_at,series_id')"), 'Debe conservar respaldo');
 assert(read('.github/workflows/ci.yml').includes('npm run db-phase2-check'));
