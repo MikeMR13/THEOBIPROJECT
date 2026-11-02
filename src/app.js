@@ -85,9 +85,16 @@ try { const c = JSON.parse(localStorage.getItem('obi-me') || 'null'); if (c?.id 
 window.obiSetUI(profile?.ui_prefs || {});
 drawSession();
 const uid = user.id;
-meReady = Promise.all([sb.rpc('my_profile'), sb.rpc('whoami'), sb.from('team_members').select('teams(id,slug)').eq('user_id', uid)]).then(([p, w, memberships]) => {
+// El menú de grupos es secundario: no bloquear Perfil, Preferencias ni
+// Estudio esperando team_members. Nunca aplicar grupos de otra sesión.
+void Promise.resolve(sb.from('team_members').select('teams(id,slug)').eq('user_id', uid))
+  .then(({ data, error }) => {
+    if (error || user?.id !== uid) return;
+    teamMemberships = (data || []).map(m => m.teams).filter(t => t?.id && t?.slug);
+    drawSession();
+  }).catch(error => console.warn('Equipos del menú', error));
+meReady = Promise.all([sb.rpc('my_profile'), sb.rpc('whoami')]).then(([p, w]) => {
   if (user?.id !== uid) return; profile = p.data; me = w.data || null;
-  teamMemberships = (memberships.data || []).map(m => m.teams).filter(t => t?.id && t?.slug);
   if (profile?.ui_prefs && Object.keys(profile.ui_prefs).length) window.obiSetUI(profile.ui_prefs);
   else window.obiSetUI({});
   sb.rpc('my_blocks').then(({ data }) => { if (user?.id === uid && Array.isArray(data)) window.obiSetBlocks(data); });
