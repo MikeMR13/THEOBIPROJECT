@@ -1443,7 +1443,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const publicRows = data.filter(s => !['abandoned', 'withdrawn'].includes(s.translation_status) &&
       (!hidS(s) || F.gin.some(g => (s.genres || []).includes(g))));
     let all = publicRows;
-    let upcoming = [], prog = {}, fol = new Set(), RK = {}, rkLbl = 'histórico';
+    let upcoming = [];
+    let prog = {}, fol = new Set(), RK = {}, rkLbl = 'histórico';
     const last = {};
     const nCh = s => s.chapters?.[0]?.count || 0;
     const status = s => { const p = prog[s.id], lc = last[s.id];
