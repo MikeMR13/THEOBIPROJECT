@@ -28,6 +28,10 @@ assert(at(home, 'const [FD, pr, VR] = await Promise.all([') < painted,
 assert(at(home, 'await creditsRequest;') < painted,
   'No mostrar créditos sin recibir las invitaciones públicas vigentes');
 
+assert(at(cat, '    draw();\n    // Mostrar primero las obras') < at(cat, 'const [counted] = await Promise.all(['),
+  'Los conteos públicos nunca deben bloquear el primer dibujo del catálogo');
+assert(cat.includes("SERIES.replace(',chapters(count),volumes(count)', '')"),
+  'La primera consulta no debe depender de conteos costosos');
 assert.match(cat, /const \[counted\] = await Promise\.all\(\[\s*publicSectionCounts\(sb, publicRows\),\s*attachPublicCredits\(sb, publicRows\)/,
   'Conteos y créditos deben ejecutarse en paralelo');
 assert.match(cat, /publicCredits: publicRows\[i\]\.publicCredits, teams: publicRows\[i\]\.teams/,
@@ -36,7 +40,7 @@ assert.match(cat, /let upcoming = \[\];/,
   'Próximamente no debe detener el primer render');
 assert(at(cat, 'const paintUpcoming = () =>') < at(cat, 'const draw = () =>'),
   'Se debe aislar el pintado de próximos estrenos');
-assert(at(cat, 'loadPublicUpcoming(sb).then(') > at(cat, "    draw();\n    // El primer vistazo"),
+assert(at(cat, 'loadPublicUpcoming(sb).then(') > at(cat, "    draw();\n    // Mostrar primero las obras"),
   'Los estrenos deben consultarse después de dibujar las tarjetas');
 assert.match(cat, /app\.querySelector\('#cat-upcoming'\) !== upcomingSlot/,
   'No hidratar el catálogo después de salir de la ruta');
