@@ -40,7 +40,8 @@ requires(st,[
 
 
 
-"volumes(id,deleted_at)",
+"const volumesRequest = studioBounded(readPages(",
+"select('id,series_id,deleted_at').in('series_id', ids)",
 "cover_thumb_path",
 
 
@@ -88,4 +89,35 @@ assert(read('src/studio-related-works.js').includes('if (!verified?.id || !sameR
 assert(st.includes('/studio-obras.css?v=7'),'CSS Obras debe cargarse de forma versionada');
 assert(read('src/app.js').includes("/studio.js?v=64"));
 assert(read('src/index.html').includes('/app.js?v=56'));
+// Contrato: los paneles nunca confunden respuestas omitidas con 0 obras/erratas.
+const studioSource=read('src/studio.js'), appSource=read('src/app.js');
+assert.match(studioSource, /if \(error\) throw new Error\('No se pudieron recuperar las obras:/,
+  'Un error al consultar series no equivale a una estantería vacía');
+assert.match(studioSource, /if \(error\) throw new Error\('No se pudieron verificar los equipos:/,
+  'Una membresía no comprobada no concede acceso a Studio');
+assert.match(studioSource, /const \[\{ data, error \}, \{ data: rr \}, \{ data: tt \}\] = await Promise\.all/,
+  'Los permisos y los detalles auxiliares deben comenzar juntos');
+assert.match(studioSource, /if \(error\) throw new Error\('No se pudieron verificar los permisos/,
+  'Un error de permisos nunca debe convertirse en permisos concedidos');
+assert.match(studioSource, /if \(!live\(\)\) return;/,
+  'Los resultados atrasados deben descartarse al cambiar de ruta, equipo o cuenta');
+assert.match(studioSource, /const viewsRequest = Promise\.resolve\(sb\.rpc\('team_views'/,
+  'Las estadísticas deben consultarse independientemente del primer dibujo');
+assert.match(studioSource, /void viewsRequest\.then\(/,
+  'Las vistas tardías deben hidratar solo su propio panel');
+assert.match(studioSource, /const volumesRequest = studioBounded\(readPages\(/,
+  'Los volúmenes deben paginarse para evitar conteos anidados o truncamiento');
+assert.match(studioSource, /select\('id,series_id,deleted_at'\)\.in\('series_id', ids\)/,
+  'Solo consultar identificadores de volúmenes necesarios para los conteos');
+assert.doesNotMatch(studioSource, /theme,volumes\(id,deleted_at\)/,
+  'Nunca volver a incluir volúmenes anidados en la consulta de series de Estudio');
+assert.match(studioSource, /const refreshWorks = bindStudioWorksControls\(/);
+assert.match(view, /return renderResults;/, 'Los filtros deben conservarse al actualizar métricas de preestreno');
+assert.match(studioSource, /No se pudieron recuperar los volúmenes|No se pudieron recuperar la ficha/,
+  'La ficha debe exponer errores recuperables');
+assert.match(appSource, /const studioRoute = async run =>/);
+assert.match(appSource, /studio-route-retry/, 'Todas las rutas de Estudio deben ofrecer reintento');
+assert.doesNotMatch(studioSource, /\bawait\s+sb\.rpc\('team_views'/,
+  'La vista principal no puede esperar los agregados de visualizaciones');
+
 console.log('✓ Auditoría Estudio Obras: filtros, permisos, móvil, importación, publicación y rendimiento');

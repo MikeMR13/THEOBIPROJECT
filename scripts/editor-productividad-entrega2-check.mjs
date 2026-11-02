@@ -4,7 +4,9 @@ import {readFileSync} from 'node:fs';
 const src=p=>readFileSync(p,'utf8');
 const studio=src('src/studio.js'),newWork=src('src/studio-new-work.js');
 const editor=src('src/studio-editor.js'),css=src('src/studio-productivity.css');
-assert(studio.length<280000,'Studio debe mantenerse bajo el límite de 280 KB de caracteres');
+assert(studio.length<295000,'Studio debe permanecer bajo el presupuesto de 295 KB, incluida la recuperación de errores');
+assert(studio.includes('studioBounded') && studio.includes('studioOptional'),
+  'El crecimiento de Studio debe corresponder a fallos recuperables y carga progresiva, no a parsers nuevos');
 assert(studio.includes("import { createNewWork } from './studio-new-work.js?v=1'"));
 assert(studio.includes('const newWork = createNewWork('));
 assert(!studio.includes('async function newWork(){'),'El formulario sigue dentro del módulo principal');

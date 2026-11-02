@@ -71,7 +71,9 @@ const empty=await loadTeamPrelaunchMetrics({rpc(){skipped=true;throw Error('unex
 assert.equal(empty.available,true);assert.equal(empty.counts.size,0);assert.equal(skipped,false);
 const studio=read('src/studio.js');
 assert.match(studio,/loadTeamPrelaunchMetrics\(sb, metricsTeamId, prelaunchIds\)/);
-assert.match(studio,/T\.team\?\.id !== metricsTeamId/);
+assert.match(studio,/const metricsTeamId = teamId;/);
+assert.match(studio,/if \(!live\(\)\) return;/,
+  'Las métricas tardías deben descartarse si se cambia de ruta, equipo o sesión');
 assert.match(studio,/createPrelaunchMetricsPanel\(prelaunchIds, prelaunchMetrics, prelaunchViews\)/);
 assert.match(studio,/studio-obras\.css\?v=7/);
 assert.match(read('src/app.js'),/studio\.js\?v=64/);

@@ -292,24 +292,42 @@ if (p.startsWith('/estudio')) {
   if (!user) return go('/entrar');
   if (!me || me.platform_role === 'lector') { app.innerHTML = '<h1>El Estudio es para Publicadores</h1><p>Tu cuenta es de Lector. Para publicar, solicita crear tu grupo traductor; el Bibliotecario revisa cada solicitud.</p><p style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="/solicitud">Solicitar mi grupo traductor</a><a class="btn ghost" href="/">Volver al inicio</a></p>'; return; }
 }
-if (p === '/estudio') return (await st()).home();
-if (p === '/estudio/obras') return (await st()).works();
-if (p === '/estudio/nueva') return (await st()).newWork();
-if ((m = p.match(/^\/estudio\/obra\/([\w-]+)$/))) return (await st()).work(m[1]);
-if ((m = p.match(/^\/estudio\/editar\/([\w-]+)$/))) return (await st()).editor(m[1]);
-if (p === '/estudio/importar') return (await st()).importer();
-if (p === '/estudio/multimedia') return (await st()).library();
-if (p === '/estudio/equipo') return (await st()).team();
-if (p === '/estudio/flujo') return (await st()).board();
-if (p === '/estudio/bitacora') return (await st()).log();
-if (p === '/estudio/perfil') return (await st()).profile();
-if (p === '/estudio/preferencias') return (await st()).prefs();
-if (p === '/estudio/anuncios') return (await st()).announcements();
-if (p === '/estudio/comunidad') return (await st()).community();
-if (p === '/estudio/difusion') return (await st()).diffusion();
-if (p === '/estudio/estadisticas') return (await st()).stats();
-if (p === '/estudio/descargas') return (await st()).downloads();
-if ((m = p.match(/^\/estudio\/glosario(?:\/([\w-]+))?$/))) return (await st()).glossary(m[1]);
+// El módulo de Estudio es diferido. Si el usuario sale antes de importarlo,
+ // nunca ejecutar una vista que pertenezca a la ruta anterior.
+ const studioRoute = async run => {
+   const module = await st();
+   if (location.pathname !== p) return;
+   try { await run(module); }
+   catch (error) {
+     if (location.pathname !== p) return;
+     console.warn('Estudio: error recuperable', error);
+     app.innerHTML = '<main class="s2-studio-error" role="alert"><h1>No se pudo cargar Estudio</h1>' +
+       '<p>La conexión con el equipo tardó demasiado o respondió con un error. Tus cambios guardados no se han eliminado.</p>' +
+       '<button type="button" class="btn" id="studio-route-retry">Reintentar</button> ' +
+       '<a class="btn ghost" href="/">Ir al inicio</a></main>';
+     app.querySelector('#studio-route-retry')?.addEventListener('click', () => {
+       if (location.pathname === p) void render();
+     });
+   }
+ };
+if (p === '/estudio') return studioRoute(m => m.home());
+if (p === '/estudio/obras') return studioRoute(m => m.works());
+if (p === '/estudio/nueva') return studioRoute(m => m.newWork());
+if ((m = p.match(/^\/estudio\/obra\/([\w-]+)$/))) return studioRoute(studio => studio.work(m[1]));
+if ((m = p.match(/^\/estudio\/editar\/([\w-]+)$/))) return studioRoute(studio => studio.editor(m[1]));
+if (p === '/estudio/importar') return studioRoute(m => m.importer());
+if (p === '/estudio/multimedia') return studioRoute(m => m.library());
+if (p === '/estudio/equipo') return studioRoute(m => m.team());
+if (p === '/estudio/flujo') return studioRoute(m => m.board());
+if (p === '/estudio/bitacora') return studioRoute(m => m.log());
+if (p === '/estudio/perfil') return studioRoute(m => m.profile());
+if (p === '/estudio/preferencias') return studioRoute(m => m.prefs());
+if (p === '/estudio/anuncios') return studioRoute(m => m.announcements());
+if (p === '/estudio/comunidad') return studioRoute(m => m.community());
+if (p === '/estudio/difusion') return studioRoute(m => m.diffusion());
+if (p === '/estudio/estadisticas') return studioRoute(m => m.stats());
+if (p === '/estudio/descargas') return studioRoute(m => m.downloads());
+if ((m = p.match(/^\/estudio\/glosario(?:\/([\w-]+))?$/))) return studioRoute(studio => studio.glossary(m[1]));
 return (routes[p] || notFound)();
 }
 const MED = p => p ? (/^https?:/.test(p) ? p : url + '/storage/v1/object/public/obi-media/' + encodeURI(p)) : '';

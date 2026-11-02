@@ -40,6 +40,18 @@ export function createStudio(ctx){
   const pathOf = u => u && u.startsWith(PUB) ? decodeURI(u.slice(PUB.length)) : null;
   const T = { userId: null, teams: [], team: null, perms: {}, works: null };
   const can = a => !!T.perms[a];
+  const studioBounded = (work, ms = 12000) => Promise.race([
+    Promise.resolve(work),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Estudio tardó demasiado en recuperar los datos.')), ms))
+  ]);
+  const studioOptional = (work, fallback, ms = 850) => Promise.race([
+    Promise.resolve(work).catch(error => { console.warn('Estudio: dato secundario', error); return fallback; }),
+    new Promise(resolve => setTimeout(() => resolve(fallback), ms))
+  ]);
+  const studioLive = (path, teamId, userId) =>
+    location.pathname === path && T.team?.id === teamId && getUser()?.id === userId;
+  let teamBaseCache = null;
+  const invalidateTeamBase = () => { teamBaseCache = null; };
   const TZS = [['America/Mexico_City','Ciudad de México'],['America/Monterrey','Monterrey'],['America/Tijuana','Tijuana'],['America/Bogota','Bogotá'],['America/Lima','Lima'],['America/Caracas','Caracas'],['America/Santiago','Santiago de Chile'],['America/Argentina/Buenos_Aires','Buenos Aires'],['America/Montevideo','Montevideo'],['America/Guatemala','Centroamérica'],['America/Santo_Domingo','Santo Domingo'],['America/New_York','Nueva York · Miami'],['America/Los_Angeles','Los Ángeles'],['Europe/Madrid','Madrid'],['Asia/Tokyo','Tokio'],['UTC','UTC']];
   const devTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   const tzPick = () => localStorage.getItem('obi-tz-pick') || (localStorage.getItem('obi-tz-mode') === 'team' ? 'team' : 'device');
@@ -230,38 +242,44 @@ export function createStudio(ctx){
     const uid = user.id;
     const styles = css();
     if (!T.teams.length) {
-      const { data } = await sb.from('team_members').select('role,teams(id,slug,name,color)').eq('user_id', uid);
+      const { data, error } = await studioBounded(sb.from('team_members')
+        .select('role,teams(id,slug,name,color)').eq('user_id', uid), 11000);
+      if (error) throw new Error('No se pudieron verificar los equipos: ' + errMsg(error));
       if (getUser()?.id !== uid || T.userId !== uid) return false;
       T.teams = (data || []).filter(m => m.teams?.id).map(m => ({ ...m.teams, role: m.role }));
       if (!T.teams.length) { app.innerHTML = '<h1>Estudio</h1><p>Aún no perteneces a ningún equipo de traducción.</p>'; return false; }
+    }
+    if (!T.team || T.permsTeamId !== T.team.id) {
       if (!(await pickTeam(localStorage.getItem('obi-team') || T.teams[0].id))) return false;
     }
     if (getUser()?.id !== uid || T.userId !== uid || !T.team) return false;
-    if (T.works == null) {
+    // El contador de navegación es decorativo: nunca bloquear la entrada a Estudio.
+    if (T.works == null && !ensure.countTask) {
       const teamId = T.team.id;
-      const { count } = await sb.from('series').select('id', { count: 'exact', head: true }).eq('team_id', teamId).is('archived_at', null);
-      if (getUser()?.id !== uid || T.userId !== uid || T.team?.id !== teamId) return false;
-      T.works = count || 0;
+      ensure.countTask = Promise.resolve(sb.from('series').select('id', { count: 'exact', head: true })
+        .eq('team_id', teamId).is('archived_at', null)).then(({ count, error }) => {
+        if (!error && T.team?.id === teamId && getUser()?.id === uid && T.userId === uid) T.works = count ?? 0;
+      }).catch(e => console.warn('Contador de obras', e)).finally(() => { ensure.countTask = null; });
     }
-    await styles;
+    await studioOptional(styles, null, 1800);
     return getUser()?.id === uid && T.userId === uid;
   }
   async function pickTeam(id){
     const uid = getUser()?.id, team = T.teams.find(t => t.id === id) || T.teams[0];
     if (!uid || T.userId !== uid || !team) return false;
-    T.team = team; T.perms = {}; T.roleName = null; T.works = null;
+    T.team = team; T.perms = {}; T.permsTeamId = null; T.roleName = null; T.works = null;
+    invalidateTeamBase();
     localStorage.setItem('obi-team', team.id);
-    const [{ data }, { data: rr }] = await Promise.all([
-      sb.rpc('my_team_permissions', { t: team.id }),
-      sb.from('team_members').select('team_roles(name)').eq('team_id', team.id).eq('user_id', uid).maybeSingle()
-    ]);
+    // Permisos son obligatorios; preferencia horaria y nombre de rol no lo son.
+    const permsRequest = studioBounded(sb.rpc('my_team_permissions', { t: team.id }), 10000);
+    const roleRequest = studioOptional(sb.from('team_members').select('team_roles(name)')
+      .eq('team_id', team.id).eq('user_id', uid).maybeSingle(), { data: null });
+    const settingsRequest = studioOptional(sb.from('teams').select('settings').eq('id', team.id).maybeSingle(), { data: null });
+    const [{ data, error }, { data: rr }, { data: tt }] = await Promise.all([permsRequest, roleRequest, settingsRequest]);
     if (T.userId !== uid || getUser()?.id !== uid || T.team?.id !== team.id) return false;
-    T.perms = data || {}; T.roleName = rr?.team_roles?.name || null;
-    try {
-      const { data: tt } = await sb.from('teams').select('settings').eq('id', team.id).maybeSingle();
-      if (T.userId !== uid || getUser()?.id !== uid || T.team?.id !== team.id) return false;
-      T.tz = tt?.settings?.timezone || null;
-    } catch { if (T.userId === uid && getUser()?.id === uid && T.team?.id === team.id) T.tz = null; }
+    if (error) throw new Error('No se pudieron verificar los permisos del equipo: ' + errMsg(error));
+    T.perms = data || {}; T.permsTeamId = team.id; T.roleName = rr?.team_roles?.name || null;
+    T.tz = tt?.settings?.timezone || null;
     return T.userId === uid && getUser()?.id === uid && T.team?.id === team.id;
   }
 
@@ -274,55 +292,155 @@ export function createStudio(ctx){
   const utagOn = t => !!(t && t.on && (t.text || '').trim() && (!t.until || new Date(t.until + 'T23:59:59') >= new Date()));
   const utagHTML = t => { const c0 = /^#[\da-f]{6}$/i.test(t.color || '') ? t.color : '#f2c230', c = t.season ? `var(--sea,${c0})` : c0, ink = t.season ? '#0d0c0a' : UTAG_INK(c0), solid = t.style !== 'outline'; return `<span class="ob-utag" style="display:inline-flex;align-items:center;margin-left:8px;padding:2px 8px;font:600 11px/1.5 'IBM Plex Mono',monospace;letter-spacing:.04em;text-transform:uppercase;vertical-align:2px;white-space:nowrap;${solid ? `background:${c};color:${ink};border:1px solid ${c}` : `background:transparent;color:${c};border:1px solid ${c}`}">${esc(t.text.trim().slice(0, 24))}</span>`; };
 
-  async function teamData(){
-    const { data: works } = await sb.from('series').select('id,slug,title,short,synopsis,genres,cover_path,cover_thumb_path,translation_status,published,views,theme,volumes(id,deleted_at)').eq('team_id', T.team.id).is('archived_at', null).order('title');
-    const ids = (works || []).map(w => w.id);
-    import('./thumbs.js?v=1').then(m => m.heal(sb, T.team.id, PUB)).catch(() => {});
-    if (!ids.length) return { works: [], chs: [], sched: [], reps: [] };
-    const now = new Date().toISOString();
-    const { readPages } = await import('/paging.js?v=1');
-    const [{ data: chs }, { data: sched }, { data: reps }] = await Promise.all([
-      readPages((from, to) => sb.from('chapters').select('id,num,title,status,publish_at,updated_at,series_id,vol,review_status,stage,assigned_to').in('series_id', ids).is('deleted_at', null).order('id').range(from, to), { size: 250 }),
-      sb.from('schedule').select('id,label,at,series_id').in('series_id', ids).gte('at', now).order('at').limit(20),
-      sb.from('reports').select('id,kind,quote,fix,created_at,chapter_id,chapters(num,title,series_id)').eq('status', 'open').order('created_at', { ascending: false }).limit(100)]);
-    const set = new Set(ids);
-    T.works = works.length;
-    return { works, chs: chs || [], sched: sched || [], reps: (reps || []).filter(r => set.has(r.chapters?.series_id)) };
+  // Compartir solo las lecturas comunes de Resumen/Obras. La promesa se
+  // descarta pronto para que publicaciones y ediciones no queden obsoletas.
+  async function teamBaseData(onWorks){
+    const teamId = T.team.id, uid = getUser()?.id;
+    if (teamBaseCache?.teamId === teamId && teamBaseCache?.uid === uid &&
+        Date.now() < teamBaseCache.expires) {
+      if (onWorks) {
+        if (teamBaseCache.previewWorks) onWorks(teamBaseCache.previewWorks);
+        else teamBaseCache.listeners.push(onWorks);
+      }
+      return teamBaseCache.promise;
+    }
+    const entry = { teamId, uid, expires: Date.now() + 4000, promise: null,
+      previewWorks: null, listeners: onWorks ? [onWorks] : [] };
+    teamBaseCache = entry;
+    const promise = (async () => {
+      const { data: works, error } = await studioBounded(sb.from('series')
+        .select('id,slug,title,short,synopsis,genres,cover_path,cover_thumb_path,translation_status,published,views,theme')
+        .eq('team_id', teamId).is('archived_at', null).order('title'));
+      if (error) throw new Error('No se pudieron recuperar las obras: ' + errMsg(error));
+      if (!studioLive(location.pathname, teamId, uid)) {
+        // El llamador comprobará la ruta antes de pintar; aquí comprobamos
+        // únicamente la sesión/equipo, pues la cache se comparte entre rutas.
+        if (T.team?.id !== teamId || getUser()?.id !== uid) throw new Error('Equipo cambiado');
+      }
+      entry.previewWorks = works || [];
+      for (const listener of entry.listeners) {
+        try { listener(entry.previewWorks); } catch (error) { console.warn('Vista previa Obras', error); }
+      }
+      entry.listeners.length = 0;
+      const ids = (works || []).map(w => w.id);
+      if (!ids.length) return { works: [], chs: [], sched: [], scheduleOk: true };
+      const { readPages } = await import('/paging.js?v=1');
+      const now = new Date().toISOString();
+      const chaptersRequest = studioBounded(readPages((from, to) => sb.from('chapters')
+        .select('id,num,title,status,publish_at,updated_at,series_id,vol,review_status,stage,assigned_to')
+        .in('series_id', ids).is('deleted_at', null).order('id').range(from, to), { size: 250 }), 14000);
+      const scheduleRequest = studioOptional(sb.from('schedule').select('id,label,at,series_id')
+        .in('series_id', ids).gte('at', now).order('at').limit(20),
+        { data: [], error: { message: 'Programación no verificada' } }, 1250);
+      const volumesRequest = studioBounded(readPages((from, to) => sb.from('volumes')
+        .select('id,series_id,deleted_at').in('series_id', ids)
+        .order('id').range(from, to), { size: 250 }), 12000);
+      const [chapters, schedule, volumes] = await Promise.all([chaptersRequest, scheduleRequest, volumesRequest]);
+      if (schedule?.error) console.warn('Programación del equipo', schedule.error);
+      const bySeries = new Map();
+      for (const volume of volumes.data || []) {
+        if (!bySeries.has(volume.series_id)) bySeries.set(volume.series_id, []);
+        bySeries.get(volume.series_id).push({ id: volume.id, deleted_at: volume.deleted_at });
+      }
+      import('./thumbs.js?v=1').then(m => m.heal(sb, teamId, PUB)).catch(() => {});
+      return { works: (works || []).map(work => ({ ...work, volumes: bySeries.get(work.id) || [] })),
+        chs: chapters.data || [], sched: schedule?.data || [], scheduleOk: !schedule?.error };
+    })();
+    entry.promise = promise;
+    promise.catch(() => { if (teamBaseCache === entry) teamBaseCache = null; });
+    return promise;
+  }
+  async function teamData({ reports = false, onWorks = null } = {}){
+    const teamId = T.team.id;
+    const coreRequest = teamBaseData(onWorks);
+    const reportsRequest = reports ? studioOptional(sb.from('reports')
+      .select('id,kind,quote,fix,created_at,chapter_id,chapters(num,title,series_id)')
+      .eq('status', 'open').order('created_at', { ascending: false }).limit(100),
+      { data: [], error: { message: 'Sin disponibilidad' } }, 1300) : null;
+    const core = await coreRequest;
+    const ids = new Set(core.works.map(w => w.id));
+    if (T.team?.id !== teamId) throw new Error('Equipo cambiado');
+    T.works = core.works.length;
+    if (!reportsRequest) return { ...core, reps: [], reportsOk: true };
+    const result = await reportsRequest;
+    if (result?.error) console.warn('Erratas del equipo', result.error);
+    return { ...core, reps: (result?.data || []).filter(r => ids.has(r.chapters?.series_id)),
+      reportsOk: !result?.error };
   }
 
   // ---------- resumen ----------
   async function home(){
+    const path = '/estudio';
     if (!(await ensure())) return;
-    app.innerHTML = shell('Resumen', '<p class="mono">Cargando el resumen…</p>', '/estudio'); bindPicker(home);
-    const [{ works, chs, sched, reps }, tv] = await Promise.all([teamData(), sb.rpc('team_views', { p_team: T.team.id, p_days: 14 })]), byId = Object.fromEntries(works.map(w => [w.id, w]));
-    const daily = tv.data || [];
-    if (!works.length) { app.innerHTML = shell('Resumen', emptyState(), '/estudio'); bindPicker(home); return; }
+    const teamId = T.team.id, uid = getUser()?.id;
+    const live = () => studioLive(path, teamId, uid);
+    if (!live()) return;
+    app.innerHTML = shell('Resumen', '<p class="mono">Cargando el resumen…</p>', path); bindPicker(home);
+    const viewsRequest = Promise.resolve(sb.rpc('team_views', { p_team: teamId, p_days: 14 }));
+    const { works, chs, sched, reps, reportsOk, scheduleOk } = await studioBounded(teamData({ reports: true }), 17000);
+    if (!live()) return;
+    const byId = Object.fromEntries(works.map(w => [w.id, w]));
+    if (!works.length) { app.innerHTML = shell('Resumen', emptyState(), path); bindPicker(home); return; }
+    const daily = [];
     const now = Date.now(), pub = chs.filter(c => c.status === 'published'), drafts = chs.filter(c => c.status === 'draft').sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
     const up = [...chs.filter(c => c.status === 'scheduled' && new Date(c.publish_at) > now).map(c => ({ at: c.publish_at, what: `Cap. ${c.num} — ${c.title}`, s: byId[c.series_id] })), ...sched.map(e => ({ at: e.at, what: e.label, s: byId[e.series_id] }))].sort((a, b) => new Date(a.at) - new Date(b.at));
     const week = pub.filter(c => now - new Date(c.publish_at) < 7 * DAY).length, views = works.reduce((a, w) => a + (w.views || 0), 0);
     const kpi = (l, v, n, c, href) => `<a class="s2-kpi s2-kpi-link" href="${href}" style="--c:${c}" aria-label="${l}: ${v}. Abrir sección"><small>${l}</small><b>${v}</b><span>${n}</span></a>`;
-    const who = await names(drafts.slice(0, 5).map(c => c.assigned_to)); const STG = { traduciendo: ['Traduciendo', 25, '#f2c230'], correccion: ['En corrección', 60, '#8cc3f2'], listo: ['Listo', 90, '#a9d18e'] };
-    const dsum = daily.reduce((a, x) => a + (+x.n || 0), 0), dmax = Math.max(1, ...daily.map(x => +x.n || 0)), dl = x => x ? fmtTz(x.day + 'T12:00:00', { day: 'numeric', month: 'short' }) : '';
+    const whoRequest = Promise.resolve(names(drafts.slice(0, 5).map(c => c.assigned_to)));
+    const who = await studioOptional(whoRequest, {}, 450);
+    if (!live()) return;
+    const STG = { traduciendo: ['Traduciendo', 25, '#f2c230'], correccion: ['En corrección', 60, '#8cc3f2'], listo: ['Listo', 90, '#a9d18e'] };
+    const dsum = 0, dmax = 1, dl = x => x ? fmtTz(x.day + 'T12:00:00', { day: 'numeric', month: 'short' }) : '';
     const body = `<div class="s2-kpis">
         ${kpi('Capítulos publicados', pub.length.toLocaleString('es-MX'), week ? `+${week} esta semana` : 'Ninguno esta semana', '#a9d18e', '/estudio/obras')}
-        ${kpi('Programados', up.length, up[0] ? 'Próximo ' + until(up[0].at) : 'Nada en agenda', '#f2c230', '/estudio/obras')}
+        ${kpi('Programados', scheduleOk ? up.length : '—', scheduleOk ? (up[0] ? 'Próximo ' + until(up[0].at) : 'Nada en agenda') : 'Programación no verificada', '#f2c230', '/estudio/obras')}
         ${kpi('Borradores', drafts.length, drafts[0] ? 'Último ' + ago(drafts[0].updated_at) : 'Sin borradores', '#8cc3f2', '/estudio/flujo')}
-        ${kpi('Erratas abiertas', reps.length, reps.length ? 'Revísalas pronto' : 'Todo al día', reps.length ? '#f59e7a' : '#a9d18e', '/estudio/comunidad')}
+        ${kpi('Erratas abiertas', reportsOk ? reps.length : '—', reportsOk ? (reps.length ? 'Revísalas pronto' : 'Todo al día') : 'Temporalmente no disponibles', reps.length ? '#f59e7a' : '#a9d18e', '/estudio/comunidad')}
         ${kpi('Lecturas totales', views.toLocaleString('es-MX'), works.length + (works.length === 1 ? ' obra' : ' obras'), '#cfc6b0', '/estudio/estadisticas')}
       </div>
       <div class="s2-cols">
         <section class="s2-box"><div class="s2-bh"><h2>Próximos lanzamientos</h2><a href="/estudio/obras">Programar →</a></div>
           ${up.slice(0, 5).map(u => { const d = new Date(u.at); return `<div class="s2-up"><span class="d" style="--c:${wcolor(u.s)}"><b>${d.getDate()}</b><small>${MON[d.getMonth()]}</small></span><span class="w"><b>${esc(u.what)}</b><small>${esc(u.s?.title || '')}</small></span><span class="t">${fmtTz(d, { hour: '2-digit', minute: '2-digit' })}<small>${until(u.at)}</small></span></div>`; }).join('') || '<p class="mono s2-none">No hay nada programado. Programa un capítulo desde la ficha de la obra.</p>'}</section>
         <section class="s2-box"><div class="s2-bh"><h2>Borradores pendientes</h2><span class="mono">${drafts.length}</span></div>
-          ${drafts.slice(0, 5).map(c => { const g = STG[c.stage] || (c.review_status === 'pending' ? ['En revisión', 75, '#8cc3f2'] : c.review_status === 'approved' ? ['Aprobado', 90, '#a9d18e'] : ['Borrador', 10, '#f2c230']); return `<a class="s2-dr" href="/estudio/editar/${c.id}"><b>Cap. ${c.num} — ${esc(c.title)}</b><span class="st" style="color:${g[2]}">${g[0]}</span><small>${esc(byId[c.series_id]?.title || '')} · ${c.assigned_to ? esc(who[c.assigned_to] || 'asignado') : 'sin asignar'}</small><small>${ago(c.updated_at)}</small><span class="pg"><i style="width:${g[1]}%"></i></span></a>`; }).join('') || '<p class="mono s2-none">Sin borradores. ¡Todo publicado!</p>'}</section>
+          ${drafts.slice(0, 5).map(c => { const g = STG[c.stage] || (c.review_status === 'pending' ? ['En revisión', 75, '#8cc3f2'] : c.review_status === 'approved' ? ['Aprobado', 90, '#a9d18e'] : ['Borrador', 10, '#f2c230']); return `<a class="s2-dr" href="/estudio/editar/${c.id}"><b>Cap. ${c.num} — ${esc(c.title)}</b><span class="st" style="color:${g[2]}">${g[0]}</span><small>${esc(byId[c.series_id]?.title || '')} · ${c.assigned_to ? `<span data-studio-assignee="${esc(c.assigned_to)}">${esc(who[c.assigned_to] || 'asignado')}</span>` : 'sin asignar'}</small><small>${ago(c.updated_at)}</small><span class="pg"><i style="width:${g[1]}%"></i></span></a>`; }).join('') || '<p class="mono s2-none">Sin borradores. ¡Todo publicado!</p>'}</section>
         <section class="s2-box"><div class="s2-bh"><h2>Erratas abiertas</h2><span class="mono" style="color:${reps.length ? '#f59e7a' : ''}">${reps.length}</span></div>
-          ${reps.slice(0, 4).map(r => `<div class="s2-er"><small>${esc(byId[r.chapters.series_id]?.title || '')} · Cap. ${r.chapters.num}${r.kind ? ' · ' + esc(r.kind) : ''} · ${ago(r.created_at)}</small>${r.quote ? `<q>${esc(r.quote)}</q>` : ''}${r.fix ? `<span>Propuesta: ${esc(r.fix)}</span>` : ''}<span class="a">${can('edit') ? `<a class="btn ghost" href="/estudio/editar/${r.chapter_id}">Abrir en el editor</a>` : ''}<button class="btn ghost ok" data-fix="${r.id}">Marcar corregida</button><button class="lnk" data-dis="${r.id}">Descartar</button></span></div>`).join('') || '<p class="mono s2-none">Sin erratas abiertas.</p>'}</section>
-        <section class="s2-box"><div class="s2-bh"><h2>Vistas · últimos 14 días</h2><a class="mono" href="/estudio/estadisticas" style="color:#a89f8a">${dsum.toLocaleString('es-MX')}</a></div>
+          ${reps.slice(0, 4).map(r => `<div class="s2-er"><small>${esc(byId[r.chapters.series_id]?.title || '')} · Cap. ${r.chapters.num}${r.kind ? ' · ' + esc(r.kind) : ''} · ${ago(r.created_at)}</small>${r.quote ? `<q>${esc(r.quote)}</q>` : ''}${r.fix ? `<span>Propuesta: ${esc(r.fix)}</span>` : ''}<span class="a">${can('edit') ? `<a class="btn ghost" href="/estudio/editar/${r.chapter_id}">Abrir en el editor</a>` : ''}<button class="btn ghost ok" data-fix="${r.id}">Marcar corregida</button><button class="lnk" data-dis="${r.id}">Descartar</button></span></div>`).join('') || (reportsOk ? '<p class="mono s2-none">Sin erratas abiertas.</p>' : '<p class="mono s2-none" role="status">No se pudieron verificar las erratas. Vuelve a abrir Resumen.</p>')}</section>
+        <section class="s2-box" id="studio-home-views"><div class="s2-bh"><h2>Vistas · últimos 14 días</h2><a class="mono" href="/estudio/estadisticas" style="color:#a89f8a">—</a></div>
           <div class="s2-vb" role="img" aria-label="Vistas por día de los últimos 14 días">${daily.map((x, i) => `<span title="${dl(x)}: ${(+x.n).toLocaleString('es-MX')} vistas" style="height:${Math.max(2, Math.round(+x.n / dmax * 100))}%;background:${i === daily.length - 1 ? 'var(--gold)' : +x.n ? '#8a7a4f' : '#2f2a20'}"></span>`).join('')}</div>
-          <div class="s2-vl"><span>${dl(daily[0])}</span><span>${dl(daily[daily.length - 1])}</span></div>${dsum ? '' : '<p class="mono s2-none" style="border:none">Las vistas se cuentan desde que se activaron las estadísticas: una por lector, capítulo y día.</p>'}</section>
+          <div class="s2-vl"><span>${dl(daily[0])}</span><span>${dl(daily[daily.length - 1])}</span></div>${'<p class="mono s2-none" style="border:none" role="status">Consultando visitas…</p>'}</section>
       </div>`;
-    app.innerHTML = shell('Resumen', body, '/estudio'); bindPicker(home);
-    app.querySelectorAll('[data-fix],[data-dis]').forEach(b => b.onclick = () => busy(b, async () => { const fix = !!b.dataset.fix; const { error } = await sb.from('reports').update({ status: fix ? 'fixed' : 'dismissed' }).eq('id', b.dataset.fix || b.dataset.dis); if (error) throw error; toast(fix ? 'Errata marcada como corregida' : 'Errata descartada'); home(); }));
+    if (!live()) return;
+    app.innerHTML = shell('Resumen', body, path); bindPicker(home);
+    // Rellenar únicamente el panel de vistas: no rehacer el resto de Resumen.
+    void viewsRequest.then(({ data, error }) => {
+      if (!live()) return;
+      const panel = app.querySelector('#studio-home-views');
+      if (!panel) return;
+      if (error || !Array.isArray(data)) {
+        panel.querySelector('.s2-none').textContent = 'Las estadísticas no están disponibles ahora. Consulta Estadísticas para reintentar.';
+        return;
+      }
+      const total = data.reduce((n, row) => n + (+row.n || 0), 0);
+      const peak = Math.max(1, ...data.map(row => +row.n || 0));
+      panel.querySelector('.s2-bh a').textContent = total.toLocaleString('es-MX');
+      panel.querySelector('.s2-vb').innerHTML = data.map((row, i) =>
+        `<span title="${esc(dl(row))}: ${(+row.n || 0).toLocaleString('es-MX')} vistas" style="height:${Math.max(2,Math.round((+row.n || 0)/peak*100))}%;background:${i === data.length-1 ? 'var(--gold)' : +row.n ? '#8a7a4f' : '#2f2a20'}"></span>`).join('');
+      panel.querySelector('.s2-vl').innerHTML = `<span>${esc(dl(data[0]))}</span><span>${esc(dl(data[data.length-1]))}</span>`;
+      panel.querySelector('.s2-none').textContent = total
+        ? 'Vistas verificadas durante los últimos 14 días.'
+        : 'No hay visitas registradas en este periodo.';
+    }).catch(error => {
+      if (live()) { const n = app.querySelector('#studio-home-views .s2-none'); if (n) n.textContent = 'No se pudieron consultar las visitas.'; }
+      console.warn('Vistas de Estudio', error);
+    });
+    void whoRequest.then(namesById => {
+      if (!live()) return;
+      app.querySelectorAll('[data-studio-assignee]').forEach(node => {
+        const label = namesById[node.dataset.studioAssignee];
+        if (label) node.textContent = label;
+      });
+    }).catch(error => console.warn('Nombres de borradores', error));
+    app.querySelectorAll('[data-fix],[data-dis]').forEach(b => b.onclick = () => busy(b, async () => { const fix = !!b.dataset.fix; const { error } = await sb.from('reports').update({ status: fix ? 'fixed' : 'dismissed' }).eq('id', b.dataset.fix || b.dataset.dis); if (error) throw error; invalidateTeamBase(); toast(fix ? 'Errata marcada como corregida' : 'Errata descartada'); home(); }));
   }
   const emptyState = () => `<div class="s2-empty"><span>空</span><h2>Tu estudio está vacío</h2><p>Empieza importando un EPUB, DOCX o PDF: armamos la obra con su portada, índice e ilustraciones.</p>${can('create') || can('import') ? '<span style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><a class="btn" href="/estudio/nueva">＋ Crear mi primera obra</a></span>' : '<p class="mono">Pide a tu propietario permiso para crear obras.</p>'}</div>`;
 
@@ -332,22 +450,41 @@ export function createStudio(ctx){
 
   // ---------- obras ----------
   async function works(){
+    const path = '/estudio/obras';
     if (!(await ensure())) return;
-    app.innerHTML = shell('Mis obras', '<p class="mono">Cargando obras…</p>', '/estudio/obras'); bindPicker(works);
-    const [{ works: list, chs, sched }, { data: inv }, { data: collab }, { data: selectedFeature }, announced] = await Promise.all([teamData(),
+    const teamId = T.team.id, uid = getUser()?.id;
+    const routeUrl = location.pathname + location.search;
+    const live = () => studioLive(path, teamId, uid) && location.pathname + location.search === routeUrl;
+    if (!live()) return;
+    app.innerHTML = shell('Mis obras', '<div id="studio-works-preview" role="status">Cargando obras…</div>', path); bindPicker(works);
+    const baseRequest = studioBounded(teamData({ onWorks: list => {
+      const preview = app.querySelector('#studio-works-preview');
+      if (!live() || !preview) return;
+      preview.innerHTML = list.length
+        ? '<p class="mono">Obras encontradas. Preparando filtros y colaboraciones…</p><div class="s2-work-preview">' +
+          list.map(work => `<p><a href="/estudio/obra/${encodeURIComponent(work.slug)}">${esc(work.title)}</a></p>`).join('') + '</div>'
+        : '<p class="mono">Este equipo aún no tiene obras. Finalizando comprobaciones…</p>';
+    } }), 17000);
+    const [{ works: list, chs, sched, scheduleOk }, { data: inv }, { data: collab }, { data: selectedFeature }, announced] = await studioBounded(Promise.all([baseRequest,
       sb.from('collaborations').select('id,status,series(title),inviter:teams!collaborations_inviter_team_fkey(name)').eq('invited_team', T.team.id).eq('status', COLLABORATION_STATUS.pending),
       sb.from('collaborations').select('series(slug,title,teams(name))').eq('invited_team', T.team.id).eq('status', COLLABORATION_STATUS.active),
       sb.from('team_featured_series').select('series_id,updated_at').eq('team_id', T.team.id).maybeSingle().then(r=>r,()=>({data:null})),
-      loadPublicUpcoming(sb)]);
+      loadPublicUpcoming(sb)]), 17000);
+    if (!live()) return;
     // La etiqueta «En preestreno» se basa SOLO en anuncios públicamente elegibles.
     // Nunca se construye una URL pública a partir de borradores internos de volúmenes.
     const prelaunchById = new Map(announced
       .filter(r => r.team_slug === T.team.slug)
       .map(r => [r.series_id, r]));
     const prelaunchIds = new Set(prelaunchById.keys());
-    const metricsTeamId = T.team.id;
-    const [prelaunchMetrics,prelaunchViews] = await Promise.all([loadTeamPrelaunchMetrics(sb, metricsTeamId, prelaunchIds), loadTeamPrelaunchViews(sb, metricsTeamId, prelaunchIds)]);
-    if (T.team?.id !== metricsTeamId) return; // El equipo pudo cambiar mientras se consultaban los totales.
+    const metricsTeamId = teamId;
+    const noMetric = () => ({ available: false, counts: new Map() });
+    const metricsRequest = Promise.all([
+      loadTeamPrelaunchMetrics(sb, metricsTeamId, prelaunchIds),
+      loadTeamPrelaunchViews(sb, metricsTeamId, prelaunchIds)
+    ]);
+    let [prelaunchMetrics, prelaunchViews] = await studioOptional(metricsRequest, [noMetric(), noMetric()], 650);
+    if (!live()) return;
     const featuredSeriesId=selectedFeature?.series_id||null;
     const featuredExpiresAt=selectedFeature?.updated_at ? new Date(new Date(selectedFeature.updated_at).getTime()+7*864e5) : null;
     const pick = new URLSearchParams(location.search).has('nuevo');
@@ -356,22 +493,34 @@ export function createStudio(ctx){
     const state = (works.filters ||= { q:'', status:'all', visibility:'all', release:'all', sort:'title', attention:false, view:preferredView });
     const chosen = () => selectStudioWorks(list, chs, sched, { ...state, prelaunchIds });
     const toolbar = createStudioWorksToolbar({state,TLS,esc,can});
-    const card = createStudioWorkCard({chs,sched,prelaunchById,prelaunchMetrics,prelaunchViews,featuredSeriesId,TLS,wcolor,esc,media,until,ago,can});
+    const card = (work, stats) => createStudioWorkCard({
+      chs,sched,prelaunchById,prelaunchMetrics,prelaunchViews,featuredSeriesId,TLS,wcolor,esc,media,until,ago,can
+    })(work, stats);
     const copyPrelaunch = async slug => {
       if (!list.some(w => w.slug === slug && prelaunchById.has(w.id))) throw new Error('Este preestreno ya no tiene una ficha pública válida.');
       const link = location.origin + '/serie/' + encodeURIComponent(slug);
       try { await navigator.clipboard.writeText(link); toast('Enlace público del primer vistazo copiado'); }
       catch { await inputObi('Copia el enlace público:', { title:'Primer vistazo', defaultValue:link }); }
     };
-    const body = `${(inv || []).map(c => `<div class="st-card"><span>${esc(c.inviter?.name || 'Un equipo')} te invita a colaborar en <strong>${esc(c.series?.title)}</strong></span><span><button class="btn" data-acc="${c.id}">Aceptar</button> <button class="btn ghost" data-rej="${c.id}">Rechazar</button></span></div>`).join('')}
+    const body = `${scheduleOk ? '' : '<p role="status" class="mono">La programación no se pudo verificar; los próximos lanzamientos podrían estar incompletos. Recarga para reintentar.</p>'}${(inv || []).map(c => `<div class="st-card"><span>${esc(c.inviter?.name || 'Un equipo')} te invita a colaborar en <strong>${esc(c.series?.title)}</strong></span><span><button class="btn" data-acc="${c.id}">Aceptar</button> <button class="btn ghost" data-rej="${c.id}">Rechazar</button></span></div>`).join('')}
       ${pick && list.length ? '<div class="st-card"><span>¿En qué obra va el nuevo capítulo? Toca «＋ Nuevo capítulo» en la obra.</span></div>' : ''}
-      ${list.length ? `${createPrelaunchMetricsPanel(prelaunchIds, prelaunchMetrics, prelaunchViews)}${renderPrelaunchInterestFunnel(prelaunchIds, prelaunchMetrics, prelaunchViews, list)}${toolbar}
+      ${list.length ? `<div id="studio-prelaunch-metrics">${createPrelaunchMetricsPanel(prelaunchIds, prelaunchMetrics, prelaunchViews)}${renderPrelaunchInterestFunnel(prelaunchIds, prelaunchMetrics, prelaunchViews, list)}</div>${toolbar}
        <p class="mono s2-feature-note">${featuredSeriesId ? '★ Recomendación actual: ' + esc(list.find(w=>w.id===featuredSeriesId)?.title || 'Obra destacada') + (featuredExpiresAt ? ' · hasta '+esc(fmtTz(featuredExpiresAt,{dateStyle:'medium'})) : '') : 'Puedes destacar una obra publicada durante 7 días'} · una por equipo.</p>
        <div class="s2-works" id="s2-work-list" data-view="${state.view}"></div>` : emptyState()}
       ${(collab || []).length ? `<h2 class="s2-h2">Colaboraciones</h2><div class="s2-box">${collab.map(c => `<p><a href="/serie/${c.series.slug}">${esc(c.series.title)}</a> <span class="mono">de ${esc(c.series.teams?.name)}</span></p>`).join('')}</div>` : ''}`;
-    app.innerHTML = shell('Mis obras', body, '/estudio/obras'); bindPicker(works);
-    bindStudioWorksControls({app,$,state,chosen,card,list,busy,sb,T,toast,works,newChapter,featuredSeriesId,copyPrelaunch});
-    app.querySelectorAll('[data-acc],[data-rej]').forEach(b => b.onclick = () => busy(b, async () => { const response = b.dataset.acc ? COLLABORATION_STATUS.active : COLLABORATION_STATUS.declined; const { data: updated, error } = await sb.from('collaborations').update({ status: response }).eq('id', b.dataset.acc || b.dataset.rej).eq('status', COLLABORATION_STATUS.pending).select('id').maybeSingle(); if (error) throw error; if (!updated) throw new Error('La invitación ya fue respondida o no tienes permiso para cambiarla'); toast(b.dataset.acc ? 'Colaboración aceptada' : 'Invitación rechazada'); works(); }));
+    if (!live()) return;
+    app.innerHTML = shell('Mis obras', body, path); bindPicker(works);
+    const refreshWorks = bindStudioWorksControls({app,$,state,chosen,card,list,busy,sb,T,toast,works,newChapter,featuredSeriesId,copyPrelaunch});
+    void metricsRequest.then(([metrics, views]) => {
+      if (!live()) return;
+      prelaunchMetrics = metrics; prelaunchViews = views;
+      const panel = app.querySelector('#studio-prelaunch-metrics');
+      if (panel) panel.innerHTML = createPrelaunchMetricsPanel(prelaunchIds, metrics, views) +
+        renderPrelaunchInterestFunnel(prelaunchIds, metrics, views, list);
+      // No borrar lo que el publicador esté escribiendo en un filtro.
+      if (!app.querySelector('.s2-worktools')?.contains(document.activeElement)) refreshWorks?.();
+    }).catch(error => console.warn('Métricas de preestrenos', error));
+    app.querySelectorAll('[data-acc],[data-rej]').forEach(b => b.onclick = () => busy(b, async () => { const response = b.dataset.acc ? COLLABORATION_STATUS.active : COLLABORATION_STATUS.declined; const { data: updated, error } = await sb.from('collaborations').update({ status: response }).eq('id', b.dataset.acc || b.dataset.rej).eq('status', COLLABORATION_STATUS.pending).select('id').maybeSingle(); if (error) throw error; if (!updated) throw new Error('La invitación ya fue respondida o no tienes permiso para cambiarla'); invalidateTeamBase(); toast(b.dataset.acc ? 'Colaboración aceptada' : 'Invitación rechazada'); works(); }));
   }
 
 
@@ -380,13 +529,24 @@ export function createStudio(ctx){
   const OSL = [['publishing','En publicación'],['completed','Completada'],['paused','En pausa'],['cancelled','Cancelada']];
   const VST = { draft: ['Borrador', '#f2c230'], scheduled: ['Programado', '#8cc3f2'], published: ['Publicado', '#a9d18e'], hidden: ['Oculto', '#f59e7a'] };
   async function work(slug){
+    const path = '/estudio/obra/' + slug;
     if (!(await ensure())) return;
+    const teamId = T.team.id, uid = getUser()?.id;
+    const routeUrl = location.pathname + location.search;
+    const liveWork = () => studioLive(path, teamId, uid) && location.pathname + location.search === routeUrl;
+    if (!liveWork()) return;
+    invalidateTeamBase();
     work.relatedEditor?.destroy(); work.relatedEditor = null;
-    const { data: s } = await sb.from('series').select('*').eq('slug', slug).maybeSingle();
+    app.innerHTML = shell('Ficha editorial', '<p class="mono" role="status">Cargando ficha y capítulos…</p>', '/estudio/obra'); bindPicker(() => work(slug));
+    const { data: s, error: seriesError } = await studioBounded(sb.from('series').select('*').eq('slug', slug).maybeSingle(), 12000);
+    if (!liveWork()) return;
+    if (seriesError) throw new Error('No se pudo recuperar la ficha: ' + errMsg(seriesError));
     if (!s) return go('/estudio');
+    app.innerHTML = shell(esc(s.title), '<p class="mono" role="status">Cargando volúmenes y capítulos…</p>', '/estudio/obra');
+    bindPicker(() => work(slug));
     const tab = ({ datos: 'datos', seo: 'seo', accesos: 'accesos', avisos: 'avisos', media: 'media', descargas: 'descargas' })[new URLSearchParams(location.search).get('tab')] || 'caps';
     const { readPages } = await import('/paging.js?v=1');
-    const [{ data: vols }, { data: chs }, { data: cols }, { data: events }, { data: dls }, { data: buys }, { data: tch }, { data: tvol }] = await Promise.all([
+    const [{ data: vols, error: volumesError }, { data: chs }, { data: cols }, { data: events }, { data: dls }, { data: buys }, { data: tch }, { data: tvol }] = await studioBounded(Promise.all([
       sb.from('volumes').select('*').eq('series_id', s.id).is('deleted_at', null).order('num'),
       readPages((from, to) => sb.from('chapters').select('id,num,vol,volume_id,title,status,section_type,publish_at,updated_at,stage').eq('series_id', s.id).is('deleted_at', null).order('num').range(from, to), { size: 250 }),
       sb.from('collaborations').select('id,status,invited_team,invited:teams!collaborations_invited_team_fkey(name,slug,color)').eq('series_id', s.id),
@@ -394,7 +554,9 @@ export function createStudio(ctx){
       sb.from('download_links').select('id,volume_id,vol').eq('series_id', s.id),
       sb.from('purchase_links').select('id,store,region,fmt,verified').eq('series_id', s.id),
       sb.from('chapters').select('id,num,vol,volume_id,title,section_type,status,deleted_at').eq('series_id', s.id).not('deleted_at', 'is', null).order('num'),
-      sb.from('volumes').select('id,num,title,cover_path,epub_fonts,deleted_at').eq('series_id', s.id).not('deleted_at', 'is', null).order('num')]);
+      sb.from('volumes').select('id,num,title,cover_path,epub_fonts,deleted_at').eq('series_id', s.id).not('deleted_at', 'is', null).order('num')]), 16000);
+    if (!liveWork()) return;
+    if (volumesError) throw new Error('No se pudieron recuperar los volúmenes: ' + errMsg(volumesError));
     const C = chs || [], V = vols || [], st = TLS[s.translation_status] || TLS.active, c0 = wcolor(s);
     const n = k => C.filter(c => c.status === k).length;
     const TC = tch || [], TV = tvol || [], allNums = [...C, ...TC].map(c => +c.num || 0);
@@ -465,6 +627,7 @@ export function createStudio(ctx){
       ${TV.map(v => `<div class="wk-tri"><span><b>Volumen ${v.num}${v.title && v.title !== String(v.num) && !/^volumen\s*\d+(?:\.\d+)?$/i.test(v.title) ? ' · ' + esc(v.title) : ''}</b><small>${TC.filter(c => c.volume_id === v.id).length} capítulos · quedan ${left(v.deleted_at)} días</small></span>${can('delete') ? `<span class="wk-ra"><button class="btn ghost xs" data-trv="${v.id}">Restaurar</button><button class="lnk danger" data-purv="${v.id}">Borrar definitivamente</button></span>` : ''}</div>`).join('')}
       ${TCx.map(c => `<div class="wk-tri"><span><b>${c.section_type && c.section_type !== 'Capítulo' ? esc(c.section_type) : 'Cap. ' + c.num} — ${esc(c.title)}</b><small>Vol. ${c.vol}${c.status === 'published' ? ' · estaba publicado' : ''} · quedan ${left(c.deleted_at)} días</small></span>${can('delete') ? `<span class="wk-ra"><button class="btn ghost xs" data-trc="${c.id}">Restaurar</button><button class="lnk danger" data-purc="${c.id}">Borrar definitivamente</button></span>` : ''}</div>`).join('')}
       </div>${can('delete') ? '<button type="button" class="lnk danger" id="wk-empty">Vaciar papelera</button>' : ''}</details>` : '';
+    if (!liveWork()) return;
     app.innerHTML = shell(esc(s.title), `<div class="wk">
       <div class="wk-top"><div class="wk-summary"><span class="pl" style="--p:${st[1]}">${st[0]}</span><span class="mono">${V.length} ${V.length === 1 ? 'volumen' : 'volúmenes'} · ${n('published')} publicados · ${n('scheduled')} programados · ${n('draft')} borradores</span></div>
         <span class="wk-acts">${can('create') ? '<button class="btn sm" id="wk-new">＋ Nuevo capítulo</button>' : ''}${can('import') ? `<a class="btn ghost sm" href="${esc(importWorkUrl(s.id))}">Importar volumen</a>` : ''}<a class="btn ghost sm" href="?tab=datos" data-tab="datos">Editar datos</a><a class="lnk" href="/serie/${esc(s.slug)}">Ver en el sitio ↗</a>${s.published && can('diffusion_publish') ? `<a href="/estudio/difusion?k=o&id=${s.id}">Anunciar</a>` : ''}</span></div>
@@ -1222,14 +1385,36 @@ export function createStudio(ctx){
   // tablero
   const COLS = [['traduciendo','Traduciendo','#d9922b'],['correccion','En corrección','#8cc3f2'],['listo','Listo','#a9d18e'],['programado','Programado','#f2c230']];
   async function board(){
+    const path = '/estudio/flujo';
     if (!(await ensure())) return;
-    app.innerHTML = shell('Flujo de trabajo', '<p class="mono">Cargando el tablero…</p>', '/estudio/flujo'); bindPicker(board);
-    const { data: works } = await sb.from('series').select('id,slug,title,short,theme').eq('team_id', T.team.id).is('archived_at', null).order('title');
+    const teamId = T.team.id, uid = getUser()?.id;
+    const live = () => studioLive(path, teamId, uid);
+    if (!live()) return;
+    app.innerHTML = shell('Flujo de trabajo', '<p class="mono">Cargando el tablero…</p>', path); bindPicker(board);
+    const { data: works, error: workError } = await studioBounded(sb.from('series')
+      .select('id,slug,title,short,theme').eq('team_id', teamId).is('archived_at', null).order('title'), 11000);
+    if (!live()) return;
+    if (workError) throw new Error('No se pudieron recuperar las obras del tablero: ' + errMsg(workError));
     const ids = (works || []).map(w => w.id);
-    const [{ data: chs }, { mem }, {data:reviewRows}] = await Promise.all([
-      ids.length ? sb.from('chapters').select('id,num,vol,title,section_type,status,stage,assigned_to,stage_at,publish_at,updated_at,series_id,version').in('series_id', ids).in('status', ['draft','scheduled']).is('deleted_at', null).order('vol').order('num').limit(1000) : { data: [] },
+    const { readPages } = await import('/paging.js?v=1');
+    const reviewRequest = studioOptional(ids.length ? sb.from('review_requests')
+      .select('chapter_id,status,base_version,created_at')
+      .order('created_at',{ascending:false}).limit(1500) : Promise.resolve({ data: [] }),
+      { data: [], error: { message: 'Revisiones no verificadas' } }, 1250);
+    const [chapterResult, { mem }, reviewResult] = await studioBounded(Promise.all([
+      ids.length ? readPages((from, to) => sb.from('chapters')
+        .select('id,num,vol,title,section_type,status,stage,assigned_to,stage_at,publish_at,updated_at,series_id,version')
+        .in('series_id', ids).in('status', ['draft','scheduled'])
+        .is('deleted_at', null).order('id').range(from, to), { size: 250 })
+        : Promise.resolve({ data: [] }),
       teamMembers(),
-      ids.length ? sb.from('review_requests').select('chapter_id,status,base_version,created_at').order('created_at',{ascending:false}).limit(1500) : {data:[]}]);
+      reviewRequest
+    ]), 16000);
+    if (!live()) return;
+    const chs = (chapterResult.data || []).sort((a, b) =>
+      (+a.vol || 0) - (+b.vol || 0) || (+a.num || 0) - (+b.num || 0));
+    const reviewRows = reviewResult?.data || [];
+    const reviewsOk = !reviewResult?.error;
     const latestReview={};(reviewRows||[]).forEach(r=>{if(!latestReview[r.chapter_id])latestReview[r.chapter_id]=r;});
     const W = Object.fromEntries((works || []).map(w => [w.id, w])), me = getUser()?.id;
     const F = board.f || (board.f = { work: '', mine: false });
@@ -1254,6 +1439,7 @@ export function createStudio(ctx){
       <div class="tb-f"><label class="tb-inl">Obra<select id="fw"><option value="">Todas</option>${(works || []).map(w => `<option value="${w.id}" ${F.work === w.id ? 'selected' : ''}>${esc(w.short || w.title)}</option>`).join('')}</select></label>
         <label class="tb-inl"><input type="checkbox" id="fm" ${F.mine ? 'checked' : ''}> Solo lo asignado a mí</label>
         <span class="mono" style="margin-left:auto">${mv ? 'Mueve las tarjetas con ← → o arrastrándolas. Quien queda asignado recibe un aviso.' : 'Tu rol puede ver el tablero, pero no mover tarjetas.'}</span></div>
+      ${reviewsOk ? '' : '<p class="mono" role="status">No se pudieron verificar todas las revisiones. Vuelve a abrir el tablero para consultar su estado.</p>'}
       ${reviewSummary.length?'<aside class="tb-review-summary" aria-label="Resumen de revisiones por obra"><strong>Revisiones por obra</strong><div>'+reviewSummary.map(x=>'<span><b>'+esc(x.work.short||x.work.title)+'</b>: '+x.pending+' en revisión · '+x.changes+' con correcciones · '+x.expired+' caducadas · '+x.approved+' aprobadas</span>').join('')+'</div></aside>':''}
       <p class="mono s2-scroll-tip">Desliza horizontalmente para recorrer las etapas del tablero. También puedes mover tarjetas con las flechas.</p><div class="tb-cols" role="region" aria-label="Etapas del flujo editorial" tabindex="0">${COLS.map(([k, l, c]) => { const cs = list.filter(x => colOf(x) === k); return `<section class="tb-col" data-col="${k}" style="border-top-color:${c}"><h2><span>${l}</span><span class="mono">${cs.length}</span></h2>${cs.map(card).join('') || `<p class="tb-empty">${k === 'programado' ? 'Nada programado.' : 'Sin capítulos aquí.'}</p>`}</section>`; }).join('')}</div>
       ${!(chs || []).length ? '<p class="mono">Los capítulos en borrador o programados aparecen aquí. Los publicados salen del tablero.</p>' : ''}</div>`;

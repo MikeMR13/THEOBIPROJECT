@@ -36,7 +36,7 @@ assert(a&&b,'Se perdió la función de URL de Nueva obra / Importador');
 assert.equal(a[1],b[1],'El flujo manual y el importador deben producir los mismos slugs');
 
 // Respuestas de PostgREST y RPC por operación, sin acceso a la red.
-function fixture({perms={create:true,import:true,edit:true,publish:true}}={}){
+function fixture({perms={create:true,import:true,edit:true,publish:true},seriesError=false,permissionError=false}={}){
   const inserted=[],calls=[],redirects=[],notices=[];
   const app={_html:'',set innerHTML(v){this._html=v},get innerHTML(){return this._html},querySelectorAll(){return []},querySelector(){return null}};
   function valueFor(table,field=''){
@@ -44,12 +44,17 @@ function fixture({perms={create:true,import:true,edit:true,publish:true}}={}){
       ?{data:{team_roles:{name:'Propietario'}}}
       :{data:[{role:'owner',teams:{id:'team-1',slug:'equipo',name:'Equipo'}}]};
     if(table==='teams')return {data:{settings:{timezone:'America/Monterrey'}}};
-    if(table==='series')return {data:[],count:0};
+    if(table==='series')return seriesError
+      ? {data:null,error:{message:'HTTP 500 simulado'},count:0}
+      : {data:[],count:0};
     if(table==='notifications')return {data:[],count:0};
     return {data:[],count:0};
   }
   const sb={
-    rpc(name){calls.push('rpc:'+name);return Promise.resolve({data:name==='my_team_permissions'?perms:[]})},
+    rpc(name){calls.push('rpc:'+name);return Promise.resolve(
+      name==='my_team_permissions' && permissionError
+        ? {data:null,error:{message:'Acceso del equipo no verificable'}}
+        : {data:name==='my_team_permissions'?perms:[]})},
     from(table){
       const state={field:'',insert:null};
       const q={
@@ -106,6 +111,18 @@ const denied=fixture({perms:{create:false,import:false}});
 await denied.studio.newWork();
 assert.match(denied.app.innerHTML,/no permite crear obras/i);
 assert.equal(denied.inserted.length,0,'El botón de crear nunca debe escribir sin permiso');
+
+// Fallo 500: un error de lectura no debe interpretarse como un equipo vacío.
+globalThis.location={pathname:'/estudio/obras',search:''};
+const failedSeries=fixture({seriesError:true});
+await assert.rejects(failedSeries.studio.works(),/No se pudieron recuperar las obras/);
+assert.doesNotMatch(failedSeries.app.innerHTML,/Tu estudio está vacío/,
+  'Un error HTTP 500 debe mantener el estado de carga/error, no inventar cero obras');
+const failedPermissions=fixture({permissionError:true});
+await assert.rejects(failedPermissions.studio.newWork(),/No se pudieron verificar los permisos del equipo/);
+assert.equal(failedPermissions.inserted.length,0,
+  'Cuando falla whoami/permisos, no se deben enviar escrituras');
+delete globalThis.location;
 
 const {createImporter}=await import('../src/studio-importer.js');
 const {createEditor}=await import('../src/studio-editor.js');
