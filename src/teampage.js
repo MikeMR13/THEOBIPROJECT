@@ -263,7 +263,9 @@ export async function loadTeamData(sb, slug){
     team_roles:m.role_name ? { name:m.role_name, color:m.role_color } : null
   }));
   // El feed solo consulta publicaciones de obras públicas; un error no bloquea el perfil.
-  const recent = await import('./team-updates.js?v=1').then(m => m.loadTeamUpdates(sb, works || [])).catch(e => { console.warn('team updates', e); return []; });
+  const recentRequest = import('./team-updates.js?v=1')
+    .then(m => m.loadTeamUpdates(sb, works || []))
+    .catch(e => { console.warn('team updates', e); return []; });
   // Mostrar únicamente obras públicas con colaboración aceptada.
   let collaborations = [];
   try {
@@ -279,6 +281,8 @@ export async function loadTeamData(sb, slug){
       await attachPublicCredits(sb, collaborations);
     }
   } catch (e) { console.warn('Créditos públicos de colaboración no disponibles:', e?.message || e); }
+  // Novedades y colaboraciones son independientes: no encadenar sus esperas.
+  const recent = await recentRequest;
   installCreditImageFallback();
   // Integrar el anuncio más próximo en el bloque editable "Próximo lanzamiento".
   // No incorporar series no publicadas a "Obras" ni a sus estadísticas.
