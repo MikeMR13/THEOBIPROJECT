@@ -9,8 +9,8 @@ assert(existsSync('dist/index.html') && existsSync('dist/sw.js'),
   'Ejecuta npm run build antes del presupuesto de Fase 5');
 const html=readFileSync('dist/index.html','utf8');
 const direct=[...new Set([...html.matchAll(/\b(?:src|href)="\/([\w.-]+\.(?:js|css))\?v=[^"]+"/g)].map(m=>m[1]))];
-assert(direct.includes('app.js')&&direct.includes('ui.js')&&direct.includes('styles.css'),
-  'No se reconocen los recursos iniciales de Inicio/Catálogo');
+assert(direct.includes('app.js')&&!direct.includes('ui.js')&&direct.includes('styles.css'),
+  'El HTML debe incluir el shell pero no precargar UI pública en rutas privadas');
 const included=new Set(), queue=[...direct];
 const staticImports=source=>{
   const out=[];
@@ -32,7 +32,7 @@ while(queue.length){
 }
 // Ni la importación dinámica ni los módulos de lectura offline deben
 // contarse como tráfico inicial de una visita a Inicio o Catálogo.
-for(const optional of ['reader.js','blocks.js']){
+for(const optional of ['ui.js','reader.js','blocks.js']){
   assert(!included.has(optional), optional+' volvió a la ruta crítica');
   assert(!direct.includes(optional), optional+' volvió a modulepreload');
 }
@@ -40,7 +40,7 @@ const events=new Map(),context={self:{addEventListener:(name,fn)=>events.set(nam
 vm.runInNewContext(readFileSync('dist/sw.js','utf8')+
   '\n;globalThis.__shell=SHELL;',context);
 const precache=context.__shell;
-for(const offline of ['reader.js','blocks.js'])
+for(const offline of ['ui.js','reader.js','blocks.js'])
   assert(precache.some(url=>url.startsWith('/'+offline+'?v=')),
     'El presupuesto no debe eliminar el lector PWA: '+offline);
 const size=name=>{
@@ -57,7 +57,7 @@ const maxGzip=260*1024; // Límite de regresión, NO promesa de velocidad real.
 assert(totals.gzip<=maxGzip,
   'Presupuesto inicial excedido: '+totals.gzip+' > '+maxGzip+' bytes gzip');
 const report={
- version:1, scope:'grafo estático y recursos HTML de build aislado (Inicio/Catálogo)',
+ version:1, scope:'grafo estático de shell HTML antes del import dinámico de UI en Inicio/Catálogo',
  environment:'GitHub Actions Node 24 + credenciales ficticias, sin backend',
  direct:direct.sort(),modules:[...included].sort(),
  resources:assets.sort((a,b)=>b.gzip-a.gzip),totals,
@@ -65,7 +65,7 @@ const report={
  offline:{reader:true,blocks:true,pwaShellEntries:precache.length},
  coreWebVitals:{lcpMs:null,inpMs:null,cls:null,reason:'No medibles a partir de bytes compilados'},
  notes:['Compresión gzip/Brotli recalculada localmente; no son bytes transferidos por HTTP.',
- 'El grafo representa carga de importaciones estáticas; no incluye fuentes, portadas o RPC.',
+ 'El grafo representa carga de importaciones estáticas; Inicio y Catálogo importan ui.js aparte. No incluye fuentes, portadas o RPC.',
  'No comparar porcentajes con una medición de metodología diferente.']
 };
 mkdirSync('qa-performance',{recursive:true});
