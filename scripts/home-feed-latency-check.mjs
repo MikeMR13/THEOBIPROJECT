@@ -16,7 +16,12 @@ assert(load<credits && credits<waits && waits<volumes,
  'Los créditos deben comenzar a solicitarse antes de terminar de cargar volúmenes');
 assert.match(home,/visible = \(fd\?\.series \|\| \[\]\)\.filter\(s =>[\s\S]*?\(!s\.adult \|\| adult\?\.data === true\) && !hidS\(s\)/,
  'Filtrar títulos +18 y preferencias antes de solicitar logos/créditos');
-assert.match(home,/await creditsRequest;/,'Conservar los créditos antes de dibujar sus logos');
+assert.match(home,/await softWait\(creditsRequest, null, 650\);/,
+ 'Los créditos se consultan en paralelo y tienen espera acotada');
+assert.match(home,/void creditsRequest\.then\(\(\) => \{[\s\S]*?previous\.outerHTML = html/,
+ 'Los colaboradores publicados tarde deben hidratar sus logos después del primer dibujo');
+assert.match(home,/if \(!liveHome\(\) \|\| !app\.querySelector\('\.ob-page'\)\) return;/,
+ 'La hidratación no puede afectar otras rutas');
 assert.doesNotMatch(home,/await attachPublicCredits\(sb, list\)/,
  'No añadir una llamada secuencial de créditos después de volúmenes');
 assert.doesNotMatch(home,/s\.cover_path\s*=\s*v\.cover_path/,

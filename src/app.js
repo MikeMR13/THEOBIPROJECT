@@ -200,22 +200,24 @@ async function groupProfile(){
 }
 const routes = {
 '/mi-equipo': groupProfile,
-'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': async () => (await ag()).agenda(CTX()), '/ranking': () => ui().ranking(), '/lanzamientos': async () => (await ag()).agenda(CTX()), '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/preferencias': async () => (await pf()).preferences(PCTX()), '/buscar': () => ui().search(), '/solicitud': solicitud, '/elige-nombre': chooseName, '/privacidad': async () => (await lg()).privacy(app), '/condiciones-servicio': async () => (await lg()).terms(app),
+'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': async () => { const m = await ag(); if (location.pathname === '/calendario') return m.agenda(CTX()); }, '/ranking': () => ui().ranking(), '/lanzamientos': async () => { const m = await ag(); if (location.pathname === '/lanzamientos') return m.agenda(CTX()); }, '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/preferencias': async () => (await pf()).preferences(PCTX()), '/buscar': () => ui().search(), '/solicitud': solicitud, '/elige-nombre': chooseName, '/privacidad': async () => (await lg()).privacy(app), '/condiciones-servicio': async () => (await lg()).terms(app),
 '/invitacion': async () => (await import('/team-invitations.js?v=1')).renderTeamInvitation({ sb, app, esc, toast, go }),
 '/bibliotecario': async () => (await ad()).render(), '/admin': async () => { history.replaceState({}, '', '/bibliotecario'); (await ad()).render(); },
 };
-export function go(path){ history.pushState({}, '', path); render(); }
+export function go(path){ history.pushState({}, '', path); void render(); }
 document.addEventListener('click', e => { const a = e.target.closest('a[href^="/"]'); if (a && !a.target) { e.preventDefault(); go(a.getAttribute('href')); } });
 addEventListener('popstate', render);
 document.addEventListener('click', e => { document.querySelectorAll('.ob-user[open],.ob-bell[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
 let PS = null; const seasons = async () => PS ||= await import('/season.js?v=5');
 addEventListener('obi-season', () => { afterRender(); });
 // Se dibuja la página sin esperar la temporada; afterRender la aplica cuando llega.
+let routeRenderSeq = 0;
 function render(){
+  const seq = ++routeRenderSeq;
   // En la lectura offline no iniciar cargas decorativas ni peticiones a Supabase.
   if (navigator.onLine) seasons().then(S => { S.clear(); S.load(sb); }).catch(() => {});
   return render0().catch(e => { if (!navigator.onLine || /Failed to fetch|NetworkError|Load failed|network/i.test(e?.message || '')) return offlinePage(); throw e; })
-    .then(r => { installPublicShare(); if (navigator.onLine) { contBtn(); return afterRender(r); } return r; });
+    .then(r => { if (seq !== routeRenderSeq) return; installPublicShare(); if (navigator.onLine) { contBtn(); return afterRender(r); } return r; });
 }
 // ---------- sin conexión ----------
 async function offlinePage(){
@@ -280,7 +282,7 @@ async function render0(){
 const p = location.pathname; let m;
 scrollTo(0, 0); document.body.classList.remove('in-studio'); app.classList.remove('obi-downloads-page');
 if (p === '/descargas' || (!navigator.onLine && !p.startsWith('/leer/'))) return offlinePage();
-if (p.startsWith('/estudio') || p === '/perfil' || p === '/preferencias' || p === '/solicitud') await meReady;
+if (p.startsWith('/estudio') || p === '/perfil' || p === '/preferencias' || p === '/solicitud') { await meReady; if (location.pathname !== p) return; }
 if ((m = p.match(/^\/serie\/([\w-]+)$/))) return ui().series(m[1]);
 if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) { reportHomeRead(sb,p); const reader = await rd(); if (location.pathname !== p) return; return reader.open(m[1], +m[2]); }
 if ((m = p.match(/^\/anotaciones\/([\w-]+)$/))) { const reader = await rd(); if (location.pathname !== p) return; return reader.annotationsPage(m[1]); }
@@ -443,17 +445,23 @@ async function library(){
   if (!user) return go(new URLSearchParams(location.search).get('t') === 'offline' ? '/descargas' : '/entrar');
   const uid = user.id, seq = ++librarySeq;
   const live = () => seq === librarySeq && user?.id === uid && location.pathname === '/biblioteca';
+  // El límite es de la vista, no de Supabase; no cancela ni altera escrituras.
+  const bounded = (work, ms = 12000) => Promise.race([
+    Promise.resolve(work),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('La consulta tardó demasiado')), ms))
+  ]);
   lbCss(); installCreditImageFallback();
   app.innerHTML = '<p class="mono" role="status" aria-live="polite">Cargando tu biblioteca…</p>';
   const TABS = [['leyendo','Leyendo'],['pendientes','Pendientes'],['terminadas','Terminadas'],['avisos','Avisos'],['offline','Mis descargas'],['historial','Historial']];
   const requested = new URLSearchParams(location.search).get('t');
   let tab = TABS.some(([k]) => k === requested) ? requested : 'leyendo';
   let prog = [], fol = [], readRows = [], ser = [], chs = [];
+  let libraryCreditTask = null;
   try {
-    await meReady; // preferencias y secciones ocultas pertenecen a la cuenta verificada
+    await bounded(meReady); // preferencias y secciones ocultas pertenecen a la cuenta verificada
     if (!live()) return;
     // readPages recorre las páginas en orden estable y rechaza las respuestas incompletas.
-    const [pr, fo, rc] = await Promise.all([
+    const [pr, fo, rc] = await bounded(Promise.all([
       readPages((from,to) => sb.from('reading_progress')
         .select('series_id,chapter_num,pct,updated_at').eq('user_id',uid).order('series_id').range(from,to)),
       readPages((from,to) => sb.from('follows')
@@ -461,7 +469,7 @@ async function library(){
       readPages((from,to) => sb.from('read_chapters')
         .select('chapter_id,read_at,chapters!inner(series_id,deleted_at)')
         .eq('user_id',uid).is('chapters.deleted_at',null).order('chapter_id').range(from,to))
-    ]);
+    ]));
     if (!live()) return;
     prog=pr.data;fol=fo.data;readRows=rc.data;
     const ids = [...new Set([...prog.map(r=>r.series_id),...fol.map(r=>r.series_id),
@@ -469,7 +477,7 @@ async function library(){
     // Lotes pequeños evitan URL excesivamente largas en los filtros .in().
     const batches=[];for(let i=0;i<ids.length;i+=80)batches.push(ids.slice(i,i+80));
     if (batches.length) {
-      const [seriesBatches,chapterBatches] = await Promise.all([
+      const [seriesBatches,chapterBatches] = await bounded(Promise.all([
         Promise.all(batches.map(group=>readPages((from,to)=>sb.from('series')
           .select('id,team_id,slug,title,short,cover_path,cover_thumb_path,translation_status,theme,teams(name,slug,color,avatar_path)')
           .in('id',group).eq('published',true).order('id').range(from,to)))),
@@ -477,12 +485,15 @@ async function library(){
           .select('id,num,title,section_type,vol,volume_id,series_id,publish_at,status,deleted_at')
           .eq('status','published').is('deleted_at',null).in('series_id',group)
           .order('id').range(from,to))))
-      ]);
+      ]));
       ser=seriesBatches.flatMap(x=>x.data);chs=chapterBatches.flatMap(x=>x.data);
     }
     if (!live()) return;
     // Los créditos no deben hacer desaparecer obras cuando falle una consulta complementaria.
-    try { await attachPublicCredits(sb, ser || []); } catch(e){ console.warn('Créditos de biblioteca',e); }
+    // Créditos autorizados se añaden cuando responden, sin retener las estanterías.
+    libraryCreditTask = Promise.resolve(attachPublicCredits(sb, ser || []))
+      .catch(e => console.warn('Créditos de biblioteca', e));
+    await Promise.race([libraryCreditTask, new Promise(resolve => setTimeout(resolve, 650))]);
   } catch(e) {
     if (!live()) return;
     console.warn('Mi biblioteca',e);
@@ -560,6 +571,21 @@ async function library(){
   <div id="lb-read-feedback" class="lb-read-feedback" role="status" aria-live="polite" hidden></div>
   <div id="lb-body"></div>`;
   const box=$('#lb-body'), nav=app.querySelector('.lb-tabs');
+  // Si los créditos terminan después de pintar las estanterías, refrescar solo
+  // esos logos autorizados. No volver a descargar libros ni perder filtros.
+  void libraryCreditTask?.then(() => {
+    if (!live()) return;
+    const bySlug = new Map(ser.map(work => [work.slug, work]));
+    for (const card of app.querySelectorAll('.lb-card')) {
+      const anchor = card.querySelector('.lb-title[href^="/serie/"]');
+      const work = anchor && bySlug.get(anchor.getAttribute('href').slice('/serie/'.length));
+      if (!work) continue;
+      const html = creditsHTML(work, { esc, media: MED, mode: 'carousel' });
+      const current = card.querySelector('.obi-credits--carousel');
+      if (current) current.outerHTML = html;
+      else if (html) anchor.insertAdjacentHTML('afterend', html);
+    }
+  });
   const COVER = w => {
     const c=w.s.theme?.color || w.s.teams?.color || '#76592e';
     const path=w.s.cover_path || w.s.cover_thumb_path;
@@ -995,7 +1021,18 @@ bindAvatar(welcome);
 }
 async function perfil(){
 if (!user) return go('/entrar');
-if (!profile?.username) { app.innerHTML = '<p class="mono">Cargando perfil…</p>'; return; }
+if (!profile?.username) {
+  app.innerHTML = '<div class="ui-cath"><div><h1>Mi perfil</h1><p>No pudimos recuperar los datos de tu cuenta.</p></div></div>' +
+    '<div class="ui-empty" role="alert"><p>Puedes reintentar la verificación o configurar tu nombre de lector.</p>' +
+    '<button type="button" class="btn" id="profile-retry">Reintentar perfil</button> <a class="btn ghost" href="/elige-nombre">Elegir nombre</a></div>';
+  $('#profile-retry').onclick = async () => {
+    const button = $('#profile-retry');
+    if (button) button.disabled = true;
+    try { await loadSession(); await meReady; if (location.pathname === '/perfil') await perfil(); }
+    catch (e) { console.warn('Recuperación perfil', e); if (button?.isConnected) button.disabled = false; }
+  };
+  return;
+}
 return (await pf()).publicProfile(PCTX(), profile.username, { owner: true, visibility: profile.profile_visibility });
 }
 const LANGS = ['Japonés', 'Inglés', 'Coreano', 'Chino'];

@@ -27,7 +27,8 @@ expect('se recalcula cada 6 horas', 'La hora de recálculo se conserva');
 assert(ui.includes('Lecturas únicas diarias acumuladas'), 'Explicar correctamente el indicador de lecturas');
 assert(ui.includes('no necesariamente una obra concluida'), 'Precisar el indicador de terminadas');
 assert(rank.includes("p_limit: 20"), 'Conservar el límite de resultados');
-assert(rank.includes("await attachPublicCredits(sb, ss || [])"), 'Conservar los créditos editoriales');
+assert(rank.includes('await softWait(attachPublicCredits(sb, ss || []), null, 650)'),
+  'Conservar los créditos editoriales sin bloquear la clasificación');
 assert(rank.includes('const overviewEnabled ='), 'Conservar adelantos de otras clasificaciones');
 assert(!rank.includes("background-size:cover"), 'No recortar las portadas del ranking');
 console.log('Ranking: portadas completas, podio, filtros móviles, métricas y carga diferida OK');

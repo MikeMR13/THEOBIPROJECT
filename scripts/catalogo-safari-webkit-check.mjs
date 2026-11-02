@@ -9,6 +9,14 @@ import { webkit } from 'playwright';
 assert(existsSync('dist/app.js') && existsSync('dist/index.html'), 'Compilar antes del test WebKit');
 const ui = readFileSync('src/ui.js', 'utf8');
 const cat = ui.slice(ui.indexOf('  async function catalog(){'), ui.indexOf('  // ---------- Lanzamientos ----------'));
+const agenda = readFileSync('src/agenda.js','utf8');
+const appSource = readFileSync('src/app.js','utf8');
+assert(ui.includes('const SERIES_FAST = SERIES.replace('), 'Las vistas públicas deben evitar los conteos SQL lentos');
+assert(!ui.includes('.select(SERIES)'), 'Ninguna ruta pública debe solicitar los conteos anidados originales');
+assert(ui.includes('await softWait(creditsRequest, null, 650)'), 'Inicio no debe bloquearse por créditos');
+assert(ui.includes('void creditsRequest.then(() => {'), 'Créditos tardíos deben hidratarse después del primer dibujo');
+assert(agenda.includes('id="ag-retry"') && agenda.includes('agendaVisitSeq'), 'Calendario requiere reintento y protección de navegación');
+assert(appSource.includes('routeRenderSeq') && appSource.includes('id="profile-retry"'), 'Navegación y perfil deben recuperarse');
 assert(cat.includes("SERIES.replace(',chapters(count),volumes(count)', '')"), 'La consulta inicial no debe solicitar conteos anidados');
 assert(cat.indexOf('    draw();\n    // Mostrar primero las obras') < cat.indexOf('const [counted] = await Promise.all(['),
   'El catálogo debe aparecer antes de los conteos y créditos');
@@ -21,10 +29,14 @@ assert(a >= 0 && b > a, 'Falta simulador de Supabase existente');
 let mock = lab.slice(a, b);
 assert(mock.includes('select(){return q}'), 'Contrato del simulador cambió');
 mock = mock.replace('select(){return q}', "select(fields){ if(name==='series' && String(fields).includes('chapters(count)')) throw Error('Conteos costosos en primera consulta'); return q }");
+mock = mock.replace('neq(){return q},gt(){return q}', 'neq(){return q},ilike(){return q},gt(){return q}');
+assert(mock.includes('ilike(){return q}'), 'El filtro ilike de búsqueda debe existir en Supabase ficticio');
 mock = mock.replace("let data=name==='series'?Q.series", "if(name==='series' && Q.failSeries)throw Error('HTTP 500 de prueba');\n     let data=name==='series'?Q.series");
 mock = mock.replace('then(ok,bad){return Promise.resolve(q.result()).then(ok,bad)}',
   "then(ok,bad){if(name==='series_last'&&Q.hangLatest)return new Promise(()=>{}).then(ok,bad);if(name==='series'&&Q.delaySeries)return new Promise(resolve=>setTimeout(()=>resolve(q.result()),Q.delaySeries)).then(ok,bad);return Promise.resolve(q.result()).then(ok,bad)}");
 assert(mock.includes('Q.hangLatest') && mock.includes('Q.failSeries'), 'Falta inyección de fallos del simulador');
+mock = mock.replace('rpc:async(name,opts)=>{', "rpc:async(name,opts)=>{if(name==='series_public_credits'&&Q.hangCredits)return new Promise(()=>{});if(name==='agenda_events'&&Q.delayAgenda)return new Promise(resolve=>setTimeout(()=>resolve({data:[],error:null}),Q.delayAgenda));");
+assert(mock.includes('Q.hangCredits') && mock.includes('Q.delayAgenda'), 'El laboratorio debe simular esperas en otras pestañas');
 mock += '\nexport { fakeCreateClient as createClient };\n';
 
 const work = {
@@ -37,7 +49,7 @@ const work = {
 };
 const fixture = {
   series:[work],latest:[{series_id:work.id,num:2,publish_at:new Date().toISOString()}],
-  ranks:[],volumes:[],settings:{id:1,seasons:{}},
+  ranks:[{series_id:work.id,pos:1,score:9,list:'leidas',period:'semana'}],volumes:[],settings:{id:1,seasons:{}},
   feed:{series:[work],latest:[],rkW:[],rkH:[],top10:[],nextRel:[],featured:[],reviews:[],ann:[]}
 };
 let origin = '';
@@ -57,7 +69,7 @@ const server = createServer((req,res) => {
     res.setHeader('Content-Type','application/javascript');
     return res.end('// Sin service worker para este test aislado.');
   }
-  if(path==='/' || path==='/catalogo' || path==='/buscar'){
+  if(['/', '/catalogo', '/buscar', '/ranking', '/calendario'].includes(path)){
     res.setHeader('Content-Type','text/html; charset=utf-8');
     return res.end(index);
   }
@@ -113,7 +125,46 @@ try {
     assert.equal(errors.length,0,'Errores JavaScript durante navegación: '+errors.join(', '));
     await ctx.close();
   }
-  console.log('✓ WebKit 390 px: carga sin esperar consultas secundarias, HTTP 500/reintento y navegación protegida');
+  // 4. Inicio debe mostrar contenido aunque la RPC de créditos no responda.
+  {
+    const {ctx,page,errors}=await makePage({hangCredits:true});
+    await page.goto(origin+'/');
+    await page.waitForSelector('.ob-page',{timeout:12000});
+    assert.equal(errors.length,0,'Inicio con créditos lentos: '+errors.join(', '));
+    await ctx.close();
+  }
+  // 5. Buscar y Ranking deben recuperar novelas sin los conteos SQL anidados.
+  {
+    const {ctx,page,errors}=await makePage({});
+    await page.goto(origin+'/buscar?q=Novela');
+    await page.waitForSelector('#sr-res .sr-g',{timeout:12000});
+    assert.match(await page.locator('#sr-res').innerText(),/Novela de prueba en Safari/);
+    await page.goto(origin+'/ranking');
+    await page.waitForSelector('#rk .rk-c',{timeout:12000});
+    assert.equal(errors.length,0,'Buscar y Ranking: '+errors.join(', '));
+    await ctx.close();
+  }
+  // 6. Calendario no debe reemplazar otra pestaña si llega una respuesta tardía.
+  {
+    const {ctx,page,errors}=await makePage({delayAgenda:1650});
+    await page.goto(origin+'/calendario');
+    await page.locator('nav.ob-tab a[href="/buscar"]').click();
+    await page.waitForSelector('#sr-q',{timeout:10000});
+    await page.waitForTimeout(1900);
+    assert.equal(new URL(page.url()).pathname,'/buscar');
+    assert.equal(await page.locator('#ag-body').count(),0,'Calendario antiguo sobrescribió la pestaña Buscar');
+    assert.equal(errors.length,0,'Navegación Calendario: '+errors.join(', '));
+    await ctx.close();
+  }
+  // 7. El calendario también muestra su vista cuando no hay errores de servidor.
+  {
+    const {ctx,page,errors}=await makePage({});
+    await page.goto(origin+'/calendario');
+    await page.waitForSelector('#ag-body',{timeout:12000});
+    assert.equal(errors.length,0,'Calendario: '+errors.join(', '));
+    await ctx.close();
+  }
+  console.log('✓ WebKit 390 px: Catálogo, Inicio, Buscar, Ranking y Calendario; créditos lentos, HTTP 500 y cambios de pestaña');
 } finally {
   if(browser)await browser.close();
   await new Promise(resolve=>server.close(resolve));

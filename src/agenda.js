@@ -81,7 +81,14 @@ const CSS = `
 @media (min-width:761px){.ag-more{display:none}}
 `;
 
+let agendaVisitSeq = 0;
 export async function agenda(ctx){
+  const visit = ++agendaVisitSeq;
+  const live = () => visit === agendaVisitSeq && location.pathname === '/calendario';
+  const optional = (work, fallback, ms = 850) => Promise.race([
+    Promise.resolve(work).catch(error => { console.warn('Dato complementario del calendario', error); return fallback; }),
+    new Promise(resolve => setTimeout(() => resolve(fallback), ms))
+  ]);
   installCreditImageFallback();
   const { sb, app, esc, toast, go, getUser, url } = ctx;
   if (!document.getElementById('ag-css')) { const s = document.createElement('style'); s.id = 'ag-css'; s.textContent = CSS; document.head.appendChild(s); }
@@ -101,9 +108,10 @@ export async function agenda(ctx){
     const a = D.from && D.from < fromK ? D.from : fromK, b = D.to && D.to > toK ? D.to : toK;
     const [ev, an, pre] = await Promise.all([
       sb.rpc('agenda_events', { p_from: noon(addK(a, -1)).toISOString(), p_to: noon(addK(b, 1)).toISOString() }),
-      sb.rpc('team_anniversaries', { p_from: a, p_to: b }),
-      sb.rpc('prelaunch_calendar', { p_from: noon(addK(a, -1)).toISOString(), p_to: noon(addK(b, 1)).toISOString() })]);
-    if (ev.error) { console.warn('agenda_events', ev.error.message); toast('No se pudo cargar el calendario: ' + ev.error.message); }
+      optional(sb.rpc('team_anniversaries', { p_from: a, p_to: b }), { data: [] }),
+      optional(sb.rpc('prelaunch_calendar', { p_from: noon(addK(a, -1)).toISOString(), p_to: noon(addK(b, 1)).toISOString() }), { data: [] })
+    ]);
+    if (ev?.error) { console.warn('agenda_events', ev.error.message); throw new Error('No fue posible consultar los lanzamientos'); }
     if (pre.error) console.warn('prelaunch_calendar', pre.error.message);
     // Los anuncios de volúmenes son opt-in: ignorar la versión automática de 'volp' del feed heredado.
     const previews = pre.data || [];
@@ -115,7 +123,7 @@ export async function agenda(ctx){
     for (let i = 0; i < ids.length; i += 150) { const { data } = await sb.from('series').select('id,slug,title,short,cover_path,cover_thumb_path,work_type,team_id,teams(name,slug)').in('id', ids.slice(i, i + 150)); (data || []).forEach(s => D.series[s.id] = s); }
     // Los preestrenos anunciados son públicos aunque su obra todavía no esté publicada.
     // La RPC verifica announce_prelaunch y solo devuelve logos de equipos activos.
-    await attachPublicCredits(sb, Object.values(D.series).filter(s => s?.id));
+    await optional(attachPublicCredits(sb, Object.values(D.series).filter(s => s?.id)), null, 650);
     const tids = [...new Set(Object.values(D.series).map(s => s.team_id).filter(t => t && !(t in D.pat)))];
     if (tids.length) { const { data } = await sb.from('patreon_public').select('owner,url').in('owner', tids); tids.forEach(t => D.pat[t] = null); (data || []).forEach(p => { if (p.url) D.pat[p.owner] = JOIN(p.url); }); }
     if (u) {
@@ -127,7 +135,23 @@ export async function agenda(ctx){
     const [f, r] = await Promise.all([sb.from('follows').select('series_id').eq('user_id', u.id), sb.from('reminders').select('series_id,kind,at').is('sent_at', null)]);
     (f.data || []).forEach(x => D.fol.add(x.series_id)); (r.data || []).forEach(x => D.rem.add(x.series_id + '|' + x.kind + '|' + new Date(x.at).toISOString()));
   }
-  await load(addK(today(), -PAST), addK(today(), FUT));
+  try {
+    await Promise.race([
+      load(addK(today(), -PAST), addK(today(), FUT)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo de espera agotado')), 12000))
+    ]);
+  } catch (error) {
+    if (!live()) return;
+    console.warn('Carga del calendario', error);
+    app.innerHTML = '<div class="ag-h"><div><h1>Calendario de lanzamientos</h1><p>No se pudieron recuperar los estrenos.</p></div></div>' +
+      '<div class="ui-empty" role="alert"><p>La conexión o el servidor tardaron demasiado. Puedes intentarlo otra vez.</p>' +
+      '<button type="button" class="btn" id="ag-retry">Reintentar calendario</button></div>';
+    app.querySelector('#ag-retry').onclick = () => {
+      if (live()) void agenda(ctx);
+    };
+    return;
+  }
+  if (!live()) return;
 
   // ---------- agrupar: un hito por lanzamiento, sin perder el estreno de mecenas ----------
   // La RPC devuelve el acceso ACTUAL. Si el bloqueo expiró, un estreno que fue
@@ -314,8 +338,24 @@ export async function agenda(ctx){
   const range = () => { if (V.view === 'semana') return [monday(V.anchor), addK(monday(V.anchor), 6)]; if (V.view !== 'mes') return [addK(today(), -PAST), addK(today(), FUT)]; const first = V.anchor.slice(0, 8) + '01'; const next = new Date(Date.UTC(+first.slice(0, 4), +first.slice(5, 7), 1, 12)).toISOString().slice(0, 10); const end = addK(next, -1); return [monday(first), addK(monday(end), 6)]; };
   const title = () => { if (V.view === 'semana') { const a = monday(V.anchor), b = addK(a, 6), f = k => noon(k).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }); return f(a) + ' – ' + f(b); } return noon(V.anchor.slice(0, 8) + '15').toLocaleDateString('es-MX', { month: 'long', year: 'numeric', timeZone: 'UTC' }); };
   const sync = () => { const p = new URLSearchParams(); if (V.view !== 'semana') p.set('v', V.view); if (V.f) p.set('f', V.f); if (V.when) p.set('cuando', V.when); if (V.access) p.set('acceso', V.access); if (V.mine) p.set('sigo', '1'); if (V.team) p.set('equipo', V.team); if (V.type) p.set('tipo', V.type); if (V.anchor !== today() && V.view !== 'linea') p.set('d', V.anchor); if (/^\/(calendario|lanzamientos)$/.test(location.pathname)) history.replaceState({}, '', '/calendario' + (p.toString() ? '?' + p : '')); };
+  let drawSeq = 0;
   async function draw(scroll){
-    const [a, b] = range(); await load(a, b);
+    const run = ++drawSeq;
+    const [a, b] = range();
+    try {
+      await Promise.race([
+        load(a, b),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo de espera agotado')), 12000))
+      ]);
+    } catch (error) {
+      if (!live() || run !== drawSeq) return;
+      console.warn('Calendario', error);
+      app.innerHTML = '<div class="ag-h"><h1>Calendario</h1></div>' +
+        '<div role="alert" class="ui-empty"><p>No se pudo cargar esta vista.</p><button type="button" class="btn" id="ag-retry">Reintentar calendario</button></div>';
+      app.querySelector('#ag-retry').onclick = () => { if (live()) void agenda(ctx); };
+      return;
+    }
+    if (!live() || run !== drawSeq) return;
     if (AN && S) {
       if (!D.seasonsReady) { try { await S.load(sb); } catch (e) { console.warn('temporadas del calendario', e); } D.seasonsReady = true; }
       // Incluir el inicio anterior y el siguiente solsticio para mostrar rangos que cruzan meses/años.
@@ -328,6 +368,7 @@ export async function agenda(ctx){
         D.festRange = [from, to];
       }
     }
+    if (!live() || run !== drawSeq) return;
     const periods = seasonPeriods(AN?.SEASONS, a, b, { hemi: S?.hemiOf?.(TZ) || 'norte', starts: D.fests });
     const all = groups(), inRange = all.filter(g => g.day >= a && g.day <= b), list = inRange.filter(pass);
     const weekOpen = all.filter(g => g.kind === 'open' && new Date(g.at) > Date.now() && new Date(g.at) - Date.now() < 7 * DAY && pass(g)).length;
@@ -395,7 +436,7 @@ export async function agenda(ctx){
     L.push('END:VCALENDAR');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([L.join('\r\n')], { type: 'text/calendar' })); a.download = 'obi-calendario.ics'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
-  await draw(false);
+  if (live()) await draw(false);
 }
 
 // Push: pide permiso una vez y guarda la suscripción del dispositivo.
