@@ -423,22 +423,41 @@ export function createStudio(ctx){
 
   // ---------- obras ----------
   async function works(){
+    const path = '/estudio/obras';
     if (!(await ensure())) return;
-    app.innerHTML = shell('Mis obras', '<p class="mono">Cargando obras…</p>', '/estudio/obras'); bindPicker(works);
-    const [{ works: list, chs, sched }, { data: inv }, { data: collab }, { data: selectedFeature }, announced] = await Promise.all([teamData(),
+    const teamId = T.team.id, uid = getUser()?.id;
+    const live = () => studioLive(path, teamId, uid);
+    if (!live()) return;
+    app.innerHTML = shell('Mis obras', '<div id="studio-works-preview" role="status">Cargando obras…</div>', path); bindPicker(works);
+    const baseRequest = studioBounded(teamData(), 17000);
+    void baseRequest.then(({ works: list }) => {
+      const preview = app.querySelector('#studio-works-preview');
+      if (!live() || !preview) return;
+      preview.innerHTML = list.length
+        ? '<p class="mono">Obras encontradas. Preparando filtros y colaboraciones…</p><div class="s2-work-preview">' +
+          list.map(work => `<p><a href="/estudio/obra/${encodeURIComponent(work.slug)}">${esc(work.title)}</a></p>`).join('') + '</div>'
+        : '<p class="mono">Verificando tu biblioteca editorial…</p>';
+    }).catch(() => {});
+    const [{ works: list, chs, sched }, { data: inv }, { data: collab }, { data: selectedFeature }, announced] = await studioBounded(Promise.all([baseRequest,
       sb.from('collaborations').select('id,status,series(title),inviter:teams!collaborations_inviter_team_fkey(name)').eq('invited_team', T.team.id).eq('status', COLLABORATION_STATUS.pending),
       sb.from('collaborations').select('series(slug,title,teams(name))').eq('invited_team', T.team.id).eq('status', COLLABORATION_STATUS.active),
       sb.from('team_featured_series').select('series_id,updated_at').eq('team_id', T.team.id).maybeSingle().then(r=>r,()=>({data:null})),
-      loadPublicUpcoming(sb)]);
+      loadPublicUpcoming(sb)]), 17000);
+    if (!live()) return;
     // La etiqueta «En preestreno» se basa SOLO en anuncios públicamente elegibles.
     // Nunca se construye una URL pública a partir de borradores internos de volúmenes.
     const prelaunchById = new Map(announced
       .filter(r => r.team_slug === T.team.slug)
       .map(r => [r.series_id, r]));
     const prelaunchIds = new Set(prelaunchById.keys());
-    const metricsTeamId = T.team.id;
-    const [prelaunchMetrics,prelaunchViews] = await Promise.all([loadTeamPrelaunchMetrics(sb, metricsTeamId, prelaunchIds), loadTeamPrelaunchViews(sb, metricsTeamId, prelaunchIds)]);
-    if (T.team?.id !== metricsTeamId) return; // El equipo pudo cambiar mientras se consultaban los totales.
+    const metricsTeamId = teamId;
+    const noMetric = () => ({ available: false, counts: new Map() });
+    const metricsRequest = Promise.all([
+      loadTeamPrelaunchMetrics(sb, metricsTeamId, prelaunchIds),
+      loadTeamPrelaunchViews(sb, metricsTeamId, prelaunchIds)
+    ]);
+    let [prelaunchMetrics, prelaunchViews] = await studioOptional(metricsRequest, [noMetric(), noMetric()], 650);
+    if (!live()) return;
     const featuredSeriesId=selectedFeature?.series_id||null;
     const featuredExpiresAt=selectedFeature?.updated_at ? new Date(new Date(selectedFeature.updated_at).getTime()+7*864e5) : null;
     const pick = new URLSearchParams(location.search).has('nuevo');
@@ -447,7 +466,9 @@ export function createStudio(ctx){
     const state = (works.filters ||= { q:'', status:'all', visibility:'all', release:'all', sort:'title', attention:false, view:preferredView });
     const chosen = () => selectStudioWorks(list, chs, sched, { ...state, prelaunchIds });
     const toolbar = createStudioWorksToolbar({state,TLS,esc,can});
-    const card = createStudioWorkCard({chs,sched,prelaunchById,prelaunchMetrics,prelaunchViews,featuredSeriesId,TLS,wcolor,esc,media,until,ago,can});
+    const card = (work, stats) => createStudioWorkCard({
+      chs,sched,prelaunchById,prelaunchMetrics,prelaunchViews,featuredSeriesId,TLS,wcolor,esc,media,until,ago,can
+    })(work, stats);
     const copyPrelaunch = async slug => {
       if (!list.some(w => w.slug === slug && prelaunchById.has(w.id))) throw new Error('Este preestreno ya no tiene una ficha pública válida.');
       const link = location.origin + '/serie/' + encodeURIComponent(slug);
@@ -456,13 +477,23 @@ export function createStudio(ctx){
     };
     const body = `${(inv || []).map(c => `<div class="st-card"><span>${esc(c.inviter?.name || 'Un equipo')} te invita a colaborar en <strong>${esc(c.series?.title)}</strong></span><span><button class="btn" data-acc="${c.id}">Aceptar</button> <button class="btn ghost" data-rej="${c.id}">Rechazar</button></span></div>`).join('')}
       ${pick && list.length ? '<div class="st-card"><span>¿En qué obra va el nuevo capítulo? Toca «＋ Nuevo capítulo» en la obra.</span></div>' : ''}
-      ${list.length ? `${createPrelaunchMetricsPanel(prelaunchIds, prelaunchMetrics, prelaunchViews)}${renderPrelaunchInterestFunnel(prelaunchIds, prelaunchMetrics, prelaunchViews, list)}${toolbar}
+      ${list.length ? `<div id="studio-prelaunch-metrics">${createPrelaunchMetricsPanel(prelaunchIds, prelaunchMetrics, prelaunchViews)}${renderPrelaunchInterestFunnel(prelaunchIds, prelaunchMetrics, prelaunchViews, list)}</div>${toolbar}
        <p class="mono s2-feature-note">${featuredSeriesId ? '★ Recomendación actual: ' + esc(list.find(w=>w.id===featuredSeriesId)?.title || 'Obra destacada') + (featuredExpiresAt ? ' · hasta '+esc(fmtTz(featuredExpiresAt,{dateStyle:'medium'})) : '') : 'Puedes destacar una obra publicada durante 7 días'} · una por equipo.</p>
        <div class="s2-works" id="s2-work-list" data-view="${state.view}"></div>` : emptyState()}
       ${(collab || []).length ? `<h2 class="s2-h2">Colaboraciones</h2><div class="s2-box">${collab.map(c => `<p><a href="/serie/${c.series.slug}">${esc(c.series.title)}</a> <span class="mono">de ${esc(c.series.teams?.name)}</span></p>`).join('')}</div>` : ''}`;
-    app.innerHTML = shell('Mis obras', body, '/estudio/obras'); bindPicker(works);
-    bindStudioWorksControls({app,$,state,chosen,card,list,busy,sb,T,toast,works,newChapter,featuredSeriesId,copyPrelaunch});
-    app.querySelectorAll('[data-acc],[data-rej]').forEach(b => b.onclick = () => busy(b, async () => { const response = b.dataset.acc ? COLLABORATION_STATUS.active : COLLABORATION_STATUS.declined; const { data: updated, error } = await sb.from('collaborations').update({ status: response }).eq('id', b.dataset.acc || b.dataset.rej).eq('status', COLLABORATION_STATUS.pending).select('id').maybeSingle(); if (error) throw error; if (!updated) throw new Error('La invitación ya fue respondida o no tienes permiso para cambiarla'); toast(b.dataset.acc ? 'Colaboración aceptada' : 'Invitación rechazada'); works(); }));
+    if (!live()) return;
+    app.innerHTML = shell('Mis obras', body, path); bindPicker(works);
+    const refreshWorks = bindStudioWorksControls({app,$,state,chosen,card,list,busy,sb,T,toast,works,newChapter,featuredSeriesId,copyPrelaunch});
+    void metricsRequest.then(([metrics, views]) => {
+      if (!live()) return;
+      prelaunchMetrics = metrics; prelaunchViews = views;
+      const panel = app.querySelector('#studio-prelaunch-metrics');
+      if (panel) panel.innerHTML = createPrelaunchMetricsPanel(prelaunchIds, metrics, views) +
+        renderPrelaunchInterestFunnel(prelaunchIds, metrics, views, list);
+      // No borrar lo que el publicador esté escribiendo en un filtro.
+      if (!app.querySelector('.s2-worktools')?.contains(document.activeElement)) refreshWorks?.();
+    }).catch(error => console.warn('Métricas de preestrenos', error));
+    app.querySelectorAll('[data-acc],[data-rej]').forEach(b => b.onclick = () => busy(b, async () => { const response = b.dataset.acc ? COLLABORATION_STATUS.active : COLLABORATION_STATUS.declined; const { data: updated, error } = await sb.from('collaborations').update({ status: response }).eq('id', b.dataset.acc || b.dataset.rej).eq('status', COLLABORATION_STATUS.pending).select('id').maybeSingle(); if (error) throw error; if (!updated) throw new Error('La invitación ya fue respondida o no tienes permiso para cambiarla'); invalidateTeamBase(); toast(b.dataset.acc ? 'Colaboración aceptada' : 'Invitación rechazada'); works(); }));
   }
 
 
