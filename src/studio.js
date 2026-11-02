@@ -294,10 +294,19 @@ export function createStudio(ctx){
 
   // Compartir solo las lecturas comunes de Resumen/Obras. La promesa se
   // descarta pronto para que publicaciones y ediciones no queden obsoletas.
-  async function teamBaseData(){
+  async function teamBaseData(onWorks){
     const teamId = T.team.id, uid = getUser()?.id;
     if (teamBaseCache?.teamId === teamId && teamBaseCache?.uid === uid &&
-        Date.now() < teamBaseCache.expires) return teamBaseCache.promise;
+        Date.now() < teamBaseCache.expires) {
+      if (onWorks) {
+        if (teamBaseCache.previewWorks) onWorks(teamBaseCache.previewWorks);
+        else teamBaseCache.listeners.push(onWorks);
+      }
+      return teamBaseCache.promise;
+    }
+    const entry = { teamId, uid, expires: Date.now() + 4000, promise: null,
+      previewWorks: null, listeners: onWorks ? [onWorks] : [] };
+    teamBaseCache = entry;
     const promise = (async () => {
       const { data: works, error } = await studioBounded(sb.from('series')
         .select('id,slug,title,short,synopsis,genres,cover_path,cover_thumb_path,translation_status,published,views,theme')
@@ -308,8 +317,13 @@ export function createStudio(ctx){
         // únicamente la sesión/equipo, pues la cache se comparte entre rutas.
         if (T.team?.id !== teamId || getUser()?.id !== uid) throw new Error('Equipo cambiado');
       }
+      entry.previewWorks = works || [];
+      for (const listener of entry.listeners) {
+        try { listener(entry.previewWorks); } catch (error) { console.warn('Vista previa Obras', error); }
+      }
+      entry.listeners.length = 0;
       const ids = (works || []).map(w => w.id);
-      if (!ids.length) return { works: [], chs: [], sched: [] };
+      if (!ids.length) return { works: [], chs: [], sched: [], scheduleOk: true };
       const { readPages } = await import('/paging.js?v=1');
       const now = new Date().toISOString();
       const chaptersRequest = studioBounded(readPages((from, to) => sb.from('chapters')
@@ -332,14 +346,13 @@ export function createStudio(ctx){
       return { works: (works || []).map(work => ({ ...work, volumes: bySeries.get(work.id) || [] })),
         chs: chapters.data || [], sched: schedule?.data || [], scheduleOk: !schedule?.error };
     })();
-    const entry = { teamId, uid, expires: Date.now() + 4000, promise };
-    teamBaseCache = entry;
+    entry.promise = promise;
     promise.catch(() => { if (teamBaseCache === entry) teamBaseCache = null; });
     return promise;
   }
-  async function teamData({ reports = false } = {}){
+  async function teamData({ reports = false, onWorks = null } = {}){
     const teamId = T.team.id;
-    const coreRequest = teamBaseData();
+    const coreRequest = teamBaseData(onWorks);
     const reportsRequest = reports ? studioOptional(sb.from('reports')
       .select('id,kind,quote,fix,created_at,chapter_id,chapters(num,title,series_id)')
       .eq('status', 'open').order('created_at', { ascending: false }).limit(100),
@@ -440,18 +453,18 @@ export function createStudio(ctx){
     const path = '/estudio/obras';
     if (!(await ensure())) return;
     const teamId = T.team.id, uid = getUser()?.id;
-    const live = () => studioLive(path, teamId, uid);
+    const routeUrl = location.pathname + location.search;
+    const live = () => studioLive(path, teamId, uid) && location.pathname + location.search === routeUrl;
     if (!live()) return;
     app.innerHTML = shell('Mis obras', '<div id="studio-works-preview" role="status">Cargando obras…</div>', path); bindPicker(works);
-    const baseRequest = studioBounded(teamData(), 17000);
-    void baseRequest.then(({ works: list }) => {
+    const baseRequest = studioBounded(teamData({ onWorks: list => {
       const preview = app.querySelector('#studio-works-preview');
       if (!live() || !preview) return;
       preview.innerHTML = list.length
         ? '<p class="mono">Obras encontradas. Preparando filtros y colaboraciones…</p><div class="s2-work-preview">' +
           list.map(work => `<p><a href="/estudio/obra/${encodeURIComponent(work.slug)}">${esc(work.title)}</a></p>`).join('') + '</div>'
-        : '<p class="mono">Verificando tu biblioteca editorial…</p>';
-    }).catch(() => {});
+        : '<p class="mono">Este equipo aún no tiene obras. Finalizando comprobaciones…</p>';
+    } }), 17000);
     const [{ works: list, chs, sched, scheduleOk }, { data: inv }, { data: collab }, { data: selectedFeature }, announced] = await studioBounded(Promise.all([baseRequest,
       sb.from('collaborations').select('id,status,series(title),inviter:teams!collaborations_inviter_team_fkey(name)').eq('invited_team', T.team.id).eq('status', COLLABORATION_STATUS.pending),
       sb.from('collaborations').select('series(slug,title,teams(name))').eq('invited_team', T.team.id).eq('status', COLLABORATION_STATUS.active),
@@ -519,8 +532,10 @@ export function createStudio(ctx){
     const path = '/estudio/obra/' + slug;
     if (!(await ensure())) return;
     const teamId = T.team.id, uid = getUser()?.id;
-    const liveWork = () => studioLive(path, teamId, uid);
+    const routeUrl = location.pathname + location.search;
+    const liveWork = () => studioLive(path, teamId, uid) && location.pathname + location.search === routeUrl;
     if (!liveWork()) return;
+    invalidateTeamBase();
     work.relatedEditor?.destroy(); work.relatedEditor = null;
     app.innerHTML = shell('Ficha editorial', '<p class="mono" role="status">Cargando ficha y capítulos…</p>', '/estudio/obra'); bindPicker(() => work(slug));
     const { data: s, error: seriesError } = await studioBounded(sb.from('series').select('*').eq('slug', slug).maybeSingle(), 12000);
