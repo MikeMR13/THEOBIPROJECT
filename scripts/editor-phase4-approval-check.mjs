@@ -28,7 +28,10 @@ for(const token of ['editor_submit_review','editor_decide_review','editor_set_te
  if(token==='El requisito de aprobación'||token==='Otra persona con permiso de revisión')continue;
  assert(panel.includes(token),'Contrato del panel faltante: '+token);
 }
-assert(board.includes("sb.from('review_requests').select('chapter_id,status,base_version,created_at')"));
+assert.match(board,/sb\.from\('review_requests'\)\s*\.select\('chapter_id,status,base_version,created_at'\)/,
+  'El tablero conserva la consulta de revisiones editoriales, ahora complementaria');
+assert.match(board,/const reviewsOk = !reviewResult\?\.error/,
+  'Los errores de revisión no pueden fingir aprobación');
 assert(board.includes('ed-board-review'),'El tablero no muestra aprobación');
 assert(css.includes('.ed-approval-settings')&&css.includes('.ed-board-review'));
 const sql=readFileSync('supabase/migrations/20261030224017_editor_phase4_approval_20261030.sql','utf8');
