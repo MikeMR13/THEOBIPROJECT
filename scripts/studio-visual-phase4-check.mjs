@@ -34,7 +34,7 @@ const methods={
 };
 for(const path of nav){
   assert(methods[path],'No existe mapeo de '+path);
-  if(special.has(path))assert(app.includes('st()).glossary('),'La ruta de glosario no está conectada');
+  if(special.has(path))assert(app.includes('studioRoute(studio => studio.glossary('),'La ruta de glosario no está conectada');
   else assert(app.includes("p === '"+path+"'"),'Ruta no registrada en app.js: '+path);
   assert(new RegExp('\\b'+methods[path]+'\\b').test(studio),'Método ausente en Studio para '+path);
 }
