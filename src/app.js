@@ -61,9 +61,9 @@ window.obiTZ = () => window.__obiUI?.tz || Intl.DateTimeFormat().resolvedOptions
 const RL = { bibliotecario: 'Bibliotecario', publicador: 'Publicador', lector: 'Lector' };
 // La sesión sale del almacenamiento local (sin red) y se pinta al instante con el perfil guardado;
 // perfil y whoami llegan en paralelo y actualizan la barra. meReady avisa cuándo `me` es definitivo.
-let meReady = Promise.resolve(), lastBar = '';
+let meReady = Promise.resolve(), membershipsReady = Promise.resolve(), lastBar = '';
 async function loadSession(){
-teamMemberships = [];
+teamMemberships = []; membershipsReady = Promise.resolve();
 // La identidad de la última sesión verificada solo sirve para preferencias y lectura
 // local en modo avión. Al recuperar internet se valida la sesión real de Supabase.
 if (!navigator.onLine) {
@@ -87,7 +87,7 @@ drawSession();
 const uid = user.id;
 // El menú de grupos es secundario: no bloquear Perfil, Preferencias ni
 // Estudio esperando team_members. Nunca aplicar grupos de otra sesión.
-void Promise.resolve(sb.from('team_members').select('teams(id,slug)').eq('user_id', uid))
+membershipsReady = Promise.resolve(sb.from('team_members').select('teams(id,slug)').eq('user_id', uid))
   .then(({ data, error }) => {
     if (error || user?.id !== uid) return;
     teamMemberships = (data || []).map(m => m.teams).filter(t => t?.id && t?.slug);
@@ -199,7 +199,8 @@ if ((data || []).some(x => !x.read)) { await sb.rpc('notifications_read_all'); $
 }
 async function groupProfile(){
   if (!user) return go('/entrar');
-  await meReady;
+  await Promise.all([meReady, membershipsReady]);
+  if (!user) return go('/entrar');
   const group = currentGroup();
   if (!group) { app.innerHTML = '<h1>Perfil grupal</h1><p>Aún no perteneces a ningún grupo traductor.</p><p><a class="btn ghost" href="/">Volver al inicio</a></p>'; return; }
   history.replaceState({}, '', '/equipo/' + encodeURIComponent(group.slug));
