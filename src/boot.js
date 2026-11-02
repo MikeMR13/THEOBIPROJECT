@@ -2,7 +2,17 @@
 (function(){
   // 1. Google Fonts sin bloquear el primer pintado: llegan como media="print" y aquí pasan a "all". gf2 (japonesas, ~110 KB de CSS) va con prioridad baja.
   ['gf', 'gf2'].forEach(function(id){ var l = document.getElementById(id); if (!l) return; var on = function(){ l.media = 'all'; }; if (l.sheet) on(); else l.addEventListener('load', on); });
-  // 2. En el inicio, pide home_feed ya, en paralelo con la descarga del JS, y precarga la portada destacada (LCP).
+  // 2. Precargar UI solo en rutas públicas que realmente la usan.
+  // El módulo continúa versionado y en el shell offline de la PWA.
+  var path = location.pathname;
+  if (path === '/' || path === '/catalogo' || path === '/buscar' || path === '/ranking' ||
+      /^\/(?:serie|equipo)\/[\w-]+$/.test(path)) {
+    var ui = document.createElement('link');
+    ui.rel = 'modulepreload';
+    ui.href = '/ui.js?v=62';
+    document.head.appendChild(ui);
+  }
+  // 3. En el inicio, pide home_feed ya, en paralelo con la descarga del JS, y precarga la portada destacada (LCP).
   var C = window.OBI_CONFIG; if (!C || location.pathname !== '/' || !window.fetch) return;
   // Sin cabeceras propias (apikey va en la URL) para que el navegador no haga la consulta previa OPTIONS: un viaje menos.
   var p = window.OBI_HOME = fetch(C.url + '/rest/v1/rpc/home_feed?apikey=' + encodeURIComponent(C.key))
