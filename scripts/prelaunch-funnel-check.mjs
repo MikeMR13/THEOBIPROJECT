@@ -64,7 +64,9 @@ assert.match(safe,/foo%22%20onclick%3D%22evil/);
 assert.doesNotMatch(read('src/prelaunch-funnel.js'),/\.rpc\(|localStorage|sessionStorage|navigator\.sendBeacon|user_id|session_id|ip_address|\.from\(/,'Sin nuevas consultas, almacenamiento ni identificadores');
 const studio=read('src/studio.js');
 assert.match(studio,/renderPrelaunchInterestFunnel\(prelaunchIds, prelaunchMetrics, prelaunchViews, list\)/);
-assert.match(studio,/T\.team\?\.id !== metricsTeamId/);
+assert.match(studio,/const metricsTeamId = teamId;/);
+assert.match(studio,/const live = \(\) => studioLive\(path, teamId, uid\)/,
+  'El embudo solo debe hidratarse mientras siga activa la misma ruta, equipo y cuenta');
 assert.match(studio,/prelaunchById\.has\(w\.id\)/);
 assert.match(studio,/\.\/prelaunch-funnel\.js\?v=1/);
 assert.match(studio,/studio-obras\.css\?v=7/);
