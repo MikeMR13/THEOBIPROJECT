@@ -25,8 +25,10 @@ for (const req of [
 }
 assert(at(home, 'const [FD, pr, VR] = await Promise.all([') < painted,
   'No se deben mostrar obras antes del permiso +18 y los volúmenes');
-assert(at(home, 'await creditsRequest;') < painted,
-  'No mostrar créditos sin recibir las invitaciones públicas vigentes');
+assert(at(home, 'await softWait(creditsRequest, null, 650);') < painted,
+  'Los créditos deben comenzar antes del dibujo, pero no bloquearlo indefinidamente');
+assert(at(home, 'void creditsRequest.then(() => {') > painted,
+  'Los créditos de los colaboradores deben actualizarse después del primer dibujo');
 
 assert(at(cat, '    draw();\n    // Mostrar primero las obras') < at(cat, 'const [counted] = await Promise.all(['),
   'Los conteos públicos nunca deben bloquear el primer dibujo del catálogo');
