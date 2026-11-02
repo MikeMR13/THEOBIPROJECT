@@ -27,9 +27,9 @@ for (const match of html.matchAll(/<(?:script|link)\b[^>]*>/gi)) {
 }
 // El lector de Fase 3 se importa solo al acceder a lectura, nunca al entrar
 // a Inicio o Catálogo. Esta medición refleja el estado INTEGRADO, no el de Fase 1.
-assert(rootAssets.has('app.js') && rootAssets.has('ui.js') &&
+assert(rootAssets.has('app.js') && !rootAssets.has('ui.js') &&
   !rootAssets.has('reader.js') && !rootAssets.has('blocks.js'),
-  'Inicio/Catálogo deben cargar el lector a demanda y conservar UI inicial');
+  'HTML debe cargar el shell y diferir UI pública y lector');
 
 // El grafo proviene de imports estáticos del fuente; import(...) queda fuera.
 // Los bytes se leen de la compilación minificada real en dist/.
@@ -64,6 +64,10 @@ const sums = rows => rows.reduce((out, r) => ({
   brotli: out.brotli + r.brotli
 }), { bytes: 0, gzip: 0, brotli: 0 });
 const initial = [...visited].sort().map(size);
+// Inicio/Catálogo solicitan UI inmediatamente después de elegir la ruta;
+// distinguir sus recursos de los del shell que también sirve Estudio y Lector.
+walk('ui.js');
+const publicRoute = [...visited].sort().map(size);
 
 const sandbox = { self: { addEventListener() {} }, URL, Response, console };
 vm.runInNewContext(readFileSync('dist/sw.js', 'utf8') +
@@ -73,7 +77,7 @@ assert(Array.isArray(sw?.shell) && sw.shell.length, 'Shell PWA no disponible');
 const shellFiles = [...new Set(sw.shell.map(url => url === '/' ?
   'index.html' : url.slice(1).split(/[?#]/)[0]))];
 const offline = shellFiles.map(size);
-for (const name of ['reader.js', 'blocks.js'])
+for (const name of ['ui.js', 'reader.js', 'blocks.js'])
   assert(shellFiles.includes(name), 'El PWA debe conservar su lector sin conexión: '+name);
 assert(initial.every(x => shellFiles.includes(x.file)),
   'Un módulo estático inicial falta en el shell offline');
@@ -83,6 +87,7 @@ const baseline = {
   methodology: 'compiled-local-resources-no-network',
   note: 'Recursos posteriores a optimización integrada (no comparables sin cambiar el método). No son tiempos de carga ni Core Web Vitals.',
   initial: { fileCount: initial.length, totals: sums(initial), files: initial },
+  publicRoute: { fileCount: publicRoute.length, totals: sums(publicRoute), files: publicRoute },
   declaredHtmlAssets: [...rootAssets].sort().map(([file, reasons]) => ({
     file, reasons: [...new Set(reasons)]
   })),
@@ -99,10 +104,12 @@ const kib = n => (n / 1024).toFixed(1);
 const lines = [
   '### Línea base de recursos del arranque (CI aislado)', '',
   '| Medida | Resultado |', '|---|---:|',
-  '| Recursos iniciales (HTML + imports estáticos) | ' + initial.length + ' |',
+  '| Recursos del shell (HTML + imports estáticos) | ' + initial.length + ' |',
+  '| Recursos de Inicio/Catálogo incluyendo UI diferida | ' + publicRoute.length + ' |',
   '| JS/CSS iniciales sin compresión | ' + kib(baseline.initial.totals.bytes) + ' KiB |',
   '| JS/CSS iniciales, estimación gzip | ' + kib(baseline.initial.totals.gzip) + ' KiB |',
   '| JS/CSS iniciales, estimación Brotli | ' + kib(baseline.initial.totals.brotli) + ' KiB |',
+  '| Inicio/Catálogo incluyendo UI, estimación Brotli | ' + kib(baseline.publicRoute.totals.brotli) + ' KiB |',
   '| Shell PWA, recursos locales | ' + offline.length + ' |',
   '| Shell PWA, estimación gzip | ' + kib(baseline.offline.totals.gzip) + ' KiB |',
   '',
