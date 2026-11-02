@@ -2546,5 +2546,5 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       const { error } = following ? await sb.from('team_follows').delete().eq('team_id', D.t.id).eq('user_id', u2.id) : await sb.from('team_follows').insert({ team_id: D.t.id, user_id: u2.id });
       b.disabled = false; if (error) return toast(error.message); following = !following; n += following ? 1 : -1; TP.fillFollow(root, following, n); toast(following ? 'Ahora sigues a ' + D.t.name : 'Dejaste de seguir a ' + D.t.name); });
   }
-  return { home, catalog, series, prefetchSeries, releases, refreshBadge, team, ranking, search };
+  return { home, catalog, series, prefetchSeries, releases, refreshBadge, team, ranking, search, searchHTML };
 }
