@@ -1385,14 +1385,36 @@ export function createStudio(ctx){
   // tablero
   const COLS = [['traduciendo','Traduciendo','#d9922b'],['correccion','En corrección','#8cc3f2'],['listo','Listo','#a9d18e'],['programado','Programado','#f2c230']];
   async function board(){
+    const path = '/estudio/flujo';
     if (!(await ensure())) return;
-    app.innerHTML = shell('Flujo de trabajo', '<p class="mono">Cargando el tablero…</p>', '/estudio/flujo'); bindPicker(board);
-    const { data: works } = await sb.from('series').select('id,slug,title,short,theme').eq('team_id', T.team.id).is('archived_at', null).order('title');
+    const teamId = T.team.id, uid = getUser()?.id;
+    const live = () => studioLive(path, teamId, uid);
+    if (!live()) return;
+    app.innerHTML = shell('Flujo de trabajo', '<p class="mono">Cargando el tablero…</p>', path); bindPicker(board);
+    const { data: works, error: workError } = await studioBounded(sb.from('series')
+      .select('id,slug,title,short,theme').eq('team_id', teamId).is('archived_at', null).order('title'), 11000);
+    if (!live()) return;
+    if (workError) throw new Error('No se pudieron recuperar las obras del tablero: ' + errMsg(workError));
     const ids = (works || []).map(w => w.id);
-    const [{ data: chs }, { mem }, {data:reviewRows}] = await Promise.all([
-      ids.length ? sb.from('chapters').select('id,num,vol,title,section_type,status,stage,assigned_to,stage_at,publish_at,updated_at,series_id,version').in('series_id', ids).in('status', ['draft','scheduled']).is('deleted_at', null).order('vol').order('num').limit(1000) : { data: [] },
+    const { readPages } = await import('/paging.js?v=1');
+    const reviewRequest = studioOptional(ids.length ? sb.from('review_requests')
+      .select('chapter_id,status,base_version,created_at')
+      .order('created_at',{ascending:false}).limit(1500) : Promise.resolve({ data: [] }),
+      { data: [], error: { message: 'Revisiones no verificadas' } }, 1250);
+    const [chapterResult, { mem }, reviewResult] = await studioBounded(Promise.all([
+      ids.length ? readPages((from, to) => sb.from('chapters')
+        .select('id,num,vol,title,section_type,status,stage,assigned_to,stage_at,publish_at,updated_at,series_id,version')
+        .in('series_id', ids).in('status', ['draft','scheduled'])
+        .is('deleted_at', null).order('id').range(from, to), { size: 250 })
+        : Promise.resolve({ data: [] }),
       teamMembers(),
-      ids.length ? sb.from('review_requests').select('chapter_id,status,base_version,created_at').order('created_at',{ascending:false}).limit(1500) : {data:[]}]);
+      reviewRequest
+    ]), 16000);
+    if (!live()) return;
+    const chs = (chapterResult.data || []).sort((a, b) =>
+      (+a.vol || 0) - (+b.vol || 0) || (+a.num || 0) - (+b.num || 0));
+    const reviewRows = reviewResult?.data || [];
+    const reviewsOk = !reviewResult?.error;
     const latestReview={};(reviewRows||[]).forEach(r=>{if(!latestReview[r.chapter_id])latestReview[r.chapter_id]=r;});
     const W = Object.fromEntries((works || []).map(w => [w.id, w])), me = getUser()?.id;
     const F = board.f || (board.f = { work: '', mine: false });
@@ -1417,6 +1439,7 @@ export function createStudio(ctx){
       <div class="tb-f"><label class="tb-inl">Obra<select id="fw"><option value="">Todas</option>${(works || []).map(w => `<option value="${w.id}" ${F.work === w.id ? 'selected' : ''}>${esc(w.short || w.title)}</option>`).join('')}</select></label>
         <label class="tb-inl"><input type="checkbox" id="fm" ${F.mine ? 'checked' : ''}> Solo lo asignado a mí</label>
         <span class="mono" style="margin-left:auto">${mv ? 'Mueve las tarjetas con ← → o arrastrándolas. Quien queda asignado recibe un aviso.' : 'Tu rol puede ver el tablero, pero no mover tarjetas.'}</span></div>
+      ${reviewsOk ? '' : '<p class="mono" role="status">No se pudieron verificar todas las revisiones. Vuelve a abrir el tablero para consultar su estado.</p>'}
       ${reviewSummary.length?'<aside class="tb-review-summary" aria-label="Resumen de revisiones por obra"><strong>Revisiones por obra</strong><div>'+reviewSummary.map(x=>'<span><b>'+esc(x.work.short||x.work.title)+'</b>: '+x.pending+' en revisión · '+x.changes+' con correcciones · '+x.expired+' caducadas · '+x.approved+' aprobadas</span>').join('')+'</div></aside>':''}
       <p class="mono s2-scroll-tip">Desliza horizontalmente para recorrer las etapas del tablero. También puedes mover tarjetas con las flechas.</p><div class="tb-cols" role="region" aria-label="Etapas del flujo editorial" tabindex="0">${COLS.map(([k, l, c]) => { const cs = list.filter(x => colOf(x) === k); return `<section class="tb-col" data-col="${k}" style="border-top-color:${c}"><h2><span>${l}</span><span class="mono">${cs.length}</span></h2>${cs.map(card).join('') || `<p class="tb-empty">${k === 'programado' ? 'Nada programado.' : 'Sin capítulos aquí.'}</p>`}</section>`; }).join('')}</div>
       ${!(chs || []).length ? '<p class="mono">Los capítulos en borrador o programados aparecen aquí. Los publicados salen del tablero.</p>' : ''}</div>`;
