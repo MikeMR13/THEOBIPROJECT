@@ -6,9 +6,8 @@ import { editorialChapterLabel } from './editorial-public-labels.js';
 import { normalizeSupportCopy } from './support-display-copy.js';
 import { createOfflineDownloads, readOfflineIndex } from './offline-downloads.js?v=1';
 import { readingGroups, planReadingChanges, undoReadingChanges, applyReadingChanges, persistReadingChanges } from './library-read-actions.js';
-// Inicio y Catálogo necesitan UI; el lector se importa solo cuando una ruta o acción lo requiere.
+// La UI pública y el lector solo se importan cuando su ruta los necesita.
 import { createClient } from '/supabase.js?v=1';
-import { createUI } from '/ui.js?v=62';
 import { attachPublicCredits, creditsHTML, installCreditImageFallback } from '/public-collaboration-credits.js?v=1';
 import { reportHomeRead } from '/home-metrics.js?v=1';
 import { sameReaderAccount, readingProgressPrefix, readerProgressKeys } from '/reader-pref-cache.js?v=1';
@@ -42,7 +41,17 @@ const rd = () => R ? Promise.resolve(R) :
   readerRequest ||= import('/reader.js?v=26')
     .then(({ createReader }) => R = createReader(CTX()))
     .catch(error => { readerRequest = null; throw error; });
-let U; const ui = () => U ||= createUI(CTX());
+let U, uiModuleRequest;
+// No evaluar el módulo público al arrancar rutas privadas.
+// La PWA conserva ui.js versionado en el precaché para uso offline.
+const uiModule = () => uiModuleRequest ||= import('/ui.js?v=62')
+  .catch(error => { uiModuleRequest = null; throw error; });
+const ui = async () => U ||= (await uiModule()).createUI(CTX());
+const publicView = async (path, method, ...args) => {
+  const module = await uiModule();
+  if (location.pathname !== path) return; // no pintar la ruta anterior
+  return (U ||= module.createUI(CTX()))[method](...args);
+};
 
 // Preferencias de pantalla (Accesibilidad) y lectores silenciados/bloqueados: se aplican al instante desde el almacenamiento local.
 const readJ = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
@@ -208,7 +217,7 @@ async function groupProfile(){
 }
 const routes = {
 '/mi-equipo': groupProfile,
-'/': () => ui().home(), '/catalogo': () => ui().catalog(), '/calendario': async () => { const m = await ag(); if (location.pathname === '/calendario') return m.agenda(CTX()); }, '/ranking': () => ui().ranking(), '/lanzamientos': async () => { const m = await ag(); if (location.pathname === '/lanzamientos') return m.agenda(CTX()); }, '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/preferencias': async () => (await pf()).preferences(PCTX()), '/buscar': () => ui().search(), '/solicitud': solicitud, '/elige-nombre': chooseName, '/privacidad': async () => (await lg()).privacy(app), '/condiciones-servicio': async () => (await lg()).terms(app),
+'/': () => publicView('/', 'home'), '/catalogo': () => publicView('/catalogo', 'catalog'), '/calendario': async () => { const m = await ag(); if (location.pathname === '/calendario') return m.agenda(CTX()); }, '/ranking': () => publicView('/ranking', 'ranking'), '/lanzamientos': async () => { const m = await ag(); if (location.pathname === '/lanzamientos') return m.agenda(CTX()); }, '/biblioteca': library, '/apoyar': support, '/entrar': () => login('in'), '/registro': () => login('up'), '/restablecer': resetPassword, '/perfil': perfil, '/preferencias': async () => (await pf()).preferences(PCTX()), '/buscar': () => publicView('/buscar', 'search'), '/solicitud': solicitud, '/elige-nombre': chooseName, '/privacidad': async () => (await lg()).privacy(app), '/condiciones-servicio': async () => (await lg()).terms(app),
 '/invitacion': async () => (await import('/team-invitations.js?v=1')).renderTeamInvitation({ sb, app, esc, toast, go }),
 '/bibliotecario': async () => (await ad()).render(), '/admin': async () => { history.replaceState({}, '', '/bibliotecario'); (await ad()).render(); },
 };
@@ -263,7 +272,7 @@ function netBanner(){
 addEventListener('offline', netBanner);
 addEventListener('online', () => { netBanner();
   // Revalidar la identidad antes de sincronizar cualquier progreso pendiente.
-  loadSession().then(() => { ui().refreshBadge(); if (user) return rd().then(reader => reader.syncPending()).then(n => { if (n) toast('Tu progreso sin conexión ya se guardó en tu cuenta'); }); }).catch(e => console.warn('sesión reconectada', e));
+  loadSession().then(() => { U?.refreshBadge(); if (user) return rd().then(reader => reader.syncPending()).then(n => { if (n) toast('Tu progreso sin conexión ya se guardó en tu cuenta'); }); }).catch(e => console.warn('sesión reconectada', e));
 });
 if (!navigator.onLine) netBanner();
 let seasonApplySeq = 0;
@@ -305,10 +314,10 @@ const p = location.pathname; let m;
 scrollTo(0, 0); document.body.classList.remove('in-studio'); app.classList.remove('obi-downloads-page');
 if (p === '/descargas' || (!navigator.onLine && !p.startsWith('/leer/'))) return offlinePage();
 if (p.startsWith('/estudio') || p === '/perfil' || p === '/preferencias' || p === '/solicitud') { await meReady; if (location.pathname !== p) return; }
-if ((m = p.match(/^\/serie\/([\w-]+)$/))) return ui().series(m[1]);
+if ((m = p.match(/^\/serie\/([\w-]+)$/))) return publicView(p, 'series', m[1]);
 if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) { reportHomeRead(sb,p); const reader = await rd(); if (location.pathname !== p) return; return reader.open(m[1], +m[2]); }
 if ((m = p.match(/^\/anotaciones\/([\w-]+)$/))) { const reader = await rd(); if (location.pathname !== p) return; return reader.annotationsPage(m[1]); }
-if ((m = p.match(/^\/equipo\/([\w-]+)$/))) return ui().team(m[1]);
+if ((m = p.match(/^\/equipo\/([\w-]+)$/))) return publicView(p, 'team', m[1]);
 if ((m = p.match(/^\/lector\/([^/]+)$/))) return lector(decodeURIComponent(m[1]));
 if (p.startsWith('/estudio')) {
   if (!user) return go('/entrar');
@@ -1133,21 +1142,21 @@ const warmSeries = e => {
   const slug = link?.getAttribute('href')?.match(/^\/serie\/([\w-]+)(?:[?#]|$)/)?.[1];
   if (!slug || !navigator.onLine) return;
   clearTimeout(seriesWarmT);
-  seriesWarmT = setTimeout(() => ui().prefetchSeries(slug), e.type === 'pointerover' ? 120 : 0);
+  seriesWarmT = setTimeout(() => { void ui().then(view => view.prefetchSeries(slug)).catch(() => {}); }, e.type === 'pointerover' ? 120 : 0);
 };
 document.addEventListener('pointerover', warmSeries, { passive: true });
 document.addEventListener('focusin', warmSeries);
 document.addEventListener('touchstart', warmSeries, { passive: true });
 addEventListener('load', () => setTimeout(() => { if (user && navigator.onLine) void rd().then(reader => reader.syncPending()).catch(() => {}); }, 5000));
 let authEv = null;
-sb.auth.onAuthStateChange(ev => { if (ev !== 'INITIAL_SESSION') loadSession().then(() => ui().refreshBadge()); if (navigator.onLine && ['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(ev) && authEv !== null) seasons().then(S => S.load(sb, true)).then(() => afterRender()); authEv = ev; });
+sb.auth.onAuthStateChange(ev => { if (ev !== 'INITIAL_SESSION') loadSession().then(() => U?.refreshBadge()); if (navigator.onLine && ['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED'].includes(ev) && authEv !== null) seasons().then(S => S.load(sb, true)).then(() => afterRender()); authEv = ev; });
 loadSession().then(() => {
 const qs = new URLSearchParams(location.search), hash = new URLSearchParams(location.hash.slice(1));
 if (hash.get('error_description')) { history.replaceState({}, '', '/entrar'); render(); return toast(hash.get('error_description').includes('expired') ? 'El enlace expiró. Inicia sesión para recibir otro.' : hash.get('error_description')); }
 const pendingInvite = pendingInviteToken();
 if (user && pendingInvite && (location.pathname === '/' || qs.has('bienvenida'))) {
-  history.replaceState({}, '', '/invitacion'); render(); ui().refreshBadge(); return;
+  history.replaceState({}, '', '/invitacion'); render(); U?.refreshBadge(); return;
 }
 if (qs.has('bienvenida') && user) { history.replaceState({}, '', '/'); return meReady.then(welcome); }
-render(); ui().refreshBadge();
+render(); U?.refreshBadge();
 });
