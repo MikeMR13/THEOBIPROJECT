@@ -343,37 +343,77 @@ export function createStudio(ctx){
 
   // ---------- resumen ----------
   async function home(){
+    const path = '/estudio';
     if (!(await ensure())) return;
-    app.innerHTML = shell('Resumen', '<p class="mono">Cargando el resumen…</p>', '/estudio'); bindPicker(home);
-    const [{ works, chs, sched, reps }, tv] = await Promise.all([teamData(), sb.rpc('team_views', { p_team: T.team.id, p_days: 14 })]), byId = Object.fromEntries(works.map(w => [w.id, w]));
-    const daily = tv.data || [];
-    if (!works.length) { app.innerHTML = shell('Resumen', emptyState(), '/estudio'); bindPicker(home); return; }
+    const teamId = T.team.id, uid = getUser()?.id;
+    const live = () => studioLive(path, teamId, uid);
+    if (!live()) return;
+    app.innerHTML = shell('Resumen', '<p class="mono">Cargando el resumen…</p>', path); bindPicker(home);
+    const viewsRequest = Promise.resolve(sb.rpc('team_views', { p_team: teamId, p_days: 14 }));
+    const { works, chs, sched, reps, reportsOk } = await studioBounded(teamData({ reports: true }), 17000);
+    if (!live()) return;
+    const byId = Object.fromEntries(works.map(w => [w.id, w]));
+    if (!works.length) { app.innerHTML = shell('Resumen', emptyState(), path); bindPicker(home); return; }
+    const daily = [];
     const now = Date.now(), pub = chs.filter(c => c.status === 'published'), drafts = chs.filter(c => c.status === 'draft').sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
     const up = [...chs.filter(c => c.status === 'scheduled' && new Date(c.publish_at) > now).map(c => ({ at: c.publish_at, what: `Cap. ${c.num} — ${c.title}`, s: byId[c.series_id] })), ...sched.map(e => ({ at: e.at, what: e.label, s: byId[e.series_id] }))].sort((a, b) => new Date(a.at) - new Date(b.at));
     const week = pub.filter(c => now - new Date(c.publish_at) < 7 * DAY).length, views = works.reduce((a, w) => a + (w.views || 0), 0);
     const kpi = (l, v, n, c, href) => `<a class="s2-kpi s2-kpi-link" href="${href}" style="--c:${c}" aria-label="${l}: ${v}. Abrir sección"><small>${l}</small><b>${v}</b><span>${n}</span></a>`;
-    const who = await names(drafts.slice(0, 5).map(c => c.assigned_to)); const STG = { traduciendo: ['Traduciendo', 25, '#f2c230'], correccion: ['En corrección', 60, '#8cc3f2'], listo: ['Listo', 90, '#a9d18e'] };
-    const dsum = daily.reduce((a, x) => a + (+x.n || 0), 0), dmax = Math.max(1, ...daily.map(x => +x.n || 0)), dl = x => x ? fmtTz(x.day + 'T12:00:00', { day: 'numeric', month: 'short' }) : '';
+    const whoRequest = Promise.resolve(names(drafts.slice(0, 5).map(c => c.assigned_to)));
+    const who = await studioOptional(whoRequest, {}, 450);
+    if (!live()) return;
+    const STG = { traduciendo: ['Traduciendo', 25, '#f2c230'], correccion: ['En corrección', 60, '#8cc3f2'], listo: ['Listo', 90, '#a9d18e'] };
+    const dsum = 0, dmax = 1, dl = x => x ? fmtTz(x.day + 'T12:00:00', { day: 'numeric', month: 'short' }) : '';
     const body = `<div class="s2-kpis">
         ${kpi('Capítulos publicados', pub.length.toLocaleString('es-MX'), week ? `+${week} esta semana` : 'Ninguno esta semana', '#a9d18e', '/estudio/obras')}
         ${kpi('Programados', up.length, up[0] ? 'Próximo ' + until(up[0].at) : 'Nada en agenda', '#f2c230', '/estudio/obras')}
         ${kpi('Borradores', drafts.length, drafts[0] ? 'Último ' + ago(drafts[0].updated_at) : 'Sin borradores', '#8cc3f2', '/estudio/flujo')}
-        ${kpi('Erratas abiertas', reps.length, reps.length ? 'Revísalas pronto' : 'Todo al día', reps.length ? '#f59e7a' : '#a9d18e', '/estudio/comunidad')}
+        ${kpi('Erratas abiertas', reportsOk ? reps.length : '—', reportsOk ? (reps.length ? 'Revísalas pronto' : 'Todo al día') : 'Temporalmente no disponibles', reps.length ? '#f59e7a' : '#a9d18e', '/estudio/comunidad')}
         ${kpi('Lecturas totales', views.toLocaleString('es-MX'), works.length + (works.length === 1 ? ' obra' : ' obras'), '#cfc6b0', '/estudio/estadisticas')}
       </div>
       <div class="s2-cols">
         <section class="s2-box"><div class="s2-bh"><h2>Próximos lanzamientos</h2><a href="/estudio/obras">Programar →</a></div>
           ${up.slice(0, 5).map(u => { const d = new Date(u.at); return `<div class="s2-up"><span class="d" style="--c:${wcolor(u.s)}"><b>${d.getDate()}</b><small>${MON[d.getMonth()]}</small></span><span class="w"><b>${esc(u.what)}</b><small>${esc(u.s?.title || '')}</small></span><span class="t">${fmtTz(d, { hour: '2-digit', minute: '2-digit' })}<small>${until(u.at)}</small></span></div>`; }).join('') || '<p class="mono s2-none">No hay nada programado. Programa un capítulo desde la ficha de la obra.</p>'}</section>
         <section class="s2-box"><div class="s2-bh"><h2>Borradores pendientes</h2><span class="mono">${drafts.length}</span></div>
-          ${drafts.slice(0, 5).map(c => { const g = STG[c.stage] || (c.review_status === 'pending' ? ['En revisión', 75, '#8cc3f2'] : c.review_status === 'approved' ? ['Aprobado', 90, '#a9d18e'] : ['Borrador', 10, '#f2c230']); return `<a class="s2-dr" href="/estudio/editar/${c.id}"><b>Cap. ${c.num} — ${esc(c.title)}</b><span class="st" style="color:${g[2]}">${g[0]}</span><small>${esc(byId[c.series_id]?.title || '')} · ${c.assigned_to ? esc(who[c.assigned_to] || 'asignado') : 'sin asignar'}</small><small>${ago(c.updated_at)}</small><span class="pg"><i style="width:${g[1]}%"></i></span></a>`; }).join('') || '<p class="mono s2-none">Sin borradores. ¡Todo publicado!</p>'}</section>
+          ${drafts.slice(0, 5).map(c => { const g = STG[c.stage] || (c.review_status === 'pending' ? ['En revisión', 75, '#8cc3f2'] : c.review_status === 'approved' ? ['Aprobado', 90, '#a9d18e'] : ['Borrador', 10, '#f2c230']); return `<a class="s2-dr" href="/estudio/editar/${c.id}"><b>Cap. ${c.num} — ${esc(c.title)}</b><span class="st" style="color:${g[2]}">${g[0]}</span><small>${esc(byId[c.series_id]?.title || '')} · ${c.assigned_to ? `<span data-studio-assignee="${esc(c.assigned_to)}">${esc(who[c.assigned_to] || 'asignado')}</span>` : 'sin asignar'}</small><small>${ago(c.updated_at)}</small><span class="pg"><i style="width:${g[1]}%"></i></span></a>`; }).join('') || '<p class="mono s2-none">Sin borradores. ¡Todo publicado!</p>'}</section>
         <section class="s2-box"><div class="s2-bh"><h2>Erratas abiertas</h2><span class="mono" style="color:${reps.length ? '#f59e7a' : ''}">${reps.length}</span></div>
-          ${reps.slice(0, 4).map(r => `<div class="s2-er"><small>${esc(byId[r.chapters.series_id]?.title || '')} · Cap. ${r.chapters.num}${r.kind ? ' · ' + esc(r.kind) : ''} · ${ago(r.created_at)}</small>${r.quote ? `<q>${esc(r.quote)}</q>` : ''}${r.fix ? `<span>Propuesta: ${esc(r.fix)}</span>` : ''}<span class="a">${can('edit') ? `<a class="btn ghost" href="/estudio/editar/${r.chapter_id}">Abrir en el editor</a>` : ''}<button class="btn ghost ok" data-fix="${r.id}">Marcar corregida</button><button class="lnk" data-dis="${r.id}">Descartar</button></span></div>`).join('') || '<p class="mono s2-none">Sin erratas abiertas.</p>'}</section>
-        <section class="s2-box"><div class="s2-bh"><h2>Vistas · últimos 14 días</h2><a class="mono" href="/estudio/estadisticas" style="color:#a89f8a">${dsum.toLocaleString('es-MX')}</a></div>
+          ${reps.slice(0, 4).map(r => `<div class="s2-er"><small>${esc(byId[r.chapters.series_id]?.title || '')} · Cap. ${r.chapters.num}${r.kind ? ' · ' + esc(r.kind) : ''} · ${ago(r.created_at)}</small>${r.quote ? `<q>${esc(r.quote)}</q>` : ''}${r.fix ? `<span>Propuesta: ${esc(r.fix)}</span>` : ''}<span class="a">${can('edit') ? `<a class="btn ghost" href="/estudio/editar/${r.chapter_id}">Abrir en el editor</a>` : ''}<button class="btn ghost ok" data-fix="${r.id}">Marcar corregida</button><button class="lnk" data-dis="${r.id}">Descartar</button></span></div>`).join('') || (reportsOk ? '<p class="mono s2-none">Sin erratas abiertas.</p>' : '<p class="mono s2-none" role="status">No se pudieron verificar las erratas. Vuelve a abrir Resumen.</p>')}</section>
+        <section class="s2-box" id="studio-home-views"><div class="s2-bh"><h2>Vistas · últimos 14 días</h2><a class="mono" href="/estudio/estadisticas" style="color:#a89f8a">—</a></div>
           <div class="s2-vb" role="img" aria-label="Vistas por día de los últimos 14 días">${daily.map((x, i) => `<span title="${dl(x)}: ${(+x.n).toLocaleString('es-MX')} vistas" style="height:${Math.max(2, Math.round(+x.n / dmax * 100))}%;background:${i === daily.length - 1 ? 'var(--gold)' : +x.n ? '#8a7a4f' : '#2f2a20'}"></span>`).join('')}</div>
-          <div class="s2-vl"><span>${dl(daily[0])}</span><span>${dl(daily[daily.length - 1])}</span></div>${dsum ? '' : '<p class="mono s2-none" style="border:none">Las vistas se cuentan desde que se activaron las estadísticas: una por lector, capítulo y día.</p>'}</section>
+          <div class="s2-vl"><span>${dl(daily[0])}</span><span>${dl(daily[daily.length - 1])}</span></div>${'<p class="mono s2-none" style="border:none" role="status">Consultando visitas…</p>'}</section>
       </div>`;
-    app.innerHTML = shell('Resumen', body, '/estudio'); bindPicker(home);
-    app.querySelectorAll('[data-fix],[data-dis]').forEach(b => b.onclick = () => busy(b, async () => { const fix = !!b.dataset.fix; const { error } = await sb.from('reports').update({ status: fix ? 'fixed' : 'dismissed' }).eq('id', b.dataset.fix || b.dataset.dis); if (error) throw error; toast(fix ? 'Errata marcada como corregida' : 'Errata descartada'); home(); }));
+    if (!live()) return;
+    app.innerHTML = shell('Resumen', body, path); bindPicker(home);
+    // Rellenar únicamente el panel de vistas: no rehacer el resto de Resumen.
+    void viewsRequest.then(({ data, error }) => {
+      if (!live()) return;
+      const panel = app.querySelector('#studio-home-views');
+      if (!panel) return;
+      if (error || !Array.isArray(data)) {
+        panel.querySelector('.s2-none').textContent = 'Las estadísticas no están disponibles ahora. Consulta Estadísticas para reintentar.';
+        return;
+      }
+      const total = data.reduce((n, row) => n + (+row.n || 0), 0);
+      const peak = Math.max(1, ...data.map(row => +row.n || 0));
+      panel.querySelector('.s2-bh a').textContent = total.toLocaleString('es-MX');
+      panel.querySelector('.s2-vb').innerHTML = data.map((row, i) =>
+        `<span title="${esc(dl(row))}: ${(+row.n || 0).toLocaleString('es-MX')} vistas" style="height:${Math.max(2,Math.round((+row.n || 0)/peak*100))}%;background:${i === data.length-1 ? 'var(--gold)' : +row.n ? '#8a7a4f' : '#2f2a20'}"></span>`).join('');
+      panel.querySelector('.s2-vl').innerHTML = `<span>${esc(dl(data[0]))}</span><span>${esc(dl(data[data.length-1]))}</span>`;
+      panel.querySelector('.s2-none').textContent = total
+        ? 'Vistas verificadas durante los últimos 14 días.'
+        : 'No hay visitas registradas en este periodo.';
+    }).catch(error => {
+      if (live()) { const n = app.querySelector('#studio-home-views .s2-none'); if (n) n.textContent = 'No se pudieron consultar las visitas.'; }
+      console.warn('Vistas de Estudio', error);
+    });
+    void whoRequest.then(namesById => {
+      if (!live()) return;
+      app.querySelectorAll('[data-studio-assignee]').forEach(node => {
+        const label = namesById[node.dataset.studioAssignee];
+        if (label) node.textContent = label;
+      });
+    }).catch(error => console.warn('Nombres de borradores', error));
+    app.querySelectorAll('[data-fix],[data-dis]').forEach(b => b.onclick = () => busy(b, async () => { const fix = !!b.dataset.fix; const { error } = await sb.from('reports').update({ status: fix ? 'fixed' : 'dismissed' }).eq('id', b.dataset.fix || b.dataset.dis); if (error) throw error; invalidateTeamBase(); toast(fix ? 'Errata marcada como corregida' : 'Errata descartada'); home(); }));
   }
   const emptyState = () => `<div class="s2-empty"><span>空</span><h2>Tu estudio está vacío</h2><p>Empieza importando un EPUB, DOCX o PDF: armamos la obra con su portada, índice e ilustraciones.</p>${can('create') || can('import') ? '<span style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><a class="btn" href="/estudio/nueva">＋ Crear mi primera obra</a></span>' : '<p class="mono">Pide a tu propietario permiso para crear obras.</p>'}</div>`;
 
