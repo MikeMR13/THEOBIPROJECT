@@ -107,5 +107,6 @@ export function bindStudioWorksControls({app,$,state,chosen,card,list,busy,sb,T,
           });
         } else if(btn.dataset.new) busy(btn,()=>newChapter(list.find(w=>w.id===btn.dataset.new)));
       });
+      return renderResults;
     }
 }
