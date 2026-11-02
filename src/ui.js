@@ -1043,6 +1043,20 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       <div id="ob-s-ann"></div><div id="ob-s-rev"></div>
       ${shelf.length ? `<section class="ob-sec">${head('書架', 'Series', `<span class="r2"><a class="r" href="/catalogo">Ver todas →</a>${arrows('ob-car')}</span>`)}
         <div class="ob-car" id="ob-car">${shelf.map(x => cc(x, genericSectionCount(x.chapters?.[0]?.count) + ' · ' + (TL[x.translation_status] || TL.active)[0])).join('')}${list.length > shelf.length ? `<a class="ob-cc all" href="/catalogo"><span class="cv">Ver las ${list.length} →</span></a>` : ''}</div></section>` : ''}</div>`;
+    // Si llegaron después del primer dibujo, actualizar solo los créditos de
+    // las tarjetas afectadas, sin reiniciar carruseles ni revelar obras +18.
+    void creditsRequest.then(() => {
+      if (!liveHome() || !app.querySelector('.ob-page')) return;
+      for (const card of app.querySelectorAll('.ob-page a.ob-cc[href^="/serie/"]')) {
+        const slug = card.getAttribute('href').slice('/serie/'.length).split('#')[0];
+        const work = list.find(item => item.slug === slug);
+        if (!work) continue;
+        const html = creditsHTML(work, { esc, media, mode: 'carousel' });
+        const previous = card.querySelector('.obi-credits--carousel');
+        if (previous) previous.outerHTML = html;
+        else if (html) card.insertAdjacentHTML('beforeend', html);
+      }
+    }).catch(error => console.warn('Créditos de Inicio', error));
     // Insertar el aviso de temporada sin volver a pintar el Home completo.
     // El nodo está vinculado a esta navegación: nunca actualizar una vista vieja.
     const festSlot = app.querySelector('#ob-fest-slot');
