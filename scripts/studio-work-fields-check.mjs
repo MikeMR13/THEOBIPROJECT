@@ -75,7 +75,8 @@ assert.equal(searchRelatedWorks(allRelated, 'onix').items[0].id, 'work-570', 'B�
 assert.equal(searchRelatedWorks(allRelated, 'magia', ['work-570']).total, 0, 'Excluir obras ya relacionadas');
 assert.equal(searchRelatedWorks(allRelated, '').items.length, 12, 'Mostrar pocas opciones a la vez');
 assert(creator.includes('loadRelatedWorks(sb, teamId)'), 'Nueva obra usa catálogo paginado del equipo inicial');
-assert(importer.includes('loadRelatedWorks(sb, T.team.id)'), 'Importación usa catálogo paginado');
+assert(importer.includes('loadRelatedWorks(sb, teamId)'), 'Importación usa catálogo paginado sin bloquear el primer render');
+assert(importer.includes('loadStudioImportCatalogue(sb, teamId)'), 'Importación comprueba volúmenes mediante consultas paginadas independientes');
 assert(!creator.includes('.order(\'title\').limit(500)'), 'No truncar las obras nuevas');
 console.log('✓ Relaciones: búsqueda accesible, paginación >500, RLS, edición y importación');
 

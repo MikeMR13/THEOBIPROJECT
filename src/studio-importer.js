@@ -8,7 +8,7 @@ import { repeatedOpeningHeading, smartTitleBlocks } from './reader-headings.js?v
 import { editorialForm, bindEditorialForm, saveEditorialRecord } from './editorial-announcements.js?v=1';
 import { createWorkData, renderWorkFields, bindWorkFields, workPayload } from './studio-work-fields.js?v=5';
 import { loadRelatedWorks } from './studio-related-works.js?v=5';
-import { readPages } from './paging.js?v=1';
+import { loadStudioImportCatalogue } from './studio-importer-catalog.js?v=1';
 import { planVolumeReplacement, validateImportMedia } from './import-safety.js?v=1';
 import { makeImportUploadPath, uploadImportAsset } from './import-upload-paths.js?v=1';
 import { createTeamFontStore } from './import-font-reuse.js?v=1';
@@ -256,19 +256,59 @@ export function createImporter(deps) {
     if (!(await ensure())) return;
     const TAB = '/estudio/importar';
     if (!can('import')) { app.innerHTML = shell('Importar', '<p>Tu rol no permite importar archivos.</p>', TAB); bindPicker(importer); return; }
-    const [{ data: works }, related] = await Promise.all([
-      readPages((from, to) => sb.from('series')
-        .select('id,slug,title,cover_path,volumes(id,num,title,cover_path,deleted_at)')
-        .eq('team_id', T.team.id).is('archived_at', null)
-        .order('title').order('id').range(from, to), { size: 250 }),
-      loadRelatedWorks(sb, T.team.id)
-    ]);
+    // El selector de archivos debe mostrarse incluso si el catálogo tarda o falla.
+    // Los datos editoriales solo son obligatorios al elegir el destino de importación.
+    const teamId = T.team.id, uid = getUser()?.id;
+    const live = () => location.pathname === TAB && T.team?.id === teamId && getUser()?.id === uid;
+    let works = [], related = [], catalogueReady = false, catalogueTask = null;
+    const bounded = (request, ms = 12000) => new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('El catálogo tardó demasiado en responder.')), ms);
+      Promise.resolve(request).then(
+        value => { clearTimeout(timer); resolve(value); },
+        error => { clearTimeout(timer); reject(error); }
+      );
+    });
+    const showCatalogueError = error => {
+      if (!live()) return;
+      const node = $('#imp-catalog-status');
+      if (!node) return;
+      node.innerHTML = '<p>No se pudo cargar el catálogo de obras: ' +
+        esc(error?.message || 'Error de conexión') +
+        '.</p><button class="btn ghost" type="button" id="imp-catalog-retry">Reintentar catálogo</button>';
+      $('#imp-catalog-retry')?.addEventListener('click', () => {
+        node.textContent = 'Reintentando catálogo de obras…';
+        void loadCatalogue().catch(() => {});
+      });
+    };
+    const loadCatalogue = () => {
+      if (catalogueReady) return Promise.resolve(works);
+      if (catalogueTask) return catalogueTask;
+      catalogueTask = bounded(loadStudioImportCatalogue(sb, teamId))
+        .then(data => {
+          if (!live()) return [];
+          works = data;
+          catalogueReady = true;
+          const node = $('#imp-catalog-status');
+          if (node) node.textContent = '';
+          return works;
+        }).catch(error => {
+          catalogueTask = null;
+          console.warn('Importar: catálogo de obras', error);
+          showCatalogueError(error);
+          throw error;
+        });
+      return catalogueTask;
+    };
+    // Obras relacionadas son opcionales: nunca impedir que se abra el importador.
+    const relatedTask = Promise.resolve(loadRelatedWorks(sb, teamId))
+      .then(data => { if (live()) related = data; })
+      .catch(error => console.warn('Importar: obras relacionadas', error));
     let P = null, file = null, fp = null, step = 1, sel = 0, splitting = false, dupAt = null, V = {};
     const contextualId = new URLSearchParams(location.search).get('obra');
-    const contextualWork = (works || []).find(w => w.id === contextualId) || null;
+    const contextualWork = () => works.find(w => w.id === contextualId) || null;
     const D = { work: contextualWork?.id || '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', notice: null, noticeGetter: null, newTitle: '', newAuthor: '', scanChapterTitles: false, smartTitles: false };
     let NW = createWorkData();
-    app.innerHTML = shell('Importar contenido', '<ol class="imp-steps" id="steps"></ol><div id="wiz"></div><p id="status" class="mono" role="status"></p>', TAB);
+    app.innerHTML = shell('Importar contenido', '<p id="imp-catalog-status" class="mono" role="status"></p><ol class="imp-steps" id="steps"></ol><div id="wiz"></div><p id="status" class="mono" role="status"></p>', TAB);
     bindPicker(importer);
     const W = () => $('#wiz'), st = m => { const s = $('#status'); if (s) s.textContent = m || ''; };
     const src = k => k && k.startsWith('img:') ? P.urls.get(k.slice(4)) || '' : k;
@@ -280,7 +320,7 @@ export function createImporter(deps) {
     const render = () => { $('#steps').innerHTML = ['Archivo', 'Revisar', 'Destino'].map((l, i) => `<li class="${step === i + 1 ? 'on' : step > i + 1 ? 'done' : ''}"><span>${step > i + 1 ? '✓' : i + 1}</span>${l}</li>`).join(''); [null, s1, s2, s3][step](); };
 
     function s1(){
-      W().innerHTML = `${contextualWork ? `<p class="imp-context mono">Importarás para <b>${esc(contextualWork.title)}</b>. Podrás cambiar la obra antes de confirmar.</p>` : ''}<label class="imp-drop" id="drop"><b>Arrastra aquí un EPUB, DOCX o PDF</b><span class="mono">o toca para elegirlo · máx. 80 MB</span><input type="file" id="file" accept=".epub,.docx,.pdf" hidden></label>
+      W().innerHTML = `${contextualId ? `<p class="imp-context mono">${contextualWork() ? 'Importarás para <b>' + esc(contextualWork().title) + '</b>. ' : ''}Podrás confirmar la obra de destino antes de importar.</p>` : ''}<label class="imp-drop" id="drop"><b>Arrastra aquí un EPUB, DOCX o PDF</b><span class="mono">o toca para elegirlo · máx. 80 MB</span><input type="file" id="file" accept=".epub,.docx,.pdf" hidden></label>
         <p class="mono">Del EPUB se leen capítulos, ilustraciones, fuentes, portada y datos del libro: autor, editorial, sinopsis y número de volumen.</p>`;
       const dz = $('#drop');
       $('#file').onchange = e => e.target.files[0] && load(e.target.files[0]);
@@ -305,7 +345,7 @@ export function createImporter(deps) {
         suggestSkips(P);
         const key = (P.meta.series || P.title).toLowerCase();
         const guess = (works || []).find(w => w.title && key.includes(w.title.toLowerCase().slice(0, 18)));
-        const target = contextualWork || guess;
+        const target = contextualWork() || guess;
         D.work = target?.id || ''; D.newTitle = P.meta.series || P.title.replace(/\s*[,:\-–]?\s*(vol(umen|ume)?\.?|tomo)\s*\d+.*$/i, '').trim() || P.title; D.newAuthor = P.meta.author || '';
         NW = createWorkData({ title: D.newTitle, author: D.newAuthor, illustrator: P.meta.illustrator || '', publisher: P.meta.publisher || '', synopsis: (P.meta.synopsis || '').slice(0, 1500) });
         D.vnum = importedVolumeNumber({ filename: f.name, title: P.title, metadataIndex: P.meta.index, fallback: nextVol(target) }); D.scanChapterTitles = false; D.smartTitles = false; D.cover = P.cover || null; D.workCover = !target || !target.cover_path; D.mode = 'replace';
@@ -392,7 +432,41 @@ export function createImporter(deps) {
         splitting = false; sel++; s2(); toast('Sección dividida');
       };
       $('#back').onclick = () => { P.urls.forEach(u => u && URL.revokeObjectURL(u)); P = null; step = 1; st(''); render(); };
-      $('#next').onclick = () => { step = 3; render(); };
+      $('#next').onclick = async e => {
+        const button = e.currentTarget;
+        button.disabled = true;
+        button.textContent = 'Comprobando obras y volúmenes…';
+        try {
+          await loadCatalogue();
+          if (!live() || !P) return;
+          // El archivo puede haberse analizado antes de llegar las obras.
+          // Recuperar el contexto y calcular el volumen correcto antes de editar.
+          const title = (P.meta.series || P.title).toLowerCase();
+          const target = contextualWork() ||
+            works.find(w => w.title && title.includes(w.title.toLowerCase().slice(0, 18)));
+          if (!D.work && target) {
+            D.work = target.id;
+            D.vnum = importedVolumeNumber({
+              filename: file?.name, title: P.title, metadataIndex: P.meta.index,
+              fallback: nextVol(target)
+            });
+            D.workCover = !target.cover_path;
+          }
+          // No bloquear la importación por datos de relaciones opcionales.
+          await Promise.race([relatedTask, new Promise(resolve => setTimeout(resolve, 650))]);
+          if (!live() || !P) return;
+          st('');
+          step = 3;
+          render();
+        } catch (error) {
+          if (live()) st('No se pudo comprobar el catálogo. Reintenta sin volver a seleccionar el archivo.');
+        } finally {
+          if (button.isConnected) {
+            button.disabled = false;
+            button.textContent = 'Continuar al destino ›';
+          }
+        }
+      };
     }
 
     function s3(){
@@ -599,6 +673,7 @@ export function createImporter(deps) {
       }
     }
     render();
+    void loadCatalogue().catch(() => {});
   }
 
 

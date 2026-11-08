@@ -59,8 +59,8 @@ assert(st.includes('data-shift') && st.includes("data-dir='up'") && st.includes(
   'No eliminar las acciones de teclado para reordenación');
 requires(imp,[
 "new URLSearchParams(location.search).get('obra')",
-"(works || []).find(w => w.id === contextualId)",
-"const target = contextualWork || guess",
+"const contextualWork = () => works.find(w => w.id === contextualId) || null;",
+"const target = contextualWork() || guess",
 "D.vnum = importedVolumeNumber({ filename: f.name, title: P.title, metadataIndex: P.meta.index, fallback: nextVol(target) })"
 ],'Importador contextual');
 requires(pub,[
