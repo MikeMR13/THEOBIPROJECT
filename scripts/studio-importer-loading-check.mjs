@@ -18,21 +18,21 @@ function mockDatabase({ firstSeriesError = false, volumesError = false, relatedE
         range(from, to) {
           calls.push({ ...state, from, to });
           if (table === 'series' && state.fields === 'id,slug,title,cover_path') {
-            if (first) { first = false; return Promise.resolve({ error: { message: 'HTTP 500 simulado' } }); }
+            if (first) { first = false; return Promise.resolve({ error: new Error('HTTP 500 simulado') }); }
             return Promise.resolve({ data: [
               { id: 'series-1', slug: 'obra-uno', title: 'Obra uno', cover_path: null },
               { id: 'series-2', slug: 'obra-dos', title: 'Obra dos', cover_path: 'media/dos.jpg' }
             ] });
           }
           if (table === 'volumes') return Promise.resolve(volumesError
-            ? { error: { message: 'Volúmenes no disponibles' } }
+            ? { error: new Error('Volúmenes no disponibles') }
             : { data: [
               { id: 'volume-1', series_id: 'series-1', num: 1, deleted_at: null },
               { id: 'volume-2', series_id: 'series-2', num: 2, deleted_at: '2026-10-01' }
             ] });
           if (table === 'series' && state.fields === 'id,title,teams(name)')
             return Promise.resolve(relatedError
-              ? { error: { message: 'Obras relacionadas no disponibles' } }
+              ? { error: new Error('Obras relacionadas no disponibles') }
               : { data: [] });
           throw new Error('Consulta no esperada: ' + table + ': ' + state.fields);
         }
