@@ -2,7 +2,12 @@
 export function immediateDeliveryNotice(results) {
  if(!Array.isArray(results)||!results.length)return '';
  const sent=results.filter(r=>r.status==='sent').length;
- if(!sent)return 'Ningún aviso tiene entrega confirmada. Revisa los canales antes de repetir.';
+ const already=results.filter(r=>r.status==='already').length;
+ if(!sent && already===results.length)
+  return 'Esta publicación ya se anunció anteriormente en '+already+' canal'+(already===1?'':'es')+'. No se envió ningún duplicado.';
+ if(!sent && already>0)
+  return 'Ya se había anunciado en '+already+' canal'+(already===1?'':'es')+'. No hay nuevos envíos confirmados; revisa los demás destinos.';
+ if(!sent)return 'Ningún envío nuevo tiene entrega confirmada. Revisa los canales antes de repetir.';
  if(sent===results.length)return 'Aviso enviado correctamente a '+sent+' canal'+(sent===1?'':'es')+'.';
  return 'Aviso enviado a '+sent+' de '+results.length+' canales. Comprueba los destinos no confirmados antes de repetir.';
 }
