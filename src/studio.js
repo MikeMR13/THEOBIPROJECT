@@ -6,7 +6,7 @@ import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=
 import { initCollaborationTeamPicker, COLLABORATION_STATUS } from './studio-collaboration-picker.js?v=1';
 import { seriesPublicationHTML, bindSeriesPublication } from './studio-series-publication.js?v=2';
 import { bindSeriesSeo, teamSeoProfileHTML } from './studio-seo.js?v=2';
-import { dailyViewsScale, viewsColumnMeaning, reviewCountsForWorks } from './studio-stats-display.js';
+import { dailyViewsScale, viewsColumnMeaning, reviewCountsForWorks, paintProfileVisitStats } from './studio-stats-display.js';
 import { editorialChapterLabel } from './editorial-public-labels.js';
 import { cleanSeo } from './seo-settings.js?v=1';
 import { SECTION_TYPES } from './section-types.js?v=1';
@@ -1661,7 +1661,7 @@ export function createStudio(ctx){
     app.querySelector('.s2-main').innerHTML = app.querySelector('.s2-head').outerHTML + `<div class="lg">
       <div class="cm-f">${pick(works, F.work, 'fs', '')}<span class="lg-chips">${[[7,'7 días'],[30,'30 días'],[90,'90 días']].map(([k, l]) => `<button class="ed-chip ${F.days === k ? 'on' : ''}" aria-pressed="${F.days === k}" data-days="${k}">${l}</button>`).join('')}</span></div>
       <div class="s2-kpis" style="margin:0">${kpi('Vistas · ' + F.days + ' días', fmt(sum('views')), fmt(sum('views_total')) + ' en total', c)}${kpi('Seguidores', fmt(d.followers), 'reciben aviso de cada volumen', '#8cc3f2')}${kpi('Lecturas completas', fmt(sum('finished')), 'capítulos terminados por lectores con cuenta', '#a9d18e')}${kpi('Comentarios', fmt(sum('comments')), fmt(sum('reactions')) + ' reacciones', '#c9a8f2')}</div>
-      <div id="st-fb"></div>
+      <div id="st-profile-visits"></div><div id="st-fb"></div>
       <section class="s2-box"><div class="s2-bh"><h2>Vistas por día</h2><span class="mono">${dayL(daily[0]?.day)} – ${dayL(daily[daily.length - 1]?.day)}</span></div>
         <div class="st-plot" aria-label="Gráfico diario con escala visible">
           <div class="st-axis-y" aria-hidden="true">${scale.ticks.map(v=>`<span>${fmt(v)}</span>`).join('')}</div>
@@ -1676,6 +1676,7 @@ export function createStudio(ctx){
         <tbody>${sorted.map(x => { const r = Math.min(100, Math.round(+x.finished / base * 100)); return `<tr><th scope="row"><a href="/estudio/editar/${x.id}">${esc(editorialChapterLabel(x))}</a><small>Vol. ${x.vol}${x.publish_at ? ' · ' + fmtTz(x.publish_at, { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</small></th>
           <td>${fmt(x.views)}</td><td>${fmt(x.views_total)}</td><td>${fmt(x.finished)}</td><td><span class="st-ret" title="${r} % de quienes terminaron el primero"><i style="width:${r}%;background:${c}"></i></span><small>${r} %</small></td><td>${+x.here ? fmt(x.here) : '—'}</td><td>${fmt(x.comments)}</td><td>${fmt(x.reactions)}</td><td style="color:${+x.reports ? '#f59e7a' : ''}">${+x.reports ? fmt(x.reports) : '—'}</td></tr>`; }).join('') || '<tr><td colspan="9" class="tb-empty">Sin capítulos publicados.</td></tr>'}</tbody></table></div>
       <p class="mono">«Terminaron» y «Se quedaron aquí» solo cuentan lectores con cuenta. Retención: terminaron este capítulo / terminaron el primero. «Se quedaron aquí» son quienes lo empezaron y no han seguido: un número alto puede indicar un capítulo difícil.</p></div>`;
+    void paintProfileVisitStats(sb, F.work, F.days, app.querySelector('#st-profile-visits'));
     fbP.then(({ data: fb, error }) => { const el = document.getElementById('st-fb'); if (!el || error || !fb) return;
       const RL = { leidas: 'Más leídas', tendencia: 'Tendencia', calificadas: 'Mejor calificadas', terminadas: 'Más terminadas', novedades: 'Novedades en ascenso' }, PL = { semana: 'esta semana', historico: 'histórico' };
       const mx = Math.max(1, ...(fb.dist || []));
