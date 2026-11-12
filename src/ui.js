@@ -1231,11 +1231,12 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
 
     // Completar la rotación editorial cuando lleguen los datos auxiliares,
     // conservando la portada visible y los preestrenos ya incorporados.
-    Promise.all([trendRequest(), teamRequest(), profileVisitsRequest()]).then(([trends, teamResult, visitResult]) => {
+    const trendTeamUpdates = Promise.all([trendRequest(), teamRequest()]);
+    trendTeamUpdates.then(([trends, teamResult]) => {
       if (!heroEl?.isConnected || app.querySelector('#hero') !== heroEl || location.pathname !== '/') return;
       loadedTeamSignature = teamSignature(teamResult?.data);
       const extra = homeFeaturedSelection({
-        series:list, news, weekly:rkW||[], historic:rkH||[], visits:visitResult?.data||[],
+        series:list, news, weekly:rkW||[], historic:rkH||[],
         trends:trends?.data||[], editorial:Array.isArray(ps.featured)?ps.featured:[],
         teams:teamResult?.data||[], now
       });
@@ -1270,6 +1271,29 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       const selected = feat.findIndex(item => heroKey(item) === active);
       refreshHeroKeepingActive(feat, Math.max(0, selected), prog, lastCh, top, newsBySeries, featReasons);
     }).catch(e => console.warn('destacados inicio', e));
+    // Las visitas no bloquean tendencias ni recomendaciones: se añaden después.
+    trendTeamUpdates.then(async ([trends, teamResult]) => {
+      const { data, error } = await profileVisitsRequest();
+      if (error || !data?.length || !heroEl?.isConnected || app.querySelector('#hero') !== heroEl || !liveHome()) return;
+      const extra = homeFeaturedSelection({
+        series:list, news, weekly:rkW||[], historic:rkH||[], visits:data,
+        trends:trends?.data||[], editorial:Array.isArray(ps.featured)?ps.featured:[],
+        teams:teamResult?.data||[], now
+      });
+      const selected = extra.entries.map(x => byId[x.id]).filter(Boolean);
+      const retained = feat.filter(x => !x.__prelaunch && newsBySeries[x.id]?.kind === 'volume'
+        && +new Date(now) - Date.parse(newsBySeries[x.id]?.at || '') < 7*864e5);
+      const published = selected.length ? [...retained, ...selected] : feat.filter(x => !x.__prelaunch);
+      const updated = mergeHomeCarousel(published, prelaunchPreviews, 10, newsBySeries, now);
+      if (!updated.length || !heroEl.isConnected || app.querySelector('#hero') !== heroEl) return;
+      const changed = updated.length !== feat.length || updated.some((x, i) => heroKey(x) !== heroKey(feat[i]));
+      if (!changed) return;
+      Object.assign(featReasons, extra.bySeries);
+      feat.splice(0, feat.length, ...updated);
+      const active = heroEl.dataset.heroKey;
+      const activePos = feat.findIndex(item => heroKey(item) === active);
+      refreshHeroKeepingActive(feat, Math.max(0, activePos), prog, lastCh, top, newsBySeries, featReasons);
+    }).catch(e => console.warn('ranking visitas Inicio', e));
 
     // El día editorial rota en Monterrey. Los lanzamientos completos nuevos
     // rompen la rotación en la sesión abierta; no dependen de un cron nocturno.
@@ -2290,11 +2314,12 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
 
     // La vista general conserva Más leídas como ranking principal y ofrece
     // adelantos de las demás clasificaciones sin cargarlos antes de tiempo.
-    const previewLists = ['visitas', 'tendencia', 'novedades', 'calificadas', 'terminadas'];
+    const previewLists = ['tendencia', 'novedades', 'calificadas', 'terminadas'];
+    const previewKeys = ['visitas', ...previewLists];
     const overviewMarkup = `<div id="rk-overview" class="rk-overview" hidden>
       <div class="rk-overview-top"><h2>Explora otros rankings</h2>
         <p>Un vistazo a las clasificaciones de esta semana. Selecciona «Ver ranking completo» para explorar cada categoría.</p></div>
-      ${previewLists.map(key => `<section class="rk-preview" data-rk-preview="${key}" aria-labelledby="rk-preview-title-${key}">
+      ${previewKeys.map(key => `<section class="rk-preview" data-rk-preview="${key}" aria-labelledby="rk-preview-title-${key}">
         <div class="rk-preview-head"><h3 id="rk-preview-title-${key}">${RK_L[key]}</h3>
           <a href="/ranking?lista=${key}">Ver ranking completo →</a></div>
         <div class="rk-preview-body" aria-live="polite"><p class="mono rk-preview-state">La clasificación se cargará al llegar aquí.</p></div>
@@ -2420,7 +2445,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       if (previewObserver) overview.querySelectorAll('[data-rk-preview]').forEach(section => {
         if (!previewStates.has(section.dataset.rkPreview)) previewObserver.observe(section);
       });
-      else previewLists.forEach(loadPreview);
+      else previewKeys.forEach(loadPreview);
     };
     const drawTeam = async my => {
       const box = $('#rk-team-results');
