@@ -1,0 +1,45 @@
+name: Visitas a fichas - PostgreSQL aislado
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20261120_series_profile_visits.sql'
+      - 'scripts/profile-visits-db-*.sql'
+      - '.github/workflows/profile-visits-db.yml'
+  push:
+    paths:
+      - 'supabase/migrations/20261120_series_profile_visits.sql'
+      - 'scripts/profile-visits-db-*.sql'
+      - '.github/workflows/profile-visits-db.yml'
+permissions:
+  contents: read
+jobs:
+  visitas-db:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: obi_qa
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: github-actions-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d obi_qa"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGDATABASE: obi_qa
+      PGPASSWORD: github-actions-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preparar esquema efímero sin datos de producción
+        run: psql -v ON_ERROR_STOP=1 -f scripts/profile-visits-db-bootstrap.sql
+      - name: Aplicar solamente nueva migración en PostgreSQL temporal
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261120_series_profile_visits.sql
+      - name: Verificar permisos, visitas y estadísticas sin llamadas externas
+        run: psql -v ON_ERROR_STOP=1 -f scripts/profile-visits-db-check.sql
