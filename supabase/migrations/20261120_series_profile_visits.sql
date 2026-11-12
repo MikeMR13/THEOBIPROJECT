@@ -124,3 +124,29 @@ revoke all on function public.series_profile_ranking(text,text,text,integer) fro
 grant execute on function public.series_profile_ranking(text,text,text,integer) to anon,authenticated;
 comment on function public.series_profile_ranking(text,text,text,integer) is
   'Ranking de aperturas de ficha, independiente del ranking existente de capítulos';
+
+-- Panel editorial privado: visitas de ficha sin confundirlas con vistas por capítulo.
+create or replace function public.series_profile_visit_stats(
+  p_series uuid, p_days integer default 30
+) returns jsonb language plpgsql stable security definer
+set search_path = ''
+as $$
+declare
+  v_days integer := least(greatest(coalesce(p_days,30),1),365);
+  v_recent bigint;
+  v_total bigint;
+begin
+  if p_series is null or not private.in_team(
+    (select s.team_id from public.series s where s.id = p_series)
+  ) then
+    raise exception 'forbidden' using errcode = '42501';
+  end if;
+  select coalesce(sum(d.n) filter(where d.day > current_date - v_days),0)::bigint,
+         coalesce(sum(d.n),0)::bigint
+    into v_recent, v_total
+  from public.series_profile_daily d where d.series_id = p_series;
+  return jsonb_build_object('days',v_days,'recent',v_recent,'total',v_total);
+end;
+$$;
+revoke all on function public.series_profile_visit_stats(uuid,integer) from public,anon,authenticated;
+grant execute on function public.series_profile_visit_stats(uuid,integer) to authenticated;
