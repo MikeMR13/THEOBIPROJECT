@@ -29,7 +29,7 @@ for (const table of ['series_daily','chapter_views','read_chapters','rankings'])
 assert(!/create\\s+extension|cron\\.schedule|create\\s+trigger/i.test(sql), 'Sin servicios, extensiones ni cron nuevos');
 assert(ui.includes("recordSeriesProfileVisit(sb, s.id, getUser())"), 'La ficha registra visitas sin bloquear');
 assert(ui.includes("R.list === 'visitas'"), 'El ranking separa visitas y lecturas');
-assert(ui.includes("const previewLists = ['visitas'"), 'Vista previa de ranking por visitas');
+assert(ui.includes("const previewKeys = ['visitas', ...previewLists]") && ui.includes('previewKeys.map(key =>'), 'Vista previa de ranking por visitas sin alterar las listas existentes');
 assert(ui.includes("profileVisitRanking(sb, { period: 'semana', limit: 10 })"), 'La vitrina consulta visitas aparte');
 assert(ui.includes('data-home-rank="leidas"') && ui.includes('data-home-rank="visitas"'),
   'El carrusel alterna métricas sin duplicar secciones');
