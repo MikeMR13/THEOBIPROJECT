@@ -2207,11 +2207,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
   // ---------- Ranking ----------
   const fmtN = n => Number(n).toLocaleString('es-MX');
   async function seriesRank(s){
-    const [{ data: rb }, { data: rt }] = await Promise.all([sb.from('rankings').select('list,period,pos').eq('series_id', s.id).lte('pos', 10), sb.rpc('series_rating', { p_series: s.id })]);
-    const bx = $('#rk-bdg'); if (bx && rb?.length) {
+    const [{ data: rb }, { data: rt }, { data: profileVisits }] = await Promise.all([sb.from('rankings').select('list,period,pos').eq('series_id', s.id).lte('pos', 10), sb.rpc('series_rating', { p_series: s.id }), profileVisitRanking(sb, { period: 'semana', limit: 10 }).catch(() => ({ data: [] }))]);
+    const bx = $('#rk-bdg'); if (bx) {
       const PO = ['semana', 'mes', 'hoy', 'anio', 'historico'], seen = new Set();
-      const best = rb.sort((a, b) => PO.indexOf(a.period) - PO.indexOf(b.period) || a.pos - b.pos).filter(r => !seen.has(r.list) && seen.add(r.list)).slice(0, 2);
-      bx.innerHTML = best.map(r => `<a class="rk-bdg" href="/ranking?lista=${r.list}&periodo=${r.period}"><b>#${r.pos}</b>${RK_L[r.list]} ${RK_PF[r.period]}</a>`).join('');
+      const best = (rb || []).sort((a, b) => PO.indexOf(a.period) - PO.indexOf(b.period) || a.pos - b.pos).filter(r => !seen.has(r.list) && seen.add(r.list)).slice(0, 2);
+      const tags = best.map(r => `<a class="rk-bdg" href="/ranking?lista=${r.list}&periodo=${r.period}"><b>#${r.pos}</b>${RK_L[r.list]} ${RK_PF[r.period]}</a>`);
+      const visitsPosition = (profileVisits || []).find(r => r.series_id === s.id)?.pos;
+      if (visitsPosition) tags.push(`<a class="rk-bdg" href="/ranking?lista=visitas&periodo=semana"><b>#${visitsPosition}</b>Más visitadas de la semana</a>`);
+      bx.innerHTML = tags.join('');
     }
     const el = $('#rk-rate'); if (!el) return;
     const r = rt || {}, mine = r.mine || 0, u = getUser(), shown = mine || Math.round(+r.avg || 0);
