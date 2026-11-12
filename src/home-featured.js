@@ -1,5 +1,5 @@
 // Curaduría diaria del carrusel: variedad, cupos por origen y excepciones editoriales.
-export const HERO_CATEGORIES = Object.freeze(['release','popular','historic','editorial','discover','trending','team']);
+export const HERO_CATEGORIES = Object.freeze(['release','popular','historic','visits','editorial','discover','trending','team']);
 const MAX_CANDIDATES = 3; // Solo categorías editoriales; equipos sin límite
 const MS_DAY = 86400000;
 const isValidDate = v => Number.isFinite(Date.parse(v || ''));
@@ -56,7 +56,7 @@ export function mergeHomeCarousel(published = [], upcoming = [], max = HOME_CARO
 
 // El cambio de día es determinista para todos los visitantes, sin cron ni almacenamiento local.
 // Cuando llega un volumen completo nuevo se prioriza INMEDIATAMENTE, sin esperar al siguiente día.
-export function homeFeaturedSelection({series=[], news={entries:[],bySeries:{}}, weekly=[], historic=[], trends=[], editorial=[], teams=[], now=new Date(), max=HOME_CAROUSEL_LIMIT}={}) {
+export function homeFeaturedSelection({series=[], news={entries:[],bySeries:{}}, weekly=[], historic=[], visits=[], trends=[], editorial=[], teams=[], now=new Date(), max=HOME_CAROUSEL_LIMIT}={}) {
   const today = homeDayKey(now), byId = new Map(series.map(s => [s.id,s]));
   const existing = id => byId.get(id);
   const completeRelease = g => {
@@ -86,7 +86,8 @@ export function homeFeaturedSelection({series=[], news={entries:[],bySeries:{}},
   const priorityReleases=firstUnique([...freshVolumes,...freshDebuts,...urgent.slice(0,1),...launches],2);
   pool.release=firstUnique([...priorityReleases,...launches,...updates.map(asRelease)]);
   pool.popular=firstUnique(sortScore(weekly).filter(r=>existing(r.series_id)).map(r=>({id:r.series_id,kind:'popular',label:'Top de la semana'})));
-  pool.historic=firstUnique(sortScore(historic).filter(r=>existing(r.series_id)).map(r=>({id:r.series_id,kind:'historic',label:'Lo más visto'})));
+  pool.historic=firstUnique(sortScore(historic).filter(r=>existing(r.series_id)).map(r=>({id:r.series_id,kind:'historic',label:'Lecturas históricas'})));
+  pool.visits=firstUnique(sortScore(visits).filter(r=>existing(r.series_id)).map(r=>({id:r.series_id,kind:'visits',label:'Más visitada de la semana'})));
   pool.editorial=firstUnique(editorial.filter(id=>existing(id)).map(id=>({id,kind:'editorial',label:'Selección de El Obi'})));
   // Una joya no es una obra de estreno con cero visitas: debe tener recorrido,
   // contenido suficiente y actividad real reciente. Evitar candidatos sin fecha
@@ -139,14 +140,14 @@ export function homeFeaturedSelection({series=[], news={entries:[],bySeries:{}},
   if(firstTeam)add(firstTeam);
   // Si todas las novedades restantes coinciden con equipos recomendados, la
   // recomendación del equipo prevalece, excepto el lanzamiento completo urgente.
-  for(const category of ['popular','historic','editorial','discover','trending']){
+  for(const category of ['popular','historic','visits','editorial','discover','trending']){
     for(const x of rotate(pool[category],today,category)){
       if(!reservedTeams.has(x.id)&&add(x))break;
     }
   }
   // Solo un equipo en el hero, rotando cada día. El resto permanece visible
   // en la banda independiente; no extender indefinidamente el hero.
-  for(const x of [...releases,...['popular','historic','editorial','discover','trending']
+  for(const x of [...releases,...['popular','historic','visits','editorial','discover','trending']
     .flatMap(k=>rotate(pool[k],today,k))]){
     if(x.kind==='release'&&chosen.filter(y=>y.kind==='release').length>=2)continue;
     if(reservedTeams.has(x.id))continue;
