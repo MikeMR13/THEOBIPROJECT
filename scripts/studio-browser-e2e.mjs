@@ -26,6 +26,7 @@ const whitelist = new Map([
  ['/diffusion.css','src/diffusion.css'],
  ['/studio-seo.js','src/studio-seo.js'],
  ['/studio-stats-display.js','src/studio-stats-display.js'],
+ ['/studio-profile-visits.js','src/studio-profile-visits.js'],
  ['/studio-stats-display.css','src/studio-stats-display.css'],
  ['/editorial-public-labels.js','src/editorial-public-labels.js'],
  ['/seo-settings.js','src/seo-settings.js'],

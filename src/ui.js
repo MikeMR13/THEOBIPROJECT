@@ -4,6 +4,8 @@ import { publicationDate, publicationAge, publicationDay } from './publication-d
 import { homeReleaseOverview, homeReleaseHighlights } from './home-releases.js?v=3';
 import { attachPublicCredits, creditTeams, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
 import { homeFeaturedSelection, homeDayKey, mergeHomeCarousel } from './home-featured.js?v=3';
+import { recordSeriesProfileVisit, profileVisitRanking } from './series-profile-visits.js?v=1';
+import { bindHomeVisitRanking } from './home-visit-ranking.js?v=1';
 import { homeFeedRevision, homeFeedHasNewContent } from './home-feed-freshness.js?v=1';
 import { createHeroRotationClock } from './home-hero-rotation.js?v=1';
 import { createHomeMetrics, homeMetricCategory } from './home-metrics.js?v=1';
@@ -193,12 +195,12 @@ const TL = { active: ['En traducción', '#a9d18e'], paused: ['En pausa', '#f2c23
 const OR = { publishing: 'En publicación', completed: 'Completada', paused: 'En pausa', cancelled: 'Cancelada' };
 const SQ = { waiting: 'En espera de secuela', none: 'Sin secuela confirmada', announced: 'Secuela anunciada', publishing: 'Secuela en publicación', completed: 'Secuela completada' };
 
-const RK_L = { leidas: 'Más leídas', tendencia: 'Tendencia', calificadas: 'Mejor calificadas', terminadas: 'Más completadas por lectores', novedades: 'Novedades en ascenso' };
+const RK_L = { leidas: 'Más leídas', visitas: 'Más visitadas', tendencia: 'Tendencia', calificadas: 'Mejor calificadas', terminadas: 'Más completadas por lectores', novedades: 'Novedades en ascenso' };
 const RK_P = { hoy: 'Hoy', semana: 'Semana', mes: 'Mes', anio: 'Año', historico: 'Histórico' };
 const RK_PF = { hoy: 'de hoy', semana: 'de la semana', mes: 'del mes', anio: 'del año', historico: 'de todos los tiempos' };
 const RK_OK = { tendencia: ['hoy', 'semana', 'mes'], novedades: ['hoy', 'semana', 'mes'] };
-const RK_D = { leidas: 'Lecturas únicas diarias acumuladas: cada lector o dispositivo cuenta una vez por obra y día; puede volver a sumar en días distintos.', tendencia: 'Las que más lecturas ganaron frente al periodo anterior.', calificadas: 'Promedio de estrellas. Solo entran obras con 25 votos o más en el periodo.', terminadas: 'Lectores que llegaron al último capítulo publicado (no necesariamente una obra concluida).', novedades: 'Obras con su primer capítulo publicado hace 30 días o menos.' };
-const RK_E = { calificadas: 'Todavía ninguna obra llega a 25 votos en este periodo. Califica las que leas desde su ficha.', tendencia: 'Ninguna obra ganó lecturas frente al periodo anterior.', novedades: 'No hay obras nuevas con lecturas en este periodo.' };
+const RK_D = { visitas: 'Aperturas de fichas: una visita por obra y visitante al día, independientes de las lecturas de capítulos.', leidas: 'Lecturas únicas diarias acumuladas: cada lector o dispositivo cuenta una vez por obra y día; puede volver a sumar en días distintos.', tendencia: 'Las que más lecturas ganaron frente al periodo anterior.', calificadas: 'Promedio de estrellas. Solo entran obras con 25 votos o más en el periodo.', terminadas: 'Lectores que llegaron al último capítulo publicado (no necesariamente una obra concluida).', novedades: 'Obras con su primer capítulo publicado hace 30 días o menos.' };
+const RK_E = { visitas: 'Todavía no hay visitas a fichas registradas en este periodo.', calificadas: 'Todavía ninguna obra llega a 25 votos en este periodo. Califica las que leas desde su ficha.', tendencia: 'Ninguna obra ganó lecturas frente al periodo anterior.', novedades: 'No hay obras nuevas con lecturas en este periodo.' };
 const RK_CSS = `
 .rk-bar{display:grid;gap:12px;margin:0 0 26px}.rk-row{display:flex;gap:12px 18px;flex-wrap:wrap;align-items:center}
 /* Ranking: áreas táctiles de 44px reales en todas las pestañas, también a 320px. */
@@ -913,6 +915,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       .eq('list','tendencia').in('period',['hoy','semana']).order('pos').limit(30)
       .then(r => r, () => ({ data: [] }));
     const teamRequest = () => teamHighlights().then(r => r, () => ({ data: [] }));
+    const profileVisitsRequest = () => profileVisitRanking(sb, { period: 'semana', limit: 10 }).then(r => r, () => ({ data: [] }));
     // El progreso del lector es complementario: nunca retener la portada mientras
     // responde esa consulta. Mostrar primero el progreso guardado en el dispositivo.
     const prog = localProgressMap();
@@ -1059,7 +1062,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         <div class="ob-next ob-anim">${nx.map(e => `<a class="ob-nx" href="/serie/${esc(e.series.slug)}"><span class="w">${until(e.at)} · ${new Date(e.at).toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span><b>${esc(e.series.title)}</b><small>${e.kind === 'volume' ? 'Volumen completo · ' : ''}${esc(e.label || '')}</small></a>`).join('')}</div></section>` : ''}
       <div class="ob-band" style="display:flex;align-items:baseline;gap:14px;margin:56px 0 0;padding-bottom:10px;border-bottom:2px solid var(--gold)"><span aria-hidden="true" style="font-family:'Shippori Mincho B1',serif;font-size:28px;color:var(--gold)">探</span><h2 style="margin:0;font-size:clamp(26px,3vw,40px);font-family:'Shippori Mincho B1',serif;font-weight:500">Explora</h2></div>
       ${genres.length ? `<section class="ob-sec" style="border-top:none">${head('類', 'Géneros', '<a class="r" href="/catalogo">Catálogo completo →</a>')}<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr));gap:14px">${genres.slice(0, 8).map(([g, n]) => { const x = list.find(s => (s.genres || []).includes(g) && s.cover_path); return `<a href="/catalogo?g=${encodeURIComponent(g)}" style="position:relative;display:flex;align-items:flex-end;min-height:120px;padding:14px;color:#fbf8f1;text-decoration:none;border:1px solid var(--line);background:#16140f ${x ? `url('${esc(thumb(x))}') center 25%/cover` : ''};overflow:hidden"><span aria-hidden="true" style="position:absolute;inset:0;background:linear-gradient(transparent 20%,rgba(13,12,10,.92))"></span><span style="position:relative;display:grid;gap:2px"><b style="font-size:17px">${esc(g)}</b><small class="mono" style="font-size:11px;color:#cfc6b0">${n} ${n === 1 ? 'obra' : 'obras'}</small></span></a>`; }).join('')}</div></section>` : ''}
-      ${rk.length ? `<section class="ob-sec ob-rank-section">${head('人気', 'Más leídas', `<span class="r2"><span class="mono" style="font-size:12px">${rkUse.lbl}</span><a class="r" href="/ranking?lista=leidas&periodo=${rkUse.per}">Ver ranking →</a>${arrows('ob-rank-car')}</span>`)}
+      ${rk.length ? `<section class="ob-sec ob-rank-section">${head('人気', 'Más leídas', `<span class="r2"><button type="button" class="ui-chip on" style="min-height:44px" data-home-rank="leidas" aria-pressed="true">Más leídas</button><button type="button" class="ui-chip" style="min-height:44px" data-home-rank="visitas" aria-pressed="false">Más visitadas</button><span class="mono" data-home-rank-period style="font-size:12px">${rkUse.lbl}</span><a class="r" data-home-rank-link href="/ranking?lista=leidas&periodo=${rkUse.per}">Ver ranking →</a>${arrows('ob-rank-car')}</span>`)}
         <div class="ob-rank ob-anim" id="ob-rank-car" tabindex="0" role="region" aria-roledescription="carrusel" aria-label="Novelas más leídas">${rk.map((r, i) => { const s = byId[r.series_id]; return `<a class="ob-ritem" href="/serie/${s.slug}"><span class="n">${i + 1}</span><span class="c">${s.cover_thumb_path || s.cover_path ? `<img src="${esc(media(s.cover_thumb_path || s.cover_path))}" alt="" loading="lazy" decoding="async" width="264" height="352" fetchpriority="low">` : `<span class="ob-rank-cover-fallback">${esc(s.short || s.title)}</span>`}</span><b>${esc(s.title)}</b><small>${Math.round(+r.score || 0).toLocaleString('es-MX')} ${rkUse.per === 'semana' ? 'lectores' : 'vistas'} · ${genericSectionCount(s.chapters?.[0]?.count)}</small></a>`; }).join('')}</div><div class="ob-rank-count mono" data-rank-status aria-live="off"></div></section>` : ''}
       ${done.length ? `<section class="ob-sec">${head('完結', 'Traducciones terminadas', `<span class="r2"><a class="r" href="/catalogo?tl=completed">Ver todas →</a>${arrows('ob-car-done')}</span>`)}<div class="ob-car" id="ob-car-done">${done.map(x => cc(x, genericSectionCount(x.chapters?.[0]?.count), 'COMPLETA')).join('')}</div></section>` : ''}
       <div id="ob-s-ann"></div><div id="ob-s-rev"></div>
@@ -1151,6 +1154,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const rankCar = app.querySelector('#ob-rank-car');
     if (rankCar) {
       const rankCount = rankCar.parentElement.querySelector('[data-rank-status]');
+      bindHomeVisitRanking({ sb, rankCar, byId, media, esc, sectionCount: genericSectionCount, toast, readLabel: rkUse.lbl, readPeriod: rkUse.per });
       const updateRank = () => {
         const bounds = rankCar.getBoundingClientRect();
         const cards = [...rankCar.children];
@@ -1227,7 +1231,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
 
     // Completar la rotación editorial cuando lleguen los datos auxiliares,
     // conservando la portada visible y los preestrenos ya incorporados.
-    Promise.all([trendRequest(), teamRequest()]).then(([trends, teamResult]) => {
+    const trendTeamUpdates = Promise.all([trendRequest(), teamRequest()]);
+    trendTeamUpdates.then(([trends, teamResult]) => {
       if (!heroEl?.isConnected || app.querySelector('#hero') !== heroEl || location.pathname !== '/') return;
       loadedTeamSignature = teamSignature(teamResult?.data);
       const extra = homeFeaturedSelection({
@@ -1266,6 +1271,31 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       const selected = feat.findIndex(item => heroKey(item) === active);
       refreshHeroKeepingActive(feat, Math.max(0, selected), prog, lastCh, top, newsBySeries, featReasons);
     }).catch(e => console.warn('destacados inicio', e));
+    // Reutilizar exactamente el mismo compositor y límite del carrusel existente.
+    const mergeVisitsCarousel = mergeHomeCarousel;
+    // Las visitas no bloquean tendencias ni recomendaciones: se añaden después.
+    trendTeamUpdates.then(async ([trends, teamResult]) => {
+      const { data, error } = await profileVisitsRequest();
+      if (error || !data?.length || !heroEl?.isConnected || app.querySelector('#hero') !== heroEl || !liveHome()) return;
+      const extra = homeFeaturedSelection({
+        series:list, news, weekly:rkW||[], historic:rkH||[], visits:data,
+        trends:trends?.data||[], editorial:Array.isArray(ps.featured)?ps.featured:[],
+        teams:teamResult?.data||[], now
+      });
+      const selected = extra.entries.map(x => byId[x.id]).filter(Boolean);
+      const retained = feat.filter(x => !x.__prelaunch && newsBySeries[x.id]?.kind === 'volume'
+        && +new Date(now) - Date.parse(newsBySeries[x.id]?.at || '') < 7*864e5);
+      const published = selected.length ? [...retained, ...selected] : feat.filter(x => !x.__prelaunch);
+      const updated = mergeVisitsCarousel(published, prelaunchPreviews, 10, newsBySeries, now);
+      if (!updated.length || !heroEl.isConnected || app.querySelector('#hero') !== heroEl) return;
+      const changed = updated.length !== feat.length || updated.some((x, i) => heroKey(x) !== heroKey(feat[i]));
+      if (!changed) return;
+      Object.assign(featReasons, extra.bySeries);
+      feat.splice(0, feat.length, ...updated);
+      const active = heroEl.dataset.heroKey;
+      const activePos = feat.findIndex(item => heroKey(item) === active);
+      refreshHeroKeepingActive(feat, Math.max(0, activePos), prog, lastCh, top, newsBySeries, featReasons);
+    }).catch(e => console.warn('ranking visitas Inicio', e));
 
     // El día editorial rota en Monterrey. Los lanzamientos completos nuevos
     // rompen la rotación en la sesión abierta; no dependen de un cron nocturno.
@@ -1497,7 +1527,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       (!hidS(s) || F.gin.some(g => (s.genres || []).includes(g))));
     let all = publicRows;
     let upcoming = [];
-    let prog = {}, fol = new Set(), RK = {}, rkLbl = 'histórico';
+    let prog = {}, fol = new Set(), RK = {}, VISITS = {}, rkLbl = 'histórico';
     const last = {};
     const nCh = s => s.chapters?.[0]?.count || 0;
     const status = s => { const p = prog[s.id], lc = last[s.id];
@@ -1505,7 +1535,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       if (p) return ['Leyendo' + (p.pct > 0.02 && p.pct < 0.98 ? ' · ' + Math.round(p.pct * 100) + ' %' : ''), 'reading'];
       if (fol.has(s.id)) return ['Siguiendo', 'follow'];
       return null; };
-    const SORT = { popular: ['Más leídas', (a, b) => (b.views || 0) - (a.views || 0)], ranking: ['Ranking ' + rkLbl, (a, b) => (RK[a.id] ?? 1e9) - (RK[b.id] ?? 1e9) || (b.views || 0) - (a.views || 0)], recent: ['Actualizadas', (a, b) => new Date(last[b.id]?.publish_at || 0) - new Date(last[a.id]?.publish_at || 0)], az: ['Título A–Z', (a, b) => a.title.localeCompare(b.title, 'es')], chapters: ['Más secciones', (a, b) => nCh(b) - nCh(a)] };
+    const SORT = { popular: ['Más leídas', (a, b) => (b.views || 0) - (a.views || 0)], visitas: ['Más visitadas', (a,b) => (VISITS[b.id] || 0) - (VISITS[a.id] || 0) || a.title.localeCompare(b.title,'es')], ranking: ['Ranking ' + rkLbl, (a, b) => (RK[a.id] ?? 1e9) - (RK[b.id] ?? 1e9) || (b.views || 0) - (a.views || 0)], recent: ['Actualizadas', (a, b) => new Date(last[b.id]?.publish_at || 0) - new Date(last[a.id]?.publish_at || 0)], az: ['Título A–Z', (a, b) => a.title.localeCompare(b.title, 'es')], chapters: ['Más secciones', (a, b) => nCh(b) - nCh(a)] };
     const genres = [...new Set(all.flatMap(s => s.genres || []))].sort((a, b) => a.localeCompare(b, 'es'));
     const types = [...new Set(all.map(s => s.work_type || 'Novela ligera'))].sort();
     const origs = Object.keys(OR).filter(k => all.some(s => s.original_status === k));
@@ -1665,7 +1695,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     addEventListener('resize', onCatalogueScroll);
     syncQuickFilters();
     compactBar();
-    $('#cat-quick-sort').onchange = e => { F.sort = e.target.value; draw(); };
+    $('#cat-quick-sort').onchange = e => { F.sort = e.target.value; draw(); if (F.sort === 'visitas') void loadVisits(); };
     document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; localStorage.setItem('obi-cat-view', view); draw(); });
     $('.ui-qv').addEventListener('click', e => { if (e.target.classList.contains('ui-qv')) closeQV(); });
     const onKey = e => { if (!document.body.contains($('.ui-qv'))) return removeEventListener('keydown', onKey); if (e.key === 'Escape') closeQV(); };
@@ -1675,7 +1705,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     $('#cat-top').onchange = e => { F.top = e.target.checked; if (F.top && F.sort === 'popular') F.sort = 'ranking'; draw(); };
     $('#cat-clear').onclick = () => { Object.assign(F, { q: '', gin: [], gout: [], adult: true, top: false }); $('#cat-top').checked = false; FK.forEach(([k]) => F[k] = ''); $('#cat-q').value = ''; $('#cat-adult').checked = false; draw(); };
     document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { F[b.dataset.f] = b.dataset.v; draw(); });
-    document.querySelectorAll('[data-sort]').forEach(b => b.onclick = () => { F.sort = b.dataset.sort; draw(); });
+    document.querySelectorAll('[data-sort]').forEach(b => b.onclick = () => { F.sort = b.dataset.sort; draw(); if (F.sort === 'visitas') void loadVisits(); });
     document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { const g = b.dataset.g;
       if (F.gin.includes(g)) { F.gin = F.gin.filter(x => x !== g); F.gout.push(g); }
       else if (F.gout.includes(g)) F.gout = F.gout.filter(x => x !== g);
@@ -1684,6 +1714,13 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     // Mostrar primero las obras: progreso, ranking, créditos y conteos no
     // pueden bloquear el catálogo ni imponer una espera a Safari móvil.
     const refresh = () => { if (live() && app.querySelector('#cat-grid')) draw(); };
+    let visitsRequest = null;
+    const loadVisits = () => visitsRequest ||= profileVisitRanking(sb, { period: 'semana', limit: 100 }).then(({ data, error }) => {
+      if (!live() || error) return;
+      VISITS = Object.fromEntries((data || []).map(r => [r.series_id, Number(r.score) || 0]));
+      if (F.sort === 'visitas') refresh();
+    }).catch(() => {});
+    if (F.sort === 'visitas') void loadVisits();
     const extra = [
       catalogRecent().then(({ data: latest }) => {
         if (!live()) return;
@@ -1890,6 +1927,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     // Primer contenido útil: título, portada, género y ficha editorial mientras
     // siguen cargándose capítulos, accesos, volúmenes y descargas en paralelo.
     fxCss();
+    // El registro adicional no altera lecturas ni bloquea el contenido.
+    if (s.published) void recordSeriesProfileVisit(sb, s.id, getUser()).catch(() => {});
     app.innerHTML = `<div class="ui-wrap ui-series-page" aria-busy="true">
       <section class="ui-sh ui-series-hero" id="serie-portada" style="--c:${esc(color(s))};--bg:${s.cover_path ? `url('${esc(thumb(s))}')` : 'none'}">
         ${book(s)}
@@ -2194,11 +2233,14 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
   // ---------- Ranking ----------
   const fmtN = n => Number(n).toLocaleString('es-MX');
   async function seriesRank(s){
-    const [{ data: rb }, { data: rt }] = await Promise.all([sb.from('rankings').select('list,period,pos').eq('series_id', s.id).lte('pos', 10), sb.rpc('series_rating', { p_series: s.id })]);
-    const bx = $('#rk-bdg'); if (bx && rb?.length) {
+    const [{ data: rb }, { data: rt }, { data: profileVisits }] = await Promise.all([sb.from('rankings').select('list,period,pos').eq('series_id', s.id).lte('pos', 10), sb.rpc('series_rating', { p_series: s.id }), profileVisitRanking(sb, { period: 'semana', limit: 10 }).catch(() => ({ data: [] }))]);
+    const bx = $('#rk-bdg'); if (bx) {
       const PO = ['semana', 'mes', 'hoy', 'anio', 'historico'], seen = new Set();
-      const best = rb.sort((a, b) => PO.indexOf(a.period) - PO.indexOf(b.period) || a.pos - b.pos).filter(r => !seen.has(r.list) && seen.add(r.list)).slice(0, 2);
-      bx.innerHTML = best.map(r => `<a class="rk-bdg" href="/ranking?lista=${r.list}&periodo=${r.period}"><b>#${r.pos}</b>${RK_L[r.list]} ${RK_PF[r.period]}</a>`).join('');
+      const best = (rb || []).sort((a, b) => PO.indexOf(a.period) - PO.indexOf(b.period) || a.pos - b.pos).filter(r => !seen.has(r.list) && seen.add(r.list)).slice(0, 2);
+      const tags = best.map(r => `<a class="rk-bdg" href="/ranking?lista=${r.list}&periodo=${r.period}"><b>#${r.pos}</b>${RK_L[r.list]} ${RK_PF[r.period]}</a>`);
+      const visitsPosition = (profileVisits || []).find(r => r.series_id === s.id)?.pos;
+      if (visitsPosition) tags.push(`<a class="rk-bdg" href="/ranking?lista=visitas&periodo=semana"><b>#${visitsPosition}</b>Más visitadas de la semana</a>`);
+      bx.innerHTML = tags.join('');
     }
     const el = $('#rk-rate'); if (!el) return;
     const r = rt || {}, mine = r.mine || 0, u = getUser(), shown = mine || Math.round(+r.avg || 0);
@@ -2256,7 +2298,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     // Los metadatos auxiliares no deben retrasar el primer resultado del ranking.
     let genres = [], teams = [], teamRows = [], teamPromise, autoHist = false;
     const firstList = R.list;
-    const weeklyCheck = !qs.get('periodo') && !R.teamView
+    const weeklyCheck = R.list !== 'visitas' && !qs.get('periodo') && !R.teamView
       ? sb.from('rankings').select('series_id', { count: 'exact', head: true }).eq('list', R.list).eq('period', 'semana')
       : null;
     const loadTeams = () => teamPromise ||= sb.from('series')
@@ -2275,10 +2317,11 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     // La vista general conserva Más leídas como ranking principal y ofrece
     // adelantos de las demás clasificaciones sin cargarlos antes de tiempo.
     const previewLists = ['tendencia', 'novedades', 'calificadas', 'terminadas'];
+    const previewKeys = ['visitas', ...previewLists];
     const overviewMarkup = `<div id="rk-overview" class="rk-overview" hidden>
       <div class="rk-overview-top"><h2>Explora otros rankings</h2>
         <p>Un vistazo a las clasificaciones de esta semana. Selecciona «Ver ranking completo» para explorar cada categoría.</p></div>
-      ${previewLists.map(key => `<section class="rk-preview" data-rk-preview="${key}" aria-labelledby="rk-preview-title-${key}">
+      ${previewKeys.map(key => `<section class="rk-preview" data-rk-preview="${key}" aria-labelledby="rk-preview-title-${key}">
         <div class="rk-preview-head"><h3 id="rk-preview-title-${key}">${RK_L[key]}</h3>
           <a href="/ranking?lista=${key}">Ver ranking completo →</a></div>
         <div class="rk-preview-body" aria-live="polite"><p class="mono rk-preview-state">La clasificación se cargará al llegar aquí.</p></div>
@@ -2340,6 +2383,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const overviewEnabled = () => location.pathname === '/ranking' && !R.teamView &&
       R.list === 'leidas' && R.period === 'semana' && !R.genre && !R.status;
     const previewScore = (key, r) => ({
+      visitas: fmtN(+r.score) + ' visitas a fichas',
       tendencia: '+' + fmtN(+r.score) + ' lecturas',
       novedades: fmtN(+r.score) + ' lecturas',
       calificadas: (+r.score).toFixed(1) + ' ★ · ' + fmtN(+(r.votes || 0)) + ' votos',
@@ -2353,7 +2397,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       previewStates.set(key, 'loading');
       body.innerHTML = '<p class="mono rk-preview-state">Cargando clasificación…</p>';
       try {
-        const { data, error } = await sb.rpc('ranking_list', { p_list: key, p_period: 'semana', p_limit: 4 });
+        const { data, error } = key === 'visitas'
+          ? await profileVisitRanking(sb, { period: 'semana', limit: 4 })
+          : await sb.rpc('ranking_list', { p_list: key, p_period: 'semana', p_limit: 4 });
         if (!body.isConnected) return;
         if (error) throw error;
         if (!data?.length) {
@@ -2401,7 +2447,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       if (previewObserver) overview.querySelectorAll('[data-rk-preview]').forEach(section => {
         if (!previewStates.has(section.dataset.rkPreview)) previewObserver.observe(section);
       });
-      else previewLists.forEach(loadPreview);
+      else previewKeys.forEach(loadPreview);
     };
     const drawTeam = async my => {
       const box = $('#rk-team-results');
@@ -2432,7 +2478,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     };
     const draw = async () => {
       sync(); const my = ++tk, box = $('#rk'), summary = $('#rk-summary'); overview.hidden = true; summary.hidden = R.teamView; summary.innerHTML = ''; if (R.teamView) return drawTeam(my); box.innerHTML = '<p class="mono">Cargando…</p>';
-      const { data, error } = await sb.rpc('ranking_list', { p_list: R.list, p_period: R.period, p_genre: R.genre || null, p_status: R.status || null, p_limit: 20 });
+      const { data, error } = R.list === 'visitas'
+        ? await profileVisitRanking(sb, { period: R.period, genre: R.genre || null, status: R.status || null, limit: 20 })
+        : await sb.rpc('ranking_list', { p_list: R.list, p_period: R.period, p_genre: R.genre || null, p_status: R.status || null, p_limit: 20 });
       if (my !== tk || !document.body.contains(box)) return;
       if (error) { box.innerHTML = `<p style="color:#f59e7a">No se pudo cargar el ranking: ${esc(error.message)}</p>`; return; }
       if (!data?.length) { box.innerHTML = `<div class="ui-empty"><p><strong>${R.genre || R.status ? 'Ninguna obra con estos filtros entra en esta lista.' : RK_E[R.list] || 'Aún no hay lecturas en este periodo.'}</strong></p></div>`; revealOverview(); return; }
@@ -2442,8 +2490,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       if (my !== tk || !box.isConnected) return;
       const by = Object.fromEntries((ss || []).map(s => [s.id, s])), filtered = !!(R.genre || R.status), anyPrev = data.some(r => r.prev_pos != null);
       const mv = r => filtered ? '' : r.prev_pos == null ? (anyPrev ? '<span class="rk-mv new">Nuevo</span>' : '') : r.prev_pos > r.gpos ? `<span class="rk-mv up" title="Subió ${r.prev_pos - r.gpos} desde la última actualización">▲${r.prev_pos - r.gpos}</span>` : r.prev_pos < r.gpos ? `<span class="rk-mv dn" title="Bajó ${r.gpos - r.prev_pos} desde la última actualización">▼${r.gpos - r.prev_pos}</span>` : '<span class="rk-mv eq" title="Sin cambios">=</span>';
-      const sc = r => ({ leidas: fmtN(r.score) + ' lecturas', tendencia: '+' + fmtN(r.score) + ' lecturas', calificadas: (+r.score).toFixed(1) + ' ★ · ' + r.votes + ' votos', terminadas: fmtN(r.score) + (+r.score === 1 ? ' lector' : ' lectores') + ' al día', novedades: fmtN(r.score) + ' lecturas' })[R.list];
-      summary.innerHTML = `<div class="rk-summary-text"><strong>${esc(RK_L[R.list])} · ${esc(RK_P[R.period])}</strong><span>Actualizado ${esc(ago(data[0].computed_at))} · se recalcula cada 6 horas</span></div>
+      const sc = r => ({ visitas: fmtN(r.score) + ' visitas a fichas', leidas: fmtN(r.score) + ' lecturas', tendencia: '+' + fmtN(r.score) + ' lecturas', calificadas: (+r.score).toFixed(1) + ' ★ · ' + r.votes + ' votos', terminadas: fmtN(r.score) + (+r.score === 1 ? ' lector' : ' lectores') + ' al día', novedades: fmtN(r.score) + ' lecturas' })[R.list];
+      summary.innerHTML = `<div class="rk-summary-text"><strong>${esc(RK_L[R.list])} · ${esc(RK_P[R.period])}</strong><span>Actualizado ${esc(ago(data[0].computed_at))} · ${R.list === 'visitas' ? 'visitas a fichas registradas al navegar' : 'se recalcula cada 6 horas'}</span></div>
         <p>${filtered ? 'Los puestos corresponden a los filtros activos; no se muestra movimiento.' : '▲ Subió · ▼ Bajó · = Sin cambios · Nuevo: entró desde la última actualización.'}</p>`;
       box.innerHTML = `<div class="rk-grid">${data.filter(r => by[r.series_id]).map(r => { const s = by[r.series_id]; return `<a class="rk-c${r.pos <= 3 ? ' rk-podium rk-place-' + r.pos : ''}" href="/serie/${esc(s.slug)}" style="--c:${esc(color(s))}"><span class="rk-n" aria-label="Puesto ${r.pos}">${r.pos}</span>${rankBook(s)}<span class="rk-b"><b>${esc(s.title)}</b>${creditsHTML(s, { esc, media, mode: 'carousel' })}${s.teams?.name ? `<small>${esc(s.teams.name)}</small>` : ''}<span class="rk-s">${sc(r)}${mv(r)}</span></span></a>`; }).join('')}</div>`;
       revealOverview();

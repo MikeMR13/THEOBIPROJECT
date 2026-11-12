@@ -70,9 +70,31 @@ const chrome=process.env.QA_CHROME||['chromium','google-chrome','google-chrome-s
 assert(chrome,'Se requiere Chromium en GitHub Actions');
 try {
  await new Promise((ok,fail)=>{server.once('error',fail);server.listen(0,'127.0.0.1',ok)});
- const browser=spawn(chrome,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking','--no-first-run','--window-size=1650,1000','--virtual-time-budget=18000','--dump-dom','http://127.0.0.1:'+server.address().port],{stdio:['ignore','pipe','pipe']});
- let out='',err='';browser.stdout.on('data',d=>out+=String(d));browser.stderr.on('data',d=>err+=String(d).slice(0,12000));
- const code=await new Promise((ok,fail)=>{const t=setTimeout(()=>{browser.kill('SIGKILL');fail(Error('Chromium timeout'))},65000);browser.once('error',e=>{clearTimeout(t);fail(e)});browser.once('close',n=>{clearTimeout(t);ok(n)})});
- assert.equal(code,0,err.slice(-800));const result=out.match(/<p id="qa" data-qa="(pass|fail)">([\s\S]*?)<\/p>/);
- assert(result,'Sin resultado de Chromium');assert.equal(result[1],'pass',result[2]);console.log(result[2]);
+ const launch = async budget => {
+  const browser=spawn(chrome,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage',
+    '--disable-background-networking','--no-first-run','--window-size=1650,1000',
+    '--virtual-time-budget='+budget,'--dump-dom','http://127.0.0.1:'+server.address().port],
+    {stdio:['ignore','pipe','pipe']});
+  let out='',err='';
+  browser.stdout.on('data',d=>out+=String(d));
+  browser.stderr.on('data',d=>err+=String(d).slice(0,12000));
+  const code=await new Promise((ok,fail)=>{
+    const t=setTimeout(()=>{browser.kill('SIGKILL');fail(Error('Chromium timeout'))},65000);
+    browser.once('error',e=>{clearTimeout(t);fail(e)});
+    browser.once('close',n=>{clearTimeout(t);ok(n)});
+  });
+  return {code,out,err};
+ };
+ let run=await launch(30000);
+ let result=run.out.match(/<p id="qa" data-qa="(pass|fail)">([\s\S]*?)<\/p>/);
+ if (run.code===0 && !result) {
+  // Solo reintenta falta de respuesta (Chromium virtual-time), nunca un fallo
+  // funcional de accesibilidad: data-qa="fail" debe detener la validación.
+  console.warn('Chromium sin resultado definitivo; reintento único con más tiempo virtual');
+  run=await launch(45000);
+  result=run.out.match(/<p id="qa" data-qa="(pass|fail)">([\s\S]*?)<\/p>/);
+ }
+ assert.equal(run.code,0,run.err.slice(-1000));
+ assert(result,'Sin resultado de Chromium. HTML: '+run.out.slice(-1200)+' STDERR: '+run.err.slice(-600));
+ assert.equal(result[1],'pass',result[2]);console.log(result[2]);
 }finally{await new Promise(ok=>server.close(ok))}

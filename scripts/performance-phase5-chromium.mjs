@@ -110,7 +110,15 @@ try{
  await new Promise((yes,no)=>{server.once('error',no);server.listen(0,'127.0.0.1',yes);});
  const results=[],base='http://127.0.0.1:'+server.address().port+'/';
  for(const width of [390,1440]){
-  const result=await chromium(base,width);
+  let result;
+  try { result=await chromium(base,width); }
+  catch(error) {
+   // Un proceso Chromium aislado puede atascarse en el runner compartido.
+   // Reintentar solo el timeout, jamás métricas malas, portadas faltantes ni aserciones.
+   if(!String(error?.message||error).includes('Chromium excedió 40 s'))throw error;
+   console.warn('Chromium '+width+'px sin respuesta: un reintento limpio');
+   result=await chromium(base,width);
+  }
   assert.equal(result.renderedBooks,8,'Se perdieron libros en Vitrina');
   // La maqueta de escritorio deja una de ocho portadas completamente oculta.
   // No permitir que un observador descargue también esa ilustración.
