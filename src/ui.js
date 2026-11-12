@@ -5,6 +5,7 @@ import { homeReleaseOverview, homeReleaseHighlights } from './home-releases.js?v
 import { attachPublicCredits, creditTeams, creditsHTML, installCreditImageFallback } from './public-collaboration-credits.js?v=1';
 import { homeFeaturedSelection, homeDayKey, mergeHomeCarousel } from './home-featured.js?v=3';
 import { recordSeriesProfileVisit, profileVisitRanking } from './series-profile-visits.js?v=1';
+import { bindHomeVisitRanking } from './home-visit-ranking.js?v=1';
 import { homeFeedRevision, homeFeedHasNewContent } from './home-feed-freshness.js?v=1';
 import { createHeroRotationClock } from './home-hero-rotation.js?v=1';
 import { createHomeMetrics, homeMetricCategory } from './home-metrics.js?v=1';
@@ -914,6 +915,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       .eq('list','tendencia').in('period',['hoy','semana']).order('pos').limit(30)
       .then(r => r, () => ({ data: [] }));
     const teamRequest = () => teamHighlights().then(r => r, () => ({ data: [] }));
+    const profileVisitsRequest = () => profileVisitRanking(sb, { period: 'semana', limit: 10 }).then(r => r, () => ({ data: [] }));
     // El progreso del lector es complementario: nunca retener la portada mientras
     // responde esa consulta. Mostrar primero el progreso guardado en el dispositivo.
     const prog = localProgressMap();
@@ -1060,7 +1062,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
         <div class="ob-next ob-anim">${nx.map(e => `<a class="ob-nx" href="/serie/${esc(e.series.slug)}"><span class="w">${until(e.at)} · ${new Date(e.at).toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span><b>${esc(e.series.title)}</b><small>${e.kind === 'volume' ? 'Volumen completo · ' : ''}${esc(e.label || '')}</small></a>`).join('')}</div></section>` : ''}
       <div class="ob-band" style="display:flex;align-items:baseline;gap:14px;margin:56px 0 0;padding-bottom:10px;border-bottom:2px solid var(--gold)"><span aria-hidden="true" style="font-family:'Shippori Mincho B1',serif;font-size:28px;color:var(--gold)">探</span><h2 style="margin:0;font-size:clamp(26px,3vw,40px);font-family:'Shippori Mincho B1',serif;font-weight:500">Explora</h2></div>
       ${genres.length ? `<section class="ob-sec" style="border-top:none">${head('類', 'Géneros', '<a class="r" href="/catalogo">Catálogo completo →</a>')}<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr));gap:14px">${genres.slice(0, 8).map(([g, n]) => { const x = list.find(s => (s.genres || []).includes(g) && s.cover_path); return `<a href="/catalogo?g=${encodeURIComponent(g)}" style="position:relative;display:flex;align-items:flex-end;min-height:120px;padding:14px;color:#fbf8f1;text-decoration:none;border:1px solid var(--line);background:#16140f ${x ? `url('${esc(thumb(x))}') center 25%/cover` : ''};overflow:hidden"><span aria-hidden="true" style="position:absolute;inset:0;background:linear-gradient(transparent 20%,rgba(13,12,10,.92))"></span><span style="position:relative;display:grid;gap:2px"><b style="font-size:17px">${esc(g)}</b><small class="mono" style="font-size:11px;color:#cfc6b0">${n} ${n === 1 ? 'obra' : 'obras'}</small></span></a>`; }).join('')}</div></section>` : ''}
-      ${rk.length ? `<section class="ob-sec ob-rank-section">${head('人気', 'Más leídas', `<span class="r2"><span class="mono" style="font-size:12px">${rkUse.lbl}</span><a class="r" href="/ranking?lista=leidas&periodo=${rkUse.per}">Ver ranking →</a>${arrows('ob-rank-car')}</span>`)}
+      ${rk.length ? `<section class="ob-sec ob-rank-section">${head('人気', 'Más leídas', `<span class="r2"><button type="button" class="ui-chip on" style="min-height:44px" data-home-rank="leidas" aria-pressed="true">Más leídas</button><button type="button" class="ui-chip" style="min-height:44px" data-home-rank="visitas" aria-pressed="false">Más visitadas</button><span class="mono" data-home-rank-period style="font-size:12px">${rkUse.lbl}</span><a class="r" data-home-rank-link href="/ranking?lista=leidas&periodo=${rkUse.per}">Ver ranking →</a>${arrows('ob-rank-car')}</span>`)}
         <div class="ob-rank ob-anim" id="ob-rank-car" tabindex="0" role="region" aria-roledescription="carrusel" aria-label="Novelas más leídas">${rk.map((r, i) => { const s = byId[r.series_id]; return `<a class="ob-ritem" href="/serie/${s.slug}"><span class="n">${i + 1}</span><span class="c">${s.cover_thumb_path || s.cover_path ? `<img src="${esc(media(s.cover_thumb_path || s.cover_path))}" alt="" loading="lazy" decoding="async" width="264" height="352" fetchpriority="low">` : `<span class="ob-rank-cover-fallback">${esc(s.short || s.title)}</span>`}</span><b>${esc(s.title)}</b><small>${Math.round(+r.score || 0).toLocaleString('es-MX')} ${rkUse.per === 'semana' ? 'lectores' : 'vistas'} · ${genericSectionCount(s.chapters?.[0]?.count)}</small></a>`; }).join('')}</div><div class="ob-rank-count mono" data-rank-status aria-live="off"></div></section>` : ''}
       ${done.length ? `<section class="ob-sec">${head('完結', 'Traducciones terminadas', `<span class="r2"><a class="r" href="/catalogo?tl=completed">Ver todas →</a>${arrows('ob-car-done')}</span>`)}<div class="ob-car" id="ob-car-done">${done.map(x => cc(x, genericSectionCount(x.chapters?.[0]?.count), 'COMPLETA')).join('')}</div></section>` : ''}
       <div id="ob-s-ann"></div><div id="ob-s-rev"></div>
@@ -1152,6 +1154,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const rankCar = app.querySelector('#ob-rank-car');
     if (rankCar) {
       const rankCount = rankCar.parentElement.querySelector('[data-rank-status]');
+      bindHomeVisitRanking({ sb, rankCar, byId, media, esc, sectionCount: genericSectionCount, toast, readLabel: rkUse.lbl, readPeriod: rkUse.per });
       const updateRank = () => {
         const bounds = rankCar.getBoundingClientRect();
         const cards = [...rankCar.children];
@@ -1228,11 +1231,11 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
 
     // Completar la rotación editorial cuando lleguen los datos auxiliares,
     // conservando la portada visible y los preestrenos ya incorporados.
-    Promise.all([trendRequest(), teamRequest()]).then(([trends, teamResult]) => {
+    Promise.all([trendRequest(), teamRequest(), profileVisitsRequest()]).then(([trends, teamResult, visitResult]) => {
       if (!heroEl?.isConnected || app.querySelector('#hero') !== heroEl || location.pathname !== '/') return;
       loadedTeamSignature = teamSignature(teamResult?.data);
       const extra = homeFeaturedSelection({
-        series:list, news, weekly:rkW||[], historic:rkH||[],
+        series:list, news, weekly:rkW||[], historic:rkH||[], visits:visitResult?.data||[],
         trends:trends?.data||[], editorial:Array.isArray(ps.featured)?ps.featured:[],
         teams:teamResult?.data||[], now
       });
