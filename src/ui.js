@@ -1501,7 +1501,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       (!hidS(s) || F.gin.some(g => (s.genres || []).includes(g))));
     let all = publicRows;
     let upcoming = [];
-    let prog = {}, fol = new Set(), RK = {}, rkLbl = 'histórico';
+    let prog = {}, fol = new Set(), RK = {}, VISITS = {}, rkLbl = 'histórico';
     const last = {};
     const nCh = s => s.chapters?.[0]?.count || 0;
     const status = s => { const p = prog[s.id], lc = last[s.id];
@@ -1509,7 +1509,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       if (p) return ['Leyendo' + (p.pct > 0.02 && p.pct < 0.98 ? ' · ' + Math.round(p.pct * 100) + ' %' : ''), 'reading'];
       if (fol.has(s.id)) return ['Siguiendo', 'follow'];
       return null; };
-    const SORT = { popular: ['Más leídas', (a, b) => (b.views || 0) - (a.views || 0)], ranking: ['Ranking ' + rkLbl, (a, b) => (RK[a.id] ?? 1e9) - (RK[b.id] ?? 1e9) || (b.views || 0) - (a.views || 0)], recent: ['Actualizadas', (a, b) => new Date(last[b.id]?.publish_at || 0) - new Date(last[a.id]?.publish_at || 0)], az: ['Título A–Z', (a, b) => a.title.localeCompare(b.title, 'es')], chapters: ['Más secciones', (a, b) => nCh(b) - nCh(a)] };
+    const SORT = { popular: ['Más leídas', (a, b) => (b.views || 0) - (a.views || 0)], visitas: ['Más visitadas', (a,b) => (VISITS[b.id] || 0) - (VISITS[a.id] || 0) || a.title.localeCompare(b.title,'es')], ranking: ['Ranking ' + rkLbl, (a, b) => (RK[a.id] ?? 1e9) - (RK[b.id] ?? 1e9) || (b.views || 0) - (a.views || 0)], recent: ['Actualizadas', (a, b) => new Date(last[b.id]?.publish_at || 0) - new Date(last[a.id]?.publish_at || 0)], az: ['Título A–Z', (a, b) => a.title.localeCompare(b.title, 'es')], chapters: ['Más secciones', (a, b) => nCh(b) - nCh(a)] };
     const genres = [...new Set(all.flatMap(s => s.genres || []))].sort((a, b) => a.localeCompare(b, 'es'));
     const types = [...new Set(all.map(s => s.work_type || 'Novela ligera'))].sort();
     const origs = Object.keys(OR).filter(k => all.some(s => s.original_status === k));
@@ -1669,7 +1669,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     addEventListener('resize', onCatalogueScroll);
     syncQuickFilters();
     compactBar();
-    $('#cat-quick-sort').onchange = e => { F.sort = e.target.value; draw(); };
+    $('#cat-quick-sort').onchange = e => { F.sort = e.target.value; draw(); if (F.sort === 'visitas') void loadVisits(); };
     document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; localStorage.setItem('obi-cat-view', view); draw(); });
     $('.ui-qv').addEventListener('click', e => { if (e.target.classList.contains('ui-qv')) closeQV(); });
     const onKey = e => { if (!document.body.contains($('.ui-qv'))) return removeEventListener('keydown', onKey); if (e.key === 'Escape') closeQV(); };
@@ -1679,7 +1679,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     $('#cat-top').onchange = e => { F.top = e.target.checked; if (F.top && F.sort === 'popular') F.sort = 'ranking'; draw(); };
     $('#cat-clear').onclick = () => { Object.assign(F, { q: '', gin: [], gout: [], adult: true, top: false }); $('#cat-top').checked = false; FK.forEach(([k]) => F[k] = ''); $('#cat-q').value = ''; $('#cat-adult').checked = false; draw(); };
     document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { F[b.dataset.f] = b.dataset.v; draw(); });
-    document.querySelectorAll('[data-sort]').forEach(b => b.onclick = () => { F.sort = b.dataset.sort; draw(); });
+    document.querySelectorAll('[data-sort]').forEach(b => b.onclick = () => { F.sort = b.dataset.sort; draw(); if (F.sort === 'visitas') void loadVisits(); });
     document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { const g = b.dataset.g;
       if (F.gin.includes(g)) { F.gin = F.gin.filter(x => x !== g); F.gout.push(g); }
       else if (F.gout.includes(g)) F.gout = F.gout.filter(x => x !== g);
@@ -1688,6 +1688,13 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     // Mostrar primero las obras: progreso, ranking, créditos y conteos no
     // pueden bloquear el catálogo ni imponer una espera a Safari móvil.
     const refresh = () => { if (live() && app.querySelector('#cat-grid')) draw(); };
+    let visitsRequest = null;
+    const loadVisits = () => visitsRequest ||= profileVisitRanking(sb, { period: 'semana', limit: 100 }).then(({ data, error }) => {
+      if (!live() || error) return;
+      VISITS = Object.fromEntries((data || []).map(r => [r.series_id, Number(r.score) || 0]));
+      if (F.sort === 'visitas') refresh();
+    }).catch(() => {});
+    if (F.sort === 'visitas') void loadVisits();
     const extra = [
       catalogRecent().then(({ data: latest }) => {
         if (!live()) return;
