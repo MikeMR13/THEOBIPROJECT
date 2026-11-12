@@ -1271,6 +1271,8 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       const selected = feat.findIndex(item => heroKey(item) === active);
       refreshHeroKeepingActive(feat, Math.max(0, selected), prog, lastCh, top, newsBySeries, featReasons);
     }).catch(e => console.warn('destacados inicio', e));
+    // Reutilizar exactamente el mismo compositor y límite del carrusel existente.
+    const mergeVisitsCarousel = mergeHomeCarousel;
     // Las visitas no bloquean tendencias ni recomendaciones: se añaden después.
     trendTeamUpdates.then(async ([trends, teamResult]) => {
       const { data, error } = await profileVisitsRequest();
@@ -1284,7 +1286,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
       const retained = feat.filter(x => !x.__prelaunch && newsBySeries[x.id]?.kind === 'volume'
         && +new Date(now) - Date.parse(newsBySeries[x.id]?.at || '') < 7*864e5);
       const published = selected.length ? [...retained, ...selected] : feat.filter(x => !x.__prelaunch);
-      const updated = mergeHomeCarousel(published, prelaunchPreviews, 10, newsBySeries, now);
+      const updated = mergeVisitsCarousel(published, prelaunchPreviews, 10, newsBySeries, now);
       if (!updated.length || !heroEl.isConnected || app.querySelector('#hero') !== heroEl) return;
       const changed = updated.length !== feat.length || updated.some((x, i) => heroKey(x) !== heroKey(feat[i]));
       if (!changed) return;
