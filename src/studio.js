@@ -6,7 +6,8 @@ import { previewShareLink, resetTeamSession } from './studio-preview-share.js?v=
 import { initCollaborationTeamPicker, COLLABORATION_STATUS } from './studio-collaboration-picker.js?v=1';
 import { seriesPublicationHTML, bindSeriesPublication } from './studio-series-publication.js?v=2';
 import { bindSeriesSeo, teamSeoProfileHTML } from './studio-seo.js?v=2';
-import { dailyViewsScale, viewsColumnMeaning, reviewCountsForWorks, paintProfileVisitStats } from './studio-stats-display.js';
+import { dailyViewsScale, viewsColumnMeaning, reviewCountsForWorks } from './studio-stats-display.js';
+import { paintProfileVisitStats } from './studio-profile-visits.js?v=1';
 import { editorialChapterLabel } from './editorial-public-labels.js';
 import { cleanSeo } from './seo-settings.js?v=1';
 import { SECTION_TYPES } from './section-types.js?v=1';
