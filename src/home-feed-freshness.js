@@ -15,3 +15,13 @@ export function homeFeedHasNewContent(previous, next) {
   const after = homeFeedRevision(next);
   return previous !== null && after !== null && previous !== after;
 }
+
+// La vuelta a una pestaña no genera más consultas que el pulso normal:
+// tras una comprobación de volumen, esperar al menos un minuto, sea por
+// temporizador o por visibilidad/foco. La comprobación de capítulos sigue
+// teniendo su propio límite de cinco minutos.
+export function homeReleaseCheckDue(lastCheckMs, nowMs, minIntervalMs = 60_000) {
+  return Number.isFinite(lastCheckMs) && Number.isFinite(nowMs)
+    && Number.isFinite(minIntervalMs) && minIntervalMs > 0
+    && nowMs - lastCheckMs >= minIntervalMs;
+}
