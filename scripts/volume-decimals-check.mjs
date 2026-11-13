@@ -29,6 +29,9 @@ assert.equal(importedVolumeNumber({
 assert.equal(importedVolumeNumber({ filename: 'obra.epub', metadataIndex: 3.5, fallback: 5 }), 3.5);
 assert.equal(importedVolumeNumber({ filename: 'obra.epub', metadataIndex: 4, fallback: 5 }), 4);
 assert.equal(importedVolumeNumber({ filename: 'obra.epub', fallback: 5 }), 5);
+assert.equal(importedVolumeNumber({ filename: 'Bruja_del_Silencio_13_-_Matsuri_Isora.epub', title: 'Los Secretos de la bruja del Silencio 13', fallback: 1 }), 13);
+assert.equal(importedVolumeNumber({ filename: 'Obra 7.epub', title: 'Obra', fallback: 1 }), 7);
+assert.equal(importedVolumeNumber({ filename: 'obra-final.epub', title: 'Re:Zero', fallback: 2 }), 2);
 assert.equal(importedVolumeNumber({ filename: 'obra 4.55.epub', fallback: 5 }), 5,
   'No recortar silenciosamente números con dos decimales');
 

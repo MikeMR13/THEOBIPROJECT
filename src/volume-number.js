@@ -32,5 +32,11 @@ export const importedVolumeNumber = ({ filename = '', title = '', metadataIndex 
     const match = String(text || '').match(labeled);
     if (match) return parseVolumeNumber(match[1]);
   }
+  // Sin etiqueta: número suelto al final del título («Obra 13») o en el nombre del archivo («Obra_13_-_Autor.epub», «Obra 13.epub»).
+  const trailing = String(title || '').match(/(?:^|\s)([1-9]\d{0,2})\s*$/);
+  if (trailing) return parseVolumeNumber(trailing[1]);
+  const base = String(filename || '').replace(/\.[a-z0-9]+$/i, '');
+  const loose = base.match(/(?:^|[\s_])([1-9]\d{0,2})(?=[\s_]*(?:[-–]|$))/);
+  if (loose) return parseVolumeNumber(loose[1]);
   return parseVolumeNumber(fallback);
 };

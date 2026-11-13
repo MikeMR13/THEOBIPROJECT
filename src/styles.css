@@ -1444,3 +1444,14 @@ body.in-studio .ed-loading .ed-load-page{min-height:45vh}
 .imp-quality-images>summary{cursor:pointer;list-style:none;font-size:13px}.imp-quality-images>summary::-webkit-details-marker{display:none}.imp-quality-images>summary b::before{content:'▸ ';color:var(--gold)}.imp-quality-images[open]>summary b::before{content:'▾ '}.imp-quality-images[open]>summary{margin-bottom:10px}.imp-quality-images>div{display:grid;gap:12px}
 @media(min-width:1001px){.imp-pvw{position:sticky;top:calc(var(--top-h,62px) + 12px)}}
 .imp-pv .rd-body img{max-height:68vh;width:auto}
+/* Importador · paso «Obra y publicación»: ficha y multimedia plegadas a todo el ancho, subir portada y resumen final */
+.imp-dest>.imp-ficha,.imp-dest>.imp-adv{grid-column:1/-1;margin:0}
+.imp-adv>summary{display:flex;gap:6px 14px;flex-wrap:wrap;align-items:baseline;cursor:pointer;list-style:none}.imp-adv>summary::-webkit-details-marker{display:none}.imp-adv>summary b::before{content:'▸ ';color:var(--gold)}.imp-adv[open]>summary b::before{content:'▾ '}.imp-adv>summary .mono{font-size:11px}
+.imp-c-up{cursor:pointer;color:var(--gold)!important;text-align:center;padding:6px}.imp-c-up:hover,.imp-c-up:focus-within{border-color:var(--gold)}
+.imp-recap{margin-top:16px;padding:16px;background:#17140e;border:1px solid #776039}.imp-recap h3{margin:0 0 10px;font-size:15px}
+.imp-recap ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:8px 18px}
+.imp-recap li{display:grid;gap:2px;min-width:0;overflow-wrap:anywhere}.imp-recap li span{font:600 10px 'IBM Plex Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#a89f8a}.imp-recap li b{font-weight:600;font-size:14px}.imp-recap a{color:#d9922b}
+/* Casillas y opciones dentro de cajas del importador: no heredan el ancho completo de los campos de texto */
+.imp-box input:is([type=checkbox],[type=radio]){width:auto;flex:none;min-width:0}
+.imp-box .imp-title-switch input[type=checkbox]{width:22px;height:22px}
+.imp-box .tb-inl{display:flex;gap:8px;align-items:center}
