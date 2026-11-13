@@ -88,7 +88,7 @@ export async function handleDispatch(request,{createAdmin,baseUrl,fetcher=fetch,
   if(item.skipped===true){blocked++;continue}
   let delivery={ok:false};
   try{delivery=await providerPost(item,admin,baseUrl,fetcher)}catch{}
-  const saved=await callRpc(admin,'diffusion_4b_complete',{p_plan:item.plan_id,p_job:item.job,
+  const saved=await callRpc(admin,'diffusion_4b_complete',{p_plan:item.plan_id,p_job:item.job_id,
     p_success:delivery.ok===true,p_post_id:delivery.postId||null});
   if(saved.error||saved.data!==true)uncertain++;
   else if(delivery.ok)sent++;
