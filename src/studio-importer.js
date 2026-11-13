@@ -330,7 +330,7 @@ export function createImporter(deps) {
     const nextVol = w => nextVolumeNumber((w?.volumes || []).map(v => v.num));
     const imgKeys = () => [...P.images.keys()].filter(k => P.images.get(k).blob && /^image\//.test(P.images.get(k).type));
     const usedImgs = () => { const s = new Set(P.chapters.filter(c => !c.skip).flatMap(c => c.blocks.filter(b => b.type === 'image' && b.url?.startsWith('img:')).map(b => b.url.slice(4)))); if (D.cover) s.add(D.cover.slice(4)); return s; };
-    const render = () => { $('#steps').innerHTML = ['Archivo', 'Revisar', 'Destino'].map((l, i) => `<li class="${step === i + 1 ? 'on' : step > i + 1 ? 'done' : ''}"><span>${step > i + 1 ? '✓' : i + 1}</span>${l}</li>`).join(''); [null, s1, s2, s3][step](); };
+    const render = () => { $('#steps').innerHTML = ['Manuscrito', 'Ordenar secciones', 'Obra y publicación'].map((l, i) => `<li class="${step === i + 1 ? 'on' : step > i + 1 ? 'done' : ''}"><span>${step > i + 1 ? '✓' : i + 1}</span>${l}</li>`).join(''); [null, s1, s2, s3][step](); };
 
     function s1(){
       W().innerHTML = `${contextualId ? `<p class="imp-context mono">${contextualWork() ? 'Importarás para <b>' + esc(contextualWork().title) + '</b>. ' : ''}Podrás confirmar la obra de destino antes de importar.</p>` : ''}<label class="imp-drop" id="drop"><b>Arrastra aquí un EPUB, DOCX o PDF</b><span class="mono">o toca para elegirlo · máx. 80 MB</span><input type="file" id="file" accept=".epub,.docx,.pdf" hidden></label>
@@ -360,7 +360,7 @@ export function createImporter(deps) {
         const key = (P.meta.series || P.title).toLowerCase();
         const guess = (works || []).find(w => w.title && key.includes(w.title.toLowerCase().slice(0, 18)));
         const target = contextualWork() || guess;
-        D.work = target?.id || ''; D.newTitle = P.meta.series || P.title.replace(/\s*[,:\-–]?\s*(vol(umen|ume)?\.?|tomo)\s*\d+.*$/i, '').trim() || P.title; D.newAuthor = P.meta.author || '';
+        D.work = target?.id || ''; D.newTitle = P.meta.series || P.title.replace(/\s*[,:\-–]?\s*(vol(umen|ume)?\.?|tomo)\s*\d+.*$/i, '').replace(/\s+[1-9]\d{0,2}\s*$/, '').trim() || P.title; D.newAuthor = P.meta.author || '';
         NW = createWorkData({ title: D.newTitle, author: D.newAuthor, illustrator: P.meta.illustrator || '', publisher: P.meta.publisher || '', synopsis: (P.meta.synopsis || '').slice(0, 1500) });
         D.vnum = importedVolumeNumber({ filename: f.name, title: P.title, metadataIndex: P.meta.index, fallback: nextVol(target) }); D.scanChapterTitles = false; D.smartTitles = false; D.cover = P.cover || null; D.workCover = !target || !target.cover_path; D.mode = 'replace';
         V = { title: '', subtitle: '', synopsis: P.meta.synopsis || '', synopsis_spoiler: false, publisher: P.meta.publisher || '', imprint: '', illustrator: P.meta.illustrator || '', jp_release: P.meta.date || '', planned_chapters: '', is_final: false, translator_notes: '' };
@@ -381,7 +381,7 @@ export function createImporter(deps) {
           ${f('illustrator', 'Ilustración', 'maxlength="120"')}${f('planned_chapters', 'Capítulos previstos', 'type="number" min="0" max="999" placeholder="' + nInc + '"')}
           <label class="wide">Notas del traductor<textarea data-v="translator_notes" rows="2" maxlength="2000" placeholder="Se muestran en la ficha del volumen">${esc(V.translator_notes)}</textarea></label>
           <label class="tb-inl wide"><input type="checkbox" data-v="is_final" ${V.is_final ? 'checked' : ''}> Es el último volumen de la obra (al publicarlo, la traducción queda como completa)</label>
-        </div><p class="mono">Los datos que trae el EPUB ya vienen llenos. Abajo eliges la obra y el número de volumen.</p></details>`;
+        </div><p class="mono">Los datos que trae el EPUB ya vienen llenos. Arriba eliges la obra y el número de volumen.</p></details>`;
     }
     function bindFicha(){ W().querySelectorAll('[data-v]').forEach(i => i[i.type === 'checkbox' ? 'onchange' : 'oninput'] = () => { V[i.dataset.v] = i.type === 'checkbox' ? i.checked : i.value; }); }
     const fichaRow = () => {
@@ -409,7 +409,7 @@ export function createImporter(deps) {
             <button class="ed-btn" data-mv="${i}" data-d="-1" ${i ? '' : 'disabled'}>↑ Subir</button><button class="ed-btn" data-mv="${i}" data-d="1" ${i < ch.length - 1 ? '' : 'disabled'}>↓ Bajar</button>
             <button class="ed-btn" data-merge="${i}" ${i < ch.length - 1 ? '' : 'disabled'}>Unir con la siguiente</button></div></details></li>`;
       W().innerHTML = `<div class="imp-sum" id="isum"></div>
-        ${dupAt ? `<p class="imp-warn">Ya importaste este mismo archivo el ${fmtTz(dupAt, { dateStyle: 'long' })}. Puedes continuar; en el destino elige «Reemplazar» si quieres sustituirlo.</p>` : ''}
+        ${dupAt ? `<p class="imp-warn">Ya importaste este mismo archivo el ${fmtTz(dupAt, { dateStyle: 'long' })}. Puedes continuar; en «Obra y publicación» elige «Reemplazar» si quieres sustituirlo.</p>` : ''}
         <details class="imp-box imp-tools" id="imp-tools" ${D.toolsOpen ? 'open' : ''}><summary><b>Herramientas de revisión</b><span class="mono" id="imp-tools-sum"></span></summary>
           <div class="imp-title-option"><label class="imp-title-switch" for="imp-smart-titles"><input type="checkbox" id="imp-smart-titles" ${D.smartTitles ? 'checked' : ''}><span><b>Títulos inteligentes</b><small>Opcional · al leer, ocultar solo el primer título del EPUB cuando repita el encabezado del capítulo. No modifica el archivo ni elimina texto; solo se aplica a los capítulos de esta importación.</small></span></label><p class="mono" id="imp-smart-count" role="status"></p></div>
           <div class="imp-title-option"><label class="imp-title-switch" for="imp-scan-titles"><input type="checkbox" id="imp-scan-titles" ${D.scanChapterTitles ? 'checked' : ''}><span><b>Escanear nombres y números de capítulos</b><small>Opcional · detectar «Capítulo 1», «Capitulo 01», «Captiulo 1», «Cap. 02», prólogos y epílogos antes de importar.</small></span></label><p class="mono">Es una herramienta de revisión, no una configuración de apariencia. El escaneo no reescribe títulos ni cambia enlaces; puedes corregir manualmente cualquier encabezado en la lista.</p><p class="mono" id="imp-scan-count" role="status"></p><div class="imp-title-example"><small>Vista previa del análisis de la sección seleccionada:</small><span id="imp-format-example"></span></div><small class="mono" id="imp-format-warning"></small></div>
@@ -420,7 +420,7 @@ export function createImporter(deps) {
           <div class="imp-pvw"><div class="imp-lh"><b id="pvh"></b><button class="ed-btn" id="split"></button></div><div class="imp-pv" id="pv"></div>
             <details class="imp-quality-images" id="imp-qimg"><summary><b id="imp-qimg-h"></b></summary><div id="imp-qimg-b"></div></details></div>
         </div>
-        <div class="imp-nav"><button class="btn ghost" id="back">‹ Elegir otro archivo</button><button class="btn" id="next">Continuar al destino ›</button></div>`;
+        <div class="imp-nav"><button class="btn ghost" id="back">‹ Elegir otro archivo</button><button class="btn" id="next">Continuar a obra y publicación ›</button></div>`;
       const L = W().querySelector('.imp-list'), OL = L.querySelector('ol');
       OL.scrollTop = keep.list; window.scrollTo(0, keep.page);
       const counts = () => { const inc = ch.filter(c => !c.skip), w = words(inc.flatMap(c => c.blocks)), im = inc.reduce((a, c) => a + nImgs(c.blocks), 0), quality = inspectImport(inc);
@@ -504,7 +504,7 @@ export function createImporter(deps) {
         } finally {
           if (button.isConnected) {
             button.disabled = false;
-            button.textContent = 'Continuar al destino ›';
+            button.textContent = 'Continuar a obra y publicación ›';
           }
         }
       };
@@ -513,50 +513,69 @@ export function createImporter(deps) {
     function s3(){
       const w = work(), ex = liveVols(w).find(v => v.num === D.vnum), gone = !ex && (w?.volumes || []).find(v => v.deleted_at && v.num === D.vnum), keys = imgKeys(), used = usedImgs(), inc = P.chapters.filter(c => !c.skip);
       const folder = `obras › ${w?.slug || slugify(NW.title || D.newTitle || P.title)} › vol-${D.vnum}`;
-      W().innerHTML = `${fichaHTML(P.chapters.filter(c => !c.skip).length)}<div class="imp-dest">
-        <section class="imp-box${w ? "" : " imp-new-series"}"><h3>Obra y volumen</h3>
+      const q = inspectImport(inc), nW = words(inc.flatMap(c => c.blocks)), nI = inc.reduce((a, c) => a + c.blocks.filter(b => b.type === 'image').length, 0);
+      const upN = D.allImgs ? keys.length : used.size;
+      W().innerHTML = `<div class="imp-dest">
+        <section class="imp-box${w ? "" : " imp-new-series"}"><h3>1 · Obra y volumen</h3>
           <label>Obra<select id="dw"><option value="">+ Nueva obra</option>${(works || []).map(x => `<option value="${x.id}" ${x.id === D.work ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select></label>
           ${w ? '' : `<div id="imp-new-work"><h3>Datos completos de la nueva obra</h3><p class="mono">Se rellenan los metadatos detectados; revisa los valores antes de importar.</p>${renderWorkFields(NW, esc, (related || []).filter(x => x.id !== D.work))}</div>`}
           <label>Número de volumen<input id="dv" type="number" min="1" max="999" step="0.1" inputmode="decimal" value="${D.vnum}"><small>Comprueba el número detectado del EPUB o su nombre (por ejemplo, 4.5) antes de importar.</small></label>
           ${ex ? `<div class="imp-warn"><span>El Volumen ${D.vnum} ya existe<span id="exc"></span>.</span>
             <label class="tb-inl"><input type="radio" name="dm" value="replace" ${D.mode === 'replace' ? 'checked' : ''}> Reemplazar el volumen: capítulos, ficha y portada nuevos (los capítulos anteriores van a la papelera)</label>
             <label class="tb-inl"><input type="radio" name="dm" value="append" ${D.mode === 'append' ? 'checked' : ''}> Agregar estas secciones después de las existentes (la ficha solo completa campos vacíos)</label></div>`
-            : gone ? `<p class="imp-warn">Hay un Volumen ${D.vnum} en la papelera. Se recupera y se llena con este archivo; sus capítulos viejos siguen en la papelera.</p>` : `<p class="mono">Se creará el Volumen ${D.vnum}${w ? ' en ' + esc(w.title) : ''}${Object.keys(fichaRow()).length ? ', con la ficha del paso anterior' : ''}.</p>`}
+            : gone ? `<p class="imp-warn">Hay un Volumen ${D.vnum} en la papelera. Se recupera y se llena con este archivo; sus capítulos viejos siguen en la papelera.</p>` : `<p class="mono">Se creará el Volumen ${D.vnum}${w ? ' en ' + esc(w.title) : ''}.</p>`}
         </section>
-        <p class="imp-title-option mono"><b>Control editorial:</b> ${(()=>{const q=inspectImport(inc);return q.total ? q.total+' aviso(s) pendientes en '+q.withWarnings+' sección(es). Se solicitará confirmar antes de importar.' : 'Sin avisos en las reglas básicas.';})()}</p>
-        <p class="imp-title-option mono"><b>Títulos inteligentes:</b> ${D.smartTitles ? 'Activados · solo se marcarán los encabezados duplicados en esta importación.' : 'Desactivados · conservar todos los encabezados al leer.'}</p>
-          <p class="imp-title-option mono"><b>Escaneo de encabezados:</b> ${D.scanChapterTitles ? 'Activado para revisión; no modifica el contenido automáticamente.' : 'Desactivado.'} El índice público es uniforme para todas las novelas.</p>
-        <section class="imp-box"><h3>Portada del volumen</h3>
-          <p class="mono">${keys.length ? 'Toca la imagen que será la portada.' + (P.cover ? ' Marcamos la que el EPUB declara como portada.' : '') : 'El archivo no trae imágenes.'}</p>
+        <section class="imp-box"><h3>2 · Portada del volumen</h3>
+          <p class="mono">${keys.length ? 'Toca la imagen que será la portada' + (P.cover ? '; marcamos la que el EPUB declara como portada' : '') + '. También puedes subir otra.' : 'El archivo no trae imágenes: puedes subir una portada.'}</p>
           <div class="imp-covs" role="radiogroup" aria-label="Portada del volumen">
             <button type="button" class="imp-c none${D.cover ? '' : ' on'}" data-cov="" role="radio" aria-checked="${!D.cover}">Sin portada</button>
-            ${keys.map(k => `<button type="button" class="imp-c${D.cover === 'img:' + k ? ' on' : ''}" data-cov="img:${esc(k)}" role="radio" aria-checked="${D.cover === 'img:' + k}" title="${esc(k.split('/').pop())}"><img src="${esc(P.urls.get(k))}" alt="${esc(k.split('/').pop())}" loading="lazy">${P.cover === 'img:' + k ? '<em>Del EPUB</em>' : ''}</button>`).join('')}
+            <label class="imp-c none imp-c-up" title="Subir otra imagen como portada">+ Subir otra<input type="file" id="dcu" accept="image/jpeg,image/png,image/webp,image/avif" hidden></label>
+            ${keys.map(k => `<button type="button" class="imp-c${D.cover === 'img:' + k ? ' on' : ''}" data-cov="img:${esc(k)}" role="radio" aria-checked="${D.cover === 'img:' + k}" title="${esc(k.split('/').pop())}"><img src="${esc(P.urls.get(k))}" alt="${esc(k.split('/').pop())}" loading="lazy">${P.cover === 'img:' + k ? '<em>Del EPUB</em>' : P.images.get(k)?.custom ? '<em>Subida</em>' : ''}</button>`).join('')}
           </div>
           ${ex?.cover_path && D.cover ? '<p class="mono">El volumen ya tiene portada: esta la reemplaza.</p>' : ''}
           <label class="tb-inl"><input type="checkbox" id="dwc" ${D.workCover && D.cover ? 'checked' : ''} ${D.cover ? '' : 'disabled'}> Usarla también como portada de la obra${w?.cover_path ? ' (reemplaza la actual)' : ''}</label>
         </section>
-        <section class="imp-box"><h3>Imágenes en Multimedia</h3>
+        <section class="imp-box"><h3>3 · Publicación</h3>
+          <label class="tb-inl"><input type="radio" name="dp" value="draft" ${D.pub === 'draft' ? 'checked' : ''}> Guardar como borrador</label>
+          ${can('publish') ? `<label class="tb-inl"><input type="radio" name="dp" value="now" ${D.pub === 'now' ? 'checked' : ''}> Publicar el volumen ahora</label>` : ''}
+          ${can('schedule') ? `<label class="tb-inl"><input type="radio" name="dp" value="at" ${D.pub === 'at' ? 'checked' : ''}> Programar <input type="datetime-local" id="dat" value="${esc(D.at)}" aria-label="Fecha de publicación">${tzHint()}</label>` : ''}
+        </section><section class="imp-box" id="imp-ann" ${D.pub === 'draft' ? 'hidden' : ''}><h3>Último paso · anuncio editorial</h3>${editorialForm(esc, 'volume', D.notice || {})}</section>
+        ${fichaHTML(inc.length)}
+        <details class="imp-box imp-adv"><summary><b>Imágenes y fuentes en Multimedia</b><span class="mono">${D.allImgs ? 'todas las del archivo' : 'solo las usadas'} · ${esc(folder)}</span></summary>
           <p class="mono">Carpeta: <b>Multimedia › ${esc(folder)}</b></p>
           <label class="tb-inl"><input type="radio" name="di" value="all" ${D.allImgs ? 'checked' : ''}> Todas las imágenes del archivo (${keys.length})</label>
           <label class="tb-inl"><input type="radio" name="di" value="used" ${D.allImgs ? '' : 'checked'}> Solo las del texto y la portada (${used.size})</label>
           ${P.fonts.length ? `<p class="mono">Las fuentes idénticas del equipo se reutilizan; las nuevas se guardan en «fuentes» para que el lector las use en este volumen.</p>` : ''}
-        </section>
-        <section class="imp-box"><h3>Publicación</h3>
-          <label class="tb-inl"><input type="radio" name="dp" value="draft" ${D.pub === 'draft' ? 'checked' : ''}> Guardar como borrador</label>
-          ${can('publish') ? `<label class="tb-inl"><input type="radio" name="dp" value="now" ${D.pub === 'now' ? 'checked' : ''}> Publicar el volumen ahora</label>` : ''}
-          ${can('schedule') ? `<label class="tb-inl"><input type="radio" name="dp" value="at" ${D.pub === 'at' ? 'checked' : ''}> Programar <input type="datetime-local" id="dat" value="${esc(D.at)}" aria-label="Fecha de publicación">${tzHint()}</label>` : ''}
-        </section><section class="imp-box" id="imp-ann" ${D.pub === 'draft' ? 'hidden' : ''}><h3>Último paso · anuncio editorial</h3>${editorialForm(esc, 'volume', D.notice || {})}</section></div>
-        <div class="imp-nav"><button class="btn ghost" id="back">‹ Revisar secciones</button><button class="btn" id="go">Importar ${inc.length} ${inc.length === 1 ? 'sección' : 'secciones'}</button></div>`;
+        </details></div>
+        <section class="imp-recap" aria-label="Resumen de la importación"><h3>Así quedará</h3><ul>
+          <li><span>Obra</span><b>${esc(w?.title || NW.title || D.newTitle || P.title)}${w ? '' : ' <small class="mono">(nueva)</small>'}</b></li>
+          <li><span>Volumen</span><b>${esc(String(D.vnum))} · ${ex ? (D.mode === 'replace' ? 'se reemplaza' : 'se agregan secciones') : gone ? 'se recupera de la papelera' : 'nuevo'}</b></li>
+          <li><span>Contenido</span><b>${inc.length} ${inc.length === 1 ? 'sección' : 'secciones'} · ${nW.toLocaleString('es-MX')} palabras · ${nI} ${nI === 1 ? 'ilustración' : 'ilustraciones'}</b></li>
+          <li><span>Portada</span><b>${D.cover ? 'elegida' + (D.workCover ? ' (también de la obra)' : '') : 'sin portada'}</b></li>
+          <li><span>Multimedia</span><b id="rc-media">${upN} ${upN === 1 ? 'imagen' : 'imágenes'}${P.fonts.length ? ' · ' + P.fonts.length + ' fuentes' : ''}</b></li>
+          <li><span>Estado</span><b id="rc-pub"></b></li>
+          <li><span>Revisión</span><b>${q.total ? `<a href="#" id="rc-back">${q.total} aviso(s) de calidad en ${q.withWarnings} sección(es)</a> · se pedirá confirmar` : 'sin avisos de calidad'}${D.smartTitles ? ' · títulos inteligentes' : ''}${D.scanChapterTitles ? ' · escaneo de capítulos' : ''}</b></li>
+        </ul></section>
+        <div class="imp-nav"><button class="btn ghost" id="back">‹ Ordenar secciones</button><button class="btn" id="go"></button></div>`;
+      const pubLabel = () => { const n = inc.length + ' ' + (inc.length === 1 ? 'sección' : 'secciones');
+        $('#go').textContent = D.pub === 'now' ? 'Importar y publicar ' + n : D.pub === 'at' ? 'Importar y programar ' + n : 'Importar ' + n + ' como borrador';
+        $('#rc-pub').textContent = D.pub === 'now' ? 'se publica al importar' : D.pub === 'at' ? (D.at ? 'programado: ' + fmtTz(fromLocal(D.at)) : 'programado · elige fecha y hora') : 'borrador (nadie lo ve hasta publicarlo)'; };
+      pubLabel();
+      $('#rc-back')?.addEventListener('click', e => { e.preventDefault(); D.toolsOpen = true; step = 2; render(); });
+      $('#dcu').onchange = async e => { const f = e.target.files[0]; if (!f) return; if (!/^image\/(jpeg|png|webp|avif)$/.test(f.type)) return toast('Usa una imagen JPG, PNG, WebP o AVIF');
+        if (f.size > LIMITS.image) return toast('La imagen supera 8 MB');
+        const k = 'portada-subida/' + f.name.replace(/[^\w.-]/g, '_'); P.images.set(k, { blob: f, type: f.type, name: f.name, custom: true }); P.urls.set(k, URL.createObjectURL(f));
+        D.cover = 'img:' + k; if (!w?.cover_path) D.workCover = true; s3(); };
       if (ex) sb.from('chapters').select('id', { count: 'exact', head: true }).eq('volume_id', ex.id).is('deleted_at', null).then(({ count }) => { const e = $('#exc'); if (e && count != null) e.textContent = ' con ' + count + (count === 1 ? ' capítulo' : ' capítulos'); });
       $('#dw').onchange = e => { D.work = e.target.value; const nw = work(); D.vnum = importedVolumeNumber({ filename: file?.name, title: P.title, metadataIndex: P.meta.index, fallback: nextVol(nw) }); D.workCover = !nw || !nw.cover_path; s3(); };
       if (!w) bindWorkFields($('#imp-new-work'), NW, esc, related || [], msg => { if (msg) toast(msg); });
       $('#dv').onchange = e => { try { D.vnum = parseVolumeNumber(e.target.value); s3(); } catch (err) { toast(err.message); e.target.value = D.vnum; } };
-      W().querySelectorAll('[name=dm]').forEach(r => r.onchange = () => { D.mode = r.value; });
-      W().querySelectorAll('[name=di]').forEach(r => r.onchange = () => { D.allImgs = r.value === 'all'; });
+      W().querySelectorAll('[name=dm]').forEach(r => r.onchange = () => { D.mode = r.value; s3(); });
+      W().querySelectorAll('[name=di]').forEach(r => r.onchange = () => { D.allImgs = r.value === 'all'; const n = D.allImgs ? keys.length : used.size; $('#rc-media').textContent = n + (n === 1 ? ' imagen' : ' imágenes') + (P.fonts.length ? ' · ' + P.fonts.length + ' fuentes' : ''); });
       D.noticeGetter = bindEditorialForm(W());
       W().querySelector('[data-editorial-fields]')?.addEventListener('change',()=>{try{D.notice=D.noticeGetter()}catch{}});
-      W().querySelectorAll('[name=dp]').forEach(r => r.onchange = () => { D.pub = r.value; const ann=$('#imp-ann'); if(ann)ann.hidden=D.pub==='draft'; });
-      $('#dat')?.addEventListener('input', e => { D.at = e.target.value; D.pub = 'at'; W().querySelector('[name=dp][value=at]').checked = true; });
+      W().querySelectorAll('[name=dp]').forEach(r => r.onchange = () => { D.pub = r.value; const ann=$('#imp-ann'); if(ann)ann.hidden=D.pub==='draft'; pubLabel(); });
+      $('#dat')?.addEventListener('input', e => { D.at = e.target.value; D.pub = 'at'; W().querySelector('[name=dp][value=at]').checked = true; const ann=$('#imp-ann'); if(ann)ann.hidden=false; pubLabel(); });
       $('#dwc').onchange = e => { D.workCover = e.target.checked; };
       W().querySelectorAll('[data-cov]').forEach(b => b.onclick = () => { D.cover = b.dataset.cov || null; s3(); });
       bindFicha();
