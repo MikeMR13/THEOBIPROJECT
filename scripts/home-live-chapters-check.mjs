@@ -49,5 +49,7 @@ assert.match(ui,/window\.addEventListener\('focus', resumeHomeUpdates\)/,'Detect
 assert.match(ui,/document\.removeEventListener\('visibilitychange', resumeHomeUpdates\)/,'Eliminar observadores anteriores');
 assert.match(ui,/homeRefreshCleanup\?\.\(\); homeRefreshCleanup = null;/,'No acumular listeners al repintar Inicio');
 assert.match(ui,/if \(!liveHome\(\)\) return;/,'Una consulta tardía no debe repintar otra ruta');
+assert.match(ui,/if \(visit === homeVisitSeq\) \{[\s\S]*?clearInterval\(homeRotationTimer\)/,
+ 'Un timer de una visita vieja no debe detener el de una visita nueva');
 
 console.log('OK: páginas abiertas detectan capítulos nuevos sin repintados por ranking/visitas ni consultas por minuto');
