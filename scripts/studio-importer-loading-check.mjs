@@ -17,7 +17,7 @@ function mockDatabase({ firstSeriesError = false, volumesError = false, relatedE
         order() { return query; },
         range(from, to) {
           calls.push({ ...state, from, to });
-          if (table === 'series' && state.fields === 'id,slug,title,cover_path') {
+          if (table === 'series' && state.fields === 'id,slug,title,cover_path,published') {
             if (first) { first = false; return Promise.resolve({ error: new Error('HTTP 500 simulado') }); }
             return Promise.resolve({ data: [
               { id: 'series-1', slug: 'obra-uno', title: 'Obra uno', cover_path: null },
@@ -91,7 +91,7 @@ try {
     'Una consulta exitosa elimina el error anterior');
   assert.match(element('#wiz').innerHTML, /Arrastra aquí un EPUB, DOCX o PDF/,
     'Reintentar no debe desmontar el selector de archivos');
-  assert(db.calls.filter(c => c.fields === 'id,slug,title,cover_path').length >= 2,
+  assert(db.calls.filter(c => c.fields === 'id,slug,title,cover_path,published').length >= 2,
     'Reintentar debe repetir la consulta que falló');
 } finally {
   console.warn = warnings;
