@@ -40,14 +40,26 @@ export function isImportStorageConflict(error) {
     (status===409 && /already exists|duplicate|ya existe/i.test(message));
 }
 
+export function isImportStorageTransient(error) {
+  const status=Number(error?.statusCode??error?.status??error?.originalError?.status);
+  const message=String(error?.message||'');
+  return [408,425,429,500,502,503,504,520,521,522,523,524].includes(status)||
+    /failed to fetch|network|timeout|timed out|520|bad gateway|gateway/i.test(message);
+}
+
 export async function uploadImportAsset(bucket,nextPath,{subdir='',filename,blob,contentType},uploaded) {
   if(!bucket||typeof bucket.upload!=='function'||!Array.isArray(uploaded))
     throw new Error('Almacenamiento de importación no disponible');
-  for(let attempt=0;attempt<3;attempt++){
+  // Conflicto de nombre: se reserva otro. Falla pasajera (520/502/503/504, red): se reintenta con espera creciente.
+  let transient=0;
+  for(let attempt=0;attempt<3;){
     const path=nextPath(subdir,filename);
-    const {error}=await bucket.upload(path,blob,{contentType,upsert:false});
+    let error=null;
+    try{({error}=await bucket.upload(path,blob,{contentType,upsert:false}));}catch(e){error=e;}
     if(!error){uploaded.push(path);return path;}
+    if(isImportStorageTransient(error)&&transient<3){transient++;await new Promise(r=>setTimeout(r,800*transient));continue;}
     if(!isImportStorageConflict(error)||attempt===2)throw error;
+    attempt++;
   }
   throw new Error('No se pudo reservar una ruta de multimedia');
 }

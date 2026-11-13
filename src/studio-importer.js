@@ -156,8 +156,7 @@ export function createImporter(deps) {
     if (!Object.keys(tocTitles).length) { const ncxId = X.getElementsByTagNameNS('*', 'spine')[0]?.getAttribute('toc'); const ncx = items[ncxId] || Object.values(items).find(i => i.type === 'application/x-dtbncx+xml' || extOf(i.href) === 'ncx'); if (ncx) { try { const d = parseXml(await text(ncx.href) || ''); [...d.getElementsByTagNameNS('*', 'navPoint')].forEach(n => { const s = n.getElementsByTagNameNS('*', 'content')[0]?.getAttribute('src'), t = n.getElementsByTagNameNS('*', 'text')[0]?.textContent.replace(/\s+/g, ' ').trim(); if (s && t) tocTitles[res(ncx.href, s).split('#')[0]] ||= t; }); } catch {} } }
     const famIdx = new Map([...new Set(fonts.map(f => f.family))].map((f, i) => [f.toLowerCase(), i]));
     const sheetCache = new Map(), sheet = async p => { if (!sheetCache.has(p)) sheetCache.set(p, (await text(p)) || ''); return sheetCache.get(p); };
-    const byToc = Object.keys(tocTitles).length >= 2;
-    const chapters = [], spine = [...X.getElementsByTagNameNS('*', 'itemref')].map(r => items[r.getAttribute('idref')]).filter(it => it && isHtml(it));
+    const chapters = [], pages = [], spine = [...X.getElementsByTagNameNS('*', 'itemref')].map(r => items[r.getAttribute('idref')]).filter(it => it && isHtml(it));
     if (!spine.length) throw new Error('El EPUB no declara el orden de lectura (spine) o no tiene páginas de texto');
     for (const it of spine) {
       const raw = await text(it.href); if (raw == null) continue;
@@ -165,23 +164,31 @@ export function createImporter(deps) {
       const links = [...doc.querySelectorAll('link')].filter(l => /stylesheet/i.test(l.getAttribute('rel') || '') || /css/i.test(l.getAttribute('type') || '')).map(l => l.getAttribute('href')).filter(Boolean);
       const css = epubStyler(doc, await Promise.all(links.map(h => sheet(res(it.href, h)))), famIdx);
       const blocks = htmlToBlocks(doc.body || doc.documentElement, { resolve: s => { if (!s || /^(https?:|data:)/i.test(s)) return null; const p = res(it.href, s); return loose(p) ? 'img:' + p : null; } }, css);
-      if (!blocks.length) continue;
-      // ¿abre capítulo? Con índice interno (2+ entradas), solo las páginas que el índice nombra: las ilustraciones y continuaciones se quedan en el capítulo donde estaban.
-      // Sin índice útil: si la página trae su propio título; las ilustraciones sueltas generan su sección (comportamiento anterior).
-      const onlyImg = blocks.every(b => b.type === 'image' || b.type === 'separator');
-      const own = byToc ? tocTitles[it.href] : tocTitles[it.href] || blocks.find(b => b.type === 'heading')?.text;
-      const prev = chapters[chapters.length - 1];
-      if (!own && prev && (byToc || (!onlyImg && !prev.onlyImg))) {
-        // continuación: el corte de archivo era un cambio de escena → separador (sin duplicar)
-        const hasSep = prev.blocks[prev.blocks.length - 1]?.type === 'separator' || blocks[0].type === 'separator';
-        const brk = !hasSep && /page-break-before|break-before/i.test(raw) ? [{ type: 'separator' }] : [];
-        prev.blocks.push(...brk, ...blocks); continue;
-      }
-      while (blocks[0]?.type === 'separator') blocks.shift();
-      if (!blocks.length) continue;
-      const t = own || doc.title?.trim() || `Sección ${chapters.length + 1}`;
-      chapters.push({ onlyImg, title: t.slice(0, 200), type: inferSectionType(t), blocks });
+      if (blocks.length) pages.push({ href: it.href, raw, title: doc.title?.trim(), blocks });
     }
+    // ¿abre capítulo? Con índice interno útil, solo las páginas que el índice nombra: las ilustraciones y continuaciones se quedan en el capítulo donde estaban.
+    // Sin índice útil: si la página trae su propio título; las ilustraciones sueltas generan su sección (comportamiento anterior).
+    const group = byToc => { const out = [];
+      for (const pg of pages) {
+        const blocks = [...pg.blocks], onlyImg = blocks.every(b => b.type === 'image' || b.type === 'separator');
+        const own = byToc ? tocTitles[pg.href] : tocTitles[pg.href] || blocks.find(b => b.type === 'heading')?.text;
+        const prev = out[out.length - 1];
+        if (!own && prev && (byToc || (!onlyImg && !prev.onlyImg))) {
+          // continuación: el corte de archivo era un cambio de escena → separador (sin duplicar)
+          const hasSep = prev.blocks[prev.blocks.length - 1]?.type === 'separator' || blocks[0].type === 'separator';
+          const brk = !hasSep && /page-break-before|break-before/i.test(pg.raw) ? [{ type: 'separator' }] : [];
+          prev.blocks.push(...brk, ...blocks); continue;
+        }
+        while (blocks[0]?.type === 'separator') blocks.shift();
+        if (!blocks.length) continue;
+        const t = own || pg.title || `Sección ${out.length + 1}`;
+        out.push({ onlyImg, title: t.slice(0, 200), type: inferSectionType(t), blocks });
+      }
+      return out; };
+    // Un índice con pocas entradas (desactualizado o parcial) juntaría medio libro en una sección: si alguna pasa del tamaño seguro, se vuelve a separar por títulos.
+    let grouped = Object.keys(tocTitles).length >= 2 ? group(true) : null;
+    if (!grouped || grouped.some(c => oversize(c.blocks))) grouped = group(false);
+    chapters.push(...splitOversize(grouped));
     for (const c of chapters) { delete c.onlyImg; while (c.blocks[c.blocks.length - 1]?.type === 'separator') c.blocks.pop(); }
     const tally = { body: new Map(), heading: new Map() };
     for (const c of chapters) for (const b of c.blocks) { const f = b.html?.match(/^<span data-epub-family="(\d+)">/)?.[1]; if (f == null) continue; const m = tally[b.type === 'heading' ? 'heading' : 'body']; m.set(+f, (m.get(+f) || 0) + (b.text || '').length); }
@@ -243,6 +250,22 @@ export function createImporter(deps) {
   const SKIP_RE = /^(copyright|derechos|cr[eé]ditos|colof[oó]n|[ií]ndice|contenidos?|contents|table of contents|tabla de contenidos?|newsletter|bolet[ií]n|sign up|title page|portadilla|cover|portada|about the (author|translator|illustrator)|acerca del autor|sobre el autor)\b/i;
   const words = bs => bs.reduce((a, b) => a + (b.text || '').split(/\s+/).filter(Boolean).length, 0);
   const slugify = s => (s || 'obra').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
+  // Límites del servidor por capítulo (private.editor_phase0_valid_body): 6000 bloques y 3 MB. Se deja margen.
+  const SAFE_BLOCKS = 4000, SAFE_BYTES = 2_000_000;
+  const blockBytes = b => (b.text?.length || 0) + (b.html?.length || 0) + (b.url?.length || 0) + 60;
+  const oversize = bs => bs.length > SAFE_BLOCKS || bs.reduce((a, b) => a + blockBytes(b), 0) > SAFE_BYTES;
+  // Una sección que aún excede se parte en «(parte N)» en el último separador o párrafo que cabe: nunca se pierde texto.
+  function splitOversize(list){
+    const out = [];
+    for (const c of list) {
+      if (!oversize(c.blocks)) { out.push(c); continue; }
+      let part = 1, cur = [], bytes = 0;
+      const flush = () => { if (!cur.length) return; out.push({ ...c, title: (part === 1 ? c.title : `${c.title} (parte ${part})`).slice(0, 200), blocks: cur, why: part > 1 ? 'parte de una sección muy larga' : c.why }); part++; cur = []; bytes = 0; };
+      for (const b of c.blocks) { const n = blockBytes(b); if (cur.length && (cur.length >= SAFE_BLOCKS || bytes + n > SAFE_BYTES)) { let cut = cur.length; for (let i = cur.length - 1; i > cur.length * 0.7; i--) if (cur[i].type === 'separator' || cur[i].type === 'heading') { cut = i; break; } const rest = cur.splice(cut); flush(); cur = rest; bytes = rest.reduce((a, x) => a + blockBytes(x), 0); } cur.push(b); bytes += n; }
+      flush();
+    }
+    return out;
+  }
   // Tamaño real de cada ilustración: se guarda en el bloque (w/h) para que la vista previa, el editor y el lector reserven su espacio y el texto no salte al cargarlas.
   async function measureImages(P){
     const sizeOf = async blob => {
@@ -356,6 +379,7 @@ export function createImporter(deps) {
           document.head.appendChild(stl); P.fontVars = fl.map((_, i) => `--f${i}:'imp-${i}',Literata,serif`).join(';') + ';'; const rb = P.fonts.find(f => f.use?.includes('body')), rh = P.fonts.find(f => f.use?.includes('heading')); if (rb) P.fontVars += `--fb:'imp-${fl.indexOf(rb.family)}',Literata,serif;`; if (rh) P.fontVars += `--fh:'imp-${fl.indexOf(rh.family)}',Literata,serif;`; }
         P.urls = new Map([...P.images].map(([k, v]) => [k, v.blob ? URL.createObjectURL(v.blob) : '']));
         if (P.images.size) { st('Midiendo ilustraciones…'); await measureImages(P); }
+        P.chapters = splitOversize(P.chapters);
         suggestSkips(P);
         const key = (P.meta.series || P.title).toLowerCase();
         const guess = (works || []).find(w => w.title && key.includes(w.title.toLowerCase().slice(0, 18)));
@@ -460,7 +484,7 @@ export function createImporter(deps) {
         const b = e.target.closest('[data-mv],[data-merge]');
         if (b) { const i = +(b.dataset.mv ?? b.dataset.merge);
           if (b.dataset.mv != null) { const j = i + +b.dataset.d; [ch[i], ch[j]] = [ch[j], ch[i]]; sel = j; }
-          else { ch[i].blocks.push(...ch[i + 1].blocks); ch[i].skip = ch[i].skip && ch[i + 1].skip; ch.splice(i + 1, 1); sel = i; }
+          else { if (oversize([...ch[i].blocks, ...ch[i + 1].blocks])) return toast('Juntas serían demasiado largas para una sola sección'); ch[i].blocks.push(...ch[i + 1].blocks); ch[i].skip = ch[i].skip && ch[i + 1].skip; ch.splice(i + 1, 1); sel = i; }
           splitting = false; return s2(); }
         const li = e.target.closest('[data-sel]'); if (li && !e.target.closest('input,select,button,details')) pick(+li.dataset.sel);
       };
@@ -599,6 +623,8 @@ export function createImporter(deps) {
       const uploaded = [], inserted = [], updatedRows = [], removedRows = [], inc = P.chapters.filter(c => !c.skip);
       let job = null, createdSeries = null, createdVol = null, restoredVol = null, volBefore = null, seriesCoverBefore;
       if (D.pub === 'at' && (!D.at || new Date(fromLocal(D.at)) <= new Date())) throw new Error('Elige una fecha futura para programar');
+      const big = inc.find(c => oversize(c.blocks));
+      if (big) throw new Error(`«${big.title}» es demasiado larga para una sola sección (${big.blocks.length} bloques). Usa «Dividir esta sección…» en «Ordenar secciones» o no la unas con la siguiente.`);
       // Validar ANTES de subir archivos; la importación jamás se revierte por una falla del anuncio.
       const notice = D.pub === 'draft' ? null : D.noticeGetter?.();
       if (D.pub !== 'draft' && !notice) throw new Error('Completa el anuncio editorial antes de publicar');
