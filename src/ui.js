@@ -6,7 +6,7 @@ import { attachPublicCredits, creditTeams, creditsHTML, installCreditImageFallba
 import { homeFeaturedSelection, homeDayKey, mergeHomeCarousel } from './home-featured.js?v=3';
 import { recordSeriesProfileVisit, profileVisitRanking } from './series-profile-visits.js?v=1';
 import { bindHomeVisitRanking } from './home-visit-ranking.js?v=1';
-import { homeFeedRevision, homeFeedHasNewContent } from './home-feed-freshness.js?v=1';
+import { homeFeedRevision, homeFeedHasNewContent, homeReleaseCheckDue } from './home-feed-freshness.js?v=1';
 import { createHeroRotationClock } from './home-hero-rotation.js?v=1';
 import { createHomeMetrics, homeMetricCategory } from './home-metrics.js?v=1';
 import { publicSectionCounts } from './public-section-counts.js?v=1';
@@ -589,7 +589,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
   }
 
   // ---------- Inicio ----------
-  let homeRotationTimer, heroClock = null, heroClockEl = null;
+  let homeRotationTimer, homeRefreshCleanup = null, heroClock = null, heroClockEl = null;
   const HOME_CSS = `
 /* Logo del equipo en una columna propia: el anuncio editorial configurado al
    publicar/programar y el ranking permanecen juntos sin solaparse. */
@@ -880,6 +880,7 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     // Un regreso a Inicio comienza con autoplay; una actualización dentro
     // del mismo Inicio respeta solo la pausa manual escogida por el lector.
     if (!app.querySelector('#hero')) heroPaused = false;
+    homeRefreshCleanup?.(); homeRefreshCleanup = null;
     clearInterval(homeRotationTimer);
     heroClock?.dispose(); heroClock = null; heroClockEl = null;
     rkCss(); if (!document.getElementById('ob2-css')) { const st = document.createElement('style'); st.id = 'ob2-css'; st.textContent = HOME_CSS; document.head.appendChild(st); }
@@ -1306,10 +1307,23 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     const initialFeedRevision = homeFeedRevision(FD);
     let lastFeedFreshnessCheck = Date.now();
     const currentAnnouncement = Math.max(0,...(VR?.data||[]).map(v=>Date.parse(v.announced_at||v.published_at)||0));
-    homeRotationTimer = setInterval(async () => {
-      if(location.pathname !== '/' || !app.querySelector('.ob-page')) {clearInterval(homeRotationTimer);return;}
+    let lastReleaseCheck = Date.now();
+    const checkHomeUpdates = async () => {
+      if (!liveHome() || !app.querySelector('.ob-page')) {
+        // Una comprobación antigua NO debe eliminar el timer de otro Inicio.
+        if (visit === homeVisitSeq) {
+          clearInterval(homeRotationTimer);
+          homeRefreshCleanup?.();
+        }
+        return;
+      }
       if(document.hidden || checkingNewRelease)return;
       if(homeDayKey() !== featured.day){clearInterval(homeRotationTimer);home();return;}
+      // El evento de regreso puede adelantar la próxima consulta, pero nunca
+      // duplicarla: el timer y visibilidad comparten el mismo límite de 60 s.
+      const checkedAt = Date.now();
+      if (!homeReleaseCheckDue(lastReleaseCheck, checkedAt)) return;
+      lastReleaseCheck = checkedAt;
       checkingNewRelease=true;
       try {
         const checkFeed = Date.now() - lastFeedFreshnessCheck >= 5 * 60 * 1000;
@@ -1321,8 +1335,9 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
           teamHighlights().then(r=>r,()=>({data:null,error:true})),
           checkFeed ? sb.rpc('home_feed').then(r=>r,()=>({data:null,error:true})) : Promise.resolve(null)
         ]);
-        // La recomendación añadida, sustituida o vencida se refleja en una
-        // pestaña abierta en menos de un minuto, incluso sin cambio de día.
+        if (!liveHome()) return;
+        // Conservar recomendaciones activas y detectar lanzamientos nuevos,
+        // capítulos/importaciones y obras publicadas sin cron adicional.
         const changedTeam = Array.isArray(teamResult?.data)
           && teamSignature(teamResult.data)!==loadedTeamSignature;
         const changedRelease=!releaseResult.error
@@ -1333,8 +1348,23 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
           clearInterval(homeRotationTimer);
           home();
         }
+      } catch (error) {
+        console.warn('Actualización de novedades de Inicio', error);
       } finally {checkingNewRelease=false;}
-    }, 60000);
+    };
+    const resumeHomeUpdates = () => {
+      if (!document.hidden) void checkHomeUpdates();
+    };
+    document.addEventListener('visibilitychange', resumeHomeUpdates);
+    window.addEventListener('pageshow', resumeHomeUpdates);
+    window.addEventListener('focus', resumeHomeUpdates);
+    homeRefreshCleanup = () => {
+      document.removeEventListener('visibilitychange', resumeHomeUpdates);
+      window.removeEventListener('pageshow', resumeHomeUpdates);
+      window.removeEventListener('focus', resumeHomeUpdates);
+      homeRefreshCleanup = null;
+    };
+    homeRotationTimer = setInterval(checkHomeUpdates, 60000);
     // Fase 2: secciones secundarias, sin bloquear lo anterior.
     const fill = (id, html) => { const el = document.getElementById(id); if (!el || !html) return; el.outerHTML = html; const sec = document.querySelector('[data-from="' + id + '"]'); if (sec) bindCars(sec); };
     const seen = new Set([...Object.keys(prog)]);
