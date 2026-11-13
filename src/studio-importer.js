@@ -319,7 +319,7 @@ export function createImporter(deps) {
     let P = null, file = null, fp = null, step = 1, sel = 0, splitting = false, dupAt = null, V = {};
     const contextualId = new URLSearchParams(location.search).get('obra');
     const contextualWork = () => works.find(w => w.id === contextualId) || null;
-    const D = { work: contextualWork?.id || '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', notice: null, noticeGetter: null, newTitle: '', newAuthor: '', scanChapterTitles: false, smartTitles: false, toolsOpen: false };
+    const D = { work: contextualWork?.id || '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', notice: null, noticeGetter: null, newTitle: '', newAuthor: '', scanChapterTitles: false, smartTitles: false, toolsOpen: false, prelaunch: null };
     let NW = createWorkData();
     app.innerHTML = shell('Importar contenido', '<p id="imp-catalog-status" class="mono" role="status"></p><ol class="imp-steps" id="steps"></ol><div id="wiz"></div><p id="status" class="mono" role="status"></p>', TAB);
     bindPicker(importer);
@@ -514,7 +514,8 @@ export function createImporter(deps) {
       const w = work(), ex = liveVols(w).find(v => v.num === D.vnum), gone = !ex && (w?.volumes || []).find(v => v.deleted_at && v.num === D.vnum), keys = imgKeys(), used = usedImgs(), inc = P.chapters.filter(c => !c.skip);
       const folder = `obras › ${w?.slug || slugify(NW.title || D.newTitle || P.title)} › vol-${D.vnum}`;
       const q = inspectImport(inc), nW = words(inc.flatMap(c => c.blocks)), nI = inc.reduce((a, c) => a + c.blocks.filter(b => b.type === 'image').length, 0);
-      const upN = D.allImgs ? keys.length : used.size;
+      const upN = D.allImgs ? keys.length : used.size, privateWork = !w || !w.published;
+      if (D.prelaunch == null) D.prelaunch = privateWork;
       W().innerHTML = `<div class="imp-dest">
         <section class="imp-box${w ? "" : " imp-new-series"}"><h3>1 · Obra y volumen</h3>
           <label>Obra<select id="dw"><option value="">+ Nueva obra</option>${(works || []).map(x => `<option value="${x.id}" ${x.id === D.work ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select></label>
@@ -535,10 +536,14 @@ export function createImporter(deps) {
           ${ex?.cover_path && D.cover ? '<p class="mono">El volumen ya tiene portada: esta la reemplaza.</p>' : ''}
           <label class="tb-inl"><input type="checkbox" id="dwc" ${D.workCover && D.cover ? 'checked' : ''} ${D.cover ? '' : 'disabled'}> Usarla también como portada de la obra${w?.cover_path ? ' (reemplaza la actual)' : ''}</label>
         </section>
-        <section class="imp-box"><h3>3 · Publicación</h3>
+        <section class="imp-box imp-pub"><h3>3 · Publicación</h3>
           <label class="tb-inl"><input type="radio" name="dp" value="draft" ${D.pub === 'draft' ? 'checked' : ''}> Guardar como borrador</label>
-          ${can('publish') ? `<label class="tb-inl"><input type="radio" name="dp" value="now" ${D.pub === 'now' ? 'checked' : ''}> Publicar el volumen ahora</label>` : ''}
-          ${can('schedule') ? `<label class="tb-inl"><input type="radio" name="dp" value="at" ${D.pub === 'at' ? 'checked' : ''}> Programar <input type="datetime-local" id="dat" value="${esc(D.at)}" aria-label="Fecha de publicación">${tzHint()}</label>` : ''}
+          ${can('publish') ? `<label class="tb-inl"><input type="radio" name="dp" value="now" ${D.pub === 'now' ? 'checked' : ''}> Lanzar ahora</label>` : ''}
+          ${can('schedule') ? `<label class="tb-inl"><input type="radio" name="dp" value="at" ${D.pub === 'at' ? 'checked' : ''}> Programar el lanzamiento</label>
+          <div class="imp-at" id="imp-at" ${D.pub === 'at' ? '' : 'hidden'}><label>Fecha y hora<input type="datetime-local" id="dat" value="${esc(D.at)}" aria-label="Fecha de publicación"></label>${tzHint()}
+            <label class="tb-inl imp-pre"><input type="checkbox" id="dpre" ${D.prelaunch ? 'checked' : ''}> <span><b>Habilitar preestreno</b><small>Anuncia el estreno en el calendario y abre la ficha pública con cuenta regresiva, sin liberar capítulos hasta la fecha.</small></span></label></div>` : ''}
+          ${!can('publish') && !can('schedule') ? '<p class="mono">Tu rol solo permite guardar como borrador. Alguien con permiso «Publicar» podrá lanzarlo desde la obra.</p>' : ''}
+          <p class="mono" id="imp-pub-note" role="status"></p>
         </section><section class="imp-box" id="imp-ann" ${D.pub === 'draft' ? 'hidden' : ''}><h3>Último paso · anuncio editorial</h3>${editorialForm(esc, 'volume', D.notice || {})}</section>
         ${fichaHTML(inc.length)}
         <details class="imp-box imp-adv"><summary><b>Imágenes y fuentes en Multimedia</b><span class="mono">${D.allImgs ? 'todas las del archivo' : 'solo las usadas'} · ${esc(folder)}</span></summary>
@@ -558,8 +563,13 @@ export function createImporter(deps) {
         </ul></section>
         <div class="imp-nav"><button class="btn ghost" id="back">‹ Ordenar secciones</button><button class="btn" id="go"></button></div>`;
       const pubLabel = () => { const n = inc.length + ' ' + (inc.length === 1 ? 'sección' : 'secciones');
-        $('#go').textContent = D.pub === 'now' ? 'Importar y publicar ' + n : D.pub === 'at' ? 'Importar y programar ' + n : 'Importar ' + n + ' como borrador';
-        $('#rc-pub').textContent = D.pub === 'now' ? 'se publica al importar' : D.pub === 'at' ? (D.at ? 'programado: ' + fmtTz(fromLocal(D.at)) : 'programado · elige fecha y hora') : 'borrador (nadie lo ve hasta publicarlo)'; };
+        $('#go').textContent = D.pub === 'now' ? 'Importar y lanzar ahora · ' + n : D.pub === 'at' ? 'Importar y programar · ' + n : 'Importar ' + n + ' como borrador';
+        $('#rc-pub').textContent = D.pub === 'now' ? 'se lanza al importar' + (privateWork ? ' (la obra pasa a pública)' : '') : D.pub === 'at' ? (D.at ? 'programado: ' + fmtTz(fromLocal(D.at)) : 'programado · elige fecha y hora') + (D.prelaunch ? ' · con preestreno' : '') : 'borrador (nadie lo ve hasta publicarlo)';
+        const at = $('#imp-at'); if (at) at.hidden = D.pub !== 'at';
+        const ann = $('#imp-ann'); if (ann) ann.hidden = D.pub === 'draft';
+        $('#imp-pub-note').textContent = D.pub === 'now' ? (privateWork ? (w ? 'La obra está privada: al lanzar, se publica este volumen y la obra pasa a pública.' : 'Se crea la obra, se publica este volumen y la obra queda pública.') + ' Antes completa el anuncio editorial.' : 'Se publica este volumen con los avisos habituales. Antes completa el anuncio editorial.')
+          : D.pub === 'at' ? (D.prelaunch ? 'Hasta la fecha, la ficha muestra el preestreno y los capítulos siguen cerrados; al llegar, el volumen' + (privateWork ? ' y la obra se publican' : ' se publica') + ' solos.' : privateWork ? 'Sin preestreno, el volumen se publica en la fecha pero la obra sigue privada hasta que la publiques desde «Estado de publicación». Activa el preestreno para que salga sola.' : 'El volumen se publica solo en la fecha, sin anuncio previo en el calendario.')
+          : 'Queda como borrador privado; podrás lanzarlo o programarlo después desde la obra.'; };
       pubLabel();
       $('#rc-back')?.addEventListener('click', e => { e.preventDefault(); D.toolsOpen = true; step = 2; render(); });
       $('#dcu').onchange = async e => { const f = e.target.files[0]; if (!f) return; if (!/^image\/(jpeg|png|webp|avif)$/.test(f.type)) return toast('Usa una imagen JPG, PNG, WebP o AVIF');
@@ -567,15 +577,16 @@ export function createImporter(deps) {
         const k = 'portada-subida/' + f.name.replace(/[^\w.-]/g, '_'); P.images.set(k, { blob: f, type: f.type, name: f.name, custom: true }); P.urls.set(k, URL.createObjectURL(f));
         D.cover = 'img:' + k; if (!w?.cover_path) D.workCover = true; s3(); };
       if (ex) sb.from('chapters').select('id', { count: 'exact', head: true }).eq('volume_id', ex.id).is('deleted_at', null).then(({ count }) => { const e = $('#exc'); if (e && count != null) e.textContent = ' con ' + count + (count === 1 ? ' capítulo' : ' capítulos'); });
-      $('#dw').onchange = e => { D.work = e.target.value; const nw = work(); D.vnum = importedVolumeNumber({ filename: file?.name, title: P.title, metadataIndex: P.meta.index, fallback: nextVol(nw) }); D.workCover = !nw || !nw.cover_path; s3(); };
+      $('#dw').onchange = e => { D.work = e.target.value; D.prelaunch = null; const nw = work(); D.vnum = importedVolumeNumber({ filename: file?.name, title: P.title, metadataIndex: P.meta.index, fallback: nextVol(nw) }); D.workCover = !nw || !nw.cover_path; s3(); };
       if (!w) bindWorkFields($('#imp-new-work'), NW, esc, related || [], msg => { if (msg) toast(msg); });
       $('#dv').onchange = e => { try { D.vnum = parseVolumeNumber(e.target.value); s3(); } catch (err) { toast(err.message); e.target.value = D.vnum; } };
       W().querySelectorAll('[name=dm]').forEach(r => r.onchange = () => { D.mode = r.value; s3(); });
       W().querySelectorAll('[name=di]').forEach(r => r.onchange = () => { D.allImgs = r.value === 'all'; const n = D.allImgs ? keys.length : used.size; $('#rc-media').textContent = n + (n === 1 ? ' imagen' : ' imágenes') + (P.fonts.length ? ' · ' + P.fonts.length + ' fuentes' : ''); });
       D.noticeGetter = bindEditorialForm(W());
       W().querySelector('[data-editorial-fields]')?.addEventListener('change',()=>{try{D.notice=D.noticeGetter()}catch{}});
-      W().querySelectorAll('[name=dp]').forEach(r => r.onchange = () => { D.pub = r.value; const ann=$('#imp-ann'); if(ann)ann.hidden=D.pub==='draft'; pubLabel(); });
-      $('#dat')?.addEventListener('input', e => { D.at = e.target.value; D.pub = 'at'; W().querySelector('[name=dp][value=at]').checked = true; const ann=$('#imp-ann'); if(ann)ann.hidden=false; pubLabel(); });
+      W().querySelectorAll('[name=dp]').forEach(r => r.onchange = () => { D.pub = r.value; pubLabel(); if (D.pub === 'at') $('#dat')?.focus(); });
+      $('#dpre')?.addEventListener('change', e => { D.prelaunch = e.target.checked; pubLabel(); });
+      $('#dat')?.addEventListener('input', e => { D.at = e.target.value; D.pub = 'at'; W().querySelector('[name=dp][value=at]').checked = true; pubLabel(); });
       $('#dwc').onchange = e => { D.workCover = e.target.checked; };
       W().querySelectorAll('[data-cov]').forEach(b => b.onclick = () => { D.cover = b.dataset.cov || null; s3(); });
       bindFicha();
@@ -701,7 +712,16 @@ export function createImporter(deps) {
           if (Object.keys(patch).length) { volBefore = Object.fromEntries(Object.keys(patch).map(k => [k, vr?.[k] ?? null])); const r = await sb.from('volumes').update(patch).eq('id', vol.id); if (r.error) throw r.error; }
         }
         if (cov && D.workCover) { seriesCoverBefore = w.cover_path || null; const r = await sb.from('series').update({ cover_path: cov }).eq('id', w.id); if (r.error) throw r.error; }
-        if (D.pub !== 'draft') { st(D.pub === 'now' ? 'Publicando…' : 'Programando…'); const r = await sb.rpc('publish_volume', D.pub === 'now' ? { p_volume: vol.id } : { p_volume: vol.id, p_at: fromLocal(D.at) }); if (r.error) throw r.error;
+        if (D.pub !== 'draft') { st(D.pub === 'now' ? 'Lanzando…' : 'Programando…');
+          // Lanzar ahora: en una obra privada (o recién creada) se usa la transición editorial, que publica el volumen y la obra en una sola operación.
+          // Programar: la misma RPC del Estudio; con preestreno, al llegar la fecha el volumen y la obra se publican solos.
+          const privateSeries = !w.published;
+          if (D.pub === 'now' && !can('publish')) throw new Error('Tu rol no permite publicar');
+          if (D.pub === 'at' && !can('schedule')) throw new Error('Tu rol no permite programar');
+          const r = D.pub === 'now'
+            ? (privateSeries ? await sb.rpc('series_publication_transition', { p_series: w.id, p_mode: 'published', p_volume: vol.id }) : await sb.rpc('publish_volume', { p_volume: vol.id }))
+            : await sb.rpc('schedule_prelaunch_volume', { p_volume: vol.id, p_at: new Date(fromLocal(D.at)).toISOString(), p_announce: !!D.prelaunch });
+          if (r.error) throw r.error;
           try { await saveEditorialRecord(sb,w.id,notice,{kind:'volume',id:vol.id,startsAt:D.pub==='at' ? fromLocal(D.at) : new Date().toISOString()}); }
           catch (e) { toast('Volumen importado y publicado, pero el anuncio no se guardó: '+(e.message||e)); }
         }
@@ -710,7 +730,7 @@ export function createImporter(deps) {
         // Un fallo del historial no puede deshacer capítulos que ya se publicaron.
         if(finishError)toast('Contenido guardado; no se pudo actualizar el historial de importación');
         P.urls.forEach(u => u && URL.revokeObjectURL(u));
-        toast(`Importadas ${rows.length} secciones${D.pub === 'now' ? ' y publicadas' : D.pub === 'at' ? ' · programadas para ' + fmtTz(fromLocal(D.at)) : ' como borrador'} · ${Object.keys(map).length} imágenes en Multimedia · ${fontsReused} de ${fonts.length} fuentes reutilizadas`);
+        toast(`Importadas ${rows.length} secciones${D.pub === 'now' ? ' y lanzadas' : D.pub === 'at' ? ' · programadas para ' + fmtTz(fromLocal(D.at)) + (D.prelaunch ? ' con preestreno' : '') : ' como borrador'} · ${Object.keys(map).length} imágenes en Multimedia · ${fontsReused} de ${fonts.length} fuentes reutilizadas`);
         go('/estudio/obra/' + w.slug);
       } catch (er) {
         // Recuperar todas las filas modificadas. Reportar los fallos de rollback.

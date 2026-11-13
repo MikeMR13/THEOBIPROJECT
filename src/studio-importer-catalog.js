@@ -5,7 +5,7 @@ import { readPages } from './paging.js?v=1';
 export async function loadStudioImportCatalogue(sb, teamId) {
   if (!teamId) throw new Error('Falta el equipo de importación.');
   const { data: series } = await readPages((from, to) => sb.from('series')
-    .select('id,slug,title,cover_path')
+    .select('id,slug,title,cover_path,published')
     .eq('team_id', teamId).is('archived_at', null)
     .order('title').order('id').range(from, to), { size: 200 });
   if (!series.length) return [];
