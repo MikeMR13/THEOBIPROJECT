@@ -47,4 +47,8 @@ assert.equal(res.status,200);assert.equal((await res.json()).sent,1);
 assert.equal(requests.length,1);assert.deepEqual(requests[0].body.allowed_mentions,{parse:[]});
 assert.equal(last.filter(x=>x.name==='diffusion_4b_complete').length,1);
 assert.equal(last.find(x=>x.name==='diffusion_4b_complete').args.p_post_id,'abc');
+const completion=last.find(x=>x.name==='diffusion_4b_complete');
+assert.deepEqual(completion.args,{p_plan:plan,p_job:job,p_success:true,p_post_id:'abc'},
+ 'La finalización debe recibir el job_id que devuelve la RPC claim; item.job no existe');
+
 console.log('Difusión 4B Edge: fail-closed, tickets, formatos seguros y confirmación — PASS');
