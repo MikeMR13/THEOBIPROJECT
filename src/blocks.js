@@ -76,11 +76,11 @@ export function blocksToEditor(blocks, media = x => x){
     if (t === 'note') return `<aside class="tn">${inner}</aside>`;
     if (t === 'separator' || t === 'sep') return `<div class="sep" contenteditable="false">${escHtml(b.text || '※')}</div>`;
     if (t === 'ruby') return `<p><ruby>${escHtml(b.text || '')}<rt>${escHtml(b.reading || '')}</rt></ruby></p>`;
-    if (t === 'image' || t === 'img') return figureHTML(b.url || b.src, b.alt, b.caption, media, b.decorative === true);
+    if (t === 'image' || t === 'img') return figureHTML(b.url || b.src, b.alt, b.caption, media, b.decorative === true, b.w ?? b.width, b.h ?? b.height);
     return `<p${AL(b)}>${inner}</p>`;
   }).join('') || '<p><br></p>';
 }
-export const figureHTML = (url, alt, caption, media = x => x, decorative = false) => `<figure contenteditable="false" tabindex="0" role="button" aria-label="Editar descripción o pie de ilustración" data-url="${escHtml(url || '')}" data-alt="${escHtml(decorative ? '' : alt || '')}" data-decorative="${decorative ? '1' : '0'}" data-caption="${escHtml(caption || '')}"><img src="${escHtml(media(url))}" alt="${escHtml(decorative ? '' : alt || '')}"><figcaption>${caption ? escHtml(caption) : '<i>Sin pie · toca para editar</i>'}</figcaption></figure>`;
+export const figureHTML = (url, alt, caption, media = x => x, decorative = false, w, h) => { const dim = +w >= 1 && +h >= 1; return `<figure contenteditable="false" tabindex="0" role="button" aria-label="Editar descripción o pie de ilustración" data-url="${escHtml(url || '')}" data-alt="${escHtml(decorative ? '' : alt || '')}" data-decorative="${decorative ? '1' : '0'}" data-caption="${escHtml(caption || '')}"${dim ? ` data-w="${+w}" data-h="${+h}"` : ''}><img src="${escHtml(media(url))}" alt="${escHtml(decorative ? '' : alt || '')}"${dim ? ` width="${+w}" height="${+h}"` : ''}><figcaption>${caption ? escHtml(caption) : '<i>Sin pie · toca para editar</i>'}</figcaption></figure>`; };
 
 export function editorToBlocks(root){
   const out = [], BLOCK = /^(P|H[1-6]|BLOCKQUOTE|ASIDE|FIGURE|DIV|HR|UL|OL|LI|SECTION)$/;
@@ -92,7 +92,7 @@ export function editorToBlocks(root){
     if (el.nodeType === 3 || (el.nodeType === 1 && !BLOCK.test(el.tagName))) { if (el.nodeType === 1 && el.tagName === 'BR' && !loose) continue; (loose ||= document.createElement('p')).append(el.cloneNode(true)); continue; }
     flush(); if (el.nodeType !== 1) continue;
     const tg = el.tagName;
-    if (tg === 'FIGURE') { if (el.dataset.url) out.push({ type: 'image', url: el.dataset.url, alt: el.dataset.decorative === '1' ? '' : (el.dataset.alt || ''), caption: el.dataset.caption || '', ...(el.dataset.decorative === '1' ? {decorative:true} : {}) }); continue; }
+    if (tg === 'FIGURE') { if (el.dataset.url) out.push({ type: 'image', url: el.dataset.url, alt: el.dataset.decorative === '1' ? '' : (el.dataset.alt || ''), caption: el.dataset.caption || '', ...(el.dataset.decorative === '1' ? {decorative:true} : {}), ...(+el.dataset.w >= 1 && +el.dataset.h >= 1 ? { w: +el.dataset.w, h: +el.dataset.h } : {}) }); continue; }
     if (el.classList.contains('sep') || tg === 'HR') { const m = el.textContent.trim(); out.push(m && m !== '※' ? { type: 'separator', text: m } : { type: 'separator' }); continue; }
     // una línea que solo tiene ◇ / *** / ※ (escrita o pegada) también es separador, conservando el símbolo
     { const m = el.textContent.replace(/\s+/g, ' ').trim(); if (m && m.length <= 24 && SEP_MARK.test(m) && !el.querySelector('img,figure')) { out.push({ type: 'separator', text: m }); continue; } }

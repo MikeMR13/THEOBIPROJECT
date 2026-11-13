@@ -156,6 +156,7 @@ export function createImporter(deps) {
     if (!Object.keys(tocTitles).length) { const ncxId = X.getElementsByTagNameNS('*', 'spine')[0]?.getAttribute('toc'); const ncx = items[ncxId] || Object.values(items).find(i => i.type === 'application/x-dtbncx+xml' || extOf(i.href) === 'ncx'); if (ncx) { try { const d = parseXml(await text(ncx.href) || ''); [...d.getElementsByTagNameNS('*', 'navPoint')].forEach(n => { const s = n.getElementsByTagNameNS('*', 'content')[0]?.getAttribute('src'), t = n.getElementsByTagNameNS('*', 'text')[0]?.textContent.replace(/\s+/g, ' ').trim(); if (s && t) tocTitles[res(ncx.href, s).split('#')[0]] ||= t; }); } catch {} } }
     const famIdx = new Map([...new Set(fonts.map(f => f.family))].map((f, i) => [f.toLowerCase(), i]));
     const sheetCache = new Map(), sheet = async p => { if (!sheetCache.has(p)) sheetCache.set(p, (await text(p)) || ''); return sheetCache.get(p); };
+    const byToc = Object.keys(tocTitles).length >= 2;
     const chapters = [], spine = [...X.getElementsByTagNameNS('*', 'itemref')].map(r => items[r.getAttribute('idref')]).filter(it => it && isHtml(it));
     if (!spine.length) throw new Error('El EPUB no declara el orden de lectura (spine) o no tiene páginas de texto');
     for (const it of spine) {
@@ -165,10 +166,12 @@ export function createImporter(deps) {
       const css = epubStyler(doc, await Promise.all(links.map(h => sheet(res(it.href, h)))), famIdx);
       const blocks = htmlToBlocks(doc.body || doc.documentElement, { resolve: s => { if (!s || /^(https?:|data:)/i.test(s)) return null; const p = res(it.href, s); return loose(p) ? 'img:' + p : null; } }, css);
       if (!blocks.length) continue;
-      // ¿abre capítulo? solo si el índice lo nombra o trae su propio título. Las ilustraciones sueltas siguen generando su sección (como antes).
-      const own = tocTitles[it.href] || blocks.find(b => b.type === 'heading')?.text, onlyImg = blocks.every(b => b.type === 'image' || b.type === 'separator');
+      // ¿abre capítulo? Con índice interno (2+ entradas), solo las páginas que el índice nombra: las ilustraciones y continuaciones se quedan en el capítulo donde estaban.
+      // Sin índice útil: si la página trae su propio título; las ilustraciones sueltas generan su sección (comportamiento anterior).
+      const onlyImg = blocks.every(b => b.type === 'image' || b.type === 'separator');
+      const own = byToc ? tocTitles[it.href] : tocTitles[it.href] || blocks.find(b => b.type === 'heading')?.text;
       const prev = chapters[chapters.length - 1];
-      if (!own && !onlyImg && prev && !prev.onlyImg) {
+      if (!own && prev && (byToc || (!onlyImg && !prev.onlyImg))) {
         // continuación: el corte de archivo era un cambio de escena → separador (sin duplicar)
         const hasSep = prev.blocks[prev.blocks.length - 1]?.type === 'separator' || blocks[0].type === 'separator';
         const brk = !hasSep && /page-break-before|break-before/i.test(raw) ? [{ type: 'separator' }] : [];
@@ -240,6 +243,16 @@ export function createImporter(deps) {
   const SKIP_RE = /^(copyright|derechos|cr[eé]ditos|colof[oó]n|[ií]ndice|contenidos?|contents|table of contents|tabla de contenidos?|newsletter|bolet[ií]n|sign up|title page|portadilla|cover|portada|about the (author|translator|illustrator)|acerca del autor|sobre el autor)\b/i;
   const words = bs => bs.reduce((a, b) => a + (b.text || '').split(/\s+/).filter(Boolean).length, 0);
   const slugify = s => (s || 'obra').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
+  // Tamaño real de cada ilustración: se guarda en el bloque (w/h) para que la vista previa, el editor y el lector reserven su espacio y el texto no salte al cargarlas.
+  async function measureImages(P){
+    const sizeOf = async blob => {
+      try { const bm = await createImageBitmap(blob); const r = { w: bm.width, h: bm.height }; bm.close?.(); return r; }
+      catch { const u = URL.createObjectURL(blob); try { const im = new Image(); im.src = u; await im.decode(); return { w: im.naturalWidth, h: im.naturalHeight }; } catch { return null; } finally { URL.revokeObjectURL(u); } }
+    };
+    const dims = new Map(), keys = [...P.images.keys()].filter(k => P.images.get(k).blob && /^image\//.test(P.images.get(k).type));
+    for (let i = 0; i < keys.length; i += 6) await Promise.all(keys.slice(i, i + 6).map(async k => { const d = await sizeOf(P.images.get(k).blob); if (d?.w > 0 && d?.h > 0) dims.set('img:' + k, d); }));
+    for (const c of P.chapters) for (const b of c.blocks) { const d = b.type === 'image' && dims.get(b.url); if (d) { b.w = d.w; b.h = d.h; } }
+  }
   function suggestSkips(P){
     P.chapters.forEach((c, i) => {
       const w = words(c.blocks), imgs = c.blocks.filter(b => b.type === 'image').length; c.skip = false; c.why = '';
@@ -306,7 +319,7 @@ export function createImporter(deps) {
     let P = null, file = null, fp = null, step = 1, sel = 0, splitting = false, dupAt = null, V = {};
     const contextualId = new URLSearchParams(location.search).get('obra');
     const contextualWork = () => works.find(w => w.id === contextualId) || null;
-    const D = { work: contextualWork?.id || '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', notice: null, noticeGetter: null, newTitle: '', newAuthor: '', scanChapterTitles: false, smartTitles: false };
+    const D = { work: contextualWork?.id || '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', notice: null, noticeGetter: null, newTitle: '', newAuthor: '', scanChapterTitles: false, smartTitles: false, toolsOpen: false };
     let NW = createWorkData();
     app.innerHTML = shell('Importar contenido', '<p id="imp-catalog-status" class="mono" role="status"></p><ol class="imp-steps" id="steps"></ol><div id="wiz"></div><p id="status" class="mono" role="status"></p>', TAB);
     bindPicker(importer);
@@ -342,6 +355,7 @@ export function createImporter(deps) {
           stl.textContent = P.fonts.map(f => `@font-face{font-family:"imp-${fl.indexOf(f.family)}";src:url("${URL.createObjectURL(new Blob([f.bytes]))}");font-style:${/italic|oblique/i.test(f.style) ? 'italic' : 'normal'};font-weight:${/^\d+$|bold|normal/.test(f.weight) ? f.weight : 'normal'}}`).join('');
           document.head.appendChild(stl); P.fontVars = fl.map((_, i) => `--f${i}:'imp-${i}',Literata,serif`).join(';') + ';'; const rb = P.fonts.find(f => f.use?.includes('body')), rh = P.fonts.find(f => f.use?.includes('heading')); if (rb) P.fontVars += `--fb:'imp-${fl.indexOf(rb.family)}',Literata,serif;`; if (rh) P.fontVars += `--fh:'imp-${fl.indexOf(rh.family)}',Literata,serif;`; }
         P.urls = new Map([...P.images].map(([k, v]) => [k, v.blob ? URL.createObjectURL(v.blob) : '']));
+        if (P.images.size) { st('Midiendo ilustraciones…'); await measureImages(P); }
         suggestSkips(P);
         const key = (P.meta.series || P.title).toLowerCase();
         const guess = (works || []).find(w => w.title && key.includes(w.title.toLowerCase().slice(0, 18)));
@@ -357,7 +371,7 @@ export function createImporter(deps) {
 
     function fichaHTML(nInc){
       const w = work(), ex = liveVols(w).find(v => v.num === D.vnum), f = (k, l, attrs = '') => `<label>${l}<input data-v="${k}" value="${esc(V[k] ?? '')}" ${attrs}></label>`;
-      return `<details class="imp-box imp-ficha" ${ex ? '' : 'open'}><summary><b>Ficha del volumen</b><span class="mono">Destino previsto: ${esc(w?.title || D.newTitle || P.title)} · Vol. ${D.vnum} · ${ex ? 'ya existe: estos datos solo completan sus campos vacíos' : 'nuevo: se creará con esta ficha'}</span></summary>
+      return `<details class="imp-box imp-ficha"><summary><b>Ficha del volumen</b><span class="mono">Destino previsto: ${esc(w?.title || D.newTitle || P.title)} · Vol. ${D.vnum} · ${ex ? 'ya existe: estos datos solo completan sus campos vacíos' : 'nuevo: se creará con esta ficha'}</span></summary>
         <div class="imp-fg">
           ${f('title', 'Título del volumen', 'maxlength="200" placeholder="Volumen ' + D.vnum + '"')}${f('subtitle', 'Subtítulo', 'maxlength="200"')}
           <label class="wide">Sinopsis<textarea data-v="synopsis" rows="4" maxlength="3000">${esc(V.synopsis)}</textarea></label>
@@ -367,7 +381,7 @@ export function createImporter(deps) {
           ${f('illustrator', 'Ilustración', 'maxlength="120"')}${f('planned_chapters', 'Capítulos previstos', 'type="number" min="0" max="999" placeholder="' + nInc + '"')}
           <label class="wide">Notas del traductor<textarea data-v="translator_notes" rows="2" maxlength="2000" placeholder="Se muestran en la ficha del volumen">${esc(V.translator_notes)}</textarea></label>
           <label class="tb-inl wide"><input type="checkbox" data-v="is_final" ${V.is_final ? 'checked' : ''}> Es el último volumen de la obra (al publicarlo, la traducción queda como completa)</label>
-        </div><p class="mono">Puedes cambiar la obra y el número de volumen en el paso siguiente. Los datos marcados del EPUB ya vienen llenos.</p></details>`;
+        </div><p class="mono">Los datos que trae el EPUB ya vienen llenos. Abajo eliges la obra y el número de volumen.</p></details>`;
     }
     function bindFicha(){ W().querySelectorAll('[data-v]').forEach(i => i[i.type === 'checkbox' ? 'onchange' : 'oninput'] = () => { V[i.dataset.v] = i.type === 'checkbox' ? i.checked : i.value; }); }
     const fichaRow = () => {
@@ -375,60 +389,87 @@ export function createImporter(deps) {
       if (V.jp_release) o.jp_release = V.jp_release; if (V.planned_chapters !== '' && V.planned_chapters != null) o.planned_chapters = Math.max(0, +V.planned_chapters || 0);
       if (V.synopsis_spoiler) o.synopsis_spoiler = true; if (V.is_final) o.is_final = true; return o;
     };
+    // Paso 2 simplificado: resumen, lista de secciones (casilla, título, palabras e ilustraciones; tipo/mover/unir en «⋯»),
+    // herramientas de revisión plegadas y vista previa fija. Elegir, desmarcar o describir una imagen solo actualiza esa parte;
+    // la pantalla completa se redibuja al mover, unir, dividir o cambiar una herramienta, y conserva el desplazamiento.
+    const nImgs = bs => bs.filter(b => b.type === 'image' || b.type === 'img').length;
     function s2(){
-      const ch = P.chapters, inc = ch.filter(c => !c.skip), m = P.meta, cur = ch[sel];
-      const quality = inspectImport(inc), curQuality = lintImportedBlocks(cur.blocks);
-      const titleExample = () => { if (!D.scanChapterTitles) return cur.title; const v = formatChapterIndex({title:cur.title,sectionType:cur.type}); return [v.label + (v.number ? ' ' + v.number : ''),v.heading].filter(Boolean).join(' · '); };
+      const ch = P.chapters, m = P.meta, keep = { list: W().querySelector('.imp-list ol')?.scrollTop || 0, page: window.scrollY };
+      const cur = () => ch[sel];
+      const titleExample = () => { const c = cur(); if (!D.scanChapterTitles) return c.title; const v = formatChapterIndex({title:c.title,sectionType:c.type}); return [v.label + (v.number ? ' ' + v.number : ''),v.heading].filter(Boolean).join(' · '); };
       const scanResults = () => scanImportedChapterTitles(ch);
-      W().innerHTML = `<div class="imp-sum"><span><b>${esc(P.title)}</b><small class="mono">${esc(file.name)} · ${inc.length} de ${ch.length} secciones · ${P.images.size} imágenes · ${P.fonts.length} fuentes</small></span>
-          ${[['Autor', m.author], ['Editorial', m.publisher], ['Volumen', m.index]].filter(x => x[1]).map(([k, v]) => `<span><small class="mono">${k}</small>${esc(String(v))}</span>`).join('')}</div>
-        ${fichaHTML(inc.length)}
-        <div class="imp-title-option"><label class="imp-title-switch" for="imp-smart-titles"><input type="checkbox" id="imp-smart-titles" ${D.smartTitles ? 'checked' : ''}><span><b>Títulos inteligentes</b><small>Opcional · al leer, ocultar solo el primer título del EPUB cuando repita el encabezado del capítulo. No modifica el archivo ni elimina texto; solo se aplica a los capítulos de esta importación.</small></span></label><p class="mono" id="imp-smart-count" role="status">${D.smartTitles ? inc.filter(c => repeatedOpeningHeading(smartTitleBlocks(c.blocks,{title:c.title,section_type:c.type},true),{title:c.title,section_type:c.type}) >= 0).length+' secciones con títulos duplicados identificados.' : 'Desactivado: se conservan todos los títulos del EPUB en el lector.'}</p></div>
-        <div class="imp-title-option"><label class="imp-title-switch" for="imp-scan-titles"><input type="checkbox" id="imp-scan-titles" ${D.scanChapterTitles ? 'checked' : ''}><span><b>Escanear nombres y números de capítulos</b><small>Opcional · detectar «Capítulo 1», «Capitulo 01», «Captiulo 1», «Cap. 02», prólogos y epílogos antes de importar.</small></span></label><p class="mono">Es una herramienta de revisión, no una configuración de apariencia. Todas las novelas usan el mismo índice público. El escaneo no reescribe títulos ni cambia enlaces; puedes corregir manualmente cualquier encabezado en la lista.</p><p class="mono" id="imp-scan-count" role="status">${D.scanChapterTitles ? esc((()=>{const a=scanResults();return a.numbered+' capítulos numerados · '+a.special+' secciones especiales · '+a.typo+' errores «Captiulo» · '+a.unrecognized+' sin prefijo claro';})()) : 'Escaneo desactivado: revisión manual de títulos.'}</p><div class="imp-title-example"><small>Vista previa del análisis de la sección seleccionada:</small><span id="imp-format-example">${esc(titleExample())}</span></div><small class="mono" id="imp-format-warning"></small></div>
+      const scanText = () => { const a = scanResults(); return a.numbered+' capítulos numerados · '+a.special+' secciones especiales · '+a.typo+' errores «Captiulo» · '+a.unrecognized+' sin prefijo claro'; };
+      const rowMeta = (c, i) => { const ni = nImgs(c.blocks); return `${esc(c.type)} · ${words(c.blocks).toLocaleString('es-MX')} palabras${ni ? ' · ' + ni + (ni === 1 ? ' ilustración' : ' ilustraciones') : ''}${D.scanChapterTitles ? ' · ' + esc((()=>{const v=formatChapterIndex({title:c.title,sectionType:c.type});return v.number ? 'cap. '+v.number+(v.typo?' · revisar «Captiulo»':'') : v.label==='Sección'?'sin prefijo reconocido':v.label;})()) : ''}${c.skip && c.why ? ' · <b>' + c.why + '</b>' : ''}`; };
+      const row = (c, i) => `<li class="${i === sel ? 'on' : ''}${c.skip ? ' off' : ''}" data-sel="${i}">
+          <input type="checkbox" data-inc="${i}" ${c.skip ? '' : 'checked'} aria-label="Importar ${esc(c.title)}">
+          <span class="imp-n mono">${i + 1}</span>
+          <span class="imp-t"><input data-t="${i}" value="${esc(c.title)}" aria-label="Título de la sección ${i + 1}"><small class="mono">${rowMeta(c, i)}</small></span>
+          <details class="imp-more"><summary class="ed-btn" aria-label="Más opciones de la sección ${i + 1}">⋯</summary><div class="imp-mm">
+            <label class="mono">Tipo<select data-k="${i}" aria-label="Tipo">${SEC.map(s => `<option ${s === c.type ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
+            <button class="ed-btn" data-mv="${i}" data-d="-1" ${i ? '' : 'disabled'}>↑ Subir</button><button class="ed-btn" data-mv="${i}" data-d="1" ${i < ch.length - 1 ? '' : 'disabled'}>↓ Bajar</button>
+            <button class="ed-btn" data-merge="${i}" ${i < ch.length - 1 ? '' : 'disabled'}>Unir con la siguiente</button></div></details></li>`;
+      W().innerHTML = `<div class="imp-sum" id="isum"></div>
         ${dupAt ? `<p class="imp-warn">Ya importaste este mismo archivo el ${fmtTz(dupAt, { dateStyle: 'long' })}. Puedes continuar; en el destino elige «Reemplazar» si quieres sustituirlo.</p>` : ''}
-        <section class="imp-box imp-quality" aria-label="Informe de calidad editorial"><h3>Calidad editorial · revisión previa</h3>
-          <p class="mono" role="status">${quality.total ? `${quality.total} aviso(s) en ${quality.withWarnings} sección(es).` : 'No se detectaron avisos con las reglas disponibles.'} No se reescribe ningún párrafo; puedes continuar con avisos tras confirmarlos.</p>
-          <p class="mono">${EDITORIAL_RULES.filter(([k])=>quality.counts[k]).map(([k,label])=>`${esc(label)}: ${quality.counts[k]}`).join(' · ') || 'Revisión básica superada'}.</p></section>
+        <details class="imp-box imp-tools" id="imp-tools" ${D.toolsOpen ? 'open' : ''}><summary><b>Herramientas de revisión</b><span class="mono" id="imp-tools-sum"></span></summary>
+          <div class="imp-title-option"><label class="imp-title-switch" for="imp-smart-titles"><input type="checkbox" id="imp-smart-titles" ${D.smartTitles ? 'checked' : ''}><span><b>Títulos inteligentes</b><small>Opcional · al leer, ocultar solo el primer título del EPUB cuando repita el encabezado del capítulo. No modifica el archivo ni elimina texto; solo se aplica a los capítulos de esta importación.</small></span></label><p class="mono" id="imp-smart-count" role="status"></p></div>
+          <div class="imp-title-option"><label class="imp-title-switch" for="imp-scan-titles"><input type="checkbox" id="imp-scan-titles" ${D.scanChapterTitles ? 'checked' : ''}><span><b>Escanear nombres y números de capítulos</b><small>Opcional · detectar «Capítulo 1», «Capitulo 01», «Captiulo 1», «Cap. 02», prólogos y epílogos antes de importar.</small></span></label><p class="mono">Es una herramienta de revisión, no una configuración de apariencia. El escaneo no reescribe títulos ni cambia enlaces; puedes corregir manualmente cualquier encabezado en la lista.</p><p class="mono" id="imp-scan-count" role="status"></p><div class="imp-title-example"><small>Vista previa del análisis de la sección seleccionada:</small><span id="imp-format-example"></span></div><small class="mono" id="imp-format-warning"></small></div>
+          <section class="imp-quality" aria-label="Informe de calidad editorial"><h3>Calidad editorial · revisión previa</h3><p class="mono" role="status" id="imp-quality-a"></p><p class="mono" id="imp-quality-b"></p></section>
+        </details>
         <div class="imp-grid">
-          <div class="imp-list"><div class="imp-lh"><b>Secciones</b><span class="mono">Desmarca las que no quieras importar</span></div>
-            <ol>${ch.map((c, i) => { const ni = c.blocks.filter(b => b.type === 'image').length; return `<li class="${i === sel ? 'on' : ''}${c.skip ? ' off' : ''}" data-sel="${i}">
-              <input type="checkbox" data-inc="${i}" ${c.skip ? '' : 'checked'} aria-label="Importar ${esc(c.title)}">
-              <span class="imp-t"><input data-t="${i}" value="${esc(c.title)}" aria-label="Título de la sección ${i + 1}"><small class="mono">${i + 1} · ${words(c.blocks).toLocaleString('es-MX')} palabras${D.scanChapterTitles ? ' · ' + esc((()=>{const v=formatChapterIndex({title:c.title,sectionType:c.type});return v.number ? 'cap. '+v.number+(v.typo?' · revisar «Captiulo»':'') : v.label==='Sección'?'sin prefijo reconocido':v.label;})()) : ''}${ni ? ' · ' + ni + ' img.' : ''}${c.skip && c.why ? ' · <b>' + c.why + '</b>' : ''}</small></span>
-              <select data-k="${i}" aria-label="Tipo">${SEC.map(s => `<option ${s === c.type ? 'selected' : ''}>${s}</option>`).join('')}</select>
-              <span class="imp-a"><button class="ed-btn" data-mv="${i}" data-d="-1" title="Subir" ${i ? '' : 'disabled'}>↑</button><button class="ed-btn" data-mv="${i}" data-d="1" title="Bajar" ${i < ch.length - 1 ? '' : 'disabled'}>↓</button><button class="ed-btn" data-merge="${i}" title="Unir con la siguiente" ${i < ch.length - 1 ? '' : 'disabled'}>Unir ↓</button></span></li>`; }).join('')}</ol></div>
-          <div class="imp-pvw"><div class="imp-lh"><b>Vista previa · ${sel + 1} de ${ch.length}</b><button class="ed-btn ${splitting ? 'on' : ''}" id="split">${splitting ? 'Toca el párrafo donde empieza la nueva sección · Cancelar' : 'Dividir esta sección…'}</button></div>
-            <div class="imp-pv${splitting ? ' splitting' : ''}" id="pv"><div class="rd" data-theme="oscuro" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="${P.fontVars || ''}--rs:17px"><article class="rd-ch"><header class="rd-head"><span class="mono">${esc(cur.type)}</span><h2 ${headFont(cur.blocks)}>${esc(cur.title)}</h2></header><div class="rd-body">${(()=>{const blocks=smartTitleBlocks(cur.blocks,{title:cur.title,section_type:cur.type},D.smartTitles);const skip=repeatedOpeningHeading(blocks,{title:cur.title,section_type:cur.type});return blocks.map((b,i)=>i===skip?'':renderBlock(b,i,{media:src})).join('');})()}</div></article></div></div>
-            <div class="imp-quality-images"><b>Ilustraciones y accesibilidad · ${curQuality.counts.alt} sin descripción</b>
-              ${cur.blocks.map((b,i) => (b.type==='image'||b.type==='img') ? `<div class="imp-quality-image"><label>Imagen ${i+1} · Descripción alternativa<input type="text" data-image-alt="${i}" maxlength="300" value="${esc(b.alt||'')}" placeholder="Describe lo que aporta la imagen"></label><label class="mono"><input type="checkbox" data-image-deco="${i}" ${b.decorative===true?'checked':''}> Decorativa: alt vacío intencional</label></div>` : '').join('') || '<p class="mono">Sin ilustraciones en esta sección.</p>'}
-              <p class="mono">La casilla decorativa se usa solo cuando la imagen no transmite información necesaria para comprender el capítulo.</p>
-            </div></div>
+          <div class="imp-list"><div class="imp-lh"><b id="icount"></b><span class="mono">Toca una sección para verla</span></div><ol>${ch.map(row).join('')}</ol></div>
+          <div class="imp-pvw"><div class="imp-lh"><b id="pvh"></b><button class="ed-btn" id="split"></button></div><div class="imp-pv" id="pv"></div>
+            <details class="imp-quality-images" id="imp-qimg"><summary><b id="imp-qimg-h"></b></summary><div id="imp-qimg-b"></div></details></div>
         </div>
-        <div class="imp-nav"><button class="btn ghost" id="back">‹ Elegir otro archivo</button><button class="btn" id="next" ${inc.length ? '' : 'disabled'}>Continuar al destino ›</button></div>`;
-      bindFicha();
-      const refreshTitleExample = () => { const preview = $('#imp-format-example'); if (preview) preview.textContent = titleExample(); const warning = $('#imp-format-warning'); if (warning) warning.textContent = D.scanChapterTitles && formatChapterIndex({title:cur.title,sectionType:cur.type}).typo ? 'Detectamos «Captiulo». Puedes corregir el encabezado en la lista; el original no se modifica automáticamente.' : ''; const count=$('#imp-scan-count'); if(count && D.scanChapterTitles){const a=scanResults();count.textContent=a.numbered+' capítulos numerados · '+a.special+' secciones especiales · '+a.typo+' errores «Captiulo» · '+a.unrecognized+' sin prefijo claro';} };
-      $('#imp-smart-titles').onchange = e => { D.smartTitles = e.target.checked; s2(); };
-      $('#imp-scan-titles').onchange = e => { D.scanChapterTitles = e.target.checked; s2(); };
-      refreshTitleExample();
-      W().querySelectorAll('[data-image-alt]').forEach(input=>input.onchange=()=>{const b=cur.blocks[+input.dataset.imageAlt];b.alt=input.value.trim();if(b.alt)delete b.decorative;s2();});
-      W().querySelectorAll('[data-image-deco]').forEach(input=>input.onchange=()=>{const b=cur.blocks[+input.dataset.imageDeco];if(input.checked){b.decorative=true;b.alt='';}else delete b.decorative;s2();});
-      const L = W().querySelector('.imp-list');
-      L.querySelectorAll('[data-t]').forEach(i => i.oninput = () => { ch[+i.dataset.t].title = i.value; if (+i.dataset.t === sel) { $('#pv h2').textContent = i.value; refreshTitleExample(); } });
-      L.querySelectorAll('[data-k]').forEach(s => s.onchange = () => { ch[+s.dataset.k].type = s.value; if (+s.dataset.k === sel) { $('#pv .rd-head .mono').textContent = s.value; refreshTitleExample(); } });
-      L.querySelectorAll('[data-inc]').forEach(c => c.onchange = () => { ch[+c.dataset.inc].skip = !c.checked; s2(); });
+        <div class="imp-nav"><button class="btn ghost" id="back">‹ Elegir otro archivo</button><button class="btn" id="next">Continuar al destino ›</button></div>`;
+      const L = W().querySelector('.imp-list'), OL = L.querySelector('ol');
+      OL.scrollTop = keep.list; window.scrollTo(0, keep.page);
+      const counts = () => { const inc = ch.filter(c => !c.skip), w = words(inc.flatMap(c => c.blocks)), im = inc.reduce((a, c) => a + nImgs(c.blocks), 0), quality = inspectImport(inc);
+        $('#isum').innerHTML = `<span><b>${esc(P.title)}</b><small class="mono">${esc(file.name)}${m.author ? ' · ' + esc(m.author) : ''}${m.publisher ? ' · ' + esc(m.publisher) : ''}${m.index ? ' · Vol. ' + esc(String(m.index)) : ''}${P.fonts.length ? ' · ' + P.fonts.length + ' fuentes' : ''}</small></span>
+          <p><b>${ch.length} ${ch.length === 1 ? 'sección detectada' : 'secciones detectadas'}</b> con ${w.toLocaleString('es-MX')} palabras y ${im} ${im === 1 ? 'ilustración' : 'ilustraciones'} en lo que se importará. Corrige los títulos y desmarca lo que no quieras importar.</p>`;
+        $('#icount').textContent = `${inc.length} de ${ch.length} se importarán`;
+        $('#imp-quality-a').textContent = `${quality.total ? `${quality.total} aviso(s) en ${quality.withWarnings} sección(es).` : 'No se detectaron avisos con las reglas disponibles.'} No se reescribe ningún párrafo; puedes continuar con avisos tras confirmarlos.`;
+        $('#imp-quality-b').textContent = (EDITORIAL_RULES.filter(([k])=>quality.counts[k]).map(([k,label])=>`${label}: ${quality.counts[k]}`).join(' · ') || 'Revisión básica superada') + '.';
+        $('#imp-smart-count').textContent = D.smartTitles ? inc.filter(c => repeatedOpeningHeading(smartTitleBlocks(c.blocks,{title:c.title,section_type:c.type},true),{title:c.title,section_type:c.type}) >= 0).length+' secciones con títulos duplicados identificados.' : 'Desactivado: se conservan todos los títulos del EPUB en el lector.';
+        $('#imp-scan-count').textContent = D.scanChapterTitles ? scanText() : 'Escaneo desactivado: revisión manual de títulos.';
+        $('#imp-tools-sum').textContent = [quality.total ? quality.total + ' aviso(s) de calidad' : 'sin avisos de calidad', D.smartTitles && 'títulos inteligentes', D.scanChapterTitles && 'escaneo de capítulos'].filter(Boolean).join(' · ');
+        $('#next').disabled = !inc.length; };
+      const refreshTitleExample = () => { const c = cur(); $('#imp-format-example').textContent = titleExample(); $('#imp-format-warning').textContent = D.scanChapterTitles && formatChapterIndex({title:c.title,sectionType:c.type}).typo ? 'Detectamos «Captiulo». Puedes corregir el encabezado en la lista; el original no se modifica automáticamente.' : ''; if (D.scanChapterTitles) $('#imp-scan-count').textContent = scanText(); };
+      const imagePanel = () => { const c = cur(), q = lintImportedBlocks(c.blocks), n = nImgs(c.blocks);
+        $('#imp-qimg-h').textContent = n ? `Ilustraciones y accesibilidad · ${q.counts.alt} sin descripción` : 'Ilustraciones y accesibilidad · sin ilustraciones en esta sección';
+        $('#imp-qimg-b').innerHTML = (c.blocks.map((b,i) => (b.type==='image'||b.type==='img') ? `<div class="imp-quality-image"><label>Imagen ${i+1} · Descripción alternativa<input type="text" data-image-alt="${i}" maxlength="300" value="${esc(b.alt||'')}" placeholder="Describe lo que aporta la imagen"></label><label class="mono"><input type="checkbox" data-image-deco="${i}" ${b.decorative===true?'checked':''}> Decorativa: alt vacío intencional</label></div>` : '').join('') || '<p class="mono">Sin ilustraciones en esta sección.</p>') + '<p class="mono">La casilla decorativa se usa solo cuando la imagen no transmite información necesaria para comprender el capítulo.</p>';
+        W().querySelectorAll('[data-image-alt]').forEach(input => input.onchange = () => { const b = c.blocks[+input.dataset.imageAlt]; b.alt = input.value.trim(); if (b.alt) { delete b.decorative; const d = W().querySelector(`[data-image-deco="${input.dataset.imageAlt}"]`); if (d) d.checked = false; } imagePanelHead(); counts(); });
+        W().querySelectorAll('[data-image-deco]').forEach(input => input.onchange = () => { const b = c.blocks[+input.dataset.imageDeco]; if (input.checked) { b.decorative = true; b.alt = ''; const a = W().querySelector(`[data-image-alt="${input.dataset.imageDeco}"]`); if (a) a.value = ''; } else delete b.decorative; imagePanelHead(); counts(); }); };
+      const imagePanelHead = () => { const c = cur(), q = lintImportedBlocks(c.blocks); if (nImgs(c.blocks)) $('#imp-qimg-h').textContent = `Ilustraciones y accesibilidad · ${q.counts.alt} sin descripción`; };
+      const preview = () => { const cur = ch[sel], c = cur, pv = $('#pv');
+        $('#pvh').textContent = `Vista previa · ${sel + 1} de ${ch.length}`;
+        $('#split').textContent = splitting ? 'Toca el párrafo donde empieza la nueva sección · Cancelar' : 'Dividir esta sección…'; $('#split').classList.toggle('on', splitting); pv.classList.toggle('splitting', splitting);
+        pv.innerHTML = `<div class="rd" data-theme="oscuro" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="${P.fontVars || ''}--rs:17px"><article class="rd-ch"><header class="rd-head"><span class="mono">${esc(c.type)}</span><h2 ${headFont(c.blocks)}>${esc(c.title)}</h2></header><div class="rd-body">${(()=>{const blocks=smartTitleBlocks(cur.blocks,{title:cur.title,section_type:cur.type},D.smartTitles);const skip=repeatedOpeningHeading(blocks,{title:cur.title,section_type:cur.type});return blocks.map((b,i)=>i===skip?'':renderBlock(b,i,{media:src})).join('');})()}</div></article></div>`;
+        pv.scrollTop = 0; imagePanel(); refreshTitleExample(); };
+      const pick = i => { if (i === sel) return; OL.children[sel]?.classList.remove('on'); sel = i; splitting = false; OL.children[sel]?.classList.add('on'); preview(); };
+      const repaintRow = i => { const sm = OL.children[i]?.querySelector('.imp-t small'); if (sm) sm.innerHTML = rowMeta(ch[i], i); };
+      counts(); preview();
+      $('#imp-tools').ontoggle = e => { D.toolsOpen = e.currentTarget.open; };
+      $('#imp-smart-titles').onchange = e => { D.smartTitles = e.target.checked; counts(); preview(); };
+      $('#imp-scan-titles').onchange = e => { D.scanChapterTitles = e.target.checked; ch.forEach((c, i) => repaintRow(i)); counts(); refreshTitleExample(); };
+      OL.addEventListener('toggle', e => { if (e.target.open) OL.querySelectorAll('details[open]').forEach(d => d !== e.target && (d.open = false)); }, true);
+      L.querySelectorAll('[data-t]').forEach(i => i.oninput = () => { const k = +i.dataset.t; ch[k].title = i.value; if (D.scanChapterTitles) repaintRow(k); if (k === sel) { $('#pv h2').textContent = i.value; refreshTitleExample(); } });
+      L.querySelectorAll('[data-k]').forEach(s => s.onchange = () => { const k = +s.dataset.k; ch[k].type = s.value; repaintRow(k); if (k === sel) { $('#pv .rd-head .mono').textContent = s.value; refreshTitleExample(); } });
+      L.querySelectorAll('[data-inc]').forEach(c => c.onchange = () => { const k = +c.dataset.inc; ch[k].skip = !c.checked; OL.children[k].classList.toggle('off', ch[k].skip); counts(); });
+      L.addEventListener('focusin', e => { const li = e.target.closest('[data-sel]'); if (li && e.target.matches('[data-t]')) pick(+li.dataset.sel); });
       L.onclick = e => {
         const b = e.target.closest('[data-mv],[data-merge]');
         if (b) { const i = +(b.dataset.mv ?? b.dataset.merge);
           if (b.dataset.mv != null) { const j = i + +b.dataset.d; [ch[i], ch[j]] = [ch[j], ch[i]]; sel = j; }
           else { ch[i].blocks.push(...ch[i + 1].blocks); ch[i].skip = ch[i].skip && ch[i + 1].skip; ch.splice(i + 1, 1); sel = i; }
           splitting = false; return s2(); }
-        const li = e.target.closest('[data-sel]'); if (li && !e.target.closest('input,select,button')) { sel = +li.dataset.sel; splitting = false; s2(); }
+        const li = e.target.closest('[data-sel]'); if (li && !e.target.closest('input,select,button,details')) pick(+li.dataset.sel);
       };
-      $('#split').onclick = () => { splitting = !splitting; s2(); };
+      $('#split').onclick = () => { splitting = !splitting; preview(); };
       $('#pv').onclick = e => {
-        if (!splitting) return; const b = e.target.closest('[data-b]'); if (!b) return; const at = +b.dataset.b;
+        if (!splitting) return; const b = e.target.closest('[data-b]'); if (!b) return; const at = +b.dataset.b, c = cur();
         if (at < 1) return toast('Elige un párrafo después del primero');
-        const rest = cur.blocks.splice(at);
-        ch.splice(sel + 1, 0, { title: (rest.find(x => x.type === 'heading')?.text || cur.title + ' (cont.)').slice(0, 200), type: cur.type, blocks: rest, skip: false });
+        const rest = c.blocks.splice(at);
+        ch.splice(sel + 1, 0, { title: (rest.find(x => x.type === 'heading')?.text || c.title + ' (cont.)').slice(0, 200), type: c.type, blocks: rest, skip: false });
         splitting = false; sel++; s2(); toast('Sección dividida');
       };
       $('#back').onclick = () => { P.urls.forEach(u => u && URL.revokeObjectURL(u)); P = null; step = 1; st(''); render(); };
@@ -472,7 +513,7 @@ export function createImporter(deps) {
     function s3(){
       const w = work(), ex = liveVols(w).find(v => v.num === D.vnum), gone = !ex && (w?.volumes || []).find(v => v.deleted_at && v.num === D.vnum), keys = imgKeys(), used = usedImgs(), inc = P.chapters.filter(c => !c.skip);
       const folder = `obras › ${w?.slug || slugify(NW.title || D.newTitle || P.title)} › vol-${D.vnum}`;
-      W().innerHTML = `<div class="imp-dest">
+      W().innerHTML = `${fichaHTML(P.chapters.filter(c => !c.skip).length)}<div class="imp-dest">
         <section class="imp-box${w ? "" : " imp-new-series"}"><h3>Obra y volumen</h3>
           <label>Obra<select id="dw"><option value="">+ Nueva obra</option>${(works || []).map(x => `<option value="${x.id}" ${x.id === D.work ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select></label>
           ${w ? '' : `<div id="imp-new-work"><h3>Datos completos de la nueva obra</h3><p class="mono">Se rellenan los metadatos detectados; revisa los valores antes de importar.</p>${renderWorkFields(NW, esc, (related || []).filter(x => x.id !== D.work))}</div>`}
@@ -518,6 +559,7 @@ export function createImporter(deps) {
       $('#dat')?.addEventListener('input', e => { D.at = e.target.value; D.pub = 'at'; W().querySelector('[name=dp][value=at]').checked = true; });
       $('#dwc').onchange = e => { D.workCover = e.target.checked; };
       W().querySelectorAll('[data-cov]').forEach(b => b.onclick = () => { D.cover = b.dataset.cov || null; s3(); });
+      bindFicha();
       $('#back').onclick = () => { step = 2; render(); };
       $('#go').onclick = e => busy(e.currentTarget, commit);
     }
