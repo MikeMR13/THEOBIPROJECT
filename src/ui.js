@@ -1310,8 +1310,11 @@ export function createUI({ sb, app, $, esc, toast, go, getUser, url, offlineButt
     let lastReleaseCheck = Date.now();
     const checkHomeUpdates = async () => {
       if (!liveHome() || !app.querySelector('.ob-page')) {
-        clearInterval(homeRotationTimer);
-        homeRefreshCleanup?.();
+        // Una comprobación antigua NO debe eliminar el timer de otro Inicio.
+        if (visit === homeVisitSeq) {
+          clearInterval(homeRotationTimer);
+          homeRefreshCleanup?.();
+        }
         return;
       }
       if(document.hidden || checkingNewRelease)return;
