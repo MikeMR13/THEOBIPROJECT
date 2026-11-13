@@ -65,11 +65,11 @@ export function blocksToEditor(blocks, media = x => x){
     if (t === 'note') return `<aside class="tn">${inner}</aside>`;
     if (t === 'separator' || t === 'sep') return `<div class="sep" contenteditable="false">${escHtml(b.text || '※')}</div>`;
     if (t === 'ruby') return `<p><ruby>${escHtml(b.text || '')}<rt>${escHtml(b.reading || '')}</rt></ruby></p>`;
-    if (t === 'image' || t === 'img') return figureHTML(b.url || b.src, b.alt, b.caption, media);
+    if (t === 'image' || t === 'img') return figureHTML(b.url || b.src, b.alt, b.caption, media, b.w, b.h);
     return `<p${AL(b)}>${inner}</p>`;
   }).join('') || '<p><br></p>';
 }
-export const figureHTML = (url, alt, caption, media = x => x) => `<figure contenteditable="false" data-url="${escHtml(url || '')}" data-alt="${escHtml(alt || '')}" data-caption="${escHtml(caption || '')}"><img src="${escHtml(media(url))}" alt="${escHtml(alt || '')}"><figcaption>${caption ? escHtml(caption) : '<i>Sin pie · toca para editar</i>'}</figcaption></figure>`;
+export const figureHTML = (url, alt, caption, media = x => x, w, h) => { const d = w > 0 && h > 0; return `<figure contenteditable="false" data-url="${escHtml(url || '')}" data-alt="${escHtml(alt || '')}" data-caption="${escHtml(caption || '')}"${d ? ` data-w="${+w}" data-h="${+h}"` : ''}><img src="${escHtml(media(url))}" alt="${escHtml(alt || '')}"${d ? ` width="${+w}" height="${+h}"` : ''}><figcaption>${caption ? escHtml(caption) : '<i>Sin pie · toca para editar</i>'}</figcaption></figure>`; };
 
 export function editorToBlocks(root){
   const out = [], BLOCK = /^(P|H[1-6]|BLOCKQUOTE|ASIDE|FIGURE|DIV|HR|UL|OL|LI|SECTION)$/;
@@ -81,7 +81,7 @@ export function editorToBlocks(root){
     if (el.nodeType === 3 || (el.nodeType === 1 && !BLOCK.test(el.tagName))) { if (el.nodeType === 1 && el.tagName === 'BR' && !loose) continue; (loose ||= document.createElement('p')).append(el.cloneNode(true)); continue; }
     flush(); if (el.nodeType !== 1) continue;
     const tg = el.tagName;
-    if (tg === 'FIGURE') { if (el.dataset.url) out.push({ type: 'image', url: el.dataset.url, alt: el.dataset.alt || '', caption: el.dataset.caption || '' }); continue; }
+    if (tg === 'FIGURE') { if (el.dataset.url) { const im = { type: 'image', url: el.dataset.url, alt: el.dataset.alt || '', caption: el.dataset.caption || '' }; if (+el.dataset.w > 0 && +el.dataset.h > 0) { im.w = +el.dataset.w; im.h = +el.dataset.h; } out.push(im); } continue; }
     if (el.classList.contains('sep') || tg === 'HR') { const m = el.textContent.trim(); out.push(m && m !== '※' ? { type: 'separator', text: m } : { type: 'separator' }); continue; }
     // una línea que solo tiene ◇ / *** / ※ (escrita o pegada) también es separador, conservando el símbolo
     { const m = el.textContent.replace(/\s+/g, ' ').trim(); if (m && m.length <= 24 && SEP_MARK.test(m) && !el.querySelector('img,figure')) { out.push({ type: 'separator', text: m }); continue; } }

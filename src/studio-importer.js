@@ -143,7 +143,8 @@ export function createImporter(deps) {
     if (!Object.keys(tocTitles).length) { const ncxId = X.getElementsByTagNameNS('*', 'spine')[0]?.getAttribute('toc'); const ncx = items[ncxId] || Object.values(items).find(i => i.type === 'application/x-dtbncx+xml' || extOf(i.href) === 'ncx'); if (ncx) { try { const d = parseXml(await text(ncx.href) || ''); [...d.getElementsByTagNameNS('*', 'navPoint')].forEach(n => { const s = n.getElementsByTagNameNS('*', 'content')[0]?.getAttribute('src'), t = n.getElementsByTagNameNS('*', 'text')[0]?.textContent.replace(/\s+/g, ' ').trim(); if (s && t) tocTitles[res(ncx.href, s).split('#')[0]] ||= t; }); } catch {} } }
     const famIdx = new Map([...new Set(fonts.map(f => f.family))].map((f, i) => [f.toLowerCase(), i]));
     const sheetCache = new Map(), sheet = async p => { if (!sheetCache.has(p)) sheetCache.set(p, (await text(p)) || ''); return sheetCache.get(p); };
-    const chapters = [], spine = [...X.getElementsByTagNameNS('*', 'itemref')].map(r => items[r.getAttribute('idref')]).filter(it => it && isHtml(it));
+    const byToc = Object.keys(tocTitles).length >= 2;
+    const chapters = [], spine =[...X.getElementsByTagNameNS('*', 'itemref')].map(r => items[r.getAttribute('idref')]).filter(it => it && isHtml(it));
     if (!spine.length) throw new Error('El EPUB no declara el orden de lectura (spine) o no tiene páginas de texto');
     for (const it of spine) {
       const raw = await text(it.href); if (raw == null) continue;
@@ -152,10 +153,12 @@ export function createImporter(deps) {
       const css = epubStyler(doc, await Promise.all(links.map(h => sheet(res(it.href, h)))), famIdx);
       const blocks = htmlToBlocks(doc.body || doc.documentElement, { resolve: s => { if (!s || /^(https?:|data:)/i.test(s)) return null; const p = res(it.href, s); return loose(p) ? 'img:' + p : null; } }, css);
       if (!blocks.length) continue;
-      // ¿abre capítulo? solo si el índice lo nombra o trae su propio título. Las ilustraciones sueltas siguen generando su sección (como antes).
-      const own = tocTitles[it.href] || blocks.find(b => b.type === 'heading')?.text, onlyImg = blocks.every(b => b.type === 'image' || b.type === 'separator');
+      // ¿abre capítulo? Con índice interno (2+ entradas), solo las páginas que el índice nombra: las ilustraciones y continuaciones se quedan en el capítulo donde estaban.
+      // Sin índice útil: si la página trae su propio título; las ilustraciones sueltas generan su sección (comportamiento anterior).
+      const onlyImg = blocks.every(b => b.type === 'image' || b.type === 'separator');
+      const own = byToc ? tocTitles[it.href] : tocTitles[it.href] || blocks.find(b => b.type === 'heading')?.text;
       const prev = chapters[chapters.length - 1];
-      if (!own && !onlyImg && prev && !prev.onlyImg) {
+      if (!own && prev && (byToc || (!onlyImg && !prev.onlyImg))) {
         // continuación: el corte de archivo era un cambio de escena → separador (sin duplicar)
         const hasSep = prev.blocks[prev.blocks.length - 1]?.type === 'separator' || blocks[0].type === 'separator';
         const brk = !hasSep && /page-break-before|break-before/i.test(raw) ? [{ type: 'separator' }] : [];
@@ -227,6 +230,17 @@ export function createImporter(deps) {
   const SKIP_RE = /^(copyright|derechos|cr[eé]ditos|colof[oó]n|[ií]ndice|contenidos?|contents|table of contents|tabla de contenidos?|newsletter|bolet[ií]n|sign up|title page|portadilla|cover|portada|about the (author|translator|illustrator)|acerca del autor|sobre el autor)\b/i;
   const words = bs => bs.reduce((a, b) => a + (b.text || '').split(/\s+/).filter(Boolean).length, 0);
   const slugify = s => (s || 'obra').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
+  // Tamaño real de cada ilustración: se guarda en el bloque (w/h) para que la vista previa, el editor y el lector reserven su espacio y el texto no salte al cargarlas.
+  async function measureImages(P){
+    const sizeOf = async blob => {
+      try { const bm = await createImageBitmap(blob); const r = { w: bm.width, h: bm.height }; bm.close?.(); return r; }
+      catch { const u = URL.createObjectURL(blob); try { const im = new Image(); im.src = u; await im.decode(); return { w: im.naturalWidth, h: im.naturalHeight }; } catch { return null; } finally { URL.revokeObjectURL(u); } }
+    };
+    const dims = new Map(), keys = [...P.images.keys()].filter(k => P.images.get(k).blob && /^image\//.test(P.images.get(k).type));
+    for (let i = 0; i < keys.length; i += 6) await Promise.all(keys.slice(i, i + 6).map(async k => { const d = await sizeOf(P.images.get(k).blob); if (d?.w > 0 && d?.h > 0) dims.set('img:' + k, d); }));
+    P.dims = dims;
+    for (const c of P.chapters) for (const b of c.blocks) { const d = b.type === 'image' && dims.get(b.url); if (d) { b.w = d.w; b.h = d.h; } }
+  }
   function suggestSkips(P){
     P.chapters.forEach((c, i) => {
       const w = words(c.blocks), imgs = c.blocks.filter(b => b.type === 'image').length; c.skip = false; c.why = '';
@@ -277,6 +291,7 @@ export function createImporter(deps) {
           stl.textContent = P.fonts.map(f => `@font-face{font-family:"imp-${fl.indexOf(f.family)}";src:url("${URL.createObjectURL(new Blob([f.bytes]))}");font-style:${/italic|oblique/i.test(f.style) ? 'italic' : 'normal'};font-weight:${/^\d+$|bold|normal/.test(f.weight) ? f.weight : 'normal'}}`).join('');
           document.head.appendChild(stl); P.fontVars = fl.map((_, i) => `--f${i}:'imp-${i}',inherit`).join(';') + ';'; const rb = P.fonts.find(f => f.use?.includes('body')), rh = P.fonts.find(f => f.use?.includes('heading')); if (rb) P.fontVars += `--fb:'imp-${fl.indexOf(rb.family)}',Literata,serif;`; if (rh) P.fontVars += `--fh:'imp-${fl.indexOf(rh.family)}',Literata,serif;`; }
         P.urls = new Map([...P.images].map(([k, v]) => [k, v.blob ? URL.createObjectURL(v.blob) : '']));
+        if (P.images.size) { st('Midiendo ilustraciones…'); await measureImages(P); }
         suggestSkips(P);
         const key = (P.meta.series || P.title).toLowerCase();
         const guess = (works || []).find(w => w.title && key.includes(w.title.toLowerCase().slice(0, 18)));
@@ -290,7 +305,7 @@ export function createImporter(deps) {
 
     function fichaHTML(nInc){
       const w = work(), ex = liveVols(w).find(v => v.num === D.vnum), f = (k, l, attrs = '') => `<label>${l}<input data-v="${k}" value="${esc(V[k] ?? '')}" ${attrs}></label>`;
-      return `<details class="imp-box imp-ficha" ${ex ? '' : 'open'}><summary><b>Ficha del volumen</b><span class="mono">Destino previsto: ${esc(w?.title || D.newTitle || P.title)} · Vol. ${D.vnum} · ${ex ? 'ya existe: estos datos solo completan sus campos vacíos' : 'nuevo: se creará con esta ficha'}</span></summary>
+      return `<details class="imp-box imp-ficha"><summary><b>Ficha del volumen</b><span class="mono">Destino previsto: ${esc(w?.title || D.newTitle || P.title)} · Vol. ${D.vnum} · ${ex ? 'ya existe: estos datos solo completan sus campos vacíos' : 'nuevo: se creará con esta ficha'}</span></summary>
         <div class="imp-fg">
           ${f('title', 'Título del volumen', 'maxlength="200" placeholder="Volumen ' + D.vnum + '"')}${f('subtitle', 'Subtítulo', 'maxlength="200"')}
           <label class="wide">Sinopsis<textarea data-v="synopsis" rows="4" maxlength="3000">${esc(V.synopsis)}</textarea></label>
@@ -300,7 +315,7 @@ export function createImporter(deps) {
           ${f('illustrator', 'Ilustración', 'maxlength="120"')}${f('planned_chapters', 'Capítulos previstos', 'type="number" min="0" max="999" placeholder="' + nInc + '"')}
           <label class="wide">Notas del traductor<textarea data-v="translator_notes" rows="2" maxlength="2000" placeholder="Se muestran en la ficha del volumen">${esc(V.translator_notes)}</textarea></label>
           <label class="tb-inl wide"><input type="checkbox" data-v="is_final" ${V.is_final ? 'checked' : ''}> Es el último volumen de la obra (al publicarlo, la traducción queda como completa)</label>
-        </div><p class="mono">Puedes cambiar la obra y el número de volumen en el paso siguiente. Los datos marcados del EPUB ya vienen llenos.</p></details>`;
+        </div><p class="mono">Los datos que trae el EPUB ya vienen llenos. Abajo eliges la obra y el número de volumen.</p></details>`;
     }
     function bindFicha(){ W().querySelectorAll('[data-v]').forEach(i => i[i.type === 'checkbox' ? 'onchange' : 'oninput'] = () => { V[i.dataset.v] = i.type === 'checkbox' ? i.checked : i.value; }); }
     const fichaRow = () => {
@@ -308,39 +323,56 @@ export function createImporter(deps) {
       if (V.jp_release) o.jp_release = V.jp_release; if (V.planned_chapters !== '' && V.planned_chapters != null) o.planned_chapters = Math.max(0, +V.planned_chapters || 0);
       if (V.synopsis_spoiler) o.synopsis_spoiler = true; if (V.is_final) o.is_final = true; return o;
     };
+    // Paso 2 al estilo «lista simple»: resumen, una fila por sección (casilla, título editable, palabras e ilustraciones) y vista previa fija.
+    // Elegir o desmarcar una fila solo toca esa fila y la vista previa; la pantalla completa se redibuja solo al mover, unir o dividir, y conserva el desplazamiento.
+    const nImgs = bs => bs.filter(b => b.type === 'image').length;
     function s2(){
-      const ch = P.chapters, inc = ch.filter(c => !c.skip), m = P.meta, cur = ch[sel];
-      W().innerHTML = `<div class="imp-sum"><span><b>${esc(P.title)}</b><small class="mono">${esc(file.name)} · ${inc.length} de ${ch.length} secciones · ${P.images.size} imágenes · ${P.fonts.length} fuentes</small></span>
-          ${[['Autor', m.author], ['Editorial', m.publisher], ['Volumen', m.index]].filter(x => x[1]).map(([k, v]) => `<span><small class="mono">${k}</small>${esc(String(v))}</span>`).join('')}</div>
-        ${fichaHTML(inc.length)}
+      const ch = P.chapters, keep = { list: W().querySelector('.imp-list ol')?.scrollTop || 0 };
+      const row = (c, i) => { const ni = nImgs(c.blocks); return `<li class="${i === sel ? 'on' : ''}${c.skip ? ' off' : ''}" data-sel="${i}">
+          <input type="checkbox" data-inc="${i}" ${c.skip ? '' : 'checked'} aria-label="Importar ${esc(c.title)}">
+          <span class="imp-n mono">${i + 1}</span>
+          <span class="imp-t"><input data-t="${i}" value="${esc(c.title)}" aria-label="Título de la sección ${i + 1}"><small class="mono">${esc(c.type)} · ${words(c.blocks).toLocaleString('es-MX')} palabras${ni ? ' · ' + ni + (ni === 1 ? ' ilustración' : ' ilustraciones') : ''}${c.skip && c.why ? ' · <b>' + c.why + '</b>' : ''}</small></span>
+          <details class="imp-more"><summary class="ed-btn" aria-label="Más opciones de la sección ${i + 1}">⋯</summary><div class="imp-mm">
+            <label class="mono">Tipo<select data-k="${i}">${SEC.map(s => `<option ${s === c.type ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
+            <button class="ed-btn" data-mv="${i}" data-d="-1" ${i ? '' : 'disabled'}>↑ Subir</button><button class="ed-btn" data-mv="${i}" data-d="1" ${i < ch.length - 1 ? '' : 'disabled'}>↓ Bajar</button>
+            <button class="ed-btn" data-merge="${i}" ${i < ch.length - 1 ? '' : 'disabled'}>Unir con la siguiente</button></div></details></li>`; };
+      W().innerHTML = `<div class="imp-sum" id="isum"></div>
         ${dupAt ? `<p class="imp-warn">Ya importaste este mismo archivo el ${fmtTz(dupAt, { dateStyle: 'long' })}. Puedes continuar; en el destino elige «Reemplazar» si quieres sustituirlo.</p>` : ''}
         <div class="imp-grid">
-          <div class="imp-list"><div class="imp-lh"><b>Secciones</b><span class="mono">Desmarca las que no quieras importar</span></div>
-            <ol>${ch.map((c, i) => { const ni = c.blocks.filter(b => b.type === 'image').length; return `<li class="${i === sel ? 'on' : ''}${c.skip ? ' off' : ''}" data-sel="${i}">
-              <input type="checkbox" data-inc="${i}" ${c.skip ? '' : 'checked'} aria-label="Importar ${esc(c.title)}">
-              <span class="imp-t"><input data-t="${i}" value="${esc(c.title)}" aria-label="Título de la sección ${i + 1}"><small class="mono">${i + 1} · ${words(c.blocks).toLocaleString('es-MX')} palabras${ni ? ' · ' + ni + ' img.' : ''}${c.skip && c.why ? ' · <b>' + c.why + '</b>' : ''}</small></span>
-              <select data-k="${i}" aria-label="Tipo">${SEC.map(s => `<option ${s === c.type ? 'selected' : ''}>${s}</option>`).join('')}</select>
-              <span class="imp-a"><button class="ed-btn" data-mv="${i}" data-d="-1" title="Subir" ${i ? '' : 'disabled'}>↑</button><button class="ed-btn" data-mv="${i}" data-d="1" title="Bajar" ${i < ch.length - 1 ? '' : 'disabled'}>↓</button><button class="ed-btn" data-merge="${i}" title="Unir con la siguiente" ${i < ch.length - 1 ? '' : 'disabled'}>Unir ↓</button></span></li>`; }).join('')}</ol></div>
-          <div class="imp-pvw"><div class="imp-lh"><b>Vista previa · ${sel + 1} de ${ch.length}</b><button class="ed-btn ${splitting ? 'on' : ''}" id="split">${splitting ? 'Toca el párrafo donde empieza la nueva sección · Cancelar' : 'Dividir esta sección…'}</button></div>
-            <div class="imp-pv${splitting ? ' splitting' : ''}" id="pv"><div class="rd" data-theme="oscuro" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="${P.fontVars || ''}--rs:17px"><article class="rd-ch"><header class="rd-head"><span class="mono">${esc(cur.type)}</span><h2 ${headFont(cur.blocks)}>${esc(cur.title)}</h2></header><div class="rd-body">${cur.blocks.map((b, i) => renderBlock(b, i, { media: src })).join('')}</div></article></div></div></div>
+          <div class="imp-list"><div class="imp-lh"><b id="icount"></b><span class="mono">Toca una sección para verla</span></div><ol>${ch.map(row).join('')}</ol></div>
+          <div class="imp-pvw"><div class="imp-lh"><b id="pvh"></b><button class="ed-btn" id="split"></button></div><div class="imp-pv" id="pv"></div></div>
         </div>
-        <div class="imp-nav"><button class="btn ghost" id="back">‹ Elegir otro archivo</button><button class="btn" id="next" ${inc.length ? '' : 'disabled'}>Continuar al destino ›</button></div>`;
-      bindFicha();
-      const L = W().querySelector('.imp-list');
+        <div class="imp-nav"><button class="btn ghost" id="back">‹ Elegir otro archivo</button><button class="btn" id="next">Continuar al destino ›</button></div>`;
+      const L = W().querySelector('.imp-list'), OL = L.querySelector('ol');
+      OL.scrollTop = keep.list;
+      const counts = () => { const inc = ch.filter(c => !c.skip), w = words(inc.flatMap(c => c.blocks)), im = inc.reduce((a, c) => a + nImgs(c.blocks), 0);
+        $('#isum').innerHTML = `<span><b>${esc(P.title)}</b><small class="mono">${esc(file.name)}${P.meta.author ? ' · ' + esc(P.meta.author) : ''}${P.meta.index ? ' · Vol. ' + esc(String(P.meta.index)) : ''}</small></span>
+          <p><b>${ch.length} ${ch.length === 1 ? 'sección detectada' : 'secciones detectadas'}</b> con ${w.toLocaleString('es-MX')} palabras y ${im} ${im === 1 ? 'ilustración' : 'ilustraciones'} en lo que se importará. Corrige los títulos y desmarca lo que no quieras importar.</p>`;
+        $('#icount').textContent = `${inc.length} de ${ch.length} se importarán`;
+        const nx = $('#next'); nx.disabled = !inc.length; };
+      const preview = () => { const cur = ch[sel], pv = $('#pv');
+        $('#pvh').textContent = `Vista previa · ${sel + 1} de ${ch.length}`;
+        $('#split').textContent = splitting ? 'Toca el párrafo donde empieza la nueva sección · Cancelar' : 'Dividir esta sección…'; $('#split').classList.toggle('on', splitting); pv.classList.toggle('splitting', splitting);
+        pv.innerHTML = `<div class="rd" data-theme="oscuro" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="${P.fontVars || ''}--rs:17px"><article class="rd-ch"><header class="rd-head"><span class="mono">${esc(cur.type)}</span><h2 ${headFont(cur.blocks)}>${esc(cur.title)}</h2></header><div class="rd-body">${cur.blocks.map((b, i) => renderBlock(b, i, { media: src })).join('')}</div></article></div>`;
+        pv.scrollTop = 0; };
+      const pick = i => { if (i === sel) return; OL.children[sel]?.classList.remove('on'); sel = i; splitting = false; OL.children[sel]?.classList.add('on'); preview(); };
+      counts(); preview();
       L.querySelectorAll('[data-t]').forEach(i => i.oninput = () => { ch[+i.dataset.t].title = i.value; if (+i.dataset.t === sel) $('#pv h2').textContent = i.value; });
-      L.querySelectorAll('[data-k]').forEach(s => s.onchange = () => { ch[+s.dataset.k].type = s.value; if (+s.dataset.k === sel) $('#pv .rd-head .mono').textContent = s.value; });
-      L.querySelectorAll('[data-inc]').forEach(c => c.onchange = () => { ch[+c.dataset.inc].skip = !c.checked; s2(); });
+      L.querySelectorAll('[data-k]').forEach(s => s.onchange = () => { const i = +s.dataset.k; ch[i].type = s.value; const sm = OL.children[i].querySelector('.imp-t small'); sm.innerHTML = sm.innerHTML.replace(/^[^·]*·/, esc(s.value) + ' ·'); if (i === sel) $('#pv .rd-head .mono').textContent = s.value; });
+      L.querySelectorAll('[data-inc]').forEach(c => c.onchange = () => { const i = +c.dataset.inc; ch[i].skip = !c.checked; OL.children[i].classList.toggle('off', ch[i].skip); counts(); });
       L.onclick = e => {
         const b = e.target.closest('[data-mv],[data-merge]');
         if (b) { const i = +(b.dataset.mv ?? b.dataset.merge);
           if (b.dataset.mv != null) { const j = i + +b.dataset.d; [ch[i], ch[j]] = [ch[j], ch[i]]; sel = j; }
           else { ch[i].blocks.push(...ch[i + 1].blocks); ch[i].skip = ch[i].skip && ch[i + 1].skip; ch.splice(i + 1, 1); sel = i; }
           splitting = false; return s2(); }
-        const li = e.target.closest('[data-sel]'); if (li && !e.target.closest('input,select,button')) { sel = +li.dataset.sel; splitting = false; s2(); }
+        const li = e.target.closest('[data-sel]'); if (li && !e.target.closest('input,select,button,details')) pick(+li.dataset.sel);
       };
-      $('#split').onclick = () => { splitting = !splitting; s2(); };
+      OL.addEventListener('toggle', e => { if (e.target.open) OL.querySelectorAll('details[open]').forEach(d => d !== e.target && (d.open = false)); }, true);
+      L.addEventListener('focusin', e => { const li = e.target.closest('[data-sel]'); if (li && e.target.matches('[data-t]')) pick(+li.dataset.sel); });
+      $('#split').onclick = () => { splitting = !splitting; preview(); };
       $('#pv').onclick = e => {
-        if (!splitting) return; const b = e.target.closest('[data-b]'); if (!b) return; const at = +b.dataset.b;
+        if (!splitting) return; const b = e.target.closest('[data-b]'); if (!b) return; const at = +b.dataset.b, cur = ch[sel];
         if (at < 1) return toast('Elige un párrafo después del primero');
         const rest = cur.blocks.splice(at);
         ch.splice(sel + 1, 0, { title: (rest.find(x => x.type === 'heading')?.text || cur.title + ' (cont.)').slice(0, 200), type: cur.type, blocks: rest, skip: false });
@@ -353,7 +385,7 @@ export function createImporter(deps) {
     function s3(){
       const w = work(), ex = liveVols(w).find(v => v.num === D.vnum), gone = !ex && (w?.volumes || []).find(v => v.deleted_at && v.num === D.vnum), keys = imgKeys(), used = usedImgs(), inc = P.chapters.filter(c => !c.skip);
       const folder = `obras › ${w?.slug || slugify(D.newTitle || P.title)} › vol-${D.vnum}`;
-      W().innerHTML = `<div class="imp-dest">
+      W().innerHTML = `${fichaHTML(inc.length)}<div class="imp-dest">
         <section class="imp-box"><h3>Obra y volumen</h3>
           <label>Obra<select id="dw"><option value="">+ Nueva obra</option>${(works || []).map(x => `<option value="${x.id}" ${x.id === D.work ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select></label>
           ${w ? '' : `<label>Título de la obra<input id="dt" value="${esc(D.newTitle)}" maxlength="200"></label><label>Autor<input id="da" value="${esc(D.newAuthor)}" maxlength="120"></label>`}
@@ -367,7 +399,7 @@ export function createImporter(deps) {
           <p class="mono">${keys.length ? 'Toca la imagen que será la portada.' + (P.cover ? ' Marcamos la que el EPUB declara como portada.' : '') : 'El archivo no trae imágenes.'}</p>
           <div class="imp-covs" role="radiogroup" aria-label="Portada del volumen">
             <button type="button" class="imp-c none${D.cover ? '' : ' on'}" data-cov="" role="radio" aria-checked="${!D.cover}">Sin portada</button>
-            ${keys.map(k => `<button type="button" class="imp-c${D.cover === 'img:' + k ? ' on' : ''}" data-cov="img:${esc(k)}" role="radio" aria-checked="${D.cover === 'img:' + k}" title="${esc(k.split('/').pop())}"><img src="${esc(P.urls.get(k))}" alt="${esc(k.split('/').pop())}" loading="lazy">${P.cover === 'img:' + k ? '<em>Del EPUB</em>' : ''}</button>`).join('')}
+            ${keys.map(k => `<button type="button" class="imp-c${D.cover === 'img:' + k ? ' on' : ''}" data-cov="img:${esc(k)}" role="radio" aria-checked="${D.cover === 'img:' + k}" title="${esc(k.split('/').pop())}"><img src="${esc(P.urls.get(k))}" alt="${esc(k.split('/').pop())}" loading="lazy"${P.dims?.get('img:' + k) ? ` width="${P.dims.get('img:' + k).w}" height="${P.dims.get('img:' + k).h}"` : ''}>${P.cover === 'img:' + k ? '<em>Del EPUB</em>' : ''}</button>`).join('')}
           </div>
           ${ex?.cover_path && D.cover ? '<p class="mono">El volumen ya tiene portada: esta la reemplaza.</p>' : ''}
           <label class="tb-inl"><input type="checkbox" id="dwc" ${D.workCover && D.cover ? 'checked' : ''} ${D.cover ? '' : 'disabled'}> Usarla también como portada de la obra${w?.cover_path ? ' (reemplaza la actual)' : ''}</label>
@@ -395,6 +427,7 @@ export function createImporter(deps) {
       $('#dat')?.addEventListener('input', e => { D.at = e.target.value; D.pub = 'at'; W().querySelector('[name=dp][value=at]').checked = true; });
       $('#dwc').onchange = e => { D.workCover = e.target.checked; };
       W().querySelectorAll('[data-cov]').forEach(b => b.onclick = () => { D.cover = b.dataset.cov || null; s3(); });
+      bindFicha();
       $('#back').onclick = () => { step = 2; render(); };
       $('#go').onclick = e => busy(e.currentTarget, commit);
     }
