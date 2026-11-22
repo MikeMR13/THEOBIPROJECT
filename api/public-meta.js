@@ -337,7 +337,12 @@ export default async function handler(req, res) {
       html = html.replace(/(<main id="app"[^>]*>)(<\/main>)/, '$1' + teaser + '$2');
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', noindex || unavailable ? 'private, no-store' : 'public, s-maxage=120, stale-while-revalidate=300');
+    // Un preestreno o una página aún inexistente cambian de estado a la hora del
+    // estreno: caché corta para que la ficha y la vista previa de enlaces
+    // (Discord/Telegram) no sigan mostrando «Próximamente» después del lanzamiento.
+    res.setHeader('Cache-Control', noindex || unavailable ? 'private, no-store'
+      : (!item || data?.prelaunch) ? 'public, s-maxage=15, must-revalidate'
+      : 'public, s-maxage=120, stale-while-revalidate=300');
     if (unavailable) res.setHeader('Retry-After', '60');
     if (noindex) res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     // Sólo una página inexistente confirmada es 404. Un backend caído no produce falsas bajas.

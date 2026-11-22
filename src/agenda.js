@@ -110,7 +110,7 @@ export async function agenda(ctx){
     if (D.from && fromK >= D.from && toK <= D.to) return;
     const a = D.from && D.from < fromK ? D.from : fromK, b = D.to && D.to > toK ? D.to : toK;
     const [ev, an, pre] = await Promise.all([
-      sb.rpc('agenda_events', { p_from: noon(addK(a, -1)).toISOString(), p_to: noon(addK(b, 1)).toISOString() }),
+      agendaRows(sb, noon(addK(a, -1)).toISOString(), noon(addK(b, 1)).toISOString()),
       optional(sb.rpc('team_anniversaries', { p_from: a, p_to: b }), { data: [] }),
       optional(sb.rpc('prelaunch_calendar', { p_from: noon(addK(a, -1)).toISOString(), p_to: noon(addK(b, 1)).toISOString() }), { data: [] })
     ]);
@@ -456,11 +456,21 @@ export async function enablePush({ sb, url, getUser }){
   } catch (e) { console.warn('push', e); return false; }
 }
 
+// La API corta cada respuesta en 1000 filas y agenda_events devuelve una fila
+// por capítulo (de la más antigua a la más nueva): los estrenos recientes se
+// perdían. agenda_events_json entrega lo mismo en un solo valor, sin tope.
+// Si la migración aún no está aplicada, se usa la RPC anterior.
+async function agendaRows(sb, from, to){
+  const j = await sb.rpc('agenda_events_json', { p_from: from, p_to: to });
+  if (!j.error && Array.isArray(j.data)) return { data: j.data, error: null };
+  return sb.rpc('agenda_events', { p_from: from, p_to: to });
+}
+
 // Inicio: franja con lo que se abre hoy a todo público.
 export async function openToday({ sb, esc }, el){
   if (!el) return;
   const TZ = window.obiTZ(), fmt = d => { const parts = new Intl.DateTimeFormat('en-US', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d); const get = k => parts.find(p => p.type === k)?.value; return get('year') + '-' + get('month') + '-' + get('day'); }, k = fmt(new Date()), a = new Date(Date.now() - 36 * 36e5), b = new Date(Date.now() + 36 * 36e5);
-  const { data, error } = await sb.rpc('agenda_events', { p_from: a.toISOString(), p_to: b.toISOString() });
+  const { data, error } = await agendaRows(sb, a.toISOString(), b.toISOString());
   if (error) return;
   const rows = (data || []).filter(r => r.kind === 'open' && fmt(new Date(r.at)) === k); if (!rows.length) return;
   const ids = [...new Set(rows.map(r => r.series_id))], { data: ser } = await sb.from('series').select('id,slug,title').in('id', ids), by = Object.fromEntries((ser || []).map(s => [s.id, s]));
