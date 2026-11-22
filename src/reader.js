@@ -91,6 +91,13 @@ export function createReader(ctx){
     request.finally(() => { if (metaFlights.get(slug) === request) metaFlights.delete(slug); }).catch(() => {});
     return request;
   }
+  function cachedChapterReadable(m, num){
+    const ch = m.chapters.find(c => c.num === num);
+    const volume = m.vols.find(v => String(v.id) === String(ch?.volume_id)) ||
+      (!ch?.volume_id ? m.vols.find(v => Number(v.num) === Number(ch?.vol)) : null);
+    return isPubliclyReadableChapter(ch, { seriesPublished: m.series?.published, volume }) &&
+      !(ch?.volume_id && !volume);
+  }
   const cachedMeta = slug => { try { return JSON.parse(localStorage.getItem(META_KEY(slug))); } catch { return null; } };
   function setSeries(m, offGl){
     const sameSeries = S.series?.id === m.series.id;
@@ -116,7 +123,11 @@ export function createReader(ctx){
     const hasHit = !!(hit?.series && hit.series.published != null &&
       Array.isArray(hit.chapters) && hit.chapters.every(c => c.status != null) &&
       Array.isArray(hit.vols) && hit.vols.every(v => v.status != null) &&
-      (num == null || hit.chapters.some(c => c.num === num)));
+      (num == null || hit.chapters.some(c => c.num === num)) &&
+      // Una copia guardada durante el preestreno (o antes de la hora programada)
+      // dice «bloqueado» aunque el estreno ya ocurrió: nunca decidir un bloqueo
+      // con la copia local; en ese caso se consulta la ficha fresca.
+      (num == null || cachedChapterReadable(hit, num)));
     if (hasHit) m = hit;
     else {
       try { m = await fetchMeta(slug); }
