@@ -40,7 +40,7 @@ const CSS = `
 .ag-cd{font-size:12px;color:#a9d18e;font-weight:600}
 .ag-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.ag-acts .ag-btn{overflow-wrap:normal;white-space:nowrap;flex:none}.ag-ev.c .ag-acts .ag-btn{padding:4px 7px;font-size:11px;flex:0 1 auto;max-width:100%;white-space:normal;word-break:normal;text-align:left}
 .ag-ev.c .ag-tg2{letter-spacing:.02em}
-.ag-line{display:grid;gap:22px}.ag-ld h2{display:flex;gap:10px;align-items:baseline;margin:0 0 8px;font-size:20px;font-weight:500;text-transform:capitalize}.ag-ld h2 small{font-size:12px;color:#a89f8a}
+.ag-line{display:grid;gap:22px}.ag-line-more{justify-content:center;min-height:44px;width:100%;max-width:340px;margin:3px auto 12px}.ag-ld h2{display:flex;gap:10px;align-items:baseline;margin:0 0 8px;font-size:20px;font-weight:500;text-transform:capitalize}.ag-ld h2 small{font-size:12px;color:#a89f8a}
 .ag-ll{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr))}
 .ag-now{display:flex;align-items:center;gap:12px;color:#f2c230;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:13px}.ag-now::before,.ag-now::after{content:"";flex:1;height:2px;background:#f2c230}
 .ag-mon{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-left:1px solid #2f2a20;border-top:1px solid #2f2a20}
@@ -98,11 +98,20 @@ export async function agenda(ctx){
   const u = getUser(), qs = new URLSearchParams(location.search);
   // Reutilizar el formato: se invoca una vez por fecha y lanzamiento en móvil.
   const TZ = window.obiTZ(), dayFormat = new Intl.DateTimeFormat('en-US', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
-  const ymd = d => { const parts = dayFormat.formatToParts(new Date(d)); const part = k => parts.find(p => p.type === k)?.value; return part('year') + '-' + part('month') + '-' + part('day'); };
+  // Un lanzamiento puede contener decenas de capítulos con la misma fecha:
+  // evitar repetir cientos de conversiones de zona horaria en móviles.
+  const dayCache = new Map();
+  const ymd = d => {
+    if (typeof d === 'string' && dayCache.has(d)) return dayCache.get(d);
+    const parts = dayFormat.formatToParts(new Date(d)), part = k => parts.find(p => p.type === k)?.value;
+    const key = part('year') + '-' + part('month') + '-' + part('day');
+    if (typeof d === 'string') dayCache.set(d, key);
+    return key;
+  };
   const noon = k => new Date(k + 'T12:00:00Z'), addK = (k, n) => new Date(noon(k).getTime() + n * DAY).toISOString().slice(0, 10);
   const dow = k => (noon(k).getUTCDay() + 6) % 7, monday = k => addK(k, -dow(k)), today = () => ymd(Date.now());
   const media = p => p ? (/^https?:/.test(p) ? p : `${url}/storage/v1/object/public/obi-media/${encodeURI(p)}`) : '';
-  const V = { view: VIEWS.some(v => v[0] === qs.get('v')) ? qs.get('v') : (window.matchMedia?.('(max-width: 760px)').matches ? 'linea' : 'semana'), when: PERIODS.some(x => x[0] === qs.get('cuando')) ? qs.get('cuando') : '', access: ACCESS.some(x => x[0] === qs.get('acceso')) ? qs.get('acceso') : '', f: FIL.some(x => x[0] === qs.get('f')) ? qs.get('f') : '', mine: qs.get('sigo') === '1', team: qs.get('equipo') || '', type: qs.get('tipo') || '', anchor: /^\d{4}-\d{2}-\d{2}$/.test(qs.get('d') || '') ? qs.get('d') : today(), sel: null, opts: false };
+  const V = { view: VIEWS.some(v => v[0] === qs.get('v')) ? qs.get('v') : (window.matchMedia?.('(max-width: 760px)').matches ? 'linea' : 'semana'), when: PERIODS.some(x => x[0] === qs.get('cuando')) ? qs.get('cuando') : '', access: ACCESS.some(x => x[0] === qs.get('acceso')) ? qs.get('acceso') : '', f: FIL.some(x => x[0] === qs.get('f')) ? qs.get('f') : '', mine: qs.get('sigo') === '1', team: qs.get('equipo') || '', type: qs.get('tipo') || '', anchor: /^\d{4}-\d{2}-\d{2}$/.test(qs.get('d') || '') ? qs.get('d') : today(), sel: null, opts: false, lineNext: 18, linePast: 12 };
   const D = { from: null, to: null, rows: [], aniv: [], series: {}, pat: {}, read: new Set(), fol: new Set(), rem: new Set(), fests: [], festRange: null, seasonsReady: false };
 
   const [AN, S] = await Promise.all([import('/anim.js?v=8'), import('/season.js?v=3')]).catch(() => [null, null]);
@@ -126,13 +135,30 @@ export async function agenda(ctx){
     for (let i = 0; i < ids.length; i += 150) { const { data } = await sb.from('series').select('id,slug,title,short,cover_path,cover_thumb_path,work_type,team_id,teams(name,slug)').in('id', ids.slice(i, i + 150)); (data || []).forEach(s => D.series[s.id] = s); }
     // Los preestrenos anunciados son públicos aunque su obra todavía no esté publicada.
     // La RPC verifica announce_prelaunch y solo devuelve logos de equipos activos.
-    await optional(attachPublicCredits(sb, Object.values(D.series).filter(s => s?.id)), null, 650);
+    // Los créditos, enlaces de Patreon y progreso son independientes: en paralelo
+    // el calendario no espera varias rondas de red una detrás de otra.
+    const supplements = [optional(attachPublicCredits(sb, Object.values(D.series).filter(s => s?.id)), null, 650)];
     const tids = [...new Set(Object.values(D.series).map(s => s.team_id).filter(t => t && !(t in D.pat)))];
-    if (tids.length) { const { data } = await sb.from('patreon_public').select('owner,url').in('owner', tids); tids.forEach(t => D.pat[t] = null); (data || []).forEach(p => { if (p.url) D.pat[p.owner] = JOIN(p.url); }); }
+    if (tids.length) supplements.push(
+      sb.from('patreon_public').select('owner,url').in('owner', tids).then(({ data }) => {
+        tids.forEach(t => D.pat[t] = null);
+        (data || []).forEach(p => { if (p.url) D.pat[p.owner] = JOIN(p.url); });
+      }, () => { tids.forEach(t => D.pat[t] = null); })
+    );
     if (u) {
       const ch = [...new Set(D.rows.filter(r => r.chapter_id && r.kind === 'pub').map(r => r.chapter_id))];
-      for (let i = 0; i < ch.length; i += 200) { const { data } = await sb.from('read_chapters').select('chapter_id').eq('user_id', u.id).in('chapter_id', ch.slice(i, i + 200)); (data || []).forEach(r => D.read.add(r.chapter_id)); }
+      supplements.push((async () => {
+        // Dos lotes en paralelo: limita la presión sobre Supabase y evita
+        // siete esperas secuenciales para lectores con muchos capítulos.
+        for (let i = 0; i < ch.length; i += 400) {
+          const batches = [ch.slice(i, i + 200), ch.slice(i + 200, i + 400)].filter(x => x.length);
+          const results = await Promise.all(batches.map(batch => sb.from('read_chapters')
+            .select('chapter_id').eq('user_id', u.id).in('chapter_id', batch)));
+          results.forEach(({ data }) => (data || []).forEach(r => D.read.add(r.chapter_id)));
+        }
+      })());
     }
+    await Promise.all(supplements);
   }
   if (u) {
     const [f, r] = await Promise.all([sb.from('follows').select('series_id').eq('user_id', u.id), sb.from('reminders').select('series_id,kind,at').is('sent_at', null)]);
@@ -309,10 +335,29 @@ export async function agenda(ctx){
   }
 
   function line(list){
-    const t = today(), M = byDay(list.filter(g => g.day >= addK(t, -PAST) && g.day <= addK(t, FUT))), ks = Object.keys(M).sort().reverse();
-    const fut = ks.filter(k => k > t).sort(), pst = ks.filter(k => k < t), sec = k => `<section class="ag-ld"><h2>${lbl(k)}<small>${k.slice(8)}/${k.slice(5, 7)}</small></h2><div class="ag-ll">${M[k].map(g => card(g)).join('')}</div></section>`;
-    return `<div class="ag-line">${V.when === 'past' ? '' : fut.length ? fut.map(sec).join('') : '<p class="ag-empty">Nada programado todavía.</p>'}<div class="ag-now" id="ag-now">Hoy · ${noon(t).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', timeZone: 'UTC' })}</div>${M[t] ? sec(t).replace(/<h2>.*?<\/h2>/, '') : V.when ? '' : '<p class="ag-empty" style="padding:6px 0">Nada hoy por ahora.</p>'}${V.when === 'next' ? '' : pst.length ? pst.map(sec).join('') : '<p class="ag-empty">Nada publicado en los últimos 30 días.</p>'}</div>`;
+    const t = today(), M = byDay(list.filter(g => g.day >= addK(t, -PAST) && g.day <= addK(t, FUT)));
+    const ks = Object.keys(M);
+    const fut = ks.filter(k => k > t).sort();
+    const pst = ks.filter(k => k < t).sort().reverse();
+    // Sólo crear tarjetas cercanas a hoy; el resto sigue en memoria para
+    // los filtros, las cifras del periodo, exportación y "Ver más".
+    const allNext = fut.flatMap(k => M[k]), allPast = pst.flatMap(k => M[k]);
+    const next = byDay(allNext.slice(0, V.lineNext)), past = byDay(allPast.slice(0, V.linePast));
+    const sec = (k, rows) => `<section class="ag-ld"><h2>${lbl(k)}<small>${k.slice(8)}/${k.slice(5, 7)}</small></h2><div class="ag-ll">${rows.map(g => card(g)).join('')}</div></section>`;
+    const more = (dir, remaining) => remaining > 0
+      ? `<button type="button" class="ag-btn ag-line-more" data-line-more="${dir}">Ver más ${dir === 'next' ? 'próximos' : 'anteriores'} · ${remaining} restantes</button>` : '';
+    const nextHTML = Object.keys(next).sort().map(k => sec(k, next[k])).join('');
+    const pastHTML = Object.keys(past).sort().reverse().map(k => sec(k, past[k])).join('');
+    return `<div class="ag-line">${V.when === 'past' ? '' : allNext.length
+      ? nextHTML + more('next', allNext.length - V.lineNext)
+      : '<p class="ag-empty">Nada programado todavía.</p>'}
+      <div class="ag-now" id="ag-now">Hoy · ${noon(t).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', timeZone: 'UTC' })}</div>
+      ${M[t] ? sec(t, M[t]).replace(/<h2>.*?<\/h2>/, '') : V.when ? '' : '<p class="ag-empty" style="padding:6px 0">Nada hoy por ahora.</p>'}
+      ${V.when === 'next' ? '' : allPast.length
+        ? pastHTML + more('past', allPast.length - V.linePast)
+        : '<p class="ag-empty">Nada publicado en los últimos 30 días.</p>'}</div>`;
   }
+
   function month(list, periods){
     const a = V.anchor.slice(0, 8) + '01', ym = a.slice(0, 7), start = monday(a), M = byDay(list), t = today();
     let end = addK(a, 31); end = end.slice(0, 7) === ym ? end : addK(end.slice(0, 8) + '01', -1); end = addK(monday(end), 6);
@@ -341,7 +386,29 @@ export async function agenda(ctx){
   const range = () => { if (V.view === 'semana') return [monday(V.anchor), addK(monday(V.anchor), 6)]; if (V.view !== 'mes') return [addK(today(), -PAST), addK(today(), FUT)]; const first = V.anchor.slice(0, 8) + '01'; const next = new Date(Date.UTC(+first.slice(0, 4), +first.slice(5, 7), 1, 12)).toISOString().slice(0, 10); const end = addK(next, -1); return [monday(first), addK(monday(end), 6)]; };
   const title = () => { if (V.view === 'semana') { const a = monday(V.anchor), b = addK(a, 6), f = k => noon(k).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }); return f(a) + ' – ' + f(b); } return noon(V.anchor.slice(0, 8) + '15').toLocaleDateString('es-MX', { month: 'long', year: 'numeric', timeZone: 'UTC' }); };
   const sync = () => { const p = new URLSearchParams(); if (V.view !== 'semana') p.set('v', V.view); if (V.f) p.set('f', V.f); if (V.when) p.set('cuando', V.when); if (V.access) p.set('acceso', V.access); if (V.mine) p.set('sigo', '1'); if (V.team) p.set('equipo', V.team); if (V.type) p.set('tipo', V.type); if (V.anchor !== today() && V.view !== 'linea') p.set('d', V.anchor); if (/^\/(calendario|lanzamientos)$/.test(location.pathname)) history.replaceState({}, '', '/calendario' + (p.toString() ? '?' + p : '')); };
-  let drawSeq = 0;
+  let drawSeq = 0, seasonFlight = null;
+  async function ensureSeasons(a, b){
+    if (!AN || !S || seasonFlight) return;
+    // Rango amplio para evitar otra petición al avanzar algunas semanas.
+    const from = addK(a, -400), to = addK(b, 400);
+    seasonFlight = Promise.all([
+      S.load(sb).catch(e => { console.warn('Temporadas del calendario', e); }),
+      sb.from('season_calendar').select('key,starts,hemi').gte('starts', from).lte('starts', to)
+    ]).then(([, result]) => {
+      D.fests = result?.error ? [] : result?.data || [];
+      D.festRange = [from, to];
+      D.seasonsReady = true;
+    }).catch(e => {
+      console.warn('Festividades del calendario', e);
+      D.fests = [];
+      D.festRange = [from, to];
+      D.seasonsReady = true;
+    });
+    await seasonFlight;
+    seasonFlight = null;
+    // Actualizar fechas estacionales sin perder el límite visible del móvil.
+    if (live()) void draw(false);
+  }
   async function draw(scroll){
     const run = ++drawSeq;
     const [a, b] = range();
@@ -359,18 +426,10 @@ export async function agenda(ctx){
       return;
     }
     if (!live() || run !== drawSeq) return;
-    if (AN && S) {
-      if (!D.seasonsReady) { try { await S.load(sb); } catch (e) { console.warn('temporadas del calendario', e); } D.seasonsReady = true; }
-      // Incluir el inicio anterior y el siguiente solsticio para mostrar rangos que cruzan meses/años.
-      if (!D.festRange || a < D.festRange[0] || b > D.festRange[1]) {
-        const from = addK(a, -400), to = addK(b, 400);
-        try {
-          const { data, error } = await sb.from('season_calendar').select('key,starts,hemi').gte('starts', from).lte('starts', to);
-          D.fests = error ? [] : data || [];
-        } catch { D.fests = []; }
-        D.festRange = [from, to];
-      }
-    }
+    // Temporadas y festividades son información secundaria: pintar primero los
+    // lanzamientos sin esperar varias consultas adicionales de Supabase.
+    if (AN && S && (!D.seasonsReady || !D.festRange || a < D.festRange[0] || b > D.festRange[1]))
+      void ensureSeasons(a, b);
     if (!live() || run !== drawSeq) return;
     const periods = seasonPeriods(AN?.SEASONS, a, b, { hemi: S?.hemiOf?.(TZ) || 'norte', starts: D.fests });
     const all = groups(), inRange = all.filter(g => g.day >= a && g.day <= b), list = inRange.filter(pass);
@@ -404,6 +463,11 @@ export async function agenda(ctx){
   function bind(all){
     const on = (s, f) => app.querySelectorAll(s).forEach(f);
     on('[data-v]', b => b.onclick = () => { V.view = b.dataset.v; draw(false); });
+    on('[data-line-more]', b => b.onclick = () => {
+      if (b.dataset.lineMore === 'next') V.lineNext += 18;
+      else V.linePast += 12;
+      void draw(false);
+    });
     on('[data-f]', b => b.onclick = () => { V.f = b.dataset.f; draw(); });
     on('[data-when]', b => b.onclick = () => { V.when = b.dataset.when; draw(); });
     on('[data-mine]', b => b.onclick = () => { V.mine = !V.mine; draw(); });

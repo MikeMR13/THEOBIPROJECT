@@ -95,7 +95,10 @@ assert.match(appSource,/creditsHTML\(w\.s, \{ esc, media: MED, mode: 'carousel' 
 assert.match(ui,/await attachPublicCredits\(sb, ser \|\| \[\]\)/, 'Lanzamientos deben mostrar colaboradores aceptados');
 assert.match(ui,/creditTeams\(g\.s\)\.some\(t => t\.name === R\.team\)/, 'Filtrar lanzamientos por equipo colaborador');
 const calendar=readFileSync(new URL('../src/agenda.js',import.meta.url),'utf8');
-assert.match(calendar,/await optional\(attachPublicCredits\(sb, Object\.values\(D\.series\)/, 'El calendario carga créditos, sin retener el calendario');
+assert.match(calendar,/supplements = \[optional\(attachPublicCredits\(sb, Object\.values\(D\.series\)/,
+  'El calendario consulta créditos junto con los datos secundarios');
+assert.match(calendar,/await Promise\.all\(supplements\)/,
+  'El calendario paraleliza los datos secundarios sin perder los créditos');
 assert.match(calendar,/creditTeams\(g\.s\)\.some\(t => t\.slug === V\.team\)/, 'Filtrar calendario por colaboradores');
 const teamPage=readFileSync(new URL('../src/teampage.js',import.meta.url),'utf8');
 assert.match(teamPage,/team_public_collaboration_series/, 'La página de equipo muestra obras compartidas');
