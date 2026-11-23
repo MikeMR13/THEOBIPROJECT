@@ -465,7 +465,7 @@ export async function agenda(ctx){
       if (b.dataset.lineMore === 'next') V.lineNext += 18;
       else V.linePast += 12;
       void draw(false);
-    };
+    });
     on('[data-f]', b => b.onclick = () => { V.f = b.dataset.f; draw(); });
     on('[data-when]', b => b.onclick = () => { V.when = b.dataset.when; draw(); });
     on('[data-mine]', b => b.onclick = () => { V.mine = !V.mine; draw(); });
