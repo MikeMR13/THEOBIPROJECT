@@ -336,7 +336,9 @@ export async function agenda(ctx){
 
   function line(list){
     const t = today(), M = byDay(list.filter(g => g.day >= addK(t, -PAST) && g.day <= addK(t, FUT)));
-    const ks = Object.keys(M), fut = ks.filter(k => k > t).sort(), pst = ks.filter(k => k < t).sort().reverse();
+    const ks = Object.keys(M);
+    const fut = ks.filter(k => k > t).sort();
+    const pst = ks.filter(k => k < t).sort().reverse();
     // Sólo crear tarjetas cercanas a hoy; el resto sigue en memoria para
     // los filtros, las cifras del periodo, exportación y "Ver más".
     const allNext = fut.flatMap(k => M[k]), allPast = pst.flatMap(k => M[k]);
