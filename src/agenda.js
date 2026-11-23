@@ -350,7 +350,7 @@ export async function agenda(ctx){
       ? nextHTML + more('next', allNext.length - V.lineNext)
       : '<p class="ag-empty">Nada programado todavía.</p>'}
       <div class="ag-now" id="ag-now">Hoy · ${noon(t).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', timeZone: 'UTC' })}</div>
-      ${M[t] ? sec(t, M[t]).replace(/<h2>.*?<\\/h2>/, '') : V.when ? '' : '<p class="ag-empty" style="padding:6px 0">Nada hoy por ahora.</p>'}
+      ${M[t] ? sec(t, M[t]).replace(/<h2>.*?<\/h2>/, '') : V.when ? '' : '<p class="ag-empty" style="padding:6px 0">Nada hoy por ahora.</p>'}
       ${V.when === 'next' ? '' : allPast.length
         ? pastHTML + more('past', allPast.length - V.linePast)
         : '<p class="ag-empty">Nada publicado en los últimos 30 días.</p>'}</div>`;
