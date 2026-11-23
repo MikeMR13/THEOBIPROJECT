@@ -57,6 +57,8 @@ jobs:
           path: qa-performance/validacion-rutas-cwv-lab.json
           if-no-files-found: warn
           retention-days: 1
+      - name: Calendario móvil — carga progresiva y temporadas sin bloqueo (Chromium local)
+        run: node --check src/agenda.js && node --check scripts/agenda-mobile-browser-check.mjs && node scripts/agenda-mobile-browser-check.mjs
       - name: Biblioteca y temporadas · estados, fechas y acciones (sin backend)
         run: node scripts/season-library-audit-check.mjs
       - name: Editor Productividad · Entrega 2 (sin backend)
