@@ -813,6 +813,9 @@ export function createReader(ctx){
     // el navegador también puede mover el artículo (buscar en la página, leer en voz alta): se alinea a la página más cercana
     art.addEventListener('scroll', () => { if (!isPaged()) return; const P = pgInfo(); if (!P) return; const n = Math.round(art.scrollLeft / P.step); if (n !== S.page || Math.abs(art.scrollLeft - n * P.step) > 2) { clearTimeout(S.snapT); S.snapT = setTimeout(() => goPage(n), 120); } }, { passive: true });
     document.fonts?.ready?.then(() => relayoutPaged());
+    // En paginado las ilustraciones del capítulo se piden de inmediato: con carga diferida solo llegaban al pasar a su
+    // página y el capítulo se reacomodaba mientras se leía. Así el único ajuste ocurre al abrir.
+    art.querySelectorAll('.rd-body img[loading="lazy"]').forEach(i => { i.loading = 'eager'; });
     // las ilustraciones sin medidas cambian el reparto al cargar: se vuelve a la página del mismo párrafo
     art.addEventListener('load', e => { if (e.target.tagName === 'IMG') { clearTimeout(S.relT); S.relT = setTimeout(relayoutPaged, 60); } }, true);
   }
