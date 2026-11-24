@@ -21,6 +21,8 @@ export function createImporter(deps) {
   const BLOCK_TAGS = /^(p|div|h[1-6]|blockquote|ul|ol|li|section|article|aside|header|footer|figure|figcaption|table|thead|tbody|tfoot|tr|td|th|hr|pre|dl|dt|dd|main|nav|center|body)$/;
   const SEP_TEXT = /^[\s*＊※◇◆◊⋄○●◎☆★♦♢◈❖✦✧✶✱·•・~〜～=＝#＃§\-–—_\u3000]+$/u;
   const SEP_CLASS = /(^|[\s_-])(sep|separator|scene[\w-]*|ornament|asterism|divider|dinkus|space-?break|section-?break|break)(\s|$|[_-])/i;
+  const NOTE_TYPE = /(^|\s)(footnote|endnote|rearnote|doc-footnote|doc-endnote)(\s|$)/i;
+  const NOTE_CLASS = /(^|\s)([\w-]*footnote[\w-]*|[\w-]*endnote[\w-]*|nota-?(del-?)?traductor|nota-?tr)(\s|$)/i;
   const TITLE_CLASS = /(^|\s)([\w-]*title[\w-]*|[\w-]*heading[\w-]*|titulo[\w-]*|h[1-6])(\s|$)/i;
   const htmlToBlocks = (root, imgMap, css) => {
     const out = [], tagOf = e => (e.localName || '').toLowerCase();
@@ -55,6 +57,8 @@ export function createImporter(deps) {
     const block = (c, qt) => {
       const tg = tagOf(c), cls = c.getAttribute('class') || '', tx = c.textContent.replace(/\s+/g, ' ').trim();
       if (tg === 'hr') return sep();
+      // notas al pie / finales del EPUB → bloque «Nota del traductor» (el lector puede mostrarlas emergentes)
+      if (NOTE_TYPE.test((c.getAttribute('epub:type') || c.getAttributeNS?.('http://www.idpf.org/2007/ops', 'type') || '') + ' ' + (c.getAttribute('role') || '')) || NOTE_CLASS.test(cls)) return hasBlock(c) ? walk(c, 'note') : mixed('note', c);
       if (SEP_CLASS.test(cls) && !/page/i.test(cls) && tx.length <= 24 && !imgsIn(c).length) return sep();
       if (/^h[1-6]$/.test(tg)) return hasBlock(c) ? walk(c, 'heading') : mixed('heading', c);
       if (tg === 'blockquote') return hasBlock(c) ? walk(c, 'quote') : mixed('quote', c);

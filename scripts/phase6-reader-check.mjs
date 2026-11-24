@@ -45,7 +45,7 @@ contains(reader,"sameReaderAccount(getUser()?.id, uid) && sameReaderAccount(S.pr
 contains(profile,"R.global = { ...R.global, [k]: v }",'Ajuste global disperso no reemplaza otros valores del equipo');
 contains(profile,"readReaderPrefs(localStorage, user.id)",'Preferencias de perfil aisladas');
 contains(reader,"if (k === 'font' || k == null)",'Reaplicación de fuentes EPUB después de sincronizar preferencias');
-contains(reader,"teams(name,slug,status,avatar_path,settings,reader_defaults)",'Consulta de configuración del equipo');
+contains(reader,"teams(name,slug,status,avatar_path,settings,reader_defaults,color)",'Consulta de configuración del equipo');
 contains(reader,"epub_fonts",'Fuentes EPUB por volumen');
 contains(reader,"fontVars(vol, p)",'Fuentes originales del capítulo');
 contains(reader,"sb.from('reading_progress').upsert",'Posición de lectura');

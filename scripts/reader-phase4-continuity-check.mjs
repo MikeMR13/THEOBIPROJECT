@@ -35,7 +35,7 @@ class RO {observe(){} disconnect(){}}
 const ctx={S,$,document,ResizeObserver:RO,IntersectionObserver:IO,
   body:ch=>bodyFn(ch),effective:()=>({continuous:mode}),nextOf:ch=>adjacentChapter(chapters,ch,1),
   chapterHTML:ch=>'<article data-ch="'+ch.id+'"></article>',
-  markTerms:()=>{},trackView:ch=>tracked.push(ch.id),prefetchNext:ch=>prefetched.push(ch.id),
+  markTerms:()=>{},decorate:()=>{},trackView:ch=>tracked.push(ch.id),prefetchNext:ch=>prefetched.push(ch.id),
   fetchAnnots:async()=>[],paintAnnots:()=>{},trimMounted:()=>{},
   history:{replaceState:()=>{}},logHistory:()=>{},footer:()=>{},
   removeEventListener:()=>{},addEventListener:()=>{},onScroll:()=>{},barRO:null,io:null,activeIo:null};
