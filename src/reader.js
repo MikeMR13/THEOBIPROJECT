@@ -813,6 +813,9 @@ export function createReader(ctx){
     // el navegador también puede mover el artículo (buscar en la página, leer en voz alta): se alinea a la página más cercana
     art.addEventListener('scroll', () => { if (!isPaged()) return; const P = pgInfo(); if (!P) return; const n = Math.round(art.scrollLeft / P.step); if (n !== S.page || Math.abs(art.scrollLeft - n * P.step) > 2) { clearTimeout(S.snapT); S.snapT = setTimeout(() => goPage(n), 120); } }, { passive: true });
     document.fonts?.ready?.then(() => relayoutPaged());
+    // En paginado las ilustraciones del capítulo se piden de inmediato: con carga diferida solo llegaban al pasar a su
+    // página y el capítulo se reacomodaba mientras se leía. Así el único ajuste ocurre al abrir.
+    art.querySelectorAll('.rd-body img[loading="lazy"]').forEach(i => { i.loading = 'eager'; });
     // las ilustraciones sin medidas cambian el reparto al cargar: se vuelve a la página del mismo párrafo
     art.addEventListener('load', e => { if (e.target.tagName === 'IMG') { clearTimeout(S.relT); S.relT = setTimeout(relayoutPaged, 60); } }, true);
   }
@@ -1163,8 +1166,13 @@ export function createReader(ctx){
     const w = p.offsetWidth, h = p.offsetHeight, left = rect.left + rect.width / 2 - w / 2;
     p.style.left = Math.max(8, Math.min(innerWidth - w - 8, left)) + 'px';
     const above = rect.top + scrollY - h - 10, below = rect.bottom + scrollY + 10;
-    const top = above >= scrollY + 8 ? above : below;
-    p.style.top = Math.max(scrollY + 8, Math.min(scrollY + innerHeight - h - 8, top)) + 'px';
+    // En pantallas táctiles el sistema pone su propio menú (Copiar, Compartir…) ENCIMA de la selección y tapaba el de
+    // El Obi: ahí va debajo. Con mouse sigue arriba, como antes.
+    const coarse = matchMedia('(pointer: coarse)').matches;
+    const top = coarse ? (below + h <= scrollY + innerHeight - 8 ? below : above) : (above >= scrollY + 8 ? above : below);
+    // nunca debajo de la cabecera ni de la barra fijas del lector
+    const bar = $('.rd-bar')?.getBoundingClientRect(), minY = scrollY + (bar && bar.bottom > 0 && bar.top < innerHeight / 2 ? bar.bottom + 8 : 8);
+    p.style.top = Math.max(minY, Math.min(scrollY + innerHeight - h - 8, top)) + 'px';
   }
   // ---------- citas de uno o varios párrafos ----------
   // Los subrayados siguen siendo de un párrafo (así se guardan); la cita puede abarcar párrafos seguidos del mismo
@@ -1192,7 +1200,7 @@ export function createReader(ctx){
     // para citar: todo lo seleccionado, aunque cruce párrafos; «Párrafo completo» toma los párrafos enteros
     const cited = { ...draft, quote: spanQuote(r, bEl, start) || quote }, wholeQ = () => ({ ...draft, quote: spanQuote(r, bEl, start, true) || quote });
     pop().innerHTML = Object.entries(COLORS).map(([k, c]) => `<button class="sw" data-c="${k}" style="--swatch:${c}" aria-label="Subrayar ${k}"></button>`).join('') + '<button data-x="note">Nota</button><button data-x="quote">Citar</button><button data-x="card">Imagen</button><button data-x="whole" title="Hacer una tarjeta con el párrafo completo">Párrafo completo</button><button data-x="pcom">Comentar</button>';
-    placePop(r.getBoundingClientRect());
+    placePop(r.getBoundingClientRect()); S.popRange = r.cloneRange();
     pop().onclick = async e => {
       const c = e.target.dataset.c, x = e.target.dataset.x;
       if (x === 'quote') { copyQuote(cited); return closePop(); }
@@ -1203,7 +1211,25 @@ export function createReader(ctx){
       sel.removeAllRanges(); if (x === 'note') editAnnot(a); else closePop();
     };
   }
-  const closePop = () => { const p = pop(); if (p) p.hidden = true; };
+  const closePop = () => { const p = pop(); if (p) p.hidden = true; S.popRange = null; };
+  // El menú de la selección acompaña a la selección: al desplazarse se recoloca dentro de la pantalla (antes se quedaba
+  // en su sitio del texto y se perdía al navegar), y al mover los extremos de la selección en el celular se actualiza.
+  let popRaf = 0, selT = 0;
+  const followPop = () => { popRaf = 0; const p = pop(), r = S.popRange; if (!p || p.hidden || !r) return;
+    if (getSelection().isCollapsed) return closePop();
+    const rc = r.getBoundingClientRect(); if (!rc.width && !rc.height) return;
+    placePop({ left: rc.left, width: rc.width, top: Math.max(rc.top, 8), bottom: Math.min(rc.bottom, innerHeight - 8) }); };
+  addEventListener('scroll', () => { if (S.popRange && !popRaf) popRaf = requestAnimationFrame(followPop); }, { passive: true });
+  addEventListener('resize', () => { if (S.popRange && !popRaf) popRaf = requestAnimationFrame(followPop); });
+  document.addEventListener('selectionchange', () => {
+    if (!$('.rd')) return; clearTimeout(selT);
+    selT = setTimeout(() => {
+      const sel = getSelection(), p = pop(); if (!p) return;
+      if (sel.isCollapsed) { if (S.popRange && !p.querySelector('textarea')) closePop(); return; }
+      const n = sel.anchorNode?.parentElement; if (!n?.closest?.('.rd-body') || p.querySelector('textarea')) return;
+      if (matchMedia('(pointer: coarse)').matches) onSelect();   // extremos ajustados con el dedo: rehacer con la nueva selección
+    }, 220);
+  });
   // Con mouse: al pasar sobre un párrafo aparece en el margen un botón para hacer su tarjeta sin seleccionar nada.
   // (En el celular: mantener presionada una palabra y tocar «Párrafo completo».) Es un solo botón que se mueve: no añade
   // un elemento por párrafo ni paradas de tabulación.
@@ -1231,7 +1257,9 @@ export function createReader(ctx){
     const p = b._p, art = p.closest('.rd-ch'); hideQp();
     quoteImage({ chapter_id: art.dataset.ch, block: +p.dataset.b, quote: flat(p.textContent) });
   });
-  addEventListener('scroll', () => { if ($('.rd-qp:not([hidden])')) hideQp(); }, { passive: true });
+  // al desplazarse acompaña a su párrafo; si el párrafo sale de la pantalla, se oculta
+  addEventListener('scroll', () => { const b = $('.rd-qp:not([hidden])'); if (!b) return; const r0 = b._p?.isConnected && b._p.getClientRects()[0];
+    if (!r0 || r0.bottom < 0 || r0.top > innerHeight || r0.left - 42 < 4) return hideQp(); b.style.top = (r0.top + scrollY + 2) + 'px'; }, { passive: true });
   async function createAnnot(d){
     const user = getUser(); if (!user) { toast('Entra para guardar subrayados'); go('/entrar'); return null; }
     if (!navigator.onLine) { toast('Sin conexión: podrás subrayar cuando vuelvas a tener internet'); return null; }
@@ -1285,6 +1313,7 @@ export function createReader(ctx){
   }
   async function copyQuote(a){ const t = cite(a); try { if (navigator.share) await navigator.share({ text: t }); else { await navigator.clipboard.writeText(t); toast('Cita copiada'); } } catch {} }
   function editAnnot(a){
+    S.popRange = null; // el editor de la nota no sigue a la selección ni se cierra al desplazarse
     const m = $(`mark[data-an="${a.id}"]`); if (!m) return;
     pop().innerHTML = `<div style="display:grid;gap:8px;width:min(320px,80vw)">
       <div style="display:flex;gap:6px">${Object.entries(COLORS).map(([k, c]) => `<button class="sw ${a.color === k ? 'on' : ''}" data-c="${k}" style="--swatch:${c}" aria-label="${k}"></button>`).join('')}</div>

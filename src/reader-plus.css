@@ -10,7 +10,13 @@
 .rd[data-layout="paged"] #rd-flow{position:relative}
 .rd[data-layout="paged"] .rd-ch{height:var(--pgh);overflow:hidden;columns:1;column-gap:56px;column-fill:auto;padding-top:18px;box-sizing:border-box;overscroll-behavior:contain}
 .rd[data-layout="paged"] .rd-body :is(figure,blockquote,.sep,h3){break-inside:avoid}
-.rd[data-layout="paged"] .rd-body img{max-height:calc(var(--pgh) - 5em);width:auto;max-width:100%}
+/* Ilustraciones en paginado: caben completas en la página. Solo se limita el alto: las que no tienen medidas guardadas
+   conservan la proporción provisional de reader-a11y.css (antes «width:auto» las dejaba en 0×0 hasta cargar y el
+   capítulo se reacomodaba al pasar página). object-fit:contain evita recortes o deformaciones. */
+.rd[data-layout="paged"] .rd-body figure{margin:.5em auto 1em}
+.rd[data-layout="paged"] .rd-body figure img{max-height:calc(var(--pgh) - 3em);max-width:100%;object-fit:contain}
+.rd[data-layout="paged"] .rd-body figure:has(figcaption) img{max-height:calc(var(--pgh) - 5.5em)}
+.rd[data-layout="paged"] .rd-body figure img:not(.rd-img-unmeasured){width:auto}
 .rd[data-layout="paged"] .rd-body p{orphans:2;widows:2}
 .rd[data-layout="paged"] #rd-flow{cursor:default;user-select:text}
 .rd[data-layout="paged"] .rd-prog{display:none}
@@ -85,6 +91,30 @@ body.iv-open{overflow:hidden}
 .iv-strip img{width:100%;height:100%;object-fit:cover;display:block}
 @media(max-width:600px){.iv-nav{display:none}.iv-strip button{width:46px;height:62px}}
 
+/* ---------- menú de la selección: que se distinga en todos los temas ---------- */
+/* Antes (#16140f con borde #3d3628) casi se confundía con el fondo de los temas oscuro y negro.
+   Solo los botones directos del menú de selección: el editor de notas usa el mismo contenedor con sus .btn. */
+.rd-pop{border-color:#5a5244;border-top:3px solid var(--gold,#f2c230);box-shadow:0 10px 30px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.06)}
+.rd-pop > button:not(.sw){background:#221f17;border-color:#5a5244;color:#f3ecd9;font-weight:600;font-size:13px}
+.rd-pop > button:not(.sw):hover,.rd-pop > button:not(.sw):focus-visible{border-color:var(--gold,#f2c230);color:#fff}
+.rd-pop > button[data-x="card"]{border-color:var(--gold,#f2c230)}
+
+/* ---------- editor de notas (mismo contenedor oscuro que el menú) ---------- */
+/* Una regla antigua (.rd-pop button{background:none}) dejaba «Citar», «Imagen» y «Borrar» con texto oscuro sobre
+   fondo oscuro (cuadros vacíos) y quitaba el dorado de «Guardar». */
+.rd-pop .btn{min-height:40px;padding:0 12px;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.rd-pop .btn.ghost{background:#221f17;color:#f3ecd9;border:1px solid #5a5244}
+.rd-pop .btn.ghost:hover,.rd-pop .btn.ghost:focus-visible{border-color:var(--gold,#f2c230);color:#fff}
+.rd-pop .btn:not(.ghost){background:var(--gold,#f2c230);color:#0d0c0a;border:1px solid var(--gold,#f2c230)}
+.rd-pop label.mono{display:flex;align-items:center;gap:8px;min-height:36px;color:#d9cfb8;font-size:12px}
+.rd-pop label.mono input{margin:0;width:18px;height:18px;accent-color:var(--gold,#f2c230)}
+.rd-pop textarea{background:#0d0c0a;color:#f3ecd9;border:1px solid #5a5244}
+.rd-pop textarea::placeholder{color:#a89f8a}
+
+/* ---------- enlaces del panel de comentarios: el color del texto del panel, subrayado dorado ---------- */
+/* El dorado sobre el fondo crema del panel casi no se leía (contraste 1.6:1). */
+.rd-panel .lnk:not(.danger){color:inherit;text-decoration:underline;text-decoration-color:var(--gold,#f2c230);text-decoration-thickness:2px;text-underline-offset:3px}
+
 /* ---------- citar un párrafo desde el margen (solo con mouse) ---------- */
 .rd-qp{position:absolute;z-index:15;width:34px;height:34px;padding:0;display:grid;place-items:center;background:var(--bg,#0d0c0a);border:1px solid var(--ln,#2f2a20);color:var(--mt,#a89f8a);cursor:pointer;opacity:.85;transition:opacity .15s ease,color .15s ease,border-color .15s ease}
 .rd-qp::before{content:'「';font:500 17px 'Shippori Mincho B1',serif;line-height:1;transform:translate(-2px,-2px)}
@@ -98,7 +128,7 @@ body.iv-open{overflow:hidden}
 .qc-prev{position:relative;display:grid;place-items:center;padding:12px;background:color-mix(in srgb,var(--fg) 6%,transparent);position:sticky;top:0}
 .qc-prev img{width:100%;max-width:276px;aspect-ratio:4/5;object-fit:contain;display:block;box-shadow:0 8px 24px rgba(0,0,0,.35);background:color-mix(in srgb,var(--fg) 10%,transparent)}
 .qc-prev[data-fmt="story"] img{aspect-ratio:9/16;max-width:220px}.qc-prev[data-fmt="square"] img{aspect-ratio:1/1}.qc-prev[data-fmt="wide"] img{aspect-ratio:16/9;max-width:100%}
-.qc-busy{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);padding:4px 10px;background:rgba(13,12,10,.8);color:#ece2c9;font-size:12px}
+.qc-busy{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);padding:4px 10px;background:#0d0c0a;color:#ece2c9;font-size:12px}
 .qc-ctl{display:grid;gap:12px}
 .qc-row{display:grid;gap:6px}.qc-row>.mono{font-size:11px;color:var(--mt)}
 .qc-seg{display:flex;flex-wrap:wrap;gap:0}
