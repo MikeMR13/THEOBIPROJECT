@@ -37,6 +37,7 @@ Panel con 4 pestañas; la última combinación se recuerda en el dispositivo (`o
 - **Texto**: recortar la cita (solo recortar: si el texto no está dentro de la selección original se rechaza, para no atribuir a la obra algo que no dice), tipografía (Mincho, Literata, Manuscrita, Sans), tamaño (automático, grande, mediano, pequeño), alineación, comillas (「」, « », “ ”, ninguna) y «dicho por» (40 caracteres).
 - **Colores**: Noche, Papel, Puerto, Sakura, Bosque, Tinta, Temporada (acento de la temporada activa) y Equipo (`teams.color`).
 - **Formato**: 4:5, 1:1, 9:16 y 16:9; mostrar u ocultar título, volumen y capítulo, equipo y el usuario de quien comparte. La dirección del sitio siempre aparece.
+- **Cómo se elige el texto**: seleccionando en el lector (arrastrar con el mouse o mantener presionado en el celular) y tocando «Imagen». La selección puede abarcar varios párrafos seguidos del mismo capítulo (se omiten notas del traductor, ilustraciones y separadores; la tarjeta respeta los saltos de párrafo). «Párrafo completo» en el menú de selección hace la tarjeta con los párrafos enteros, así en el celular basta mantener presionada una palabra. Con mouse, al pasar sobre un párrafo aparece un botón 「 en el margen que cita ese párrafo sin seleccionar (un solo botón que se mueve; no aparece si no cabe en el margen ni en pantallas táctiles). Los subrayados siguen guardándose por párrafo.
 - Acciones: compartir (hoja nativa con archivo), descargar PNG, copiar imagen al portapapeles, copiar texto y restablecer.
 
 ## Segunda revisión (24-nov, tarde)
@@ -47,7 +48,7 @@ Panel con 4 pestañas; la última combinación se recuerda en el dispositivo (`o
 
 ## Pruebas
 - Todo `npm run check/build/verify/...` y las pruebas de navegador del CI: OK.
-- Prueba e2e con Supabase simulado (sin red), Chromium 1280×860 y 390×844: 100 comprobaciones OK, sin errores de consola
+- Prueba e2e con Supabase simulado (sin red), Chromium 1280×860 y 390×844: 106 comprobaciones OK, sin errores de consola
   (glosario por capítulo, globos y panel por párrafo, notas emergentes, visor + galería + teclado, tarjeta PNG, reacciones,
   adelanto, tarjeta con portada / ilustración / Obi / imagen completa / historia / crédito, paginado: páginas, teclado, toque, progreso guardado y restaurado tras recargar).
 

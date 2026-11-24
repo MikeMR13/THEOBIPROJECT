@@ -85,6 +85,13 @@ body.iv-open{overflow:hidden}
 .iv-strip img{width:100%;height:100%;object-fit:cover;display:block}
 @media(max-width:600px){.iv-nav{display:none}.iv-strip button{width:46px;height:62px}}
 
+/* ---------- citar un párrafo desde el margen (solo con mouse) ---------- */
+.rd-qp{position:absolute;z-index:15;width:34px;height:34px;padding:0;display:grid;place-items:center;background:var(--bg,#0d0c0a);border:1px solid var(--ln,#2f2a20);color:var(--mt,#a89f8a);cursor:pointer;opacity:.85;transition:opacity .15s ease,color .15s ease,border-color .15s ease}
+.rd-qp::before{content:'「';font:500 17px 'Shippori Mincho B1',serif;line-height:1;transform:translate(-2px,-2px)}
+.rd-qp:hover{opacity:1;color:var(--gold,#f2c230);border-color:var(--gold,#f2c230)}
+.rd-qp[hidden]{display:none}
+@media (hover:none),(pointer:coarse){.rd-qp{display:none!important}}
+
 /* ---------- tarjeta de cita (personalizable) ---------- */
 .gl-card.qc-card{max-width:820px;max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain}
 .qc-body{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:18px;align-items:start}

@@ -102,11 +102,13 @@ function drawCover(x, img, dx, dy, dw, dh, fy = .5){
 const fillBg = (x, S, X, Y, w, h) => { if (Array.isArray(S.bg)) { const g = x.createLinearGradient(X, Y, X + w * .4, Y + h); g.addColorStop(0, S.bg[0]); g.addColorStop(1, S.bg[1]); x.fillStyle = g; } else x.fillStyle = S.bg; x.fillRect(X, Y, w, h); };
 const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 const clean = s => String(s || '').replace(/\s+/g, ' ').trim();
+// conserva los saltos entre párrafos (una cita puede abarcar varios) y limpia los espacios de cada uno
+const paras = s => String(s || '').split(/\n+/).map(clean).filter(Boolean).join('\n');
 
 // o: { quote, title, sub, team, user, site, season, teamColor } · st: opciones · image: ImageBitmap | <img> | null
 export async function quoteCard(o, st, image){
   st = { ...DEF, ...st };
-  let q = clean(st.text || o.quote); if (q.length > QUOTE_MAX) q = q.slice(0, QUOTE_MAX - 1).trimEnd() + '…';
+  let q = paras(st.text || o.quote); if (q.length > QUOTE_MAX) q = q.slice(0, QUOTE_MAX - 1).trimEnd() + '…';
   const S = palette(o, st), [W, H] = SIZES[st.fmt] || SIZES.post, k = Math.min(W, H) / 1080, P = Math.round(86 * k * (W > H ? 1.3 : 1));
   const F = FONTS[st.font] || FONTS.mincho, [qo, qc] = QUOTES[st.quotes] || QUOTES.ja;
   try { await Promise.all([document.fonts?.load?.(`${F[1]} 48px ${F[2]}`), document.fonts?.load?.('600 30px "IBM Plex Sans"'), document.fonts?.load?.('700 30px "IBM Plex Sans"')]); } catch {}
@@ -120,7 +122,10 @@ export async function quoteCard(o, st, image){
     const big = (land ? 54 : W / H < .6 ? 66 : 58) * k * (SCALE[st.size] || 1), min = 26 * k, who = clean(st.who);
     for (let size = big; ; size -= 2 * k) {
       x.font = `${F[1]} ${Math.round(size)}px ${F[2]}`;
-      const lines = wrapLines(x, qo + q + qc, w), lh = size * (st.font === 'sans' ? 1.38 : 1.45), th = lines.length * lh + (who ? size * 1.3 : 0);
+      const lh = size * (st.font === 'sans' ? 1.38 : 1.45), ps = q.split('\n'), lines = [];
+      // cada párrafo se ajusta por separado; entre párrafos hay medio renglón de aire
+      ps.forEach((t2, i) => wrapLines(x, (i === 0 ? qo : '') + t2 + (i === ps.length - 1 ? qc : ''), w).forEach((l, j) => lines.push({ t: l, gap: i > 0 && j === 0 })));
+      const gaps = lines.filter(l => l.gap).length, th = lines.length * lh + gaps * lh * .45 + (who ? size * 1.3 : 0);
       if (th <= h || size - 2 * k < min) return { size: Math.round(size), lines, lh, h: th, who };
     }
   };
@@ -160,8 +165,7 @@ export async function quoteCard(o, st, image){
   let y = panel.y + (anchor === 'bottom' ? Math.max(0, free - 30 * k) : anchor === 'middle' ? Math.max(0, free / 2 - 20 * k) : 0);
   x.fillStyle = S.ac; x.fillRect(center ? tx - 28 * k : tx, y, 56 * k, 5 * k); y += 26 * k;
   x.fillStyle = S.fg; x.font = `${F[1]} ${Q.size}px ${F[2]}`;
-  Q.lines.forEach((l, i) => x.fillText(l, tx, y + Q.size + i * Q.lh));
-  y += Q.lines.length * Q.lh;
+  Q.lines.forEach(l => { if (l.gap) y += Q.lh * .45; x.fillText(l.t, tx, y + Q.size); y += Q.lh; });
   if (Q.who) { x.fillStyle = S.mute; x.font = `italic ${F[1]} ${Math.round(Q.size * .72)}px ${F[2]}`; x.fillText('— ' + Q.who, tx, y + Q.size * 1.05); }
   let fy = panel.y + panel.h - ff.h + 34 * k;
   x.fillStyle = S.fg; x.font = `700 ${Math.round(34 * k)}px "IBM Plex Sans", sans-serif`; ff.tl.forEach(l => { x.fillText(l, tx, fy); fy += 42 * k; });
@@ -176,7 +180,7 @@ export async function quoteCard(o, st, image){
 const QC_KEY = 'obi-quote-card', KEEP = Object.keys(DEF);
 export function quoteSheet(host, o){
   let pref = {}; try { pref = JSON.parse(localStorage.getItem(QC_KEY)) || {}; } catch {}
-  const st = { ...DEF, ...Object.fromEntries(Object.entries(pref).filter(([k2]) => KEEP.includes(k2))), text: clean(o.quote), who: '', pick: null };
+  const st = { ...DEF, ...Object.fromEntries(Object.entries(pref).filter(([k2]) => KEEP.includes(k2))), text: paras(o.quote), who: '', pick: null };
   if (st.bg === 'cover' && !o.cover) st.bg = 'color'; if (st.bg === 'ilus') st.bg = 'color';
   if (st.style === 'equipo' && !o.teamColor) st.style = 'noche';
   let tab = 'img', url = null, blob = null, imgs = null, seq = 0, uname = null, tT = 0; const bad = new Set();
@@ -198,7 +202,7 @@ export function quoteSheet(host, o){
         if (st.layout === 'full') h += `<div class="qc-row"><span class="mono">Oscurecer imagen · <b data-dim-l>${st.dim} %</b></span><input type="range" min="0" max="80" step="5" value="${st.dim}" data-r="dim" aria-label="Oscurecer imagen"></div>` + seg('blur', 'Desenfoque', [[0, 'Nítida'], [6, 'Suave'], [16, 'Fuerte']], st.blur);
       } else h += '<p class="gl-n">Elige portada o ilustración para ver los diseños con imagen: Obi, imagen completa, dividido y marco.</p>';
     } else if (tab === 'txt') {
-      h += `<div class="qc-row"><span class="mono">Cita · solo puedes recortarla</span><textarea data-t="text" rows="3" maxlength="${Math.max(QUOTE_MAX, st.text.length)}" aria-describedby="qc-tx-n">${esc(st.text)}</textarea><span class="gl-n" id="qc-tx-n" aria-live="polite"></span></div>`
+      h += `<div class="qc-row"><span class="mono">Cita · solo puedes recortarla</span><textarea data-t="text" rows="${Math.min(8, 2 + st.text.split('\n').length)}" maxlength="${Math.max(QUOTE_MAX, st.text.length)}" aria-describedby="qc-tx-n">${esc(st.text)}</textarea><span class="gl-n" id="qc-tx-n" aria-live="polite"></span></div>`
         + seg('font', 'Tipografía', Object.entries(FONTS).map(([v, f]) => [v, `<span style="font-family:${f[2].replace(/"/g, "'")}">${f[0]}</span>`]), st.font)
         + seg('size', 'Tamaño', [['auto', 'Automático'], ['l', 'Grande'], ['m', 'Mediano'], ['s', 'Pequeño']], st.size)
         + seg('align', 'Alineación', [['left', 'Izquierda'], ['center', 'Centrada']], st.align)
@@ -257,13 +261,13 @@ export function quoteSheet(host, o){
       // solo recortar: lo escrito tiene que estar dentro de la cita original (no se puede atribuir a la obra algo que no dice)
       const v = clean(t.value), n = ctl.querySelector('#qc-tx-n');
       if (!v || !clean(o.quote).toLowerCase().includes(v.toLowerCase())) { t.setAttribute('aria-invalid', 'true'); if (n) n.textContent = 'Solo puedes recortar la cita, no cambiar lo que dice. Se usa la última versión válida.'; return; }
-      t.removeAttribute('aria-invalid'); st.text = v; counter();
+      t.removeAttribute('aria-invalid'); st.text = paras(t.value); counter();
     } else return;
     clearTimeout(tT); tT = setTimeout(draw, 250);
   });
   card.addEventListener('change', e => { const c2 = e.target.dataset.c; if (c2) { st[c2] = e.target.checked; save(); draw(); } });
   async function act(a){
-    if (a === 'reset') { Object.assign(st, DEF, { text: clean(o.quote), who: '', pick: null }); try { localStorage.removeItem(QC_KEY); } catch {} paint(); return draw(); }
+    if (a === 'reset') { Object.assign(st, DEF, { text: paras(o.quote), who: '', pick: null }); try { localStorage.removeItem(QC_KEY); } catch {} paint(); return draw(); }
     if (a === 'text') { try { await navigator.clipboard.writeText(o.text(st.text)); o.toast?.('Cita copiada'); } catch { o.toast?.('No se pudo copiar'); } return; }
     if (!blob) return;
     if (a === 'copy') { try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); o.toast?.('Imagen copiada: pégala donde quieras'); } catch { o.toast?.('Tu navegador no copia imágenes; usa Descargar'); } return; }

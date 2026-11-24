@@ -785,7 +785,7 @@ export function createReader(ctx){
   function goPage(n, keep){
     const P = pgInfo(); if (!P) return;
     S.page = Math.max(0, Math.min(P.pages - 1, n)); S.pgSet = true; P.art.scrollLeft = S.page * P.step; if (!keep) alignPage();
-    if (!keep) { closePop(); const c = currentBlock(); S.pgBlock = c.block; }
+    if (!keep) { closePop(); hideQp(); const c = currentBlock(); S.pgBlock = c.block; }
     progress(); clearTimeout(S.saveT); S.saveT = setTimeout(saveProgress, 1200); wake();
   }
   function flip(d){
@@ -1166,6 +1166,21 @@ export function createReader(ctx){
     const top = above >= scrollY + 8 ? above : below;
     p.style.top = Math.max(scrollY + 8, Math.min(scrollY + innerHeight - h - 8, top)) + 'px';
   }
+  // ---------- citas de uno o varios párrafos ----------
+  // Los subrayados siguen siendo de un párrafo (así se guardan); la cita puede abarcar párrafos seguidos del mismo
+  // capítulo. Se omiten notas del traductor, ilustraciones y separadores. Los párrafos se separan con salto de línea.
+  const quotable = el => !!el && /^(P|BLOCKQUOTE|H3)$/.test(el.tagName) && !el.classList.contains('tn-hid');
+  const flat = t => String(t || '').replace(/\s+/g, ' ').trim();
+  function spanQuote(r, bEl, start, whole){
+    const art = bEl.closest('.rd-ch'), all = [...art.querySelectorAll('.rd-body > [data-b]')].filter(quotable), i0 = all.indexOf(bEl); if (i0 < 0) return '';
+    const endNode = r.endContainer.nodeType === 1 ? r.endContainer : r.endContainer.parentElement, eEl = endNode?.closest('[data-b]');
+    let i1 = eEl && eEl.closest('.rd-ch') === art ? all.indexOf(eEl) : -1, endOff = null;
+    if (i1 >= 0) endOff = textOffset(eEl, r.endContainer, r.endOffset);
+    else { i1 = i0; all.forEach((el, k) => { if (k > i0 && r.intersectsNode(el)) i1 = k; }); }   // terminó en una nota, ilustración u otro capítulo
+    if (i1 > i0 && endOff === 0) { i1--; endOff = null; }                                         // la selección llega justo al inicio del siguiente
+    const list = all.slice(i0, Math.max(i0, i1) + 1);
+    return list.map((el, k) => { const t = el.textContent; return flat(whole ? t : t.slice(k === 0 ? start : 0, k === list.length - 1 && endOff != null ? endOff : t.length)); }).filter(Boolean).join('\n');
+  }
   function onSelect(){
     const sel = getSelection(); if (!sel || sel.isCollapsed) return;
     const r = sel.getRangeAt(0), bEl = r.startContainer.parentElement?.closest('[data-b]'), art = bEl?.closest('.rd-ch');
@@ -1174,18 +1189,49 @@ export function createReader(ctx){
     const start = textOffset(bEl, r.startContainer, r.startOffset), end = endIn ? textOffset(bEl, r.endContainer, r.endOffset) : bEl.textContent.length;
     const quote = bEl.textContent.slice(start, end).trim(); if (!quote) return;
     const draft = { chapter_id: art.dataset.ch, block: +bEl.dataset.b, start_at: start, end_at: end, quote };
-    pop().innerHTML = Object.entries(COLORS).map(([k, c]) => `<button class="sw" data-c="${k}" style="--swatch:${c}" aria-label="Subrayar ${k}"></button>`).join('') + '<button data-x="note">Nota</button><button data-x="quote">Citar</button><button data-x="card">Imagen</button><button data-x="pcom">Comentar</button>';
+    // para citar: todo lo seleccionado, aunque cruce párrafos; «Párrafo completo» toma los párrafos enteros
+    const cited = { ...draft, quote: spanQuote(r, bEl, start) || quote }, wholeQ = () => ({ ...draft, quote: spanQuote(r, bEl, start, true) || quote });
+    pop().innerHTML = Object.entries(COLORS).map(([k, c]) => `<button class="sw" data-c="${k}" style="--swatch:${c}" aria-label="Subrayar ${k}"></button>`).join('') + '<button data-x="note">Nota</button><button data-x="quote">Citar</button><button data-x="card">Imagen</button><button data-x="whole" title="Hacer una tarjeta con el párrafo completo">Párrafo completo</button><button data-x="pcom">Comentar</button>';
     placePop(r.getBoundingClientRect());
     pop().onclick = async e => {
       const c = e.target.dataset.c, x = e.target.dataset.x;
-      if (x === 'quote') { copyQuote(draft); return closePop(); }
-      if (x === 'card') { closePop(); return quoteImage(draft); }
+      if (x === 'quote') { copyQuote(cited); return closePop(); }
+      if (x === 'card') { closePop(); return quoteImage(cited); }
+      if (x === 'whole') { closePop(); sel.removeAllRanges(); return quoteImage(wholeQ()); }
       if (x === 'pcom') { closePop(); sel.removeAllRanges(); return comments(draft.block, draft.chapter_id); }
       const a = await createAnnot({ ...draft, color: c || 'gold' }); if (!a) return;
       sel.removeAllRanges(); if (x === 'note') editAnnot(a); else closePop();
     };
   }
   const closePop = () => { const p = pop(); if (p) p.hidden = true; };
+  // Con mouse: al pasar sobre un párrafo aparece en el margen un botón para hacer su tarjeta sin seleccionar nada.
+  // (En el celular: mantener presionada una palabra y tocar «Párrafo completo».) Es un solo botón que se mueve: no añade
+  // un elemento por párrafo ni paradas de tabulación.
+  let qpT = 0;
+  const finePointer = () => matchMedia('(hover: hover) and (pointer: fine)').matches;
+  function qpBtn(){
+    let b = $('.rd-qp'); if (b) return b; const host = pop()?.parentElement; if (!host) return null;
+    b = document.createElement('button'); b.type = 'button'; b.className = 'rd-qp'; b.tabIndex = -1; b.hidden = true;
+    b.title = 'Hacer una tarjeta con este párrafo'; b.setAttribute('aria-label', 'Citar este párrafo como imagen'); host.appendChild(b); return b;
+  }
+  const hideQp = () => { const b = $('.rd-qp'); if (b) { b.hidden = true; b._p = null; } };
+  document.addEventListener('mouseover', e => {
+    if (!$('.rd') || !finePointer() || $('.iv') || !getSelection().isCollapsed) return;
+    const t = e.target, para = t.closest?.('#rd-flow .rd-body > [data-b]');
+    if (para && quotable(para)) {
+      clearTimeout(qpT); const b = qpBtn(); if (!b) return;
+      const r = para.getBoundingClientRect(), r0 = para.getClientRects()[0] || r;
+      // solo si cabe en el margen: nunca encima del texto (ventanas angostas usadas con mouse)
+      if (r0.left - 42 < 4) return hideQp();
+      b._p = para; b.style.top = (r0.top + scrollY + 2) + 'px'; b.style.left = (r0.left - 42) + 'px'; b.hidden = false;
+    } else if (!t.closest?.('.rd-qp')) { clearTimeout(qpT); qpT = setTimeout(hideQp, 350); }
+  });
+  document.addEventListener('click', e => {
+    const b = e.target.closest?.('.rd-qp'); if (!b || !b._p?.isConnected) return;
+    const p = b._p, art = p.closest('.rd-ch'); hideQp();
+    quoteImage({ chapter_id: art.dataset.ch, block: +p.dataset.b, quote: flat(p.textContent) });
+  });
+  addEventListener('scroll', () => { if ($('.rd-qp:not([hidden])')) hideQp(); }, { passive: true });
   async function createAnnot(d){
     const user = getUser(); if (!user) { toast('Entra para guardar subrayados'); go('/entrar'); return null; }
     if (!navigator.onLine) { toast('Sin conexión: podrás subrayar cuando vuelvas a tener internet'); return null; }
