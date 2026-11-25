@@ -72,7 +72,10 @@ const SIZES = { post: [1080, 1350, 'Publicación 4:5'], square: [1080, 1080, 'Cu
 const FONTS = { mincho: ['Mincho', '500', '"Shippori Mincho B1", Literata, serif'], literata: ['Literata', '400', 'Literata, Georgia, serif'], mano: ['Manuscrita', '600', '"Klee One", "Shippori Mincho B1", cursive'], sans: ['Sans', '400', '"IBM Plex Sans", system-ui, sans-serif'] };
 const QUOTES = { ja: ['「', '」', '「 」'], la: ['«', '»', '« »'], en: ['“', '”', '“ ”'], none: ['', '', 'Sin comillas'] };
 const SCALE = { auto: 1, l: 1.15, m: .82, s: .64 };
-export const QUOTE_MAX = 280;
+// Largo recomendado para que la cita se lea bien en redes. Es solo una sugerencia: la tarjeta acepta cualquier largo
+// y reduce la letra para que quepa (QUOTE_MIN_PX). Únicamente si ni así cabe en el formato elegido, el último renglón termina en «…».
+export const QUOTE_TIP = 280;
+const QUOTE_MIN_PX = 16;
 const DEF = { bg: 'color', layout: 'obi', focus: .3, dim: 28, blur: 0, font: 'mincho', size: 'auto', align: 'left', quotes: 'ja', style: 'noche', fmt: 'post', showTitle: true, showSub: true, showTeam: true, showUser: false };
 
 function palette(o, st){
@@ -108,7 +111,7 @@ const paras = s => String(s || '').split(/\n+/).map(clean).filter(Boolean).join(
 // o: { quote, title, sub, team, user, site, season, teamColor } · st: opciones · image: ImageBitmap | <img> | null
 export async function quoteCard(o, st, image){
   st = { ...DEF, ...st };
-  let q = paras(st.text || o.quote); if (q.length > QUOTE_MAX) q = q.slice(0, QUOTE_MAX - 1).trimEnd() + '…';
+  const q = paras(st.text || o.quote);
   const S = palette(o, st), [W, H] = SIZES[st.fmt] || SIZES.post, k = Math.min(W, H) / 1080, P = Math.round(86 * k * (W > H ? 1.3 : 1));
   const F = FONTS[st.font] || FONTS.mincho, [qo, qc] = QUOTES[st.quotes] || QUOTES.ja;
   try { await Promise.all([document.fonts?.load?.(`${F[1]} 48px ${F[2]}`), document.fonts?.load?.('600 30px "IBM Plex Sans"'), document.fonts?.load?.('700 30px "IBM Plex Sans"')]); } catch {}
@@ -119,14 +122,21 @@ export async function quoteCard(o, st, image){
   const footFor = w => { x.font = `700 ${Math.round(34 * k)}px "IBM Plex Sans", sans-serif`; const tl = st.showTitle ? wrapLines(x, o.title || '', w).slice(0, 2) : []; return { tl, h: tl.length * 42 * k + foot.length * 38 * k + 120 * k }; };
   // ajusta el tamaño de la cita al alto disponible
   const fit = (w, h) => {
-    const big = (land ? 54 : W / H < .6 ? 66 : 58) * k * (SCALE[st.size] || 1), min = 26 * k, who = clean(st.who);
+    // hasta el largo recomendado la letra no baja de 26 px; con más texto puede bajar hasta QUOTE_MIN_PX
+    const big = (land ? 54 : W / H < .6 ? 66 : 58) * k * (SCALE[st.size] || 1), min = (q.length > QUOTE_TIP ? QUOTE_MIN_PX : 26) * k, who = clean(st.who);
+    const height = (ls, lh, size) => ls.length * lh + ls.filter(l => l.gap).length * lh * .45 + (who ? size * 1.3 : 0);
     for (let size = big; ; size -= 2 * k) {
       x.font = `${F[1]} ${Math.round(size)}px ${F[2]}`;
       const lh = size * (st.font === 'sans' ? 1.38 : 1.45), ps = q.split('\n'), lines = [];
       // cada párrafo se ajusta por separado; entre párrafos hay medio renglón de aire
       ps.forEach((t2, i) => wrapLines(x, (i === 0 ? qo : '') + t2 + (i === ps.length - 1 ? qc : ''), w).forEach((l, j) => lines.push({ t: l, gap: i > 0 && j === 0 })));
-      const gaps = lines.filter(l => l.gap).length, th = lines.length * lh + gaps * lh * .45 + (who ? size * 1.3 : 0);
-      if (th <= h || size - 2 * k < min) return { size: Math.round(size), lines, lh, h: th, who };
+      let th = height(lines, lh, size), cut = false;
+      if (th > h && size - 2 * k < min) {
+        // ni con la letra mínima cabe en este formato: se quitan renglones del final para no pisar el pie
+        while (lines.length > 1 && height(lines, lh, size) > h) lines.pop();
+        const last = lines[lines.length - 1]; last.t = last.t.replace(/[\s,;:.…」»”]*$/, '') + '…' + qc; th = height(lines, lh, size); cut = true;
+      }
+      if (th <= h || cut || size - 2 * k < min) return { size: Math.round(size), lines, lh, h: th, who, cut };
     }
   };
   let panel, anchor = 'top';
@@ -172,7 +182,9 @@ export async function quoteCard(o, st, image){
   x.fillStyle = S.mute; x.font = `400 ${Math.round(28 * k)}px "IBM Plex Sans", sans-serif`;
   foot.forEach(l => { x.fillText(wrapLines(x, l, panel.w)[0] || '', tx, fy + 4 * k); fy += 38 * k; });
   x.fillStyle = S.fg; x.font = `600 ${Math.round(28 * k)}px "IBM Plex Sans", sans-serif`; x.fillText('帯  ' + (o.site || 'elobidellector.com'), tx, panel.y + panel.h);
-  return await new Promise((r, j) => { try { c.toBlob(r, 'image/png'); } catch (e) { j(e); } });
+  const png = await new Promise((r, j) => { try { c.toBlob(r, 'image/png'); } catch (e) { j(e); } });
+  if (png) png.cut = !!Q.cut;   // el panel avisa si la cita no cupo completa en este formato
+  return png;
 }
 
 // Panel para personalizar y compartir. host: la hoja del glosario del lector.
@@ -202,7 +214,7 @@ export function quoteSheet(host, o){
         if (st.layout === 'full') h += `<div class="qc-row"><span class="mono">Oscurecer imagen · <b data-dim-l>${st.dim} %</b></span><input type="range" min="0" max="80" step="5" value="${st.dim}" data-r="dim" aria-label="Oscurecer imagen"></div>` + seg('blur', 'Desenfoque', [[0, 'Nítida'], [6, 'Suave'], [16, 'Fuerte']], st.blur);
       } else h += '<p class="gl-n">Elige portada o ilustración para ver los diseños con imagen: Obi, imagen completa, dividido y marco.</p>';
     } else if (tab === 'txt') {
-      h += `<div class="qc-row"><span class="mono">Cita · solo puedes recortarla</span><textarea data-t="text" rows="${Math.min(8, 2 + st.text.split('\n').length)}" maxlength="${Math.max(QUOTE_MAX, st.text.length)}" aria-describedby="qc-tx-n">${esc(st.text)}</textarea><span class="gl-n" id="qc-tx-n" aria-live="polite"></span></div>`
+      h += `<div class="qc-row"><span class="mono">Cita · solo puedes recortarla</span><textarea data-t="text" rows="${Math.min(8, 2 + st.text.split('\n').length)}" aria-describedby="qc-tx-n">${esc(st.text)}</textarea><span class="gl-n" id="qc-tx-n" aria-live="polite"></span></div>`
         + seg('font', 'Tipografía', Object.entries(FONTS).map(([v, f]) => [v, `<span style="font-family:${f[2].replace(/"/g, "'")}">${f[0]}</span>`]), st.font)
         + seg('size', 'Tamaño', [['auto', 'Automático'], ['l', 'Grande'], ['m', 'Mediano'], ['s', 'Pequeño']], st.size)
         + seg('align', 'Alineación', [['left', 'Izquierda'], ['center', 'Centrada']], st.align)
@@ -222,11 +234,12 @@ export function quoteSheet(host, o){
   host.innerHTML = `<div class="gl-card qc-card" role="dialog" aria-modal="true" aria-labelledby="qc-t"><div class="gl-top"><div><span class="mono">Compartir cita</span><strong id="qc-t">Tarjeta para redes</strong></div><button class="gl-x" aria-label="Cerrar">×</button></div>
     <div class="qc-body"><div class="qc-prev"><img alt="Vista previa de la tarjeta con la cita"><span class="qc-busy" hidden>Preparando…</span></div><div class="qc-ctl"></div></div>
     <div class="qc-acts"><button type="button" class="btn" data-qa="share">Compartir imagen</button><button type="button" class="btn ghost" data-qa="save">Descargar</button><button type="button" class="btn ghost" data-qa="copy">Copiar imagen</button><button type="button" class="btn ghost" data-qa="text">Copiar texto</button><button type="button" class="lnk" data-qa="reset">Restablecer</button></div>
-    ${String(o.quote).length > QUOTE_MAX ? `<span class="gl-n">La tarjeta usa como máximo ${QUOTE_MAX} caracteres: así nadie comparte capítulos enteros. Recórtala en Texto.</span>` : ''}</div>`;
+    ${paras(o.quote).length > QUOTE_TIP ? `<span class="gl-n">Recomendación: hasta ${QUOTE_TIP} caracteres se lee mejor en redes. Si quieres, recórtala en Texto.</span>` : ''}</div>`;
   host.hidden = false;
   const card = host.querySelector('.qc-card'), ctl = host.querySelector('.qc-ctl'), img = host.querySelector('.qc-prev img'), busy = host.querySelector('.qc-busy');
   const paint = () => { const sc = ctl.scrollTop; ctl.innerHTML = controls(); ctl.scrollTop = sc; img.closest('.qc-prev').dataset.fmt = st.fmt; counter(); };
-  const counter = () => { const n = ctl.querySelector('#qc-tx-n'); if (n) n.textContent = `${st.text.length} de ${QUOTE_MAX} caracteres` + (st.text.length > QUOTE_MAX ? ' · se cortará al final' : ''); };
+  const counter = () => { const n = ctl.querySelector('#qc-tx-n'); if (n) n.textContent = `${st.text.length} caracteres · recomendado: hasta ${QUOTE_TIP}`
+    + (blob?.cut ? ' · no cabe completa en este formato: prueba Historia 9:16, tamaño Pequeño o recórtala' : st.text.length > QUOTE_TIP ? ' · la letra se hará más pequeña para que quepa' : ''); };
   const draw = async () => {
     const my = ++seq, s = src(); busy.hidden = false;
     let image = null;
@@ -235,7 +248,7 @@ export function quoteSheet(host, o){
     const data = { ...o, user: uname };
     try { blob = await quoteCard(data, st, image); } catch { blob = null; }
     if (!blob && image) { bad.add(s); paint(); try { blob = await quoteCard(data, st, null); } catch {} }   // imagen sin CORS: canvas «sucio»
-    if (my !== seq) return; busy.hidden = true;
+    if (my !== seq) return; busy.hidden = true; counter();
     if (!blob) return;
     if (url) URL.revokeObjectURL(url); url = URL.createObjectURL(blob); img.src = url;
   };
