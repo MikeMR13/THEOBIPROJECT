@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const read = name => readFileSync(name, 'utf8');
 const studio = read('src/studio.js');
+const glossary = read('src/studio-glossary.js'); // el glosario vive en un módulo diferido
 const agenda = read('src/agenda.js');
 const media = read('src/studio-media.js');
 const diffusion = read('src/diffusion-panel.js');
@@ -10,7 +11,8 @@ assert(studio.includes('elobidellector.com/equipo/'), 'La dirección pública de
 assert(!agenda.includes('https://obidellector.com'), 'Los enlaces del calendario deben usar el dominio correcto');
 assert(agenda.includes('@elobidellector.com'), 'UID del calendario con dominio oficial');
 assert(studio.includes('document.title ='), 'Cada sección debe actualizar el título del navegador');
-assert(studio.includes('class="st-field-caption"'), 'El glosario debe mostrar etiquetas permanentes');
+assert(glossary.includes('class="st-field-caption"'), 'El glosario debe mostrar etiquetas permanentes');
+assert(studio.includes("import('./studio-glossary.js?v=1')"), 'El glosario debe cargarse diferido');
 assert(studio.includes('aria-hidden="true">帯'), 'El adorno no debe ser anunciado');
 assert(media.includes("!['thumbs','nlobi'].includes(d.name)"), 'No exponer carpetas históricas en navegación principal');
 assert(media.includes('media_in_use'), 'Conservar protección de archivos usados');
