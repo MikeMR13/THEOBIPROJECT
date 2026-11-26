@@ -8,7 +8,16 @@ const ACTIONS = [['view','Ver'],['edit','Editar'],['create','Crear'],['import','
 const ROLES = [['owner','Propietario'],['admin','Administrador'],['translator','Traductor'],['editor','Editor'],['proofreader','Corrector'],['collaborator','Colaborador']];
 const STG = { traduciendo: ['Traduciendo', 25, '#f2c230'], correccion: ['En corrección', 60, '#8cc3f2'], listo: ['Listo', 90, '#a9d18e'] };
 const SEC = ['Capítulo','Prólogo','Interludio','Epílogo','Afterword','Extra'];
-const GT = ['Personaje','Lugar','Organización','Honorífico','Cargo o título','Magia','Hechizo','Habilidad','Objeto','Arma','Criatura','Raza o especie','Comida','Bebida','Festival','Moneda','Unidad de medida','Referencia cultural','Modismo','Onomatopeya','Tabú','Otro'];
+// Tipos del glosario agrupados. «Otra…» deja escribir un tipo propio (máx. 30 caracteres).
+const GT_GROUPS = [
+  ['Personas', ['Personaje', 'Apodo o alias', 'Familia o clan', 'Raza o especie', 'Deidad', 'Espíritu o familiar']],
+  ['Lugares', ['Lugar', 'Reino o país', 'Ciudad o pueblo', 'Región', 'Escuela o academia', 'Edificio', 'Mazmorra']],
+  ['Grupos y rangos', ['Organización', 'Gremio', 'Party o grupo', 'Cargo o título', 'Título nobiliario', 'Rango', 'Honorífico']],
+  ['Magia y combate', ['Magia', 'Hechizo', 'Habilidad', 'Técnica', 'Elemento', 'Sistema o estadística', 'Arma', 'Armadura', 'Objeto', 'Artefacto', 'Poción', 'Criatura', 'Monstruo']],
+  ['Vida diaria', ['Comida', 'Bebida', 'Planta', 'Ropa', 'Costumbre', 'Festival', 'Moneda', 'Unidad de medida', 'Calendario o fecha', 'Vehículo']],
+  ['Lenguaje y cultura', ['Modismo', 'Onomatopeya', 'Juego de palabras', 'Idioma', 'Referencia cultural', 'Meme o internet', 'Videojuego', 'Anime o manga', 'Tabú']],
+  ['Otros', ['Evento', 'Término técnico', 'Otro']]];
+const GT = GT_GROUPS.flatMap(g => g[1]);
 const BT = [['paragraph','Párrafo'],['heading','Título'],['quote','Cita'],['note','Nota del traductor'],['image','Ilustración'],['separator','Separador'],['ruby','Furigana']];
 
 // La hoja de estilos de Studio se carga como recurso independiente.
@@ -801,29 +810,32 @@ export function createStudio(ctx){
     const { data, error } = await sb.from('glossary_terms').select('id,term,category,definition,role,portrait_path').eq('series_id', s.id).order('term');
     if (error) { app.innerHTML = shell('Glosario', `<p>No se pudo cargar el glosario: ${esc(error.message)}</p>`, TAB); return; }
     let terms = data || [], editing = null;
-    const ed = can('edit'), opt = v => GT.map(t => `<option ${t === v ? 'selected' : ''}>${t}</option>`).join('');
+    const ed = can('edit'), own = () => [...new Set(terms.map(t => t.category).filter(c => c && !GT.includes(c)))].sort((a, b) => a.localeCompare(b, 'es')),
+      opt = v => (own().length ? `<optgroup label="Usados en esta obra">${own().map(t => `<option ${t === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</optgroup>` : '') + GT_GROUPS.map(([g, L]) => `<optgroup label="${g}">${L.map(t => `<option ${t === v ? 'selected' : ''}>${t}</option>`).join('')}</optgroup>`).join('') + '<option value="__otra">Otra… (escribir)</option>';
     app.innerHTML = shell('Glosario', `
       <div class="st-row"><select id="glser">${works.map(w => `<option value="${w.slug}" ${w.id === s.id ? 'selected' : ''}>${esc(w.title)}</option>`).join('')}</select><span class="mono" id="glcount"></span></div>
       <p class="mono">Los términos se marcan solos en el lector. Al tocarlos, el lector ve la definición sin salir del capítulo.</p>
       ${ed ? `<div class="st-card gl-form">
-        <div class="st-row"><input id="glterm" maxlength="60" placeholder="Término tal como aparece en el texto"><select id="glcat">${opt('Personaje')}</select></div>
+        <div class="st-row"><input id="glterm" maxlength="60" placeholder="Término tal como aparece en el texto"><select id="glcat" aria-label="Tipo">${opt('Personaje')}</select><input id="glcatc" maxlength="30" placeholder="Escribe el tipo" aria-label="Tipo propio" hidden></div>
         <textarea id="gldef" maxlength="600" rows="3" placeholder="Definición que verá el lector"></textarea>
         <div class="st-row" id="glchar"><input id="glrole" maxlength="60" placeholder="Papel en la historia (opcional): protagonista, rival…"><label class="btn ghost" style="cursor:pointer">Retrato<input type="file" id="glpor" accept="image/jpeg,image/png,image/webp" hidden></label><span class="mono" id="glporst"></span><button class="lnk danger" id="glporx" hidden>Quitar retrato</button></div>
         <div class="st-row"><button class="btn" id="glsave">Añadir término</button><button class="btn ghost" id="glcancel" hidden>Cancelar</button></div>
         <details><summary class="mono">Añadir varios a la vez</summary><p class="mono">Uno por línea: término | tipo | definición</p><textarea id="glbulk" rows="5" placeholder="umeboshi | Comida | Ciruela encurtida en sal, muy ácida."></textarea><button class="btn ghost" id="glbulkbtn">Añadir lista</button></details>
       </div>` : '<p class="mono">Tu rol solo puede ver el glosario.</p>'}
-      <div class="st-row"><input id="glq" placeholder="Buscar término o definición"><select id="glf"><option value="">Todos los tipos</option>${GT.map(t => `<option>${t}</option>`).join('')}</select></div>
+      <div class="st-row"><input id="glq" placeholder="Buscar término o definición"><select id="glf"><option value="">Todos los tipos</option>${[...new Set(terms.map(t => t.category))].sort((a, b) => a.localeCompare(b, 'es')).map(t => `<option>${esc(t)}</option>`).join('')}</select></div>
       <div id="gllist"></div>`, TAB);
     bindPicker(() => glossary());
     $('#glser').onchange = e => go(TAB + '/' + e.target.value);
     const draw = () => {
-      const q = ($('#glq').value || '').trim().toLowerCase(), f = $('#glf').value;
+      const f = $('#glf').value, cats = [...new Set(terms.map(t => t.category))].sort((a, b) => a.localeCompare(b, 'es'));
+      $('#glf').innerHTML = '<option value="">Todos los tipos</option>' + cats.map(t => `<option ${t === f ? 'selected' : ''}>${esc(t)}</option>`).join('');
+      const q = ($('#glq').value || '').trim().toLowerCase();
       const list = terms.filter(t => (!f || t.category === f) && (!q || (t.term + ' ' + t.definition).toLowerCase().includes(q)));
       $('#glcount').textContent = terms.length + (terms.length === 1 ? ' término' : ' términos');
       $('#gllist').innerHTML = list.map(t => `<div class="st-card gl-row"><div>${t.portrait_path ? `<img src="${esc(media(t.portrait_path))}" alt="" style="width:40px;aspect-ratio:3/4;object-fit:cover;float:left;margin:0 12px 6px 0">` : ''}<strong>${esc(t.term)}</strong> <span class="pill">${esc(t.category)}</span>${t.role ? ` <span class="mono">${esc(t.role)}</span>` : ''}<p>${esc(t.definition)}</p></div>${ed ? `<span><button class="lnk" data-gled="${t.id}">Editar</button> <button class="lnk danger" data-gldel="${t.id}">Borrar</button></span>` : ''}</div>`).join('') || `<p class="mono">${terms.length ? 'Sin resultados.' : 'Aún no hay términos en esta obra.'}</p>`;
     };
-    let por = null; const porUI = () => { const isC = $('#glcat').value === 'Personaje'; $('#glchar').hidden = !isC; $('#glporst').textContent = por ? 'Retrato listo' : ''; $('#glporx').hidden = !por; };
-    const reset = () => { editing = null; por = null; $('#glterm').value = ''; $('#gldef').value = ''; $('#glrole').value = ''; porUI(); $('#glsave').textContent = 'Añadir término'; $('#glcancel').hidden = true; };
+    let por = null; const porUI = () => { const isC = $('#glcat').value === 'Personaje', cu = $('#glcat').value === '__otra'; $('#glcatc').hidden = !cu; if (cu) $('#glcatc').focus(); $('#glchar').hidden = !isC; $('#glporst').textContent = por ? 'Retrato listo' : ''; $('#glporx').hidden = !por; };
+    const reset = () => { editing = null; por = null; $('#glcat').innerHTML = opt('Personaje'); $('#glcatc').value = ''; $('#glterm').value = ''; $('#gldef').value = ''; $('#glrole').value = ''; porUI(); $('#glsave').textContent = 'Añadir término'; $('#glcancel').hidden = true; };
     const check = (term, def) => { if (!term) throw new Error('Escribe el término'); if (!def) throw new Error('Escribe la definición'); if (term.length > 60) throw new Error('El término es demasiado largo (máx. 60)'); if (def.length > 600) throw new Error('La definición es demasiado larga (máx. 600)'); if (terms.some(t => t.id !== editing && t.term.toLowerCase() === term.toLowerCase())) throw new Error('«' + term + '» ya está en el glosario de esta obra'); };
     const dupe = e => { if (e?.code === '23505') throw new Error('Ese término ya existe en esta obra'); if (e) throw e; };
     $('#glq').oninput = draw; $('#glf').onchange = draw; draw();
@@ -834,7 +846,8 @@ export function createStudio(ctx){
       const { error } = await sb.storage.from('obi-media').upload(path, f, { contentType: f.type, cacheControl: '31536000' }); if (error) { $('#glporst').textContent = ''; throw new Error(errMsg(error)); } por = path; porUI(); });
     $('#glporx').onclick = () => { por = null; porUI(); };
     $('#glsave').onclick = () => busy($('#glsave'), async () => {
-      const term = $('#glterm').value.trim(), category = $('#glcat').value, definition = $('#gldef').value.trim(); check(term, definition);
+      const term = $('#glterm').value.trim(), definition = $('#gldef').value.trim(); check(term, definition);
+      const category = $('#glcat').value === '__otra' ? $('#glcatc').value.trim().replace(/\s+/g, ' ').slice(0, 30) : $('#glcat').value; if (!category) throw new Error('Escribe el tipo o elige uno de la lista');
       const isC = category === 'Personaje', extra = { role: isC ? ($('#glrole').value.trim().slice(0, 60) || null) : null, portrait_path: isC ? por : null }, COLS = 'id,term,category,definition,role,portrait_path';
       if (editing) { const { data: r, error } = await sb.from('glossary_terms').update({ term, category, definition, ...extra, updated_at: new Date().toISOString() }).eq('id', editing).select(COLS).single(); dupe(error); terms = terms.map(t => t.id === editing ? r : t); toast('Término actualizado'); }
       else { const { data: r, error } = await sb.from('glossary_terms').insert({ series_id: s.id, term, category, definition, ...extra }).select(COLS).single(); dupe(error); terms.push(r); toast('«' + term + '» añadido'); }
@@ -845,7 +858,7 @@ export function createStudio(ctx){
       const rows = $('#glbulk').value.split('\n').map(l => l.split('|').map(x => x.trim())).filter(r => r[0]);
       if (!rows.length) throw new Error('Pega al menos una línea');
       const have = new Set(terms.map(t => t.term.toLowerCase())), add = [], bad = [];
-      rows.forEach((r, i) => { const [term, cat, ...rest] = r, definition = rest.join(' | '); const category = GT.find(g => g.toLowerCase() === (cat || '').toLowerCase()) || 'Otro';
+      rows.forEach((r, i) => { const [term, cat, ...rest] = r, definition = rest.join(' | '); const category = GT.find(g => g.toLowerCase() === (cat || '').toLowerCase()) || (cat || '').trim().slice(0, 30) || 'Otro';
         if (!definition || term.length > 60 || definition.length > 600 || have.has(term.toLowerCase())) bad.push(i + 1); else { have.add(term.toLowerCase()); add.push({ series_id: s.id, term, category, definition }); } });
       if (!add.length) throw new Error('Ninguna línea válida. Revisa las líneas ' + bad.join(', '));
       const { data: r, error } = await sb.from('glossary_terms').insert(add).select('id,term,category,definition'); dupe(error);
