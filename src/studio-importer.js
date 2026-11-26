@@ -2,6 +2,7 @@ import { confirmObi, inputObi } from './obi-dialog.js';
 import { parseVolumeNumber, nextVolumeNumber, importedVolumeNumber } from './volume-number.js';
 // Importador de Studio: EPUB, DOCX y PDF, bajo demanda.
 import { renderBlock } from './blocks.js?v=2';
+import { factsOf, groupSeps, collapseSeps, putSep, listSeps, groupCards } from './separators.js?v=1';
 import { inferSectionType } from './section-types.js?v=1';
 import { formatChapterIndex, scanImportedChapterTitles } from './chapter-title-display.js?v=2';
 import { repeatedOpeningHeading, smartTitleBlocks } from './reader-headings.js?v=2';
@@ -41,8 +42,8 @@ export function createImporter(deps) {
       deco(c, next); } };
     const sep = mark => { if (out[out.length - 1]?.type !== 'separator') out.push(mark && mark !== '※' ? { type: 'separator', text: mark } : { type: 'separator' }); };
     const addImg = img => { if (!img) return; const src = img.getAttribute('src') || img.getAttribute('xlink:href') || img.getAttributeNS?.('http://www.w3.org/1999/xlink', 'href') || img.getAttribute('href'); const key = imgMap?.resolve(src); if (!key) return;
-      if (SEP_CLASS.test(img.getAttribute('class') || '') || SEP_CLASS.test(img.parentNode?.getAttribute?.('class') || '')) return sep();
-      out.push({ type: 'image', url: key, alt: img.getAttribute('alt') || '', caption: '' }); };
+      const hint = SEP_CLASS.test(img.getAttribute('class') || '') || SEP_CLASS.test(img.parentNode?.getAttribute?.('class') || '');
+      out.push({ type: 'image', url: key, alt: img.getAttribute('alt') || '', caption: '', ...(hint ? { sepHint: true } : {}) }); };
     const emit = (type, el, nodes, chain = []) => {
       let html, text; if (nodes) { const box = el.ownerDocument.createElement('div'); let at = box; for (const w of chain) at = at.appendChild(w.cloneNode(false)); nodes.forEach(n => at.appendChild(n.cloneNode(true))); html = box.innerHTML; text = box.textContent; } else { html = el.innerHTML; text = el.textContent; }
       text = text.replace(/\s+/g, ' ').trim(); if (!text) return;
@@ -282,7 +283,7 @@ export function createImporter(deps) {
   }
   function suggestSkips(P){
     P.chapters.forEach((c, i) => {
-      const w = words(c.blocks), imgs = c.blocks.filter(b => b.type === 'image').length; c.skip = false; c.why = '';
+      const w = words(c.blocks), imgs = c.blocks.filter(b => b.type === 'image' && !sepGroup(P, b)?.on).length; c.skip = false; c.why = '';
       // Las categorías editoriales explícitas no deben omitirse por ser breves o tener solo imágenes.
       // El equipo puede desmarcarlas manualmente al revisar la importación.
       const special = ['Créditos', 'Ilustraciones', 'Episodio corto', 'Avance'].includes(c.type);
@@ -291,6 +292,23 @@ export function createImporter(deps) {
       else if (!special && !imgs && w < 25) { c.skip = true; c.why = 'casi vacía'; }
     });
   }
+
+  // ---------- separadores de imagen (lógica en separators.js) ----------
+  async function detectSeps(P, st){
+    P.seps = []; P.sepOf = new Map();
+    const refs = new Map(); // key → { uses, caps:Set, hint, cap }
+    P.chapters.forEach((c, ci) => c.blocks.forEach(b => { if (b.type !== 'image' || !b.url?.startsWith('img:')) return; const k = b.url.slice(4), r = refs.get(k) || { uses: 0, caps: new Set(), hint: false, cap: false };
+      r.uses++; r.caps.add(ci); r.hint ||= !!b.sepHint; r.cap ||= !!(b.caption || (b.alt || '').length > 40); refs.set(k, r); }));
+    const cover = P.cover?.slice(4), items = []; let n = 0;
+    for (const [k, r] of refs) { const im = P.images.get(k); if (!im?.blob) continue; st?.(`Buscando separadores ${++n}/${refs.size}…`);
+      items.push({ k, ...r, ...(await factsOf(im.blob)), name: im.name || k.split('/').pop(), cover: k === cover }); }
+    P.seps = groupSeps(items); P.seps.forEach(g => g.keys.forEach(k => P.sepOf.set(k, g)));
+  }
+  const sepGroup = (P, b) => b?.type === 'image' && b.url?.startsWith('img:') ? P.sepOf?.get(b.url.slice(4)) : null;
+  // vista sin colapsar (los índices data-b siguen siendo los de c.blocks) y versión final para guardar
+  const sepView = (P, b) => { const g = sepGroup(P, b); return g?.on ? { type: 'separator', img: 'img:' + g.best.k } : b; };
+  const sepBlocks = (P, bs) => collapseSeps(bs.map(b => sepView(P, b)));
+  const sepOnKey = (P, k) => !!P.sepOf?.get(k)?.on;
 
   async function importer(){
     if (!(await ensure())) return;
@@ -346,7 +364,8 @@ export function createImporter(deps) {
     let P = null, file = null, fp = null, step = 1, sel = 0, splitting = false, dupAt = null, V = {};
     const contextualId = new URLSearchParams(location.search).get('obra');
     const contextualWork = () => works.find(w => w.id === contextualId) || null;
-    const D = { work: contextualWork?.id || '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', notice: null, noticeGetter: null, newTitle: '', newAuthor: '', scanChapterTitles: false, smartTitles: false, toolsOpen: false, prelaunch: null };
+    const D = { work: contextualWork?.id || '', vnum: 1, mode: 'append', cover: null, workCover: false, allImgs: true, pub: 'draft', at: '', notice: null, noticeGetter: null, newTitle: '', newAuthor: '', scanChapterTitles: false, smartTitles: false, toolsOpen: false, prelaunch: null, sepReview: false };
+    let sepSel = null;
     let NW = createWorkData();
     app.innerHTML = shell('Importar contenido', '<p id="imp-catalog-status" class="mono" role="status"></p><ol class="imp-steps" id="steps"></ol><div id="wiz"></div><p id="status" class="mono" role="status"></p>', TAB);
     bindPicker(importer);
@@ -355,9 +374,13 @@ export function createImporter(deps) {
     const work = () => (works || []).find(w => w.id === D.work);
     const liveVols = w => (w?.volumes || []).filter(v => !v.deleted_at);
     const nextVol = w => nextVolumeNumber((w?.volumes || []).map(v => v.num));
-    const imgKeys = () => [...P.images.keys()].filter(k => P.images.get(k).blob && /^image\//.test(P.images.get(k).type));
-    const usedImgs = () => { const s = new Set(P.chapters.filter(c => !c.skip).flatMap(c => c.blocks.filter(b => b.type === 'image' && b.url?.startsWith('img:')).map(b => b.url.slice(4)))); if (D.cover) s.add(D.cover.slice(4)); return s; };
-    const render = () => { $('#steps').innerHTML = ['Manuscrito', 'Ordenar secciones', 'Obra y publicación'].map((l, i) => `<li class="${step === i + 1 ? 'on' : step > i + 1 ? 'done' : ''}"><span>${step > i + 1 ? '✓' : i + 1}</span>${l}</li>`).join(''); [null, s1, s2, s3][step](); };
+    const imgKeys = () => [...P.images.keys()].filter(k => P.images.get(k).blob && /^image\//.test(P.images.get(k).type) && !sepOnKey(P, k));
+    const usedImgs = () => { const s = new Set(P.chapters.filter(c => !c.skip).flatMap(c => c.blocks.filter(b => b.type === 'image' && b.url?.startsWith('img:') && !sepGroup(P, b)?.on).map(b => b.url.slice(4)))); if (D.cover) s.add(D.cover.slice(4)); return s; };
+    // pasos: 1 Manuscrito · 2 Ordenar secciones · 4 Separadores (solo si hay dudosos o se pidió revisar) · 3 Obra y publicación
+    const sepCands = () => (P?.seps || []).filter(g => g.cand || g.manual);
+    const showSep = () => !!P && (D.sepReview || sepCands().some(g => g.level === 'md'));
+    const render = () => { const L = [['Manuscrito', 1], ['Ordenar secciones', 2], ...(showSep() ? [['Separadores', 4]] : []), ['Obra y publicación', 3]], at = L.findIndex(x => x[1] === step);
+      $('#steps').innerHTML = L.map(([l], i) => `<li class="${i === at ? 'on' : i < at ? 'done' : ''}"><span>${i < at ? '✓' : i + 1}</span>${l}</li>`).join(''); [null, s1, s2, s3, s3sep][step](); };
 
     function s1(){
       W().innerHTML = `${contextualId ? `<p class="imp-context mono">${contextualWork() ? 'Importarás para <b>' + esc(contextualWork().title) + '</b>. ' : ''}Podrás confirmar la obra de destino antes de importar.</p>` : ''}<label class="imp-drop" id="drop"><b>Arrastra aquí un EPUB, DOCX o PDF</b><span class="mono">o toca para elegirlo · máx. 80 MB</span><input type="file" id="file" accept=".epub,.docx,.pdf" hidden></label>
@@ -384,6 +407,7 @@ export function createImporter(deps) {
         P.urls = new Map([...P.images].map(([k, v]) => [k, v.blob ? URL.createObjectURL(v.blob) : '']));
         if (P.images.size) { st('Midiendo ilustraciones…'); await measureImages(P); }
         P.chapters = splitOversize(P.chapters);
+        await detectSeps(P, st); D.sepReview = false; sepSel = null;
         suggestSkips(P);
         const key = (P.meta.series || P.title).toLowerCase();
         const guess = (works || []).find(w => w.title && key.includes(w.title.toLowerCase().slice(0, 18)));
@@ -446,9 +470,10 @@ export function createImporter(deps) {
         <div class="imp-grid">
           <div class="imp-list"><div class="imp-lh"><b id="icount"></b><span class="mono">Toca una sección para verla</span></div><ol>${ch.map(row).join('')}</ol></div>
           <div class="imp-pvw"><div class="imp-lh"><b id="pvh"></b><button class="ed-btn" id="split"></button></div><div class="imp-pv" id="pv"></div>
+            <p class="mono" id="pv-sephint" style="margin:8px 12px">Toca una imagen de la vista previa para marcarla como separador (o devolverla a ilustración). Aplica a todas sus copias.</p>
             <details class="imp-quality-images" id="imp-qimg"><summary><b id="imp-qimg-h"></b></summary><div id="imp-qimg-b"></div></details></div>
         </div>
-        <div class="imp-nav"><button class="btn ghost" id="back">‹ Elegir otro archivo</button><button class="btn" id="next">Continuar a obra y publicación ›</button></div>`;
+        <div class="imp-nav"><button class="btn ghost" id="back">‹ Elegir otro archivo</button><button class="btn" id="next">${showSep() ? 'Continuar a separadores ›' : 'Continuar a obra y publicación ›'}</button></div>`;
       const L = W().querySelector('.imp-list'), OL = L.querySelector('ol');
       OL.scrollTop = keep.list; window.scrollTo(0, keep.page);
       const counts = () => { const inc = ch.filter(c => !c.skip), w = words(inc.flatMap(c => c.blocks)), im = inc.reduce((a, c) => a + nImgs(c.blocks), 0), quality = inspectImport(inc);
@@ -471,7 +496,7 @@ export function createImporter(deps) {
       const preview = () => { const cur = ch[sel], c = cur, pv = $('#pv');
         $('#pvh').textContent = `Vista previa · ${sel + 1} de ${ch.length}`;
         $('#split').textContent = splitting ? 'Toca el párrafo donde empieza la nueva sección · Cancelar' : 'Dividir esta sección…'; $('#split').classList.toggle('on', splitting); pv.classList.toggle('splitting', splitting);
-        pv.innerHTML = `<div class="rd" data-theme="oscuro" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="${P.fontVars || ''}--rs:17px"><article class="rd-ch"><header class="rd-head"><span class="mono">${esc(c.type)}</span><h2 ${headFont(c.blocks)}>${esc(c.title)}</h2></header><div class="rd-body">${(()=>{const blocks=smartTitleBlocks(cur.blocks,{title:cur.title,section_type:cur.type},D.smartTitles);const skip=repeatedOpeningHeading(blocks,{title:cur.title,section_type:cur.type});return blocks.map((b,i)=>i===skip?'':renderBlock(b,i,{media:src})).join('');})()}</div></article></div>`;
+        pv.innerHTML = `<div class="rd" data-theme="oscuro" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="${P.fontVars || ''}--rs:17px"><article class="rd-ch"><header class="rd-head"><span class="mono">${esc(c.type)}</span><h2 ${headFont(c.blocks)}>${esc(c.title)}</h2></header><div class="rd-body">${(()=>{const blocks=smartTitleBlocks(cur.blocks,{title:cur.title,section_type:cur.type},D.smartTitles);const skip=repeatedOpeningHeading(blocks,{title:cur.title,section_type:cur.type});return blocks.map((b,i)=>i===skip?'':renderBlock(sepView(P,b),i,{media:src})).join('');})()}</div></article></div>`;
         pv.scrollTop = 0; imagePanel(); refreshTitleExample(); };
       const pick = i => { if (i === sel) return; OL.children[sel]?.classList.remove('on'); sel = i; splitting = false; OL.children[sel]?.classList.add('on'); preview(); };
       const repaintRow = i => { const sm = OL.children[i]?.querySelector('.imp-t small'); if (sm) sm.innerHTML = rowMeta(ch[i], i); };
@@ -494,7 +519,11 @@ export function createImporter(deps) {
       };
       $('#split').onclick = () => { splitting = !splitting; preview(); };
       $('#pv').onclick = e => {
-        if (!splitting) return; const b = e.target.closest('[data-b]'); if (!b) return; const at = +b.dataset.b, c = cur();
+        if (!splitting) { const im = e.target.closest('figure img, .sep-img img'); if (!im) return;
+          const k = [...P.urls].find(([, u]) => u && u === im.getAttribute('src'))?.[0], g = k && P.sepOf?.get(k); if (!g) return;
+          g.on = !g.on; if (!g.cand) g.manual = true; toast(g.on ? `Marcada como separador${g.uses > 1 ? ' · ' + g.uses + ' usos' : ''}` : 'Vuelve a ser ilustración');
+          $('#next').textContent = showSep() ? 'Continuar a separadores ›' : 'Continuar a obra y publicación ›'; return preview(); }
+        const b = e.target.closest('[data-b]'); if (!b) return; const at = +b.dataset.b, c = cur();
         if (at < 1) return toast('Elige un párrafo después del primero');
         const rest = c.blocks.splice(at);
         ch.splice(sel + 1, 0, { title: (rest.find(x => x.type === 'heading')?.text || c.title + ' (cont.)').slice(0, 200), type: c.type, blocks: rest, skip: false });
@@ -525,17 +554,40 @@ export function createImporter(deps) {
           await Promise.race([relatedTask, new Promise(resolve => setTimeout(resolve, 650))]);
           if (!live() || !P) return;
           st('');
-          step = 3;
+          step = showSep() ? 4 : 3;
           render();
         } catch (error) {
           if (live()) st('No se pudo comprobar el catálogo. Reintenta sin volver a seleccionar el archivo.');
         } finally {
           if (button.isConnected) {
             button.disabled = false;
-            button.textContent = 'Continuar a obra y publicación ›';
+            button.textContent = showSep() ? 'Continuar a separadores ›' : 'Continuar a obra y publicación ›';
           }
         }
       };
+    }
+
+    // paso «Separadores»: solo aparece si hay candidatos dudosos o si se abrió desde «Revisar» en Obra y publicación
+    function s3sep(){
+      const G = sepCands(), on = G.filter(g => g.on);
+      if (!sepSel || !G.includes(sepSel)) sepSel = G[0] || null;
+      const ci = sepSel ? Math.max(0, P.chapters.findIndex(c => !c.skip && c.blocks.some(b => sepGroup(P, b) === sepSel))) : 0, cur = P.chapters[ci];
+      W().innerHTML = `<div class="imp-sum"><span><b>${esc(P.title)}</b><small class="mono">${G.length} ${G.length === 1 ? 'candidato' : 'candidatos'} · ${on.length} marcados como separador · ${on.reduce((a, g) => a + g.uses, 0)} usos en el texto</small></span></div>
+        <div class="imp-grid">
+          <section class="imp-box"><h3>Separadores detectados</h3>
+            <p class="mono">Agrupamos las imágenes por contenido, no por nombre. Un separador se sube una sola vez a Multimedia y en el lector mide lo mismo que una línea de texto.</p>
+            <div class="imp-seps">${groupCards(G, esc, g => P.urls.get(g.best.k), sepSel) || '<p class="mono">No hay imágenes candidatas. Puedes marcar una tocándola en la vista previa de «Ordenar secciones».</p>'}</div>
+          </section>
+          <div class="imp-pvw"><div class="imp-lh"><b>Vista previa · ${esc(cur?.title || '')}</b><span class="mono">Toca un grupo para ver dónde aparece</span></div>
+            <div class="imp-pv" id="pv"><div class="rd" data-theme="oscuro" data-width="normal" data-lh="comodo" data-align="izquierda" data-font="original" style="${P.fontVars || ''}--rs:17px"><article class="rd-ch"><header class="rd-head"><span class="mono">${esc(cur?.type || '')}</span><h2 ${headFont(cur?.blocks)}>${esc(cur?.title || '')}</h2></header><div class="rd-body">${(cur?.blocks || []).map((b, i) => renderBlock(sepView(P, b), i, { media: src })).join('')}</div></article></div></div></div>
+        </div>
+        <div class="imp-nav"><button class="btn ghost" id="back">‹ Ordenar secciones</button><button class="btn" id="next">Continuar a obra y publicación ›</button></div>`;
+      W().querySelectorAll('[data-sg]').forEach(el => el.onclick = e => { const g = G.find(x => x.id === el.dataset.sg), b = e.target.closest('[data-set]');
+        if (b) g.on = b.dataset.v === '1'; sepSel = g; s3sep(); });
+      const hit = sepSel && cur && [...W().querySelectorAll('#pv [data-b]')].find(n => sepGroup(P, cur.blocks[+n.dataset.b]) === sepSel);
+      if (hit) { const box = $('#pv'); box.scrollTop += hit.getBoundingClientRect().top - box.getBoundingClientRect().top - box.clientHeight / 2; }
+      $('#back').onclick = () => { step = 2; render(); };
+      $('#next').onclick = () => { step = 3; render(); };
     }
 
     function s3(){
@@ -544,7 +596,9 @@ export function createImporter(deps) {
       const q = inspectImport(inc), nW = words(inc.flatMap(c => c.blocks)), nI = inc.reduce((a, c) => a + c.blocks.filter(b => b.type === 'image').length, 0);
       const upN = D.allImgs ? keys.length : used.size, privateWork = !w || !w.published;
       if (D.prelaunch == null) D.prelaunch = privateWork;
-      W().innerHTML = `<div class="imp-dest">
+      W().innerHTML = `${(() => { const G = sepCands(), on = G.filter(g => g.on); if (!G.length) return '';
+            return `<p class="imp-sepnote">${on.length ? `✓ ${on.length} ${on.length === 1 ? 'separador detectado' : 'separadores detectados'} · ${on.reduce((a, g) => a + g.uses, 0)} usos · se suben una vez a «separadores»` : `${G.length} ${G.length === 1 ? 'imagen podría ser separador' : 'imágenes podrían ser separadores'}`} <button type="button" class="lnk" id="seprev">Revisar</button></p>`; })()}
+        <div class="imp-dest">
         <section class="imp-box${w ? "" : " imp-new-series"}"><h3>1 · Obra y volumen</h3>
           <label>Obra<select id="dw"><option value="">+ Nueva obra</option>${(works || []).map(x => `<option value="${x.id}" ${x.id === D.work ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select></label>
           ${w ? '' : `<div id="imp-new-work"><h3>Datos completos de la nueva obra</h3><p class="mono">Se rellenan los metadatos detectados; revisa los valores antes de importar.</p>${renderWorkFields(NW, esc, (related || []).filter(x => x.id !== D.work))}</div>`}
@@ -589,7 +643,7 @@ export function createImporter(deps) {
           <li><span>Estado</span><b id="rc-pub"></b></li>
           <li><span>Revisión</span><b>${q.total ? `<a href="#" id="rc-back">${q.total} aviso(s) de calidad en ${q.withWarnings} sección(es)</a> · se pedirá confirmar` : 'sin avisos de calidad'}${D.smartTitles ? ' · títulos inteligentes' : ''}${D.scanChapterTitles ? ' · escaneo de capítulos' : ''}</b></li>
         </ul></section>
-        <div class="imp-nav"><button class="btn ghost" id="back">‹ Ordenar secciones</button><button class="btn" id="go"></button></div>`;
+        <div class="imp-nav"><button class="btn ghost" id="back">${showSep() ? '‹ Separadores' : '‹ Ordenar secciones'}</button><button class="btn" id="go"></button></div>`;
       const pubLabel = () => { const n = inc.length + ' ' + (inc.length === 1 ? 'sección' : 'secciones');
         $('#go').textContent = D.pub === 'now' ? 'Importar y lanzar ahora · ' + n : D.pub === 'at' ? 'Importar y programar · ' + n : 'Importar ' + n + ' como borrador';
         $('#rc-pub').textContent = D.pub === 'now' ? 'se lanza al importar' + (privateWork ? ' (la obra pasa a pública)' : '') : D.pub === 'at' ? (D.at ? 'programado: ' + fmtTz(fromLocal(D.at)) : 'programado · elige fecha y hora') + (D.prelaunch ? ' · con preestreno' : '') : 'borrador (nadie lo ve hasta publicarlo)';
@@ -618,7 +672,8 @@ export function createImporter(deps) {
       $('#dwc').onchange = e => { D.workCover = e.target.checked; };
       W().querySelectorAll('[data-cov]').forEach(b => b.onclick = () => { D.cover = b.dataset.cov || null; s3(); });
       bindFicha();
-      $('#back').onclick = () => { step = 2; render(); };
+      $('#back').onclick = () => { step = showSep() ? 4 : 2; render(); };
+      $('#seprev')?.addEventListener('click', () => { D.sepReview = true; step = 4; render(); });
       $('#go').onclick = e => busy(e.currentTarget, commit);
     }
 
@@ -633,7 +688,7 @@ export function createImporter(deps) {
       const notice = D.pub === 'draft' ? null : D.noticeGetter?.();
       if (D.pub !== 'draft' && !notice) throw new Error('Completa el anuncio editorial antes de publicar');
       const ficha = fichaRow();
-      const keysToUpload = validateImportMedia({chapters:inc,images:P.images,cover:D.cover,
+      const keysToUpload = validateImportMedia({chapters:inc.map(c=>({...c,blocks:sepBlocks(P,c.blocks)})),images:new Map([...P.images].filter(([k])=>!sepOnKey(P,k))),cover:D.cover,
         allImages:D.allImgs,maxBytes:LIMITS.image});
       if(!inc.length)throw new Error('Selecciona al menos una sección para importar');
       const qualityPreflight=inspectImport(inc);
@@ -670,6 +725,12 @@ export function createImporter(deps) {
         const keys = keysToUpload;
         const map = {}; let n = 0;
         for (const key of keys) { const im = P.images.get(key); st(`Subiendo imágenes a Multimedia ${++n}/${keys.length}…`); map['img:' + key] = await up('', im.name, im.blob, im.type || imgType(im.name)); }
+        // separadores: Multimedia › obras › {obra} › separadores › sep-{sha8}-{dhash}.ext, reutilizados entre volúmenes (mismo SHA o dHash ≤ 5)
+        const sepPath = {}, sdir = `${T.team.id}/obras/${w.slug}/separadores`, onG = (P.seps || []).filter(g => g.on);
+        if (onG.length) { const prev = await listSeps(sb, sdir);
+          for (const g of onG) { const im = P.images.get(g.best.k); if (!im?.blob || im.blob.size > LIMITS.image) continue; st('Subiendo separadores…');
+            const r = await putSep(sb, sdir, g.best, im.blob, im.type || imgType(g.best.name), prev); if (r.uploaded) uploaded.push(r.path); sepPath[g.id] = r.path; } }
+        const sepOut = b => { if (b.type !== 'separator' || !b.img) return b; const g = P.sepOf.get(b.img.slice(4)), p = g && sepPath[g.id]; return p ? { type: 'separator', img: PUB + p } : { type: 'separator' }; };
         const reuseFont = P.fonts.length ? createTeamFontStore({
           sb,bucket,teamId:T.team.id,publicPrefix:PUB
         }) : null;
@@ -698,7 +759,7 @@ export function createImporter(deps) {
         const plan=replacing?planVolumeReplacement(existing,vol.id,D.vnum,inc.length):null;
         const maxNum=Math.max(0,...(existing||[]).map(c=>+c.num||0));
         const rows=inc.map((c,i)=>{
-          const body=smartTitleBlocks(c.blocks,{title:c.title,section_type:c.type},D.smartTitles).map(b=>b.type==='image'?{...b,url:map[b.url]?PUB+map[b.url]:b.url}:b);
+          const body=smartTitleBlocks(c.blocks,{title:c.title,section_type:c.type},D.smartTitles).map(b=>sepView(P,b)).filter((b,i,a)=>!(b.type==='separator'&&a[i-1]?.type==='separator')).map(sepOut).map(b=>{if(b.type!=='image')return b;const{sepHint,...o}=b;return{...o,url:map[b.url]?PUB+map[b.url]:b.url};});
           const report=lintImportedBlocks(body);
           return {series_id:w.id,volume_id:vol.id,vol:D.vnum,
             num:replacing?plan.update[i].num:maxNum+i+1,sort_order:i,

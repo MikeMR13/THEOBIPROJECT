@@ -1,6 +1,6 @@
 import { confirmObi, inputObi } from './obi-dialog.js';
 // Editor de Studio. Se carga únicamente al abrir un capítulo.
-import { blocksToEditor, editorToBlocks, pasteToEditor, renderBlock, warningsHTML, teaserHTML, figureHTML, makesBlock, FONTS, CW } from './blocks.js?v=2';
+import { blocksToEditor, editorToBlocks, pasteToEditor, renderBlock, warningsHTML, teaserHTML, figureHTML, sepImgHTML, makesBlock, FONTS, CW } from './blocks.js?v=2';
 import { askEditorialAnnouncement, saveEditorialRecord } from './editorial-announcements.js?v=1';
 import {setupEditorialCollaboration} from './editorial-suggestion-panel.js?v=1';
 import {setupEditorialApproval,teamApprovalRequired} from './editorial-approval-panel.js?v=1';
@@ -428,8 +428,16 @@ export function createEditor(deps) {
     doc.addEventListener('drop', e => { if (e.dataTransfer?.files?.length) { e.preventDefault(); toast('Usa «▣ Imagen» para insertar ilustraciones'); } });
     doc.addEventListener('keydown', e => { const f = e.target.closest?.('figure[data-url]'); if (!f || !['Enter',' '].includes(e.key)) return; e.preventDefault(); f.click(); });
     doc.addEventListener('click', e => {
+      const si = e.target.closest('.sep-img');
+      if (si) { doc.querySelectorAll('.on').forEach(x => x.classList.remove('on')); si.classList.add('on'); const box = $('#ask');
+        box.innerHTML = '<div class="ed-ask"><span class="mono">Separador de imagen · se muestra a la altura de una línea de texto</span><button class="btn ghost" id="sep2fig">Convertir en ilustración</button><button class="btn ghost danger" id="sepdel">Quitar separador</button><button class="btn ghost" id="askno">Cancelar</button></div>';
+        $('#sep2fig').onclick = () => { const t = document.createElement('template'); t.innerHTML = figureHTML(si.dataset.img, '', '', media); si.replaceWith(t.content.firstElementChild); box.innerHTML = ''; changed(); };
+        $('#sepdel').onclick = () => { si.remove(); box.innerHTML = ''; changed(); };
+        $('#askno').onclick = () => { si.classList.remove('on'); box.innerHTML = ''; };
+        return; }
       const f = e.target.closest('figure'); if (!f) return; doc.querySelectorAll('.on').forEach(x => x.classList.remove('on')); f.classList.add('on');
-      ask([{ label: 'Descripción', value: f.dataset.alt, ph: 'Qué se ve en la ilustración' }, { label: 'Pie', value: f.dataset.caption, ph: 'Opcional' }], ([alt, cap]) => { const decorative = !!$('#askdeco')?.checked; const t = document.createElement('template'); t.innerHTML = figureHTML(f.dataset.url, decorative ? '' : alt.trim(), cap.trim(), media, decorative); f.replaceWith(t.content.firstElementChild); changed(); }, `<label class="mono"><input type="checkbox" id="askdeco" ${f.dataset.decorative === '1' ? 'checked' : ''}> Ilustración decorativa (sin descripción por decisión editorial)</label><button class="btn ghost danger" id="figdel">Quitar ilustración</button>`);
+      ask([{ label: 'Descripción', value: f.dataset.alt, ph: 'Qué se ve en la ilustración' }, { label: 'Pie', value: f.dataset.caption, ph: 'Opcional' }], ([alt, cap]) => { const decorative = !!$('#askdeco')?.checked; const t = document.createElement('template'); t.innerHTML = figureHTML(f.dataset.url, decorative ? '' : alt.trim(), cap.trim(), media, decorative); f.replaceWith(t.content.firstElementChild); changed(); }, `<label class="mono"><input type="checkbox" id="askdeco" ${f.dataset.decorative === '1' ? 'checked' : ''}> Ilustración decorativa (sin descripción por decisión editorial)</label><button class="btn ghost" id="fig2sep">Convertir en separador</button><button class="btn ghost danger" id="figdel">Quitar ilustración</button>`);
+      $('#fig2sep').onclick = () => { const t = document.createElement('template'); t.innerHTML = sepImgHTML(f.dataset.url, media); f.replaceWith(t.content.firstElementChild); $('#ask').innerHTML = ''; changed(); toast('Convertida en separador'); };
       $('#figdel').onclick = () => { f.remove(); $('#ask').innerHTML = ''; changed(); };
     });
     $('#ttl').addEventListener('input',()=>{titleCount();changed();});

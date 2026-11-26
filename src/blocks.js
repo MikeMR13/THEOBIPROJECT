@@ -38,6 +38,8 @@ export function renderBlock(b, i, o = {}){
   if (t === 'paragraph' || t === 'p') return `<p data-b="${i}"${AL(b)}>${rich(b)}</p>`;
   if (t === 'heading' || t === 'h') return `<h3 data-b="${i}"${AL(b)}>${rich(b)}</h3>`;
   if (t === 'quote') return `<blockquote data-b="${i}"${AL(b)}>${rich(b)}</blockquote>`;
+  // separador de imagen (adorno del EPUB): alto de una línea de texto, se muestra aunque se oculten las ilustraciones
+  if ((t === 'separator' || t === 'sep') && b.img) return `<div class="sep sep-img" data-b="${i}" aria-hidden="true"><img src="${escHtml(media(b.img))}" alt="" loading="lazy" decoding="async"></div>`;
   if (t === 'separator' || t === 'sep') return `<div class="sep" data-b="${i}" aria-hidden="true">${escHtml(b.text || '※')}</div>`;
   if (t === 'note') return `<aside class="tn" data-b="${i}"><span class="mono">Nota del traductor</span>${rich(b)}</aside>`;
   if (t === 'ruby') return `<p data-b="${i}"><ruby>${escHtml(b.text || '')}<rt>${escHtml(b.reading || '')}</rt></ruby></p>`;
@@ -74,12 +76,14 @@ export function blocksToEditor(blocks, media = x => x){
     if (t === 'heading' || t === 'h') return `<h3${AL(b)}>${inner}</h3>`;
     if (t === 'quote') return `<blockquote${AL(b)}>${inner}</blockquote>`;
     if (t === 'note') return `<aside class="tn">${inner}</aside>`;
+    if ((t === 'separator' || t === 'sep') && b.img) return sepImgHTML(b.img, media);
     if (t === 'separator' || t === 'sep') return `<div class="sep" contenteditable="false">${escHtml(b.text || '※')}</div>`;
     if (t === 'ruby') return `<p><ruby>${escHtml(b.text || '')}<rt>${escHtml(b.reading || '')}</rt></ruby></p>`;
     if (t === 'image' || t === 'img') return figureHTML(b.url || b.src, b.alt, b.caption, media, b.decorative === true, b.w ?? b.width, b.h ?? b.height);
     return `<p${AL(b)}>${inner}</p>`;
   }).join('') || '<p><br></p>';
 }
+export const sepImgHTML = (url, media = x => x) => `<div class="sep sep-img" contenteditable="false" data-img="${escHtml(url || '')}"><img src="${escHtml(media(url))}" alt=""></div>`;
 export const figureHTML = (url, alt, caption, media = x => x, decorative = false, w, h) => { const dim = +w >= 1 && +h >= 1; return `<figure contenteditable="false" tabindex="0" role="button" aria-label="Editar descripción o pie de ilustración" data-url="${escHtml(url || '')}" data-alt="${escHtml(decorative ? '' : alt || '')}" data-decorative="${decorative ? '1' : '0'}" data-caption="${escHtml(caption || '')}"${dim ? ` data-w="${+w}" data-h="${+h}"` : ''}><img src="${escHtml(media(url))}" alt="${escHtml(decorative ? '' : alt || '')}"${dim ? ` width="${+w}" height="${+h}"` : ''}><figcaption>${caption ? escHtml(caption) : '<i>Sin pie · toca para editar</i>'}</figcaption></figure>`; };
 
 export function editorToBlocks(root){
@@ -93,6 +97,7 @@ export function editorToBlocks(root){
     flush(); if (el.nodeType !== 1) continue;
     const tg = el.tagName;
     if (tg === 'FIGURE') { if (el.dataset.url) out.push({ type: 'image', url: el.dataset.url, alt: el.dataset.decorative === '1' ? '' : (el.dataset.alt || ''), caption: el.dataset.caption || '', ...(el.dataset.decorative === '1' ? {decorative:true} : {}), ...(+el.dataset.w >= 1 && +el.dataset.h >= 1 ? { w: +el.dataset.w, h: +el.dataset.h } : {}) }); continue; }
+    if (el.classList.contains('sep') && el.dataset.img) { out.push({ type: 'separator', img: el.dataset.img }); continue; }
     if (el.classList.contains('sep') || tg === 'HR') { const m = el.textContent.trim(); out.push(m && m !== '※' ? { type: 'separator', text: m } : { type: 'separator' }); continue; }
     // una línea que solo tiene ◇ / *** / ※ (escrita o pegada) también es separador, conservando el símbolo
     { const m = el.textContent.replace(/\s+/g, ' ').trim(); if (m && m.length <= 24 && SEP_MARK.test(m) && !el.querySelector('img,figure')) { out.push({ type: 'separator', text: m }); continue; } }

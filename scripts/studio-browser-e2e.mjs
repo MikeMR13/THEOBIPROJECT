@@ -69,6 +69,7 @@ const whitelist = new Map([
  ['/reader-headings.js','src/reader-headings.js'],
  ['/studio-media.js','src/studio-media.js'],
  ['/blocks.js','src/blocks.js'],
+ ['/separators.js','src/separators.js'],
  ['/__qa__/fixture.mjs','scripts/fixtures/studio-browser-fixture.mjs'],
  ['/__qa__/parent.js','scripts/fixtures/studio-browser-parent.js']
 ]);

@@ -838,7 +838,7 @@ export function createStudio(ctx){
             <label>Nombre del sitio<input name="external_site" maxlength="60" placeholder="${esc(T.team.name)}" value="${esc(v.external_site || '')}"></label>
             <label class="tb-inl"><input type="radio" name="external_only" value="1" ${v.external_only !== false ? 'checked' : ''}> Se lee solo en su sitio: El Obi del Lector muestra el volumen y un botón «Leer en el sitio del traductor».</label>
             <label class="tb-inl"><input type="radio" name="external_only" value="0" ${v.external_only === false ? 'checked' : ''}> También se lee aquí: el enlace aparece como opción adicional.</label></div></div>
-        <span class="wide" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn sm" data-vsave>Guardar volumen</button><button class="btn ghost sm" data-vcancel>Cancelar</button></span></div>`;
+        <span class="wide" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn sm" data-vsave>Guardar volumen</button><button class="btn ghost sm" data-vcancel>Cancelar</button><button type="button" class="btn ghost sm" data-vsep title="Detecta imágenes usadas como separadores en los capítulos de este volumen">Separadores</button></span></div>`;
       const tierSel = box.querySelector('[name=access_tier]'), auBox = box.querySelector('.wk-vau');
       const unlockAuto = box.querySelector('[name=unlock_auto]'), unlockDate = box.querySelector('.wk-vdate');
       unlockAuto.onchange = () => { unlockDate.hidden = !unlockAuto.checked; if (unlockAuto.checked) box.querySelector('[name=access_until]').focus(); };
@@ -860,6 +860,8 @@ export function createStudio(ctx){
       box.querySelector('[data-vcovdel]')?.addEventListener('click', e => busy(e.currentTarget, async () => { if (!await confirmObi('¿Quitar la portada de este volumen?')) return; await setCover(null); toast('Portada quitada'); again(); }));
       const f = k => box.querySelector(`[name=${k}]`);
       box.querySelector('[data-vcancel]').onclick = () => { box.hidden = true; };
+      box.querySelector('[data-vsep]').onclick = e => busy(e.currentTarget, async () => { const { reviewVolume } = await import('./separators.js?v=1');
+        await reviewVolume({ sb, esc, toast, busy, PUB, T, can, errMsg, box, series: s, volume: v }); });
       box.querySelector('[data-vsave]').onclick = e => busy(e.currentTarget, async () => {
         const patch = { title: f('title').value.trim() || String(v.num), subtitle: f('subtitle').value.trim() || null, jp_release: f('jp_release').value || null, planned_chapters: f('planned_chapters').value === '' ? null : Math.max(0, +f('planned_chapters').value), synopsis: f('synopsis').value.trim() || null, synopsis_spoiler: f('synopsis_spoiler').checked, is_final: f('is_final').checked };
         if (f('ext_on').checked) { const u2 = f('external_url').value.trim(); if (!/^https:\/\/[^\s/]+\.[^\s]{2,}/i.test(u2)) throw new Error('Escribe el enlace completo del volumen, empezando por https://'); Object.assign(patch, { external_url: u2, external_site: f('external_site').value.trim() || null, external_only: box.querySelector('[name=external_only]:checked')?.value !== '0' }); }
