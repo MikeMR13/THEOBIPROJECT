@@ -130,6 +130,7 @@ begin
       'genre', (select g from gen), 'weekday', (select d from dow),
       'top', (select jsonb_build_object('slug', s.slug, 'title', s.title, 'chapters', top.n) from top join public.series s on s.id = top.series_id)));
 end $$;
+revoke all on function public.reader_year(int) from public, anon;
 grant execute on function public.reader_year(int) to authenticated;
 
 -- ---------- 8. Retos de temporada ----------
