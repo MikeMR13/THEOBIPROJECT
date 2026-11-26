@@ -31,7 +31,6 @@ const ACTIONS = [['view','Ver'],['edit','Editar'],['create','Crear'],['import','
 const ROLES = [['owner','Propietario'],['admin','Administrador'],['translator','Traductor'],['editor','Editor'],['proofreader','Corrector'],['collaborator','Colaborador']];
 const STG = { traduciendo: ['Traduciendo', 25, '#f2c230'], correccion: ['En corrección', 60, '#8cc3f2'], listo: ['Listo', 90, '#a9d18e'] };
 const SEC = SECTION_TYPES;
-const GT = ['Personaje','Lugar','Organización','Honorífico','Cargo o título','Magia','Hechizo','Habilidad','Objeto','Arma','Criatura','Raza o especie','Comida','Bebida','Festival','Moneda','Unidad de medida','Referencia cultural','Modismo','Onomatopeya','Tabú','Otro'];
 const BT = [['paragraph','Párrafo'],['heading','Título'],['quote','Cita'],['note','Nota del traductor'],['image','Ilustración'],['separator','Separador'],['ruby','Furigana']];
 
 export function createStudio(ctx){
@@ -1246,81 +1245,12 @@ export function createStudio(ctx){
     return (await libraryTask)(folder, page);
   }
 
-  // ---------- glosario ----------
+  // ---------- glosario (módulo diferido: studio-glossary.js) ----------
   async function glossary(slug){
     if (!(await ensure())) return;
-    const TAB = '/estudio/glosario';
-    const { data: works } = await sb.from('series').select('id,slug,title').eq('team_id', T.team.id).is('archived_at', null).order('title');
-    if (!(works || []).length) { app.innerHTML = shell('Glosario', '<p class="mono">Este equipo aún no tiene obras.</p>', TAB); bindPicker(() => glossary()); return; }
-    const s = works.find(w => w.slug === slug) || works.find(w => w.slug === localStorage.getItem('obi-gl-series')) || works[0];
-    localStorage.setItem('obi-gl-series', s.slug);
-    // since_num / updates (glosario sin spoilers) existen tras la migración 20261124; sin ella el formulario oculta esos campos
-    const COLS = 'id,term,category,definition,since_num,updates';
-    let { data, error } = await sb.from('glossary_terms').select(COLS).eq('series_id', s.id).order('term');
-    const rich = !error; if (error) ({ data, error } = await sb.from('glossary_terms').select('id,term,category,definition').eq('series_id', s.id).order('term'));
-    const SEL = rich ? COLS : 'id,term,category,definition';
-    const upsTxt = t => (Array.isArray(t.updates) ? t.updates : []).map(u => u.from + ' | ' + u.text).join('\n');
-    const parseUps = txt => { const out = []; txt.split('\n').map(l => l.trim()).filter(Boolean).forEach((l, i) => { const m = l.match(/^(?:cap(?:ítulo|itulo)?\.?\s*)?(\d+)\s*[|:·-]\s*(.+)$/i); if (!m) throw new Error('Línea ' + (i + 1) + ' de «se revela después»: usa «capítulo | dato»'); if (m[2].length > 300) throw new Error('Línea ' + (i + 1) + ': máximo 300 caracteres'); out.push({ from: +m[1], text: m[2].trim() }); }); if (out.length > 30) throw new Error('Máximo 30 datos por término'); return out.sort((a, b) => a.from - b.from); };
-    const sinceVal = () => { const v = ($('#glsince')?.value || '').trim(); if (!v) return null; const n = +v; if (!Number.isInteger(n) || n < 0) throw new Error('«Visible desde» debe ser un número de capítulo'); return n; };
-    const extra = () => rich ? { since_num: sinceVal(), updates: parseUps($('#glups').value) } : {};
-    if (error) { app.innerHTML = shell('Glosario', `<p>No se pudo cargar el glosario: ${esc(error.message)}</p>`, TAB); return; }
-    let terms = data || [], editing = null;
-    const ed = can('edit'), opt = v => GT.map(t => `<option ${t === v ? 'selected' : ''}>${t}</option>`).join('');
-    app.innerHTML = shell('Glosario', `
-      <div class="st-row"><select id="glser" aria-label="Obra del glosario">${works.map(w => `<option value="${w.slug}" ${w.id === s.id ? 'selected' : ''}>${esc(w.title)}</option>`).join('')}</select><span class="mono" id="glcount"></span></div>
-      <p class="mono">Los términos se marcan solos en el lector. Al tocarlos, el lector ve la definición sin salir del capítulo.</p>
-      ${ed ? `<div class="st-card gl-form">
-        <div class="st-row"><label class="st-field-caption">Término<input id="glterm" aria-label="Término" maxlength="60" placeholder="Término tal como aparece en el texto"></label><select id="glcat" aria-label="Categoría del término">${opt('Personaje')}</select></div>
-        <label class="st-field-caption">Definición<textarea id="gldef" aria-label="Definición del término" maxlength="600" rows="3" placeholder="Definición que verá el lector"></textarea></label>
-        ${rich ? `<details class="gl-spoil"><summary class="mono">Sin spoilers: cuándo se revela</summary>
-          <p class="mono">Como el X-Ray de Kindle: el lector solo ve lo que ya se contó hasta el capítulo donde va.</p>
-          <label class="mono">Marcar en el texto desde el capítulo <input id="glsince" type="number" min="0" step="1" inputmode="numeric" placeholder="vacío = siempre" style="width:9em"></label>
-          <textarea id="glups" rows="3" placeholder="Datos que se revelan después, uno por línea: capítulo | dato&#10;5 | Hizo una promesa frente al faro.&#10;9 | Su verdadero apellido es Kurosawa."></textarea></details>` : ''}
-        <div class="st-row"><button class="btn" id="glsave">Añadir término</button><button class="btn ghost" id="glcancel" hidden>Cancelar</button></div>
-        <details><summary class="mono">Añadir varios a la vez</summary><p class="mono">Uno por línea: término | tipo | definición</p><textarea id="glbulk" aria-label="Lista de términos para importar" rows="5" placeholder="umeboshi | Comida | Ciruela encurtida en sal, muy ácida."></textarea><button class="btn ghost" id="glbulkbtn">Añadir lista</button></details>
-      </div>` : '<p class="mono">Tu rol solo puede ver el glosario.</p>'}
-      <div class="st-row"><input id="glq" aria-label="Buscar término o definición" placeholder="Buscar término o definición"><select id="glf" aria-label="Filtrar por tipo de término"><option value="">Todos los tipos</option>${GT.map(t => `<option>${t}</option>`).join('')}</select></div>
-      <div id="gllist"></div>`, TAB);
-    bindPicker(() => glossary());
-    $('#glser').onchange = e => go(TAB + '/' + e.target.value);
-    const draw = () => {
-      const q = ($('#glq').value || '').trim().toLowerCase(), f = $('#glf').value;
-      const list = terms.filter(t => (!f || t.category === f) && (!q || (t.term + ' ' + t.definition).toLowerCase().includes(q)));
-      $('#glcount').textContent = terms.length + (terms.length === 1 ? ' término' : ' términos');
-      $('#gllist').innerHTML = list.map(t => `<div class="st-card gl-row"><div><strong>${esc(t.term)}</strong> <span class="pill">${esc(t.category)}</span>${t.since_num != null ? ` <span class="pill">desde cap. ${esc(t.since_num)}</span>` : ''}${t.updates?.length ? ` <span class="pill">${t.updates.length} ${t.updates.length === 1 ? 'dato' : 'datos'} por capítulo</span>` : ''}<p>${esc(t.definition)}</p></div>${ed ? `<span><button class="lnk" data-gled="${t.id}">Editar</button> <button class="lnk danger" data-gldel="${t.id}">Borrar</button></span>` : ''}</div>`).join('') || `<p class="mono">${terms.length ? 'Sin resultados.' : 'Aún no hay términos en esta obra.'}</p>`;
-    };
-    const reset = () => { editing = null; $('#glterm').value = ''; $('#gldef').value = ''; if (rich) { $('#glsince').value = ''; $('#glups').value = ''; } $('#glsave').textContent = 'Añadir término'; $('#glcancel').hidden = true; };
-    const check = (term, def) => { if (!term) throw new Error('Escribe el término'); if (!def) throw new Error('Escribe la definición'); if (term.length > 60) throw new Error('El término es demasiado largo (máx. 60)'); if (def.length > 600) throw new Error('La definición es demasiado larga (máx. 600)'); if (terms.some(t => t.id !== editing && t.term.toLowerCase() === term.toLowerCase())) throw new Error('«' + term + '» ya está en el glosario de esta obra'); };
-    const dupe = e => { if (e?.code === '23505') throw new Error('Ese término ya existe en esta obra'); if (e) throw e; };
-    $('#glq').oninput = draw; $('#glf').onchange = draw; draw();
-    if (!ed) return;
-    $('#glsave').onclick = () => busy($('#glsave'), async () => {
-      const term = $('#glterm').value.trim(), category = $('#glcat').value, definition = $('#gldef').value.trim(); check(term, definition);
-      const more = extra();
-      // updated_at solo existe tras la migración 20261124 (antes, editar un término fallaba por esa columna)
-      if (editing) { const { data: r, error } = await sb.from('glossary_terms').update({ term, category, definition, ...more, ...(rich ? { updated_at: new Date().toISOString() } : {}) }).eq('id', editing).select(SEL).single(); dupe(error); terms = terms.map(t => t.id === editing ? r : t); toast('Término actualizado'); }
-      else { const { data: r, error } = await sb.from('glossary_terms').insert({ series_id: s.id, term, category, definition, ...more }).select(SEL).single(); dupe(error); terms.push(r); toast('«' + term + '» añadido'); }
-      terms.sort((a, b) => a.term.localeCompare(b.term, 'es')); reset(); draw();
-    });
-    $('#glcancel').onclick = reset;
-    $('#glbulkbtn').onclick = () => busy($('#glbulkbtn'), async () => {
-      const rows = $('#glbulk').value.split('\n').map(l => l.split('|').map(x => x.trim())).filter(r => r[0]);
-      if (!rows.length) throw new Error('Pega al menos una línea');
-      const have = new Set(terms.map(t => t.term.toLowerCase())), add = [], bad = [];
-      rows.forEach((r, i) => { const [term, cat, ...rest] = r, definition = rest.join(' | '); const category = GT.find(g => g.toLowerCase() === (cat || '').toLowerCase()) || 'Otro';
-        if (!definition || term.length > 60 || definition.length > 600 || have.has(term.toLowerCase())) bad.push(i + 1); else { have.add(term.toLowerCase()); add.push({ series_id: s.id, term, category, definition }); } });
-      if (!add.length) throw new Error('Ninguna línea válida. Revisa las líneas ' + bad.join(', '));
-      const { data: r, error } = await sb.from('glossary_terms').insert(add).select(SEL); dupe(error);
-      terms = [...terms, ...r].sort((a, b) => a.term.localeCompare(b.term, 'es')); $('#glbulk').value = '';
-      toast(r.length + ' términos añadidos' + (bad.length ? ' · se omitieron las líneas ' + bad.join(', ') + ' (repetidas o incompletas)' : '')); draw();
-    });
-    $('#gllist').onclick = e => {
-      const eb = e.target.closest('[data-gled]'), db = e.target.closest('[data-gldel]');
-      if (eb) { const t = terms.find(x => x.id === eb.dataset.gled); editing = t.id; $('#glterm').value = t.term; $('#glcat').innerHTML = opt(t.category); $('#gldef').value = t.definition; if (rich) { $('#glsince').value = t.since_num ?? ''; $('#glups').value = upsTxt(t); if (t.since_num != null || t.updates?.length) $('.gl-spoil').open = true; } $('#glsave').textContent = 'Guardar cambios'; $('#glcancel').hidden = false; $('#glterm').focus(); scrollTo(0, 0); }
-      if (db) busy(db, async () => { const t = terms.find(x => x.id === db.dataset.gldel); if (!await confirmObi('¿Borrar «' + t.term + '» del glosario?')) return; const { error } = await sb.from('glossary_terms').delete().eq('id', t.id); if (error) throw error; terms = terms.filter(x => x.id !== t.id); if (editing === t.id) reset(); toast('Término borrado'); draw(); });
-    };
+    const G = await import('./studio-glossary.js?v=1');
+    return G.glossaryPage({ sb, app, $, esc, toast, go, T, shell, bindPicker, can, busy, confirmObi, media, errMsg, reload: () => glossary() }, slug);
   }
-
   // Equipo: roles, tablero, bitácora y perfil
   const PERMS = STUDIO_TEAM_PERMS;
   const SWATCH = ['#f2c230','#d9922b','#f59e7a','#c9a8f2','#8cc3f2','#a9d18e','#a89f8a'];

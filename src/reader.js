@@ -181,7 +181,7 @@ export function createReader(ctx){
     S.extras = Promise.all([
       sb.from('schedule').select('at').eq('series_id', s.id).gte('at', new Date().toISOString()).order('at').limit(1).then(r => r.data?.[0]?.at || null, () => null),
       // since_num / updates (glosario sin spoilers) existen tras la migración 20261124; sin ella se usa el glosario de siempre
-      sb.from('glossary_terms').select('term,category,definition,since_num,updates').eq('series_id', s.id).then(r => r.error ? sb.from('glossary_terms').select('term,category,definition').eq('series_id', s.id).then(x => x.data || [], () => []) : r.data || [], () => [])
+      sb.from('glossary_terms').select('term,category,definition,since_num,updates,role,portrait_path').eq('series_id', s.id).then(r => r.error ? sb.from('glossary_terms').select('term,category,definition').eq('series_id', s.id).then(x => x.data || [], () => []) : r.data || [], () => [])
     ]).then(([at, gl0]) => { if (S.series !== s) return; const gl = gl0.length ? gl0 : (offGl || []); Object.assign(S, { nextAt: at, gloss: gl, glMap: new Map(gl.map(g => [g.term.toLowerCase(), g])), glRe: undefined }); });
     return true;
   }
@@ -338,7 +338,8 @@ export function createReader(ctx){
     // datos que se revelan por capítulo (X-Ray sin spoilers): solo hasta el capítulo que se está leyendo
     const num = chOfEl(el)?.num, ups = (Array.isArray(g.updates) ? g.updates : []).filter(u => u && u.text).sort((a, b) => (+a.from || 0) - (+b.from || 0));
     const seen = ups.filter(u => num == null || +u.from <= +num), hid = ups.length - seen.length;
-    sh.innerHTML = `<div class="gl-card" role="dialog" aria-modal="true" aria-labelledby="gl-t"><div class="gl-top"><div><span class="mono">Glosario · ${esc(g.category)}</span><strong id="gl-t">${esc(g.term)}</strong></div><button class="gl-x" aria-label="Cerrar">×</button></div><p>${esc(g.definition)}</p>${seen.length ? `<ul class="gl-ups">${seen.map(u => `<li><span class="mono">Cap. ${esc(u.from)}</span>${esc(u.text)}</li>`).join('')}</ul>` : ''}${hid ? `<span class="gl-lock">${hid === 1 ? 'Hay 1 dato más' : 'Hay ' + hid + ' datos más'} que se revela${hid === 1 ? '' : 'n'} al seguir leyendo. Sin spoilers.</span>` : ''}<span class="gl-n">Aparece ${n === 1 ? '1 vez' : n + ' veces'} en este capítulo · Toca fuera para seguir leyendo</span></div>`;
+    const who = g.category === 'Personaje', por = who && g.portrait_path ? `<img class="gl-por" src="${esc(media(g.portrait_path))}" alt="" loading="lazy">` : who ? `<span class="gl-por no" aria-hidden="true">${esc([...g.term][0] || '?')}</span>` : '';
+    sh.innerHTML = `<div class="gl-card${who ? ' is-char' : ''}" role="dialog" aria-modal="true" aria-labelledby="gl-t"><div class="gl-top">${por}<div><span class="mono">${who ? 'Personaje' + (g.role ? ' · ' + esc(g.role) : '') : 'Glosario · ' + esc(g.category)}</span><strong id="gl-t">${esc(g.term)}</strong></div><button class="gl-x" aria-label="Cerrar">×</button></div><p>${esc(g.definition)}</p>${seen.length ? `<ul class="gl-ups">${seen.map(u => `<li><span class="mono">Cap. ${esc(u.from)}</span>${esc(u.text)}</li>`).join('')}</ul>` : ''}${hid ? `<span class="gl-lock">${hid === 1 ? 'Hay 1 dato más' : 'Hay ' + hid + ' datos más'} que se revela${hid === 1 ? '' : 'n'} al seguir leyendo. Sin spoilers.</span>` : ''}<span class="gl-n">Aparece ${n === 1 ? '1 vez' : n + ' veces'} en este capítulo · Toca fuera para seguir leyendo</span></div>`;
     sh.hidden = false; S.glFrom = el; sh.querySelector('.gl-x').focus({ preventScroll: true });
   }
   // ---------- notas del traductor emergentes (Kindle / Apple Books) ----------
@@ -498,7 +499,7 @@ export function createReader(ctx){
     if (!b) { app.innerHTML = '<h1>Sin conexión</h1><p>Este capítulo no está descargado. <a href="/descargas">Ver mis descargas</a></p>'; return; }
     const p = effective(ch.volume_id);
     S.mounted = [ch]; S.active = ch; S.activeOwner = openingUser; S.annots = []; S.lastY = null; trackView(ch);
-    const more = `<button class="btn ghost" data-act="coms">Comentarios</button><button class="btn ghost" data-act="notes">Anotaciones</button><button class="btn ghost" data-act="offline">${isVolOffline(ch) ? 'Quitar volumen del dispositivo' : 'Guardar volumen sin conexión'}</button>`;
+    const more = `<button class="btn ghost" data-act="coms">Comentarios</button><button class="btn ghost" data-act="notes">Anotaciones</button><button class="btn ghost" data-act="find" title="Buscar en el capítulo · Ctrl+F">Buscar</button><button class="btn ghost" data-act="offline">${isVolOffline(ch) ? 'Quitar volumen del dispositivo' : 'Guardar volumen sin conexión'}</button>`;
     app.innerHTML = `<div class="rd" data-layout="${p.layout === 'paged' ? 'paged' : 'scroll'}" data-theme="${p.theme}" data-width="${p.width}" data-lh="${p.lh}" data-align="${p.align}" data-para="${p.para}" data-font="${p.font}" data-controls="${p.controls === 'fijo' ? 'fijo' : 'deslizable'}" style="--rs:${p.size}px">
       <nav class="rd-bar">
         <span class="rd-where"><a href="/serie/${esc(slug)}" class="rd-back" title="${esc(S.series.title)}">‹ ${esc(S.series.title)}</a><button type="button" class="rd-left mono" data-act="left" title="Toca para cambiar entre tiempo restante, avance del capítulo y del volumen"></button></span>
@@ -548,6 +549,47 @@ export function createReader(ctx){
   }
   let autoIo, autoT, autoStop = null;
   const untilTxt = d => { const m = Math.round((new Date(d) - Date.now()) / 60000); if (m < 60) return 'en ' + Math.max(1, m) + ' min'; if (m < 1440) return 'en ' + Math.round(m / 60) + ' h'; const n = Math.round(m / 1440); return n === 1 ? 'mañana' : 'en ' + n + ' días'; };
+  // ---------- buscar dentro del capítulo (o de lo cargado en modo continuo) ----------
+  const F = { hits: [], i: 0, q: '' };
+  function findClear(){ document.querySelectorAll('#rd-flow .rd-hit').forEach(h => h.replaceWith(...h.childNodes)); document.querySelectorAll('#rd-flow .rd-body').forEach(b => b.normalize()); F.hits = []; F.i = 0; }
+  function findRun(q){
+    findClear(); F.q = q = (q || '').trim(); if (!$('.rd-find')) return;
+    if (q.length >= 2) {
+      const nq = q.toLocaleLowerCase('es');
+      document.querySelectorAll('#rd-flow .rd-body').forEach(root => { const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest('rt,rp,.mono,button,.tn-hid') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+        const nodes = []; let n; while ((n = tw.nextNode())) nodes.push(n);
+        nodes.forEach(node => { const lo = node.data.toLocaleLowerCase('es'); let at = lo.indexOf(nq); if (at < 0) return; const frag = document.createDocumentFragment(); let last = 0;
+          while (at > -1) { if (at > last) frag.append(node.data.slice(last, at)); const h = document.createElement('span'); h.className = 'rd-hit'; h.textContent = node.data.slice(at, at + q.length); frag.append(h); F.hits.push(h); last = at + q.length; at = lo.indexOf(nq, last); }
+          if (last < node.data.length) frag.append(node.data.slice(last)); node.replaceWith(frag); }); });
+    }
+    findGo(0);
+  }
+  function findGo(i){
+    const n = F.hits.length, st = $('.rd-find-n'); F.i = n ? (i + n) % n : 0;
+    F.hits.forEach((h, k) => h.classList.toggle('cur', k === F.i));
+    if (st) st.textContent = F.q.length < 2 ? '' : n ? `${F.i + 1} de ${n}` : 'Sin resultados';
+    if (!n) return; const h = F.hits[F.i];
+    if (isPaged()) { const P = pgInfo(); if (P) goPage(P.startPage(h), true); }
+    else h.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
+  function findOpen(){
+    if (!document.getElementById('rd-find-css')) { const st = document.createElement('style'); st.id = 'rd-find-css'; st.textContent = '.rd-find{position:sticky;top:calc(var(--top-h,62px) + 52px);z-index:6;display:flex;gap:6px;align-items:center;max-width:62ch;margin:8px auto;padding:6px;background:var(--bg);border:1px solid var(--ln);border-top:3px solid var(--gold,#f2c230);font-family:"IBM Plex Sans",sans-serif}.rd-find input{flex:1;min-width:0;min-height:40px;padding:0 10px;background:none;border:1px solid var(--ln);color:var(--fg);font-size:16px}.rd-find button{min-width:44px;min-height:40px;background:none;border:1px solid var(--ln);color:var(--fg);cursor:pointer}.rd-find-n{font-size:12px;color:var(--mt);white-space:nowrap}.rd-hit{background:color-mix(in oklab,var(--gold,#f2c230) 45%,transparent);color:inherit}.rd-hit.cur{background:var(--gold,#f2c230);color:#0d0c0a}'; document.head.appendChild(st); }
+    let box = $('.rd-find');
+    if (!box) { box = document.createElement('div'); box.className = 'rd-find'; box.setAttribute('role', 'search');
+      box.innerHTML = '<input type="search" aria-label="Buscar en el capítulo" placeholder="Buscar en el capítulo"><span class="rd-find-n" aria-live="polite"></span><button type="button" data-f="-1" aria-label="Anterior">↑</button><button type="button" data-f="1" aria-label="Siguiente">↓</button><button type="button" data-f="x" aria-label="Cerrar búsqueda">×</button>';
+      $('.rd-prog')?.after(box); const inp = box.querySelector('input'); let t = 0;
+      inp.oninput = () => { clearTimeout(t); t = setTimeout(() => findRun(inp.value), 180); };
+      inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); findGo(F.i + (e.shiftKey ? -1 : 1)); } if (e.key === 'Escape') findClose(); };
+      box.onclick = e => { const b = e.target.closest('[data-f]'); if (!b) return; b.dataset.f === 'x' ? findClose() : findGo(F.i + +b.dataset.f); }; }
+    const inp = box.querySelector('input'); inp.focus({ preventScroll: true }); inp.select();
+  }
+  function findClose(){ findClear(); $('.rd-find')?.remove(); }
+  document.addEventListener('keydown', e => {
+    if (!$('.rd') || !(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'f' || e.altKey) return;
+    if (document.activeElement?.closest('.rd-find')) return; // segunda vez: búsqueda del navegador
+    e.preventDefault(); findOpen();
+  });
+
   async function rateBox(){
     const el = $('#rd-rate'); if (!el) return;
     // Calificar requiere servidor; en modo avión no bloquear ni iniciar RPC.
@@ -601,8 +643,9 @@ export function createReader(ctx){
          ${nx ? `<aside class="rd-peek" id="rd-peek" hidden><span class="mono">Sigue · ${esc(labelOf(nx))}</span><b>${esc(nx.title)}</b><q></q></aside>` : ''}
          <div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap">${pv ? `<a class="btn ghost" href="/leer/${S.series.slug}/${pv.num}">‹ ${esc(pv.title)}</a>` : '<span></span>'}${nx ? `<a class="btn" href="/leer/${S.series.slug}/${nx.num}">${nx.vol !== ch.vol ? 'Volumen ' + nx.vol + ' · ' : ''}${esc(nx.title)} ›</a>` : '<span class="mono">Has llegado al último capítulo publicado.</span>'}</div>
          ${auto ? '<p class="rd-auto" id="rd-auto" hidden><span>Siguiente capítulo en <b id="rd-auto-n">' + Math.min(30, Math.max(3, +p.autosecs || 5)) + '</b> s</span><button class="btn ghost" data-act="auto-cancel">Cancelar</button></p>' : ''}
-         ${!nx ? '<div class="rd-rate" id="rd-rate"></div>' + nextInfo + `<p style="text-align:center"><a class="btn ghost" href="/serie/${S.series.slug}#rv-sec">Escribir una reseña · ver la ficha</a></p>` : ''}
-         <p style="text-align:center"><button class="btn ghost" data-act="report">Reportar errata</button></p>`;
+         ${!nx ? '<div class="rd-rate" id="rd-rate"></div>' + nextInfo : ''}
+         <p style="text-align:center"><button class="btn ghost" data-act="report">Reportar errata</button></p>
+         <p class="rd-back" style="text-align:center;margin:18px 0 0;padding-top:16px;border-top:1px solid var(--ln)">${!nx ? `<a class="btn ghost" href="/serie/${S.series.slug}#rv-sec">Escribir una reseña · ver la ficha</a>` : `<a class="btn ghost" href="/serie/${S.series.slug}">Volver a la serie</a>`}</p>`;
     $('[data-act="report"]')?.addEventListener('click', report);
     if (!document.getElementById('rd-auto-css')) { const st = document.createElement('style'); st.id = 'rd-auto-css'; st.textContent = '.rd-auto{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin:18px 0;padding:12px 16px;border:1px solid var(--gold,#f2c230)}.rd-auto b{color:var(--gold,#f2c230);font-size:1.2em}.rd-nexts{display:grid;justify-items:center;gap:4px;margin:26px auto;padding:18px;max-width:440px;border:1px solid currentColor;text-align:center}.rd-nexts b{font-size:1.1em;text-transform:capitalize}.rd-nexts small{opacity:.75}'; document.head.appendChild(st); }
     if (!nx) rateBox();
@@ -928,7 +971,7 @@ export function createReader(ctx){
 
   // ---------- barra, índice y ajustes ----------
   function bindBar(){
-    document.querySelectorAll('.rd-bar [data-act], .rd-settings-dock, .rd-zen-x').forEach(b => b.onclick = () => { b.closest('details')?.removeAttribute('open'); ({ toc, prefs: prefsPanel, coms: () => comments(), left: cycleLeft, notes: () => go('/anotaciones/' + S.series.slug), offline: toggleOffline, zen: () => zen() })[b.dataset.act](); });
+    document.querySelectorAll('.rd-bar [data-act], .rd-settings-dock, .rd-zen-x').forEach(b => b.onclick = () => { b.closest('details')?.removeAttribute('open'); ({ toc, prefs: prefsPanel, coms: () => comments(), left: cycleLeft, notes: () => go('/anotaciones/' + S.series.slug), offline: toggleOffline, zen: () => zen(), find: () => findOpen() })[b.dataset.act](); });
     panel()?.addEventListener('click', e => { if (e.target.closest('[data-panel-close]')) closePanel(); });
   }
   const panel = () => $('.rd-panel');

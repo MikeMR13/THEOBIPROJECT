@@ -34,6 +34,7 @@ let PF; const pf = async () => PF ||= await import('/profile.js?v=11');
 const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, email: user.email, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
 let ST; const st = async () => ST ||= (await import('/studio.js?v=64')).createStudio(CTX());
 let AG; const ag = async () => AG ||= await import('/agenda.js?v=1');
+let CL; const cl = async () => CL ||= await import('/collections.js?v=1');
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=10')).createAdmin(CTX());
 let R, readerRequest;
 // Compartir la misma importación entre navegación, historial y precargas.
@@ -323,6 +324,7 @@ if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) { reportHomeRead(sb,p); const re
 if ((m = p.match(/^\/anotaciones\/([\w-]+)$/))) { const reader = await rd(); if (location.pathname !== p) return; return reader.annotationsPage(m[1]); }
 if ((m = p.match(/^\/equipo\/([\w-]+)$/))) return publicView(p, 'team', m[1]);
 if ((m = p.match(/^\/lector\/([^/]+)$/))) return lector(decodeURIComponent(m[1]));
+if ((m = p.match(/^\/lista\/([0-9a-f-]{36})$/))) return (await cl()).page(CTX(), m[1]);
 if (p.startsWith('/estudio')) {
   if (!user) return go('/entrar');
   if (!me || me.platform_role === 'lector') { app.innerHTML = '<h1>El Estudio es para Publicadores</h1><p>Tu cuenta es de Lector. Para publicar, solicita crear tu grupo traductor; el Bibliotecario revisa cada solicitud.</p><p style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="/solicitud">Solicitar mi grupo traductor</a><a class="btn ghost" href="/">Volver al inicio</a></p>'; return; }
@@ -378,6 +380,7 @@ const LB_CSS = `
 .lb-c{display:grid;gap:8px;align-content:start;color:var(--paper);text-decoration:none}.lb-c:hover{color:var(--paper)}.lb-c .cv{position:relative;aspect-ratio:2/3;background:#1c1a14 center/cover no-repeat;border:1px solid #2f2a20;transition:transform .25s}.lb-c:hover .cv{transform:translateY(-4px)}
 .lb-c .cv.no{display:flex;align-items:flex-end;padding:10px;font-family:'Shippori Mincho B1',serif;background:linear-gradient(160deg,var(--c),#16140f)}
 .lb-c .cv em{position:absolute;top:8px;right:0;padding:2px 8px;background:var(--gold);color:#0d0c0a;font:700 11px/1.3 'IBM Plex Mono',monospace;font-style:normal}.lb-c .cv em.ok{background:#a9d18e}
+.lb-note{font-style:italic;color:#cfc6b0}
 .lb-c .bar{height:3px;background:#2f2a20}.lb-c .bar i{display:block;height:100%;background:var(--gold)}.lb-c b{font-size:14px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.lb-c small{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89f8a}
 .lb-av{display:grid;max-width:720px}.lb-ai{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid #221f18}.lb-ai a{color:var(--paper);font-weight:600;text-decoration:none}.lb-ai a:hover{color:var(--gold)}@media(max-width:560px){.lb-ai{grid-template-columns:1fr auto}.lb-ai a{grid-column:1/-1}}
 .lb-ai{grid-template-columns:minmax(0,1fr) auto auto auto}
@@ -505,27 +508,30 @@ async function library(){
   ]);
   lbCss(); installCreditImageFallback();
   app.innerHTML = '<p class="mono" role="status" aria-live="polite">Cargando tu biblioteca…</p>';
-  const TABS = [['leyendo','Leyendo'],['pendientes','Pendientes'],['terminadas','Terminadas'],['avisos','Avisos'],['offline','Mis descargas'],['historial','Historial']];
+  const TABS = [['leyendo','Leyendo'],['pendientes','Pendientes'],['terminadas','Terminadas'],['enpausa','En pausa'],['abandonadas','Abandonadas'],['estanterias','Estanterías'],['listas','Listas'],['avisos','Avisos'],['offline','Mis descargas'],['historial','Historial']];
+  const NSHELF = 5; // las cinco primeras pestañas son estanterías con contador
   const requested = new URLSearchParams(location.search).get('t');
   let tab = TABS.some(([k]) => k === requested) ? requested : 'leyendo';
-  let prog = [], fol = [], readRows = [], ser = [], chs = [];
+  let prog = [], fol = [], readRows = [], ser = [], chs = [], MS = new Map();
   let libraryCreditTask = null;
   try {
     await bounded(meReady); // preferencias y secciones ocultas pertenecen a la cuenta verificada
     if (!live()) return;
     // readPages recorre las páginas en orden estable y rechaza las respuestas incompletas.
-    const [pr, fo, rc] = await bounded(Promise.all([
+    const [pr, fo, rc, sh] = await bounded(Promise.all([
       readPages((from,to) => sb.from('reading_progress')
         .select('series_id,chapter_num,pct,updated_at').eq('user_id',uid).order('series_id').range(from,to)),
       readPages((from,to) => sb.from('follows')
         .select('series_id,channels').eq('user_id',uid).order('series_id').range(from,to)),
       readPages((from,to) => sb.from('read_chapters')
         .select('chapter_id,read_at,chapters!inner(series_id,deleted_at)')
-        .eq('user_id',uid).is('chapters.deleted_at',null).order('chapter_id').range(from,to))
+        .eq('user_id',uid).is('chapters.deleted_at',null).order('chapter_id').range(from,to)),
+      // Estado manual por obra (En pausa, Abandonada…). Sin la migración 20261126 se ignora y todo sigue automático.
+      readPages((from,to) => sb.from('shelves').select('series_id,shelf,note').eq('user_id',uid).order('series_id').range(from,to)).catch(() => ({ data: [] }))
     ]));
     if (!live()) return;
-    prog=pr.data;fol=fo.data;readRows=rc.data;
-    const ids = [...new Set([...prog.map(r=>r.series_id),...fol.map(r=>r.series_id),
+    prog=pr.data;fol=fo.data;readRows=rc.data;MS=new Map((sh?.data||[]).map(r=>[r.series_id,r]));
+    const ids = [...new Set([...prog.map(r=>r.series_id),...fol.map(r=>r.series_id),...MS.keys(),
       ...readRows.map(r=>r.chapters?.series_id)].filter(Boolean))];
     // Lotes pequeños evitan URL excesivamente largas en los filtros .in().
     const batches=[];for(let i=0;i<ids.length;i+=80)batches.push(ids.slice(i,i+80));
@@ -556,7 +562,13 @@ async function library(){
     return;
   }
   if (!live()) return;
-  let { lists:L, read, followed:F }=prepareLibrary({progress:prog,follows:fol,readRows,series:ser,chapters:chs});
+  // El estado manual gana al automático: la obra sale de Leyendo/Pendientes/Terminadas y va a su estantería.
+  const MAN = { reading:'leyendo', plan:'pendientes', done:'terminadas', hold:'enpausa', drop:'abandonadas' };
+  const manual = r => { const all = r.works || []; all.forEach(w => { const m = MS.get(w.s.id); w.ms = m?.shelf || ''; w.note = m?.note || ''; });
+    for (const k of ['leyendo','pendientes','terminadas']) r.lists[k] = (r.lists[k] || []).filter(w => !w.ms);
+    for (const [st, k] of Object.entries(MAN)) { const add = all.filter(w => w.ms === st); r.lists[k] = [...(r.lists[k] || []), ...add].sort((a, b) => k === 'leyendo' ? b.readAt - a.readAt : a.s.title.localeCompare(b.s.title, 'es')); }
+    return r; };
+  let { lists:L, read, followed:F }=manual(prepareLibrary({progress:prog,follows:fol,readRows,series:ser,chapters:chs}));
   const chapterById=new Map(chs.map(c=>[c.id,c]));
   const worksById=new Map(ser.map(w=>[w.id,w]));
   const HID=new Set(profile?.hidden_series || []);
@@ -618,7 +630,7 @@ async function library(){
   <section class="lb-collections-desktop" aria-label="Obras de tus tres estanterías">
     ${desktopShelvesHTML}
   </section>
-  <nav class="lb-tabs" aria-label="Secciones de Mi biblioteca"><div class="lb-tab-group lb-tab-shelves" role="group" aria-label="Estanterías">${TABS.slice(0,3).map(([k,label])=>`<a href="/biblioteca${k==='leyendo'?'':'?t='+k}" class="${k===tab?'on':''}"${k===tab?' aria-current="page"':''}>${label}${count(k)?`<em>${count(k)}</em>`:''}</a>`).join('')}</div><div class="lb-tab-group lb-tab-tools" role="group" aria-label="Herramientas de lectura">${TABS.slice(3).map(([k,label])=>`<a href="/biblioteca?t=${k}" class="${k===tab?'on':''}"${k===tab?' aria-current="page"':''}>${label}</a>`).join('')}</div></nav>
+  <nav class="lb-tabs" aria-label="Secciones de Mi biblioteca"><div class="lb-tab-group lb-tab-shelves" role="group" aria-label="Estanterías">${TABS.slice(0,NSHELF).map(([k,label])=>`<a href="/biblioteca${k==='leyendo'?'':'?t='+k}" class="${k===tab?'on':''}"${k===tab?' aria-current="page"':''}>${label}${count(k)?`<em>${count(k)}</em>`:''}</a>`).join('')}</div><div class="lb-tab-group lb-tab-tools" role="group" aria-label="Herramientas de lectura">${TABS.slice(NSHELF).map(([k,label])=>`<a href="/biblioteca?t=${k}" class="${k===tab?'on':''}"${k===tab?' aria-current="page"':''}>${label}</a>`).join('')}</div></nav>
   <p id="lb-pending-explain" class="lb-pending-explain" ${tab==='pendientes'?'':'hidden'}>El contador de Pendientes indica obras seguidas con capítulos publicados aún sin leer, no el número de capítulos ni una lista de deseos.</p>
   <p class="lb-navhelp">Desliza las pestañas para ver todas las secciones →</p>
   <div id="lb-read-feedback" class="lb-read-feedback" role="status" aria-live="polite" hidden></div>
@@ -651,7 +663,7 @@ async function library(){
     const done=k==='terminadas', pending=k==='pendientes';
     const pct=w.tot ? Math.min(100,Math.max(0,Math.round(w.nr/w.tot*100))):0;
     const caughtUp=w.tot>0 && w.nr===w.tot;
-    const label=done ? (w.translationCompleted ? 'Leída · traducción completa' : 'Al día con lo publicado') : pending ? (w.unread===1 ? '1 capítulo pendiente' : w.unread+' capítulos pendientes') : 'En progreso';
+    const label=k==='enpausa' ? 'En pausa' : k==='abandonadas' ? 'Abandonada' : done ? (w.translationCompleted ? 'Leída · traducción completa' : 'Al día con lo publicado') : pending ? (w.unread===1 ? '1 capítulo pendiente' : w.unread+' capítulos pendientes') : 'En progreso';
     const current=chapter ? editorialChapterLabel(chapter) : 'Ver obra';
     const status=done ? `${w.nr} capítulos disponibles leídos · ${w.translationCompleted ? 'Traducción completada' : 'Traducción no completada'}` : pending ? `Leer siguiente · ${current}` : `Continuar · ${current}${w.p?.pct > .02 && w.p?.pct < .95 ? ' · '+Math.round(w.p.pct*100)+' % del capítulo' : ''}`;
     return `<article class="lb-card">
@@ -659,7 +671,7 @@ async function library(){
       <div class="lb-card-body"><span class="lb-label${done?' finished':pending?' pending':''}">${label}</span>
         <a class="lb-title" href="/serie/${esc(w.s.slug)}">${esc(w.s.title)}</a>
         ${creditsHTML(w.s, { esc, media: MED, mode: 'carousel' })}
-        <span class="lb-card-sub">${esc(status)}</span>
+        <span class="lb-card-sub">${esc(status)}</span>${w.note ? `<span class="lb-card-sub lb-note" title="Tu nota">✎ ${esc(w.note)}</span>` : ''}
         <div class="lb-progress" aria-label="${w.nr} de ${w.tot} capítulos disponibles leídos; ${pct} por ciento">
           <span class="lb-progress-head"><span>${w.nr} de ${w.tot} capítulos</span><span>${pct} %</span></span>
           <span class="lb-progress-track" aria-hidden="true"><i style="width:${pct}%"></i></span>
@@ -675,6 +687,8 @@ async function library(){
       </div></article>`;
   };
   const EMPTY = {
+    enpausa:'Marca una obra como «En pausa» desde «Mi biblioteca» en su ficha. No contará como pendiente.',
+    abandonadas:'Las obras que marques como «Abandonada» aparecen aquí y ya no te avisan si se reanudan.',
     leyendo:'Cuando abras un capítulo, podrás continuar su lectura desde aquí.',
     pendientes:'Sigue una obra desde su ficha: cuando tenga capítulos sin leer, aparecerá aquí.',
     terminadas:'Aquí aparecen las obras de las que leíste todos los capítulos disponibles. Cuando salga un capítulo nuevo, volverán a tus lecturas pendientes.'
@@ -685,7 +699,7 @@ async function library(){
   const notice=app.querySelector('#lb-read-feedback');
   let busy=false, undoState=null;
   const refreshReadViews = () => {
-    ({ lists:L, read, followed:F }=prepareLibrary({progress:prog,follows:fol,readRows,series:ser,chapters:chs}));
+    ({ lists:L, read, followed:F }=manual(prepareLibrary({progress:prog,follows:fol,readRows,series:ser,chapters:chs})));
     const total=app.querySelector('.ui-cath p');
     if(total)total.textContent=`${read.size.toLocaleString('es-MX')} capítulos leídos · ${F.size.toLocaleString('es-MX')} obras seguidas`;
     app.querySelectorAll('.lb-shelf-summary[data-shelf]').forEach(a => {
@@ -839,6 +853,9 @@ async function library(){
         });
       };
       input.oninput=repaint;sort.onchange=repaint;repaint();
+    } else if(tab==='estanterias'||tab==='listas'){
+      try { await (await cl()).libraryTab(CTX(), tab==='listas'?'list':'shelf', box); }
+      catch(e){ box.innerHTML='<div class="lb-empty">Las estanterías y listas aún no están disponibles.</div>'; }
     } else if(tab==='avisos'){
       const FL=fol.map(r=>({r,s:ser.find(x=>x.id===r.series_id)})).filter(x=>x.s).sort((a,b)=>a.s.title.localeCompare(b.s.title,'es'));
       box.innerHTML=FL.length?`<p class="mono" style="margin:0 0 14px;font-size:13px">Elige si quieres recibir avisos de capítulos y de volúmenes completos en cada obra que sigues. <a href="/preferencias?s=avisos">Más opciones de avisos y correo</a>.</p>
