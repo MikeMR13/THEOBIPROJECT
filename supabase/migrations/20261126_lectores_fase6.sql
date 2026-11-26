@@ -137,6 +137,10 @@ end $$;
 grant execute on function public.reader_year(int) to authenticated;
 
 -- ---------- 8. Retos de temporada ----------
+-- Apagados por defecto: el Bibliotecario los activa en su mostrador (platform_settings.features.challenges).
+alter table public.platform_settings add column if not exists features jsonb not null default '{}'::jsonb;
+alter table public.platform_settings drop constraint if exists platform_settings_features_check;
+alter table public.platform_settings add constraint platform_settings_features_check check (jsonb_typeof(features) = 'object' and octet_length(features::text) <= 2000);
 create table if not exists public.reading_challenges (
   id uuid primary key default gen_random_uuid(),
   title text not null check (char_length(title) between 3 and 80),
