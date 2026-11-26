@@ -485,8 +485,9 @@ export async function publicProfile(C, name, opt = {}){
           : `<p>${esc(v.body || '')}${v.body?.length >= 400 ? '…' : ''}</p>`}
         <small class="lc-review-meta">${new Date(v.at).toLocaleDateString('es-MX', { dateStyle: 'medium' })}</small></div></article>`).join('')}</div></section>` : ''}
     ${sealSection}
-    ${r.public_activity && r.stats ? `<section class="lc-sec lc-stats"><h2>Estadísticas</h2>${statsHTML(r.stats)}</section>` : ''}${mine}
+    ${r.public_activity && r.stats ? `<section class="lc-sec lc-stats"><h2>Estadísticas</h2>${statsHTML(r.stats)}</section>` : ''}${mine}${opt.owner ? '<div id="lc-year"></div>' : ''}
   </div>`;
+  if (opt.owner) yearBox(C, app.querySelector('#lc-year'));
   app.querySelectorAll('[data-sh]').forEach(b => b.onclick = () => { app.querySelectorAll('[data-sh]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); app.querySelector('#lc-shb').innerHTML = shelfBody(b.dataset.sh); });
   app.querySelectorAll('.lc-rv .sp').forEach(p => p.onclick = p.onkeydown = () => p.classList.remove('sp'));
   const reBlk = async () => { const { data } = await sb.rpc('my_blocks'); if (Array.isArray(data)) window.obiSetBlocks?.(data); publicProfile(C, name, opt); };
@@ -506,6 +507,38 @@ export async function publicProfile(C, name, opt = {}){
     catch { say('Copia el enlace de tu carnet'); window.prompt?.('Enlace del carnet', shareUrl); }
   };
   const cp = app.querySelector('#lc-cp'); if (cp) cp.onclick = async e => { e.preventDefault(); e.stopPropagation(); try { await navigator.clipboard.writeText(location.origin + cp.getAttribute('href')); cp.textContent = 'Enlace copiado ✓'; } catch { cp.textContent = location.origin + cp.getAttribute('href'); } };
+}
+
+// ---------- Mi año de lectura: meta anual (volúmenes) y resumen compartible. Sin racha. ----------
+const DOW = ['', 'los lunes', 'los martes', 'los miércoles', 'los jueves', 'los viernes', 'los sábados', 'los domingos'];
+async function yearBox(C, host){
+  const { sb, esc, toast } = C, user = C.getUser?.(); if (!host || !user) return;
+  const y = new Date().getFullYear(), { data: Y } = await sb.rpc('reader_year', { p_year: y }); if (!Y || !document.body.contains(host)) return;
+  const goal = +Y.goal || 0, pct = goal ? Math.min(100, Math.round(Y.volumes / goal * 100)) : 0;
+  const lines = [Y.genre && `Tu género: ${esc(Y.genre)}`, Y.top && `Tu obra del año: «${esc(Y.top.title)}»`, Y.weekday && `Leíste más ${DOW[Y.weekday]}`].filter(Boolean);
+  host.innerHTML = `<section class="lc-sec"><div class="lc-hd"><h2>Mi ${y} de lectura</h2><span class="mono" style="font-size:11px">SOLO TÚ VES ESTO</span></div>
+    <div class="st-grid"><div class="st-k"><b>${Y.volumes}${goal ? ' / ' + goal : ''}</b><span>volúmenes terminados${goal ? '' : ' este año'}</span>${goal ? `<span style="display:block;height:6px;background:#2f2a20;margin-top:6px"><i style="display:block;height:100%;width:${pct}%;background:var(--gold)"></i></span>` : ''}</div><div class="st-k"><b>${Y.chapters}</b><span>capítulos este año</span></div><div class="st-k"><b>${Y.series}</b><span>obras leídas</span></div></div>
+    <form id="yr-goal" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 14px"><label class="mono" for="yr-n">Meta de ${y}</label><input id="yr-n" type="number" min="1" max="500" inputmode="numeric" value="${goal || ''}" placeholder="Volúmenes" style="width:120px;min-height:44px;padding:0 10px;background:#0d0c0a;border:1px solid #3d3628;color:var(--paper);font-size:16px"><button class="btn ghost">${goal ? 'Cambiar meta' : 'Poner meta'}</button>${goal ? '<button class="btn ghost" type="button" id="yr-x">Quitar meta</button>' : ''}</form>
+    ${Y.chapters ? `<div class="yr-card" style="background:linear-gradient(150deg,#1c1a14,#0d0c0a);border:1px solid #3d3628;padding:20px;max-width:560px"><span class="mono" style="font-size:12px">Tu ${y} en El Obi</span><div style="font:700 36px/1.1 'Shippori Mincho B1',serif;color:var(--gold);margin:6px 0">${Y.volumes} ${Y.volumes === 1 ? 'volumen' : 'volúmenes'}</div><p style="margin:0;line-height:1.6">${Y.chapters} capítulos · ${Y.series} obras${lines.length ? '<br>' + lines.join(' · ') : ''}</p></div>
+    <p style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0"><button class="btn ghost" type="button" id="yr-img">Guardar como imagen</button><button class="btn ghost" type="button" id="yr-cp">Copiar texto</button></p>` : '<p class="lc-empty">Cuando leas capítulos este año aparecerá aquí tu resumen.</p>'}</section>`;
+  const setGoal = async v => { const ui = { ...(C.getProfile?.()?.ui_prefs || {}) }; // ui_prefs es privado: se parte del perfil de la sesión, no de una consulta directa
+    if (v) ui.reading_goal = { year: y, volumes: v }; else delete ui.reading_goal;
+    const { error } = await sb.from('profiles').update({ ui_prefs: ui }).eq('id', user.id); if (error) return toast(error.message); C.setProfile?.({ ui_prefs: ui }); toast(v ? 'Meta guardada' : 'Meta quitada'); yearBox(C, host); };
+  host.querySelector('#yr-goal').onsubmit = e => { e.preventDefault(); const v = Math.round(+host.querySelector('#yr-n').value); if (!(v >= 1 && v <= 500)) return toast('Escribe un número entre 1 y 500'); setGoal(v); };
+  host.querySelector('#yr-x')?.addEventListener('click', () => setGoal(0));
+  const txt = () => `Mi ${y} en El Obi del Lector: ${Y.volumes} volúmenes, ${Y.chapters} capítulos y ${Y.series} obras.${Y.top ? ' Obra del año: «' + Y.top.title + '».' : ''}`;
+  host.querySelector('#yr-cp')?.addEventListener('click', async () => { try { await navigator.clipboard.writeText(txt()); toast('Resumen copiado'); } catch { toast(txt()); } });
+  host.querySelector('#yr-img')?.addEventListener('click', async () => { await document.fonts?.ready;
+    const W = 1080, H = 1080, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d');
+    const bgG = g.createLinearGradient(0, 0, W, H); bgG.addColorStop(0, '#1c1a14'); bgG.addColorStop(1, '#0d0c0a'); g.fillStyle = bgG; g.fillRect(0, 0, W, H);
+    g.strokeStyle = '#f2c230'; g.lineWidth = 6; g.strokeRect(60, 60, W - 120, H - 120);
+    g.fillStyle = '#a89f8a'; g.font = '600 34px "IBM Plex Mono", monospace'; g.fillText(`MI ${y} EN EL OBI DEL LECTOR`, 110, 180);
+    g.fillStyle = '#f2c230'; g.font = '700 150px "Shippori Mincho B1", serif'; g.fillText(String(Y.volumes), 110, 400);
+    g.fillStyle = '#f3ecd9'; g.font = '500 56px "Shippori Mincho B1", serif'; g.fillText(Y.volumes === 1 ? 'volumen terminado' : 'volúmenes terminados', 110, 480);
+    g.font = '400 40px "IBM Plex Sans", sans-serif'; const L2 = [`${Y.chapters} capítulos · ${Y.series} obras`, Y.genre && 'Género: ' + Y.genre, Y.top && 'Obra del año: ' + Y.top.title, Y.weekday && 'Leíste más ' + DOW[Y.weekday]].filter(Boolean);
+    L2.forEach((t, i) => { let s2 = t; while (g.measureText(s2).width > W - 220 && s2.length > 4) s2 = s2.slice(0, -2); if (s2 !== t) s2 = s2.slice(0, -1) + '…'; g.fillText(s2, 110, 600 + i * 70); });
+    g.fillStyle = '#f2c230'; g.font = '500 90px "Shippori Mincho B1", serif'; g.fillText('帯', W - 200, H - 120);
+    cv.toBlob(b => { if (!b) return toast('No se pudo crear la imagen'); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `mi-${y}-el-obi.png`; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }, 'image/png'); });
 }
 
 export async function preferences(C){
@@ -753,7 +786,7 @@ export async function preferences(C){
     return;
   }
   if (tab === 'avisos') {
-    const KINDS = [['capitulo', 'Capítulos nuevos', 'De las obras que sigues.', true], ['volumen', 'Volúmenes completos nuevos', 'Cuando las obras que sigues publican un volumen completo.', false], ['respuesta', 'Respuestas a tus comentarios', 'Cuando alguien contesta lo que escribiste.', true], ['errata', 'Erratas que reportaste', 'Cuando el equipo revisa tu reporte.', true], ['tablero', 'Estudio y equipos', 'Tablero, temporadas y ranking. Solo si formas parte de un equipo.', false]];
+    const KINDS = [['capitulo', 'Capítulos nuevos', 'De las obras que sigues.', true], ['reanudada', 'Obras que vuelven a traducirse', 'Cuando una obra que sigues sale de pausa o de abandonada.', false], ['volumen', 'Volúmenes completos nuevos', 'Cuando las obras que sigues publican un volumen completo.', false], ['respuesta', 'Respuestas a tus comentarios', 'Cuando alguien contesta lo que escribiste.', true], ['errata', 'Erratas que reportaste', 'Cuando el equipo revisa tu reporte.', true], ['tablero', 'Estudio y equipos', 'Tablero, temporadas y ranking. Solo si formas parte de un equipo.', false]];
     const FREQ = [['off', 'Nunca', 'Solo en la campana.'], ['inmediato', 'Al momento', 'Un correo en cuanto llega el aviso.'], ['diario', 'Resumen diario', 'Un solo correo a las 9:00, si hay novedades.'], ['semanal', 'Resumen semanal', 'Los lunes a las 9:00, si hay novedades.']];
     const N = { web: {}, email: {}, freq: 'off', ...(P.notify || {}) }; N.web = { ...N.web }; N.email = { ...N.email };
     const onW = k => N.web[k] !== false, onE = (k, d) => N.email[k] ?? d;

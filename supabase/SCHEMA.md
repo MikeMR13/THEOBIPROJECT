@@ -7,15 +7,14 @@ Proyecto `qfllthjpjuaztppvpsrk`. 22 migraciones aplicadas (la última: `fix_chap
 - `bookmarks`: id, user_id, chapter_id, pct, label, created_at
 - `chapter_revisions`: id, chapter_id, created_by, title, body, note, created_at, kind (manual|auto|restore|publish), version, lint_count — solo se escriben vía `save_chapter`
 - `chapters`: id, series_id, vol, num, title, body, status chapter_status, publish_at, public_at, created_at, updated_at, section_type, sort_order, review_status, deleted_at, legacy_id, version, volume_id, teaser, teaser_on, content_warnings text[], lint jsonb, lint_count
-- `characters`: id, series_id, name, role, descr, portrait_path
 - `collaborations`: id, series_id, inviter_team, invited_team, status, created_at
-- `collections` / `collection_items` / `collection_saves`
+- `collections` (kind shelf|list, is_public) / `collection_items` (note ≤ 200) / `collection_saves`
 - `comments`: id, chapter_id, user_id, para, parent_id, body, spoiler, created_at
 - `comment_votes`: comment_id, user_id, value
 - `download_links`, `purchase_links`, `support_links`
 - `editorial_tasks`: id, team_id, series_id, title, details, status, priority, assigned_to, created_by, due_at, created_at, updated_at
 - `follows`: series_id, user_id, channels jsonb
-- `glossary` (legacy: term, cat, def) y `glossary_terms` (term, category, definition) — duplicadas
+- `glossary_terms`: id, series_id, term, category, definition, role, portrait_path, since_num, updates — glosario único; los personajes son la categoría «Personaje» (20261126 borró `glossary` y `characters`)
 - `import_jobs`: id, team_id, created_by, filename, file_type, mode, status, result, created_at, fingerprint, media_paths
 - `moderation_audit`: id, actor, action, target_type, target_id, detail, created_at
 - `notifications`: id, user_id, kind, body, link, read, created_at
@@ -24,7 +23,7 @@ Proyecto `qfllthjpjuaztppvpsrk`. 22 migraciones aplicadas (la última: `fix_chap
 - `profiles`: id, username, avatar_url, role app_role, donor_tier, donor_until, patreon_user_id, discord_id, telegram_id, adult_ok, bio, banner_url, discoverable, public_library, public_activity, platform_role
 - `publication_events`: id, team_id, series_id, actor, event, summary, created_at
 - `ratings`, `reactions`, `reviews`, `review_votes`
-- `read_chapters`, `reading_history`, `reading_progress` (chapter_id, block, offset_px, pct, mode), `reader_prefs`, `reader_follows`, `shelves`
+- `read_chapters`, `reading_history`, `reading_progress` (chapter_id, block, offset_px, pct, mode), `reader_prefs`, `reader_follows`, `shelves` (estado manual por obra: reading|plan|done|hold|drop + note)
 - `reports`: id, chapter_id, user_id, kind, quote, fix, status report_status, created_at
 - `review_requests`: id, chapter_id, requested_by, assigned_to, note, status, review_note, approved_hash, created_at, reviewed_at
 - `schedule`, `volume_schedule`
@@ -114,3 +113,9 @@ Buckets: obi-epub (privado), avatars, obi-media, obi-app (públicos). Extensione
 - `series_last` (vista, security_invoker): último capítulo publicado por obra.
 - `unread_counts()` → `{ series_id: n }` para la insignia de capítulos nuevos.
 - `home_feed()` → JSON con todo lo público del inicio. Lee `private.home_snapshot`, que cron `obi-home-snapshot` recalcula cada 5 min con `private.refresh_home()`. El +18 se filtra en el navegador.
+
+## Lectores fase 6 (20261126)
+- `reading_challenges` (retos de temporada, los crea el Bibliotecario) y `challenge_joins`.
+- RPC: `collections_public`, `hidden_gems`, `reader_year` (meta en `profiles.ui_prefs->reading_goal`), `my_challenges`.
+- `platform_settings.features` (`challenges`: retos visibles en Inicio, apagado por defecto).
+- Trigger `series_notify_resumed`: aviso `reanudada` a quien sigue la obra cuando pasa de pausa/abandonada a activa.

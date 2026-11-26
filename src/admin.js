@@ -185,7 +185,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
   async function panel(me, focusTab=false){
     const epoch = ++paneEpoch;
     app.innerHTML = `<div class="bb"><div class="bb-top"><div class="bb-heading"><span class="bb-kicker">EL OBI DEL LECTOR · ADMINISTRACIÓN GENERAL</span><h1>Mostrador del <em>Bibliotecario</em></h1><p class="bb-sub">Supervisión global · Independencia editorial de los equipos</p></div><div class="bb-headside"><span class="bb-admin-tag">◆ ${esc(me.username)}<small>Autoridad de plataforma</small></span><button class="btn ghost" id="bbout">Cerrar sesión</button></div></div>
-      <div class="bb-tabs" role="tablist" aria-label="Secciones del Bibliotecario">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['invitaciones','Invitaciones'],['solicitudes','Solicitudes'],['supervision','Supervisión'],['compras','Enlaces de compra'],['inicio','Inicio'],['metricas','Métricas Inicio'],['resenas','Reseñas'],['temporadas','Temporadas'],['seo','SEO y compartir'],['difusion','Difusión'],['apoyar','Botón Apoyar'],['bitacora','Bitácora']].map(([k, l]) => `<button type="button" role="tab" aria-selected="${tab===k}" aria-controls="bbv" data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv" role="tabpanel" tabindex="-1"><p class="mono">Cargando…</p></div></div>`;
+      <div class="bb-tabs" role="tablist" aria-label="Secciones del Bibliotecario">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['invitaciones','Invitaciones'],['solicitudes','Solicitudes'],['supervision','Supervisión'],['compras','Enlaces de compra'],['inicio','Inicio'],['metricas','Métricas Inicio'],['resenas','Reseñas'],['temporadas','Temporadas'],['retos','Retos'],['seo','SEO y compartir'],['difusion','Difusión'],['apoyar','Botón Apoyar'],['bitacora','Bitácora']].map(([k, l]) => `<button type="button" role="tab" aria-selected="${tab===k}" aria-controls="bbv" data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv" role="tabpanel" tabindex="-1"><p class="mono">Cargando…</p></div></div>`;
     $('#bbout').onclick = async () => { await sb.auth.signOut(); location.href = '/'; };
     const warn = () => { if (tab==='seo') formDirty = true; };
     $('#bbv').addEventListener('input', warn);
@@ -206,7 +206,7 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       btns[next]?.focus(); btns[next]?.scrollIntoView({block:'nearest',inline:'nearest'});
     };
     if (focusTab) app.querySelector('.bb-tabs .on')?.focus({preventScroll:true});
-    try { await ({ resumen, usuarios, equipos, invitaciones, solicitudes, supervision, compras, inicio, metricas, resenas, temporadas, seo, difusion, apoyar, bitacora })[tab](epoch); }
+    try { await ({ resumen, usuarios, equipos, invitaciones, solicitudes, supervision, compras, inicio, metricas, resenas, temporadas, retos, seo, difusion, apoyar, bitacora })[tab](epoch); }
     catch (e) { if(epoch===paneEpoch && $('#bbv')) $('#bbv').innerHTML = `<p role="alert" style="color:#f59e7a">${esc(msg(e))}</p>`; }
   }
   const view = () => $('#bbv');
@@ -621,6 +621,29 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       $('#sea-save').onclick = async e => { e.currentTarget.disabled = true; const greet = Object.fromEntries(Object.entries(C.greet).map(([k, v]) => [k, String(v).slice(0, 140)])); const { error } = await sb.from('platform_settings').update({ seasons: { auto: C.auto, greet, intensity: C.intensity, density: C.density }, updated_at: new Date().toISOString() }).eq('id', 1); if (error) { e.currentTarget.disabled = false; return toast(msg(error)); } dirty = false; if(epoch===paneEpoch)formDirty=false; row.updated_at = new Date().toISOString(); await PS.load(sb, true); toast('Temporadas guardadas'); draw(); };
     };
     draw();
+  }
+
+  // ---------- Retos de temporada (lectura) ----------
+  async function retos(){
+    const GL = { finish_series: 'Terminar obras completas', start_series: 'Empezar obras nuevas', chapters: 'Leer capítulos' };
+    const [{ data, error }, { data: ps }] = await Promise.all([sb.from('reading_challenges').select('*').order('starts', { ascending: false }).limit(60), sb.from('platform_settings').select('features').eq('id', 1).maybeSingle()]); if (error) throw error;
+    const FT = { ...(ps?.features || {}) }, on = FT.challenges === true;
+    const L = data || [], day = new Date().toISOString().slice(0, 10), stt = c => c.ends < day ? 'Terminado' : c.starts > day ? 'Próximo' : 'Activo';
+    const fmtD = d => new Date(d + 'T12:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+    view().innerHTML = `<div class="bb-box"><h3>Retos en Inicio</h3><label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;max-width:640px"><input type="checkbox" id="rt-on" ${on ? 'checked' : ''} style="width:20px;height:20px;margin-top:2px;accent-color:var(--gold)"><span><b>Mostrar la sección «Retos de temporada» en Inicio</b><br><small class="mono" style="line-height:1.5">${on ? 'Activada: los lectores ven los retos vigentes y pueden unirse.' : 'Desactivada: puedes preparar retos aquí sin que nadie los vea.'}</small></span></label></div>
+      <div class="bb-box"><h3>Nuevo reto</h3><p class="mono" style="font-size:13px;margin:0 0 12px;line-height:1.5">Aparece en Inicio mientras está activo. Solo cuentan lecturas dentro de las fechas. Quien se une ve su progreso.</p>
+      <form id="rt-f" style="display:grid;gap:10px;max-width:640px"><input name="title" maxlength="80" required placeholder="Título: «Reto de invierno: 5 obras terminadas»"><textarea name="description" maxlength="300" rows="2" placeholder="Descripción corta (opcional)"></textarea>
+        <div class="bb-row"><label>Meta<select name="goal">${Object.entries(GL).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label><label>Cantidad<input name="target" type="number" min="1" max="1000" value="5" required style="width:100px"></label><label>Kanji<input name="kanji" maxlength="2" placeholder="冬" style="width:70px"></label></div>
+        <div class="bb-row"><label>Empieza<input name="starts" type="date" required value="${day}"></label><label>Termina<input name="ends" type="date" required></label></div>
+        <div><button class="btn">Crear reto</button></div></form></div>
+      <div class="bb-box"><h3>Retos</h3>${L.length ? `<table class="bb-tbl"><thead><tr><th>Reto</th><th>Meta</th><th>Fechas</th><th>Estado</th><th></th></tr></thead><tbody>${L.map(c => `<tr><td>${c.kanji ? esc(c.kanji) + ' ' : ''}<b>${esc(c.title)}</b>${c.description ? `<br><small class="mono">${esc(c.description)}</small>` : ''}</td><td>${esc(GL[c.goal])}: ${c.target}</td><td class="mono">${fmtD(c.starts)} – ${fmtD(c.ends)}</td><td>${stt(c)}</td><td><button class="btn ghost" data-rtd="${esc(c.id)}" style="padding:4px 10px;font-size:12px">Borrar</button></td></tr>`).join('')}</tbody></table>` : '<p class="mono">Aún no hay retos.</p>'}</div>`;
+    $('#rt-on').onchange = async e => { const v = e.target.checked; e.target.disabled = true; const nf = { ...FT, challenges: v };
+      const { error } = await sb.from('platform_settings').update({ features: nf, updated_at: new Date().toISOString() }).eq('id', 1); e.target.disabled = false;
+      if (error) { e.target.checked = !v; return toast(msg(error)); } toast(v ? 'Retos visibles en Inicio' : 'Retos ocultos en Inicio'); retos(); };
+    $('#rt-f').onsubmit = async e => { e.preventDefault(); const f = e.target, v = { title: f.title.value.trim(), description: f.description.value.trim() || null, goal: f.goal.value, target: +f.target.value, kanji: f.kanji.value.trim() || null, starts: f.starts.value, ends: f.ends.value };
+      if (v.ends < v.starts) return toast('La fecha de término va después del inicio');
+      const { error } = await sb.from('reading_challenges').insert(v); if (error) return toast(msg(error)); toast('Reto creado'); retos(); };
+    view().querySelectorAll('[data-rtd]').forEach(b => b.onclick = async () => { if (!await confirmObi('¿Borrar este reto? Se pierden las inscripciones.')) return; const { error } = await sb.from('reading_challenges').delete().eq('id', b.dataset.rtd); if (error) return toast(msg(error)); toast('Reto borrado'); retos(); });
   }
 
   async function compras(epoch){

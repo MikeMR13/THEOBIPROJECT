@@ -39,7 +39,7 @@ try{
  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const admin=createAdmin({sb,app,$:s=>document.querySelector(s),esc,toast:()=>{},go:()=>{},url:'http://127.0.0.1'});
  await admin.render();
- check(app.querySelectorAll('.bb-tabs [role="tab"]').length===15,'Faltan pestañas administrativas');
+ check(app.querySelectorAll('.bb-tabs [role="tab"]').length===16,'Faltan pestañas administrativas (incluye Retos)');
  check(app.querySelector('[aria-selected="true"]').textContent==='Resumen','Falta pestaña activa accesible');
  app.querySelector('[data-t="usuarios"]').click();
  await until(()=>app.querySelector('#bb-next') && app.querySelector('tbody')?.rows.length===50);
@@ -83,7 +83,7 @@ try{
  check(app.querySelector('#sea-preview')!==null,'Falta destino de vista previa');
  if(w<=400)check(document.documentElement.scrollWidth<=w+2,'Temporadas desborda horizontalmente');
 
- out.dataset.qaStatus='pass';out.textContent='OK: 15 pestañas, usuarios 135, capítulos 65 y ancho '+w;
+ out.dataset.qaStatus='pass';out.textContent='OK: 16 pestañas, usuarios 135, capítulos 65 y ancho '+w;
 }catch(e){out.dataset.qaStatus='fail';out.textContent=String(e?.stack||e);}
 </script></body></html>`;
 
