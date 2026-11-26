@@ -91,8 +91,11 @@ export async function libraryTab(ctx, kind, box){
 export async function page(ctx, id){
   const { sb, app, esc, toast, go, getUser, url } = ctx, u = getUser(); css();
   app.innerHTML = '<p class="mono">Cargando…</p>';
-  const { data: c } = await sb.from('collections').select('id,user_id,title,description,kind,is_public,created_at,profiles(username),collection_items(series_id,sort,note,series(slug,title,cover_path,cover_thumb_path,theme,published))').eq('id', id).maybeSingle();
+  const { data: c } = await sb.from('collections').select('id,user_id,title,description,kind,is_public,created_at,collection_items(series_id,sort,note,series(slug,title,cover_path,cover_thumb_path,theme,published))').eq('id', id).maybeSingle();
   if (!c) { app.innerHTML = '<h1>Esta lista no existe o es privada</h1><p><a href="/biblioteca">Volver a mi biblioteca</a></p>'; return; }
+  // El nombre del dueño llega por RPC: la tabla profiles no es legible para lectores (privacidad seg02).
+  const owner = await sb.rpc('collection_owner', { p_collection: id }).then(r => r.error ? null : r.data, () => null);
+  c.profiles = owner ? { username: owner } : null;
   const own = u && u.id === c.user_id, items = (c.collection_items || []).filter(i => i.series?.published || own).sort((a, b) => a.sort - b.sort);
   const [{ count: saves }, { data: mySave }] = await Promise.all([sb.from('collection_saves').select('user_id', { count: 'exact', head: true }).eq('collection_id', id),
     u && !own ? sb.from('collection_saves').select('user_id').eq('collection_id', id).eq('user_id', u.id) : { data: [] }]);
