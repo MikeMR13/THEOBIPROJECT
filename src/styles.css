@@ -90,6 +90,7 @@ select{background:#16140f;border:2px solid var(--line);color:var(--paper);paddin
 .gl-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.gl-top>div{display:grid;gap:4px}.gl-top .mono{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mt)}
 .gl-top strong{font-family:Literata,'Shippori Mincho B1',serif;font-style:italic;font-weight:500;font-size:24px;line-height:1.15}
 .gl-x{width:44px;height:44px;flex-shrink:0;background:none;border:1px solid var(--ln);color:var(--fg);font-size:20px;cursor:pointer}
+.gl-top .gl-por{width:64px;aspect-ratio:3/4;flex:none;object-fit:cover;border:1px solid var(--ln);background:linear-gradient(160deg,#3a2e1f,#1c1a14);display:flex;align-items:flex-end;justify-content:center;font:700 26px 'Shippori Mincho B1',serif;color:var(--ac,#f2c230)}.gl-card.is-char .gl-top{gap:14px}.gl-card.is-char .gl-top>div{flex:1}
 .gl-card p{margin:0;font-size:16px;line-height:1.6;text-wrap:pretty}.gl-n{font-size:12px;color:var(--mt)}
 /* glosario en el Estudio */
 .gl-form{display:grid;gap:10px}.gl-form textarea{width:100%}.gl-row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.gl-row p{margin:6px 0 0;line-height:1.5}

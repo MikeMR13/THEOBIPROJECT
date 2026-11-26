@@ -95,10 +95,10 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
 
   async function panel(me){
     app.innerHTML = `<div class="bb"><div class="bb-top"><div><span class="ui-lbl">Mostrador del Bibliotecario</span><h1>Hola, ${esc(me.username)}</h1></div><button class="btn ghost" id="bbout">Cerrar sesión</button></div>
-      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['solicitudes','Solicitudes'],['compras','Enlaces de compra'],['inicio','Inicio'],['resenas','Reseñas'],['temporadas','Temporadas'],['apoyar','Botón Apoyar'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
+      <div class="bb-tabs">${[['resumen','Resumen'],['usuarios','Usuarios'],['equipos','Equipos y publicadores'],['solicitudes','Solicitudes'],['compras','Enlaces de compra'],['inicio','Inicio'],['resenas','Reseñas'],['temporadas','Temporadas'],['retos','Retos'],['apoyar','Botón Apoyar'],['bitacora','Bitácora']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="bbv"><p class="mono">Cargando…</p></div></div>`;
     $('#bbout').onclick = async () => { await sb.auth.signOut(); location.href = '/'; };
     app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; panel(me); });
-    try { await ({ resumen, usuarios, equipos, solicitudes, compras, inicio, resenas, temporadas, apoyar, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
+    try { await ({ resumen, usuarios, equipos, solicitudes, compras, inicio, resenas, temporadas, retos, apoyar, bitacora })[tab](); } catch (e) { $('#bbv').innerHTML = `<p style="color:#f59e7a">${esc(msg(e))}</p>`; }
   }
   const view = () => $('#bbv');
 
@@ -261,6 +261,24 @@ export function createAdmin({ sb, app, $, esc, toast, go, url }){
       $('#sea-save').onclick = async e => { e.currentTarget.disabled = true; const greet = Object.fromEntries(Object.entries(C.greet).map(([k, v]) => [k, String(v).slice(0, 140)])); const { error } = await sb.from('platform_settings').update({ seasons: { auto: C.auto, greet, intensity: C.intensity, density: C.density }, updated_at: new Date().toISOString() }).eq('id', 1); if (error) { e.currentTarget.disabled = false; return toast(msg(error)); } dirty = false; row.updated_at = new Date().toISOString(); await PS.load(sb, true); toast('Temporadas guardadas'); draw(); };
     };
     draw();
+  }
+
+  // ---------- Retos de temporada (lectura) ----------
+  async function retos(){
+    const GL = { finish_series: 'Terminar obras completas', start_series: 'Empezar obras nuevas', chapters: 'Leer capítulos' };
+    const { data, error } = await sb.from('reading_challenges').select('*').order('starts', { ascending: false }).limit(60); if (error) throw error;
+    const L = data || [], day = new Date().toISOString().slice(0, 10), stt = c => c.ends < day ? 'Terminado' : c.starts > day ? 'Próximo' : 'Activo';
+    const fmtD = d => new Date(d + 'T12:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+    view().innerHTML = `<div class="bb-box"><h3>Nuevo reto</h3><p class="mono" style="font-size:13px;margin:0 0 12px;line-height:1.5">Aparece en Inicio mientras está activo. Solo cuentan lecturas dentro de las fechas. Quien se une ve su progreso.</p>
+      <form id="rt-f" style="display:grid;gap:10px;max-width:640px"><input name="title" maxlength="80" required placeholder="Título: «Reto de invierno: 5 obras terminadas»"><textarea name="description" maxlength="300" rows="2" placeholder="Descripción corta (opcional)"></textarea>
+        <div class="bb-row"><label>Meta<select name="goal">${Object.entries(GL).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label><label>Cantidad<input name="target" type="number" min="1" max="1000" value="5" required style="width:100px"></label><label>Kanji<input name="kanji" maxlength="2" placeholder="冬" style="width:70px"></label></div>
+        <div class="bb-row"><label>Empieza<input name="starts" type="date" required value="${day}"></label><label>Termina<input name="ends" type="date" required></label></div>
+        <div><button class="btn">Crear reto</button></div></form></div>
+      <div class="bb-box"><h3>Retos</h3>${L.length ? `<table class="bb-tbl"><thead><tr><th>Reto</th><th>Meta</th><th>Fechas</th><th>Estado</th><th></th></tr></thead><tbody>${L.map(c => `<tr><td>${c.kanji ? esc(c.kanji) + ' ' : ''}<b>${esc(c.title)}</b>${c.description ? `<br><small class="mono">${esc(c.description)}</small>` : ''}</td><td>${esc(GL[c.goal])}: ${c.target}</td><td class="mono">${fmtD(c.starts)} – ${fmtD(c.ends)}</td><td>${stt(c)}</td><td><button class="btn ghost" data-rtd="${esc(c.id)}" style="padding:4px 10px;font-size:12px">Borrar</button></td></tr>`).join('')}</tbody></table>` : '<p class="mono">Aún no hay retos.</p>'}</div>`;
+    $('#rt-f').onsubmit = async e => { e.preventDefault(); const f = e.target, v = { title: f.title.value.trim(), description: f.description.value.trim() || null, goal: f.goal.value, target: +f.target.value, kanji: f.kanji.value.trim() || null, starts: f.starts.value, ends: f.ends.value };
+      if (v.ends < v.starts) return toast('La fecha de término va después del inicio');
+      const { error } = await sb.from('reading_challenges').insert(v); if (error) return toast(msg(error)); toast('Reto creado'); retos(); };
+    view().querySelectorAll('[data-rtd]').forEach(b => b.onclick = async () => { if (!confirm('¿Borrar este reto? Se pierden las inscripciones.')) return; const { error } = await sb.from('reading_challenges').delete().eq('id', b.dataset.rtd); if (error) return toast(msg(error)); toast('Reto borrado'); retos(); });
   }
 
   async function compras(){

@@ -17,6 +17,7 @@ let PF; const pf = async () => PF ||= await import('/profile.js?v=10');
 const PCTX = () => ({ ...CTX(), statsHTML, uploadAvatar, delBanner, setProfile: p => { profile = { ...profile, ...p }; try { localStorage.setItem('obi-me', JSON.stringify({ id: user.id, profile, me })); } catch {} }, getProfile: () => profile, reload: async () => { await loadSession(); await meReady; } });
 let ST; const st = async () => ST ||= (await import('/studio.js?v=39')).createStudio(CTX());
 let AG; const ag = async () => AG ||= await import('/agenda.js?v=1');
+let CL; const cl = async () => CL ||= await import('/collections.js?v=1');
 let AD; const ad = async () => AD ||= (await import('/admin.js?v=10')).createAdmin(CTX());
 let R; const rd = () => R ||= createReader(CTX());
 let U; const ui = () => U ||= createUI(CTX());
@@ -195,6 +196,7 @@ if ((m = p.match(/^\/leer\/([\w-]+)\/(\d+)$/))) return rd().open(m[1], +m[2]);
 if ((m = p.match(/^\/anotaciones\/([\w-]+)$/))) return rd().annotationsPage(m[1]);
 if ((m = p.match(/^\/equipo\/([\w-]+)$/))) return ui().team(m[1]);
 if ((m = p.match(/^\/lector\/([^/]+)$/))) return lector(decodeURIComponent(m[1]));
+if ((m = p.match(/^\/lista\/([0-9a-f-]{36})$/))) return (await cl()).page(CTX(), m[1]);
 if (p.startsWith('/estudio')) {
   if (!user) return go('/entrar');
   if (!me || me.platform_role === 'lector') { app.innerHTML = '<h1>El Estudio es para Publicadores</h1><p>Tu cuenta es de Lector. Para publicar, solicita crear tu grupo traductor; el Bibliotecario revisa cada solicitud.</p><p style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="/solicitud">Solicitar mi grupo traductor</a><a class="btn ghost" href="/">Volver al inicio</a></p>'; return; }
@@ -226,6 +228,7 @@ const LB_CSS = `
 .lb-c{display:grid;gap:8px;align-content:start;color:var(--paper);text-decoration:none}.lb-c:hover{color:var(--paper)}.lb-c .cv{position:relative;aspect-ratio:2/3;background:#1c1a14 center/cover no-repeat;border:1px solid #2f2a20;transition:transform .25s}.lb-c:hover .cv{transform:translateY(-4px)}
 .lb-c .cv.no{display:flex;align-items:flex-end;padding:10px;font-family:'Shippori Mincho B1',serif;background:linear-gradient(160deg,var(--c),#16140f)}
 .lb-c .cv em{position:absolute;top:8px;right:0;padding:2px 8px;background:var(--gold);color:#0d0c0a;font:700 11px/1.3 'IBM Plex Mono',monospace;font-style:normal}.lb-c .cv em.ok{background:#a9d18e}
+.lb-c .lb-note{font-style:italic;color:#cfc6b0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .lb-c .bar{height:3px;background:#2f2a20}.lb-c .bar i{display:block;height:100%;background:var(--gold)}.lb-c b{font-size:14px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.lb-c small{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89f8a}
 .lb-av{display:grid;max-width:720px}.lb-ai{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid #221f18}.lb-ai a{color:var(--paper);font-weight:600;text-decoration:none}.lb-ai a:hover{color:var(--gold)}@media(max-width:560px){.lb-ai{grid-template-columns:1fr auto}.lb-ai a{grid-column:1/-1}}
 .lb-empty{padding:28px;border:1px dashed #3d3628;color:#a89f8a;display:grid;gap:12px;justify-items:start}.lb-h{display:grid;gap:0}.lb-h a{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;padding:10px 0;border-bottom:1px solid #221f18;color:var(--paper);text-decoration:none;font-size:14px}.lb-h a:hover{color:var(--gold)}.lb-h .mono{font-size:12px}
@@ -236,13 +239,15 @@ const lbCss = () => { if (document.getElementById('lb-css')) return; const s = d
 async function library(){
 if (!user) return go(new URLSearchParams(location.search).get('t') === 'offline' ? '/descargas' : '/entrar');
 lbCss(); installCreditImageFallback(); app.innerHTML = '<p class="mono">Cargando tu biblioteca…</p>';
-const TABS = [['leyendo', 'Leyendo'], ['pendientes', 'Pendientes'], ['terminadas', 'Terminadas'], ['avisos', 'Avisos'], ['offline', 'Sin conexión'], ['historial', 'Historial']];
+const TABS = [['leyendo', 'Leyendo'], ['pendientes', 'Pendientes'], ['terminadas', 'Terminadas'], ['enpausa', 'En pausa'], ['abandonadas', 'Abandonadas'], ['estanterias', 'Estanterías'], ['listas', 'Listas'], ['avisos', 'Avisos'], ['offline', 'Sin conexión'], ['historial', 'Historial']];
 const tab = TABS.some(t => t[0] === new URLSearchParams(location.search).get('t')) ? new URLSearchParams(location.search).get('t') : 'leyendo';
-const [{ data: prog }, { data: fol }, { data: rc }] = await Promise.all([
+const [{ data: prog }, { data: fol }, { data: rc }, { data: shv }] = await Promise.all([
   sb.from('reading_progress').select('series_id,chapter_num,pct,updated_at').eq('user_id', user.id),
   sb.from('follows').select('series_id,channels').eq('user_id', user.id),
-  sb.from('read_chapters').select('chapter_id').eq('user_id', user.id)]);
-const ids = [...new Set([...(prog || []), ...(fol || [])].map(r => r.series_id))];
+  sb.from('read_chapters').select('chapter_id').eq('user_id', user.id),
+  sb.from('shelves').select('series_id,shelf,note').eq('user_id', user.id)]);
+const MS = Object.fromEntries((shv || []).map(r => [r.series_id, r])); // estado manual: gana al automático
+const ids = [...new Set([...(prog || []), ...(fol || []), ...(shv || [])].map(r => r.series_id))];
 const [{ data: ser }, { data: chs }] = ids.length ? await Promise.all([
   sb.from('series').select('id,team_id,slug,title,short,cover_path,translation_status,theme,teams(name,slug,color,avatar_path)').in('id', ids),
   sb.from('chapters').select('id,num,series_id,publish_at').eq('status', 'published').is('deleted_at', null).in('series_id', ids).order('num')]) : [{ data: [] }, { data: [] }];
@@ -250,19 +255,21 @@ await attachPublicCredits(sb, ser || []);
 const read = new Set((rc || []).map(r => r.chapter_id)), P = Object.fromEntries((prog || []).map(r => [r.series_id, r])), F = new Set((fol || []).map(r => r.series_id));
 const now = Date.now(), by = {}; (chs || []).forEach(c => { if (c.publish_at && new Date(c.publish_at) > now) return; (by[c.series_id] ||= []).push(c); });
 const W = (ser || []).map(s => { const list = by[s.id] || [], nr = list.filter(c => read.has(c.id)).length, nu = list.find(c => !read.has(c.id));
-  return { s, p: P[s.id], tot: list.length, nr, unread: list.length - nr, nextU: nu, done: s.translation_status === 'completed' && list.length > 0 && nr >= list.length, fol: F.has(s.id), lastAt: list.length ? list[list.length - 1].publish_at : null }; });
+  return { s, p: P[s.id], tot: list.length, nr, unread: list.length - nr, nextU: nu, done: s.translation_status === 'completed' && list.length > 0 && nr >= list.length, fol: F.has(s.id), lastAt: list.length ? list[list.length - 1].publish_at : null, ms: MS[s.id]?.shelf || '', note: MS[s.id]?.note || '' }; });
+const byT = (a, b) => a.s.title.localeCompare(b.s.title, 'es'), man = k => w => w.ms === k;
 const L = {
-  leyendo: W.filter(w => w.p && !w.done).sort((a, b) => new Date(b.p.updated_at) - new Date(a.p.updated_at)),
-  pendientes: W.filter(w => w.fol && w.unread > 0 && !w.done).sort((a, b) => new Date(b.lastAt || 0) - new Date(a.lastAt || 0)),
-  terminadas: W.filter(w => w.done).sort((a, b) => a.s.title.localeCompare(b.s.title, 'es'))};
+  leyendo: W.filter(w => w.ms ? w.ms === 'reading' : w.p && !w.done).sort((a, b) => new Date(b.p?.updated_at || 0) - new Date(a.p?.updated_at || 0)),
+  pendientes: W.filter(w => w.ms ? w.ms === 'plan' : w.fol && w.unread > 0 && !w.done).sort((a, b) => new Date(b.lastAt || 0) - new Date(a.lastAt || 0)),
+  terminadas: W.filter(w => w.ms ? w.ms === 'done' : w.done).sort(byT),
+  enpausa: W.filter(man('hold')).sort(byT), abandonadas: W.filter(man('drop')).sort(byT)};
 const cv = (w, badge) => { const c = w.s.theme?.color || w.s.teams?.color || '#f2c230'; return w.s.cover_path ? `<span class="cv" style="background-image:url('${esc(MED(w.s.cover_path))}')">${badge}</span>` : `<span class="cv no" style="--c:${esc(c)}">${badge}${esc(w.s.short || w.s.title)}</span>`; };
-const card = (w, k) => { const href = k === 'pendientes' && w.nextU ? `/leer/${w.s.slug}/${w.nextU.num}` : k === 'leyendo' ? `/leer/${w.s.slug}/${w.p.chapter_num}` : `/serie/${w.s.slug}`;
+const card = (w, k) => { const href = k === 'pendientes' && w.nextU ? `/leer/${w.s.slug}/${w.nextU.num}` : k === 'leyendo' && w.p ? `/leer/${w.s.slug}/${w.p.chapter_num}` : `/serie/${w.s.slug}`;
   const badge = k === 'pendientes' ? `<em>${w.unread} sin leer</em>` : k === 'terminadas' ? '<em class="ok">✓ Completa</em>' : '';
-  const sub = k === 'leyendo' ? `Cap. ${w.p.chapter_num}${w.p.pct > .02 && w.p.pct < .95 ? ' · ' + Math.round(w.p.pct * 100) + '%' : ''} · ${w.nr}/${w.tot}` : k === 'pendientes' ? (w.nextU ? 'Sigue en el cap. ' + w.nextU.num : '') : w.tot + ' capítulos';
-  return `<a class="lb-c" href="${href}">${cv(w, badge)}${w.tot ? `<span class="bar"><i style="width:${Math.round(w.nr / w.tot * 100)}%"></i></span>` : ''}<b>${esc(w.s.title)}</b>${creditsHTML(w.s, { esc, media: MED, mode: 'carousel' })}<small>${sub}</small></a>`; };
+  const sub = k === 'enpausa' || k === 'abandonadas' ? (w.p ? 'Ibas en el cap. ' + w.p.chapter_num : w.tot + ' capítulos') : k === 'leyendo' && !w.p ? 'Sin empezar' : k === 'leyendo' ? `Cap. ${w.p.chapter_num}${w.p.pct > .02 && w.p.pct < .95 ? ' · ' + Math.round(w.p.pct * 100) + '%' : ''} · ${w.nr}/${w.tot}` : k === 'pendientes' ? (w.nextU ? 'Sigue en el cap. ' + w.nextU.num : '') : w.tot + ' capítulos';
+  return `<a class="lb-c" href="${href}">${cv(w, badge)}${w.tot ? `<span class="bar"><i style="width:${Math.round(w.nr / w.tot * 100)}%"></i></span>` : ''}<b>${esc(w.s.title)}</b>${creditsHTML(w.s, { esc, media: MED, mode: 'carousel' })}<small>${sub}</small>${w.note ? `<small class="lb-note" title="Tu nota">✎ ${esc(w.note)}</small>` : ''}</a>`; };
 const HID = new Set(profile?.hidden_series || []);
 const cardW = (w, k) => `<div style="display:grid;gap:4px;align-content:start">${card(w, k)}<button type="button" class="ui-lnk" data-hide="${w.s.id}" style="justify-self:start;font-size:12px;color:#a89f8a;min-height:32px">${HID.has(w.s.id) ? 'Mostrar en mi perfil' : 'Ocultar del perfil'}</button></div>`;
-const EMPTY = { leyendo: 'Abre cualquier capítulo y aparecerá aquí.', pendientes: 'Sigue una obra desde su ficha: cuando salga un capítulo que no has leído, aparecerá aquí.', terminadas: 'Aquí aparecen las obras completas que leíste de principio a fin.' };
+const EMPTY = { enpausa: 'Marca una obra como «En pausa» desde «Mi biblioteca» en su ficha. No contará como pendiente.', abandonadas: 'Las obras que marques como «Abandonada» aparecen aquí y dejan de avisarte cuando se reanudan.', leyendo: 'Abre cualquier capítulo y aparecerá aquí.', pendientes: 'Sigue una obra desde su ficha: cuando salga un capítulo que no has leído, aparecerá aquí.', terminadas: 'Aquí aparecen las obras completas que leíste de principio a fin.' };
 const n = k => L[k] ? L[k].length : null;
 app.innerHTML = `<div class="ui-cath"><div><h1>Mi biblioteca</h1><p>${read.size} capítulos leídos · ${F.size} obras seguidas</p></div><span class="kj" aria-hidden="true">書庫</span></div>
 <nav class="lb-tabs">${TABS.map(([k, l]) => `<a href="/biblioteca${k === 'leyendo' ? '' : '?t=' + k}" class="${k === tab ? 'on' : ''}">${l}${n(k) ? `<em>${n(k)}</em>` : ''}</a>`).join('')}</nav><div id="lb-body"></div>`;
@@ -271,6 +278,7 @@ if (L[tab]) { box.innerHTML = L[tab].length ? `<div class="lb-grid">${L[tab].map
   box.querySelectorAll('[data-hide]').forEach(b => b.onclick = async () => { const id = b.dataset.hide, on = !HID.has(id); on ? HID.add(id) : HID.delete(id);
     const { error } = await sb.from('profiles').update({ hidden_series: [...HID] }).eq('id', user.id); if (error) { on ? HID.delete(id) : HID.add(id); return toast(error.message); }
     if (profile) profile.hidden_series = [...HID]; b.textContent = on ? 'Mostrar en mi perfil' : 'Ocultar del perfil'; toast(on ? 'Oculta de tu perfil público' : 'Visible en tu perfil público'); }); }
+else if (tab === 'estanterias' || tab === 'listas') { await (await cl()).libraryTab(CTX(), tab === 'listas' ? 'list' : 'shelf', box); }
 else if (tab === 'avisos') {
   const FL = (fol || []).map(r => ({ r, s: (ser || []).find(x => x.id === r.series_id) })).filter(x => x.s).sort((a, b) => a.s.title.localeCompare(b.s.title, 'es'));
   box.innerHTML = FL.length ? `<p class="mono" style="margin:0 0 14px;font-size:13px">Elige de qué obras quieres aviso en la campana cuando salga un capítulo nuevo. <a href="/preferencias?s=avisos">Más opciones de avisos y correo</a>.</p><div class="lb-av">${FL.map(({ r, s }) => { const on = r.channels?.web !== false; return `<div class="lb-ai"><a href="/serie/${s.slug}">${esc(s.title)}</a><label class="ui-tog"><input type="checkbox" data-av="${s.id}" ${on ? 'checked' : ''}> Avisarme</label><button class="ui-lnk" data-unf="${s.id}">Dejar de seguir</button></div>`; }).join('')}</div>`
