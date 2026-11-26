@@ -1459,3 +1459,26 @@ body.in-studio .ed-loading .ed-load-page{min-height:45vh}
 .imp-at{display:grid;gap:10px;padding:12px;margin-left:24px;border-left:2px solid var(--gold);background:#17140e}.imp-at>label:not(.tb-inl){display:grid;gap:5px;font-size:13px;font-weight:600}
 .imp-box .imp-pre{align-items:flex-start;flex-wrap:nowrap}.imp-box .imp-pre input{margin-top:3px}.imp-pre span{display:grid;gap:3px;min-width:0;flex:1}.imp-pre b{font-size:14px}.imp-pre small{font-size:12px;color:#d3c5a5;line-height:1.5}
 .imp-pub #imp-pub-note{color:#cfc6b0}
+
+/* separadores de imagen: alto de una línea de texto (sigue --rs del lector); las ilustraciones (figure) no cambian */
+.rd-body .sep-img{letter-spacing:0;line-height:1}
+.rd-body .sep-img img{height:1.4em;width:auto;max-width:min(60%,100%);display:inline-block;vertical-align:middle}
+.rd:is([data-theme="oscuro"],[data-theme="negro"],[data-theme="noche"]) .sep-img img{filter:invert(.88) sepia(.15)}
+@media(prefers-color-scheme:dark){.rd[data-theme="auto"] .sep-img img{filter:invert(.88) sepia(.15)}}
+.ed-doc .sep-img{letter-spacing:0;line-height:1;cursor:pointer}.ed-doc .sep-img img{height:1.4em;width:auto;max-width:60%;vertical-align:middle;filter:invert(.85)}
+/* importador · paso «Separadores» */
+.imp-seps{display:grid;gap:10px}
+.imp-sg{display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:12px 16px;align-items:center;padding:12px;background:#0f0e0b;border:1px solid #2f2a20;border-left:3px solid #2f2a20;cursor:pointer}
+.imp-sg.on{border-left-color:var(--gold)}.imp-sg.cur{background:#1c1a14}
+.imp-sg .th{height:64px;display:flex;align-items:center;justify-content:center;background:#f3ecd9;padding:6px}.imp-sg .th img{max-width:100%;max-height:100%}
+.imp-sg .inf{display:grid;gap:4px;font-size:13px}.imp-sg .inf b{font-size:14px}
+.imp-sg .why{display:flex;gap:4px;flex-wrap:wrap}.imp-sg .why span{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:2px 6px;border:1px solid #3d3628;color:#cfc6b0}.imp-sg .why span.k{border-color:#a9d18e;color:#a9d18e}
+.imp-sg .var{display:flex;gap:6px;flex-wrap:wrap}.imp-sg .var small{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a89f8a;background:#1c1a14;padding:2px 6px;overflow-wrap:anywhere}.imp-sg .var small.best{color:var(--gold)}
+.imp-seg{display:flex;border:1px solid #3d3628}.imp-seg button{background:none;border:0;color:#a89f8a;font:600 12px 'IBM Plex Sans',sans-serif;padding:0 12px;min-height:44px;cursor:pointer}.imp-seg button.on{background:var(--gold);color:#0d0c0a}
+.imp-lvl{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:400}.imp-lvl.hi{color:#a9d18e}.imp-lvl.md{color:#d9922b}
+.imp-sepnote{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 10px;background:#110f0b;border:1px solid #2f2a20;font-size:13px}
+.imp-pv .rd-body img{cursor:pointer}.imp-pv.splitting .rd-body img{cursor:crosshair}
+@media(max-width:700px){.imp-sg{grid-template-columns:96px minmax(0,1fr)}.imp-sg .imp-seg{grid-column:1/-1;justify-self:start}}
+/* casillas y radios dentro de .imp-box: tamaño fijo junto a su texto (antes se estiraban a todo el ancho) */
+.imp-box .tb-inl>input[type=checkbox],.imp-box .tb-inl>input[type=radio]{width:16px;min-width:16px;height:16px;flex:none}
+p.imp-sepnote{margin:0 0 12px}
